@@ -1,0 +1,16 @@
+# Environment variables (shaxsiy, har kim o'ziniki)
+.env
+
+# Python
+server/venv/
+server/__pycache__/
+server/app/__pycache__/
+server/alembic/__pycache__/
+server/alembic/versions/__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Node
+client/node_modules/
+server/node_modules/
