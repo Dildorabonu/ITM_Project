@@ -1,7 +1,53 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Date, Float
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Date, Float, Table
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
+
+
+# ── Junction tables ──────────────────────────────────────────────────────────
+
+user_roles = Table(
+    "user_roles",
+    Base.metadata,
+    Column("user_id", Integer, ForeignKey("users.id"), primary_key=True),
+    Column("role_id", Integer, ForeignKey("roles.id"), primary_key=True),
+)
+
+role_permissions = Table(
+    "role_permissions",
+    Base.metadata,
+    Column("role_id", Integer, ForeignKey("roles.id"), primary_key=True),
+    Column("permission_id", Integer, ForeignKey("permissions.id"), primary_key=True),
+)
+
+user_permissions = Table(
+    "user_permissions",
+    Base.metadata,
+    Column("user_id", Integer, ForeignKey("users.id"), primary_key=True),
+    Column("permission_id", Integer, ForeignKey("permissions.id"), primary_key=True),
+)
+
+
+# ── Main tables ───────────────────────────────────────────────────────────────
+
+class Role(Base):
+    __tablename__ = "roles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, nullable=False)
+
+    users = relationship("User", secondary=user_roles, back_populates="roles")
+    permissions = relationship("Permission", secondary=role_permissions, back_populates="roles")
+
+
+class Permission(Base):
+    __tablename__ = "permissions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, nullable=False)
+
+    roles = relationship("Role", secondary=role_permissions, back_populates="permissions")
+    users = relationship("User", secondary=user_permissions, back_populates="permissions")
 
 
 class Department(Base):
@@ -32,6 +78,33 @@ class User(Base):
 
     department = relationship("Department", foreign_keys=[department_id], back_populates="users")
     owned_departments = relationship("Department", foreign_keys="[Department.owner_id]", back_populates="owner")
+    roles = relationship("Role", secondary=user_roles, back_populates="users")
+    permissions = relationship("Permission", secondary=user_permissions, back_populates="users")
+    sections = relationship("Section", back_populates="user")
+
+
+class Section(Base):
+    __tablename__ = "sections"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    user = relationship("User", back_populates="sections")
+    products = relationship("Product", back_populates="section")
+
+
+class Product(Base):
+    __tablename__ = "products"
+
+    id = Column(Integer, primary_key=True, index=True)
+    section_id = Column(Integer, ForeignKey("sections.id"), nullable=False)
+    name = Column(String, nullable=False)
+    unit = Column(String, nullable=False)
+
+    section = relationship("Section", back_populates="products")
 
 
 class Task(Base):
