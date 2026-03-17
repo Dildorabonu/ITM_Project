@@ -106,14 +106,6 @@ export default function RootLayout({
 
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-3">
-                {pathname.startsWith("/inventory/") && pathname !== "/inventory" && (
-                  <button 
-                    className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-full transition-colors flex items-center justify-center border border-transparent hover:border-green-100"
-                    title="Yangi qo'shish"
-                  >
-                    <Plus size={22} className="stroke-[2.5px]" />
-                  </button>
-                )}
                 <button className="relative p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors">
                   <Bell size={22} />
                   <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
