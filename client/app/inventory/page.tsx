@@ -3,38 +3,61 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-const SECTION_STORAGE_KEY = "itm-sections-v1";
+const defaultSections = [
+  { id: 1, name: "Mexanika" },
+  { id: 2, name: "Himoya" },
+  { id: 3, name: "Optika" },
+  { id: 4, name: "Tikuv" },
+  { id: 5, name: "Antidron" },
+];
 
 export default function InventoryPage() {
   const [sections, setSections] = useState<{ id: number; name: string }[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const raw = localStorage.getItem(SECTION_STORAGE_KEY);
-    const defaults = [{ id: 1, name: "Mexanika" }, { id: 2, name: "Himoya" }, { id: 3, name: "Optika" }, { id: 4, name: "Tikuv" }, { id: 5, name: "Antidron" }];
-    if (!raw) {
-      setSections(defaults);
-      localStorage.setItem(SECTION_STORAGE_KEY, JSON.stringify(defaults));
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const valid = parsed
-          .filter((s: any) => s && typeof s.id === "number" && typeof s.name === "string")
-          .map((s: any) => ({ id: s.id, name: s.name }));
-        if (valid.length > 0) {
-          setSections(valid);
+    const loadSections = async () => {
+      try {
+        const res = await fetch("http://localhost:8000/sections");
+        if (!res.ok) throw new Error("load failed");
+        let data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setSections(data);
+          setLoading(false);
           return;
         }
-      }
-    } catch {
-      // ignore
-    }
 
-    setSections(defaults);
-    localStorage.setItem(SECTION_STORAGE_KEY, JSON.stringify(defaults));
+        // If API returns empty list, create default sections once
+        const created: { id: number; name: string }[] = [];
+        for (const section of defaultSections) {
+          const post = await fetch("http://localhost:8000/sections", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: section.name }),
+          });
+          if (post.ok) {
+            created.push(await post.json());
+          }
+        }
+        if (created.length > 0) {
+          setSections(created);
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // fallback to defaults if API unavailable
+      }
+
+      setSections(defaultSections);
+      setLoading(false);
+    };
+
+    loadSections();
   }, []);
+
+  if (loading) {
+    return <div className="min-h-screen bg-slate-50 p-6"><div className="max-w-4xl mx-auto p-6 bg-white rounded-xl">Yuklanmoqda...</div></div>;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">

@@ -62,3 +62,33 @@ class Department(DepartmentBase):
     inventory: List[Inventory] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class SectionBase(BaseModel):
+    name: str
+
+
+class SectionCreate(SectionBase):
+    pass
+
+
+class Section(SectionBase):
+    id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProductBase(BaseModel):
+    name: str
+    unit: str = "pcs"
+
+
+class ProductCreate(ProductBase):
+    section_id: int
+
+
+class Product(ProductBase):
+    id: int
+    section_id: int
+
+    model_config = ConfigDict(from_attributes=True)

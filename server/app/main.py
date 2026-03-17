@@ -78,3 +78,53 @@ def update_stock(item_id: int, quantity: float, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Inventory item not found")
 
     return updated_item
+
+
+# SECTIONS
+
+@app.get("/sections", response_model=List[schemas.Section])
+def read_sections(db: Session = Depends(get_db)):
+    return crud.get_sections(db)
+
+
+@app.post("/sections", response_model=schemas.Section)
+def create_section(section: schemas.SectionCreate, db: Session = Depends(get_db)):
+    return crud.create_section(db, section)
+
+
+@app.get("/sections/{section_id}", response_model=schemas.Section)
+def read_section(section_id: int, db: Session = Depends(get_db)):
+    section = db.query(models.Section).filter(models.Section.id == section_id).first()
+    if section is None:
+        raise HTTPException(status_code=404, detail="Section not found")
+    return section
+
+
+# PRODUCTS
+
+@app.get("/sections/{section_id}/products", response_model=List[schemas.Product])
+def read_section_products(section_id: int, db: Session = Depends(get_db)):
+    return crud.get_products_by_section(db, section_id)
+
+
+@app.post("/sections/{section_id}/products", response_model=schemas.Product)
+def create_section_product(section_id: int, product: schemas.ProductCreate, db: Session = Depends(get_db)):
+    if section_id != product.section_id:
+        raise HTTPException(status_code=400, detail="Section ID mismatch")
+    return crud.create_product(db, product)
+
+
+@app.patch("/products/{product_id}", response_model=schemas.Product)
+def update_product(product_id: int, name: str = None, unit: str = None, db: Session = Depends(get_db)):
+    updated = crud.update_product(db, product_id, name, unit)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return updated
+
+
+@app.delete("/products/{product_id}", response_model=schemas.Product)
+def delete_product(product_id: int, db: Session = Depends(get_db)):
+    deleted = crud.delete_product(db, product_id)
+    if deleted is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return deleted
