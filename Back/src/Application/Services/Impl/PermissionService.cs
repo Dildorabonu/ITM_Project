@@ -1,6 +1,7 @@
 using Application.DTOs;
 using Application.DTOs.Permissions;
-using Core.Entities;
+using Application.Extensions;
+using Core.Enums;
 using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,13 +16,30 @@ public class PermissionService : IPermissionService
         _context = context;
     }
 
-    public async Task<ApiResult<IEnumerable<PermissionResponseDto>>> GetAllAsync()
+    public async Task<ApiResult<IEnumerable<PermissionModuleResponseDto>>> GetAllGroupedAsync()
     {
         var permissions = await _context.Permissions
             .AsNoTracking()
             .ToListAsync();
 
-        return ApiResult<IEnumerable<PermissionResponseDto>>.Success(permissions.Select(MapToResponse));
+        var grouped = permissions
+            .GroupBy(p => p.Module)
+            .OrderBy(g => (int)g.Key)
+            .Select(g => new PermissionModuleResponseDto
+            {
+                Module = g.Key.ToString(),
+                ModuleName = g.Key.GetDisplayName(),
+                ModuleIcon = g.Key.GetDisplayIcon(),
+                Actions = g.OrderBy(p => (int)p.Action).Select(p => new PermissionResponseDto
+                {
+                    Id = p.Id,
+                    Action = p.Action.ToString(),
+                    ActionName = p.Action.GetDisplayName(),
+                    ActionIcon = p.Action.GetDisplayIcon(),
+                }).ToList()
+            });
+
+        return ApiResult<IEnumerable<PermissionModuleResponseDto>>.Success(grouped);
     }
 
     public async Task<ApiResult<PermissionResponseDto>> GetByIdAsync(Guid id)
@@ -33,69 +51,12 @@ public class PermissionService : IPermissionService
         if (permission is null)
             return ApiResult<PermissionResponseDto>.Failure([$"Permission with id '{id}' not found."], 404);
 
-        return ApiResult<PermissionResponseDto>.Success(MapToResponse(permission));
-    }
-
-    public async Task<ApiResult<int>> CreateAsync(PermissionCreateDto dto)
-    {
-        if (await _context.Permissions.AnyAsync(p => p.Name == dto.Name))
-            return ApiResult<int>.Failure([$"Permission with name '{dto.Name}' already exists."]);
-
-        var permission = new Permission
+        return ApiResult<PermissionResponseDto>.Success(new PermissionResponseDto
         {
-            Id = Guid.NewGuid(),
-            Name = dto.Name,
-            Description = dto.Description,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        _context.Permissions.Add(permission);
-        await _context.SaveChangesAsync();
-
-        return ApiResult<int>.Success(201);
+            Id = permission.Id,
+            Action = permission.Action.ToString(),
+            ActionName = permission.Action.GetDisplayName(),
+            ActionIcon = permission.Action.GetDisplayIcon(),
+        });
     }
-
-    public async Task<ApiResult<int>> UpdateAsync(Guid id, PermissionUpdateDto dto)
-    {
-        var permission = await _context.Permissions.FirstOrDefaultAsync(p => p.Id == id);
-
-        if (permission is null)
-            return ApiResult<int>.Failure([$"Permission with id '{id}' not found."], 404);
-
-        if (dto.Name is not null && dto.Name != permission.Name)
-        {
-            if (await _context.Permissions.AnyAsync(p => p.Name == dto.Name))
-                return ApiResult<int>.Failure([$"Permission with name '{dto.Name}' already exists."]);
-
-            permission.Name = dto.Name;
-        }
-
-        if (dto.Description is not null)
-            permission.Description = dto.Description;
-
-        await _context.SaveChangesAsync();
-
-        return ApiResult<int>.Success(200);
-    }
-
-    public async Task<ApiResult<int>> DeleteAsync(Guid id)
-    {
-        var permission = await _context.Permissions.FirstOrDefaultAsync(p => p.Id == id);
-
-        if (permission is null)
-            return ApiResult<int>.Failure([$"Permission with id '{id}' not found."], 404);
-
-        _context.Permissions.Remove(permission);
-        await _context.SaveChangesAsync();
-
-        return ApiResult<int>.Success(200);
-    }
-
-    private static PermissionResponseDto MapToResponse(Permission permission) => new()
-    {
-        Id = permission.Id,
-        Name = permission.Name,
-        Description = permission.Description,
-        CreatedAt = permission.CreatedAt
-    };
 }

@@ -83,21 +83,18 @@ export interface RoleUpdatePayload {
   description?: string;
 }
 
-export interface PermissionResponse {
+export interface PermissionActionResponse {
   id: string;
-  name: string;
-  description: string | null;
-  createdAt: string;
+  action: string;
+  actionName: string;
+  actionIcon: string;
 }
 
-export interface PermissionCreatePayload {
-  name: string;
-  description?: string;
-}
-
-export interface PermissionUpdatePayload {
-  name?: string;
-  description?: string;
+export interface PermissionModuleResponse {
+  module: string;
+  moduleName: string;
+  moduleIcon: string;
+  actions: PermissionActionResponse[];
 }
 
 export const roleService = {
@@ -126,21 +123,9 @@ export const roleService = {
 };
 
 export const permissionService = {
-  getAll: async (): Promise<PermissionResponse[]> => {
+  getAll: async (): Promise<PermissionModuleResponse[]> => {
     const res = await api.get("/api/permission");
     return res.data?.result ?? res.data ?? [];
-  },
-
-  create: async (dto: PermissionCreatePayload): Promise<void> => {
-    await api.post("/api/permission", dto);
-  },
-
-  update: async (id: string, dto: PermissionUpdatePayload): Promise<void> => {
-    await api.put(`/api/permission/${id}`, dto);
-  },
-
-  delete: async (id: string): Promise<void> => {
-    await api.delete(`/api/permission/${id}`);
   },
 };
 

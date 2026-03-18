@@ -10,11 +10,15 @@ public class PermissionConfiguration : IEntityTypeConfiguration<Permission>
     {
         builder.HasKey(p => p.Id);
 
-        builder.Property(p => p.Name)
-            .IsRequired()
-            .HasMaxLength(100);
+        builder.Property(p => p.Module)
+            .IsRequired();
 
-        builder.HasIndex(p => p.Name).IsUnique();
+        builder.Property(p => p.Action)
+            .IsRequired();
+
+        builder.HasIndex(p => new { p.Module, p.Action }).IsUnique();
+
+        builder.Ignore(p => p.Key);
 
         builder.HasMany(p => p.RolePermissions)
             .WithOne(rp => rp.Permission)

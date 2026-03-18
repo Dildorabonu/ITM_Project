@@ -60,7 +60,7 @@ const navGroups: NavGroup[] = [
     label: "Tizim",
     items: [
       { name: "Foydalanuvchilar",   href: "/users",       icon: "users" },
-      { name: "Rollar & Ruxsatlar", href: "/roles",       icon: "shield" },
+      { name: "Rollar", href: "/roles",       icon: "shield" },
       { name: "Bo'limlar",          href: "/departments", icon: "briefcase" },
     ],
   },
@@ -93,7 +93,7 @@ const pageTitles: Record<string, string> = {
   "/deficit":       "Deficit Tekshiruv",
   "/tasks":         "Kunlik Vazifalar",
   "/users":         "Foydalanuvchilar",
-  "/roles":         "Rollar & Ruxsatlar",
+  "/roles":         "Rollar",
   "/departments":   "Bo'limlar",
 };
 

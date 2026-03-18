@@ -33,7 +33,7 @@ public class AuthService : IAuthService
 
         var roleName = user.Role?.Name ?? string.Empty;
         var permissions = user.Role?.RolePermissions
-            .Select(rp => rp.Permission.Name)
+            .Select(rp => rp.Permission.Key)
             .ToList() ?? [];
 
         var (accessToken, _) = TokenHelper.GenerateToken(
@@ -81,7 +81,7 @@ public class AuthService : IAuthService
 
         var roleName = token.User.Role?.Name ?? string.Empty;
         var permissions = token.User.Role?.RolePermissions
-            .Select(rp => rp.Permission.Name)
+            .Select(rp => rp.Permission.Key)
             .ToList() ?? [];
 
         var (accessToken, _) = TokenHelper.GenerateToken(

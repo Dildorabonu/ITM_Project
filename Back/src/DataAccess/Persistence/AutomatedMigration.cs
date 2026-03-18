@@ -1,4 +1,5 @@
 using Core.Entities;
+using Core.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -11,7 +12,35 @@ public static class AutomatedMigration
         using var scope = serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<DatabaseContext>();
         await context.Database.MigrateAsync();
+        await SeedPermissionsAsync(context);
         await SeedSuperAdminUserAsync(context);
+    }
+
+    private static async System.Threading.Tasks.Task SeedPermissionsAsync(DatabaseContext context)
+    {
+        var modules = Enum.GetValues<PermissionModule>();
+        var actions = Enum.GetValues<PermissionAction>();
+
+        foreach (var module in modules)
+        {
+            foreach (var action in actions)
+            {
+                var exists = await context.Permissions
+                    .AnyAsync(p => p.Module == module && p.Action == action);
+
+                if (!exists)
+                {
+                    context.Permissions.Add(new Permission
+                    {
+                        Id = Guid.NewGuid(),
+                        Module = module,
+                        Action = action,
+                    });
+                }
+            }
+        }
+
+        await context.SaveChangesAsync();
     }
 
     private static async System.Threading.Tasks.Task SeedSuperAdminUserAsync(DatabaseContext context)

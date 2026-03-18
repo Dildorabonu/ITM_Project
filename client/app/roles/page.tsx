@@ -5,9 +5,8 @@ import {
   roleService,
   permissionService,
   type RoleResponse,
-  type PermissionResponse,
+  type PermissionModuleResponse,
   type RoleCreatePayload,
-  type PermissionCreatePayload,
 } from "@/lib/userService";
 
 const ROLE_COLORS = [
@@ -21,7 +20,7 @@ const ROLE_COLORS = [
 
 export default function RolesPage() {
   const [roles, setRoles] = useState<RoleResponse[]>([]);
-  const [permissions, setPermissions] = useState<PermissionResponse[]>([]);
+  const [permissions, setPermissions] = useState<PermissionModuleResponse[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Role modal
@@ -29,12 +28,6 @@ export default function RolesPage() {
   const [editRole, setEditRole] = useState<RoleResponse | null>(null);
   const [roleForm, setRoleForm] = useState<RoleCreatePayload>({ name: "", description: "" });
   const [roleSaving, setRoleSaving] = useState(false);
-
-  // Permission modal
-  const [showPermModal, setShowPermModal] = useState(false);
-  const [editPerm, setEditPerm] = useState<PermissionResponse | null>(null);
-  const [permForm, setPermForm] = useState<PermissionCreatePayload>({ name: "", description: "" });
-  const [permSaving, setPermSaving] = useState(false);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -49,7 +42,6 @@ export default function RolesPage() {
 
   useEffect(() => { fetchAll(); }, []);
 
-  // Role handlers
   const openAddRole = () => {
     setEditRole(null);
     setRoleForm({ name: "", description: "" });
@@ -80,41 +72,10 @@ export default function RolesPage() {
     await fetchAll();
   };
 
-  // Permission handlers
-  const openAddPerm = () => {
-    setEditPerm(null);
-    setPermForm({ name: "", description: "" });
-    setShowPermModal(true);
-  };
-  const openEditPerm = (p: PermissionResponse) => {
-    setEditPerm(p);
-    setPermForm({ name: p.name, description: p.description ?? "" });
-    setShowPermModal(true);
-  };
-  const savePerm = async () => {
-    setPermSaving(true);
-    try {
-      if (editPerm) {
-        await permissionService.update(editPerm.id, permForm);
-      } else {
-        await permissionService.create(permForm);
-      }
-      setShowPermModal(false);
-      await fetchAll();
-    } finally {
-      setPermSaving(false);
-    }
-  };
-  const deletePerm = async (id: string) => {
-    if (!confirm("Bu ruxsatni o'chirishni tasdiqlaysizmi?")) return;
-    await permissionService.delete(id);
-    await fetchAll();
-  };
-
   return (
     <>
       <div className="page-header">
-        <div className="ph-title">Rollar &amp; Ruxsatlar</div>
+        <div className="ph-title">Rollar</div>
       </div>
 
       <div className="two-col">
@@ -163,7 +124,7 @@ export default function RolesPage() {
           </div>
         </div>
 
-        {/* Permissions */}
+        {/* Permissions — read-only, grouped by module */}
         <div className="itm-card">
           <div className="itm-card-header">
             <div className="icon-bg ib-blue">
@@ -172,44 +133,34 @@ export default function RolesPage() {
               </svg>
             </div>
             <span className="itm-card-title">Ruxsatlar</span>
-            <button className="btn-primary" style={{ marginLeft: "auto", padding: "4px 12px", fontSize: 12 }} onClick={openAddPerm}>
-              + Qo&apos;shish
-            </button>
           </div>
-          <div style={{ overflowX: "auto" }}>
+          <div className="itm-card-body" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {loading ? (
               <div style={{ color: "var(--text3)", fontSize: 13, textAlign: "center", padding: 20 }}>Yuklanmoqda...</div>
             ) : permissions.length === 0 ? (
               <div style={{ color: "var(--text3)", fontSize: 13, textAlign: "center", padding: 20 }}>Ruxsatlar topilmadi</div>
-            ) : (
-              <table className="itm-table">
-                <thead>
-                  <tr>
-                    <th>Nomi</th>
-                    <th>Tavsif</th>
-                    <th style={{ width: 80 }}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {permissions.map(p => (
-                    <tr key={p.id}>
-                      <td style={{ fontSize: 12, fontWeight: 600 }}>{p.name}</td>
-                      <td style={{ fontSize: 12, color: "var(--text2)" }}>{p.description ?? "—"}</td>
-                      <td>
-                        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                          <button className="btn-icon" onClick={() => openEditPerm(p)} title="Tahrirlash">
-                            <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                          </button>
-                          <button className="btn-icon btn-icon-danger" onClick={() => deletePerm(p.id)} title="O'chirish">
-                            <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+            ) : permissions.map(mod => (
+              <div key={mod.module} style={{
+                background: "var(--bg3)", border: "1.5px solid var(--border)",
+                borderRadius: "var(--radius)", padding: "10px 14px",
+                display: "flex", alignItems: "center", gap: 12,
+              }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text1)", minWidth: 140 }}>
+                  {mod.moduleName}
+                </span>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {mod.actions.map(a => (
+                    <span key={a.id} style={{
+                      fontSize: 11, padding: "2px 8px", borderRadius: 4,
+                      background: "var(--accent)18", color: "var(--accent)",
+                      border: "1px solid var(--accent)33", fontWeight: 500,
+                    }}>
+                      {a.actionName}
+                    </span>
                   ))}
-                </tbody>
-              </table>
-            )}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -236,34 +187,6 @@ export default function RolesPage() {
               <button className="btn-secondary" onClick={() => setShowRoleModal(false)}>Bekor</button>
               <button className="btn-primary" onClick={saveRole} disabled={roleSaving || !roleForm.name.trim()}>
                 {roleSaving ? "Saqlanmoqda..." : "Saqlash"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Permission Modal */}
-      {showPermModal && (
-        <div className="modal-overlay" onClick={() => setShowPermModal(false)}>
-          <div className="modal-box" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <span>{editPerm ? "Ruxsatni tahrirlash" : "Yangi ruxsat"}</span>
-              <button className="modal-close" onClick={() => setShowPermModal(false)}>✕</button>
-            </div>
-            <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div>
-                <label className="form-label">Nomi *</label>
-                <input className="form-input" value={permForm.name} onChange={e => setPermForm(f => ({ ...f, name: e.target.value }))} placeholder="Ruxsat nomi" />
-              </div>
-              <div>
-                <label className="form-label">Tavsif</label>
-                <input className="form-input" value={permForm.description ?? ""} onChange={e => setPermForm(f => ({ ...f, description: e.target.value }))} placeholder="Ixtiyoriy tavsif" />
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-secondary" onClick={() => setShowPermModal(false)}>Bekor</button>
-              <button className="btn-primary" onClick={savePerm} disabled={permSaving || !permForm.name.trim()}>
-                {permSaving ? "Saqlanmoqda..." : "Saqlash"}
               </button>
             </div>
           </div>
