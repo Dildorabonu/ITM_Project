@@ -1,10 +1,11 @@
 "use client";
 
-import React from "react";
-import { usePathname } from "next/navigation";
+import React, { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { IBM_Plex_Mono, Barlow_Condensed, Barlow } from "next/font/google";
 import "./globals.css";
+import { useAuthStore } from "@/lib/store/authStore";
 
 const ibmPlexMono = IBM_Plex_Mono({
   variable: "--font-mono",
@@ -95,11 +96,39 @@ const pageTitles: Record<string, string> = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const pageTitle = pageTitles[pathname] || "OmborPro";
+
+  const user = useAuthStore((s) => s.user);
+  const logoutAction = useAuthStore((s) => s.logout);
+  const accessToken = useAuthStore((s) => s.accessToken);
+
+  const isLoginPage = pathname === "/login";
+
+  useEffect(() => {
+    if (!isLoginPage && !accessToken) {
+      router.replace("/login");
+    }
+  }, [isLoginPage, accessToken, router]);
+
+  async function handleLogout() {
+    await logoutAction();
+    router.replace("/login");
+  }
+
+  // Get user initials for avatar
+  const initials = user?.login
+    ? user.login.slice(0, 2).toUpperCase()
+    : "??";
 
   return (
     <html lang="uz" className={`${ibmPlexMono.variable} ${barlowCondensed.variable} ${barlow.variable}`}>
-      <body className="font-body-itm" style={{ display: "flex", height: "100vh", overflow: "hidden", background: "var(--bg)", color: "var(--text)" }}>
+      <body className="font-body-itm" style={
+        isLoginPage
+          ? { background: "var(--bg)", color: "var(--text)" }
+          : { display: "flex", height: "100vh", overflow: "hidden", background: "var(--bg)", color: "var(--text)" }
+      }>
+      {isLoginPage ? children : !accessToken ? null : (<>
 
         {/* ===== SIDEBAR ===== */}
         <aside style={{
@@ -137,11 +166,33 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               display: "flex", alignItems: "center", justifyContent: "center",
               fontWeight: 700, fontSize: 13, color: "#fff", flexShrink: 0,
               border: "2px solid rgba(26,110,235,0.4)",
-            }} className="font-head-itm">AK</div>
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#e8f0fa" }}>Akbar Karimov</div>
-              <div className="font-mono-itm" style={{ fontSize: 10, color: "#6ab0ff", letterSpacing: 0.5 }}>Bo&apos;lim boshlig&apos;i</div>
+            }} className="font-head-itm">{initials}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#e8f0fa", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {user?.login || "—"}
+              </div>
+              <div className="font-mono-itm" style={{ fontSize: 10, color: "#6ab0ff", letterSpacing: 0.5 }}>
+                {user?.role || ""}
+              </div>
             </div>
+            <button
+              onClick={handleLogout}
+              title="Chiqish"
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                color: "var(--sidebar-text2)", padding: 4, borderRadius: 4,
+                display: "flex", alignItems: "center", flexShrink: 0,
+                transition: "color 0.15s",
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#e05252"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--sidebar-text2)"; }}
+            >
+              <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16,17 21,12 16,7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+            </button>
           </div>
 
           {/* Live strip */}
@@ -235,6 +286,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </main>
 
         </div>
+      </>)}
       </body>
     </html>
   );

@@ -44,6 +44,18 @@ namespace API
 
             builder.Services.AddAuthorization();
 
+            builder.Services.AddCors(options =>
+            {
+                options.AddDefaultPolicy(policy =>
+                {
+                    policy.WithOrigins("http://localhost:3000", "https://localhost:3000",
+                                      "http://localhost:3001", "https://localhost:3001")
+                          .AllowAnyHeader()
+                          .AllowAnyMethod()
+                          .AllowCredentials();
+                });
+            });
+
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
@@ -85,6 +97,8 @@ namespace API
             }
 
             app.UseHttpsRedirection();
+
+            app.UseCors();
 
             app.UseAuthentication();
             app.UseAuthorization();
