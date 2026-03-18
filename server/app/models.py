@@ -1,143 +1,232 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Date, Float, Table
+import uuid
+from sqlalchemy import (
+    Column, String, Text, ForeignKey, DateTime, Date, Time,
+    Boolean, Integer, Numeric, UniqueConstraint
+)
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
 
 
-# ── Junction tables ──────────────────────────────────────────────────────────
-
-user_roles = Table(
-    "user_roles",
-    Base.metadata,
-    Column("user_id", Integer, ForeignKey("users.id"), primary_key=True),
-    Column("role_id", Integer, ForeignKey("roles.id"), primary_key=True),
-)
-
-role_permissions = Table(
-    "role_permissions",
-    Base.metadata,
-    Column("role_id", Integer, ForeignKey("roles.id"), primary_key=True),
-    Column("permission_id", Integer, ForeignKey("permissions.id"), primary_key=True),
-)
-
-user_permissions = Table(
-    "user_permissions",
-    Base.metadata,
-    Column("user_id", Integer, ForeignKey("users.id"), primary_key=True),
-    Column("permission_id", Integer, ForeignKey("permissions.id"), primary_key=True),
-)
-
-
-# ── Main tables ───────────────────────────────────────────────────────────────
-
-class Role(Base):
-    __tablename__ = "roles"
-
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, nullable=False)
-
-    users = relationship("User", secondary=user_roles, back_populates="roles")
-    permissions = relationship("Permission", secondary=role_permissions, back_populates="roles")
-
-
-class Permission(Base):
-    __tablename__ = "permissions"
-
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, nullable=False)
-
-    roles = relationship("Role", secondary=role_permissions, back_populates="permissions")
-    users = relationship("User", secondary=user_permissions, back_populates="permissions")
-
+# ── DEPARTMENTS ───────────────────────────────────────────────────────────────
 
 class Department(Base):
     __tablename__ = "departments"
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, nullable=False)
-    
-    owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String, nullable=False)
+    head_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", use_alter=True, name="fk_dept_head"), nullable=True)
+    employee_count = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    owner = relationship("User", foreign_keys=[owner_id], back_populates="owned_departments")
-
-    tasks = relationship("Task", back_populates="department")
-    inventory = relationship("Inventory", back_populates="department")
+    head = relationship("User", foreign_keys=[head_user_id], back_populates="headed_departments", post_update=True)
     users = relationship("User", foreign_keys="[User.department_id]", back_populates="department")
+    contracts = relationship("Contract", back_populates="department")
+    tasks = relationship("Task", back_populates="department")
+    stock_outs = relationship("StockOut", back_populates="department")
 
+
+# ── USERS ─────────────────────────────────────────────────────────────────────
 
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
-    full_name = Column(String, nullable=False)
-    email = Column(String, unique=True, index=True, nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    first_name = Column(String, nullable=False)
+    last_name = Column(String, nullable=False)
+    login = Column(String, unique=True, nullable=False, index=True)
+    password_hash = Column(String, nullable=False)
     role = Column(String, default="manager")
-    department_id = Column(Integer, ForeignKey("departments.id"), nullable=True)
+    department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id"), nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     department = relationship("Department", foreign_keys=[department_id], back_populates="users")
-    owned_departments = relationship("Department", foreign_keys="[Department.owner_id]", back_populates="owner")
-    roles = relationship("Role", secondary=user_roles, back_populates="users")
-    permissions = relationship("Permission", secondary=user_permissions, back_populates="users")
-    sections = relationship("Section", back_populates="user")
+    headed_departments = relationship("Department", foreign_keys="[Department.head_user_id]", back_populates="head")
+
+    created_contracts = relationship("Contract", back_populates="created_by_user")
+    approved_processes = relationship("TechProcess", back_populates="approved_by_user")
+    received_stock_ins = relationship("StockIn", back_populates="received_by_user")
+    issued_stock_outs = relationship("StockOut", back_populates="issued_by_user")
+    assigned_tasks = relationship("Task", foreign_keys="[Task.assigned_to]", back_populates="assignee")
+    created_tasks = relationship("Task", foreign_keys="[Task.created_by]", back_populates="creator")
+    notifications = relationship("Notification", back_populates="user")
 
 
-class Section(Base):
-    __tablename__ = "sections"
+# ── CONTRACTS ─────────────────────────────────────────────────────────────────
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+class Contract(Base):
+    __tablename__ = "contracts"
 
-    user = relationship("User", back_populates="sections")
-    products = relationship("Product", back_populates="section")
-
-
-class Product(Base):
-    __tablename__ = "products"
-
-    id = Column(Integer, primary_key=True, index=True)
-    section_id = Column(Integer, ForeignKey("sections.id"), nullable=False)
-    name = Column(String, nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    contract_no = Column(String, unique=True, nullable=False)
+    client_name = Column(String, nullable=False)
+    product_type = Column(String, nullable=False)
+    quantity = Column(Integer, nullable=False)
     unit = Column(String, nullable=False)
+    start_date = Column(Date, nullable=True)
+    end_date = Column(Date, nullable=True)
+    department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id"), nullable=True)
+    priority = Column(String, default="medium")   # low / medium / high / urgent
+    status = Column(String, default="active")      # active / paused / completed / cancelled
+    notes = Column(Text, nullable=True)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    section = relationship("Section", back_populates="products")
+    department = relationship("Department", back_populates="contracts")
+    created_by_user = relationship("User", back_populates="created_contracts")
+    tech_processes = relationship("TechProcess", back_populates="contract")
+    stock_ins = relationship("StockIn", back_populates="contract")
+    stock_outs = relationship("StockOut", back_populates="contract")
 
+
+# ── TECH_PROCESSES ────────────────────────────────────────────────────────────
+
+class TechProcess(Base):
+    __tablename__ = "tech_processes"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    contract_id = Column(UUID(as_uuid=True), ForeignKey("contracts.id"), nullable=False)
+    title = Column(String, nullable=False)
+    status = Column(String, default="draft")       # draft / in_progress / approved / completed
+    current_step = Column(Integer, default=0)
+    approved_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    approved_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    contract = relationship("Contract", back_populates="tech_processes")
+    approved_by_user = relationship("User", back_populates="approved_processes")
+    steps = relationship("TechStep", back_populates="tech_process", cascade="all, delete-orphan")
+    materials = relationship("TechProcessMaterial", back_populates="tech_process", cascade="all, delete-orphan")
+
+
+# ── TECH_STEPS ────────────────────────────────────────────────────────────────
+
+class TechStep(Base):
+    __tablename__ = "tech_steps"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tech_process_id = Column(UUID(as_uuid=True), ForeignKey("tech_processes.id"), nullable=False)
+    step_number = Column(Integer, nullable=False)
+    name = Column(String, nullable=False)
+    responsible_dept = Column(String, nullable=True)
+    machine = Column(String, nullable=True)
+    time_norm = Column(String, nullable=True)
+    status = Column(String, default="pending")     # pending / in_progress / done / skipped
+    notes = Column(Text, nullable=True)
+
+    tech_process = relationship("TechProcess", back_populates="steps")
+
+
+# ── MATERIALS ─────────────────────────────────────────────────────────────────
+
+class Material(Base):
+    __tablename__ = "materials"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    code = Column(String, unique=True, nullable=False)
+    name = Column(String, nullable=False)
+    category = Column(String, nullable=True)
+    unit = Column(String, nullable=False)
+    quantity = Column(Numeric(12, 3), default=0)
+    min_quantity = Column(Numeric(12, 3), default=0)
+    location = Column(String, nullable=True)
+    status = Column(String, default="available")   # available / low / out_of_stock
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    stock_ins = relationship("StockIn", back_populates="material")
+    stock_outs = relationship("StockOut", back_populates="material")
+    tech_process_materials = relationship("TechProcessMaterial", back_populates="material")
+
+
+# ── STOCK_IN ──────────────────────────────────────────────────────────────────
+
+class StockIn(Base):
+    __tablename__ = "stock_in"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    material_id = Column(UUID(as_uuid=True), ForeignKey("materials.id"), nullable=False)
+    quantity = Column(Numeric(12, 3), nullable=False)
+    supplier = Column(String, nullable=True)
+    received_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    contract_id = Column(UUID(as_uuid=True), ForeignKey("contracts.id"), nullable=True)
+    received_at = Column(DateTime(timezone=True), server_default=func.now())
+    notes = Column(Text, nullable=True)
+
+    material = relationship("Material", back_populates="stock_ins")
+    received_by_user = relationship("User", back_populates="received_stock_ins")
+    contract = relationship("Contract", back_populates="stock_ins")
+
+
+# ── STOCK_OUT ─────────────────────────────────────────────────────────────────
+
+class StockOut(Base):
+    __tablename__ = "stock_out"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    material_id = Column(UUID(as_uuid=True), ForeignKey("materials.id"), nullable=False)
+    quantity = Column(Numeric(12, 3), nullable=False)
+    department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id"), nullable=True)
+    contract_id = Column(UUID(as_uuid=True), ForeignKey("contracts.id"), nullable=True)
+    issued_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    issued_at = Column(DateTime(timezone=True), server_default=func.now())
+    notes = Column(Text, nullable=True)
+
+    material = relationship("Material", back_populates="stock_outs")
+    department = relationship("Department", back_populates="stock_outs")
+    contract = relationship("Contract", back_populates="stock_outs")
+    issued_by_user = relationship("User", back_populates="issued_stock_outs")
+
+
+# ── TECH_PROCESS_MATERIALS ────────────────────────────────────────────────────
+
+class TechProcessMaterial(Base):
+    __tablename__ = "tech_process_materials"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tech_process_id = Column(UUID(as_uuid=True), ForeignKey("tech_processes.id"), nullable=False)
+    material_id = Column(UUID(as_uuid=True), ForeignKey("materials.id"), nullable=False)
+    required_qty = Column(Numeric(12, 3), nullable=False)
+    available_qty = Column(Numeric(12, 3), default=0)
+    status = Column(String, default="pending")     # pending / partial / ready
+
+    tech_process = relationship("TechProcess", back_populates="materials")
+    material = relationship("Material", back_populates="tech_process_materials")
+
+
+# ── TASKS ─────────────────────────────────────────────────────────────────────
 
 class Task(Base):
     __tablename__ = "tasks"
 
-    id = Column(Integer, primary_key=True, index=True)
-    department_id = Column(Integer, ForeignKey("departments.id"))
-    title = Column(String, nullable=False)
-
-    planned_quantity = Column(Integer, default=0)
-    actual_quantity = Column(Integer, default=0)
-
-    status = Column(String, default="pending")
-    comment = Column(Text, nullable=True)
-
-    deadline_time = Column(DateTime, nullable=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String, nullable=False)
+    department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id"), nullable=True)
+    priority = Column(String, default="medium")    # low / medium / high / urgent
+    scheduled_time = Column(Time, nullable=True)
+    assigned_to = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     task_date = Column(Date, server_default=func.current_date())
+    status = Column(String, default="pending")     # pending / in_progress / done / cancelled
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     department = relationship("Department", back_populates="tasks")
+    assignee = relationship("User", foreign_keys=[assigned_to], back_populates="assigned_tasks")
+    creator = relationship("User", foreign_keys=[created_by], back_populates="created_tasks")
 
 
-class Inventory(Base):
-    __tablename__ = "inventory"
+# ── NOTIFICATIONS ─────────────────────────────────────────────────────────────
 
-    id = Column(Integer, primary_key=True, index=True)
-    department_id = Column(Integer, ForeignKey("departments.id"))
-    item_name = Column(String, nullable=False)
+class Notification(Base):
+    __tablename__ = "notifications"
 
-    stock_quantity = Column(Float, default=0.0)
-    unit = Column(String, default="pcs")
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    title = Column(String, nullable=False)
+    body = Column(Text, nullable=True)
+    type = Column(String, default="info")          # info / warning / error / success
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    status = Column(String, nullable=True)
-
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
-
-    department = relationship("Department", back_populates="inventory")
+    user = relationship("User", back_populates="notifications")

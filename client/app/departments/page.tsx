@@ -1,119 +1,62 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
-interface SectionItem {
-  id: number;
-  name: string;
-  status: "Active" | "Delayed" | "Completed";
-}
+type Dept = { num: string; name: string; head: string; count: number; status: string; statusLabel: string };
 
-const defaultSections: SectionItem[] = [
-  { id: 1, name: "Mexanika", status: "Active" },
-  { id: 2, name: "Himoya", status: "Active" },
-  { id: 3, name: "Optika", status: "Delayed" },
-  { id: 4, name: "Tikuv", status: "Active" },
-  { id: 5, name: "Antidron", status: "Completed" },
+const initial: Dept[] = [
+  { num: "01", name: "Ishlab chiqarish", head: "Akbar Karimov",  count: 8, status: "s-ok",   statusLabel: "Aktiv" },
+  { num: "02", name: "Yig'ish sexi",     head: "Nilufar Rahimova",count: 6, status: "s-ok",   statusLabel: "Aktiv" },
+  { num: "03", name: "Ombor",            head: "Jasur Umarov",   count: 4, status: "s-ok",   statusLabel: "Aktiv" },
+  { num: "04", name: "Sifat nazorat",    head: "—",              count: 3, status: "s-warn",  statusLabel: "Boshligsiz" },
+  { num: "05", name: "Boshqaruv",        head: "Sarvar Mirzayev",count: 2, status: "s-ok",   statusLabel: "Aktiv" },
 ];
 
 export default function DepartmentsPage() {
-  const [sections, setSections] = useState<SectionItem[]>(defaultSections);
-  const [newName, setNewName] = useState("");
-  const [showAdd, setShowAdd] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  const loadSections = async () => {
-    try {
-      const res = await fetch("http://localhost:8000/sections");
-      if (!res.ok) throw new Error("Load failed");
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        setSections(data.map((s: { id: number; name: string }) => ({ id: s.id, name: s.name, status: "Active" }))); 
-      } else {
-        setSections(defaultSections);
-      }
-    } catch {
-      setSections(defaultSections);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadSections();
-  }, []);
-
-  const addSection = async () => {
-    const trimmed = newName.trim();
-    if (!trimmed) return;
-    if (sections.some((s) => s.name.toLowerCase() === trimmed.toLowerCase())) return;
-
-    try {
-      const res = await fetch("http://localhost:8000/sections", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: trimmed }),
-      });
-      if (res.ok) {
-        const created = await res.json();
-        setSections((prev) => [...prev, { id: created.id, name: created.name, status: "Active" }]);
-        setNewName("");
-        return;
-      }
-    } catch {
-      // fallback
-    }
-
-    const nextId = sections.reduce((max, s) => Math.max(max, s.id), 0) + 1;
-    setSections((prev) => [...prev, { id: nextId, name: trimmed, status: "Active" }]);
-    setNewName("");
-    setShowAdd(false);
-  };
+  const [depts] = useState(initial);
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl bg-white border border-slate-200 p-5">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold">Bo&apos;limlar</h1>
-            <p className="text-slate-500 mt-1">Saytning bo&apos;limlari sahifasi. Bu yerda barcha bo&apos;limlar ro&apos;yxati mavjud.</p>
+    <>
+      <div className="page-header">
+        <div className="ph-title">Bo&apos;limlar</div>
+        <div className="search-wrap" style={{ maxWidth: 260 }}>
+          <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input className="search-input" placeholder="Qidirish..." />
+        </div>
+        <button className="btn btn-primary" style={{ marginLeft: "auto" }}>
+          <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Yangi Bo&apos;lim
+        </button>
+      </div>
+
+      <div className="itm-card">
+        <div className="itm-card-header">
+          <div className="icon-bg ib-blue">
+            <svg width="14" height="14" fill="none" stroke="var(--accent)" strokeWidth="2" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
           </div>
+          <span className="itm-card-title">Bo&apos;limlar Ro&apos;yxati</span>
+          <span className="itm-card-subtitle">{depts.length} ta bo&apos;lim</span>
+        </div>
+        <div style={{ overflowX: "auto" }}>
+          <table className="itm-table">
+            <thead>
+              <tr><th>#</th><th>Bo&apos;lim nomi</th><th>Bo&apos;lim boshlig&apos;i</th><th>Xodimlar</th><th>Holat</th><th>Amal</th></tr>
+            </thead>
+            <tbody>
+              {depts.map(d => (
+                <tr key={d.num}>
+                  <td className="mono" style={{ color: "var(--text3)", fontSize: 11 }}>{d.num}</td>
+                  <td><strong>{d.name}</strong></td>
+                  <td style={{ color: "var(--text2)" }}>{d.head}</td>
+                  <td className="mono" style={{ color: "var(--text3)", fontSize: 12 }}>{d.count}</td>
+                  <td><span className={`status ${d.status}`}>{d.statusLabel}</span></td>
+                  <td><button className="btn btn-sm btn-outline">Tahrirlash</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
-
-      <div className="rounded-2xl bg-white border border-slate-200 p-5">
-        {loading ? (
-          <p className="text-slate-500">Yuklanmoqda...</p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {sections.map((section) => (
-              <Link key={section.id} href={`/inventory/${section.id}`} className="block rounded-xl border border-slate-200 bg-slate-50 p-3 hover:border-blue-300 transition">
-                <div className="font-semibold">{section.name}</div>
-                <div className="text-xs text-slate-500 mt-1">{section.status}</div>
-              </Link>
-            ))}
-            <button
-              onClick={() => setShowAdd((prev) => !prev)}
-              className="flex flex-col items-center justify-center rounded-xl border border-dashed border-blue-300 bg-blue-50 p-3 text-blue-600 hover:bg-blue-100 transition"
-            >
-              +
-            </button>
-          </div>
-        )}
-
-        {showAdd && (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <input
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="Yangi bo&apos;lim nomi"
-              className="rounded-md border border-slate-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
-            />
-            <button onClick={addSection} className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition">Qo&apos;shish</button>
-          </div>
-        )}
-      </div>
-    </div>
+    </>
   );
 }

@@ -1,86 +1,176 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { Settings, Shield, Eye, Scissors, Plane } from "lucide-react";
+import { useState } from "react";
 
-interface SectionItem { id: number; name: string; status: "Active" | "Delayed" | "Completed"; }
-const SECTION_STORAGE_KEY = "itm-sections-v1";
-const defaultSections: SectionItem[] = [
-  { id: 1, name: "Mexanika", status: "Active" },
-  { id: 2, name: "Himoya", status: "Active" },
-  { id: 3, name: "Optika", status: "Delayed" },
-  { id: 4, name: "Tikuv", status: "Active" },
-  { id: 5, name: "Antidron", status: "Completed" },
+const contracts = [
+  { id: "SH-2025-047", date: "02.06.2025", client: "Toshmetov Zavodi", product: "Metall konstruktsiya", status: "s-warn", statusLabel: "Tekshiruv" },
+  { id: "SH-2025-046", date: "28.05.2025", client: "UzTexnik LLC",    product: "Plastik qoplama",      status: "s-ok",   statusLabel: "Tasdiqlandi" },
+  { id: "SH-2025-045", date: "20.05.2025", client: "AlmaZavod JSC",   product: "Kimyoviy eritma",      status: "s-blue", statusLabel: "Ishlab chiqarish" },
+  { id: "SH-2025-044", date: "10.05.2025", client: "NovoProm OOO",    product: "Yog'och buyum",        status: "s-gray", statusLabel: "Yakunlandi" },
 ];
 
-const icons: Record<number, React.ReactNode> = {
-  1: <Settings size={28} />,
-  2: <Shield size={28} />,
-  3: <Eye size={28} />,
-  4: <Scissors size={28} />,
-  5: <Plane size={28} />,
-};
+type TaskId = "dt1" | "dt2" | "dt3" | "dt4" | "dt5";
+const initialTasks: { id: TaskId; name: string; priority: string; pClass: string; time: string; done: boolean }[] = [
+  { id: "dt1", name: "Ombor inventarizatsiyasi (A sektor)",  priority: "Yuqori", pClass: "p-high", time: "09:00", done: true },
+  { id: "dt2", name: "SH-045 mahsulot tekshiruvi",           priority: "O'rta",  pClass: "p-mid",  time: "10:30", done: true },
+  { id: "dt3", name: "Yetkazib beruvchi bilan muzokaralar",  priority: "Yuqori", pClass: "p-high", time: "14:00", done: false },
+  { id: "dt4", name: "Hisobot tuzish — iyun oyi",            priority: "Past",   pClass: "p-low",  time: "16:00", done: false },
+  { id: "dt5", name: "Bug'alteriyaga hujjat topshirish",     priority: "O'rta",  pClass: "p-mid",  time: "17:00", done: false },
+];
 
-export default function Home() {
-  const [sections, setSections] = useState<SectionItem[]>(defaultSections);
-  const [newName, setNewName] = useState("");
-  const [loading, setLoading] = useState(true);
+export default function DashboardPage() {
+  const [tasks, setTasks] = useState(initialTasks);
 
-  useEffect(() => {
-    const loadSections = async () => {
-      try {
-        const res = await fetch("http://localhost:8000/sections");
-        if (!res.ok) throw new Error("Failed to load sections");
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          setSections(data.map((section: any) => ({ id: section.id, name: section.name, status: "Active" as const })));
-        } else {
-          setSections(defaultSections);
-        }
-      } catch {
-        setSections(defaultSections);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadSections();
-  }, []);
-
-  const addSection = async () => {
-    const trimmed = newName.trim();
-    if (!trimmed) return;
-    if (sections.some((s) => s.name.toLowerCase() === trimmed.toLowerCase())) return;
-
-    try {
-      const res = await fetch("http://localhost:8000/sections", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: trimmed }),
-      });
-      if (res.ok) {
-        const section = await res.json();
-        setSections((prev) => [...prev, { id: section.id, name: section.name, status: "Active" }] );
-        setNewName("");
-        return;
-      }
-    } catch {}
-
-    // Fallback local add when API fails
-    const nextId = sections.reduce((max, s) => Math.max(max, s.id), 0) + 1;
-    setSections((prev) => [...prev, { id: nextId, name: trimmed, status: "Active" }]);
-    setNewName("");
-  };
+  const toggle = (id: TaskId) =>
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
 
   return (
-    <main className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-5xl mx-auto space-y-6">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
-          <h1 className="text-3xl font-bold">Boshqaruv paneli</h1>
-          <p className="text-slate-500 mt-1">Bu sahifada hozir hech qanday bo'lim ko'rsatilmaydi.</p>
-          <p className="text-xs mt-2 text-slate-400">Bo‘limlar ro‘yxati “Bo'limlar” naviga o'tgach ko‘rinadi.</p>
+    <>
+      {/* Welcome banner */}
+      <div className="blue-header">
+        <div className="font-head-itm" style={{ fontSize: 13, fontWeight: 600, letterSpacing: 2, opacity: 0.7, textTransform: "uppercase", marginBottom: 4 }}>
+          18 Mart 2026, Chorshanba
+        </div>
+        <div className="font-head-itm" style={{ fontSize: 26, fontWeight: 800, letterSpacing: 0.5 }}>
+          Xush kelibsiz, Akbar! 👋
+        </div>
+        <div style={{ fontSize: 13, opacity: 0.75, marginTop: 4 }}>
+          Bugun 18 ta vazifa, 3 ta deficit holatlar mavjud.
         </div>
       </div>
-    </main>
+
+      {/* Stats */}
+      <div className="stats-row">
+        <Link href="/contracts" style={{ textDecoration: "none" }}>
+          <div className="stat-card blue">
+            <div className="stat-label">Faol shartnomalar</div>
+            <div className="stat-value">24</div>
+            <div className="stat-meta">Jami 31 ta shartnoma</div>
+            <div className="stat-delta up">↑ 3 bu oy</div>
+          </div>
+        </Link>
+        <Link href="/deficit" style={{ textDecoration: "none" }}>
+          <div className="stat-card warn">
+            <div className="stat-label">Deficit holatlar</div>
+            <div className="stat-value">7</div>
+            <div className="stat-meta">3 ta ta&apos;minot kutilmoqda</div>
+            <div className="stat-delta dn">↑ 2 yangi</div>
+          </div>
+        </Link>
+        <Link href="/tasks" style={{ textDecoration: "none" }}>
+          <div className="stat-card green">
+            <div className="stat-label">Bugungi vazifalar</div>
+            <div className="stat-value">18</div>
+            <div className="stat-meta">12 ta bajarildi</div>
+            <div className="stat-delta up">67% ijro</div>
+          </div>
+        </Link>
+        <Link href="/contracts" style={{ textDecoration: "none" }}>
+          <div className="stat-card danger">
+            <div className="stat-label">Muddati o&apos;tgan</div>
+            <div className="stat-value">3</div>
+            <div className="stat-meta">Shoshillinch ko&apos;rib chiqish</div>
+            <div className="stat-delta dn">Diqqat talab</div>
+          </div>
+        </Link>
+      </div>
+
+      {/* Two cols */}
+      <div className="two-col">
+        {/* Recent contracts */}
+        <div className="itm-card">
+          <div className="itm-card-header">
+            <div className="icon-bg ib-blue">
+              <svg width="14" height="14" fill="none" stroke="var(--accent)" strokeWidth="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+            </div>
+            <span className="itm-card-title">So&apos;nggi Shartnomalar</span>
+            <Link href="/contracts" className="itm-card-link">BARCHASI →</Link>
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table className="itm-table">
+              <thead>
+                <tr><th>Raqam</th><th>Mijoz</th><th>Mahsulot</th><th>Holat</th></tr>
+              </thead>
+              <tbody>
+                {contracts.map(c => (
+                  <tr key={c.id}>
+                    <td className="mono" style={{ color: "var(--accent)" }}>{c.id}</td>
+                    <td>{c.client}</td>
+                    <td>{c.product}</td>
+                    <td><span className={`status ${c.status}`}>{c.statusLabel}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Today's tasks */}
+        <div className="itm-card">
+          <div className="itm-card-header">
+            <div className="icon-bg ib-blue">
+              <svg width="14" height="14" fill="none" stroke="var(--accent)" strokeWidth="2" viewBox="0 0 24 24"><polyline points="9,11 12,14 22,4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            </div>
+            <span className="itm-card-title">Bugungi Vazifalar</span>
+            <Link href="/tasks" className="itm-card-link">BARCHASI →</Link>
+          </div>
+          <div>
+            {tasks.map(t => (
+              <div key={t.id} className={`task-item${t.done ? " done" : ""}`}>
+                <div
+                  className={`chk${t.done ? " checked" : ""}`}
+                  onClick={() => toggle(t.id as TaskId)}
+                />
+                <span className="task-name">{t.name}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span className={`prio ${t.pClass}`}><span className="prio-dot" />{t.priority}</span>
+                  <span className="task-time">{t.time}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Notifications */}
+      <div className="itm-card">
+        <div className="itm-card-header">
+          <div className="icon-bg ib-blue">
+            <svg width="14" height="14" fill="none" stroke="var(--accent)" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          </div>
+          <span className="itm-card-title">Oxirgi Bildirishnomalar</span>
+          <Link href="/notifications" className="itm-card-link">BARCHASI →</Link>
+        </div>
+        <div className="itm-card-body">
+          <div className="notif-list">
+            <div className="notif-item unread">
+              <div className="notif-dot nd-blue" />
+              <div>
+                <div className="notif-title">📦 Yig&apos;ish sexiga: M4×20 bolt yetib keldi</div>
+                <div className="notif-body">2 500 ta M4×20 bolt qabul qilindi. SH-2025-047 uchun yetarli.</div>
+                <div className="notif-ts">Bugun · 11:42</div>
+              </div>
+            </div>
+            <div className="notif-item ni-warn">
+              <div className="notif-dot nd-warn" />
+              <div>
+                <div className="notif-title">⚠️ Ishlab chiqarish: Qora metall list kritik</div>
+                <div className="notif-body">Qora metall list 200 kg ga tushdi. Darhol zakaz bering.</div>
+                <div className="notif-ts">Bugun · 09:15</div>
+              </div>
+            </div>
+            <div className="notif-item">
+              <div className="notif-dot nd-green" />
+              <div>
+                <div className="notif-title">✅ SH-2025-044 yakunlandi</div>
+                <div className="notif-body">NovoProm OOO shartnomasi muvaffaqiyatli yakunlandi.</div>
+                <div className="notif-ts">Kecha · 17:30</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }

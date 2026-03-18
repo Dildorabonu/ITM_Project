@@ -1,133 +1,240 @@
 "use client";
 
+import React from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { Geist, Geist_Mono } from "next/font/google";
-import { 
-  LayoutDashboard, 
-  Layers, 
-  CheckSquare, 
-  Package, 
-  BarChart3, 
-  Settings, 
-  UserCircle,
-  Bell,
-  Plus
-} from "lucide-react";
+import { IBM_Plex_Mono, Barlow_Condensed, Barlow } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const ibmPlexMono = IBM_Plex_Mono({
+  variable: "--font-mono",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const barlowCondensed = Barlow_Condensed({
+  variable: "--font-head",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
 });
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+const barlow = Barlow({
+  variable: "--font-body",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600"],
+});
+
+type NavItem = { name: string; href: string; icon: string; badge?: number; badgeWarn?: boolean };
+type NavGroup = { label: string; items: NavItem[] };
+
+const navGroups: NavGroup[] = [
+  {
+    label: "Asosiy",
+    items: [
+      { name: "Dashboard",        href: "/",              icon: "grid" },
+      { name: "Bildirishnomalar", href: "/notifications", icon: "bell", badge: 4 },
+    ],
+  },
+  {
+    label: "Shartnomalar",
+    items: [
+      { name: "Shartnomalar",  href: "/contracts",   icon: "file", badge: 2, badgeWarn: true },
+      { name: "Tex Protsess",  href: "/techprocess", icon: "activity" },
+    ],
+  },
+  {
+    label: "Omborxona",
+    items: [
+      { name: "Mahsulotlar",       href: "/warehouse", icon: "home" },
+      { name: "Deficit Tekshiruv", href: "/deficit",   icon: "alert-circle", badge: 3 },
+    ],
+  },
+  {
+    label: "Vazifalar",
+    items: [
+      { name: "Kunlik Vazifalar", href: "/tasks", icon: "check-square" },
+    ],
+  },
+  {
+    label: "Tizim",
+    items: [
+      { name: "Foydalanuvchilar",   href: "/users",       icon: "users" },
+      { name: "Rollar & Ruxsatlar", href: "/roles",       icon: "shield" },
+      { name: "Bo'limlar",          href: "/departments", icon: "briefcase" },
+    ],
+  },
+];
+
+function NavIcon({ type }: { type: string }) {
+  const cls = "w-4 h-4 flex-shrink-0";
+  if (type === "grid")         return <svg className={cls} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>;
+  if (type === "bell")         return <svg className={cls} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>;
+  if (type === "file")         return <svg className={cls} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>;
+  if (type === "activity")     return <svg className={cls} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>;
+  if (type === "home")         return <svg className={cls} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>;
+  if (type === "alert-circle") return <svg className={cls} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>;
+  if (type === "check-square") return <svg className={cls} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="9,11 12,14 22,4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>;
+  if (type === "users")        return <svg className={cls} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
+  if (type === "shield")       return <svg className={cls} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>;
+  if (type === "briefcase")    return <svg className={cls} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>;
+  return null;
+}
+
+const pageTitles: Record<string, string> = {
+  "/":              "Dashboard",
+  "/notifications": "Bildirishnomalar",
+  "/contracts":     "Shartnomalar",
+  "/techprocess":   "Tex Protsess",
+  "/warehouse":     "Ombor Zaxirasi",
+  "/deficit":       "Deficit Tekshiruv",
+  "/tasks":         "Kunlik Vazifalar",
+  "/users":         "Foydalanuvchilar",
+  "/roles":         "Rollar & Ruxsatlar",
+  "/departments":   "Bo'limlar",
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-
-  const navItems = [
-    { name: "Boshqaruv paneli", href: "/", icon: <LayoutDashboard size={20} /> },
-    { name: "Bo'limlar", href: "/departments", icon: <Layers size={20} /> },
-    { name: "Vazifalar", href: "/tasks", icon: <CheckSquare size={20} /> },
-    { name: "Omborxona", href: "/inventory", icon: <Package size={20} /> },
-    { name: "Hisobotlar", href: "/reports", icon: <BarChart3 size={20} /> },
-    { name: "Sozlamalar", href: "/settings", icon: <Settings size={20} /> },
-  ];
+  const pageTitle = pageTitles[pathname] || "OmborPro";
 
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body className="antialiased bg-slate-50 flex h-screen overflow-hidden text-slate-900">
+    <html lang="uz" className={`${ibmPlexMono.variable} ${barlowCondensed.variable} ${barlow.variable}`}>
+      <body className="font-body-itm" style={{ display: "flex", height: "100vh", overflow: "hidden", background: "var(--bg)", color: "var(--text)" }}>
 
-        {/* --- SIDEBAR --- */}
-        <aside className="w-72 bg-white border-r border-slate-200 flex flex-col shrink-0 shadow-sm">
-          {/* Logo Area */}
-          <div className="p-8 border-b border-slate-100">
-            <h1 className="text-2xl font-black tracking-tighter text-blue-600 flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white text-sm font-bold">ITM</div>
-              <span>PROJECT</span>
-            </h1>
-          </div>
-
-          {/* Navigation */}
-          <nav className="flex-1 p-6 space-y-2 overflow-y-auto">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-3 mb-4">Asosiy Menyu</p>
-            {navItems.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
-                    isActive 
-                      ? "bg-blue-50 text-blue-600 font-semibold" 
-                      : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-                  }`}
-                >
-                  <span className={`${isActive ? "text-blue-600" : "text-slate-400 group-hover:text-slate-600"}`}>
-                    {item.icon}
-                  </span>
-                  {item.name}
-                </Link>
-              );
-            })}
-          </nav>
-
-          {/* Sidebar Footer */}
-          <div className="p-6 border-t border-slate-100">
-            <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl">
-              <UserCircle className="text-slate-400" size={32} />
-              <div className="overflow-hidden">
-                <p className="text-sm font-bold truncate">Tizim Direktori</p>
-                <p className="text-xs text-slate-500 truncate italic leading-tight">Administrator Huquqi</p>
+        {/* ===== SIDEBAR ===== */}
+        <aside style={{
+          width: 248, minWidth: 248,
+          background: "var(--sidebar-bg)",
+          display: "flex", flexDirection: "column",
+          overflowY: "auto", overflowX: "hidden",
+          boxShadow: "2px 0 16px rgba(0,0,0,0.18)",
+        }}>
+          {/* Logo */}
+          <div style={{ padding: "22px 20px 18px", borderBottom: "1px solid var(--sidebar-border)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
+              <div style={{
+                width: 38, height: 38, background: "var(--accent)", borderRadius: 8,
+                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                boxShadow: "0 0 0 3px rgba(26,110,235,0.3)",
+              }}>
+                <svg width="20" height="20" fill="none" stroke="#fff" strokeWidth="2" viewBox="0 0 24 24">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                  <polyline points="9,22 9,12 15,12 15,22"/>
+                </svg>
+              </div>
+              <div>
+                <div className="font-head-itm" style={{ fontSize: 22, fontWeight: 800, letterSpacing: 2, color: "#fff", lineHeight: 1 }}>OMBORPRO</div>
+                <div className="font-mono-itm" style={{ fontSize: 9, color: "var(--sidebar-text2)", letterSpacing: 1.5, marginTop: 3 }}>KORXONA TIZIMI</div>
               </div>
             </div>
           </div>
+
+          {/* User */}
+          <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--sidebar-border)", display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{
+              width: 34, height: 34, borderRadius: "50%",
+              background: "linear-gradient(135deg,#1a6eeb,#0d3e9e)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontWeight: 700, fontSize: 13, color: "#fff", flexShrink: 0,
+              border: "2px solid rgba(26,110,235,0.4)",
+            }} className="font-head-itm">AK</div>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#e8f0fa" }}>Akbar Karimov</div>
+              <div className="font-mono-itm" style={{ fontSize: 10, color: "#6ab0ff", letterSpacing: 0.5 }}>Bo&apos;lim boshlig&apos;i</div>
+            </div>
+          </div>
+
+          {/* Live strip */}
+          <div style={{
+            background: "rgba(26,110,235,0.12)", borderBottom: "1px solid var(--sidebar-border)",
+            padding: "8px 14px", display: "flex", alignItems: "center", gap: 8,
+            overflow: "hidden",
+          }}>
+            <div style={{
+              width: 7, height: 7, borderRadius: "50%", background: "#4da6ff", flexShrink: 0,
+              animation: "pulse 1.6s infinite",
+            }} />
+            <div className="font-mono-itm" style={{ fontSize: 10, color: "#6ab0ff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              Sexga: M4 bolt yetib keldi · 11:42
+            </div>
+          </div>
+          <style>{`@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.7)} }`}</style>
+
+          {/* Nav */}
+          <nav style={{ padding: "10px 0", flex: 1 }}>
+            {navGroups.map((group) => (
+              <div key={group.label} style={{ marginBottom: 2 }}>
+                <div className="font-mono-itm" style={{ fontSize: 9, letterSpacing: 2, color: "var(--sidebar-text2)", padding: "8px 20px 4px", textTransform: "uppercase" }}>
+                  {group.label}
+                </div>
+                {group.items.map((item) => {
+                  const isActive = pathname === item.href;
+                  return (
+                    <Link key={item.href} href={item.href} style={{
+                      display: "flex", alignItems: "center", gap: 10,
+                      padding: "9px 20px",
+                      color: isActive ? "#7dbfff" : "var(--sidebar-text)",
+                      background: isActive ? "var(--sidebar-active)" : "transparent",
+                      textDecoration: "none", fontSize: 13, fontWeight: 500,
+                      position: "relative", transition: "all 0.14s",
+                      borderLeft: isActive ? "3px solid var(--accent)" : "3px solid transparent",
+                    }}
+                    onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "var(--sidebar-hover)"; (e.currentTarget as HTMLElement).style.color = "#e8f0fa"; } }}
+                    onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "var(--sidebar-text)"; } }}
+                    >
+                      <span style={{ opacity: isActive ? 1 : 0.75 }}>
+                        <NavIcon type={item.icon} />
+                      </span>
+                      {item.name}
+                      {item.badge && (
+                        <span style={{
+                          marginLeft: "auto", minWidth: 19, height: 19, borderRadius: 9,
+                          background: item.badgeWarn ? "var(--warn)" : "var(--danger)",
+                          color: "#fff", fontSize: 10, fontWeight: 700,
+                          display: "flex", alignItems: "center", justifyContent: "center", padding: "0 5px",
+                          fontFamily: "var(--font-mono)",
+                        }}>{item.badge}</span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            ))}
+          </nav>
         </aside>
 
-        {/* --- MAIN CONTENT AREA --- */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          
-          {/* HEADER */}
-          <header className="h-20 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-10 sticky top-0 z-10">
-            <div>
-              <h2 className="text-xl font-bold text-slate-800">
-                {navItems.find(item => item.href === pathname)?.name || "Ishlab Chiqarishning Umumiy Ko'rinishi"}
-              </h2>
-              <p className="text-xs text-slate-400 font-medium">Xush kelibsiz, ishlab chiqarish oqimini kuzatib boring.</p>
-            </div>
+        {/* ===== MAIN ===== */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-3">
-                <button className="relative p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors">
-                  <Bell size={22} />
-                  <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-                </button>
-              </div>
-              <div className="h-8 w-px bg-slate-200"></div>
-              <div className="flex flex-col items-end">
-                <span className="text-xs font-bold text-slate-700">Mart 2026</span>
-                <span className="text-[10px] text-slate-400 uppercase font-bold tracking-tighter">Holati: Jonli</span>
-              </div>
+          {/* Topbar */}
+          <div style={{
+            height: 58, minHeight: 58,
+            background: "var(--bg2)", borderBottom: "1px solid var(--border)",
+            display: "flex", alignItems: "center", padding: "0 26px", gap: 14,
+            boxShadow: "var(--shadow)",
+          }}>
+            <div className="font-head-itm" style={{ fontSize: 20, fontWeight: 700, letterSpacing: 0.5, color: "var(--text)", textTransform: "uppercase" }}>
+              {pageTitle}
             </div>
-          </header>
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+              <div className="search-wrap">
+                <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input className="search-input" placeholder="Qidirish..." />
+              </div>
+              <Link href="/notifications" className="btn btn-ghost" title="Bildirishnomalar" style={{ textDecoration: "none" }}>
+                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              </Link>
+            </div>
+          </div>
 
-          {/* PAGE CONTENT */}
-          <main className="flex-1 overflow-y-auto bg-[#F8FAFC]">
-            <div className="p-10 max-w-7xl mx-auto">
+          {/* Page content */}
+          <main style={{ flex: 1, overflowY: "auto", background: "var(--bg)" }}>
+            <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
               {children}
             </div>
           </main>
-          
-        </div>
 
+        </div>
       </body>
     </html>
   );
