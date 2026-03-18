@@ -102,14 +102,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const user = useAuthStore((s) => s.user);
   const logoutAction = useAuthStore((s) => s.logout);
   const accessToken = useAuthStore((s) => s.accessToken);
+  const hasHydrated = useAuthStore((s) => s._hasHydrated);
 
   const isLoginPage = pathname === "/login";
 
   useEffect(() => {
+    if (!hasHydrated) return;
     if (!isLoginPage && !accessToken) {
       router.replace("/login");
     }
-  }, [isLoginPage, accessToken, router]);
+  }, [hasHydrated, isLoginPage, accessToken, router]);
 
   async function handleLogout() {
     await logoutAction();
@@ -128,7 +130,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           ? { background: "var(--bg)", color: "var(--text)" }
           : { display: "flex", height: "100vh", overflow: "hidden", background: "var(--bg)", color: "var(--text)" }
       }>
-      {isLoginPage ? children : !accessToken ? null : (<>
+      {isLoginPage ? children : !hasHydrated ? null : !accessToken ? null : (<>
 
         {/* ===== SIDEBAR ===== */}
         <aside style={{

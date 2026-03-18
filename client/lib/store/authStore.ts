@@ -15,6 +15,8 @@ export interface User {
 }
 
 interface AuthState {
+  _hasHydrated: boolean;
+  setHasHydrated: (v: boolean) => void;
   accessToken: string | null;
   refreshToken: string | null;
   user: User | null;
@@ -40,6 +42,8 @@ function parseJwt(token: string): Record<string, string> | null {
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
+      _hasHydrated: false,
+      setHasHydrated: (v) => set({ _hasHydrated: v }),
       accessToken: null,
       refreshToken: null,
       user: null,
@@ -49,7 +53,7 @@ export const useAuthStore = create<AuthState>()(
           login,
           password,
         });
-        const { accessToken, refreshToken } = res.data;
+        const { accessToken, refreshToken } = res.data.result;
         const payload = parseJwt(accessToken);
         const user: User = {
           id: payload?.["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"] || "",
@@ -71,6 +75,11 @@ export const useAuthStore = create<AuthState>()(
         set({ accessToken: null, refreshToken: null, user: null });
       },
     }),
-    { name: "itm_auth" }
+    {
+      name: "itm_auth",
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
+    }
   )
 );
