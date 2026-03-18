@@ -81,6 +81,9 @@ function NavIcon({ type }: { type: string }) {
   return null;
 }
 
+// Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
+const readyRoutes = new Set(["/users", "/roles", "/login"]);
+
 const pageTitles: Record<string, string> = {
   "/":              "Dashboard",
   "/notifications": "Bildirishnomalar",
@@ -282,8 +285,30 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
           {/* Page content */}
           <main style={{ flex: 1, overflowY: "auto", background: "var(--bg)" }}>
-            <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
+            <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20, position: "relative" }}>
               {children}
+              {!readyRoutes.has(pathname) && (
+                <div style={{
+                  position: "absolute", inset: 0,
+                  backdropFilter: "blur(6px)",
+                  WebkitBackdropFilter: "blur(6px)",
+                  background: "rgba(10,15,28,0.55)",
+                  display: "flex", flexDirection: "column",
+                  alignItems: "center", justifyContent: "center",
+                  gap: 14, zIndex: 10, borderRadius: 8,
+                }}>
+                  <svg width="48" height="48" fill="none" stroke="#4da6ff" strokeWidth="1.5" viewBox="0 0 24 24" style={{ opacity: 0.85 }}>
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12,6 12,12 16,14"/>
+                  </svg>
+                  <div className="font-head-itm" style={{ fontSize: 26, fontWeight: 800, color: "#e8f0fa", letterSpacing: 3, textTransform: "uppercase" }}>
+                    Tez kunda
+                  </div>
+                  <div className="font-mono-itm" style={{ fontSize: 11, color: "#6ab0ff", letterSpacing: 1.5 }}>
+                    Bu bo&apos;lim hozircha ishlab chiqilmoqda
+                  </div>
+                </div>
+              )}
             </div>
           </main>
 
