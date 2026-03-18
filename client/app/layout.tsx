@@ -3,23 +3,23 @@
 import React, { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { IBM_Plex_Mono, Barlow_Condensed, Barlow } from "next/font/google";
+import { Roboto_Mono, Roboto_Condensed, Roboto } from "next/font/google";
 import "./globals.css";
 import { useAuthStore } from "@/lib/store/authStore";
 
-const ibmPlexMono = IBM_Plex_Mono({
+const robotoMono = Roboto_Mono({
   variable: "--font-mono",
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
 });
 
-const barlowCondensed = Barlow_Condensed({
+const robotoCondensed = Roboto_Condensed({
   variable: "--font-head",
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700", "800"],
 });
 
-const barlow = Barlow({
+const roboto = Roboto({
   variable: "--font-body",
   subsets: ["latin"],
   weight: ["300", "400", "500", "600"],
@@ -127,7 +127,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     : "??";
 
   return (
-    <html lang="uz" className={`${ibmPlexMono.variable} ${barlowCondensed.variable} ${barlow.variable}`}>
+    <html lang="uz" className={`${robotoMono.variable} ${robotoCondensed.variable} ${roboto.variable}`}>
       <body className="font-body-itm" style={
         isLoginPage
           ? { background: "var(--bg)", color: "var(--text)" }
