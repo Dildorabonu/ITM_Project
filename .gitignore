@@ -14,3 +14,9 @@ server/alembic/versions/__pycache__/
 # Node
 client/node_modules/
 server/node_modules/
+
+# .NET
+Back/**/bin/
+Back/**/obj/
+Back/.vs/
+Back/**/*.user
