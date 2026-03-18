@@ -14,6 +14,8 @@ public static class ApplicationDependencyInjection
 
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IRoleService, RoleService>();
+        services.AddScoped<IDepartmentService, DepartmentService>();
 
         return services;
     }

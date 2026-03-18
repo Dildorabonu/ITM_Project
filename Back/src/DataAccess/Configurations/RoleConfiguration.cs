@@ -25,5 +25,13 @@ public class RoleConfiguration : IEntityTypeConfiguration<Role>
             .WithOne(u => u.Role)
             .HasForeignKey(u => u.RoleId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasData(new Role
+        {
+            Id = new Guid("00000000-0000-0000-0000-000000000001"),
+            Name = "SuperAdmin",
+            Description = "Super Administrator with full access",
+            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+        });
     }
 }
