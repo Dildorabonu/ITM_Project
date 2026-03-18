@@ -36,7 +36,7 @@ public class AuthService : IAuthService
             .Select(rp => rp.Permission.Name)
             .ToList() ?? [];
 
-        var (accessToken, accessExpiresAt) = TokenHelper.GenerateToken(
+        var (accessToken, _) = TokenHelper.GenerateToken(
             user.Id, user.Login, roleName, _jwtOptions, permissions);
 
         var refreshTokenValue = TokenHelper.GenerateRefreshToken();
@@ -58,12 +58,7 @@ public class AuthService : IAuthService
         return ApiResult<AuthResponseDto>.Success(new AuthResponseDto
         {
             AccessToken = accessToken,
-            AccessTokenExpiresAt = accessExpiresAt,
-            RefreshToken = refreshTokenValue,
-            RefreshTokenExpiresAt = refreshExpiresAt,
-            UserId = user.Id,
-            Username = user.Login,
-            Role = roleName
+            RefreshToken = refreshTokenValue
         });
     }
 
@@ -89,7 +84,7 @@ public class AuthService : IAuthService
             .Select(rp => rp.Permission.Name)
             .ToList() ?? [];
 
-        var (accessToken, accessExpiresAt) = TokenHelper.GenerateToken(
+        var (accessToken, _) = TokenHelper.GenerateToken(
             token.User.Id, token.User.Login, roleName, _jwtOptions, permissions);
 
         var newRefreshTokenValue = TokenHelper.GenerateRefreshToken();
@@ -111,12 +106,7 @@ public class AuthService : IAuthService
         return ApiResult<AuthResponseDto>.Success(new AuthResponseDto
         {
             AccessToken = accessToken,
-            AccessTokenExpiresAt = accessExpiresAt,
-            RefreshToken = newRefreshTokenValue,
-            RefreshTokenExpiresAt = refreshExpiresAt,
-            UserId = token.User.Id,
-            Username = token.User.Login,
-            Role = roleName
+            RefreshToken = newRefreshTokenValue
         });
     }
 

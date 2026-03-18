@@ -41,10 +41,10 @@ public class UserService : IUserService
         return ApiResult<UserResponseDto>.Success(MapToResponse(user));
     }
 
-    public async Task<ApiResult<UserResponseDto>> CreateAsync(UserCreateDto dto)
+    public async Task<ApiResult<int>> CreateAsync(UserCreateDto dto)
     {
         if (await _context.Users.AnyAsync(u => u.Login == dto.Login))
-            return ApiResult<UserResponseDto>.Failure([$"Login '{dto.Login}' is already taken."]);
+            return ApiResult<int>.Failure([$"Login '{dto.Login}' is already taken."]);
 
         var user = new User
         {
@@ -62,26 +62,20 @@ public class UserService : IUserService
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
-        await _context.Entry(user).Reference(u => u.Role).LoadAsync();
-        await _context.Entry(user).Reference(u => u.Department).LoadAsync();
-
-        return ApiResult<UserResponseDto>.Success(MapToResponse(user));
+        return ApiResult<int>.Success(201);
     }
 
-    public async Task<ApiResult<UserResponseDto>> UpdateAsync(Guid id, UserUpdateDto dto)
+    public async Task<ApiResult<int>> UpdateAsync(Guid id, UserUpdateDto dto)
     {
-        var user = await _context.Users
-            .Include(u => u.Role)
-            .Include(u => u.Department)
-            .FirstOrDefaultAsync(u => u.Id == id);
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
 
         if (user is null)
-            return ApiResult<UserResponseDto>.Failure([$"User with id '{id}' not found."]);
+            return ApiResult<int>.Failure([$"User with id '{id}' not found."]);
 
         if (dto.Login is not null && dto.Login != user.Login)
         {
             if (await _context.Users.AnyAsync(u => u.Login == dto.Login))
-                return ApiResult<UserResponseDto>.Failure([$"Login '{dto.Login}' is already taken."]);
+                return ApiResult<int>.Failure([$"Login '{dto.Login}' is already taken."]);
 
             user.Login = dto.Login;
         }
@@ -95,23 +89,20 @@ public class UserService : IUserService
 
         await _context.SaveChangesAsync();
 
-        await _context.Entry(user).Reference(u => u.Role).LoadAsync();
-        await _context.Entry(user).Reference(u => u.Department).LoadAsync();
-
-        return ApiResult<UserResponseDto>.Success(MapToResponse(user));
+        return ApiResult<int>.Success(200);
     }
 
-    public async Task<ApiResult<bool>> DeleteAsync(Guid id)
+    public async Task<ApiResult<int>> DeleteAsync(Guid id)
     {
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
 
         if (user is null)
-            return ApiResult<bool>.Failure([$"User with id '{id}' not found."]);
+            return ApiResult<int>.Failure([$"User with id '{id}' not found."]);
 
         _context.Users.Remove(user);
         await _context.SaveChangesAsync();
 
-        return ApiResult<bool>.Success(true);
+        return ApiResult<int>.Success(200);
     }
 
     private static UserResponseDto MapToResponse(User user) => new()
