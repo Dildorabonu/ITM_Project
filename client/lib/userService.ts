@@ -120,6 +120,15 @@ export const roleService = {
   delete: async (id: string): Promise<void> => {
     await api.delete(`/api/role/${id}`);
   },
+
+  getPermissions: async (id: string): Promise<string[]> => {
+    const res = await api.get(`/api/role/${id}/permissions`);
+    return res.data?.result ?? res.data ?? [];
+  },
+
+  setPermissions: async (id: string, actionIds: string[]): Promise<void> => {
+    await api.post(`/api/role/${id}/permissions`, { actionIds });
+  },
 };
 
 export const permissionService = {

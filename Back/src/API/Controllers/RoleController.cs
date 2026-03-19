@@ -63,4 +63,22 @@ public class RoleController : ControllerBase
 
         return StatusCode(result.StatusCode);
     }
+
+    [HttpGet("{id:guid}/permissions")]
+    public async Task<IActionResult> GetPermissions(Guid id)
+    {
+        var result = await _roleService.GetPermissionsAsync(id);
+        return StatusCode(result.StatusCode, result);
+    }
+
+    [HttpPost("{id:guid}/permissions")]
+    public async Task<IActionResult> SetPermissions(Guid id, [FromBody] SetPermissionsDto dto)
+    {
+        var result = await _roleService.SetPermissionsAsync(id, dto);
+
+        if (!result.Succeeded)
+            return StatusCode(result.StatusCode, result);
+
+        return StatusCode(result.StatusCode);
+    }
 }

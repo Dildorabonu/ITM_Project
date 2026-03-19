@@ -90,6 +90,41 @@ public class RoleService : IRoleService
         return ApiResult<object>.Success();
     }
 
+    public async Task<ApiResult<IEnumerable<Guid>>> GetPermissionsAsync(Guid id)
+    {
+        if (!await _context.Roles.AnyAsync(r => r.Id == id))
+            return ApiResult<IEnumerable<Guid>>.Failure([$"Role with id '{id}' not found."], statusCode: 404);
+
+        var permissionIds = await _context.RolePermissions
+            .AsNoTracking()
+            .Where(rp => rp.RoleId == id)
+            .Select(rp => rp.PermissionId)
+            .ToListAsync();
+
+        return ApiResult<IEnumerable<Guid>>.Success(permissionIds);
+    }
+
+    public async Task<ApiResult<object>> SetPermissionsAsync(Guid id, SetPermissionsDto dto)
+    {
+        if (!await _context.Roles.AnyAsync(r => r.Id == id))
+            return ApiResult<object>.Failure([$"Role with id '{id}' not found."], statusCode: 404);
+
+        var existing = await _context.RolePermissions
+            .Where(rp => rp.RoleId == id)
+            .ToListAsync();
+
+        _context.RolePermissions.RemoveRange(existing);
+
+        var newEntries = dto.ActionIds
+            .Distinct()
+            .Select(permId => new RolePermission { RoleId = id, PermissionId = permId });
+
+        _context.RolePermissions.AddRange(newEntries);
+        await _context.SaveChangesAsync();
+
+        return ApiResult<object>.Success();
+    }
+
     private static RoleResponseDto MapToResponse(Role role) => new()
     {
         Id = role.Id,
