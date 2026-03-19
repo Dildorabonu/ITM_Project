@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Roboto_Mono, Roboto_Condensed, Roboto } from "next/font/google";
+import { Roboto_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { useAuthStore } from "@/lib/store/authStore";
 
@@ -13,16 +13,10 @@ const robotoMono = Roboto_Mono({
   weight: ["300", "400", "500", "600", "700"],
 });
 
-const robotoCondensed = Roboto_Condensed({
-  variable: "--font-head",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700", "800"],
-});
-
-const roboto = Roboto({
-  variable: "--font-body",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600"],
 });
 
 type NavItem = { name: string; href: string; icon: string; badge?: number; badgeWarn?: boolean };
@@ -109,6 +103,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   const isLoginPage = pathname === "/login";
 
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const toggleGroup = (label: string) =>
+    setCollapsedGroups((prev) => ({ ...prev, [label]: !prev[label] }));
+
   useEffect(() => {
     if (!hasHydrated) return;
     if (!isLoginPage && !accessToken) {
@@ -127,7 +125,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     : "??";
 
   return (
-    <html lang="uz" className={`${robotoMono.variable} ${robotoCondensed.variable} ${roboto.variable}`}>
+    <html lang="uz" className={`${robotoMono.variable} ${inter.variable}`}>
       <body className="font-body-itm" style={
         isLoginPage
           ? { background: "var(--bg)", color: "var(--text)" }
@@ -137,10 +135,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         {/* ===== SIDEBAR ===== */}
         <aside style={{
-          width: 248, minWidth: 248,
+          width: 280, minWidth: 280,
           background: "var(--sidebar-bg)",
           display: "flex", flexDirection: "column",
-          overflowY: "auto", overflowX: "hidden",
+          overflowY: "auto", overflowX: "hidden", scrollbarGutter: "stable",
           boxShadow: "2px 0 16px rgba(0,0,0,0.18)",
         }}>
           {/* Logo */}
@@ -157,8 +155,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </svg>
               </div>
               <div>
-                <div className="font-head-itm" style={{ fontSize: 22, fontWeight: 800, letterSpacing: 2, color: "#fff", lineHeight: 1 }}>OMBORPRO</div>
-                <div className="font-mono-itm" style={{ fontSize: 9, color: "var(--sidebar-text2)", letterSpacing: 1.5, marginTop: 3 }}>KORXONA TIZIMI</div>
+                <div className="font-head-itm" style={{ fontSize: 25, fontWeight: 800, letterSpacing: 2, color: "var(--text)", lineHeight: 1 }}>OMBORPRO</div>
+                <div className="font-mono-itm" style={{ fontSize: 12, color: "var(--sidebar-text2)", letterSpacing: 1.5, marginTop: 3 }}>KORXONA TIZIMI</div>
               </div>
             </div>
           </div>
@@ -169,14 +167,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               width: 34, height: 34, borderRadius: "50%",
               background: "linear-gradient(135deg,#1a6eeb,#0d3e9e)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontWeight: 700, fontSize: 13, color: "#fff", flexShrink: 0,
+              fontWeight: 700, fontSize: 16, color: "#fff", flexShrink: 0,
               border: "2px solid rgba(26,110,235,0.4)",
             }} className="font-head-itm">{initials}</div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#e8f0fa", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {user?.login || "—"}
               </div>
-              <div className="font-mono-itm" style={{ fontSize: 10, color: "#6ab0ff", letterSpacing: 0.5 }}>
+              <div className="font-mono-itm" style={{ fontSize: 13, color: "var(--accent)", letterSpacing: 0.5 }}>
                 {user?.role || ""}
               </div>
             </div>
@@ -200,62 +198,81 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </button>
           </div>
 
-          {/* Live strip */}
-          <div style={{
-            background: "rgba(26,110,235,0.12)", borderBottom: "1px solid var(--sidebar-border)",
-            padding: "8px 14px", display: "flex", alignItems: "center", gap: 8,
-            overflow: "hidden",
-          }}>
-            <div style={{
-              width: 7, height: 7, borderRadius: "50%", background: "#4da6ff", flexShrink: 0,
-              animation: "pulse 1.6s infinite",
-            }} />
-            <div className="font-mono-itm" style={{ fontSize: 10, color: "#6ab0ff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              Sexga: M4 bolt yetib keldi · 11:42
-            </div>
-          </div>
-          <style>{`@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.7)} }`}</style>
+
+          <style>{`
+            @keyframes navItemIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
+            .nav-item .nav-border { clip-path: inset(50% 0); transition: clip-path 0.3s ease; background: var(--accent); }
+            .nav-item:hover .nav-border { clip-path: inset(0% 0); }
+          `}</style>
 
           {/* Nav */}
           <nav style={{ padding: "10px 0", flex: 1 }}>
-            {navGroups.map((group) => (
-              <div key={group.label} style={{ marginBottom: 2 }}>
-                <div className="font-mono-itm" style={{ fontSize: 9, letterSpacing: 2, color: "var(--sidebar-text2)", padding: "8px 20px 4px", textTransform: "uppercase" }}>
-                  {group.label}
-                </div>
-                {group.items.map((item) => {
-                  const isActive = pathname === item.href;
-                  return (
-                    <Link key={item.href} href={item.href} style={{
-                      display: "flex", alignItems: "center", gap: 10,
-                      padding: "9px 20px",
-                      color: isActive ? "#7dbfff" : "var(--sidebar-text)",
-                      background: isActive ? "var(--sidebar-active)" : "transparent",
-                      textDecoration: "none", fontSize: 13, fontWeight: 500,
-                      position: "relative", transition: "all 0.14s",
-                      borderLeft: isActive ? "3px solid var(--accent)" : "3px solid transparent",
+            {navGroups.map((group) => {
+              const isCollapsed = !!collapsedGroups[group.label];
+              return (
+                <div key={group.label} style={{ marginBottom: 2 }}>
+                  <div
+                    className="font-mono-itm nav-item"
+                    onClick={() => toggleGroup(group.label)}
+                    style={{
+                      fontSize: 14, letterSpacing: 2, color: "var(--sidebar-text)", fontWeight: 700,
+                      padding: "8px 12px 4px", textTransform: "uppercase",
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      cursor: "pointer", userSelect: "none",
+                      margin: "0 8px", borderRadius: 8, position: "relative",
                     }}
-                    onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "var(--sidebar-hover)"; (e.currentTarget as HTMLElement).style.color = "#e8f0fa"; } }}
-                    onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "var(--sidebar-text)"; } }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "linear-gradient(to right, transparent 6px, var(--sidebar-hover) 6px)"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                  >
+                    <span className="nav-border" style={{ position: "absolute", left: 6, top: 0, bottom: 0, width: 3 }} />
+                    {group.label}
+                    <svg
+                      width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
+                      style={{ transition: "transform 0.2s", transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)", flexShrink: 0 }}
                     >
-                      <span style={{ opacity: isActive ? 1 : 0.75 }}>
-                        <NavIcon type={item.icon} />
-                      </span>
-                      {item.name}
-                      {item.badge && (
-                        <span style={{
-                          marginLeft: "auto", minWidth: 19, height: 19, borderRadius: 9,
-                          background: item.badgeWarn ? "var(--warn)" : "var(--danger)",
-                          color: "#fff", fontSize: 10, fontWeight: 700,
-                          display: "flex", alignItems: "center", justifyContent: "center", padding: "0 5px",
-                          fontFamily: "var(--font-mono)",
-                        }}>{item.badge}</span>
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
-            ))}
+                      <polyline points="6,9 12,15 18,9"/>
+                    </svg>
+                  </div>
+                  {!isCollapsed && group.items.map((item, idx) => {
+                    const isActive = pathname === item.href;
+                    return (
+                      <Link key={item.href} href={item.href} className="nav-item" style={{
+                        display: "flex", alignItems: "center", gap: 10,
+                        padding: "9px 12px 9px 32px",
+                        color: isActive ? "#1a6eeb" : "var(--sidebar-text)",
+                        background: isActive ? "linear-gradient(to right, transparent 22px, var(--sidebar-active) 22px)" : "transparent",
+                        textDecoration: "none", fontSize: 16, fontWeight: 400,
+                        whiteSpace: "nowrap", overflow: "hidden",
+                        position: "relative", transition: "all 0.14s",
+                        margin: "0 8px", borderRadius: 8,
+                        animation: "navItemIn 0.2s ease both",
+                        animationDelay: `${idx * 60}ms`,
+                      }}
+                      onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "linear-gradient(to right, transparent 22px, var(--sidebar-hover) 22px)"; } }}
+                      onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "transparent"; } }}
+                      >
+                        <span className="nav-border" style={{
+                          position: "absolute", left: 22, top: 0, bottom: 0, width: 3,
+                        }} />
+                        <span style={{ opacity: isActive ? 1 : 0.75 }}>
+                          <NavIcon type={item.icon} />
+                        </span>
+                        {item.name}
+                        {item.badge && (
+                          <span style={{
+                            marginLeft: "auto", minWidth: 19, height: 19, borderRadius: 9,
+                            background: item.badgeWarn ? "var(--warn)" : "var(--danger)",
+                            color: "#fff", fontSize: 13, fontWeight: 700,
+                            display: "flex", alignItems: "center", justifyContent: "center", padding: "0 5px",
+                            fontFamily: "var(--font-mono)",
+                          }}>{item.badge}</span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              );
+            })}
           </nav>
         </aside>
 
@@ -269,7 +286,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             display: "flex", alignItems: "center", padding: "0 26px", gap: 14,
             boxShadow: "var(--shadow)",
           }}>
-            <div className="font-head-itm" style={{ fontSize: 20, fontWeight: 700, letterSpacing: 0.5, color: "var(--text)", textTransform: "uppercase" }}>
+            <div className="font-head-itm" style={{ fontSize: 14, fontWeight: 700, letterSpacing: 0.5, color: "var(--text)", textTransform: "uppercase" }}>
               {pageTitle}
             </div>
             <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>

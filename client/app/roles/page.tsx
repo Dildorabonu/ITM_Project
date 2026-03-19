@@ -9,25 +9,20 @@ import {
   type RoleCreatePayload,
 } from "@/lib/userService";
 
-const ROLE_COLORS = [
-  "var(--purple)",
-  "var(--accent)",
-  "#1558c7",
-  "var(--warn)",
-  "var(--success)",
-  "var(--danger)",
-];
-
 export default function RolesPage() {
   const [roles, setRoles] = useState<RoleResponse[]>([]);
   const [permissions, setPermissions] = useState<PermissionModuleResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
-  // Role modal
+  // Role modal (create/edit)
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [editRole, setEditRole] = useState<RoleResponse | null>(null);
   const [roleForm, setRoleForm] = useState<RoleCreatePayload>({ name: "", description: "" });
   const [roleSaving, setRoleSaving] = useState(false);
+
+  // View modal
+  const [viewRole, setViewRole] = useState<RoleResponse | null>(null);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -72,100 +67,174 @@ export default function RolesPage() {
     await fetchAll();
   };
 
+  const filtered = roles.filter(r =>
+    r.name.toLowerCase().includes(search.toLowerCase()) ||
+    (r.description ?? "").toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
     <>
-      <div className="page-header">
-        <div className="ph-title">Rollar</div>
+      {/* Toolbar */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+        <div className="search-wrap" style={{ maxWidth: "none", flex: 1 }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            className="search-input"
+            placeholder="Qidirish"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+
+        <button
+          className="btn-icon"
+          onClick={fetchAll}
+          title="Yangilash"
+          style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="23 4 23 10 17 10" />
+            <polyline points="1 20 1 14 7 14" />
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+          </svg>
+        </button>
+
+        <button
+          className="btn-primary"
+          onClick={openAddRole}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "none", cursor: "pointer" }}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          Yaratish
+        </button>
       </div>
 
-      <div className="two-col">
-        {/* Roles */}
-        <div className="itm-card">
-          <div className="itm-card-header">
-            <div className="icon-bg ib-blue">
-              <svg width="14" height="14" fill="none" stroke="var(--accent)" strokeWidth="2" viewBox="0 0 24 24">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              </svg>
-            </div>
-            <span className="itm-card-title">Rollar Ro&apos;yxati</span>
-            <button className="btn-primary" style={{ marginLeft: "auto", padding: "4px 12px", fontSize: 12 }} onClick={openAddRole}>
-              + Qo&apos;shish
-            </button>
-          </div>
-          <div className="itm-card-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {/* Table */}
+      <div style={{ background: "var(--bg2)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", overflow: "hidden" }}>
+        <table className="itm-table">
+          <thead>
+            <tr>
+              <th style={{ width: 220 }}>Nomi</th>
+              <th>Tavsif</th>
+              <th style={{ textAlign: "right" }}>Amallar</th>
+            </tr>
+          </thead>
+          <tbody>
             {loading ? (
-              <div style={{ color: "var(--text3)", fontSize: 13, textAlign: "center", padding: 20 }}>Yuklanmoqda...</div>
-            ) : roles.length === 0 ? (
-              <div style={{ color: "var(--text3)", fontSize: 13, textAlign: "center", padding: 20 }}>Rollar topilmadi</div>
-            ) : roles.map((r, i) => (
-              <div key={r.id} style={{
-                background: "var(--bg3)", border: "1.5px solid var(--border)",
-                borderRadius: "var(--radius)", padding: 14,
-                borderLeft: `3px solid ${ROLE_COLORS[i % ROLE_COLORS.length]}`,
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                  <span className="role-badge" style={{ background: ROLE_COLORS[i % ROLE_COLORS.length] + "22", color: ROLE_COLORS[i % ROLE_COLORS.length], border: `1px solid ${ROLE_COLORS[i % ROLE_COLORS.length]}44`, borderRadius: 4, padding: "2px 8px", fontSize: 11, fontWeight: 600 }}>
-                    {r.name}
-                  </span>
-                  <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-                    <button className="btn-icon" onClick={() => openEditRole(r)} title="Tahrirlash">
-                      <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              <tr>
+                <td colSpan={3} style={{ textAlign: "center", color: "var(--text3)", padding: 32 }}>
+                  Yuklanmoqda...
+                </td>
+              </tr>
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td colSpan={3} style={{ textAlign: "center", color: "var(--text3)", padding: 32 }}>
+                  Rollar topilmadi
+                </td>
+              </tr>
+            ) : filtered.map(r => (
+              <tr key={r.id}>
+                <td style={{ fontWeight: 600, color: "var(--accent)" }}>{r.name}</td>
+                <td style={{ color: "var(--text2)" }}>{r.description ?? "—"}</td>
+                <td>
+                  <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                    {/* View */}
+                    <button
+                      className="btn-icon"
+                      title="Ko'rish"
+                      onClick={() => setViewRole(r)}
+                      style={{ color: "#0ea5e9", borderColor: "#0ea5e933", background: "#0ea5e912" }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
                     </button>
-                    <button className="btn-icon btn-icon-danger" onClick={() => deleteRole(r.id)} title="O'chirish">
-                      <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                    {/* Edit */}
+                    <button
+                      className="btn-icon"
+                      title="Tahrirlash"
+                      onClick={() => openEditRole(r)}
+                      style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                      </svg>
+                    </button>
+                    {/* Delete */}
+                    <button
+                      className="btn-icon btn-icon-danger"
+                      title="O'chirish"
+                      onClick={() => deleteRole(r.id)}
+                      style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6l-1 14H6L5 6" />
+                        <path d="M10 11v6M14 11v6" />
+                        <path d="M9 6V4h6v2" />
+                      </svg>
                     </button>
                   </div>
-                </div>
-                {r.description && (
-                  <div style={{ fontSize: 12, color: "var(--text2)" }}>{r.description}</div>
-                )}
-              </div>
+                </td>
+              </tr>
             ))}
-          </div>
-        </div>
-
-        {/* Permissions — read-only, grouped by module */}
-        <div className="itm-card">
-          <div className="itm-card-header">
-            <div className="icon-bg ib-blue">
-              <svg width="14" height="14" fill="none" stroke="var(--accent)" strokeWidth="2" viewBox="0 0 24 24">
-                <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
-              </svg>
-            </div>
-            <span className="itm-card-title">Ruxsatlar</span>
-          </div>
-          <div className="itm-card-body" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {loading ? (
-              <div style={{ color: "var(--text3)", fontSize: 13, textAlign: "center", padding: 20 }}>Yuklanmoqda...</div>
-            ) : permissions.length === 0 ? (
-              <div style={{ color: "var(--text3)", fontSize: 13, textAlign: "center", padding: 20 }}>Ruxsatlar topilmadi</div>
-            ) : permissions.map(mod => (
-              <div key={mod.module} style={{
-                background: "var(--bg3)", border: "1.5px solid var(--border)",
-                borderRadius: "var(--radius)", padding: "10px 14px",
-                display: "flex", alignItems: "center", gap: 12,
-              }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text1)", minWidth: 140 }}>
-                  {mod.moduleName}
-                </span>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {mod.actions.map(a => (
-                    <span key={a.id} style={{
-                      fontSize: 11, padding: "2px 8px", borderRadius: 4,
-                      background: "var(--accent)18", color: "var(--accent)",
-                      border: "1px solid var(--accent)33", fontWeight: 500,
-                    }}>
-                      {a.actionName}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+          </tbody>
+        </table>
       </div>
 
-      {/* Role Modal */}
+      {/* View Modal */}
+      {viewRole && (
+        <div className="modal-overlay" onClick={() => setViewRole(null)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <span>Rol ma&apos;lumotlari</span>
+              <button className="modal-close" onClick={() => setViewRole(null)}>✕</button>
+            </div>
+            <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4, textTransform: "uppercase", letterSpacing: 1 }}>Nomi</div>
+                <div style={{ fontWeight: 700, color: "var(--accent)", fontSize: 15 }}>{viewRole.name}</div>
+              </div>
+              {viewRole.description && (
+                <div>
+                  <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4, textTransform: "uppercase", letterSpacing: 1 }}>Tavsif</div>
+                  <div style={{ color: "var(--text2)", fontSize: 13 }}>{viewRole.description}</div>
+                </div>
+              )}
+              {permissions.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>Ruxsatlar</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {permissions.map(mod => (
+                      <div key={mod.module} style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--bg3)", borderRadius: "var(--radius)", padding: "8px 12px", border: "1px solid var(--border)" }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text1)", minWidth: 130 }}>{mod.moduleName}</span>
+                        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                          {mod.actions.map(a => (
+                            <span key={a.id} style={{ fontSize: 11, padding: "2px 7px", borderRadius: 4, background: "var(--accent)18", color: "var(--accent)", border: "1px solid var(--accent)33" }}>
+                              {a.actionName}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setViewRole(null)}>Yopish</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create/Edit Modal */}
       {showRoleModal && (
         <div className="modal-overlay" onClick={() => setShowRoleModal(false)}>
           <div className="modal-box" onClick={e => e.stopPropagation()}>
