@@ -41,7 +41,7 @@ api.interceptors.response.use(
         const res = await axios.post(`${API_URL}/api/auth/refresh`, {
           refreshToken: state.refreshToken,
         });
-        const { accessToken, refreshToken } = res.data;
+        const { accessToken, refreshToken } = res.data.result ?? res.data;
 
         // Update store in localStorage directly
         const stored = JSON.parse(raw);
