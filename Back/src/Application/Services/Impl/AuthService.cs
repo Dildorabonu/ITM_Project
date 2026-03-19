@@ -37,7 +37,7 @@ public class AuthService : IAuthService
             .ToList() ?? [];
 
         var (accessToken, _) = TokenHelper.GenerateToken(
-            user.Id, user.Login, roleName, _jwtOptions, permissions);
+            user.Id, user.Login, roleName, _jwtOptions, user.FirstName, user.LastName, permissions);
 
         var refreshTokenValue = TokenHelper.GenerateRefreshToken();
         var refreshExpiresAt = DateTime.UtcNow.AddDays(_jwtOptions.RefreshTokenExpirationDays);
@@ -85,7 +85,7 @@ public class AuthService : IAuthService
             .ToList() ?? [];
 
         var (accessToken, _) = TokenHelper.GenerateToken(
-            token.User.Id, token.User.Login, roleName, _jwtOptions, permissions);
+            token.User.Id, token.User.Login, roleName, _jwtOptions, token.User.FirstName, token.User.LastName, permissions);
 
         var newRefreshTokenValue = TokenHelper.GenerateRefreshToken();
         var refreshExpiresAt = DateTime.UtcNow.AddDays(_jwtOptions.RefreshTokenExpirationDays);

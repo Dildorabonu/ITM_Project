@@ -5,13 +5,17 @@ import axios from "axios";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://localhost:7270";
 
 // .NET ClaimTypes long names
-const CLAIM_NAME = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name";
-const CLAIM_ROLE = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role";
+const CLAIM_NAME       = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name";
+const CLAIM_ROLE       = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role";
+const CLAIM_GIVEN_NAME = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname";
+const CLAIM_SURNAME    = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname";
 
 export interface User {
   id: string;
   login: string;
   role: string;
+  firstName: string;
+  lastName: string;
 }
 
 interface AuthState {
@@ -59,6 +63,8 @@ export const useAuthStore = create<AuthState>()(
           id: payload?.["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"] || "",
           login: payload?.[CLAIM_NAME] || login,
           role: payload?.[CLAIM_ROLE] || "",
+          firstName: payload?.[CLAIM_GIVEN_NAME] || "",
+          lastName: payload?.[CLAIM_SURNAME] || "",
         };
         set({ accessToken, refreshToken, user });
       },

@@ -10,13 +10,16 @@ public static class TokenHelper
 {
     public static (string Token, DateTime ExpiresAt) GenerateToken(
         Guid userId, string username, string role, JwtOptions jwtOptions,
+        string firstName = "", string lastName = "",
         IEnumerable<string>? permissions = null)
     {
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, userId.ToString()),
             new(ClaimTypes.Name, username),
-            new(ClaimTypes.Role, role)
+            new(ClaimTypes.Role, role),
+            new(ClaimTypes.GivenName, firstName),
+            new(ClaimTypes.Surname, lastName)
         };
 
         if (permissions is not null)

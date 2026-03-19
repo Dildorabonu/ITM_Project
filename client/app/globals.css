@@ -31,17 +31,23 @@
   --sidebar-bg: #ffffff;
   --sidebar-hover: rgba(26,110,235,0.06);
   --sidebar-active: rgba(26,110,235,0.10);
-  --sidebar-text: #3a4a5c;
-  --sidebar-text2: #7890a4;
+  --sidebar-text: #1a2332;
+  --sidebar-text2: #4a5d73;
   --sidebar-border: #dde3ed;
 
   --radius: 6px;
   --radius2: 10px;
   --shadow: 0 2px 12px rgba(26,110,235,0.08);
   --shadow2: 0 4px 24px rgba(0,0,0,0.10);
+
+  --profile-text: #0d2d6b;
+  --profile-text2: #1a5abf;
+  --profile-avatar-bg: linear-gradient(135deg, rgba(168,200,248,0.45) 0%, rgba(91,158,246,0.35) 50%, rgba(37,99,199,0.4) 100%);
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
+
+* { margin: 0; padding: 0; box-sizing: border-box; transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease; }
+a, button, svg, svg * { transition: none; }
 
 body {
   background: var(--bg);
@@ -293,3 +299,18 @@ body {
 .modal-close:hover { color: var(--danger); background: var(--danger-dim); }
 .modal-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
 .modal-footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--border); }
+
+/* ===== THEME TOOLTIP ===== */
+.theme-toggle-wrap { position: relative; }
+.theme-tooltip {
+  position: absolute; top: calc(100% + 8px); right: 0;
+  padding: 5px 10px; border-radius: 6px;
+  font-size: 12px; font-weight: 500; white-space: nowrap;
+  pointer-events: none; font-family: var(--font-mono), monospace;
+  opacity: 0; transform: translateY(-4px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+}
+.theme-toggle-wrap:hover .theme-tooltip {
+  opacity: 1; transform: translateY(0);
+}
