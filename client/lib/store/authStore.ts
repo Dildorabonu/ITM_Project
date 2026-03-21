@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import axios from "axios";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://localhost:7270";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5223";
 
 // .NET ClaimTypes long names
 const CLAIM_NAME       = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name";

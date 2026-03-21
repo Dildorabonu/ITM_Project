@@ -14,6 +14,7 @@ public static class AutomatedMigration
         await context.Database.MigrateAsync();
         await SeedPermissionsAsync(context);
         await SeedSuperAdminUserAsync(context);
+        await SeedSuperAdminPermissionsAsync(context);
     }
 
     private static async System.Threading.Tasks.Task SeedPermissionsAsync(DatabaseContext context)
@@ -66,5 +67,29 @@ public static class AutomatedMigration
             context.Users.Add(superAdminUser);
             await context.SaveChangesAsync();
         }
+    }
+
+    private static async System.Threading.Tasks.Task SeedSuperAdminPermissionsAsync(DatabaseContext context)
+    {
+        var superAdminRoleId = new Guid("00000000-0000-0000-0000-000000000001");
+
+        var allPermissions = await context.Permissions.ToListAsync();
+
+        foreach (var permission in allPermissions)
+        {
+            var exists = await context.RolePermissions
+                .AnyAsync(rp => rp.RoleId == superAdminRoleId && rp.PermissionId == permission.Id);
+
+            if (!exists)
+            {
+                context.RolePermissions.Add(new RolePermission
+                {
+                    RoleId = superAdminRoleId,
+                    PermissionId = permission.Id,
+                });
+            }
+        }
+
+        await context.SaveChangesAsync();
     }
 }
