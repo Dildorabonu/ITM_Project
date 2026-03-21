@@ -50,21 +50,13 @@ public class UserController : ControllerBase
     public async Task<IActionResult> Update(Guid id, [FromBody] UserUpdateDto dto)
     {
         var result = await _userService.UpdateAsync(id, dto);
-
-        if (!result.Succeeded)
-            return BadRequest(result);
-
-        return StatusCode(result.Result, result);
+        return StatusCode(result.Succeeded ? result.Result : result.StatusCode, result);
     }
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {
         var result = await _userService.DeleteAsync(id);
-
-        if (!result.Succeeded)
-            return NotFound(result);
-
-        return StatusCode(result.Result, result);
+        return StatusCode(result.Succeeded ? result.Result : result.StatusCode, result);
     }
 }

@@ -65,8 +65,13 @@ public class UserService : IUserService
         return ApiResult<int>.Success(201);
     }
 
+    private static readonly Guid SuperAdminId = new("00000000-0000-0000-0000-000000000001");
+
     public async Task<ApiResult<int>> UpdateAsync(Guid id, UserUpdateDto dto)
     {
+        if (id == SuperAdminId)
+            return ApiResult<int>.Failure(["SuperAdmin foydalanuvchisini tahrirlash mumkin emas."], statusCode: 403);
+
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
 
         if (user is null)
@@ -94,6 +99,9 @@ public class UserService : IUserService
 
     public async Task<ApiResult<int>> DeleteAsync(Guid id)
     {
+        if (id == SuperAdminId)
+            return ApiResult<int>.Failure(["SuperAdmin foydalanuvchisini o'chirish mumkin emas."], statusCode: 403);
+
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
 
         if (user is null)

@@ -328,11 +328,13 @@ export default function UsersPage() {
                       </span>
                     </td>
                     <td>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <button className="btn btn-sm btn-outline" onClick={() => openEdit(u)}>Tahrirlash</button>
-                        <button className="btn btn-sm" style={{ background: "rgba(220,50,50,0.12)", color: "#e05252", border: "1px solid rgba(220,50,50,0.25)" }}
-                          onClick={() => setDeleteId(u.id)}>O&apos;chirish</button>
-                      </div>
+                      {u.id !== "00000000-0000-0000-0000-000000000001" && (
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button className="btn btn-sm btn-outline" onClick={() => openEdit(u)}>Tahrirlash</button>
+                          <button className="btn btn-sm" style={{ background: "rgba(220,50,50,0.12)", color: "#e05252", border: "1px solid rgba(220,50,50,0.25)" }}
+                            onClick={() => setDeleteId(u.id)}>O&apos;chirish</button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

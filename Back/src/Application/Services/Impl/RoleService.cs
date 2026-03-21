@@ -55,8 +55,13 @@ public class RoleService : IRoleService
         return ApiResult<object>.Success(statusCode: 201);
     }
 
+    private static readonly Guid SuperAdminRoleId = new("00000000-0000-0000-0000-000000000001");
+
     public async Task<ApiResult<object>> UpdateAsync(Guid id, RoleUpdateDto dto)
     {
+        if (id == SuperAdminRoleId)
+            return ApiResult<object>.Failure(["SuperAdmin rolini tahrirlash mumkin emas."], statusCode: 403);
+
         var role = await _context.Roles.FirstOrDefaultAsync(r => r.Id == id);
 
         if (role is null)
@@ -79,6 +84,9 @@ public class RoleService : IRoleService
 
     public async Task<ApiResult<object>> DeleteAsync(Guid id)
     {
+        if (id == SuperAdminRoleId)
+            return ApiResult<object>.Failure(["SuperAdmin rolini o'chirish mumkin emas."], statusCode: 403);
+
         var role = await _context.Roles.FirstOrDefaultAsync(r => r.Id == id);
 
         if (role is null)
@@ -106,6 +114,9 @@ public class RoleService : IRoleService
 
     public async Task<ApiResult<object>> SetPermissionsAsync(Guid id, SetPermissionsDto dto)
     {
+        if (id == SuperAdminRoleId)
+            return ApiResult<object>.Failure(["SuperAdmin rolining ruxsatlarini o'zgartirish mumkin emas."], statusCode: 403);
+
         if (!await _context.Roles.AnyAsync(r => r.Id == id))
             return ApiResult<object>.Failure([$"Role with id '{id}' not found."], statusCode: 404);
 

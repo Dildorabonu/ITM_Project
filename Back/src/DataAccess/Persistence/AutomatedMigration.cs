@@ -2,6 +2,7 @@ using Core.Entities;
 using Core.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using System.Linq;
 
 namespace DataAccess.Persistence;
 
@@ -22,6 +23,22 @@ public static class AutomatedMigration
         var modules = Enum.GetValues<PermissionModule>();
         var actions = Enum.GetValues<PermissionAction>();
 
+        // Eski, endi ishlatilmaydigan permission'larni o'chirish
+        var validModules = modules.ToList();
+        var validActions = actions.ToList();
+
+        var allExisting = await context.Permissions.ToListAsync();
+        var outdatedPermissions = allExisting
+            .Where(p => !validModules.Contains(p.Module) || !validActions.Contains(p.Action))
+            .ToList();
+
+        if (outdatedPermissions.Count > 0)
+        {
+            context.Permissions.RemoveRange(outdatedPermissions);
+            await context.SaveChangesAsync();
+        }
+
+        // Yangi permission'larni qo'shish
         foreach (var module in modules)
         {
             foreach (var action in actions)
