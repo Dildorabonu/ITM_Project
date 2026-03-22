@@ -1,3 +1,4 @@
+using API.Authorization;
 using Application.DTOs.Roles;
 using Application.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -17,6 +18,7 @@ public class RoleController : ControllerBase
         _roleService = roleService;
     }
 
+    [HasPermission("Roles.View")]
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
@@ -24,6 +26,7 @@ public class RoleController : ControllerBase
         return Ok(result);
     }
 
+    [HasPermission("Roles.View")]
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id)
     {
@@ -31,6 +34,7 @@ public class RoleController : ControllerBase
         return StatusCode(result.StatusCode, result);
     }
 
+    [HasPermission("Roles.Create")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] RoleCreateDto dto)
     {
@@ -42,6 +46,7 @@ public class RoleController : ControllerBase
         return StatusCode(result.StatusCode);
     }
 
+    [HasPermission("Roles.Update")]
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] RoleUpdateDto dto)
     {
@@ -53,6 +58,7 @@ public class RoleController : ControllerBase
         return StatusCode(result.StatusCode);
     }
 
+    [HasPermission("Roles.Delete")]
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {
@@ -64,6 +70,7 @@ public class RoleController : ControllerBase
         return StatusCode(result.StatusCode);
     }
 
+    [HasPermission("Roles.View")]
     [HttpGet("{id:guid}/permissions")]
     public async Task<IActionResult> GetPermissions(Guid id)
     {
@@ -71,6 +78,7 @@ public class RoleController : ControllerBase
         return StatusCode(result.StatusCode, result);
     }
 
+    [HasPermission("Roles.Update")]
     [HttpPost("{id:guid}/permissions")]
     public async Task<IActionResult> SetPermissions(Guid id, [FromBody] SetPermissionsDto dto)
     {

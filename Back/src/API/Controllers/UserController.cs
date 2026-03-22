@@ -1,3 +1,4 @@
+using API.Authorization;
 using Application.DTOs.Users;
 using Application.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -17,6 +18,7 @@ public class UserController : ControllerBase
         _userService = userService;
     }
 
+    [HasPermission("Users.View")]
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
@@ -24,6 +26,7 @@ public class UserController : ControllerBase
         return Ok(result);
     }
 
+    [HasPermission("Users.View")]
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id)
     {
@@ -35,6 +38,7 @@ public class UserController : ControllerBase
         return Ok(result);
     }
 
+    [HasPermission("Users.Create")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] UserCreateDto dto)
     {
@@ -46,6 +50,7 @@ public class UserController : ControllerBase
         return StatusCode(result.Result, result);
     }
 
+    [HasPermission("Users.Update")]
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UserUpdateDto dto)
     {
@@ -53,6 +58,7 @@ public class UserController : ControllerBase
         return StatusCode(result.Succeeded ? result.Result : result.StatusCode, result);
     }
 
+    [HasPermission("Users.Delete")]
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {

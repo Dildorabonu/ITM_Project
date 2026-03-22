@@ -16,6 +16,7 @@ export interface User {
   role: string;
   firstName: string;
   lastName: string;
+  permissions: string[];
 }
 
 interface AuthState {
@@ -26,9 +27,10 @@ interface AuthState {
   user: User | null;
   login: (credentials: { login: string; password: string }) => Promise<void>;
   logout: () => Promise<void>;
+  hasPermission: (permission: string) => boolean;
 }
 
-function parseJwt(token: string): Record<string, string> | null {
+function parseJwt(token: string): Record<string, unknown> | null {
   try {
     const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
     const json = decodeURIComponent(
@@ -41,6 +43,13 @@ function parseJwt(token: string): Record<string, string> | null {
   } catch {
     return null;
   }
+}
+
+function extractPermissions(payload: Record<string, unknown>): string[] {
+  const raw = payload["perm"];
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.map(String);
+  return [String(raw)];
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -60,11 +69,12 @@ export const useAuthStore = create<AuthState>()(
         const { accessToken, refreshToken } = res.data.result;
         const payload = parseJwt(accessToken);
         const user: User = {
-          id: payload?.["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"] || "",
-          login: payload?.[CLAIM_NAME] || login,
-          role: payload?.[CLAIM_ROLE] || "",
-          firstName: payload?.[CLAIM_GIVEN_NAME] || "",
-          lastName: payload?.[CLAIM_SURNAME] || "",
+          id: (payload?.["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"] as string) || "",
+          login: (payload?.[CLAIM_NAME] as string) || login,
+          role: (payload?.[CLAIM_ROLE] as string) || "",
+          firstName: (payload?.[CLAIM_GIVEN_NAME] as string) || "",
+          lastName: (payload?.[CLAIM_SURNAME] as string) || "",
+          permissions: payload ? extractPermissions(payload) : [],
         };
         set({ accessToken, refreshToken, user });
       },
@@ -79,6 +89,11 @@ export const useAuthStore = create<AuthState>()(
           }
         }
         set({ accessToken: null, refreshToken: null, user: null });
+      },
+
+      hasPermission: (permission: string) => {
+        const { user } = get();
+        return user?.permissions.includes(permission) ?? false;
       },
     }),
     {

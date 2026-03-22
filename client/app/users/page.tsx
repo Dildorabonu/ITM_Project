@@ -11,6 +11,7 @@ import {
   type UserCreatePayload,
   type UserUpdatePayload,
 } from "@/lib/userService";
+import { useAuthStore } from "@/lib/store/authStore";
 
 function getInitials(firstName: string, lastName: string) {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
@@ -138,6 +139,11 @@ function UserModal({ title, onClose, onSubmit, loading, form, setForm, roles, de
 const emptyForm = { firstName: "", lastName: "", login: "", password: "", roleId: "", departmentId: "", isActive: true };
 
 export default function UsersPage() {
+  const hasPermission = useAuthStore(s => s.hasPermission);
+  const canCreate = hasPermission("Users.Create");
+  const canUpdate = hasPermission("Users.Update");
+  const canDelete = hasPermission("Users.Delete");
+
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [filtered, setFiltered] = useState<UserResponse[]>([]);
   const [search, setSearch] = useState("");
@@ -275,10 +281,12 @@ export default function UsersPage() {
           <input className="search-input" placeholder="Qidirish..."
             value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <button className="btn btn-primary" style={{ marginLeft: "auto" }} onClick={openCreate}>
-          <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Yangi Foydalanuvchi
-        </button>
+        {canCreate && (
+          <button className="btn btn-primary" style={{ marginLeft: "auto" }} onClick={openCreate}>
+            <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Yangi Foydalanuvchi
+          </button>
+        )}
       </div>
 
       <div className="itm-card">
@@ -328,11 +336,15 @@ export default function UsersPage() {
                       </span>
                     </td>
                     <td>
-                      {u.id !== "00000000-0000-0000-0000-000000000001" && (
+                      {u.id !== "00000000-0000-0000-0000-000000000001" && (canUpdate || canDelete) && (
                         <div style={{ display: "flex", gap: 6 }}>
-                          <button className="btn btn-sm btn-outline" onClick={() => openEdit(u)}>Tahrirlash</button>
-                          <button className="btn btn-sm" style={{ background: "rgba(220,50,50,0.12)", color: "#e05252", border: "1px solid rgba(220,50,50,0.25)" }}
-                            onClick={() => setDeleteId(u.id)}>O&apos;chirish</button>
+                          {canUpdate && (
+                            <button className="btn btn-sm btn-outline" onClick={() => openEdit(u)}>Tahrirlash</button>
+                          )}
+                          {canDelete && (
+                            <button className="btn btn-sm" style={{ background: "rgba(220,50,50,0.12)", color: "#e05252", border: "1px solid rgba(220,50,50,0.25)" }}
+                              onClick={() => setDeleteId(u.id)}>O&apos;chirish</button>
+                          )}
                         </div>
                       )}
                     </td>

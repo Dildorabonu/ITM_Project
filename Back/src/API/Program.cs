@@ -1,8 +1,10 @@
 using System.Text;
+using API.Authorization;
 using Application;
 using Application.Options;
 using DataAccess.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -42,7 +44,19 @@ namespace API
                     };
                 });
 
-            builder.Services.AddAuthorization();
+            builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
+            builder.Services.AddAuthorization(options =>
+            {
+                var modules = new[] { "Users", "Roles" };
+                var actions = new[] { "View", "Create", "Update", "Delete" };
+                foreach (var module in modules)
+                    foreach (var action in actions)
+                    {
+                        var perm = $"{module}.{action}";
+                        options.AddPolicy(perm, policy =>
+                            policy.Requirements.Add(new PermissionRequirement(perm)));
+                    }
+            });
 
             builder.Services.AddCors(options =>
             {

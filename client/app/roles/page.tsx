@@ -8,8 +8,14 @@ import {
   type PermissionModuleResponse,
   type RoleCreatePayload,
 } from "@/lib/userService";
+import { useAuthStore } from "@/lib/store/authStore";
 
 export default function RolesPage() {
+  const hasPermission = useAuthStore(s => s.hasPermission);
+  const canCreate = hasPermission("Roles.Create");
+  const canUpdate = hasPermission("Roles.Update");
+  const canDelete = hasPermission("Roles.Delete");
+
   const [roles, setRoles] = useState<RoleResponse[]>([]);
   const [permissions, setPermissions] = useState<PermissionModuleResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -364,16 +370,18 @@ export default function RolesPage() {
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
           </svg>
         </button>
-        <button
-          className="btn-primary"
-          onClick={openAddRole}
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "none", cursor: "pointer" }}
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          Yaratish
-        </button>
+        {canCreate && (
+          <button
+            className="btn-primary"
+            onClick={openAddRole}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "none", cursor: "pointer" }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Yaratish
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -406,22 +414,26 @@ export default function RolesPage() {
                     </button>
                     {r.id !== "00000000-0000-0000-0000-000000000001" && (
                       <>
-                        <button className="btn-icon" title="Tahrirlash" onClick={() => openEditRole(r)}
-                          style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                          </svg>
-                        </button>
-                        <button className="btn-icon btn-icon-danger" title="O'chirish" onClick={() => deleteRole(r.id)}
-                          style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <polyline points="3 6 5 6 21 6" />
-                            <path d="M19 6l-1 14H6L5 6" />
-                            <path d="M10 11v6M14 11v6" />
-                            <path d="M9 6V4h6v2" />
-                          </svg>
-                        </button>
+                        {canUpdate && (
+                          <button className="btn-icon" title="Tahrirlash" onClick={() => openEditRole(r)}
+                            style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button className="btn-icon btn-icon-danger" title="O'chirish" onClick={() => deleteRole(r.id)}
+                            style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="3 6 5 6 21 6" />
+                              <path d="M19 6l-1 14H6L5 6" />
+                              <path d="M10 11v6M14 11v6" />
+                              <path d="M9 6V4h6v2" />
+                            </svg>
+                          </button>
+                        )}
                       </>
                     )}
                   </div>
