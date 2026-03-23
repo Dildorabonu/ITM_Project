@@ -530,7 +530,7 @@ export default function RolesPage() {
 
             <div style={{ marginBottom: 22 }}>
               <div style={{ fontSize: 13, color: "var(--text2)", fontWeight: 600, marginBottom: 6 }}>Tavsif</div>
-              <div style={{ fontSize: 14, color: "var(--text1)" }}>{viewRole.description || "—"}</div>
+              <div style={{ fontSize: 14, color: "var(--text1)", whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "break-word" }}>{viewRole.description || "—"}</div>
             </div>
 
             <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 10 }}>Ruxsatlar</div>

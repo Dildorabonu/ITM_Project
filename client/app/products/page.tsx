@@ -46,6 +46,9 @@ export default function ProductsPage() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
 
+  // View drawer
+  const [viewProduct, setViewProduct] = useState<ProductResponse | null>(null);
+
   // Delete confirm
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -510,31 +513,40 @@ export default function ProductsPage() {
                     <td style={{ color: "var(--text2)", fontSize: 13 }}>{PRODUCT_UNIT_LABELS[p.unit] ?? "—"}</td>
                     <td style={{ color: "var(--text2)", fontSize: 13 }}>{p.description ?? "—"}</td>
                     <td style={{ borderLeft: "2px solid var(--border)" }}>
-                      {(canUpdate || canDelete) && (
-                        <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-                          {canUpdate && (
-                            <button className="btn-icon" title="Tahrirlash" onClick={() => openEdit(p)}
-                              style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                              </svg>
-                            </button>
-                          )}
-                          {canDelete && (
-                            <button className="btn-icon btn-icon-danger" title="O'chirish"
-                              style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}
-                              onClick={() => setDeleteId(p.id)}>
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <polyline points="3 6 5 6 21 6" />
-                                <path d="M19 6l-1 14H6L5 6" />
-                                <path d="M10 11v6M14 11v6" />
-                                <path d="M9 6V4h6v2" />
-                              </svg>
-                            </button>
-                          )}
-                        </div>
-                      )}
+                      <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                        <button className="btn-icon" title="Ko'rish" onClick={() => setViewProduct(p)}
+                          style={{ color: "#0ea5e9", borderColor: "#0ea5e933", background: "#0ea5e912" }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                        </button>
+                        {(canUpdate || canDelete) && (
+                          <>
+                            {canUpdate && (
+                              <button className="btn-icon" title="Tahrirlash" onClick={() => openEdit(p)}
+                                style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                </svg>
+                              </button>
+                            )}
+                            {canDelete && (
+                              <button className="btn-icon btn-icon-danger" title="O'chirish"
+                                style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}
+                                onClick={() => setDeleteId(p.id)}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <polyline points="3 6 5 6 21 6" />
+                                  <path d="M19 6l-1 14H6L5 6" />
+                                  <path d="M10 11v6M14 11v6" />
+                                  <path d="M9 6V4h6v2" />
+                                </svg>
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -543,6 +555,64 @@ export default function ProductsPage() {
           </div>
         )}
       </div>
+
+      {/* View drawer */}
+      {viewProduct && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(4px)", zIndex: 200, display: "flex", justifyContent: "flex-end" }}
+          onClick={() => setViewProduct(null)}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: 720, maxWidth: "95vw", height: "calc(100% - 32px)", margin: "16px 16px 16px 0",
+              background: "var(--bg2)", borderRadius: 14,
+              boxShadow: "-4px 0 32px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column",
+              padding: "28px 28px 32px", overflowY: "auto",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+              <span style={{ fontWeight: 700, fontSize: 17, color: "var(--text1)" }}>Mahsulot tafsilotlari</span>
+              <button onClick={() => setViewProduct(null)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
+            </div>
+
+            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 10 }}>Umumiy</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 22 }}>
+              <div style={{ gridColumn: "1 / -1", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
+                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Mahsulot nomi</div>
+                <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text1)" }}>{viewProduct.name}</div>
+              </div>
+              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
+                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Bo&apos;lim</div>
+                <div style={{ fontWeight: 700, fontSize: 16, color: "var(--accent)" }}>{viewProduct.departmentName}</div>
+              </div>
+              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
+                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Soni</div>
+                <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text1)" }}>{viewProduct.quantity}</div>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 22 }}>
+              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
+                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>O&apos;lchov birligi</div>
+                <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text1)" }}>{PRODUCT_UNIT_LABELS[viewProduct.unit] ?? "—"}</div>
+              </div>
+              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
+                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Yaratilgan sana</div>
+                <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text1)" }}>
+                  {new Date(viewProduct.createdAt).toLocaleDateString("uz-UZ")}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 10 }}>Tavsif</div>
+            <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
+              <div style={{ fontSize: 14, color: "var(--text1)", lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "break-word" }}>{viewProduct.description || "—"}</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete confirm */}
       {deleteId && (
