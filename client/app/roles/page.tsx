@@ -23,6 +23,8 @@ export default function RolesPage() {
 
   // View drawer
   const [viewRole, setViewRole] = useState<RoleResponse | null>(null);
+  const [viewPerms, setViewPerms] = useState<Set<string>>(new Set());
+  const [viewPermsLoading, setViewPermsLoading] = useState(false);
   const [expandedViewModules, setExpandedViewModules] = useState<Set<string>>(new Set());
 
   // Edit / Create modal
@@ -33,6 +35,7 @@ export default function RolesPage() {
   const [expandedEditModules, setExpandedEditModules] = useState<Set<string>>(new Set());
   const [roleSaving, setRoleSaving] = useState(false);
   const [permsLoading, setPermsLoading] = useState(false);
+  const [formSubmitted, setFormSubmitted] = useState(false);
 
   const totalPermissions = permissions.reduce((sum, m) => sum + m.actions.length, 0);
 
@@ -50,6 +53,19 @@ export default function RolesPage() {
   useEffect(() => { fetchAll(); }, []);
 
   /* ---------- View ---------- */
+  const openViewRole = async (r: RoleResponse) => {
+    setViewRole(r);
+    setExpandedViewModules(new Set());
+    setViewPerms(new Set());
+    setViewPermsLoading(true);
+    try {
+      const ids = await roleService.getPermissions(r.id);
+      setViewPerms(new Set(ids));
+    } finally {
+      setViewPermsLoading(false);
+    }
+  };
+
   const toggleViewModule = (mod: string) => {
     setExpandedViewModules(prev => {
       const next = new Set(prev);
@@ -64,6 +80,7 @@ export default function RolesPage() {
     setRoleForm({ name: "", description: "" });
     setSelectedPerms(new Set());
     setExpandedEditModules(new Set());
+    setFormSubmitted(false);
     setShowRoleModal(true);
   };
 
@@ -72,6 +89,7 @@ export default function RolesPage() {
     setRoleForm({ name: r.name, description: r.description ?? "" });
     setSelectedPerms(new Set());
     setExpandedEditModules(new Set());
+    setFormSubmitted(false);
     setShowRoleModal(true);
     setPermsLoading(true);
     try {
@@ -112,6 +130,8 @@ export default function RolesPage() {
   };
 
   const saveRole = async () => {
+    setFormSubmitted(true);
+    if (!roleForm.name.trim()) return;
     setRoleSaving(true);
     try {
       let roleId = editRole?.id;
@@ -177,7 +197,7 @@ export default function RolesPage() {
         {/* Form fields */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <div>
-            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", marginBottom: 6, display: "block" }}>
+            <label style={{ fontSize: 13, fontWeight: 600, color: formSubmitted && !roleForm.name.trim() ? "var(--danger)" : "var(--text2)", marginBottom: 6, display: "block" }}>
               Rol nomi <span style={{ color: "var(--danger)" }}>*</span>
             </label>
             <input
@@ -185,11 +205,15 @@ export default function RolesPage() {
               value={roleForm.name}
               onChange={e => setRoleForm(f => ({ ...f, name: e.target.value }))}
               placeholder="Rol nomi"
+              style={formSubmitted && !roleForm.name.trim() ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : undefined}
             />
+            {formSubmitted && !roleForm.name.trim() && (
+              <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Rol nomini kiriting</div>
+            )}
           </div>
           <div>
             <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", marginBottom: 6, display: "block" }}>
-              Tavsif <span style={{ color: "var(--danger)" }}>*</span>
+              Tavsif
             </label>
             <textarea
               className="form-input"
@@ -329,7 +353,7 @@ export default function RolesPage() {
         {/* Footer actions */}
         <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 8 }}>
           <button className="btn-secondary" onClick={() => setShowRoleModal(false)}>Bekor qilish</button>
-          <button className="btn-primary" onClick={saveRole} disabled={roleSaving || !roleForm.name.trim()}
+          <button className="btn-primary" onClick={saveRole} disabled={roleSaving}
             style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
@@ -402,10 +426,10 @@ export default function RolesPage() {
             ) : filtered.map(r => (
               <tr key={r.id}>
                 <td style={{ fontWeight: 600, color: "var(--accent)" }}>{r.name}</td>
-                <td style={{ color: "var(--text2)" }}>{r.description ?? "—"}</td>
+                <td style={{ color: "var(--text2)" }}>{r.description || "—"}</td>
                 <td>
                   <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                    <button className="btn-icon" title="Ko'rish" onClick={() => setViewRole(r)}
+                    <button className="btn-icon" title="Ko'rish" onClick={() => openViewRole(r)}
                       style={{ color: "#0ea5e9", borderColor: "#0ea5e933", background: "#0ea5e912" }}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
@@ -473,18 +497,22 @@ export default function RolesPage() {
               </div>
               <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
                 <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Ruxsatlar</div>
-                <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text1)" }}>{totalPermissions}</div>
+                <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text1)" }}>{viewPermsLoading ? "..." : viewPerms.size}</div>
               </div>
             </div>
 
             <div style={{ marginBottom: 22 }}>
               <div style={{ fontSize: 13, color: "var(--text2)", fontWeight: 600, marginBottom: 6 }}>Tavsif</div>
-              <div style={{ fontSize: 14, color: "var(--text1)" }}>{viewRole.description ?? "—"}</div>
+              <div style={{ fontSize: 14, color: "var(--text1)" }}>{viewRole.description || "—"}</div>
             </div>
 
             <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 10 }}>Ruxsatlar</div>
+            {viewPermsLoading ? (
+              <div style={{ textAlign: "center", color: "var(--text3)", padding: 20 }}>Yuklanmoqda...</div>
+            ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {permissions.map(mod => {
+                const selectedCount = mod.actions.filter(a => viewPerms.has(a.id)).length;
                 const expanded = expandedViewModules.has(mod.module);
                 return (
                   <div key={mod.module} style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", overflow: "hidden" }}>
@@ -492,47 +520,55 @@ export default function RolesPage() {
                       width: "100%", display: "flex", alignItems: "center", gap: 12,
                       padding: "14px 16px", background: "var(--bg2)", border: "none", cursor: "pointer",
                     }}>
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="#22c55e22" stroke="#22c55e" strokeWidth="2" style={{ flexShrink: 0 }}>
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" strokeWidth="2" style={{ flexShrink: 0 }}>
                         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                        <polyline points="9 12 11 14 15 10" />
                       </svg>
                       <div style={{ flex: 1, textAlign: "left" }}>
                         <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text1)" }}>{mod.moduleName}</div>
-                        <div style={{ fontSize: 12, color: "var(--text3)" }}>{mod.actions.length} ta ruxsat</div>
+                        <div style={{ fontSize: 12, color: "var(--text3)" }}>{mod.actions.length} ta ruxsatdan {selectedCount} tasi berilgan</div>
                       </div>
                       <span style={{
-                        background: "#22c55e", color: "#fff", borderRadius: 999,
-                        fontSize: 12, fontWeight: 700, minWidth: 24, height: 24,
+                        background: selectedCount > 0 ? "#22c55e" : "var(--bg3)",
+                        color: selectedCount > 0 ? "#fff" : "var(--text3)",
+                        borderRadius: 999, fontSize: 12, fontWeight: 700, minWidth: 24, height: 24,
                         display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 8px",
-                      }}>{mod.actions.length}</span>
+                      }}>{selectedCount}/{mod.actions.length}</span>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" strokeWidth="2"
                         style={{ transition: "transform 0.2s", transform: expanded ? "rotate(180deg)" : "rotate(0deg)", flexShrink: 0 }}>
                         <polyline points="6 9 12 15 18 9" />
                       </svg>
                     </button>
                     {expanded && (
-                      <div style={{ padding: "12px 16px 16px", background: "#f0fdf4", borderTop: "1px solid #bbf7d0", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                        {mod.actions.map(a => (
+                      <div style={{ padding: "12px 16px 16px", background: "var(--bg3)", borderTop: "1px solid var(--border)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                        {mod.actions.map(a => {
+                          const has = viewPerms.has(a.id);
+                          return (
                           <div key={a.id} style={{
-                            background: "#fff", border: "1.5px solid #bbf7d0", borderRadius: 10,
-                            padding: "12px 14px", display: "flex", alignItems: "center", gap: 10,
+                            background: has ? "#f0fdf4" : "var(--bg2)",
+                            border: `1.5px solid ${has ? "#bbf7d0" : "var(--border)"}`,
+                            borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10,
                           }}>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2" style={{ flexShrink: 0 }}>
-                              <circle cx="7.5" cy="15.5" r="4.5" />
-                              <path d="M21 2l-9.6 9.6M15.5 7.5L19 11l2-2M12 10l2 2" />
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                              stroke={has ? "#22c55e" : "var(--text3)"} strokeWidth="2" style={{ flexShrink: 0 }}>
+                              {has
+                                ? <><circle cx="7.5" cy="15.5" r="4.5" /><path d="M21 2l-9.6 9.6M15.5 7.5L19 11l2-2M12 10l2 2" /></>
+                                : <><circle cx="12" cy="12" r="9" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></>
+                              }
                             </svg>
                             <div>
-                              <div style={{ fontWeight: 600, fontSize: 13, color: "#111" }}>{a.actionName}</div>
-                              <div style={{ fontSize: 11, color: "#6b7280" }}>{a.action}</div>
+                              <div style={{ fontWeight: 600, fontSize: 13, color: has ? "#111" : "var(--text2)" }}>{a.actionName}</div>
+                              <div style={{ fontSize: 11, color: has ? "#6b7280" : "var(--text3)" }}>{a.action}</div>
                             </div>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
                 );
               })}
             </div>
+            )}
           </div>
         </div>
       )}

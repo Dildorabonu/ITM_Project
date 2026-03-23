@@ -138,10 +138,51 @@ export const permissionService = {
   },
 };
 
+export interface DepartmentResponse {
+  id: string;
+  name: string;
+  headUserId: string | null;
+  headUserFullName: string | null;
+  employeeCount: number;
+  createdAt: string;
+}
+
+export interface DepartmentCreatePayload {
+  name: string;
+  headUserId?: string | null;
+}
+
+export interface DepartmentUpdatePayload {
+  name?: string;
+  headUserId?: string | null;
+}
+
 export const departmentService = {
   getAll: async (): Promise<DepartmentOption[]> => {
     const res = await api.get("/api/department");
     const data = res.data?.result ?? res.data ?? [];
     return data.map((d: { id: string; name: string }) => ({ id: d.id, name: d.name }));
+  },
+
+  getAllFull: async (): Promise<DepartmentResponse[]> => {
+    const res = await api.get("/api/department");
+    return res.data?.result ?? res.data ?? [];
+  },
+
+  getById: async (id: string): Promise<DepartmentResponse> => {
+    const res = await api.get(`/api/department/${id}`);
+    return res.data?.result ?? res.data;
+  },
+
+  create: async (dto: DepartmentCreatePayload): Promise<void> => {
+    await api.post("/api/department", dto);
+  },
+
+  update: async (id: string, dto: DepartmentUpdatePayload): Promise<void> => {
+    await api.put(`/api/department/${id}`, dto);
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/api/department/${id}`);
   },
 };

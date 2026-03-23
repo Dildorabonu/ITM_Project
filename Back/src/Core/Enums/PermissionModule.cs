@@ -9,4 +9,7 @@ public enum PermissionModule
 
     [Display(Name = "Rollar", Description = "shield")]
     Roles = 2,
+
+    [Display(Name = "Bo'limlar", Description = "briefcase")]
+    Departments = 3,
 }
