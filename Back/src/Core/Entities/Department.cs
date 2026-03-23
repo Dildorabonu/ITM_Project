@@ -14,4 +14,5 @@ public class Department
     public ICollection<Contract> Contracts { get; set; } = [];
     public ICollection<Task> Tasks { get; set; } = [];
     public ICollection<StockOut> StockOuts { get; set; } = [];
+    public ICollection<Product> Products { get; set; } = [];
 }

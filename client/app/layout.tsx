@@ -43,8 +43,9 @@ const navGroups: NavGroup[] = [
     label: "Omborxona",
     icon: "package",
     items: [
-      { name: "Mahsulotlar",       href: "/warehouse", icon: "home" },
-      { name: "Deficit Tekshiruv", href: "/deficit",   icon: "alert-circle", badge: 3 },
+      { name: "Mahsulotlar",       href: "/products",    icon: "shopping-bag" },
+      { name: "Bo'limlar",         href: "/departments", icon: "briefcase" },
+      { name: "Deficit Tekshiruv", href: "/deficit",     icon: "alert-circle", badge: 3 },
     ],
   },
   {
@@ -58,9 +59,8 @@ const navGroups: NavGroup[] = [
     label: "Tizim",
     icon: "settings",
     items: [
-      { name: "Foydalanuvchilar",   href: "/users",       icon: "users" },
-      { name: "Rollar", href: "/roles",       icon: "shield" },
-      { name: "Bo'limlar",          href: "/departments", icon: "briefcase" },
+      { name: "Foydalanuvchilar",   href: "/users",  icon: "users" },
+      { name: "Rollar",             href: "/roles",  icon: "shield" },
     ],
   },
 ];
@@ -82,11 +82,12 @@ function NavIcon({ type, size = 16 }: { type: string; size?: number }) {
   if (type === "package")      return <svg className={cls} width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27,6.96 12,12.01 20.73,6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>;
   if (type === "clipboard")    return <svg className={cls} width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>;
   if (type === "settings")     return <svg className={cls} width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
+  if (type === "shopping-bag") return <svg className={cls} width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>;
   return null;
 }
 
 // Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
-const readyRoutes = new Set(["/users", "/roles", "/login", "/departments"]);
+const readyRoutes = new Set(["/users", "/roles", "/login", "/departments", "/products", "/warehouse"]);
 
 const pageTitles: Record<string, string> = {
   "/":              "Dashboard",
@@ -99,6 +100,7 @@ const pageTitles: Record<string, string> = {
   "/users":         "Foydalanuvchilar",
   "/roles":         "Rollar",
   "/departments":   "Bo'limlar",
+  "/products":      "Mahsulotlar",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -234,7 +236,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     className="nav-item"
                     onClick={() => !sidebarCollapsed && toggleGroup(group.label)}
                     style={{
-                      fontSize: 16, letterSpacing: sidebarCollapsed ? 0 : 0.5, color: "var(--sidebar-text)", fontWeight: 700,
+                      fontSize: 15, letterSpacing: sidebarCollapsed ? 0 : 0.5, color: "var(--sidebar-text)", fontWeight: 700,
                       padding: sidebarCollapsed ? "8px 0" : "8px 12px 4px", textTransform: "none",
                       display: "flex", alignItems: "center",
                       justifyContent: sidebarCollapsed ? "center" : "space-between",
@@ -272,7 +274,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         padding: "9px 12px 9px 32px",
                         color: isActive ? "#1a6eeb" : "var(--sidebar-text)",
                         background: isActive ? "linear-gradient(to right, transparent 22px, var(--sidebar-active) 22px)" : "transparent",
-                        textDecoration: "none", fontSize: 16, fontWeight: 400,
+                        textDecoration: "none", fontSize: 15, fontWeight: 400,
                         whiteSpace: "nowrap", overflow: "hidden",
                         position: "relative", transition: "all 0.14s",
                         margin: "0 8px", borderRadius: 8,

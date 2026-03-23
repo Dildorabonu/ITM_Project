@@ -169,6 +169,88 @@ export interface DepartmentUpdatePayload {
   employeeCount?: number | null;
 }
 
+export enum ProductUnit {
+  Dona = 0,
+  Kilogramm = 1,
+  Gramm = 2,
+  Litr = 3,
+  Metr = 4,
+  KvMetr = 5,
+  KubMetr = 6,
+  Quti = 7,
+  Paket = 8,
+  Toplam = 9,
+}
+
+export const PRODUCT_UNIT_LABELS: Record<ProductUnit, string> = {
+  [ProductUnit.Dona]: "Dona",
+  [ProductUnit.Kilogramm]: "Kilogramm",
+  [ProductUnit.Gramm]: "Gramm",
+  [ProductUnit.Litr]: "Litr",
+  [ProductUnit.Metr]: "Metr",
+  [ProductUnit.KvMetr]: "Kv. metr",
+  [ProductUnit.KubMetr]: "Kub metr",
+  [ProductUnit.Quti]: "Quti",
+  [ProductUnit.Paket]: "Paket",
+  [ProductUnit.Toplam]: "To'plam",
+};
+
+export interface ProductResponse {
+  id: string;
+  name: string;
+  description: string | null;
+  quantity: number;
+  unit: ProductUnit;
+  departmentId: string;
+  departmentName: string;
+  createdAt: string;
+}
+
+export interface ProductCreatePayload {
+  name: string;
+  description?: string | null;
+  quantity: number;
+  unit: ProductUnit;
+  departmentId: string;
+}
+
+export interface ProductUpdatePayload {
+  name?: string;
+  description?: string | null;
+  quantity?: number;
+  unit?: ProductUnit;
+  departmentId?: string;
+}
+
+export const productService = {
+  getAll: async (): Promise<ProductResponse[]> => {
+    const res = await api.get("/api/product");
+    return res.data?.result ?? res.data ?? [];
+  },
+
+  getByDepartment: async (departmentId: string): Promise<ProductResponse[]> => {
+    const res = await api.get(`/api/product/by-department/${departmentId}`);
+    return res.data?.result ?? res.data ?? [];
+  },
+
+  getById: async (id: string): Promise<ProductResponse> => {
+    const res = await api.get(`/api/product/${id}`);
+    return res.data?.result ?? res.data;
+  },
+
+  create: async (dto: ProductCreatePayload): Promise<void> => {
+    await api.post("/api/product", dto);
+  },
+
+  update: async (id: string, dto: ProductUpdatePayload): Promise<void> => {
+    await api.put(`/api/product/${id}`, dto);
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/api/product/${id}`);
+  },
+};
+
 export const departmentService = {
   getAll: async (): Promise<DepartmentOption[]> => {
     const res = await api.get("/api/department");
