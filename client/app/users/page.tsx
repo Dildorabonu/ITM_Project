@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   userService,
   roleService,
@@ -13,128 +13,6 @@ import {
 } from "@/lib/userService";
 import { useAuthStore } from "@/lib/store/authStore";
 
-function getInitials(firstName: string, lastName: string) {
-  return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
-}
-
-const AVATAR_COLORS = [
-  "linear-gradient(135deg,#6d4aad,#4a2e8a)",
-  "linear-gradient(135deg,#1a6eeb,#0d3e9e)",
-  "linear-gradient(135deg,#1558c7,#0a2d7a)",
-  "linear-gradient(135deg,#e07b00,#b35e00)",
-  "linear-gradient(135deg,#0a8a5a,#065c3c)",
-  "linear-gradient(135deg,#c7155a,#8a0d3e)",
-];
-
-function avatarColor(id: string) {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
-
-interface ModalProps {
-  title: string;
-  onClose: () => void;
-  onSubmit: () => void;
-  loading: boolean;
-  form: {
-    firstName: string; lastName: string; login: string; password: string;
-    roleId: string; departmentId: string; isActive: boolean;
-  };
-  setForm: React.Dispatch<React.SetStateAction<ModalProps["form"]>>;
-  roles: RoleOption[];
-  departments: DepartmentOption[];
-  isEdit: boolean;
-}
-
-function UserModal({ title, onClose, onSubmit, loading, form, setForm, roles, departments, isEdit }: ModalProps) {
-  return (
-    <div style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000,
-      display: "flex", alignItems: "center", justifyContent: "center",
-    }}>
-      <div style={{
-        background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12,
-        padding: 28, width: 420, maxWidth: "95vw",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-          <strong style={{ fontSize: 15 }}>{title}</strong>
-          <button onClick={onClose} className="btn btn-sm btn-outline" style={{ padding: "2px 10px" }}>✕</button>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <div>
-              <label style={{ fontSize: 11, color: "var(--text2)", display: "block", marginBottom: 4 }}>Ism</label>
-              <input className="search-input" style={{ width: "100%", boxSizing: "border-box" }}
-                value={form.firstName} onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))} placeholder="Ism" />
-            </div>
-            <div>
-              <label style={{ fontSize: 11, color: "var(--text2)", display: "block", marginBottom: 4 }}>Familiya</label>
-              <input className="search-input" style={{ width: "100%", boxSizing: "border-box" }}
-                value={form.lastName} onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))} placeholder="Familiya" />
-            </div>
-          </div>
-
-          <div>
-            <label style={{ fontSize: 11, color: "var(--text2)", display: "block", marginBottom: 4 }}>Login</label>
-            <input className="search-input" style={{ width: "100%", boxSizing: "border-box" }}
-              value={form.login} onChange={e => setForm(f => ({ ...f, login: e.target.value }))} placeholder="Login" />
-          </div>
-
-          <div>
-            <label style={{ fontSize: 11, color: "var(--text2)", display: "block", marginBottom: 4 }}>
-              {isEdit ? "Yangi parol (o'zgartirmaslik uchun bo'sh qoldiring)" : "Parol"}
-            </label>
-            <input className="search-input" style={{ width: "100%", boxSizing: "border-box" }}
-              type="password" value={form.password}
-              onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-              placeholder={isEdit ? "••••••••" : "Parol"} />
-          </div>
-
-          <div>
-            <label style={{ fontSize: 11, color: "var(--text2)", display: "block", marginBottom: 4 }}>Rol</label>
-            <select style={{
-              width: "100%", background: "var(--input)", border: "1px solid var(--border)",
-              borderRadius: 8, padding: "6px 10px", color: "var(--text)", fontSize: 13,
-            }}
-              value={form.roleId} onChange={e => setForm(f => ({ ...f, roleId: e.target.value }))}>
-              <option value="">— Rol tanlang —</option>
-              {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label style={{ fontSize: 11, color: "var(--text2)", display: "block", marginBottom: 4 }}>Bo&apos;lim</label>
-            <select style={{
-              width: "100%", background: "var(--input)", border: "1px solid var(--border)",
-              borderRadius: 8, padding: "6px 10px", color: "var(--text)", fontSize: 13,
-            }}
-              value={form.departmentId} onChange={e => setForm(f => ({ ...f, departmentId: e.target.value }))}>
-              <option value="">— Bo&apos;lim tanlang —</option>
-              {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
-          </div>
-
-          {isEdit && (
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
-              <input type="checkbox" checked={form.isActive}
-                onChange={e => setForm(f => ({ ...f, isActive: e.target.checked }))} />
-              Aktiv
-            </label>
-          )}
-        </div>
-
-        <div style={{ display: "flex", gap: 10, marginTop: 20, justifyContent: "flex-end" }}>
-          <button className="btn btn-outline" onClick={onClose} disabled={loading}>Bekor</button>
-          <button className="btn btn-primary" onClick={onSubmit} disabled={loading}>
-            {loading ? "Saqlanmoqda..." : "Saqlash"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 const emptyForm = { firstName: "", lastName: "", login: "", password: "", roleId: "", departmentId: "", isActive: true };
 
@@ -160,6 +38,7 @@ export default function UsersPage() {
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const usersRef = useRef<UserResponse[]>([]);
 
   const load = async () => {
     try {
@@ -193,9 +72,39 @@ export default function UsersPage() {
     );
   }, [search, users]);
 
+  useEffect(() => { usersRef.current = users; }, [users]);
+
+  useEffect(() => {
+    const onPopState = (e: PopStateEvent) => {
+      if (e.state?.view === "create") {
+        setForm(emptyForm);
+        setFormSubmitted(false);
+        setShowCreate(true);
+        setShowEdit(false);
+      } else if (e.state?.view === "edit" && e.state?.userId) {
+        const u = usersRef.current.find(x => x.id === e.state.userId);
+        if (u) {
+          setEditTarget(u);
+          setForm({
+            firstName: u.firstName, lastName: u.lastName, login: u.login,
+            password: "", roleId: u.roleId ?? "", departmentId: u.departmentId ?? "", isActive: u.isActive,
+          });
+          setShowEdit(true);
+          setShowCreate(false);
+        }
+      } else {
+        setShowEdit(false);
+        setShowCreate(false);
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
   const openCreate = () => {
     setForm(emptyForm);
     setFormSubmitted(false);
+    history.pushState({ view: "create" }, "");
     setShowCreate(true);
   };
 
@@ -210,6 +119,7 @@ export default function UsersPage() {
       departmentId: u.departmentId ?? "",
       isActive: u.isActive,
     });
+    history.pushState({ view: "edit", userId: u.id }, "");
     setShowEdit(true);
   };
 
@@ -227,7 +137,7 @@ export default function UsersPage() {
         departmentId: form.departmentId || null,
       };
       await userService.create(payload);
-      setShowCreate(false);
+      history.back();
       await load();
     } catch {
       // stay open on error
@@ -250,7 +160,7 @@ export default function UsersPage() {
         isActive: form.isActive,
       };
       await userService.update(editTarget.id, payload);
-      setShowEdit(false);
+      history.back();
       await load();
     } catch {
       // stay open on error
@@ -273,25 +183,108 @@ export default function UsersPage() {
     }
   };
 
+  /* ===== Edit inline view ===== */
+  if (showEdit) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>Foydalanuvchini tahrirlash</span>
+        </div>
+
+        {/* Form fields */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div>
+            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", marginBottom: 6, display: "block" }}>
+              Ism
+            </label>
+            <input
+              className="form-input"
+              value={form.firstName}
+              onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))}
+              placeholder="Ism"
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", marginBottom: 6, display: "block" }}>
+              Familiya
+            </label>
+            <input
+              className="form-input"
+              value={form.lastName}
+              onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))}
+              placeholder="Familiya"
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", marginBottom: 6, display: "block" }}>
+              Login
+            </label>
+            <input
+              className="form-input"
+              value={form.login}
+              onChange={e => setForm(f => ({ ...f, login: e.target.value }))}
+              placeholder="Login"
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", marginBottom: 6, display: "block" }}>
+              Yangi parol (o&apos;zgartirmaslik uchun bo&apos;sh qoldiring)
+            </label>
+            <input
+              className="form-input"
+              type="password"
+              value={form.password}
+              onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+              placeholder="••••••••"
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", marginBottom: 6, display: "block" }}>Rol</label>
+            <select className="form-input" value={form.roleId} onChange={e => setForm(f => ({ ...f, roleId: e.target.value }))}>
+              <option value="">— Rol tanlang —</option>
+              {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", marginBottom: 6, display: "block" }}>Bo&apos;lim</label>
+            <select className="form-input" value={form.departmentId} onChange={e => setForm(f => ({ ...f, departmentId: e.target.value }))}>
+              <option value="">— Bo&apos;lim tanlang —</option>
+              {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "var(--text2)", cursor: "pointer" }}>
+              <input type="checkbox" checked={form.isActive}
+                onChange={e => setForm(f => ({ ...f, isActive: e.target.checked }))} />
+              Aktiv
+            </label>
+          </div>
+        </div>
+
+        {/* Footer actions */}
+        <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 8 }}>
+          <button className="btn-secondary" onClick={() => history.back()}>Bekor qilish</button>
+          <button className="btn-primary" onClick={handleUpdate} disabled={saving}
+            style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+              <polyline points="17 21 17 13 7 13 7 21" />
+              <polyline points="7 3 7 8 15 8" />
+            </svg>
+            {saving ? "Saqlanmoqda..." : "Saqlash"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   /* ===== Create inline view ===== */
   if (showCreate) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <button
-            onClick={() => setShowCreate(false)}
-            style={{
-              background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: 8,
-              cursor: "pointer", padding: "6px 10px", display: "flex", alignItems: "center", gap: 6,
-              color: "var(--text2)", fontSize: 13, fontWeight: 500,
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-            Orqaga
-          </button>
           <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>Yangi foydalanuvchi</span>
         </div>
 
@@ -376,7 +369,7 @@ export default function UsersPage() {
 
         {/* Footer actions */}
         <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 8 }}>
-          <button className="btn-secondary" onClick={() => setShowCreate(false)}>Bekor qilish</button>
+          <button className="btn-secondary" onClick={() => history.back()}>Bekor qilish</button>
           <button className="btn-primary" onClick={handleCreate} disabled={saving}
             style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -437,47 +430,58 @@ export default function UsersPage() {
           <div style={{ overflowX: "auto" }}>
             <table className="itm-table">
               <thead>
-                <tr><th>F.I.Sh.</th><th>Login</th><th>Rol</th><th>Bo&apos;lim</th><th>Holat</th><th>Amal</th></tr>
+                <tr>
+                  <th style={{ color: "var(--text1)" }}>Ism</th>
+                  {["Familiya", "Login", "Holat"].map(col => (
+                    <th key={col} style={{ color: "var(--text1)" }}>
+                      <span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>{col}</span>
+                    </th>
+                  ))}
+                  <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>
+                    Amallar
+                  </th>
+                </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
+                  <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
                 ) : filtered.map(u => (
                   <tr key={u.id}>
-                    <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{
-                          width: 30, height: 30, borderRadius: "50%",
-                          background: avatarColor(u.id),
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0,
-                          fontFamily: "var(--font-head)",
-                        }}>
-                          {getInitials(u.firstName, u.lastName)}
-                        </div>
-                        {u.firstName} {u.lastName}
-                      </div>
-                    </td>
-                    <td className="mono" style={{ color: "var(--text2)", fontSize: 12 }}>{u.login}</td>
-                    <td>{u.roleName ? <span className="role-badge rb-worker">{u.roleName}</span> : <span style={{ color: "var(--text3)" }}>—</span>}</td>
-                    <td style={{ color: "var(--text2)" }}>{u.departmentName ?? "—"}</td>
+                    <td>{u.firstName}</td>
+                    <td style={{ color: "var(--text1)" }}>{u.lastName}</td>
+                    <td>{u.login}</td>
                     <td>
                       <span className={`status ${u.isActive ? "s-ok" : "s-warn"}`}>
                         {u.isActive ? "Aktiv" : "Nofaol"}
                       </span>
                     </td>
-                    <td>
-                      {u.id !== "00000000-0000-0000-0000-000000000001" && (canUpdate || canDelete) && (
-                        <div style={{ display: "flex", gap: 6 }}>
-                          {canUpdate && (
-                            <button className="btn btn-sm btn-outline" onClick={() => openEdit(u)}>Tahrirlash</button>
-                          )}
-                          {canDelete && (
-                            <button className="btn btn-sm" style={{ background: "rgba(220,50,50,0.12)", color: "#e05252", border: "1px solid rgba(220,50,50,0.25)" }}
-                              onClick={() => setDeleteId(u.id)}>O&apos;chirish</button>
-                          )}
-                        </div>
-                      )}
+                    <td style={{ borderLeft: "2px solid var(--border)" }}>
+                      <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                        {u.id !== "00000000-0000-0000-0000-000000000001" && (
+                          <>
+                            {canUpdate && (
+                              <button className="btn-icon" title="Tahrirlash" onClick={() => openEdit(u)}
+                                style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                </svg>
+                              </button>
+                            )}
+                            {canDelete && (
+                              <button className="btn-icon btn-icon-danger" title="O'chirish" onClick={() => setDeleteId(u.id)}
+                                style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <polyline points="3 6 5 6 21 6" />
+                                  <path d="M19 6l-1 14H6L5 6" />
+                                  <path d="M10 11v6M14 11v6" />
+                                  <path d="M9 6V4h6v2" />
+                                </svg>
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -486,20 +490,6 @@ export default function UsersPage() {
           </div>
         )}
       </div>
-
-      {showEdit && (
-        <UserModal
-          title="Foydalanuvchini Tahrirlash"
-          onClose={() => setShowEdit(false)}
-          onSubmit={handleUpdate}
-          loading={saving}
-          form={form}
-          setForm={setForm}
-          roles={roles}
-          departments={departments}
-          isEdit={true}
-        />
-      )}
 
       {deleteId && (
         <div style={{

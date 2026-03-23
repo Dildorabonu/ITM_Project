@@ -138,10 +138,10 @@ body {
 .ib-green  { background: var(--success-dim); }
 
 /* ===== TABLE ===== */
-.itm-table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.itm-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .itm-table thead tr { border-bottom: 2px solid var(--border); background: var(--bg3); }
-.itm-table th { font-size: 12px; font-weight: 600; letter-spacing: 1.5px; color: var(--text3); text-transform: uppercase; text-align: left; padding: 10px 14px; white-space: nowrap; font-family: var(--font-inter), Inter, sans-serif; }
-.itm-table td { padding: 11px 14px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+.itm-table th { font-size: 14px; font-weight: 600; letter-spacing: 0; color: var(--text3); text-transform: capitalize; text-align: left; padding: 14px 14px; white-space: nowrap; vertical-align: middle; font-family: var(--font-inter), Inter, sans-serif; }
+.itm-table td { padding: 6px 14px 6px 30px; border-bottom: 0.5px solid var(--border); color: var(--text); vertical-align: middle; font-weight: 300; }
 .itm-table tbody tr { transition: background 0.1s; cursor: pointer; }
 .itm-table tbody tr:hover { background: var(--accent-dim); }
 .itm-table tbody tr:last-child td { border-bottom: none; }
