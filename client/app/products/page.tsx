@@ -41,8 +41,10 @@ export default function ProductsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState<ProductResponse | null>(null);
   const [form, setForm] = useState<ProductForm>(emptyForm);
+  const [forms, setForms] = useState<ProductForm[]>([{ ...emptyForm }]);
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
 
   // Delete confirm
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -84,6 +86,7 @@ export default function ProductsPage() {
   const openCreate = () => {
     setEditTarget(null);
     setForm(emptyForm);
+    setForms([{ ...emptyForm }]);
     setFormSubmitted(false);
     setShowForm(true);
   };
@@ -97,16 +100,16 @@ export default function ProductsPage() {
 
   const handleSave = async () => {
     setFormSubmitted(true);
-    if (!form.name.trim() || !form.departmentId) return;
-    setSaving(true);
-    try {
-      const dept = departments.find(d => d.id === form.departmentId);
+    setFormError("");
 
-      const qty = form.quantity !== "" ? Number(form.quantity) : 0;
-
-      const unitValue = form.unit !== "" ? (Number(form.unit) as ProductUnit) : undefined;
-
-      if (editTarget) {
+    if (editTarget) {
+      // Single edit
+      if (!form.name.trim() || !form.departmentId) return;
+      setSaving(true);
+      try {
+        const dept = departments.find(d => d.id === form.departmentId);
+        const qty = form.quantity !== "" ? Number(form.quantity) : 0;
+        const unitValue = form.unit !== "" ? (Number(form.unit) as ProductUnit) : undefined;
         const payload: ProductUpdatePayload = {
           name: form.name || undefined,
           description: form.description || null,
@@ -125,32 +128,48 @@ export default function ProductsPage() {
           departmentName: dept?.name ?? editTarget.departmentName,
         };
         setProducts(prev => prev.map(p => p.id === editTarget.id ? updated : p));
-      } else {
-        const payload: ProductCreatePayload = {
-          name: form.name,
-          description: form.description || null,
-          quantity: qty,
-          unit: unitValue ?? ProductUnit.Dona,
-          departmentId: form.departmentId,
-        };
-        await productService.create(payload);
-        const created: ProductResponse = {
-          id: crypto.randomUUID(),
-          name: form.name,
-          description: form.description || null,
-          quantity: qty,
-          unit: unitValue ?? ProductUnit.Dona,
-          departmentId: form.departmentId,
-          departmentName: dept?.name ?? "",
-          createdAt: new Date().toISOString(),
-        };
-        setProducts(prev => [...prev, created]);
+        setShowForm(false);
+      } catch (err: unknown) {
+        const msg = (err as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
+        setFormError(msg ?? "Saqlashda xatolik yuz berdi.");
+      } finally {
+        setSaving(false);
       }
-      setShowForm(false);
-    } catch {
-      // stay on error
-    } finally {
-      setSaving(false);
+    } else {
+      // Multi-create: validate all rows
+      const valid = forms.every(f => f.name.trim() && f.departmentId);
+      if (!valid) return;
+      setSaving(true);
+      try {
+        const payloads: ProductCreatePayload[] = forms.map(f => ({
+          name: f.name,
+          description: f.description || null,
+          quantity: f.quantity !== "" ? Number(f.quantity) : 0,
+          unit: f.unit !== "" ? (Number(f.unit) as ProductUnit) : ProductUnit.Dona,
+          departmentId: f.departmentId,
+        }));
+
+        await productService.createBulk(payloads);
+
+        const created: ProductResponse[] = payloads.map(p => ({
+          id: crypto.randomUUID(),
+          name: p.name,
+          description: p.description ?? null,
+          quantity: p.quantity,
+          unit: p.unit,
+          departmentId: p.departmentId,
+          departmentName: departments.find(d => d.id === p.departmentId)?.name ?? "",
+          createdAt: new Date().toISOString(),
+        }));
+
+        setProducts(prev => [...prev, ...created]);
+        setShowForm(false);
+      } catch (err: unknown) {
+        const msg = (err as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
+        setFormError(msg ?? "Saqlashda xatolik yuz berdi.");
+      } finally {
+        setSaving(false);
+      }
     }
   };
 
@@ -168,179 +187,226 @@ export default function ProductsPage() {
     }
   };
 
+  const updateFormRow = (index: number, field: keyof ProductForm, value: string) => {
+    setForms(prev => prev.map((f, i) => i === index ? { ...f, [field]: value } : f));
+  };
+
+  const BULK_LIMIT = 50;
+
+  const addFormRow = () => {
+    setForms(prev => prev.length < BULK_LIMIT ? [...prev, { ...emptyForm }] : prev);
+  };
+
+  const removeFormRow = (index: number) => {
+    setForms(prev => prev.filter((_, i) => i !== index));
+  };
+
   /* ===== Inline form view ===== */
   if (showForm) {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>
-            {editTarget ? "Mahsulotni tahrirlash" : "Yangi mahsulot"}
-          </span>
-        </div>
-
-        {/* Form fields */}
-        <div className="itm-card" style={{ padding: 28 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-            {/* Mahsulot nomi */}
-            <div>
-              <label style={{
-                fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6,
-                color: formSubmitted && !form.name.trim() ? "var(--danger)" : "var(--text2)",
-              }}>
-                Mahsulot nomi <span style={{ color: "var(--danger)" }}>*</span>
-              </label>
-              <input
-                className="form-input"
-                value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="Mahsulot nomini kiriting"
-                style={formSubmitted && !form.name.trim() ? {
-                  borderColor: "var(--danger)", outline: "none",
-                  boxShadow: "0 0 0 2px var(--danger)33",
-                } : undefined}
-              />
-              {formSubmitted && !form.name.trim() && (
-                <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>
-                  Mahsulot nomini kiriting
-                </div>
-              )}
-            </div>
-
-            {/* Bo'lim */}
-            <div>
-              <label style={{
-                fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6,
-                color: formSubmitted && !form.departmentId ? "var(--danger)" : "var(--text2)",
-              }}>
-                Bo&apos;lim <span style={{ color: "var(--danger)" }}>*</span>
-              </label>
-              <select
-                className="form-input"
-                value={form.departmentId}
-                onChange={e => setForm(f => ({ ...f, departmentId: e.target.value }))}
-                style={{
-                  width: "100%", cursor: "pointer",
-                  ...(formSubmitted && !form.departmentId ? {
-                    borderColor: "var(--danger)", outline: "none",
-                    boxShadow: "0 0 0 2px var(--danger)33",
-                  } : {}),
-                }}
-              >
-                <option value="">— Bo&apos;lim tanlang —</option>
-                {departments.map(d => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </select>
-              {formSubmitted && !form.departmentId && (
-                <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>
-                  Bo&apos;limni tanlang
-                </div>
-              )}
-            </div>
-
-            {/* Soni */}
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>
-                Soni
-              </label>
-              <input
-                className="form-input"
-                type="number"
-                min="0"
-                step="any"
-                value={form.quantity}
-                onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))}
-                placeholder="0"
-              />
-            </div>
-
-            {/* O'lchov birligi */}
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>
-                O&apos;lchov birligi
-              </label>
-              <select
-                className="form-input"
-                value={form.unit}
-                onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
-                style={{ width: "100%", cursor: "pointer" }}
-              >
-                <option value="">— Tanlang —</option>
-                {(Object.keys(PRODUCT_UNIT_LABELS) as unknown as ProductUnit[]).map(key => (
-                  <option key={key} value={key}>{PRODUCT_UNIT_LABELS[key]}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Tavsif */}
-            <div style={{ gridColumn: "1 / -1" }}>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>
-                Tavsif
-              </label>
-              <textarea
-                className="form-input"
-                value={form.description}
-                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                placeholder="Mahsulot tavsifini kiriting (ixtiyoriy)"
-                rows={3}
-                style={{ resize: "vertical" }}
-              />
-            </div>
+    if (editTarget) {
+      // Single edit form
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>Mahsulotni tahrirlash</span>
           </div>
-
-          {/* Preview */}
-          {(form.name || form.departmentId) && (
-            <div style={{
-              marginTop: 24, padding: "16px 20px",
-              border: "1.5px solid var(--accent)44",
-              borderRadius: 10, background: "var(--accent-dim)",
-              display: "flex", alignItems: "center", gap: 16,
-            }}>
-              <div style={{
-                width: 40, height: 40, borderRadius: 10,
-                background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-              }}>
-                <svg width="18" height="18" fill="none" stroke="#fff" strokeWidth="2" viewBox="0 0 24 24">
-                  <path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
-                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-                </svg>
+          <div className="itm-card" style={{ padding: 28 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+              <div>
+                <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !form.name.trim() ? "var(--danger)" : "var(--text2)" }}>
+                  Mahsulot nomi <span style={{ color: "var(--danger)" }}>*</span>
+                </label>
+                <input className="form-input" value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="Mahsulot nomini kiriting"
+                  style={formSubmitted && !form.name.trim() ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : undefined}
+                />
+                {formSubmitted && !form.name.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Mahsulot nomini kiriting</div>}
               </div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)" }}>
-                  {form.name || "—"}
-                </div>
-                <div style={{ fontSize: 12, color: "var(--text2)", marginTop: 2 }}>
-                  Bo&apos;lim: {departments.find(d => d.id === form.departmentId)?.name ?? "Belgilanmagan"}
-                </div>
+                <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !form.departmentId ? "var(--danger)" : "var(--text2)" }}>
+                  Bo&apos;lim <span style={{ color: "var(--danger)" }}>*</span>
+                </label>
+                <select className="form-input" value={form.departmentId}
+                  onChange={e => setForm(f => ({ ...f, departmentId: e.target.value }))}
+                  style={{ width: "100%", cursor: "pointer", ...(formSubmitted && !form.departmentId ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : {}) }}>
+                  <option value="">— Bo&apos;lim tanlang —</option>
+                  {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+                {formSubmitted && !form.departmentId && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Bo&apos;limni tanlang</div>}
+              </div>
+              <div>
+                <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Soni</label>
+                <input className="form-input" type="number" min="0" step="any" value={form.quantity}
+                  onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} placeholder="0" />
+              </div>
+              <div>
+                <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>O&apos;lchov birligi</label>
+                <select className="form-input" value={form.unit}
+                  onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
+                  style={{ width: "100%", cursor: "pointer" }}>
+                  <option value="">— Tanlang —</option>
+                  {(Object.keys(PRODUCT_UNIT_LABELS) as unknown as ProductUnit[]).map(key => (
+                    <option key={key} value={key}>{PRODUCT_UNIT_LABELS[key]}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Tavsif</label>
+                <textarea className="form-input" value={form.description}
+                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                  placeholder="Mahsulot tavsifini kiriting (ixtiyoriy)" rows={3} style={{ resize: "vertical" }} />
               </div>
             </div>
+          </div>
+          {formError && (
+            <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 8, background: "var(--danger-dim)", border: "1px solid var(--danger)44", color: "var(--danger)", fontSize: 13 }}>
+              {formError}
+            </div>
           )}
+          <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 8 }}>
+            <button onClick={() => setShowForm(false)} style={{ background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", padding: "10px 24px", color: "var(--text2)", fontSize: 14, fontWeight: 500 }}>
+              Bekor qilish
+            </button>
+            <button className="btn-primary" onClick={handleSave} disabled={saving}
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                <polyline points="17 21 17 13 7 13 7 21" />
+                <polyline points="7 3 7 8 15 8" />
+              </svg>
+              {saving ? "Saqlanmoqda..." : "O'zgarishlarni saqlash"}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // Multi-create form
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>Yangi mahsulot(lar)</span>
+          <span style={{ fontSize: 13, color: "var(--text2)" }}>{forms.length} ta mahsulot</span>
         </div>
 
-        {/* Footer */}
-        <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 8 }}>
+        {forms.map((f, index) => (
+          <div key={index} className="itm-card" style={{ padding: 24 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <span style={{ fontWeight: 600, fontSize: 14, color: "var(--text2)" }}>
+                #{index + 1} mahsulot
+              </span>
+              {forms.length > 1 && (
+                <button
+                  onClick={() => removeFormRow(index)}
+                  title="Olib tashlash"
+                  style={{
+                    background: "var(--danger-dim)", border: "1px solid var(--danger)33",
+                    borderRadius: 6, cursor: "pointer", padding: "4px 10px",
+                    color: "var(--danger)", fontSize: 12, fontWeight: 600,
+                    display: "inline-flex", alignItems: "center", gap: 4,
+                  }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                  Olib tashlash
+                </button>
+              )}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div>
+                <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !f.name.trim() ? "var(--danger)" : "var(--text2)" }}>
+                  Mahsulot nomi <span style={{ color: "var(--danger)" }}>*</span>
+                </label>
+                <input className="form-input" value={f.name}
+                  onChange={e => updateFormRow(index, "name", e.target.value)}
+                  placeholder="Mahsulot nomini kiriting"
+                  style={formSubmitted && !f.name.trim() ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : undefined}
+                />
+                {formSubmitted && !f.name.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Mahsulot nomini kiriting</div>}
+              </div>
+              <div>
+                <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !f.departmentId ? "var(--danger)" : "var(--text2)" }}>
+                  Bo&apos;lim <span style={{ color: "var(--danger)" }}>*</span>
+                </label>
+                <select className="form-input" value={f.departmentId}
+                  onChange={e => updateFormRow(index, "departmentId", e.target.value)}
+                  style={{ width: "100%", cursor: "pointer", ...(formSubmitted && !f.departmentId ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : {}) }}>
+                  <option value="">— Bo&apos;lim tanlang —</option>
+                  {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+                {formSubmitted && !f.departmentId && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Bo&apos;limni tanlang</div>}
+              </div>
+              <div>
+                <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Soni</label>
+                <input className="form-input" type="number" min="0" step="any" value={f.quantity}
+                  onChange={e => updateFormRow(index, "quantity", e.target.value)} placeholder="0" />
+              </div>
+              <div>
+                <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>O&apos;lchov birligi</label>
+                <select className="form-input" value={f.unit}
+                  onChange={e => updateFormRow(index, "unit", e.target.value)}
+                  style={{ width: "100%", cursor: "pointer" }}>
+                  <option value="">— Tanlang —</option>
+                  {(Object.keys(PRODUCT_UNIT_LABELS) as unknown as ProductUnit[]).map(key => (
+                    <option key={key} value={key}>{PRODUCT_UNIT_LABELS[key]}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Tavsif</label>
+                <textarea className="form-input" value={f.description}
+                  onChange={e => updateFormRow(index, "description", e.target.value)}
+                  placeholder="Mahsulot tavsifini kiriting (ixtiyoriy)" rows={2} style={{ resize: "vertical" }} />
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {/* Add row button */}
+        {forms.length < BULK_LIMIT ? (
           <button
-            onClick={() => setShowForm(false)}
+            onClick={addFormRow}
             style={{
-              background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)",
-              cursor: "pointer", padding: "10px 24px", color: "var(--text2)", fontSize: 14, fontWeight: 500,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              padding: "12px", borderRadius: "var(--radius)",
+              border: "2px dashed var(--border)", background: "transparent",
+              color: "var(--accent)", fontSize: 14, fontWeight: 600, cursor: "pointer",
+              transition: "border-color 0.15s, background 0.15s",
             }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--accent)"; (e.currentTarget as HTMLButtonElement).style.background = "var(--accent-dim)"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border)"; (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
           >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Yana mahsulot qo&apos;shish
+          </button>
+        ) : (
+          <div style={{ textAlign: "center", fontSize: 13, color: "var(--text2)", padding: "10px 0" }}>
+            Maksimal chegara: bir vaqtda 50 ta mahsulot qo&apos;shish mumkin
+          </div>
+        )}
+
+        {/* Footer */}
+        {formError && (
+          <div style={{ padding: "10px 14px", borderRadius: 8, background: "var(--danger-dim)", border: "1px solid var(--danger)44", color: "var(--danger)", fontSize: 13 }}>
+            {formError}
+          </div>
+        )}
+        <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 4 }}>
+          <button onClick={() => setShowForm(false)} style={{ background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", padding: "10px 24px", color: "var(--text2)", fontSize: 14, fontWeight: 500 }}>
             Bekor qilish
           </button>
-          <button
-            className="btn-primary"
-            onClick={handleSave}
-            disabled={saving}
-            style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}
-          >
+          <button className="btn-primary" onClick={handleSave} disabled={saving}
+            style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
               <polyline points="17 21 17 13 7 13 7 21" />
               <polyline points="7 3 7 8 15 8" />
             </svg>
-            {saving ? "Saqlanmoqda..." : editTarget ? "O'zgarishlarni saqlash" : "Mahsulot yaratish"}
+            {saving ? "Saqlanmoqda..." : `${forms.length} ta mahsulot saqlash`}
           </button>
         </div>
       </div>

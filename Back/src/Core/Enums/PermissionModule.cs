@@ -12,4 +12,7 @@ public enum PermissionModule
 
     [Display(Name = "Bo'limlar", Description = "briefcase")]
     Departments = 3,
+
+    [Display(Name = "Mahsulotlar", Description = "package")]
+    Products = 4,
 }

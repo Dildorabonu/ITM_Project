@@ -242,6 +242,10 @@ export const productService = {
     await api.post("/api/product", dto);
   },
 
+  createBulk: async (dtos: ProductCreatePayload[]): Promise<void> => {
+    await api.post("/api/product/bulk", dtos);
+  },
+
   update: async (id: string, dto: ProductUpdatePayload): Promise<void> => {
     await api.put(`/api/product/${id}`, dto);
   },

@@ -74,6 +74,39 @@ public class ProductService : IProductService
         return ApiResult<int>.Success(201);
     }
 
+    public async Task<ApiResult<int>> CreateBulkAsync(IEnumerable<ProductCreateDto> dtos)
+    {
+        var list = dtos.ToList();
+
+        if (list.Count > 50)
+            return ApiResult<int>.Failure(["Bir vaqtda 50 tadan ortiq mahsulot qo'shib bo'lmaydi."]);
+
+        foreach (var dto in list)
+        {
+            if (!await _context.Departments.AnyAsync(d => d.Id == dto.DepartmentId))
+                return ApiResult<int>.Failure([$"Department with id '{dto.DepartmentId}' not found."]);
+
+            if (await _context.Products.AnyAsync(p => p.Name == dto.Name && p.DepartmentId == dto.DepartmentId))
+                return ApiResult<int>.Failure([$"Product with name '{dto.Name}' already exists in this department."]);
+        }
+
+        var products = list.Select(dto => new Product
+        {
+            Id = Guid.NewGuid(),
+            Name = dto.Name,
+            Description = dto.Description,
+            Quantity = dto.Quantity,
+            Unit = dto.Unit,
+            DepartmentId = dto.DepartmentId,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        await _context.Products.AddRangeAsync(products);
+        await _context.SaveChangesAsync();
+
+        return ApiResult<int>.Success(201);
+    }
+
     public async Task<ApiResult<int>> UpdateAsync(Guid id, ProductUpdateDto dto)
     {
         var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == id);

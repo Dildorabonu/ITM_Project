@@ -53,6 +53,17 @@ public class ProductController : ControllerBase
         return StatusCode(result.Result, result);
     }
 
+    [HttpPost("bulk")]
+    public async Task<IActionResult> CreateBulk([FromBody] IEnumerable<ProductCreateDto> dtos)
+    {
+        var result = await _productService.CreateBulkAsync(dtos);
+
+        if (!result.Succeeded)
+            return BadRequest(result);
+
+        return StatusCode(result.Result, result);
+    }
+
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] ProductUpdateDto dto)
     {
