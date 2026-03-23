@@ -151,10 +151,21 @@ export default function RolesPage() {
     }
   };
 
-  const deleteRole = async (id: string) => {
-    if (!confirm("Bu rolni o'chirishni tasdiqlaysizmi?")) return;
-    await roleService.delete(id);
-    await fetchAll();
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const deleteRole = async () => {
+    if (!deleteConfirmId) return;
+    setDeleting(true);
+    try {
+      await roleService.delete(deleteConfirmId);
+      setDeleteConfirmId(null);
+      await fetchAll();
+    } catch {
+      // stay open on error
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const filtered = roles.filter(r =>
@@ -168,24 +179,9 @@ export default function RolesPage() {
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button
-              onClick={() => setShowRoleModal(false)}
-              style={{
-                background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: 8,
-                cursor: "pointer", padding: "6px 10px", display: "flex", alignItems: "center", gap: 6,
-                color: "var(--text2)", fontSize: 13, fontWeight: 500,
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-              Orqaga
-            </button>
-            <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>
-              {editRole ? "Rolni tahrirlash" : "Yangi rol"}
-            </span>
-          </div>
+          <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>
+            {editRole ? "Rolni tahrirlash" : "Yangi rol"}
+          </span>
           <span style={{
             background: "var(--accent)", color: "#fff", borderRadius: 999,
             fontSize: 12, fontWeight: 700, padding: "6px 16px", letterSpacing: 0.3,
@@ -414,6 +410,7 @@ export default function RolesPage() {
         <table className="itm-table">
           <thead>
             <tr>
+              <th style={{ width: 40, color: "var(--text1)", paddingLeft: 8, borderRight: "2px solid var(--border)" }}>#</th>
               <th style={{ width: 220, color: "var(--text1)" }}>Nomi</th>
               <th style={{ color: "var(--text1)" }}>
                 <span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>Tavsif</span>
@@ -423,11 +420,12 @@ export default function RolesPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={3} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Yuklanmoqda...</td></tr>
+              <tr><td colSpan={4} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Yuklanmoqda...</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={3} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Rollar topilmadi</td></tr>
-            ) : filtered.map(r => (
+              <tr><td colSpan={4} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Rollar topilmadi</td></tr>
+            ) : filtered.map((r, i) => (
               <tr key={r.id}>
+                <td style={{ paddingLeft: 8, borderRight: "2px solid var(--border)" }}>{String(i + 1).padStart(2, "0")}</td>
                 <td>{r.name}</td>
                 <td style={{ color: "var(--text1)" }}>{r.description || "—"}</td>
                 <td style={{ borderLeft: "2px solid var(--border)" }}>
@@ -451,7 +449,7 @@ export default function RolesPage() {
                           </button>
                         )}
                         {canDelete && (
-                          <button className="btn-icon btn-icon-danger" title="O'chirish" onClick={() => deleteRole(r.id)}
+                          <button className="btn-icon btn-icon-danger" title="O'chirish" onClick={() => setDeleteConfirmId(r.id)}
                             style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                               <polyline points="3 6 5 6 21 6" />
@@ -471,6 +469,31 @@ export default function RolesPage() {
         </table>
         </div>
       </div>
+
+      {/* ===== Delete Confirm Modal ===== */}
+      {deleteConfirmId && (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000,
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <div style={{
+            background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12,
+            padding: 28, width: 340, maxWidth: "95vw", textAlign: "center",
+          }}>
+            <div style={{ fontSize: 15, marginBottom: 8 }}>Rolni o&apos;chirish</div>
+            <div style={{ color: "var(--text2)", fontSize: 13, marginBottom: 20 }}>
+              Ushbu rol o&apos;chiriladi. Davom etasizmi?
+            </div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+              <button className="btn-secondary" style={{ padding: "8px 20px" }} onClick={() => setDeleteConfirmId(null)} disabled={deleting}>Bekor</button>
+              <button className="btn-primary" style={{ background: "var(--danger)", borderColor: "var(--danger)", padding: "8px 20px", borderRadius: "var(--radius)" }}
+                onClick={deleteRole} disabled={deleting}>
+                {deleting ? "O'chirilmoqda..." : "O'chirish"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ===== View Drawer ===== */}
       {viewRole && (

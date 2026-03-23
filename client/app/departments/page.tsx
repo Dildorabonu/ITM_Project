@@ -14,75 +14,10 @@ import { useAuthStore } from "@/lib/store/authStore";
 interface DeptForm {
   name: string;
   headUserId: string;
+  employeeCount: string;
 }
 
-const emptyForm: DeptForm = { name: "", headUserId: "" };
-
-interface ModalProps {
-  title: string;
-  onClose: () => void;
-  onSubmit: () => void;
-  loading: boolean;
-  form: DeptForm;
-  setForm: React.Dispatch<React.SetStateAction<DeptForm>>;
-  users: UserResponse[];
-}
-
-function DeptModal({ title, onClose, onSubmit, loading, form, setForm, users }: ModalProps) {
-  return (
-    <div style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000,
-      display: "flex", alignItems: "center", justifyContent: "center",
-    }}>
-      <div style={{
-        background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12,
-        padding: 28, width: 400, maxWidth: "95vw",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-          <strong style={{ fontSize: 15 }}>{title}</strong>
-          <button onClick={onClose} className="btn btn-sm btn-outline" style={{ padding: "2px 10px" }}>✕</button>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div>
-            <label style={{ fontSize: 11, color: "var(--text2)", display: "block", marginBottom: 4 }}>Bo&apos;lim nomi</label>
-            <input
-              className="search-input"
-              style={{ width: "100%", boxSizing: "border-box" }}
-              value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              placeholder="Bo'lim nomi"
-            />
-          </div>
-
-          <div>
-            <label style={{ fontSize: 11, color: "var(--text2)", display: "block", marginBottom: 4 }}>Bo&apos;lim boshlig&apos;i</label>
-            <select
-              style={{
-                width: "100%", background: "var(--input)", border: "1px solid var(--border)",
-                borderRadius: 8, padding: "6px 10px", color: "var(--text)", fontSize: 13,
-              }}
-              value={form.headUserId}
-              onChange={e => setForm(f => ({ ...f, headUserId: e.target.value }))}
-            >
-              <option value="">— Boshlig&apos; tanlang —</option>
-              {users.map(u => (
-                <option key={u.id} value={u.id}>{u.firstName} {u.lastName}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div style={{ display: "flex", gap: 10, marginTop: 20, justifyContent: "flex-end" }}>
-          <button className="btn btn-outline" onClick={onClose} disabled={loading}>Bekor</button>
-          <button className="btn btn-primary" onClick={onSubmit} disabled={loading || !form.name.trim()}>
-            {loading ? "Saqlanmoqda..." : "Saqlash"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+const emptyForm: DeptForm = { name: "", headUserId: "", employeeCount: "" };
 
 export default function DepartmentsPage() {
   const hasPermission = useAuthStore(s => s.hasPermission);
@@ -97,11 +32,14 @@ export default function DepartmentsPage() {
   const [error, setError] = useState("");
   const [users, setUsers] = useState<UserResponse[]>([]);
 
-  const [showCreate, setShowCreate] = useState(false);
-  const [showEdit, setShowEdit] = useState(false);
+  // Inline form
+  const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState<DepartmentResponse | null>(null);
   const [form, setForm] = useState<DeptForm>(emptyForm);
+  const [formSubmitted, setFormSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Delete confirm
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -121,7 +59,7 @@ export default function DepartmentsPage() {
 
   useEffect(() => {
     load();
-    userService.getAll().then(setUsers).catch(() => {});
+    userService.getAll(1, 1000).then(r => setUsers(r.items ?? [])).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -135,47 +73,63 @@ export default function DepartmentsPage() {
   }, [search, depts]);
 
   const openCreate = () => {
+    setEditTarget(null);
     setForm(emptyForm);
-    setShowCreate(true);
+    setFormSubmitted(false);
+    setShowForm(true);
   };
 
   const openEdit = (d: DepartmentResponse) => {
     setEditTarget(d);
-    setForm({ name: d.name, headUserId: d.headUserId ?? "" });
-    setShowEdit(true);
+    setForm({ name: d.name, headUserId: d.headUserId ?? "", employeeCount: String(d.employeeCount ?? "") });
+    setFormSubmitted(false);
+    setShowForm(true);
   };
 
-  const handleCreate = async () => {
+  const handleSave = async () => {
+    setFormSubmitted(true);
     if (!form.name.trim()) return;
     setSaving(true);
     try {
-      const payload: DepartmentCreatePayload = {
-        name: form.name,
-        headUserId: form.headUserId || null,
-      };
-      await departmentService.create(payload);
-      setShowCreate(false);
-      await load();
-    } catch {
-      // stay open on error
-    } finally {
-      setSaving(false);
-    }
-  };
+      const count = form.employeeCount !== "" ? Number(form.employeeCount) : undefined;
+      const headUser = users.find(u => u.id === form.headUserId);
+      const headUserFullName = headUser ? `${headUser.firstName} ${headUser.lastName}` : null;
 
-  const handleUpdate = async () => {
-    if (!editTarget) return;
-    setSaving(true);
-    try {
-      const payload: DepartmentUpdatePayload = {
-        name: form.name || undefined,
-        headUserId: form.headUserId || null,
-      };
-      await departmentService.update(editTarget.id, payload);
-      setShowEdit(false);
-      await load();
+      if (editTarget) {
+        const payload: DepartmentUpdatePayload = {
+          name: form.name || undefined,
+          headUserId: form.headUserId || null,
+          employeeCount: count ?? null,
+        };
+        await departmentService.update(editTarget.id, payload);
+        const updated: DepartmentResponse = {
+          ...editTarget,
+          name: form.name || editTarget.name,
+          headUserId: form.headUserId || null,
+          headUserFullName,
+          employeeCount: count ?? editTarget.employeeCount,
+        };
+        setDepts(prev => prev.map(d => d.id === editTarget.id ? updated : d));
+      } else {
+        const payload: DepartmentCreatePayload = {
+          name: form.name,
+          headUserId: form.headUserId || null,
+          employeeCount: count,
+        };
+        await departmentService.create(payload);
+        const created: DepartmentResponse = {
+          id: crypto.randomUUID(),
+          name: form.name,
+          headUserId: form.headUserId || null,
+          headUserFullName,
+          employeeCount: count ?? 0,
+          createdAt: new Date().toISOString(),
+        };
+        setDepts(prev => [...prev, created]);
+      }
+      setShowForm(false);
     } catch {
-      // stay open on error
+      // stay on error
     } finally {
       setSaving(false);
     }
@@ -186,8 +140,8 @@ export default function DepartmentsPage() {
     setDeleting(true);
     try {
       await departmentService.delete(deleteId);
+      setDepts(prev => prev.filter(d => d.id !== deleteId));
       setDeleteId(null);
-      await load();
     } catch {
       // stay open on error
     } finally {
@@ -195,6 +149,139 @@ export default function DepartmentsPage() {
     }
   };
 
+  /* ===== Inline form view ===== */
+  if (showForm) {
+    const selectedUser = users.find(u => u.id === form.headUserId);
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>
+            {editTarget ? "Bo'limni tahrirlash" : "Yangi bo'lim"}
+          </span>
+        </div>
+
+        {/* Form fields */}
+        <div className="itm-card" style={{ padding: 28 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+            {/* Bo'lim nomi */}
+            <div>
+              <label style={{
+                fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6,
+                color: formSubmitted && !form.name.trim() ? "var(--danger)" : "var(--text2)",
+              }}>
+                Bo&apos;lim nomi <span style={{ color: "var(--danger)" }}>*</span>
+              </label>
+              <input
+                className="form-input"
+                value={form.name}
+                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="Bo'lim nomini kiriting"
+                style={formSubmitted && !form.name.trim() ? {
+                  borderColor: "var(--danger)", outline: "none",
+                  boxShadow: "0 0 0 2px var(--danger)33",
+                } : undefined}
+              />
+              {formSubmitted && !form.name.trim() && (
+                <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>
+                  Bo&apos;lim nomini kiriting
+                </div>
+              )}
+            </div>
+
+            {/* Bo'lim boshlig'i */}
+            <div>
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>
+                Bo&apos;lim boshlig&apos;i
+              </label>
+              <select
+                className="form-input"
+                value={form.headUserId}
+                onChange={e => setForm(f => ({ ...f, headUserId: e.target.value }))}
+                style={{ width: "100%", cursor: "pointer" }}
+              >
+                <option value="">— Boshlig&apos; tanlang —</option>
+                {users.map(u => (
+                  <option key={u.id} value={u.id}>{u.firstName} {u.lastName}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Xodimlar soni */}
+            <div>
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>
+                Xodimlar soni
+              </label>
+              <input
+                className="form-input"
+                type="number"
+                min="0"
+                value={form.employeeCount}
+                onChange={e => setForm(f => ({ ...f, employeeCount: e.target.value }))}
+                placeholder="0"
+              />
+            </div>
+          </div>
+
+          {/* Preview card */}
+          {(form.name || form.headUserId) && (
+            <div style={{
+              marginTop: 24, padding: "16px 20px",
+              border: "1.5px solid var(--accent)44",
+              borderRadius: 10, background: "var(--accent-dim)",
+              display: "flex", alignItems: "center", gap: 16,
+            }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: 10,
+                background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+              }}>
+                <svg width="18" height="18" fill="none" stroke="#fff" strokeWidth="2" viewBox="0 0 24 24">
+                  <rect x="2" y="7" width="20" height="14" rx="2" />
+                  <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+                </svg>
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)" }}>
+                  {form.name || "—"}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--text2)", marginTop: 2 }}>
+                  Boshlig&apos;i: {selectedUser ? `${selectedUser.firstName} ${selectedUser.lastName}` : "Belgilanmagan"} · Xodimlar: {form.employeeCount || "0"}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 8 }}>
+          <button
+            onClick={() => setShowForm(false)}
+            style={{
+              background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)",
+              cursor: "pointer", padding: "10px 24px", color: "var(--text2)", fontSize: 14, fontWeight: 500,
+            }}
+          >
+            Bekor qilish
+          </button>
+          <button
+            className="btn-primary"
+            onClick={handleSave}
+            disabled={saving}
+            style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+              <polyline points="17 21 17 13 7 13 7 21" />
+              <polyline points="7 3 7 8 15 8" />
+            </svg>
+            {saving ? "Saqlanmoqda..." : editTarget ? "O'zgarishlarni saqlash" : "Bo'lim yaratish"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  /* ===== List view ===== */
   return (
     <>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
@@ -231,15 +318,7 @@ export default function DepartmentsPage() {
         )}
       </div>
 
-      <div className="itm-card">
-        <div className="itm-card-header">
-          <div className="icon-bg ib-blue">
-            <svg width="14" height="14" fill="none" stroke="var(--accent)" strokeWidth="2" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
-          </div>
-          <span className="itm-card-title">Bo&apos;limlar Ro&apos;yxati</span>
-          <span className="itm-card-subtitle">{depts.length} ta bo&apos;lim</span>
-        </div>
-
+      <div className="itm-card" style={{ flex: 1 }}>
         {loading ? (
           <div style={{ padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
         ) : error ? (
@@ -248,33 +327,52 @@ export default function DepartmentsPage() {
           <div style={{ overflowX: "auto" }}>
             <table className="itm-table">
               <thead>
-                <tr><th>#</th><th>Bo&apos;lim nomi</th><th>Bo&apos;lim boshlig&apos;i</th><th>Xodimlar</th><th>Holat</th><th>Amal</th></tr>
+                <tr>
+                  <th style={{ width: 40, color: "var(--text1)", paddingLeft: 8, borderRight: "2px solid var(--border)" }}>#</th>
+                  <th style={{ width: 220, color: "var(--text1)" }}>Bo&apos;lim nomi</th>
+                  <th style={{ color: "var(--text1)" }}>
+                    <span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>Bo&apos;lim boshlig&apos;i</span>
+                  </th>
+                  <th style={{ color: "var(--text1)" }}>
+                    <span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>Xodimlar</span>
+                  </th>
+                  <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>Amal</th>
+                </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
+                  <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
                 ) : filtered.map((d, i) => (
                   <tr key={d.id}>
-                    <td className="mono" style={{ color: "var(--text3)", fontSize: 11 }}>
+                    <td style={{ paddingLeft: 8, borderRight: "2px solid var(--border)" }}>
                       {String(i + 1).padStart(2, "0")}
                     </td>
-                    <td><strong>{d.name}</strong></td>
-                    <td style={{ color: "var(--text2)" }}>{d.headUserFullName ?? "—"}</td>
-                    <td className="mono" style={{ color: "var(--text3)", fontSize: 12 }}>{d.employeeCount}</td>
-                    <td>
-                      <span className={`status ${d.headUserId ? "s-ok" : "s-warn"}`}>
-                        {d.headUserId ? "Aktiv" : "Boshligsiz"}
-                      </span>
-                    </td>
-                    <td>
+                    <td>{d.name}</td>
+                    <td style={{ color: "var(--text1)" }}>{d.headUserFullName ?? "—"}</td>
+                    <td style={{ color: "var(--text1)" }}>{d.employeeCount ?? "—"}</td>
+                    <td style={{ borderLeft: "2px solid var(--border)" }}>
                       {(canUpdate || canDelete) && (
-                        <div style={{ display: "flex", gap: 6 }}>
+                        <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
                           {canUpdate && (
-                            <button className="btn btn-sm btn-outline" onClick={() => openEdit(d)}>Tahrirlash</button>
+                            <button className="btn-icon" title="Tahrirlash" onClick={() => openEdit(d)}
+                              style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                              </svg>
+                            </button>
                           )}
                           {canDelete && (
-                            <button className="btn btn-sm" style={{ background: "rgba(220,50,50,0.12)", color: "#e05252", border: "1px solid rgba(220,50,50,0.25)" }}
-                              onClick={() => setDeleteId(d.id)}>O&apos;chirish</button>
+                            <button className="btn-icon btn-icon-danger" title="O'chirish"
+                              style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}
+                              onClick={() => setDeleteId(d.id)}>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6l-1 14H6L5 6" />
+                                <path d="M10 11v6M14 11v6" />
+                                <path d="M9 6V4h6v2" />
+                              </svg>
+                            </button>
                           )}
                         </div>
                       )}
@@ -287,37 +385,14 @@ export default function DepartmentsPage() {
         )}
       </div>
 
-      {showCreate && (
-        <DeptModal
-          title="Yangi Bo'lim"
-          onClose={() => setShowCreate(false)}
-          onSubmit={handleCreate}
-          loading={saving}
-          form={form}
-          setForm={setForm}
-          users={users}
-        />
-      )}
-
-      {showEdit && (
-        <DeptModal
-          title="Bo'limni Tahrirlash"
-          onClose={() => setShowEdit(false)}
-          onSubmit={handleUpdate}
-          loading={saving}
-          form={form}
-          setForm={setForm}
-          users={users}
-        />
-      )}
-
+      {/* Delete confirm */}
       {deleteId && (
         <div style={{
           position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000,
           display: "flex", alignItems: "center", justifyContent: "center",
         }}>
           <div style={{
-            background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12,
+            background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12,
             padding: 28, width: 340, maxWidth: "95vw", textAlign: "center",
           }}>
             <div style={{ fontSize: 15, marginBottom: 8 }}>Bo&apos;limni o&apos;chirish</div>

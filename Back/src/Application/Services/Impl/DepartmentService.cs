@@ -48,6 +48,7 @@ public class DepartmentService : IDepartmentService
             Id = Guid.NewGuid(),
             Name = dto.Name,
             HeadUserId = dto.HeadUserId,
+            EmployeeCount = dto.EmployeeCount,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -73,6 +74,7 @@ public class DepartmentService : IDepartmentService
         }
 
         if (dto.HeadUserId.HasValue) department.HeadUserId = dto.HeadUserId;
+        if (dto.EmployeeCount.HasValue) department.EmployeeCount = dto.EmployeeCount.Value;
 
         await _context.SaveChangesAsync();
 

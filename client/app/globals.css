@@ -83,6 +83,7 @@ body {
 .s-warn::before  { background: var(--warn); }
 .s-danger{ background: var(--danger-dim);  color: var(--danger);  border: 1px solid rgba(217,48,37,0.2); }
 .s-danger::before{ background: var(--danger); }
+
 .s-blue  { background: var(--accent-dim);  color: var(--accent);  border: 1px solid rgba(26,110,235,0.2); }
 .s-blue::before  { background: var(--accent); }
 .s-gray  { background: var(--surface2);    color: var(--text3);   border: 1px solid var(--border); }

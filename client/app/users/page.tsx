@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   userService,
   roleService,
@@ -16,7 +17,13 @@ import { useAuthStore } from "@/lib/store/authStore";
 
 const emptyForm = { firstName: "", lastName: "", login: "", password: "", roleId: "", departmentId: "", isActive: true };
 
-export default function UsersPage() {
+function UsersPageInner() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const view = searchParams.get("view");
+  const editId = searchParams.get("id");
+
   const hasPermission = useAuthStore(s => s.hasPermission);
   const canCreate = hasPermission("Users.Create");
   const canUpdate = hasPermission("Users.Update");
@@ -33,15 +40,15 @@ export default function UsersPage() {
   const [roles, setRoles] = useState<RoleOption[]>([]);
   const [departments, setDepartments] = useState<DepartmentOption[]>([]);
 
-  const [showCreate, setShowCreate] = useState(false);
-  const [showEdit, setShowEdit] = useState(false);
-  const [editTarget, setEditTarget] = useState<UserResponse | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const usersRef = useRef<UserResponse[]>([]);
+
+  const showCreate = view === "create";
+  const showEdit = view === "edit" && !!editId;
+  const editTarget = users.find(u => u.id === editId) ?? null;
 
   const load = async (p = page) => {
     try {
@@ -77,55 +84,40 @@ export default function UsersPage() {
     );
   }, [search, users]);
 
-  useEffect(() => { usersRef.current = users; }, [users]);
-
+  // Initialize form when entering edit mode or when editTarget becomes available
+  const initializedEditIdRef = useRef<string | null>(null);
   useEffect(() => {
-    const onPopState = (e: PopStateEvent) => {
-      if (e.state?.view === "create") {
-        setForm(emptyForm);
-        setFormSubmitted(false);
-        setShowCreate(true);
-        setShowEdit(false);
-      } else if (e.state?.view === "edit" && e.state?.userId) {
-        const u = usersRef.current.find(x => x.id === e.state.userId);
-        if (u) {
-          setEditTarget(u);
-          setForm({
-            firstName: u.firstName, lastName: u.lastName, login: u.login,
-            password: "", roleId: u.roleId ?? "", departmentId: u.departmentId ?? "", isActive: u.isActive,
-          });
-          setShowEdit(true);
-          setShowCreate(false);
-        }
-      } else {
-        setShowEdit(false);
-        setShowCreate(false);
-      }
-    };
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, []);
+    if (showEdit && editTarget && initializedEditIdRef.current !== editId) {
+      initializedEditIdRef.current = editId;
+      setForm({
+        firstName: editTarget.firstName,
+        lastName: editTarget.lastName,
+        login: editTarget.login,
+        password: "",
+        roleId: editTarget.roleId ?? "",
+        departmentId: editTarget.departmentId ?? "",
+        isActive: editTarget.isActive,
+      });
+    }
+    if (!showEdit) {
+      initializedEditIdRef.current = null;
+    }
+  }, [showEdit, editTarget, editId]);
+
+  // Reset form when entering create mode
+  useEffect(() => {
+    if (showCreate) {
+      setForm(emptyForm);
+      setFormSubmitted(false);
+    }
+  }, [showCreate]);
 
   const openCreate = () => {
-    setForm(emptyForm);
-    setFormSubmitted(false);
-    history.pushState({ view: "create" }, "");
-    setShowCreate(true);
+    router.push(`${pathname}?view=create`);
   };
 
   const openEdit = (u: UserResponse) => {
-    setEditTarget(u);
-    setForm({
-      firstName: u.firstName,
-      lastName: u.lastName,
-      login: u.login,
-      password: "",
-      roleId: u.roleId ?? "",
-      departmentId: u.departmentId ?? "",
-      isActive: u.isActive,
-    });
-    history.pushState({ view: "edit", userId: u.id }, "");
-    setShowEdit(true);
+    router.push(`${pathname}?view=edit&id=${u.id}`);
   };
 
   const handleCreate = async () => {
@@ -142,7 +134,7 @@ export default function UsersPage() {
         departmentId: form.departmentId || null,
       };
       await userService.create(payload);
-      history.back();
+      router.back();
       await load();
     } catch {
       // stay open on error
@@ -165,7 +157,7 @@ export default function UsersPage() {
         isActive: form.isActive,
       };
       await userService.update(editTarget.id, payload);
-      history.back();
+      router.back();
       await load();
     } catch {
       // stay open on error
@@ -269,7 +261,7 @@ export default function UsersPage() {
 
         {/* Footer actions */}
         <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 8 }}>
-          <button className="btn-secondary" onClick={() => history.back()}>Bekor qilish</button>
+          <button className="btn-secondary" onClick={() => router.back()}>Bekor qilish</button>
           <button className="btn-primary" onClick={handleUpdate} disabled={saving}
             style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -374,7 +366,7 @@ export default function UsersPage() {
 
         {/* Footer actions */}
         <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 8 }}>
-          <button className="btn-secondary" onClick={() => history.back()}>Bekor qilish</button>
+          <button className="btn-secondary" onClick={() => router.back()}>Bekor qilish</button>
           <button className="btn-primary" onClick={handleCreate} disabled={saving}
             style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -391,6 +383,20 @@ export default function UsersPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+      <style>{`
+        @keyframes sdot-ping {
+          0%   { box-shadow: 0 0 0 0px rgba(34,197,94,0.55); }
+          100% { box-shadow: 0 0 0 6px rgba(34,197,94,0);    }
+        }
+        .sdot {
+          display: inline-block;
+          width: 9px; height: 9px;
+          border-radius: 50%;
+          vertical-align: middle;
+        }
+        .sdot-on  { background: #22c55e; animation: sdot-ping 1.5s ease-out infinite; }
+        .sdot-off { background: #94a3b8; }
+      `}</style>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
         <div className="search-wrap" style={{ maxWidth: "none", flex: 1 }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -436,6 +442,7 @@ export default function UsersPage() {
             <table className="itm-table">
               <thead>
                 <tr>
+                  <th style={{ width: 40, color: "var(--text1)", paddingLeft: 8, borderRight: "2px solid var(--border)" }}>#</th>
                   <th style={{ color: "var(--text1)" }}>Ism</th>
                   {["Familiya", "Login", "Holat"].map(col => (
                     <th key={col} style={{ color: "var(--text1)" }}>
@@ -449,16 +456,18 @@ export default function UsersPage() {
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
-                ) : filtered.map(u => (
+                  <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
+                ) : filtered.map((u, i) => (
                   <tr key={u.id}>
+                    <td style={{ paddingLeft: 8, borderRight: "2px solid var(--border)" }}>{String((page - 1) * 20 + i + 1).padStart(2, "0")}</td>
                     <td>{u.firstName}</td>
                     <td style={{ color: "var(--text1)" }}>{u.lastName}</td>
                     <td>{u.login}</td>
                     <td>
-                      <span className={`status ${u.isActive ? "s-ok" : "s-warn"}`}>
-                        {u.isActive ? "Aktiv" : "Nofaol"}
-                      </span>
+                      <span
+                        className={`sdot ${u.isActive ? "sdot-on" : "sdot-off"}`}
+                        title={u.isActive ? "Aktiv" : "Nofaol"}
+                      />
                     </td>
                     <td style={{ borderLeft: "2px solid var(--border)" }}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
@@ -531,7 +540,7 @@ export default function UsersPage() {
           display: "flex", alignItems: "center", justifyContent: "center",
         }}>
           <div style={{
-            background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12,
+            background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12,
             padding: 28, width: 340, maxWidth: "95vw", textAlign: "center",
           }}>
             <div style={{ fontSize: 15, marginBottom: 8 }}>Foydalanuvchini o&apos;chirish</div>
@@ -549,5 +558,13 @@ export default function UsersPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function UsersPage() {
+  return (
+    <Suspense>
+      <UsersPageInner />
+    </Suspense>
   );
 }

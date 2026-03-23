@@ -160,11 +160,13 @@ export interface DepartmentResponse {
 export interface DepartmentCreatePayload {
   name: string;
   headUserId?: string | null;
+  employeeCount?: number;
 }
 
 export interface DepartmentUpdatePayload {
   name?: string;
   headUserId?: string | null;
+  employeeCount?: number | null;
 }
 
 export const departmentService = {
