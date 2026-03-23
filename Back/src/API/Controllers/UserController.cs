@@ -1,5 +1,6 @@
 using API.Authorization;
 using Application.DTOs.Users;
+using Application.Helpers;
 using Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -20,9 +21,9 @@ public class UserController : ControllerBase
 
     [HasPermission("Users.View")]
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetAll([FromQuery] PaginationParams pagination)
     {
-        var result = await _userService.GetAllAsync();
+        var result = await _userService.GetAllAsync(pagination);
         return Ok(result);
     }
 

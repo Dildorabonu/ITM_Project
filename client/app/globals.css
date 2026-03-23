@@ -144,8 +144,7 @@ body {
 .itm-table td { padding: 6px 14px 6px 30px; border-bottom: 0.5px solid var(--border); color: var(--text); vertical-align: middle; font-weight: 300; }
 .itm-table tbody tr { transition: background 0.1s; cursor: pointer; }
 .itm-table tbody tr:hover { background: var(--accent-dim); }
-.itm-table tbody tr:last-child td { border-bottom: none; }
-.mono { font-family: var(--font-inter), Inter, sans-serif; font-size: 14px; }
+.itm-table tbody tr:last-child td { border-bottom: 0.5px solid var(--border); }.mono { font-family: var(--font-inter), Inter, sans-serif; font-size: 14px; }
 
 /* ===== TAG ===== */
 .tag { display: inline-flex; align-items: center; font-size: 12px; padding: 2px 8px; border-radius: 3px; border: 1px solid var(--border); color: var(--text3); background: var(--bg3); font-family: var(--font-inter), Inter, sans-serif; }

@@ -368,7 +368,7 @@ export default function RolesPage() {
   }
 
   return (
-    <>
+    <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
       {/* Toolbar */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
         <div className="search-wrap" style={{ maxWidth: "none", flex: 1 }}>
@@ -409,26 +409,29 @@ export default function RolesPage() {
       </div>
 
       {/* Table */}
-      <div style={{ background: "var(--bg2)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", overflow: "hidden" }}>
+      <div className="itm-card" style={{ flex: 1 }}>
+        <div style={{ overflowX: "auto" }}>
         <table className="itm-table">
           <thead>
             <tr>
-              <th style={{ width: 220 }}>Nomi</th>
-              <th>Tavsif</th>
-              <th style={{ textAlign: "right" }}>Amallar</th>
+              <th style={{ width: 220, color: "var(--text1)" }}>Nomi</th>
+              <th style={{ color: "var(--text1)" }}>
+                <span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>Tavsif</span>
+              </th>
+              <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>Amallar</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={3} style={{ textAlign: "center", color: "var(--text3)", padding: 32 }}>Yuklanmoqda...</td></tr>
+              <tr><td colSpan={3} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Yuklanmoqda...</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={3} style={{ textAlign: "center", color: "var(--text3)", padding: 32 }}>Rollar topilmadi</td></tr>
+              <tr><td colSpan={3} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Rollar topilmadi</td></tr>
             ) : filtered.map(r => (
               <tr key={r.id}>
-                <td style={{ fontWeight: 600, color: "var(--accent)" }}>{r.name}</td>
-                <td style={{ color: "var(--text2)" }}>{r.description || "—"}</td>
-                <td>
-                  <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                <td>{r.name}</td>
+                <td style={{ color: "var(--text1)" }}>{r.description || "—"}</td>
+                <td style={{ borderLeft: "2px solid var(--border)" }}>
+                  <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
                     <button className="btn-icon" title="Ko'rish" onClick={() => openViewRole(r)}
                       style={{ color: "#0ea5e9", borderColor: "#0ea5e933", background: "#0ea5e912" }}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -466,6 +469,7 @@ export default function RolesPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* ===== View Drawer ===== */}
@@ -573,6 +577,6 @@ export default function RolesPage() {
         </div>
       )}
 
-    </>
+    </div>
   );
 }

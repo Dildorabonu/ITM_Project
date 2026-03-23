@@ -459,7 +459,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
           {/* Page content */}
           <main style={{ flex: 1, overflowY: "auto", background: "var(--surface)", border: "1px solid var(--border)" }}>
-            <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20, position: "relative" }}>
+            <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20, position: "relative", minHeight: "100%" }}>
               {children}
               {!readyRoutes.has(pathname) && (
                 <div style={{

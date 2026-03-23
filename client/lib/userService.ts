@@ -1,5 +1,15 @@
 import { api } from "./api";
 
+export interface PagedResult<T> {
+  items: T[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+}
+
 export interface UserResponse {
   id: string;
   firstName: string;
@@ -43,9 +53,9 @@ export interface DepartmentOption {
 }
 
 export const userService = {
-  getAll: async (): Promise<UserResponse[]> => {
-    const res = await api.get("/api/user");
-    return res.data?.result ?? res.data ?? [];
+  getAll: async (page = 1, pageSize = 20): Promise<PagedResult<UserResponse>> => {
+    const res = await api.get("/api/user", { params: { page, pageSize } });
+    return res.data?.result ?? res.data;
   },
 
   getById: async (id: string): Promise<UserResponse> => {

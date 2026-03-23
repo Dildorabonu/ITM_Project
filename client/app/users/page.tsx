@@ -25,6 +25,9 @@ export default function UsersPage() {
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [filtered, setFiltered] = useState<UserResponse[]>([]);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [roles, setRoles] = useState<RoleOption[]>([]);
@@ -40,13 +43,15 @@ export default function UsersPage() {
   const [deleting, setDeleting] = useState(false);
   const usersRef = useRef<UserResponse[]>([]);
 
-  const load = async () => {
+  const load = async (p = page) => {
     try {
       setLoading(true);
       setError("");
-      const data = await userService.getAll();
-      setUsers(data);
-      setFiltered(data);
+      const data = await userService.getAll(p);
+      setUsers(data.items);
+      setFiltered(data.items);
+      setTotalPages(data.totalPages);
+      setTotalCount(data.totalCount);
     } catch {
       setError("Ma'lumotlarni yuklashda xatolik yuz berdi.");
     } finally {
@@ -55,10 +60,10 @@ export default function UsersPage() {
   };
 
   useEffect(() => {
-    load();
+    load(page);
     roleService.getAll().then(setRoles).catch(() => {});
     departmentService.getAll().then(setDepartments).catch(() => {});
-  }, []);
+  }, [page]);
 
   useEffect(() => {
     const q = search.toLowerCase();
@@ -385,7 +390,7 @@ export default function UsersPage() {
   }
 
   return (
-    <>
+    <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
         <div className="search-wrap" style={{ maxWidth: "none", flex: 1 }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -396,7 +401,7 @@ export default function UsersPage() {
         </div>
         <button
           className="btn-icon"
-          onClick={load}
+          onClick={() => load()}
           title="Yangilash"
           style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}
         >
@@ -420,7 +425,7 @@ export default function UsersPage() {
         )}
       </div>
 
-      <div className="itm-card">
+      <div className="itm-card" style={{ flex: 1 }}>
 
         {loading ? (
           <div style={{ padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
@@ -491,6 +496,35 @@ export default function UsersPage() {
         )}
       </div>
 
+      {totalPages > 1 && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12, padding: "0 4px" }}>
+          <span style={{ fontSize: 13, color: "var(--text2)" }}>
+            Jami: {totalCount} ta
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button
+              className="btn-secondary"
+              disabled={page <= 1}
+              onClick={() => setPage(p => p - 1)}
+              style={{ padding: "6px 14px", fontSize: 13 }}
+            >
+              ← Oldingi
+            </button>
+            <span style={{ fontSize: 13, color: "var(--text1)", fontWeight: 600 }}>
+              {page} / {totalPages}
+            </span>
+            <button
+              className="btn-secondary"
+              disabled={page >= totalPages}
+              onClick={() => setPage(p => p + 1)}
+              style={{ padding: "6px 14px", fontSize: 13 }}
+            >
+              Keyingi →
+            </button>
+          </div>
+        </div>
+      )}
+
       {deleteId && (
         <div style={{
           position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000,
@@ -514,6 +548,6 @@ export default function UsersPage() {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

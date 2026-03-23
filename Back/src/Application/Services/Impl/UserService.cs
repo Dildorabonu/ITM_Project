@@ -16,15 +16,23 @@ public class UserService : IUserService
         _context = context;
     }
 
-    public async Task<ApiResult<IEnumerable<UserResponseDto>>> GetAllAsync()
+    public async Task<ApiResult<PagedResult<UserResponseDto>>> GetAllAsync(PaginationParams pagination)
     {
-        var users = await _context.Users
+        var query = _context.Users
             .Include(u => u.Role)
             .Include(u => u.Department)
             .AsNoTracking()
+            .OrderBy(u => u.FirstName);
+
+        var totalCount = await query.CountAsync();
+        var users = await query
+            .Skip((pagination.Page - 1) * pagination.PageSize)
+            .Take(pagination.PageSize)
             .ToListAsync();
 
-        return ApiResult<IEnumerable<UserResponseDto>>.Success(users.Select(MapToResponse));
+        var paged = PagedResult<UserResponseDto>.Create(users.Select(MapToResponse), totalCount, pagination);
+
+        return ApiResult<PagedResult<UserResponseDto>>.Success(paged);
     }
 
     public async Task<ApiResult<UserResponseDto>> GetByIdAsync(Guid id)
