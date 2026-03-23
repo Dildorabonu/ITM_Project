@@ -397,13 +397,13 @@ function UsersPageInner() {
         .sdot-on  { background: #22c55e; animation: sdot-ping 1.5s ease-out infinite; }
         .sdot-off { background: #94a3b8; }
       `}</style>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px" }}>
         <div className="search-wrap" style={{ maxWidth: "none", flex: 1 }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
           <input className="search-input" placeholder="Qidirish"
-            value={search} onChange={e => setSearch(e.target.value)} />
+            value={search} onChange={e => setSearch(e.target.value)} style={{ background: "#fff" }} />
         </div>
         <button
           className="btn-icon"

@@ -366,7 +366,7 @@ export default function RolesPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
       {/* Toolbar */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px" }}>
         <div className="search-wrap" style={{ maxWidth: "none", flex: 1 }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -376,6 +376,7 @@ export default function RolesPage() {
             placeholder="Qidirish"
             value={search}
             onChange={e => setSearch(e.target.value)}
+            style={{ background: "#fff" }}
           />
         </div>
         <button

@@ -418,20 +418,20 @@ export default function ProductsPage() {
 
   /* ===== List view ===== */
   return (
-    <>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+    <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px" }}>
         <div className="search-wrap" style={{ maxWidth: "none", flex: 1 }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
           <input className="search-input" placeholder="Qidirish"
-            value={search} onChange={e => setSearch(e.target.value)} />
+            value={search} onChange={e => setSearch(e.target.value)} style={{ background: "#fff" }} />
         </div>
         <select
           className="form-input"
           value={filterDept}
           onChange={e => setFilterDept(e.target.value)}
-          style={{ width: 200, cursor: "pointer", height: 36, padding: "0 10px" }}
+          style={{ width: 200, cursor: "pointer", height: 36, padding: "0 10px", background: "#fff" }}
         >
           <option value="">Barcha bo&apos;limlar</option>
           {departments.map(d => (
@@ -499,19 +499,11 @@ export default function ProductsPage() {
                     <td style={{ paddingLeft: 8, borderRight: "2px solid var(--border)" }}>
                       {String(i + 1).padStart(2, "0")}
                     </td>
-                    <td style={{ fontWeight: 600 }}>{p.name}</td>
-                    <td>
-                      <span style={{
-                        display: "inline-block", padding: "2px 10px", borderRadius: 20,
-                        fontSize: 12, fontWeight: 600,
-                        background: "var(--accent-dim)", color: "var(--accent)",
-                      }}>
-                        {p.departmentName}
-                      </span>
-                    </td>
-                    <td style={{ color: "var(--text1)", fontWeight: 600 }}>{p.quantity}</td>
-                    <td style={{ color: "var(--text2)", fontSize: 13 }}>{PRODUCT_UNIT_LABELS[p.unit] ?? "—"}</td>
-                    <td style={{ color: "var(--text2)", fontSize: 13 }}>{p.description ?? "—"}</td>
+                    <td>{p.name}</td>
+                    <td style={{ color: "var(--text1)" }}>{p.departmentName}</td>
+                    <td style={{ color: "var(--text1)" }}>{p.quantity}</td>
+                    <td style={{ color: "var(--text1)" }}>{PRODUCT_UNIT_LABELS[p.unit] ?? "—"}</td>
+                    <td style={{ color: "var(--text1)" }}>{p.description ?? "—"}</td>
                     <td style={{ borderLeft: "2px solid var(--border)" }}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
                         <button className="btn-icon" title="Ko'rish" onClick={() => setViewProduct(p)}
@@ -638,6 +630,6 @@ export default function ProductsPage() {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

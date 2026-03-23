@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Roboto_Mono, Inter } from "next/font/google";
@@ -120,6 +120,30 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const [darkMode, setDarkMode] = useState(false);
+  const [hasScroll, setHasScroll] = useState(false);
+  const [thumbTop, setThumbTop] = useState(0);
+  const [thumbHeight, setThumbHeight] = useState(30);
+  const navRef = useRef<HTMLElement>(null);
+
+  const updateScrollState = () => {
+    const el = navRef.current;
+    if (!el) return;
+    const { scrollTop, scrollHeight, clientHeight } = el;
+    const scrollable = scrollHeight > clientHeight + 1;
+    setHasScroll(scrollable);
+    if (scrollable) {
+      const h = Math.max(clientHeight / scrollHeight * 100, 12);
+      const t = scrollTop / (scrollHeight - clientHeight) * (100 - h);
+      setThumbHeight(h);
+      setThumbTop(t);
+    }
+  };
+
+  const scrollNav = (dir: "up" | "down") => {
+    navRef.current?.scrollBy({ top: dir === "up" ? -80 : 80, behavior: "smooth" });
+  };
+
+  useEffect(() => { updateScrollState(); }, [sidebarCollapsed, collapsedGroups]);
 
   useEffect(() => {
     const saved = localStorage.getItem("theme");
@@ -183,7 +207,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           width: sidebarCollapsed ? 64 : 320, minWidth: sidebarCollapsed ? 64 : 320,
           background: "var(--sidebar-bg)",
           display: "flex", flexDirection: "column",
-          overflowY: "auto", overflowX: "hidden", scrollbarGutter: "stable",
+          overflow: "hidden",
           boxShadow: "2px 0 16px rgba(0,0,0,0.18)",
           border: "1px solid var(--border)",
           transition: "width 0.25s ease, min-width 0.25s ease",
@@ -227,8 +251,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             .nav-item:hover .nav-border { clip-path: inset(0% 0); }
           `}</style>
 
+          {/* Nav scroll wrapper */}
+          <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+
           {/* Nav */}
-          <nav style={{ padding: "16px 0", flex: 1 }}>
+          <nav ref={navRef} onScroll={updateScrollState} style={{ padding: "16px 0", flex: 1, overflowY: "scroll", overflowX: "hidden", scrollbarWidth: "none" }}>
             {navGroups.map((group) => {
               const isCollapsed = !!collapsedGroups[group.label];
               return (
@@ -306,6 +333,61 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               );
             })}
           </nav>
+
+          {/* Custom scrollbar */}
+          {hasScroll && (
+            <div style={{ width: 8, display: "flex", flexDirection: "column", flexShrink: 0, padding: "2px 0" }}>
+              {/* Up arrow */}
+              <button
+                onClick={() => scrollNav("up")}
+                style={{
+                  height: 16, flexShrink: 0, border: "none", background: "transparent",
+                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "rgba(26,110,235,0.5)", padding: 0,
+                  borderRadius: "3px 3px 0 0",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#1a6eeb"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(26,110,235,0.5)"; }}
+              >
+                <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor"><polygon points="4,1 7,7 1,7"/></svg>
+              </button>
+
+              {/* Track */}
+              <div
+                style={{ flex: 1, position: "relative", background: "rgba(26,110,235,0.1)", borderRadius: 3, cursor: "pointer" }}
+                onClick={(e) => {
+                  const el = navRef.current;
+                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                  const ratio = (e.clientY - rect.top) / rect.height;
+                  if (el) el.scrollTop = ratio * (el.scrollHeight - el.clientHeight);
+                }}
+              >
+                <div style={{
+                  position: "absolute", left: 0, right: 0,
+                  top: `${thumbTop}%`, height: `${thumbHeight}%`,
+                  background: "rgba(26,110,235,0.45)", borderRadius: 3,
+                  transition: "top 0.05s, background 0.15s",
+                  pointerEvents: "none",
+                }} />
+              </div>
+
+              {/* Down arrow */}
+              <button
+                onClick={() => scrollNav("down")}
+                style={{
+                  height: 16, flexShrink: 0, border: "none", background: "transparent",
+                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "rgba(26,110,235,0.5)", padding: 0,
+                  borderRadius: "0 0 3px 3px",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#1a6eeb"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(26,110,235,0.5)"; }}
+              >
+                <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor"><polygon points="4,7 7,1 1,1"/></svg>
+              </button>
+            </div>
+          )}
+          </div>
 
           {/* Collapse toggle */}
           <div style={{ borderTop: "1px solid var(--sidebar-border)", padding: "10px 8px" }}>
