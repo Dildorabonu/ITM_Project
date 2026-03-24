@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import {
   contractService,
-  departmentService,
   ContractStatus,
   Priority,
   CONTRACT_STATUS_LABELS,
@@ -11,28 +10,21 @@ import {
   type ContractResponse,
   type ContractCreatePayload,
   type ContractUpdatePayload,
-  type DepartmentOption,
 } from "@/lib/userService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ContractForm {
   contractNo: string;
-  clientName: string;
-  productType: string;
-  quantity: string;
-  unit: string;
   startDate: string;
   endDate: string;
-  departmentId: string;
   priority: string;
   notes: string;
 }
 
 const emptyForm: ContractForm = {
-  contractNo: "", clientName: "", productType: "",
-  quantity: "", unit: "", startDate: "", endDate: "",
-  departmentId: "", priority: String(Priority.Medium), notes: "",
+  contractNo: "", startDate: "", endDate: "",
+  priority: String(Priority.Medium), notes: "",
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -82,14 +74,12 @@ function fmt(d: string) {
 export default function ContractsPage() {
   const [contracts, setContracts]       = useState<ContractResponse[]>([]);
   const [filtered, setFiltered]         = useState<ContractResponse[]>([]);
-  const [departments, setDepartments]   = useState<DepartmentOption[]>([]);
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState("");
 
   // Filters
   const [search, setSearch]             = useState("");
   const [filterStatus, setFilterStatus] = useState("");
-  const [filterDept, setFilterDept]     = useState("");
 
   // Form
   const [showForm, setShowForm]         = useState(false);
@@ -128,23 +118,18 @@ export default function ContractsPage() {
 
   useEffect(() => {
     load();
-    departmentService.getAll().then(setDepartments).catch(() => {});
   }, []);
 
   useEffect(() => {
     const q = search.toLowerCase();
     setFiltered(
       contracts.filter(c => {
-        const matchSearch = !q ||
-          c.contractNo.toLowerCase().includes(q) ||
-          c.clientName.toLowerCase().includes(q) ||
-          c.productType.toLowerCase().includes(q);
+        const matchSearch = !q || c.contractNo.toLowerCase().includes(q);
         const matchStatus = filterStatus === "" || c.status === Number(filterStatus);
-        const matchDept   = !filterDept   || c.departmentId === filterDept;
-        return matchSearch && matchStatus && matchDept;
+        return matchSearch && matchStatus;
       })
     );
-  }, [search, filterStatus, filterDept, contracts]);
+  }, [search, filterStatus, contracts]);
 
   // ── Form ──────────────────────────────────────────────────────────────────
 
@@ -160,13 +145,8 @@ export default function ContractsPage() {
     setEditTarget(c);
     setForm({
       contractNo:   c.contractNo,
-      clientName:   c.clientName,
-      productType:  c.productType,
-      quantity:     String(c.quantity),
-      unit:         c.unit,
       startDate:    c.startDate.slice(0, 10),
       endDate:      c.endDate.slice(0, 10),
-      departmentId: c.departmentId,
       priority:     String(c.priority),
       notes:        c.notes ?? "",
     });
@@ -176,9 +156,7 @@ export default function ContractsPage() {
   };
 
   const isValid = () =>
-    form.contractNo.trim() && form.clientName.trim() &&
-    form.productType.trim() && form.quantity && form.unit.trim() &&
-    form.startDate && form.endDate && form.departmentId;
+    form.contractNo.trim() && form.startDate && form.endDate;
 
   const handleSave = async () => {
     setSubmitted(true);
@@ -189,13 +167,8 @@ export default function ContractsPage() {
       if (editTarget) {
         const dto: ContractUpdatePayload = {
           contractNo:   form.contractNo,
-          clientName:   form.clientName,
-          productType:  form.productType,
-          quantity:     Number(form.quantity),
-          unit:         form.unit,
           startDate:    form.startDate,
           endDate:      form.endDate,
-          departmentId: form.departmentId,
           priority:     Number(form.priority) as Priority,
           notes:        form.notes || null,
         };
@@ -203,13 +176,8 @@ export default function ContractsPage() {
       } else {
         const dto: ContractCreatePayload = {
           contractNo:   form.contractNo,
-          clientName:   form.clientName,
-          productType:  form.productType,
-          quantity:     Number(form.quantity),
-          unit:         form.unit,
           startDate:    form.startDate,
           endDate:      form.endDate,
-          departmentId: form.departmentId,
           priority:     Number(form.priority) as Priority,
           notes:        form.notes || null,
         };
@@ -286,72 +254,6 @@ export default function ContractsPage() {
                 style={fieldErr(form.contractNo) ? { borderColor: "var(--danger)" } : undefined}
               />
               {fieldErr(form.contractNo) && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Shartnoma raqamini kiriting</div>}
-            </div>
-
-            {/* Mijoz nomi */}
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: fieldErr(form.clientName) ? "var(--danger)" : "var(--text2)" }}>
-                Mijoz nomi <span style={{ color: "var(--danger)" }}>*</span>
-              </label>
-              <input className="form-input" value={form.clientName}
-                onChange={e => setForm(f => ({ ...f, clientName: e.target.value }))}
-                placeholder="Mijoz nomi"
-                style={fieldErr(form.clientName) ? { borderColor: "var(--danger)" } : undefined}
-              />
-              {fieldErr(form.clientName) && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Mijoz nomini kiriting</div>}
-            </div>
-
-            {/* Mahsulot turi */}
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: fieldErr(form.productType) ? "var(--danger)" : "var(--text2)" }}>
-                Mahsulot turi <span style={{ color: "var(--danger)" }}>*</span>
-              </label>
-              <input className="form-input" value={form.productType}
-                onChange={e => setForm(f => ({ ...f, productType: e.target.value }))}
-                placeholder="Masalan: Metall Konstruktsiya"
-                style={fieldErr(form.productType) ? { borderColor: "var(--danger)" } : undefined}
-              />
-              {fieldErr(form.productType) && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Mahsulot turini kiriting</div>}
-            </div>
-
-            {/* Bo'lim */}
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: submitted && !form.departmentId ? "var(--danger)" : "var(--text2)" }}>
-                Bo&apos;lim <span style={{ color: "var(--danger)" }}>*</span>
-              </label>
-              <select className="form-input" value={form.departmentId}
-                onChange={e => setForm(f => ({ ...f, departmentId: e.target.value }))}
-                style={{ width: "100%", cursor: "pointer", ...(submitted && !form.departmentId ? { borderColor: "var(--danger)" } : {}) }}>
-                <option value="">— Bo&apos;lim tanlang —</option>
-                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
-              {submitted && !form.departmentId && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Bo&apos;limni tanlang</div>}
-            </div>
-
-            {/* Miqdor */}
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: submitted && !form.quantity ? "var(--danger)" : "var(--text2)" }}>
-                Miqdor <span style={{ color: "var(--danger)" }}>*</span>
-              </label>
-              <input className="form-input" type="number" min="1" value={form.quantity}
-                onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))}
-                placeholder="0"
-                style={submitted && !form.quantity ? { borderColor: "var(--danger)" } : undefined}
-              />
-              {submitted && !form.quantity && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Miqdorni kiriting</div>}
-            </div>
-
-            {/* O'lchov birligi */}
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: fieldErr(form.unit) ? "var(--danger)" : "var(--text2)" }}>
-                O&apos;lchov birligi <span style={{ color: "var(--danger)" }}>*</span>
-              </label>
-              <input className="form-input" value={form.unit}
-                onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
-                placeholder="Dona, kg, metr..."
-                style={fieldErr(form.unit) ? { borderColor: "var(--danger)" } : undefined}
-              />
-              {fieldErr(form.unit) && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>O&apos;lchov birligini kiriting</div>}
             </div>
 
             {/* Boshlanish sanasi */}
@@ -433,7 +335,7 @@ export default function ContractsPage() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          <input className="search-input" placeholder="Qidirish (raqam, mijoz, mahsulot)"
+          <input className="search-input" placeholder="Qidirish (raqam)"
             value={search} onChange={e => setSearch(e.target.value)} style={{ background: "#fff" }} />
         </div>
 
@@ -444,13 +346,6 @@ export default function ContractsPage() {
           {(Object.keys(CONTRACT_STATUS_LABELS) as unknown as ContractStatus[]).map(k => (
             <option key={k} value={k}>{CONTRACT_STATUS_LABELS[k]}</option>
           ))}
-        </select>
-
-        <select className="form-input" value={filterDept}
-          onChange={e => setFilterDept(e.target.value)}
-          style={{ width: 170, cursor: "pointer", height: 36, padding: "0 10px", background: "#fff" }}>
-          <option value="">Barcha bo&apos;limlar</option>
-          {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
 
         <button className="btn-icon" onClick={load} title="Yangilash"
@@ -483,10 +378,6 @@ export default function ContractsPage() {
                 <tr>
                   <th style={{ width: 40, paddingLeft: 8, borderRight: "2px solid var(--border)", color: "var(--text1)" }}>#</th>
                   <th style={{ color: "var(--text1)" }}>Raqam</th>
-                  <th style={{ color: "var(--text1)" }}><span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>Mijoz</span></th>
-                  <th style={{ color: "var(--text1)" }}><span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>Mahsulot</span></th>
-                  <th style={{ color: "var(--text1)" }}><span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>Miqdor</span></th>
-                  <th style={{ color: "var(--text1)" }}><span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>Bo&apos;lim</span></th>
                   <th style={{ color: "var(--text1)" }}><span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>Muddat</span></th>
                   <th style={{ color: "var(--text1)" }}><span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>Muhimlik</span></th>
                   <th style={{ color: "var(--text1)" }}><span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>Holat</span></th>
@@ -495,7 +386,7 @@ export default function ContractsPage() {
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={10} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
+                  <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
                 ) : filtered.map((c, i) => (
                   <tr key={c.id}>
                     <td style={{ paddingLeft: 8, borderRight: "2px solid var(--border)", color: "var(--text2)", fontSize: 13 }}>{i + 1}</td>
@@ -505,10 +396,6 @@ export default function ContractsPage() {
                         {c.contractNo}
                       </button>
                     </td>
-                    <td style={{ paddingLeft: 8 }}><span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>{c.clientName}</span></td>
-                    <td style={{ paddingLeft: 8 }}><span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>{c.productType}</span></td>
-                    <td style={{ paddingLeft: 8 }}><span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>{c.quantity} {c.unit}</span></td>
-                    <td style={{ paddingLeft: 8 }}><span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>{c.departmentName ?? "—"}</span></td>
                     <td style={{ paddingLeft: 8 }}>
                       <span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8, fontSize: 12, color: "var(--text2)" }}>
                         {fmt(c.startDate)} – {fmt(c.endDate)}
@@ -566,10 +453,6 @@ export default function ContractsPage() {
             </div>
 
             {[
-              ["Mijoz",           viewContract.clientName],
-              ["Mahsulot turi",   viewContract.productType],
-              ["Miqdor",          `${viewContract.quantity} ${viewContract.unit}`],
-              ["Bo'lim",          viewContract.departmentName ?? "—"],
               ["Boshlanish",      fmt(viewContract.startDate)],
               ["Tugash",          fmt(viewContract.endDate)],
               ["Yaratuvchi",      viewContract.createdByFullName ?? "—"],
