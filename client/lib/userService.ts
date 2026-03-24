@@ -452,3 +452,173 @@ export const departmentService = {
     await api.delete(`/api/department/${id}`);
   },
 };
+
+// ─── TechProcess ──────────────────────────────────────────────────────────────
+
+export enum ProcessStatus {
+  Pending    = 0,
+  InProgress = 1,
+  Approved   = 2,
+  Rejected   = 3,
+  Completed  = 4,
+}
+
+export const PROCESS_STATUS_LABELS: Record<ProcessStatus, string> = {
+  [ProcessStatus.Pending]:    "Kutilmoqda",
+  [ProcessStatus.InProgress]: "Jarayonda",
+  [ProcessStatus.Approved]:   "Tasdiqlangan",
+  [ProcessStatus.Rejected]:   "Rad etilgan",
+  [ProcessStatus.Completed]:  "Yakunlangan",
+};
+
+export interface TechStepResponse {
+  id: string;
+  stepNumber: number;
+  name: string;
+  responsibleDept: string;
+  machine: string | null;
+  timeNorm: string | null;
+  status: ProcessStatus;
+  notes: string | null;
+}
+
+export interface TechProcessMaterialResponse {
+  id: string;
+  materialId: string;
+  materialName: string;
+  unit: string;
+  requiredQty: number;
+  availableQty: number;
+  status: string;
+}
+
+export interface TechProcessResponse {
+  id: string;
+  contractId: string;
+  contractNo: string;
+  clientName: string;
+  title: string;
+  status: ProcessStatus;
+  currentStep: number;
+  approvedBy: string | null;
+  approvedByFullName: string | null;
+  approvedAt: string | null;
+  createdAt: string;
+  steps: TechStepResponse[];
+  materials: TechProcessMaterialResponse[];
+}
+
+export interface TechProcessCreatePayload {
+  contractId: string;
+  title: string;
+  notes?: string | null;
+}
+
+export interface TechProcessUpdatePayload {
+  title?: string;
+  notes?: string | null;
+}
+
+export interface TechStepCreatePayload {
+  stepNumber: number;
+  name: string;
+  responsibleDept: string;
+  machine?: string | null;
+  timeNorm?: string | null;
+  notes?: string | null;
+}
+
+export interface TechStepUpdatePayload {
+  stepNumber?: number;
+  name?: string;
+  responsibleDept?: string;
+  machine?: string | null;
+  timeNorm?: string | null;
+  notes?: string | null;
+}
+
+export interface TechProcessMaterialCreatePayload {
+  materialId: string;
+  requiredQty: number;
+}
+
+export const techProcessService = {
+  getAll: async (status?: ProcessStatus): Promise<TechProcessResponse[]> => {
+    const params: Record<string, string> = {};
+    if (status !== undefined) params.status = String(status);
+    const res = await api.get("/api/techprocess", { params });
+    return res.data?.result ?? res.data ?? [];
+  },
+
+  getById: async (id: string): Promise<TechProcessResponse> => {
+    const res = await api.get(`/api/techprocess/${id}`);
+    return res.data?.result ?? res.data;
+  },
+
+  getByContract: async (contractId: string): Promise<TechProcessResponse[]> => {
+    const res = await api.get(`/api/techprocess/by-contract/${contractId}`);
+    return res.data?.result ?? res.data ?? [];
+  },
+
+  create: async (dto: TechProcessCreatePayload): Promise<string> => {
+    const res = await api.post("/api/techprocess", dto);
+    return res.data?.result as string;
+  },
+
+  update: async (id: string, dto: TechProcessUpdatePayload): Promise<void> => {
+    await api.put(`/api/techprocess/${id}`, dto);
+  },
+
+  approve: async (id: string): Promise<void> => {
+    await api.put(`/api/techprocess/${id}/approve`);
+  },
+
+  sendToWarehouse: async (id: string): Promise<void> => {
+    await api.put(`/api/techprocess/${id}/send-to-warehouse`);
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/api/techprocess/${id}`);
+  },
+
+  addStep: async (id: string, dto: TechStepCreatePayload): Promise<string> => {
+    const res = await api.post(`/api/techprocess/${id}/steps`, dto);
+    return res.data?.result as string;
+  },
+
+  updateStep: async (id: string, stepId: string, dto: TechStepUpdatePayload): Promise<void> => {
+    await api.put(`/api/techprocess/${id}/steps/${stepId}`, dto);
+  },
+
+  deleteStep: async (id: string, stepId: string): Promise<void> => {
+    await api.delete(`/api/techprocess/${id}/steps/${stepId}`);
+  },
+
+  addMaterial: async (id: string, dto: TechProcessMaterialCreatePayload): Promise<string> => {
+    const res = await api.post(`/api/techprocess/${id}/materials`, dto);
+    return res.data?.result as string;
+  },
+
+  deleteMaterial: async (id: string, materialId: string): Promise<void> => {
+    await api.delete(`/api/techprocess/${id}/materials/${materialId}`);
+  },
+};
+
+// ─── Material (Ombor) ─────────────────────────────────────────────────────────
+
+export interface MaterialOption {
+  id: string;
+  name: string;
+  unit: string;
+  quantity: number;
+}
+
+export const materialService = {
+  getAll: async (): Promise<MaterialOption[]> => {
+    const res = await api.get("/api/material");
+    const data = res.data?.result ?? res.data ?? [];
+    return data.map((m: { id: string; name: string; unit: string; quantity: number }) => ({
+      id: m.id, name: m.name, unit: m.unit, quantity: m.quantity,
+    }));
+  },
+};

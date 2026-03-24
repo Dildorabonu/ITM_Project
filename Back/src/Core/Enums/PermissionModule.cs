@@ -18,4 +18,7 @@ public enum PermissionModule
 
     [Display(Name = "Shartnomalar", Description = "file-text")]
     Contracts = 5,
+
+    [Display(Name = "Texnologik jarayon", Description = "settings")]
+    TechProcess = 6,
 }

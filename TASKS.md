@@ -1,6 +1,6 @@
 # ITM Project — Vazifalar ro'yxati
 
-> Oxirgi yangilanish: 2026-03-24
+> Oxirgi yangilanish: 2026-03-24 (TechProcess moduli to'liq bajarildi)
 > Jarayon: Klient taklifi → Shartnoma → Tex protses → Norma rasxod → Ombor tekshiruvi → Zayavka
 
 ---
@@ -43,8 +43,8 @@
 > Har bir shartnoma uchun mahsulot ishlab chiqarish texnologik jarayoni
 
 ### Backend
-- ⬜ `TechProcessService` interfeysi va implementatsiyasi
-- ⬜ `TechProcessController` — CRUD + bosqichlar boshqaruvi
+- ✅ `TechProcessService` interfeysi va implementatsiyasi (`ITechProcessService`)
+- ✅ `TechProcessController` — CRUD + bosqichlar boshqaruvi
   - `GET /api/techprocess` — barchasi
   - `GET /api/techprocess/{id}` — bitta (steps va materials bilan)
   - `GET /api/techprocess/by-contract/{contractId}` — shartnoma bo'yicha
@@ -53,18 +53,22 @@
   - `PUT /api/techprocess/{id}/approve` — tasdiqlash
   - `POST /api/techprocess/{id}/steps` — qadam qo'shish
   - `PUT /api/techprocess/{id}/steps/{stepId}` — qadam tahrirlash
+  - `DELETE /api/techprocess/{id}/steps/{stepId}` — qadam o'chirish
   - `POST /api/techprocess/{id}/materials` — material qo'shish
+  - `DELETE /api/techprocess/{id}/materials/{materialId}` — material o'chirish
   - `PUT /api/techprocess/{id}/send-to-warehouse` — omborga yuborish
-- ⬜ DTOlar: `CreateTechProcessDto`, `TechStepDto`, `TechProcessMaterialDto`
-- ⬜ Permission: `TechProcess` moduli
+  - `DELETE /api/techprocess/{id}` — o'chirish
+- ✅ DTOlar: `TechProcessCreateDto`, `TechProcessUpdateDto`, `TechStepCreateDto`, `TechStepUpdateDto`, `TechProcessMaterialCreateDto`, response DTOlar
+- ✅ Permission: `TechProcess` moduli `PermissionModule` enumiga qo'shildi
+- ✅ EF Core konfiguratsiyasi va migration (`AddTechProcessModule`)
 
 ### Frontend
-- ⬜ `/techprocess` sahifasi — jarayonlar ro'yxati
-- ⬜ Yangi texnologik jarayon yaratish (shartnomaga bog'lash)
-- ⬜ Qadamlar (TechStep) qo'shish/tahrirlash
-- ⬜ Materiallar ro'yxati qo'shish
-- ⬜ "Omborga yuborish" tugmasi
-- ⬜ Tasdiqlash workflow (approve)
+- ✅ `/techprocess` sahifasi — jarayonlar ro'yxati (contracts dizayni bilan)
+- ✅ Yangi texnologik jarayon yaratish (shartnomaga bog'lash)
+- ✅ Qadamlar (TechStep) qo'shish/o'chirish
+- ✅ Materiallar ro'yxati qo'shish/o'chirish
+- ✅ "Omborga yuborish" tugmasi
+- ✅ Tasdiqlash workflow (approve)
 
 ---
 
@@ -191,9 +195,9 @@
 ---
 
 ## Umumiy / Infratuzilma
-- ⬜ `PermissionModule` enumiga yangi modullar qo'shish (Contracts, TechProcess, CostNorm, Material, Requisition, Task)
+- 🔄 `PermissionModule` enumiga yangi modullar qo'shish — Contracts ✅, TechProcess ✅, qolganlar ⬜
 - ⬜ Swagger/OpenAPI hujjatlashtirish
-- ⬜ Frontend API service fayllari (contractService, techProcessService, va hokazo)
+- ✅ Frontend API service fayllari — `contractService`, `techProcessService`, `materialService` (`userService.ts`)
 - ⬜ Frontend Zustand store yangilash
 
 ---
