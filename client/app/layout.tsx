@@ -88,7 +88,7 @@ function NavIcon({ type, size = 16, strokeWidth = 2, color }: { type: string; si
 }
 
 // Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
-const readyRoutes = new Set(["/users", "/roles", "/login", "/departments", "/products", "/warehouse"]);
+const readyRoutes = new Set(["/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts"]);
 
 const pageTitles: Record<string, string> = {
   "/":              "Dashboard",

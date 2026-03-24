@@ -255,6 +255,112 @@ export const productService = {
   },
 };
 
+// ─── Contracts ───────────────────────────────────────────────────────────────
+
+export enum ContractStatus {
+  Draft = 0,
+  Active = 1,
+  Completed = 2,
+  Cancelled = 3,
+}
+
+export enum Priority {
+  Low = 0,
+  Medium = 1,
+  High = 2,
+  Urgent = 3,
+}
+
+export const CONTRACT_STATUS_LABELS: Record<ContractStatus, string> = {
+  [ContractStatus.Draft]:     "Qoralama",
+  [ContractStatus.Active]:    "Faol",
+  [ContractStatus.Completed]: "Yakunlandi",
+  [ContractStatus.Cancelled]: "Bekor qilindi",
+};
+
+export const PRIORITY_LABELS: Record<Priority, string> = {
+  [Priority.Low]:    "Past",
+  [Priority.Medium]: "O'rta",
+  [Priority.High]:   "Yuqori",
+  [Priority.Urgent]: "Shoshilinch",
+};
+
+export interface ContractResponse {
+  id: string;
+  contractNo: string;
+  clientName: string;
+  productType: string;
+  quantity: number;
+  unit: string;
+  startDate: string;
+  endDate: string;
+  departmentId: string;
+  departmentName: string | null;
+  priority: Priority;
+  status: ContractStatus;
+  notes: string | null;
+  createdBy: string;
+  createdByFullName: string | null;
+  createdAt: string;
+}
+
+export interface ContractCreatePayload {
+  contractNo: string;
+  clientName: string;
+  productType: string;
+  quantity: number;
+  unit: string;
+  startDate: string;
+  endDate: string;
+  departmentId: string;
+  priority: Priority;
+  notes?: string | null;
+}
+
+export interface ContractUpdatePayload {
+  contractNo?: string;
+  clientName?: string;
+  productType?: string;
+  quantity?: number;
+  unit?: string;
+  startDate?: string;
+  endDate?: string;
+  departmentId?: string;
+  priority?: Priority;
+  notes?: string | null;
+}
+
+export const contractService = {
+  getAll: async (status?: ContractStatus, departmentId?: string): Promise<ContractResponse[]> => {
+    const params: Record<string, string> = {};
+    if (status !== undefined) params.status = String(status);
+    if (departmentId) params.departmentId = departmentId;
+    const res = await api.get("/api/contract", { params });
+    return res.data?.result ?? res.data ?? [];
+  },
+
+  getById: async (id: string): Promise<ContractResponse> => {
+    const res = await api.get(`/api/contract/${id}`);
+    return res.data?.result ?? res.data;
+  },
+
+  create: async (dto: ContractCreatePayload): Promise<void> => {
+    await api.post("/api/contract", dto);
+  },
+
+  update: async (id: string, dto: ContractUpdatePayload): Promise<void> => {
+    await api.put(`/api/contract/${id}`, dto);
+  },
+
+  updateStatus: async (id: string, status: ContractStatus): Promise<void> => {
+    await api.put(`/api/contract/${id}/status`, { status });
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/api/contract/${id}`);
+  },
+};
+
 export const departmentService = {
   getAll: async (): Promise<DepartmentOption[]> => {
     const res = await api.get("/api/department");

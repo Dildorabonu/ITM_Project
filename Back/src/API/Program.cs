@@ -2,6 +2,7 @@ using System.Text;
 using API.Authorization;
 using Application;
 using Application.Options;
+using Core.Enums;
 using DataAccess.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -47,8 +48,8 @@ namespace API
             builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
             builder.Services.AddAuthorization(options =>
             {
-                var modules = new[] { "Users", "Roles" };
-                var actions = new[] { "View", "Create", "Update", "Delete" };
+                var modules = Enum.GetValues<PermissionModule>().Select(m => m.ToString());
+                var actions = Enum.GetValues<PermissionAction>().Select(a => a.ToString());
                 foreach (var module in modules)
                     foreach (var action in actions)
                     {
