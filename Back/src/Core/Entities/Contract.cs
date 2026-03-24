@@ -22,6 +22,7 @@ public class Contract
     // Navigation properties
     public Department? Department { get; set; }
     public User? Creator { get; set; }
+    public ICollection<ContractUser> ContractUsers { get; set; } = [];
     public ICollection<TechProcess> TechProcesses { get; set; } = [];
     public ICollection<StockIn> StockIns { get; set; } = [];
     public ICollection<StockOut> StockOuts { get; set; } = [];

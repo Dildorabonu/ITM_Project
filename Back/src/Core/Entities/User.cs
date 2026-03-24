@@ -16,6 +16,7 @@ public class User
     public Role? Role { get; set; }
     public Department? Department { get; set; }
     public ICollection<Contract> CreatedContracts { get; set; } = [];
+    public ICollection<ContractUser> ContractUsers { get; set; } = [];
     public ICollection<Task> AssignedTasks { get; set; } = [];
     public ICollection<Task> CreatedTasks { get; set; } = [];
     public ICollection<StockIn> ReceivedStockIns { get; set; } = [];

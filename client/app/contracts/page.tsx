@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   contractService,
+  userService,
   ContractStatus,
   Priority,
   CONTRACT_STATUS_LABELS,
@@ -11,6 +12,8 @@ import {
   type ContractCreatePayload,
   type ContractUpdatePayload,
   type AttachmentResponse,
+  type ContractUserResponse,
+  type UserResponse,
 } from "@/lib/userService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -90,6 +93,9 @@ export default function ContractsPage() {
   const [saving, setSaving]             = useState(false);
   const [formError, setFormError]       = useState("");
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [formUsers, setFormUsers]       = useState<UserResponse[]>([]);
+  const [formUserSearch, setFormUserSearch] = useState("");
+  const [showUserPicker, setShowUserPicker] = useState(false);
 
   // View drawer
   const [viewContract, setViewContract] = useState<ContractResponse | null>(null);
@@ -97,6 +103,15 @@ export default function ContractsPage() {
   const [filesLoading, setFilesLoading] = useState(false);
   const [uploading, setUploading]       = useState(false);
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
+
+  // Users
+  const [drawerUsers, setDrawerUsers]   = useState<ContractUserResponse[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [showAssign, setShowAssign]     = useState(false);
+  const [allUsers, setAllUsers]         = useState<UserResponse[]>([]);
+  const [assignSearch, setAssignSearch] = useState("");
+  const [assigning, setAssigning]       = useState(false);
+  const [removingUserId, setRemovingUserId] = useState<string | null>(null);
 
   // Delete confirm
   const [deleteId, setDeleteId]         = useState<string | null>(null);
@@ -112,12 +127,53 @@ export default function ContractsPage() {
   const openDrawer = async (c: ContractResponse) => {
     setViewContract(c);
     setDrawerFiles([]);
+    setDrawerUsers([]);
     setFilesLoading(true);
+    setUsersLoading(true);
     try {
-      const files = await contractService.getFiles(c.id);
+      const [files, users] = await Promise.all([
+        contractService.getFiles(c.id),
+        contractService.getUsers(c.id),
+      ]);
       setDrawerFiles(files);
+      setDrawerUsers(users);
     } finally {
       setFilesLoading(false);
+      setUsersLoading(false);
+    }
+  };
+
+  const openAssign = async () => {
+    setAssignSearch("");
+    setShowAssign(true);
+    if (allUsers.length === 0) {
+      const { items } = await userService.getAll(1, 200);
+      setAllUsers(items);
+    }
+  };
+
+  const handleAssignUser = async (userId: string) => {
+    if (!viewContract) return;
+    if (drawerUsers.some(u => u.userId === userId)) return;
+    setAssigning(true);
+    try {
+      await contractService.assignUsers(viewContract.id, [userId]);
+      const users = await contractService.getUsers(viewContract.id);
+      setDrawerUsers(users);
+    } finally {
+      setAssigning(false);
+      setShowAssign(false);
+    }
+  };
+
+  const handleRemoveUser = async (userId: string) => {
+    if (!viewContract) return;
+    setRemovingUserId(userId);
+    try {
+      await contractService.removeUser(viewContract.id, userId);
+      setDrawerUsers(prev => prev.filter(u => u.userId !== userId));
+    } finally {
+      setRemovingUserId(null);
     }
   };
 
@@ -173,26 +229,46 @@ export default function ContractsPage() {
 
   // ── Form ──────────────────────────────────────────────────────────────────
 
-  const openCreate = () => {
+  const ensureUsersLoaded = async () => {
+    if (allUsers.length === 0) {
+      const { items } = await userService.getAll(1, 200);
+      setAllUsers(items);
+    }
+  };
+
+  const openCreate = async () => {
     setEditTarget(null);
     setForm(emptyForm);
     setSubmitted(false);
     setFormError("");
     setPendingFiles([]);
+    setFormUsers([]);
+    setFormUserSearch("");
+    setShowUserPicker(false);
+    await ensureUsersLoaded();
     setShowForm(true);
   };
 
-  const openEdit = (c: ContractResponse) => {
+  const openEdit = async (c: ContractResponse) => {
     setEditTarget(c);
     setForm({
-      contractNo:   c.contractNo,
-      startDate:    c.startDate.slice(0, 10),
-      endDate:      c.endDate.slice(0, 10),
-      priority:     String(c.priority),
-      notes:        c.notes ?? "",
+      contractNo: c.contractNo,
+      startDate:  c.startDate.slice(0, 10),
+      endDate:    c.endDate.slice(0, 10),
+      priority:   String(c.priority),
+      notes:      c.notes ?? "",
     });
     setSubmitted(false);
     setFormError("");
+    setFormUserSearch("");
+    setShowUserPicker(false);
+    const [, users, { items }] = await Promise.all([
+      Promise.resolve(),
+      contractService.getUsers(c.id),
+      userService.getAll(1, 200),
+    ]);
+    setAllUsers(items);
+    setFormUsers(items.filter(u => users.some(cu => cu.userId === u.id)));
     setShowForm(true);
   };
 
@@ -207,26 +283,35 @@ export default function ContractsPage() {
     try {
       if (editTarget) {
         const dto: ContractUpdatePayload = {
-          contractNo:   form.contractNo,
-          startDate:    form.startDate,
-          endDate:      form.endDate,
-          priority:     Number(form.priority) as Priority,
-          notes:        form.notes || null,
+          contractNo: form.contractNo,
+          startDate:  form.startDate,
+          endDate:    form.endDate,
+          priority:   Number(form.priority) as Priority,
+          notes:      form.notes || null,
         };
         await contractService.update(editTarget.id, dto);
+        // sync users
+        const currentUsers = await contractService.getUsers(editTarget.id);
+        const currentIds = currentUsers.map(u => u.userId);
+        const newIds = formUsers.map(u => u.id);
+        const toAdd = newIds.filter(id => !currentIds.includes(id));
+        const toRemove = currentIds.filter(id => !newIds.includes(id));
+        if (toAdd.length > 0) await contractService.assignUsers(editTarget.id, toAdd);
+        for (const uid of toRemove) await contractService.removeUser(editTarget.id, uid);
       } else {
         const dto: ContractCreatePayload = {
-          contractNo:   form.contractNo,
-          startDate:    form.startDate,
-          endDate:      form.endDate,
-          priority:     Number(form.priority) as Priority,
-          notes:        form.notes || null,
+          contractNo: form.contractNo,
+          startDate:  form.startDate,
+          endDate:    form.endDate,
+          priority:   Number(form.priority) as Priority,
+          notes:      form.notes || null,
         };
         const newId = await contractService.create(dto);
-        if (newId && pendingFiles.length > 0) {
-          for (const file of pendingFiles) {
+        if (newId) {
+          if (formUsers.length > 0)
+            await contractService.assignUsers(newId, formUsers.map(u => u.id));
+          for (const file of pendingFiles)
             await contractService.uploadFile(newId, file);
-          }
         }
         setPendingFiles([]);
       }
@@ -345,6 +430,109 @@ export default function ContractsPage() {
                 placeholder="Qo'shimcha izoh (ixtiyoriy)" rows={2} style={{ resize: "none" }} />
             </div>
 
+            {/* Mas'ul xodimlar */}
+            <div style={{ gridColumn: "1 / -1" }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", display: "block", marginBottom: 8 }}>
+                Mas&apos;ul xodimlar <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text3)" }}>(ixtiyoriy)</span>
+              </label>
+
+              {/* Selected chips */}
+              {formUsers.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                  {formUsers.map(u => (
+                    <div key={u.id} style={{
+                      display: "inline-flex", alignItems: "center", gap: 6,
+                      background: "var(--accent-dim)", border: "1.5px solid var(--accent)44",
+                      borderRadius: 20, padding: "4px 10px 4px 8px", fontSize: 12, color: "var(--accent)",
+                    }}>
+                      <span style={{ width: 20, height: 20, borderRadius: "50%", background: "var(--accent)", color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
+                        {u.firstName.charAt(0).toUpperCase()}
+                      </span>
+                      <span style={{ fontWeight: 600 }}>{u.firstName} {u.lastName}</span>
+                      <button type="button" onClick={() => setFormUsers(prev => prev.filter(x => x.id !== u.id))}
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent)", padding: 0, lineHeight: 1, fontSize: 14, opacity: 0.7 }}>✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Picker toggle */}
+              <div style={{ position: "relative" }}>
+                <button type="button" onClick={() => setShowUserPicker(v => !v)}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    fontSize: 13, fontWeight: 500, cursor: "pointer",
+                    color: "var(--text2)", border: "1.5px solid var(--border)",
+                    borderRadius: "var(--radius)", padding: "8px 14px", background: "var(--bg1)",
+                  }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                  Xodim qo&apos;shish
+                </button>
+
+                {showUserPicker && (
+                  <div style={{
+                    position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 50,
+                    background: "var(--bg1)", border: "1.5px solid var(--border)", borderRadius: 10,
+                    boxShadow: "0 6px 24px rgba(0,0,0,0.14)", width: 320, padding: 12,
+                  }}>
+                    <input className="form-input" placeholder="Qidirish..." value={formUserSearch}
+                      onChange={e => setFormUserSearch(e.target.value)}
+                      style={{ width: "100%", marginBottom: 8 }} autoFocus />
+                    <div style={{ maxHeight: 220, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
+                      {allUsers
+                        .filter(u => {
+                          const q = formUserSearch.toLowerCase();
+                          return !q || `${u.firstName} ${u.lastName}`.toLowerCase().includes(q) || u.login.toLowerCase().includes(q);
+                        })
+                        .map(u => {
+                          const selected = formUsers.some(x => x.id === u.id);
+                          return (
+                            <button key={u.id} type="button"
+                              onClick={() => {
+                                if (selected) {
+                                  setFormUsers(prev => prev.filter(x => x.id !== u.id));
+                                } else {
+                                  setFormUsers(prev => [...prev, u]);
+                                }
+                              }}
+                              style={{
+                                display: "flex", alignItems: "center", gap: 8,
+                                padding: "7px 10px", border: "none", borderRadius: 6,
+                                background: selected ? "var(--accent-dim)" : "transparent",
+                                cursor: "pointer", textAlign: "left",
+                              }}>
+                              <div style={{
+                                width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
+                                background: selected ? "var(--accent)" : "var(--bg3)",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                fontSize: 11, fontWeight: 700, color: selected ? "#fff" : "var(--text2)",
+                              }}>
+                                {u.firstName.charAt(0).toUpperCase()}
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)" }}>{u.firstName} {u.lastName}</div>
+                                <div style={{ fontSize: 11, color: "var(--text3)" }}>{u.roleName ?? u.login}</div>
+                              </div>
+                              {selected && (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5">
+                                  <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                              )}
+                            </button>
+                          );
+                        })}
+                    </div>
+                    <button type="button" onClick={() => setShowUserPicker(false)}
+                      style={{ marginTop: 8, width: "100%", padding: "7px", background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", color: "var(--text2)", fontSize: 12, fontWeight: 500 }}>
+                      Yopish
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Fayllar */}
             <div style={{ gridColumn: "1 / -1" }}>
               <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", display: "block", marginBottom: 8 }}>
@@ -403,7 +591,7 @@ export default function ContractsPage() {
         )}
 
         <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 4 }}>
-          <button onClick={() => { setShowForm(false); setPendingFiles([]); }}
+          <button onClick={() => { setShowForm(false); setPendingFiles([]); setFormUsers([]); setShowUserPicker(false); }}
             style={{ background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", padding: "10px 24px", color: "var(--text2)", fontSize: 14, fontWeight: 500 }}>
             Bekor qilish
           </button>
@@ -542,7 +730,7 @@ export default function ContractsPage() {
       {viewContract && (
         <div
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(4px)", zIndex: 200, display: "flex", justifyContent: "flex-end" }}
-          onClick={() => { setViewContract(null); setDrawerFiles([]); }}
+          onClick={() => { setViewContract(null); setDrawerFiles([]); setDrawerUsers([]); setShowAssign(false); }}
         >
           <div
             onClick={e => e.stopPropagation()}
@@ -555,7 +743,7 @@ export default function ContractsPage() {
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, position: "sticky", top: 0, background: "var(--bg2)", zIndex: 1, paddingBottom: 8 }}>
               <span style={{ fontWeight: 700, fontSize: 17, color: "var(--text1)" }}>Shartnoma tafsilotlari</span>
-              <button onClick={() => { setViewContract(null); setDrawerFiles([]); }}
+              <button onClick={() => { setViewContract(null); setDrawerFiles([]); setDrawerUsers([]); setShowAssign(false); }}
                 style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
             </div>
 
@@ -594,28 +782,45 @@ export default function ContractsPage() {
               </div>
             )}
 
+            {/* ── Users ── */}
+            <div style={{ borderTop: "1.5px solid var(--border)", paddingTop: 20, marginTop: 4, marginBottom: 4 }}>
+              <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>Mas&apos;ul xodimlar</div>
+
+              {usersLoading ? (
+                <div style={{ fontSize: 13, color: "var(--text3)", textAlign: "center", padding: "12px 0" }}>Yuklanmoqda...</div>
+              ) : drawerUsers.length === 0 ? (
+                <div style={{ fontSize: 13, color: "var(--text3)", textAlign: "center", padding: "14px 0", border: "1.5px dashed var(--border)", borderRadius: 8 }}>
+                  Hali xodim biriktirilmagan
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {drawerUsers.map(u => (
+                    <div key={u.userId} style={{
+                      display: "flex", alignItems: "center", gap: 10,
+                      border: "1.5px solid var(--border)", borderRadius: 8,
+                      padding: "10px 12px", background: "var(--bg2)",
+                    }}>
+                      <div style={{
+                        width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
+                        background: "var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 13, fontWeight: 700, color: "var(--accent)",
+                      }}>
+                        {u.fullName.charAt(0).toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.fullName}</div>
+                        {u.roleName && <div style={{ fontSize: 11, color: "var(--text3)" }}>{u.roleName}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* ── Files ── */}
             <div style={{ borderTop: "1.5px solid var(--border)", paddingTop: 20, marginTop: 4 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <div style={{ marginBottom: 12 }}>
                 <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Fayllar</div>
-                <label style={{
-                  display: "inline-flex", alignItems: "center", gap: 6,
-                  fontSize: 12, fontWeight: 600, cursor: uploading ? "not-allowed" : "pointer",
-                  color: "var(--accent)", opacity: uploading ? 0.6 : 1,
-                  border: "1.5px solid var(--accent)", borderRadius: 6, padding: "4px 10px",
-                }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
-                  </svg>
-                  {uploading ? "Yuklanmoqda..." : "Fayl qo'shish"}
-                  <input type="file" style={{ display: "none" }} disabled={uploading}
-                    onChange={e => {
-                      const file = e.target.files?.[0];
-                      if (file) handleUpload(viewContract.id, file);
-                      e.target.value = "";
-                    }} />
-                </label>
               </div>
 
               {filesLoading ? (
@@ -647,14 +852,6 @@ export default function ContractsPage() {
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                           <polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
-                        </svg>
-                      </button>
-                      <button title="O'chirish" disabled={deletingFileId === f.id}
-                        onClick={() => handleDeleteFile(viewContract.id, f.id)}
-                        style={{ background: "none", border: "none", cursor: deletingFileId === f.id ? "not-allowed" : "pointer", color: "var(--danger)", padding: 4, flexShrink: 0, opacity: deletingFileId === f.id ? 0.5 : 1 }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                          <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" />
-                          <path d="M10 11v6M14 11v6" /><path d="M9 6V4h6v2" />
                         </svg>
                       </button>
                     </div>

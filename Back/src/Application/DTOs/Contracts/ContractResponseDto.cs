@@ -20,4 +20,5 @@ public class ContractResponseDto
     public Guid CreatedBy { get; set; }
     public string? CreatedByFullName { get; set; }
     public DateTime CreatedAt { get; set; }
+    public List<ContractUserDto> AssignedUsers { get; set; } = [];
 }

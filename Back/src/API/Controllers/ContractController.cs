@@ -96,6 +96,44 @@ public class ContractController : ControllerBase
         return Ok(result);
     }
 
+    // ── Users ────────────────────────────────────────────────────────────────
+
+    [HasPermission("Contracts.View")]
+    [HttpGet("{id:guid}/users")]
+    public async Task<IActionResult> GetUsers(Guid id)
+    {
+        var result = await _contractService.GetUsersAsync(id);
+
+        if (!result.Succeeded)
+            return NotFound(result);
+
+        return Ok(result);
+    }
+
+    [HasPermission("Contracts.Update")]
+    [HttpPost("{id:guid}/users")]
+    public async Task<IActionResult> AssignUsers(Guid id, [FromBody] AssignContractUsersDto dto)
+    {
+        var result = await _contractService.AssignUsersAsync(id, dto.UserIds);
+
+        if (!result.Succeeded)
+            return result.StatusCode == 404 ? NotFound(result) : BadRequest(result);
+
+        return Ok(result);
+    }
+
+    [HasPermission("Contracts.Update")]
+    [HttpDelete("{id:guid}/users/{userId:guid}")]
+    public async Task<IActionResult> RemoveUser(Guid id, Guid userId)
+    {
+        var result = await _contractService.RemoveUserAsync(id, userId);
+
+        if (!result.Succeeded)
+            return NotFound(result);
+
+        return Ok(result);
+    }
+
     // ── Files ────────────────────────────────────────────────────────────────
 
     private const string EntityType = "contracts";

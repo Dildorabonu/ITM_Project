@@ -344,6 +344,12 @@ export interface ContractUpdatePayload {
   notes?: string | null;
 }
 
+export interface ContractUserResponse {
+  userId: string;
+  fullName: string;
+  roleName: string | null;
+}
+
 export const contractService = {
   getAll: async (status?: ContractStatus, departmentId?: string): Promise<ContractResponse[]> => {
     const params: Record<string, string> = {};
@@ -401,6 +407,19 @@ export const contractService = {
 
   deleteFile: async (id: string, fileId: string): Promise<void> => {
     await api.delete(`/api/contract/${id}/files/${fileId}`);
+  },
+
+  getUsers: async (id: string): Promise<ContractUserResponse[]> => {
+    const res = await api.get(`/api/contract/${id}/users`);
+    return res.data?.result ?? res.data ?? [];
+  },
+
+  assignUsers: async (id: string, userIds: string[]): Promise<void> => {
+    await api.post(`/api/contract/${id}/users`, { userIds });
+  },
+
+  removeUser: async (id: string, userId: string): Promise<void> => {
+    await api.delete(`/api/contract/${id}/users/${userId}`);
   },
 };
 

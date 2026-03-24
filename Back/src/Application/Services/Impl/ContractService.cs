@@ -42,6 +42,7 @@ public class ContractService : IContractService
         var contract = await _context.Contracts
             .Include(c => c.Department)
             .Include(c => c.Creator)
+            .Include(c => c.ContractUsers).ThenInclude(cu => cu.User).ThenInclude(u => u.Role)
             .AsNoTracking()
             .FirstOrDefaultAsync(c => c.Id == id);
 
@@ -136,6 +137,67 @@ public class ContractService : IContractService
         return ApiResult<int>.Success(200);
     }
 
+    public async Task<ApiResult<IEnumerable<ContractUserDto>>> GetUsersAsync(Guid contractId)
+    {
+        var exists = await _context.Contracts.AnyAsync(c => c.Id == contractId);
+        if (!exists)
+            return ApiResult<IEnumerable<ContractUserDto>>.Failure([$"Contract '{contractId}' not found."], 404);
+
+        var users = await _context.ContractUsers
+            .Where(cu => cu.ContractId == contractId)
+            .Include(cu => cu.User).ThenInclude(u => u.Role)
+            .AsNoTracking()
+            .Select(cu => new ContractUserDto
+            {
+                UserId   = cu.UserId,
+                FullName = $"{cu.User.FirstName} {cu.User.LastName}",
+                RoleName = cu.User.Role != null ? cu.User.Role.Name : null,
+            })
+            .ToListAsync();
+
+        return ApiResult<IEnumerable<ContractUserDto>>.Success(users);
+    }
+
+    public async Task<ApiResult<int>> AssignUsersAsync(Guid contractId, List<Guid> userIds)
+    {
+        var exists = await _context.Contracts.AnyAsync(c => c.Id == contractId);
+        if (!exists)
+            return ApiResult<int>.Failure([$"Contract '{contractId}' not found."], 404);
+
+        var existing = await _context.ContractUsers
+            .Where(cu => cu.ContractId == contractId)
+            .Select(cu => cu.UserId)
+            .ToListAsync();
+
+        var toAdd = userIds.Distinct().Except(existing).ToList();
+
+        if (toAdd.Count > 0)
+        {
+            _context.ContractUsers.AddRange(toAdd.Select(uid => new ContractUser
+            {
+                ContractId = contractId,
+                UserId     = uid,
+            }));
+            await _context.SaveChangesAsync();
+        }
+
+        return ApiResult<int>.Success(200);
+    }
+
+    public async Task<ApiResult<int>> RemoveUserAsync(Guid contractId, Guid userId)
+    {
+        var row = await _context.ContractUsers
+            .FirstOrDefaultAsync(cu => cu.ContractId == contractId && cu.UserId == userId);
+
+        if (row is null)
+            return ApiResult<int>.Failure(["Assignment not found."], 404);
+
+        _context.ContractUsers.Remove(row);
+        await _context.SaveChangesAsync();
+
+        return ApiResult<int>.Success(200);
+    }
+
     private static ContractResponseDto MapToResponse(Contract contract) => new()
     {
         Id = contract.Id,
@@ -155,6 +217,13 @@ public class ContractService : IContractService
         CreatedByFullName = contract.Creator is not null
             ? $"{contract.Creator.FirstName} {contract.Creator.LastName}"
             : null,
-        CreatedAt = contract.CreatedAt
+        CreatedAt = contract.CreatedAt,
+        AssignedUsers = contract.ContractUsers
+            .Select(cu => new ContractUserDto
+            {
+                UserId   = cu.UserId,
+                FullName = $"{cu.User!.FirstName} {cu.User.LastName}",
+                RoleName = cu.User.Role?.Name,
+            }).ToList(),
     };
 }
