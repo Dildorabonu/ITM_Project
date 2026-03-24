@@ -7,11 +7,21 @@ import { useAuthStore } from "@/lib/store/authStore";
 export default function LoginPage() {
   const router = useRouter();
   const loginAction = useAuthStore((s) => s.login);
+  const uiFont = "var(--font-inter), Inter, sans-serif";
 
   const [loginVal, setLoginVal] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [focusedField, setFocusedField] = useState<"login" | "password" | null>(null);
+
+  const hasError = Boolean(error);
+  const lookOffsetX =
+    focusedField === "login"
+      ? ((loginVal.length % 7) - 3) * 0.8
+      : focusedField === "password"
+        ? 1.2
+        : 0;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -34,6 +44,7 @@ export default function LoginPage() {
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
+      fontFamily: uiFont,
     }}>
       {/* Card */}
       <div style={{
@@ -42,6 +53,7 @@ export default function LoginPage() {
         borderRadius: 12,
         boxShadow: "0 8px 40px rgba(0,0,0,0.14)",
         overflow: "hidden",
+        fontFamily: uiFont,
       }}>
 
         {/* Header */}
@@ -53,32 +65,50 @@ export default function LoginPage() {
           alignItems: "center",
           gap: 12,
         }}>
-          <div style={{
-            width: 50, height: 50,
-            background: "var(--accent)",
-            borderRadius: 12,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: "0 0 0 4px rgba(26,110,235,0.25)",
-          }}>
-            <svg width="24" height="24" fill="none" stroke="#fff" strokeWidth="2" viewBox="0 0 24 24">
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-              <polyline points="9,22 9,12 15,12 15,22"/>
+          <div className={`login-bear-wrap${hasError ? " is-error" : ""}`} aria-hidden="true">
+            <svg width="96" height="82" viewBox="0 0 96 82" fill="none">
+              <circle cx="24" cy="18" r="10" fill="#8d5c3d" />
+              <circle cx="72" cy="18" r="10" fill="#8d5c3d" />
+              <circle cx="24" cy="18" r="5" fill="#f0d3ba" />
+              <circle cx="72" cy="18" r="5" fill="#f0d3ba" />
+
+              <ellipse cx="48" cy="42" rx="31" ry="27" fill="#a86f49" />
+              <ellipse cx="48" cy="52" rx="16" ry="12" fill="#f2dcc9" />
+
+              {!hasError ? (
+                <>
+                  <ellipse cx="38" cy="40" rx="7" ry="6.8" fill="#fff" />
+                  <ellipse cx="58" cy="40" rx="7" ry="6.8" fill="#fff" />
+                  <circle cx={38 + lookOffsetX} cy="40" r="3.1" fill="#1a2332" />
+                  <circle cx={58 + lookOffsetX} cy="40" r="3.1" fill="#1a2332" />
+                  <circle cx={39 + lookOffsetX} cy="38.8" r="0.8" fill="#fff" />
+                  <circle cx={59 + lookOffsetX} cy="38.8" r="0.8" fill="#fff" />
+                </>
+              ) : (
+                <>
+                  <path d="M31 40c2.2 2.4 11.8 2.4 14 0" stroke="#1a2332" strokeWidth="2.4" strokeLinecap="round" />
+                  <path d="M51 40c2.2 2.4 11.8 2.4 14 0" stroke="#1a2332" strokeWidth="2.4" strokeLinecap="round" />
+                </>
+              )}
+
+              <path d="M48 46l-3.4 3.2h6.8L48 46z" fill="#5d3a2a" />
+              <path d="M44 55c2.8 2.2 5.2 2.2 8 0" stroke="#5d3a2a" strokeWidth="2.2" strokeLinecap="round" />
             </svg>
           </div>
           <div style={{ textAlign: "center" }}>
-            <div className="font-head-itm" style={{
-              fontSize: 26, fontWeight: 800, letterSpacing: 2, color: "#fff", lineHeight: 1,
+            <div style={{
+              fontSize: 28, fontWeight: 800, letterSpacing: 2, color: "#fff", lineHeight: 1,
             }}>OMBORPRO</div>
-            <div className="font-mono-itm" style={{
-              fontSize: 10, color: "var(--sidebar-text2)", letterSpacing: 1.5, marginTop: 4,
+            <div style={{
+              fontSize: 11, color: "var(--sidebar-text2)", letterSpacing: 1.5, marginTop: 4,
             }}>KORXONA TIZIMI</div>
           </div>
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} style={{ padding: "32px 36px" }}>
-          <div className="font-head-itm" style={{
-            fontSize: 17, fontWeight: 700, color: "var(--text)", marginBottom: 22,
+          <div style={{
+            fontSize: 19, fontWeight: 700, color: "var(--text)", marginBottom: 22,
           }}>
             Tizimga kirish
           </div>
@@ -86,7 +116,7 @@ export default function LoginPage() {
           {/* Login field */}
           <div style={{ marginBottom: 16 }}>
             <label style={{
-              display: "block", fontSize: 12, fontWeight: 600,
+              display: "block", fontSize: 13, fontWeight: 600,
               color: "var(--text2)", marginBottom: 6, letterSpacing: 0.4,
             }}>
               LOGIN
@@ -116,12 +146,12 @@ export default function LoginPage() {
                   borderRadius: "var(--radius)",
                   background: "var(--bg3)",
                   color: "var(--text)",
-                  fontSize: 14,
+                  fontSize: 15,
                   outline: "none",
                   transition: "border-color 0.15s",
                 }}
-                onFocus={(e) => { e.target.style.borderColor = "var(--accent)"; }}
-                onBlur={(e) => { e.target.style.borderColor = error ? "var(--danger)" : "var(--border)"; }}
+                onFocus={(e) => { setFocusedField("login"); e.target.style.borderColor = "var(--accent)"; }}
+                onBlur={(e) => { setFocusedField(null); e.target.style.borderColor = error ? "var(--danger)" : "var(--border)"; }}
               />
             </div>
           </div>
@@ -129,7 +159,7 @@ export default function LoginPage() {
           {/* Password field */}
           <div style={{ marginBottom: 24 }}>
             <label style={{
-              display: "block", fontSize: 12, fontWeight: 600,
+              display: "block", fontSize: 13, fontWeight: 600,
               color: "var(--text2)", marginBottom: 6, letterSpacing: 0.4,
             }}>
               PAROL
@@ -159,12 +189,12 @@ export default function LoginPage() {
                   borderRadius: "var(--radius)",
                   background: "var(--bg3)",
                   color: "var(--text)",
-                  fontSize: 14,
+                  fontSize: 15,
                   outline: "none",
                   transition: "border-color 0.15s",
                 }}
-                onFocus={(e) => { e.target.style.borderColor = "var(--accent)"; }}
-                onBlur={(e) => { e.target.style.borderColor = error ? "var(--danger)" : "var(--border)"; }}
+                onFocus={(e) => { setFocusedField("password"); e.target.style.borderColor = "var(--accent)"; }}
+                onBlur={(e) => { setFocusedField(null); e.target.style.borderColor = error ? "var(--danger)" : "var(--border)"; }}
               />
             </div>
           </div>
@@ -178,7 +208,7 @@ export default function LoginPage() {
               border: "1px solid rgba(217,48,37,0.2)",
               borderRadius: "var(--radius)",
               color: "var(--danger)",
-              fontSize: 13,
+              fontSize: 14,
               display: "flex", alignItems: "center", gap: 8,
             }}>
               <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -201,7 +231,7 @@ export default function LoginPage() {
               color: "#fff",
               border: "none",
               borderRadius: "var(--radius)",
-              fontSize: 14,
+              fontSize: 15,
               fontWeight: 600,
               cursor: loading ? "not-allowed" : "pointer",
               display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
@@ -230,7 +260,46 @@ export default function LoginPage() {
               </>
             )}
           </button>
-          <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+          <style>{`
+            @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+            @keyframes bearBob {
+              0%, 100% { transform: translateY(0); }
+              50% { transform: translateY(-2px); }
+            }
+            @keyframes bearBlink {
+              0%, 88%, 100% { transform: scaleY(1); }
+              92%, 96% { transform: scaleY(0.08); }
+            }
+            @keyframes bearErrorShake {
+              0%, 100% { transform: translateX(0); }
+              20% { transform: translateX(-2px); }
+              40% { transform: translateX(2px); }
+              60% { transform: translateX(-2px); }
+              80% { transform: translateX(2px); }
+            }
+            .login-bear-wrap {
+              width: 102px;
+              height: 86px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              background: radial-gradient(circle at 35% 20%, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.08) 40%, rgba(255,255,255,0.02) 100%);
+              border-radius: 14px;
+              box-shadow: 0 0 0 4px rgba(26,110,235,0.2);
+              animation: bearBob 2.2s ease-in-out infinite;
+            }
+            .login-bear-wrap svg {
+              transform-origin: center;
+              animation: bearBlink 4.6s ease-in-out infinite;
+            }
+            .login-bear-wrap.is-error {
+              box-shadow: 0 0 0 4px rgba(217,48,37,0.2);
+              animation: bearErrorShake 0.5s ease-in-out;
+            }
+            .login-bear-wrap.is-error svg {
+              animation: none;
+            }
+          `}</style>
         </form>
       </div>
     </div>
