@@ -410,6 +410,13 @@ export default function ContractsPage() {
                     </td>
                     <td style={{ borderLeft: "2px solid var(--border)" }}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                        <button className="btn-icon" onClick={() => setViewContract(c)} title="Ko'rish"
+                          style={{ color: "#0ea5e9", borderColor: "#0ea5e933", background: "#0ea5e912" }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                        </button>
                         <button className="btn-icon" onClick={() => openEdit(c)} title="Tahrirlash"
                           style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -437,57 +444,60 @@ export default function ContractsPage() {
 
       {/* ── View Drawer ── */}
       {viewContract && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex" }}>
-          <div onClick={() => setViewContract(null)}
-            style={{ flex: 1, background: "rgba(0,0,0,0.35)" }} />
-          <div style={{ width: 420, background: "var(--bg1)", boxShadow: "-4px 0 24px rgba(0,0,0,0.15)", overflowY: "auto", padding: 28, display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 15, fontWeight: 700, color: "var(--accent)" }}>{viewContract.contractNo}</span>
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(4px)", zIndex: 200, display: "flex", justifyContent: "flex-end" }}
+          onClick={() => setViewContract(null)}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: 800, maxWidth: "95vw", height: "calc(100% - 32px)", margin: "16px 16px 16px 0",
+              background: "var(--bg2)", borderRadius: 14,
+              boxShadow: "-4px 0 32px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column",
+              padding: "28px 28px 32px", overflowY: "auto",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+              <span style={{ fontWeight: 700, fontSize: 17, color: "var(--text1)" }}>Shartnoma tafsilotlari</span>
               <button onClick={() => setViewContract(null)}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text2)", padding: 4 }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
             </div>
 
-            {[
-              ["Boshlanish",      fmt(viewContract.startDate)],
-              ["Tugash",          fmt(viewContract.endDate)],
-              ["Yaratuvchi",      viewContract.createdByFullName ?? "—"],
-              ["Yaratilgan",      fmt(viewContract.createdAt)],
-            ].map(([label, val]) => (
-              <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
-                <span style={{ fontSize: 13, color: "var(--text2)" }}>{label}</span>
-                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)" }}>{val}</span>
+            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 10 }}>Umumiy</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 22 }}>
+              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
+                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Shartnoma raqami</div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: "var(--accent)", fontFamily: "var(--font-mono)", wordBreak: "break-all", overflowWrap: "break-word" }}>{viewContract.contractNo}</div>
               </div>
-            ))}
-
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
-              <span style={{ fontSize: 13, color: "var(--text2)" }}>Muhimlik</span>
-              <PriorityBadge priority={viewContract.priority} />
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
-              <span style={{ fontSize: 13, color: "var(--text2)" }}>Holat</span>
-              <StatusBadge status={viewContract.status} />
+              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
+                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Holat</div>
+                <StatusBadge status={viewContract.status} />
+              </div>
+              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
+                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Muhimlik</div>
+                <PriorityBadge priority={viewContract.priority} />
+              </div>
+              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
+                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Boshlanish sanasi</div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)" }}>{fmt(viewContract.startDate)}</div>
+              </div>
+              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
+                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Tugash sanasi</div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)" }}>{fmt(viewContract.endDate)}</div>
+              </div>
+              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
+                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Yaratuvchi</div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)" }}>{viewContract.createdByFullName ?? "—"}</div>
+              </div>
             </div>
 
             {viewContract.notes && (
-              <div style={{ padding: "12px 14px", background: "var(--bg2)", borderRadius: 8, fontSize: 13, color: "var(--text2)", lineHeight: 1.6 }}>
-                {viewContract.notes}
+              <div style={{ marginBottom: 22 }}>
+                <div style={{ fontSize: 13, color: "var(--text2)", fontWeight: 600, marginBottom: 6 }}>Izoh</div>
+                <div style={{ fontSize: 14, color: "var(--text1)", whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "break-word" }}>{viewContract.notes}</div>
               </div>
             )}
 
-            <div style={{ display: "flex", gap: 8, paddingTop: 8 }}>
-              <button onClick={() => { setViewContract(null); openEdit(viewContract); }}
-                style={{ flex: 1, padding: "10px 0", background: "var(--accent-dim)", border: "1px solid var(--accent)44", borderRadius: "var(--radius)", cursor: "pointer", color: "var(--accent)", fontWeight: 600, fontSize: 13 }}>
-                Tahrirlash
-              </button>
-              <button onClick={() => { setViewContract(null); setDeleteId(viewContract.id); }}
-                style={{ flex: 1, padding: "10px 0", background: "var(--danger-dim)", border: "1px solid var(--danger)44", borderRadius: "var(--radius)", cursor: "pointer", color: "var(--danger)", fontWeight: 600, fontSize: 13 }}>
-                O&apos;chirish
-              </button>
-            </div>
           </div>
         </div>
       )}
