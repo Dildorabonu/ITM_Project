@@ -411,11 +411,9 @@ export default function RolesPage() {
         <table className="itm-table">
           <thead>
             <tr>
-              <th style={{ width: 40, color: "var(--text1)", paddingLeft: 8, borderRight: "2px solid var(--border)" }}>#</th>
-              <th style={{ width: 220, color: "var(--text1)" }}>Nomi</th>
-              <th style={{ color: "var(--text1)" }}>
-                <span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>Tavsif</span>
-              </th>
+              <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
+              <th style={{ textAlign: "center", color: "var(--text1)" }}>Nomi</th>
+              <th style={{ textAlign: "center", color: "var(--text1)" }}>Tavsif</th>
               <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>Amallar</th>
             </tr>
           </thead>
@@ -426,9 +424,9 @@ export default function RolesPage() {
               <tr><td colSpan={4} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Rollar topilmadi</td></tr>
             ) : filtered.map((r, i) => (
               <tr key={r.id}>
-                <td style={{ paddingLeft: 8, borderRight: "2px solid var(--border)" }}>{String(i + 1).padStart(2, "0")}</td>
-                <td>{r.name}</td>
-                <td style={{ color: "var(--text1)" }}>{r.description || "—"}</td>
+                <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>{String(i + 1).padStart(2, "0")}</td>
+                <td style={{ textAlign: "center" }}>{r.name}</td>
+                <td style={{ textAlign: "center", color: "var(--text1)" }}>{r.description || "—"}</td>
                 <td style={{ borderLeft: "2px solid var(--border)" }}>
                   <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
                     <button className="btn-icon" title="Ko'rish" onClick={() => openViewRole(r)}

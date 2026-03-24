@@ -474,20 +474,12 @@ export default function ProductsPage() {
             <table className="itm-table">
               <thead>
                 <tr>
-                  <th style={{ width: 40, color: "var(--text1)", paddingLeft: 8, borderRight: "2px solid var(--border)" }}>#</th>
-                  <th style={{ width: 240, color: "var(--text1)" }}>Mahsulot nomi</th>
-                  <th style={{ color: "var(--text1)" }}>
-                    <span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>Bo&apos;lim</span>
-                  </th>
-                  <th style={{ color: "var(--text1)" }}>
-                    <span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>Soni</span>
-                  </th>
-                  <th style={{ color: "var(--text1)" }}>
-                    <span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>O&apos;lchov</span>
-                  </th>
-                  <th style={{ color: "var(--text1)" }}>
-                    <span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>Tavsif</span>
-                  </th>
+                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Mahsulot nomi</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Bo&apos;lim</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Soni</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>O&apos;lchov</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Tavsif</th>
                   <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>Amal</th>
                 </tr>
               </thead>
@@ -496,14 +488,14 @@ export default function ProductsPage() {
                   <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
                 ) : filtered.map((p, i) => (
                   <tr key={p.id}>
-                    <td style={{ paddingLeft: 8, borderRight: "2px solid var(--border)" }}>
+                    <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>
                       {String(i + 1).padStart(2, "0")}
                     </td>
-                    <td>{p.name}</td>
-                    <td style={{ color: "var(--text1)" }}>{p.departmentName}</td>
-                    <td style={{ color: "var(--text1)" }}>{p.quantity}</td>
-                    <td style={{ color: "var(--text1)" }}>{PRODUCT_UNIT_LABELS[p.unit] ?? "—"}</td>
-                    <td style={{ color: "var(--text1)" }}>{p.description ?? "—"}</td>
+                    <td style={{ textAlign: "center" }}>{p.name}</td>
+                    <td style={{ textAlign: "center", color: "var(--text1)" }}>{p.departmentName}</td>
+                    <td style={{ textAlign: "center", color: "var(--text1)" }}>{p.quantity}</td>
+                    <td style={{ textAlign: "center", color: "var(--text1)" }}>{PRODUCT_UNIT_LABELS[p.unit] ?? "—"}</td>
+                    <td style={{ textAlign: "center", color: "var(--text1)" }}>{p.description ?? "—"}</td>
                     <td style={{ borderLeft: "2px solid var(--border)" }}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
                         <button className="btn-icon" title="Ko'rish" onClick={() => setViewProduct(p)}

@@ -48,7 +48,7 @@ function StatusBadge({ status }: { status: ContractStatus }) {
   return (
     <span style={{
       display: "inline-flex", alignItems: "center", padding: "2px 10px",
-      borderRadius: 20, fontSize: 12, fontWeight: 600,
+      borderRadius: 20, fontSize: 13, fontWeight: 600,
       background: s.bg, color: s.color, border: `1px solid ${s.border}`,
     }}>
       {CONTRACT_STATUS_LABELS[status]}
@@ -376,7 +376,7 @@ export default function ContractsPage() {
             <table className="itm-table">
               <thead>
                 <tr>
-                  <th style={{ width: 56, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
+                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Raqam</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Muddat</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Muhimlik</th>
@@ -389,7 +389,7 @@ export default function ContractsPage() {
                   <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
                 ) : filtered.map((c, i) => (
                   <tr key={c.id}>
-                    <td style={{ textAlign: "center", borderRight: "2px solid var(--border)" }}>{String(i + 1).padStart(2, "0")}</td>
+                    <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>{String(i + 1).padStart(2, "0")}</td>
                     <td style={{ textAlign: "center", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       <button onClick={() => setViewContract(c)}
                         style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontWeight: 700, fontSize: 13, color: "var(--accent)", fontFamily: "var(--font-mono)", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block" }}>
@@ -397,7 +397,7 @@ export default function ContractsPage() {
                       </button>
                     </td>
                     <td style={{ textAlign: "center", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      <span style={{ fontSize: 12, color: "var(--text2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>
+                      <span style={{ fontSize: 13, color: "var(--text2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>
                         {fmt(c.startDate)} – {fmt(c.endDate)}
                       </span>
                     </td>

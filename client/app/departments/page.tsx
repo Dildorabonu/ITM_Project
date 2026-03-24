@@ -328,14 +328,10 @@ export default function DepartmentsPage() {
             <table className="itm-table">
               <thead>
                 <tr>
-                  <th style={{ width: 40, color: "var(--text1)", paddingLeft: 8, borderRight: "2px solid var(--border)" }}>#</th>
-                  <th style={{ width: 220, color: "var(--text1)" }}>Bo&apos;lim nomi</th>
-                  <th style={{ color: "var(--text1)" }}>
-                    <span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>Bo&apos;lim boshlig&apos;i</span>
-                  </th>
-                  <th style={{ color: "var(--text1)" }}>
-                    <span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>Xodimlar</span>
-                  </th>
+                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Bo&apos;lim nomi</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Bo&apos;lim boshlig&apos;i</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Xodimlar</th>
                   <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>Amal</th>
                 </tr>
               </thead>
@@ -344,12 +340,12 @@ export default function DepartmentsPage() {
                   <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
                 ) : filtered.map((d, i) => (
                   <tr key={d.id}>
-                    <td style={{ paddingLeft: 8, borderRight: "2px solid var(--border)" }}>
+                    <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>
                       {String(i + 1).padStart(2, "0")}
                     </td>
-                    <td>{d.name}</td>
-                    <td style={{ color: "var(--text1)" }}>{d.headUserFullName ?? "—"}</td>
-                    <td style={{ color: "var(--text1)" }}>{d.employeeCount ?? "—"}</td>
+                    <td style={{ textAlign: "center" }}>{d.name}</td>
+                    <td style={{ textAlign: "center", color: "var(--text1)" }}>{d.headUserFullName ?? "—"}</td>
+                    <td style={{ textAlign: "center", color: "var(--text1)" }}>{d.employeeCount ?? "—"}</td>
                     <td style={{ borderLeft: "2px solid var(--border)" }}>
                       {(canUpdate || canDelete) && (
                         <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>

@@ -442,16 +442,12 @@ function UsersPageInner() {
             <table className="itm-table">
               <thead>
                 <tr>
-                  <th style={{ width: 40, color: "var(--text1)", paddingLeft: 8, borderRight: "2px solid var(--border)" }}>#</th>
-                  <th style={{ color: "var(--text1)" }}>Ism</th>
-                  {["Familiya", "Login", "Holat"].map(col => (
-                    <th key={col} style={{ color: "var(--text1)" }}>
-                      <span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>{col}</span>
-                    </th>
-                  ))}
-                  <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>
-                    Amallar
-                  </th>
+                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Ism</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Familiya</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Login</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Holat</th>
+                  <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>Amallar</th>
                 </tr>
               </thead>
               <tbody>
@@ -459,11 +455,11 @@ function UsersPageInner() {
                   <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
                 ) : filtered.map((u, i) => (
                   <tr key={u.id}>
-                    <td style={{ paddingLeft: 8, borderRight: "2px solid var(--border)" }}>{String((page - 1) * 20 + i + 1).padStart(2, "0")}</td>
-                    <td>{u.firstName}</td>
-                    <td style={{ color: "var(--text1)" }}>{u.lastName}</td>
-                    <td>{u.login}</td>
-                    <td>
+                    <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>{String((page - 1) * 20 + i + 1).padStart(2, "0")}</td>
+                    <td style={{ textAlign: "center" }}>{u.firstName}</td>
+                    <td style={{ textAlign: "center", color: "var(--text1)" }}>{u.lastName}</td>
+                    <td style={{ textAlign: "center" }}>{u.login}</td>
+                    <td style={{ textAlign: "center" }}>
                       <span
                         className={`sdot ${u.isActive ? "sdot-on" : "sdot-off"}`}
                         title={u.isActive ? "Aktiv" : "Nofaol"}
