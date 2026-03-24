@@ -124,6 +124,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const [thumbTop, setThumbTop] = useState(0);
   const [thumbHeight, setThumbHeight] = useState(30);
   const navRef = useRef<HTMLElement>(null);
+  const thumbRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const dragState = useRef<{ startY: number; startScrollTop: number } | null>(null);
+  const didDrag = useRef(false);
 
   const updateScrollState = () => {
     const el = navRef.current;
@@ -141,6 +145,37 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   const scrollNav = (dir: "up" | "down") => {
     navRef.current?.scrollBy({ top: dir === "up" ? -80 : 80, behavior: "smooth" });
+  };
+
+  const onThumbMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const nav = navRef.current;
+    const track = trackRef.current;
+    if (!nav || !track) return;
+    dragState.current = { startY: e.clientY, startScrollTop: nav.scrollTop };
+    const trackHeight = track.clientHeight;
+    const scrollRange = nav.scrollHeight - nav.clientHeight;
+    const thumbHeightPx = (nav.clientHeight / nav.scrollHeight) * trackHeight;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!dragState.current) return;
+      didDrag.current = true;
+      const maxThumbTop = trackHeight - thumbHeightPx;
+      const delta = (ev.clientY - dragState.current.startY) / maxThumbTop * scrollRange;
+      nav.scrollTop = dragState.current.startScrollTop + delta;
+    };
+
+    const onMouseUp = () => {
+      dragState.current = null;
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      // click eventini bloklash uchun qisqa kutish
+      setTimeout(() => { didDrag.current = false; }, 0);
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
   };
 
   useEffect(() => { updateScrollState(); }, [sidebarCollapsed, collapsedGroups]);
@@ -354,21 +389,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
               {/* Track */}
               <div
+                ref={trackRef}
                 style={{ flex: 1, position: "relative", background: "rgba(26,110,235,0.1)", borderRadius: 3, cursor: "pointer" }}
                 onClick={(e) => {
+                  if (didDrag.current) return;
                   const el = navRef.current;
                   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                   const ratio = (e.clientY - rect.top) / rect.height;
                   if (el) el.scrollTop = ratio * (el.scrollHeight - el.clientHeight);
                 }}
               >
-                <div style={{
-                  position: "absolute", left: 0, right: 0,
-                  top: `${thumbTop}%`, height: `${thumbHeight}%`,
-                  background: "rgba(26,110,235,0.45)", borderRadius: 3,
-                  transition: "top 0.05s, background 0.15s",
-                  pointerEvents: "none",
-                }} />
+                <div
+                  ref={thumbRef}
+                  onMouseDown={onThumbMouseDown}
+                  style={{
+                    position: "absolute", left: 0, right: 0,
+                    top: `${thumbTop}%`, height: `${thumbHeight}%`,
+                    background: "rgba(26,110,235,0.45)", borderRadius: 3,
+                    cursor: "grab",
+                  }}
+                />
               </div>
 
               {/* Down arrow */}
