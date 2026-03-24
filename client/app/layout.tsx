@@ -37,6 +37,7 @@ const navGroups: NavGroup[] = [
     items: [
       { name: "Shartnomalar",  href: "/contracts",   icon: "file" },
       { name: "Tex Protsess",  href: "/techprocess", icon: "activity" },
+      { name: "Me'yoriy Sarf", href: "/costnorm",    icon: "clipboard" },
     ],
   },
   {
@@ -118,13 +119,14 @@ function NavIcon({ type, size = 16, strokeWidth = 2, color }: { type: string; si
 }
 
 // Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
-const readyRoutes = new Set(["/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess"]);
+const readyRoutes = new Set(["/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/costnorm"]);
 
 const pageTitles: Record<string, string> = {
   "/":              "Dashboard",
   "/notifications": "Bildirishnomalar",
   "/contracts":     "Shartnomalar",
   "/techprocess":   "Tex Protsess",
+  "/costnorm":      "Me'yoriy Sarf",
   "/warehouse":     "Ombor Zaxirasi",
   "/deficit":       "Deficit Tekshiruv",
   "/tasks":         "Kunlik Vazifalar",
