@@ -28,14 +28,14 @@ const navGroups: NavGroup[] = [
     icon: "layout",
     items: [
       { name: "Dashboard",        href: "/",              icon: "grid" },
-      { name: "Bildirishnomalar", href: "/notifications", icon: "bell", badge: 4 },
+      { name: "Bildirishnomalar", href: "/notifications", icon: "bell" },
     ],
   },
   {
     label: "Shartnomalar",
     icon: "file-text",
     items: [
-      { name: "Shartnomalar",  href: "/contracts",   icon: "file", badge: 2, badgeWarn: true },
+      { name: "Shartnomalar",  href: "/contracts",   icon: "file" },
       { name: "Tex Protsess",  href: "/techprocess", icon: "activity" },
     ],
   },
@@ -45,7 +45,7 @@ const navGroups: NavGroup[] = [
     items: [
       { name: "Mahsulotlar",       href: "/products",    icon: "shopping-bag" },
       { name: "Bo'limlar",         href: "/departments", icon: "briefcase" },
-      { name: "Deficit Tekshiruv", href: "/deficit",     icon: "alert-circle", badge: 3 },
+      { name: "Deficit Tekshiruv", href: "/deficit",     icon: "alert-circle" },
     ],
   },
   {
@@ -64,6 +64,36 @@ const navGroups: NavGroup[] = [
     ],
   },
 ];
+
+function LogoEmblem({ size = 22, spin = false }: { size?: number; spin?: boolean }) {
+  return (
+    <svg
+      className={spin ? "logo-spin-svg" : undefined}
+      width={size} height={size} viewBox="0 0 32 32"
+      fill="none" strokeLinecap="round" strokeLinejoin="round"
+    >
+      {/* Top face */}
+      <polygon
+        points="16,3 28,9.5 16,16 4,9.5"
+        fill="rgba(255,255,255,0.28)" stroke="rgba(255,255,255,0.9)" strokeWidth="1.4"
+      />
+      {/* Left face */}
+      <polygon
+        points="4,9.5 4,20.5 16,27 16,16"
+        fill="rgba(255,255,255,0.10)" stroke="rgba(255,255,255,0.7)" strokeWidth="1.4"
+      />
+      {/* Right face */}
+      <polygon
+        points="28,9.5 28,20.5 16,27 16,16"
+        fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.55)" strokeWidth="1.4"
+      />
+      {/* Shelf line on left face */}
+      <line x1="4" y1="15" x2="16" y2="21" stroke="rgba(255,255,255,0.35)" strokeWidth="1"/>
+      {/* Shelf line on right face */}
+      <line x1="28" y1="15" x2="16" y2="21" stroke="rgba(255,255,255,0.25)" strokeWidth="1"/>
+    </svg>
+  );
+}
 
 function NavIcon({ type, size = 16, strokeWidth = 2, color }: { type: string; size?: number; strokeWidth?: number; color?: string }) {
   const cls = "flex-shrink-0";
@@ -250,31 +280,31 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {/* Logo */}
           <div style={{ padding: "10px 20px", height: 58, boxSizing: "border-box", borderBottom: "1px solid var(--sidebar-border)", display: "flex", alignItems: "center", justifyContent: sidebarCollapsed ? "center" : "flex-start" }}>
             {sidebarCollapsed ? (
-              <div style={{
-                width: 38, height: 38, background: "var(--accent)", borderRadius: 8,
+              <div className="logo-icon-box" style={{
+                width: 42, height: 42, borderRadius: 0,
+                background: "radial-gradient(circle at 38% 32%, #4a9dff 0%, #1a6eeb 40%, #071d52 100%)",
                 display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                boxShadow: "0 0 0 3px rgba(26,110,235,0.3)", margin: "0 auto",
+                clipPath: "polygon(50% 0%, 96% 25%, 96% 75%, 50% 100%, 4% 75%, 4% 25%)",
+                margin: "0 auto",
               }}>
-                <svg width="20" height="20" fill="none" stroke="#fff" strokeWidth="2" viewBox="0 0 24 24">
-                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                  <polyline points="9,22 9,12 15,12 15,22"/>
-                </svg>
+                <LogoEmblem size={24} />
               </div>
             ) : (
               <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
-                <div style={{
-                  width: 38, height: 38, background: "var(--accent)", borderRadius: 8,
+                <div className="logo-icon-box" style={{
+                  width: 42, height: 42, borderRadius: 0,
+                  background: "radial-gradient(circle at 38% 32%, #4a9dff 0%, #1a6eeb 40%, #071d52 100%)",
                   display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                  boxShadow: "0 0 0 3px rgba(26,110,235,0.3)",
+                  clipPath: "polygon(50% 0%, 96% 25%, 96% 75%, 50% 100%, 4% 75%, 4% 25%)",
                 }}>
-                  <svg width="20" height="20" fill="none" stroke="#fff" strokeWidth="2" viewBox="0 0 24 24">
-                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                    <polyline points="9,22 9,12 15,12 15,22"/>
-                  </svg>
+                  <LogoEmblem size={24} />
                 </div>
                 <div>
-                  <div className="font-head-itm" style={{ fontSize: 20, fontWeight: 800, letterSpacing: 2, color: "var(--text)", lineHeight: 1 }}>OMBORPRO</div>
-                  <div className="font-body-itm" style={{ fontSize: 12, color: "var(--sidebar-text2)", letterSpacing: 1.5, marginTop: 3 }}>KORXONA TIZIMI</div>
+                  <div className="font-head-itm ombor-text" style={{ fontSize: 20, fontWeight: 800, letterSpacing: 2, lineHeight: 1 }}>OMBORPRO</div>
+                  <div className="font-body-itm" style={{ fontSize: 12, color: "var(--sidebar-text2)", letterSpacing: 1.5, marginTop: 3, display: "flex", alignItems: "center", gap: 5 }}>
+                    <span className="live-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", display: "inline-block", flexShrink: 0 }} />
+                    KORXONA TIZIMI
+                  </div>
                 </div>
               </div>
             )}
@@ -284,6 +314,54 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             @keyframes navItemIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
             .nav-item .nav-border { clip-path: inset(50% 0); transition: clip-path 0.3s ease; background: var(--accent); }
             .nav-item:hover .nav-border { clip-path: inset(0% 0); }
+            @keyframes logoPulse {
+              0%,100% { filter: drop-shadow(0 0 3px rgba(26,110,235,0.45)); }
+              50% { filter: drop-shadow(0 0 10px rgba(26,110,235,0.85)); }
+            }
+            @keyframes omborShimmer {
+              0% { background-position: -200% center; }
+              100% { background-position: 200% center; }
+            }
+            @keyframes dotPulse {
+              0%,100% { opacity: 1; transform: scale(1); }
+              50% { opacity: 0.5; transform: scale(0.7); }
+            }
+            .logo-icon-box { animation: logoPulse 2.8s ease-in-out infinite; }
+            .ombor-text {
+              background: linear-gradient(90deg, var(--text) 0%, var(--text) 35%, #5a9cf8 50%, var(--text) 65%, var(--text) 100%);
+              background-size: 200% auto;
+              -webkit-background-clip: text;
+              -webkit-text-fill-color: transparent;
+              background-clip: text;
+              animation: omborShimmer 4s linear infinite;
+            }
+            .live-dot { animation: dotPulse 1.6s ease-in-out infinite; }
+            @keyframes logoSpin {
+              0%   { transform: rotate(0deg); }
+              18%  { transform: rotate(108deg); }
+              22%  { transform: rotate(96deg); }
+              40%  { transform: rotate(200deg); }
+              44%  { transform: rotate(190deg); }
+              62%  { transform: rotate(288deg); }
+              66%  { transform: rotate(278deg); }
+              88%  { transform: rotate(370deg); }
+              92%  { transform: rotate(360deg); }
+              100% { transform: rotate(360deg); }
+            }
+            .logo-spin-svg { animation: logoSpin 5s cubic-bezier(0.4,0,0.2,1) infinite; transform-origin: center; }
+            @keyframes iconMorph {
+              0%   { transform: rotate(-200deg) scale(0.1); opacity: 0; filter: blur(6px); }
+              65%  { transform: rotate(15deg) scale(1.25); opacity: 1; filter: blur(0); }
+              100% { transform: rotate(0deg) scale(1); opacity: 1; filter: blur(0); }
+            }
+            @keyframes btnGlow {
+              0%   { box-shadow: 0 0 0 0 var(--glow-color, rgba(251,191,36,0.7)); }
+              60%  { box-shadow: 0 0 0 7px rgba(0,0,0,0); }
+              100% { box-shadow: 0 0 0 0 rgba(0,0,0,0); }
+            }
+            .theme-icon-morph { animation: iconMorph 0.48s cubic-bezier(0.34,1.56,0.64,1) both; display: flex; }
+            .theme-btn-sun  { border-color: #f59e0b !important; color: #f59e0b !important; --glow-color: rgba(251,191,36,0.6); animation: btnGlow 0.5s ease-out; }
+            .theme-btn-moon { border-color: #818cf8 !important; color: #818cf8 !important; --glow-color: rgba(129,140,248,0.6); animation: btnGlow 0.5s ease-out; }
           `}</style>
 
           {/* Nav scroll wrapper */}
@@ -550,27 +628,29 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <div style={{ position: "relative" }} className="theme-toggle-wrap">
                 <button
                   onClick={() => setDarkMode((v) => !v)}
+                  className={darkMode ? "theme-btn-sun" : "theme-btn-moon"}
                   style={{
                     width: 36, height: 36, borderRadius: 8,
-                    background: "none", border: "1.5px solid var(--border2)",
+                    background: "none", border: "1.5px solid",
                     cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                    color: "var(--text2)", transition: "all 0.15s",
+                    transition: "border-color 0.3s, color 0.3s",
                   }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--accent)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--accent)"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border2)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--text2)"; }}
                 >
-                  {darkMode ? (
-                    <svg width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                      <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
-                      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                      <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
-                      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-                    </svg>
-                  ) : (
-                    <svg width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-                    </svg>
-                  )}
+                  <span key={darkMode ? "sun" : "moon"} className="theme-icon-morph">
+                    {darkMode ? (
+                      <svg width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="5"/>
+                        <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                        <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                      </svg>
+                    ) : (
+                      <svg width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                      </svg>
+                    )}
+                  </span>
                 </button>
                 <div className="theme-tooltip" style={{
                   background: darkMode ? "#ffffff" : "#1a2332",
