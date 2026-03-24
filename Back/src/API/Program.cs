@@ -2,6 +2,7 @@ using System.Text;
 using API.Authorization;
 using Application;
 using Application.Options;
+using Microsoft.Extensions.Options;
 using Core.Enums;
 using DataAccess.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -22,6 +23,14 @@ namespace API
                 options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
             builder.Services.AddApplication(builder.Configuration);
+
+            // Override UploadsPath to absolute path relative to ContentRoot
+            builder.Services.PostConfigure<FileStorageOptions>(o =>
+            {
+                if (!Path.IsPathRooted(o.UploadsPath))
+                    o.UploadsPath = Path.Combine(builder.Environment.ContentRootPath, o.UploadsPath);
+                Directory.CreateDirectory(o.UploadsPath);
+            });
 
             var jwtOptions = builder.Configuration
                 .GetSection(JwtOptions.SectionName)

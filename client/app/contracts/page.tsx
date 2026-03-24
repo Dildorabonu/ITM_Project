@@ -10,6 +10,7 @@ import {
   type ContractResponse,
   type ContractCreatePayload,
   type ContractUpdatePayload,
+  type AttachmentResponse,
 } from "@/lib/userService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -88,9 +89,14 @@ export default function ContractsPage() {
   const [submitted, setSubmitted]       = useState(false);
   const [saving, setSaving]             = useState(false);
   const [formError, setFormError]       = useState("");
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   // View drawer
   const [viewContract, setViewContract] = useState<ContractResponse | null>(null);
+  const [drawerFiles, setDrawerFiles]   = useState<AttachmentResponse[]>([]);
+  const [filesLoading, setFilesLoading] = useState(false);
+  const [uploading, setUploading]       = useState(false);
+  const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
 
   // Delete confirm
   const [deleteId, setDeleteId]         = useState<string | null>(null);
@@ -100,6 +106,40 @@ export default function ContractsPage() {
   const [statusTarget, setStatusTarget] = useState<ContractResponse | null>(null);
   const [newStatus, setNewStatus]       = useState<string>("");
   const [changingStatus, setChangingStatus] = useState(false);
+
+  // ── Load files ────────────────────────────────────────────────────────────
+
+  const openDrawer = async (c: ContractResponse) => {
+    setViewContract(c);
+    setDrawerFiles([]);
+    setFilesLoading(true);
+    try {
+      const files = await contractService.getFiles(c.id);
+      setDrawerFiles(files);
+    } finally {
+      setFilesLoading(false);
+    }
+  };
+
+  const handleUpload = async (contractId: string, file: File) => {
+    setUploading(true);
+    try {
+      const uploaded = await contractService.uploadFile(contractId, file);
+      setDrawerFiles(prev => [uploaded, ...prev]);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteFile = async (contractId: string, fileId: string) => {
+    setDeletingFileId(fileId);
+    try {
+      await contractService.deleteFile(contractId, fileId);
+      setDrawerFiles(prev => prev.filter(f => f.id !== fileId));
+    } finally {
+      setDeletingFileId(null);
+    }
+  };
 
   // ── Load ──────────────────────────────────────────────────────────────────
 
@@ -138,6 +178,7 @@ export default function ContractsPage() {
     setForm(emptyForm);
     setSubmitted(false);
     setFormError("");
+    setPendingFiles([]);
     setShowForm(true);
   };
 
@@ -181,7 +222,13 @@ export default function ContractsPage() {
           priority:     Number(form.priority) as Priority,
           notes:        form.notes || null,
         };
-        await contractService.create(dto);
+        const newId = await contractService.create(dto);
+        if (newId && pendingFiles.length > 0) {
+          for (const file of pendingFiles) {
+            await contractService.uploadFile(newId, file);
+          }
+        }
+        setPendingFiles([]);
       }
       await load();
       setShowForm(false);
@@ -295,7 +342,56 @@ export default function ContractsPage() {
               <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Izoh</label>
               <textarea className="form-input" value={form.notes}
                 onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-                placeholder="Qo'shimcha izoh (ixtiyoriy)" rows={3} style={{ resize: "vertical" }} />
+                placeholder="Qo'shimcha izoh (ixtiyoriy)" rows={2} style={{ resize: "none" }} />
+            </div>
+
+            {/* Fayllar */}
+            <div style={{ gridColumn: "1 / -1" }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", display: "block", marginBottom: 8 }}>
+                Fayllar {!editTarget && <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text3)" }}>(ixtiyoriy)</span>}
+              </label>
+              <label style={{
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                gap: 8, cursor: "pointer", border: "2px dashed var(--border)", borderRadius: 10,
+                padding: "20px 16px", background: "var(--bg1)", transition: "border-color 0.15s",
+              }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = "var(--accent)")}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border)")}
+              >
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.6">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)" }}>Fayl tanlash yoki bu yerga tashlash</span>
+                <span style={{ fontSize: 11, color: "var(--text3)" }}>PDF, Word, Excel, rasm — har qanday format</span>
+                <input type="file" multiple style={{ display: "none" }}
+                  onChange={e => {
+                    const files = Array.from(e.target.files ?? []);
+                    if (files.length) setPendingFiles(prev => [...prev, ...files]);
+                    e.target.value = "";
+                  }} />
+              </label>
+              {pendingFiles.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+                  {pendingFiles.map((f, i) => (
+                    <div key={i} style={{
+                      display: "inline-flex", alignItems: "center", gap: 6,
+                      background: "var(--bg3)", border: "1.5px solid var(--border)",
+                      borderRadius: 6, padding: "5px 10px", fontSize: 12, color: "var(--text1)", maxWidth: 240,
+                    }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+                      </svg>
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
+                      <button type="button" onClick={() => setPendingFiles(prev => prev.filter((_, j) => j !== i))}
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", padding: 0, lineHeight: 1, fontSize: 14 }}>✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {editTarget && (
+                <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 6 }}>Mavjud fayllarni ko&apos;rish/boshqarish uchun shartnomani oching</div>
+              )}
             </div>
           </div>
         </div>
@@ -307,7 +403,7 @@ export default function ContractsPage() {
         )}
 
         <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 4 }}>
-          <button onClick={() => setShowForm(false)}
+          <button onClick={() => { setShowForm(false); setPendingFiles([]); }}
             style={{ background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", padding: "10px 24px", color: "var(--text2)", fontSize: 14, fontWeight: 500 }}>
             Bekor qilish
           </button>
@@ -391,7 +487,7 @@ export default function ContractsPage() {
                   <tr key={c.id}>
                     <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>{String(i + 1).padStart(2, "0")}</td>
                     <td style={{ textAlign: "center", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      <button onClick={() => setViewContract(c)}
+                      <button onClick={() => openDrawer(c)}
                         style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontWeight: 700, fontSize: 13, color: "var(--accent)", fontFamily: "var(--font-mono)", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block" }}>
                         {c.contractNo}
                       </button>
@@ -410,7 +506,7 @@ export default function ContractsPage() {
                     </td>
                     <td style={{ borderLeft: "2px solid var(--border)" }}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-                        <button className="btn-icon" onClick={() => setViewContract(c)} title="Ko'rish"
+                        <button className="btn-icon" onClick={() => openDrawer(c)} title="Ko'rish"
                           style={{ color: "#0ea5e9", borderColor: "#0ea5e933", background: "#0ea5e912" }}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
@@ -446,20 +542,20 @@ export default function ContractsPage() {
       {viewContract && (
         <div
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(4px)", zIndex: 200, display: "flex", justifyContent: "flex-end" }}
-          onClick={() => setViewContract(null)}
+          onClick={() => { setViewContract(null); setDrawerFiles([]); }}
         >
           <div
             onClick={e => e.stopPropagation()}
             style={{
               width: 800, maxWidth: "95vw", height: "calc(100% - 32px)", margin: "16px 16px 16px 0",
               background: "var(--bg2)", borderRadius: 14,
-              boxShadow: "-4px 0 32px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column",
+              boxShadow: "-4px 0 32px rgba(0,0,0,0.18)",
               padding: "28px 28px 32px", overflowY: "auto",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, position: "sticky", top: 0, background: "var(--bg2)", zIndex: 1, paddingBottom: 8 }}>
               <span style={{ fontWeight: 700, fontSize: 17, color: "var(--text1)" }}>Shartnoma tafsilotlari</span>
-              <button onClick={() => setViewContract(null)}
+              <button onClick={() => { setViewContract(null); setDrawerFiles([]); }}
                 style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
             </div>
 
@@ -497,6 +593,75 @@ export default function ContractsPage() {
                 <div style={{ fontSize: 14, color: "var(--text1)", whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "break-word" }}>{viewContract.notes}</div>
               </div>
             )}
+
+            {/* ── Files ── */}
+            <div style={{ borderTop: "1.5px solid var(--border)", paddingTop: 20, marginTop: 4 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Fayllar</div>
+                <label style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  fontSize: 12, fontWeight: 600, cursor: uploading ? "not-allowed" : "pointer",
+                  color: "var(--accent)", opacity: uploading ? 0.6 : 1,
+                  border: "1.5px solid var(--accent)", borderRadius: 6, padding: "4px 10px",
+                }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                  {uploading ? "Yuklanmoqda..." : "Fayl qo'shish"}
+                  <input type="file" style={{ display: "none" }} disabled={uploading}
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (file) handleUpload(viewContract.id, file);
+                      e.target.value = "";
+                    }} />
+                </label>
+              </div>
+
+              {filesLoading ? (
+                <div style={{ fontSize: 13, color: "var(--text3)", textAlign: "center", padding: "16px 0" }}>Yuklanmoqda...</div>
+              ) : drawerFiles.length === 0 ? (
+                <div style={{ fontSize: 13, color: "var(--text3)", textAlign: "center", padding: "16px 0", border: "1.5px dashed var(--border)", borderRadius: 8 }}>
+                  Hali fayl qo&apos;shilmagan
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {drawerFiles.map(f => (
+                    <div key={f.id} style={{
+                      display: "flex", alignItems: "center", gap: 10,
+                      border: "1.5px solid var(--border)", borderRadius: 8,
+                      padding: "10px 12px", background: "var(--bg2)",
+                    }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.8" style={{ flexShrink: 0 }}>
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                      </svg>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.fileName}</div>
+                        <div style={{ fontSize: 11, color: "var(--text3)" }}>
+                          {(f.fileSize / 1024).toFixed(1)} KB · {new Date(f.uploadedAt).toLocaleDateString("uz-UZ")}
+                        </div>
+                      </div>
+                      <button title="Yuklab olish" onClick={() => contractService.downloadFile(viewContract.id, f.id, f.fileName)}
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent)", padding: 4, flexShrink: 0 }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                          <polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                      </button>
+                      <button title="O'chirish" disabled={deletingFileId === f.id}
+                        onClick={() => handleDeleteFile(viewContract.id, f.id)}
+                        style={{ background: "none", border: "none", cursor: deletingFileId === f.id ? "not-allowed" : "pointer", color: "var(--danger)", padding: 4, flexShrink: 0, opacity: deletingFileId === f.id ? 0.5 : 1 }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                          <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" />
+                          <path d="M10 11v6M14 11v6" /><path d="M9 6V4h6v2" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
           </div>
         </div>

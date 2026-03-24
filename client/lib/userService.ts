@@ -255,6 +255,20 @@ export const productService = {
   },
 };
 
+// ─── Attachments ─────────────────────────────────────────────────────────────
+
+export interface AttachmentResponse {
+  id: string;
+  entityType: string;
+  entityId: string;
+  fileName: string;
+  contentType: string;
+  fileSize: number;
+  uploadedAt: string;
+  uploadedBy: string;
+  uploadedByFullName: string | null;
+}
+
 // ─── Contracts ───────────────────────────────────────────────────────────────
 
 export enum ContractStatus {
@@ -344,8 +358,9 @@ export const contractService = {
     return res.data?.result ?? res.data;
   },
 
-  create: async (dto: ContractCreatePayload): Promise<void> => {
-    await api.post("/api/contract", dto);
+  create: async (dto: ContractCreatePayload): Promise<string> => {
+    const res = await api.post("/api/contract", dto);
+    return res.data?.result as string;
   },
 
   update: async (id: string, dto: ContractUpdatePayload): Promise<void> => {
@@ -358,6 +373,34 @@ export const contractService = {
 
   delete: async (id: string): Promise<void> => {
     await api.delete(`/api/contract/${id}`);
+  },
+
+  getFiles: async (id: string): Promise<AttachmentResponse[]> => {
+    const res = await api.get(`/api/contract/${id}/files`);
+    return res.data?.result ?? res.data ?? [];
+  },
+
+  uploadFile: async (id: string, file: File): Promise<AttachmentResponse> => {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await api.post(`/api/contract/${id}/files`, form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data?.result ?? res.data;
+  },
+
+  downloadFile: async (id: string, fileId: string, fileName: string): Promise<void> => {
+    const res = await api.get(`/api/contract/${id}/files/${fileId}/download`, { responseType: "blob" });
+    const url = URL.createObjectURL(res.data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+
+  deleteFile: async (id: string, fileId: string): Promise<void> => {
+    await api.delete(`/api/contract/${id}/files/${fileId}`);
   },
 };
 

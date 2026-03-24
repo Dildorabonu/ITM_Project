@@ -14,10 +14,12 @@ namespace API.Controllers;
 public class ContractController : ControllerBase
 {
     private readonly IContractService _contractService;
+    private readonly IAttachmentService _attachmentService;
 
-    public ContractController(IContractService contractService)
+    public ContractController(IContractService contractService, IAttachmentService attachmentService)
     {
         _contractService = contractService;
+        _attachmentService = attachmentService;
     }
 
     [HasPermission("Contracts.View")]
@@ -55,7 +57,7 @@ public class ContractController : ControllerBase
         if (!result.Succeeded)
             return BadRequest(result);
 
-        return StatusCode(result.Result, result);
+        return StatusCode(201, result);
     }
 
     [HasPermission("Contracts.Update")]
@@ -87,6 +89,68 @@ public class ContractController : ControllerBase
     public async Task<IActionResult> Delete(Guid id)
     {
         var result = await _contractService.DeleteAsync(id);
+
+        if (!result.Succeeded)
+            return NotFound(result);
+
+        return Ok(result);
+    }
+
+    // ── Files ────────────────────────────────────────────────────────────────
+
+    private const string EntityType = "contracts";
+
+    [HasPermission("Contracts.View")]
+    [HttpGet("{id:guid}/files")]
+    public async Task<IActionResult> GetFiles(Guid id)
+    {
+        var result = await _attachmentService.GetAllAsync(EntityType, id);
+        return Ok(result);
+    }
+
+    [HasPermission("Contracts.Update")]
+    [HttpPost("{id:guid}/files")]
+    [RequestSizeLimit(50 * 1024 * 1024)] // 50 MB
+    public async Task<IActionResult> UploadFile(Guid id, IFormFile file)
+    {
+        if (file is null || file.Length == 0)
+            return BadRequest("Fayl tanlanmagan.");
+
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        await using var stream = file.OpenReadStream();
+        var result = await _attachmentService.UploadAsync(
+            EntityType, id,
+            stream, file.FileName, file.ContentType, file.Length,
+            userId);
+
+        if (!result.Succeeded)
+            return BadRequest(result);
+
+        return StatusCode(201, result);
+    }
+
+    [HasPermission("Contracts.View")]
+    [HttpGet("{id:guid}/files/{fileId:guid}/download")]
+    public async Task<IActionResult> DownloadFile(Guid id, Guid fileId)
+    {
+        var result = await _attachmentService.GetForDownloadAsync(EntityType, id, fileId);
+
+        if (!result.Succeeded)
+            return NotFound(result);
+
+        var (filePath, contentType, fileName) = result.Result;
+        var bytes = await System.IO.File.ReadAllBytesAsync(filePath);
+        return File(bytes, contentType, fileName);
+    }
+
+    [HasPermission("Contracts.Update")]
+    [HttpDelete("{id:guid}/files/{fileId:guid}")]
+    public async Task<IActionResult> DeleteFile(Guid id, Guid fileId)
+    {
+        var result = await _attachmentService.DeleteAsync(EntityType, id, fileId);
 
         if (!result.Succeeded)
             return NotFound(result);

@@ -25,6 +25,7 @@ public class DatabaseContext : DbContext
     public DbSet<Notification> Notifications { get; set; }
     public DbSet<RefreshToken> RefreshTokens { get; set; }
     public DbSet<Product> Products { get; set; }
+    public DbSet<Attachment> Attachments { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -51,10 +51,10 @@ public class ContractService : IContractService
         return ApiResult<ContractResponseDto>.Success(MapToResponse(contract));
     }
 
-    public async Task<ApiResult<int>> CreateAsync(ContractCreateDto dto, Guid createdBy)
+    public async Task<ApiResult<Guid>> CreateAsync(ContractCreateDto dto, Guid createdBy)
     {
         if (await _context.Contracts.AnyAsync(c => c.ContractNo == dto.ContractNo))
-            return ApiResult<int>.Failure([$"Contract with number '{dto.ContractNo}' already exists."]);
+            return ApiResult<Guid>.Failure([$"Contract with number '{dto.ContractNo}' already exists."]);
 
         var contract = new Contract
         {
@@ -77,7 +77,7 @@ public class ContractService : IContractService
         _context.Contracts.Add(contract);
         await _context.SaveChangesAsync();
 
-        return ApiResult<int>.Success(201);
+        return ApiResult<Guid>.Success(contract.Id, 201);
     }
 
     public async Task<ApiResult<int>> UpdateAsync(Guid id, ContractUpdateDto dto)

@@ -11,6 +11,7 @@ public static class ApplicationDependencyInjection
     public static IServiceCollection AddApplication(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
+        services.Configure<FileStorageOptions>(configuration.GetSection(FileStorageOptions.SectionName));
 
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IAuthService, AuthService>();
@@ -19,6 +20,7 @@ public static class ApplicationDependencyInjection
         services.AddScoped<IPermissionService, PermissionService>();
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IContractService, ContractService>();
+        services.AddScoped<IAttachmentService, AttachmentService>();
 
         return services;
     }
