@@ -306,13 +306,13 @@ export interface ContractResponse {
 
 export interface ContractCreatePayload {
   contractNo: string;
-  clientName: string;
-  productType: string;
-  quantity: number;
-  unit: string;
+  clientName?: string;
+  productType?: string;
+  quantity?: number;
+  unit?: string;
   startDate: string;
   endDate: string;
-  departmentId: string;
+  departmentId?: string;
   priority: Priority;
   notes?: string | null;
 }

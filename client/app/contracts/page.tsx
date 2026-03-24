@@ -376,11 +376,11 @@ export default function ContractsPage() {
             <table className="itm-table">
               <thead>
                 <tr>
-                  <th style={{ width: 40, paddingLeft: 8, borderRight: "2px solid var(--border)", color: "var(--text1)" }}>#</th>
-                  <th style={{ color: "var(--text1)" }}>Raqam</th>
-                  <th style={{ color: "var(--text1)" }}><span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>Muddat</span></th>
-                  <th style={{ color: "var(--text1)" }}><span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>Muhimlik</span></th>
-                  <th style={{ color: "var(--text1)" }}><span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>Holat</span></th>
+                  <th style={{ width: 56, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Raqam</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Muddat</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Muhimlik</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Holat</th>
                   <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>Amal</th>
                 </tr>
               </thead>
@@ -389,41 +389,40 @@ export default function ContractsPage() {
                   <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
                 ) : filtered.map((c, i) => (
                   <tr key={c.id}>
-                    <td style={{ paddingLeft: 8, borderRight: "2px solid var(--border)", color: "var(--text2)", fontSize: 13 }}>{i + 1}</td>
-                    <td>
+                    <td style={{ textAlign: "center", borderRight: "2px solid var(--border)" }}>{String(i + 1).padStart(2, "0")}</td>
+                    <td style={{ textAlign: "center", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       <button onClick={() => setViewContract(c)}
-                        style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontWeight: 700, fontSize: 13, color: "var(--accent)", fontFamily: "var(--font-mono)" }}>
+                        style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontWeight: 700, fontSize: 13, color: "var(--accent)", fontFamily: "var(--font-mono)", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block" }}>
                         {c.contractNo}
                       </button>
                     </td>
-                    <td style={{ paddingLeft: 8 }}>
-                      <span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8, fontSize: 12, color: "var(--text2)" }}>
+                    <td style={{ textAlign: "center", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <span style={{ fontSize: 12, color: "var(--text2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>
                         {fmt(c.startDate)} – {fmt(c.endDate)}
                       </span>
                     </td>
-                    <td style={{ paddingLeft: 8 }}><span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}><PriorityBadge priority={c.priority} /></span></td>
-                    <td style={{ paddingLeft: 8 }}>
-                      <span style={{ borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>
-                        <button onClick={() => { setStatusTarget(c); setNewStatus(String(c.status)); }}
-                          style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}>
-                          <StatusBadge status={c.status} />
-                        </button>
-                      </span>
+                    <td style={{ textAlign: "center", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><PriorityBadge priority={c.priority} /></td>
+                    <td style={{ textAlign: "center", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <button onClick={() => { setStatusTarget(c); setNewStatus(String(c.status)); }}
+                        style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}>
+                        <StatusBadge status={c.status} />
+                      </button>
                     </td>
-                    <td>
-                      <div style={{ display: "flex", justifyContent: "center", gap: 6, borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>
-                        <button onClick={() => openEdit(c)} title="Tahrirlash"
-                          style={{ background: "var(--accent-dim)", border: "1px solid var(--accent)44", borderRadius: 6, cursor: "pointer", padding: "5px 8px", color: "var(--accent)" }}>
+                    <td style={{ borderLeft: "2px solid var(--border)" }}>
+                      <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                        <button className="btn-icon" onClick={() => openEdit(c)} title="Tahrirlash"
+                          style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                           </svg>
                         </button>
-                        <button onClick={() => setDeleteId(c.id)} title="O'chirish"
-                          style={{ background: "var(--danger-dim)", border: "1px solid var(--danger)44", borderRadius: 6, cursor: "pointer", padding: "5px 8px", color: "var(--danger)" }}>
+                        <button className="btn-icon btn-icon-danger" onClick={() => setDeleteId(c.id)} title="O'chirish"
+                          style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" />
-                            <path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4h6v2" />
+                            <path d="M10 11v6M14 11v6" />
+                            <path d="M9 6V4h6v2" />
                           </svg>
                         </button>
                       </div>
