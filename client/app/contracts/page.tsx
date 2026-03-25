@@ -23,12 +23,13 @@ interface ContractForm {
   startDate: string;
   endDate: string;
   priority: string;
+  contractParty: string;
   notes: string;
 }
 
 const emptyForm: ContractForm = {
   contractNo: "", startDate: "", endDate: "",
-  priority: String(Priority.Medium), notes: "",
+  priority: String(Priority.Medium), contractParty: "", notes: "",
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -252,11 +253,12 @@ export default function ContractsPage() {
   const openEdit = async (c: ContractResponse) => {
     setEditTarget(c);
     setForm({
-      contractNo: c.contractNo,
-      startDate:  c.startDate.slice(0, 10),
-      endDate:    c.endDate.slice(0, 10),
-      priority:   String(c.priority),
-      notes:      c.notes ?? "",
+      contractNo:    c.contractNo,
+      startDate:     c.startDate.slice(0, 10),
+      endDate:       c.endDate.slice(0, 10),
+      priority:      String(c.priority),
+      contractParty: c.contractParty ?? "",
+      notes:         c.notes ?? "",
     });
     setSubmitted(false);
     setFormError("");
@@ -283,11 +285,12 @@ export default function ContractsPage() {
     try {
       if (editTarget) {
         const dto: ContractUpdatePayload = {
-          contractNo: form.contractNo,
-          startDate:  form.startDate,
-          endDate:    form.endDate,
-          priority:   Number(form.priority) as Priority,
-          notes:      form.notes || null,
+          contractNo:    form.contractNo,
+          startDate:     form.startDate,
+          endDate:       form.endDate,
+          priority:      Number(form.priority) as Priority,
+          contractParty: form.contractParty || undefined,
+          notes:         form.notes || null,
         };
         await contractService.update(editTarget.id, dto);
         // sync users
@@ -300,11 +303,12 @@ export default function ContractsPage() {
         for (const uid of toRemove) await contractService.removeUser(editTarget.id, uid);
       } else {
         const dto: ContractCreatePayload = {
-          contractNo: form.contractNo,
-          startDate:  form.startDate,
-          endDate:    form.endDate,
-          priority:   Number(form.priority) as Priority,
-          notes:      form.notes || null,
+          contractNo:    form.contractNo,
+          startDate:     form.startDate,
+          endDate:       form.endDate,
+          priority:      Number(form.priority) as Priority,
+          contractParty: form.contractParty || undefined,
+          notes:         form.notes || null,
         };
         const newId = await contractService.create(dto);
         if (newId) {
@@ -420,6 +424,17 @@ export default function ContractsPage() {
                   <option key={k} value={k}>{PRIORITY_LABELS[k]}</option>
                 ))}
               </select>
+            </div>
+
+            {/* Kim bilan tuzilgan */}
+            <div style={{ gridColumn: "1 / -1" }}>
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>
+                Shartnoma tuzilgan tomon
+              </label>
+              <input className="form-input" value={form.contractParty}
+                onChange={e => setForm(f => ({ ...f, contractParty: e.target.value }))}
+                placeholder="Masalan: Ichki ishlar vazirligi, 3-sex, Texnologiya bo'limi..."
+              />
             </div>
 
             {/* Izoh */}
@@ -773,6 +788,12 @@ export default function ContractsPage() {
                 <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Yaratuvchi</div>
                 <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)" }}>{viewContract.createdByFullName ?? "—"}</div>
               </div>
+              {viewContract.contractParty && (
+                <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px", gridColumn: "1 / -1" }}>
+                  <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Shartnoma tuzilgan tomon</div>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)", wordBreak: "break-word" }}>{viewContract.contractParty}</div>
+                </div>
+              )}
             </div>
 
             {viewContract.notes && (

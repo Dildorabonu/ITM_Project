@@ -69,6 +69,7 @@ public class ContractService : IContractService
             EndDate = dto.EndDate,
             DepartmentId = dto.DepartmentId,
             Priority = dto.Priority,
+            ContractParty = dto.ContractParty,
             Status = ContractStatus.Draft,
             Notes = dto.Notes,
             CreatedBy = createdBy,
@@ -104,6 +105,7 @@ public class ContractService : IContractService
         if (dto.EndDate.HasValue) contract.EndDate = dto.EndDate.Value;
         if (dto.DepartmentId.HasValue) contract.DepartmentId = dto.DepartmentId.Value;
         if (dto.Priority.HasValue) contract.Priority = dto.Priority.Value;
+        if (dto.ContractParty is not null) contract.ContractParty = dto.ContractParty;
         if (dto.Notes is not null) contract.Notes = dto.Notes;
 
         await _context.SaveChangesAsync();
@@ -211,6 +213,7 @@ public class ContractService : IContractService
         DepartmentId = contract.DepartmentId,
         DepartmentName = contract.Department?.Name,
         Priority = contract.Priority,
+        ContractParty = contract.ContractParty,
         Status = contract.Status,
         Notes = contract.Notes,
         CreatedBy = contract.CreatedBy,

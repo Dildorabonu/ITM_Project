@@ -311,6 +311,7 @@ export interface ContractResponse {
   departmentId: string;
   departmentName: string | null;
   priority: Priority;
+  contractParty: string;
   status: ContractStatus;
   notes: string | null;
   createdBy: string;
@@ -328,6 +329,7 @@ export interface ContractCreatePayload {
   endDate: string;
   departmentId?: string;
   priority: Priority;
+  contractParty?: string;
   notes?: string | null;
 }
 
@@ -341,6 +343,7 @@ export interface ContractUpdatePayload {
   endDate?: string;
   departmentId?: string;
   priority?: Priority;
+  contractParty?: string;
   notes?: string | null;
 }
 
