@@ -296,7 +296,84 @@ export default function TechProcessPage() {
     }
   };
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  // ── Render: Form ─────────────────────────────────────────────────────────────
+
+  if (showForm) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>Yangi texnologik jarayon</span>
+        </div>
+
+        <div className="itm-card" style={{ padding: 28 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 640 }}>
+
+            {/* Shartnoma */}
+            <div>
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: submitted && !form.contractId ? "var(--danger)" : "var(--text2)" }}>
+                Shartnoma <span style={{ color: "var(--danger)" }}>*</span>
+              </label>
+              <select className="form-input" value={form.contractId}
+                onChange={e => setForm(f => ({ ...f, contractId: e.target.value }))}
+                style={Object.assign({ width: "100%", cursor: "pointer" }, submitted && !form.contractId ? { borderColor: "var(--danger)" } : {})}
+              >
+                <option value="">— Shartnomani tanlang —</option>
+                {contracts.map(c => (
+                  <option key={c.id} value={c.id}>{c.contractNo} — {c.clientName}</option>
+                ))}
+              </select>
+              {submitted && !form.contractId && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Shartnoma tanlash shart</div>}
+            </div>
+
+            {/* Sarlavha */}
+            <div>
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: submitted && !form.title.trim() ? "var(--danger)" : "var(--text2)" }}>
+                Sarlavha <span style={{ color: "var(--danger)" }}>*</span>
+              </label>
+              <input className="form-input" value={form.title}
+                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                placeholder="Masalan: Metall konstruktsiya ishlab chiqarish"
+                style={submitted && !form.title.trim() ? { borderColor: "var(--danger)" } : undefined}
+              />
+              {submitted && !form.title.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Sarlavha kiritish shart</div>}
+            </div>
+
+            {/* Izoh */}
+            <div>
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Izoh</label>
+              <textarea className="form-input" value={form.notes}
+                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                placeholder="Qo'shimcha izoh (ixtiyoriy)" rows={3} style={{ resize: "none" }} />
+            </div>
+
+          </div>
+        </div>
+
+        {formError && (
+          <div style={{ padding: "10px 14px", borderRadius: 8, background: "var(--danger-dim)", border: "1px solid var(--danger)44", color: "var(--danger)", fontSize: 13 }}>
+            {formError}
+          </div>
+        )}
+
+        <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 4 }}>
+          <button onClick={() => setShowForm(false)}
+            style={{ background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", padding: "10px 24px", color: "var(--text2)", fontSize: 14, fontWeight: 500 }}>
+            Bekor qilish
+          </button>
+          <button className="btn-primary" onClick={handleSave} disabled={saving}
+            style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+              <polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
+            </svg>
+            {saving ? "Saqlanmoqda..." : "Saqlash"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Render: List ─────────────────────────────────────────────────────────────
 
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
@@ -617,68 +694,6 @@ export default function TechProcessPage() {
                   )}
                 </>
               )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Create Modal ── */}
-      {showForm && (
-        <div className="modal-overlay" onClick={() => setShowForm(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ width: 480 }}>
-            <div className="modal-header">
-              <span className="modal-title">Yangi texnologik jarayon</span>
-              <button className="icon-btn" onClick={() => setShowForm(false)}>
-                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-            <div className="modal-body">
-              {formError && (
-                <div style={{ background: "var(--danger-dim)", color: "var(--danger)", borderRadius: "var(--radius)", padding: "8px 12px", fontSize: 13, marginBottom: 12 }}>
-                  {formError}
-                </div>
-              )}
-              <div className="form-group">
-                <label className="form-label">Shartnoma <span style={{ color: "var(--danger)" }}>*</span></label>
-                <select
-                  className={`form-input${submitted && !form.contractId ? " input-error" : ""}`}
-                  value={form.contractId}
-                  onChange={e => setForm(f => ({ ...f, contractId: e.target.value }))}
-                >
-                  <option value="">— Shartnomani tanlang —</option>
-                  {contracts.map(c => (
-                    <option key={c.id} value={c.id}>{c.contractNo} — {c.clientName}</option>
-                  ))}
-                </select>
-                {submitted && !form.contractId && <div className="field-error">Shartnoma tanlash shart</div>}
-              </div>
-              <div className="form-group">
-                <label className="form-label">Sarlavha <span style={{ color: "var(--danger)" }}>*</span></label>
-                <input
-                  className={`form-input${submitted && !form.title.trim() ? " input-error" : ""}`}
-                  placeholder="Masalan: Metall konstruktsiya ishlab chiqarish"
-                  value={form.title}
-                  onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                />
-                {submitted && !form.title.trim() && <div className="field-error">Sarlavha kiritish shart</div>}
-              </div>
-              <div className="form-group">
-                <label className="form-label">Izoh</label>
-                <textarea
-                  className="form-input"
-                  rows={3}
-                  placeholder="Qo'shimcha izoh..."
-                  value={form.notes}
-                  onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-                  style={{ resize: "vertical" }}
-                />
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-outline" onClick={() => setShowForm(false)}>Bekor qilish</button>
-              <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-                {saving ? "Saqlanmoqda..." : "Saqlash"}
-              </button>
             </div>
           </div>
         </div>

@@ -13,5 +13,6 @@ public class ContractCreateDto
     public DateOnly EndDate { get; set; }
     public Guid DepartmentId { get; set; }
     public Priority Priority { get; set; }
+    public string ContractParty { get; set; } = string.Empty;
     public string? Notes { get; set; }
 }
