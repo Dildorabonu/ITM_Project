@@ -22,6 +22,8 @@ interface ProductForm {
 }
 
 const emptyForm: ProductForm = { name: "", description: "", quantity: "", unit: "", departmentId: "" };
+const DEPT_PLACEHOLDER_VALUE = "__dept_placeholder__";
+const DEPT_ALL_VALUE = "__dept_all__";
 
 export default function ProductsPage() {
   const hasPermission = useAuthStore(s => s.hasPermission);
@@ -429,11 +431,16 @@ export default function ProductsPage() {
         </div>
         <select
           className="form-input"
-          value={filterDept}
-          onChange={e => setFilterDept(e.target.value)}
-          style={{ width: 200, cursor: "pointer", height: 36, padding: "0 10px", background: "#fff" }}
+          defaultValue={DEPT_PLACEHOLDER_VALUE}
+          value={DEPT_PLACEHOLDER_VALUE}
+          onChange={e => {
+            const value = e.target.value;
+            setFilterDept(value === DEPT_PLACEHOLDER_VALUE || value === DEPT_ALL_VALUE ? "" : value);
+          }}
+          style={{ width: 200, cursor: "pointer", height: 36, padding: "0 10px", background: "#fff", fontSize: 14, fontWeight: 600 }}
         >
-          <option value="">Barcha bo&apos;limlar</option>
+          <option value={DEPT_PLACEHOLDER_VALUE}>Bo‘limlar</option>
+          <option value={DEPT_ALL_VALUE}>Barcha bo&apos;limlar</option>
           {departments.map(d => (
             <option key={d.id} value={d.id}>{d.name}</option>
           ))}
