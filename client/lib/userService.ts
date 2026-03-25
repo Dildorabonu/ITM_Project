@@ -350,7 +350,7 @@ export interface ContractUpdatePayload {
 export interface ContractUserResponse {
   userId: string;
   fullName: string;
-  roleName: string | null;
+  departmentName: string | null;
 }
 
 export const contractService = {
@@ -623,5 +623,30 @@ export const materialService = {
     return data.map((m: { id: string; name: string; unit: string; quantity: number }) => ({
       id: m.id, name: m.name, unit: m.unit, quantity: m.quantity,
     }));
+  },
+};
+
+// ─── Scan Service ─────────────────────────────────────────────────────────────
+
+export interface ScanSource {
+  id: string;
+  name: string;
+}
+
+export const scanService = {
+  getSources: async (): Promise<ScanSource[]> => {
+    const res = await api.get("/api/scan/sources");
+    return res.data;
+  },
+
+  scan: async (deviceId: string, colorMode: string, dpi: number): Promise<File> => {
+    const res = await api.post(
+      "/api/scan",
+      { deviceId, colorMode, dpi },
+      { responseType: "blob" }
+    );
+    const blob: Blob = res.data;
+    const fileName = `scan_${new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-")}.jpg`;
+    return new File([blob], fileName, { type: "image/jpeg" });
   },
 };

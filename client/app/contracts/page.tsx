@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import {
   contractService,
   userService,
+  scanService,
   ContractStatus,
   Priority,
   CONTRACT_STATUS_LABELS,
@@ -14,6 +15,7 @@ import {
   type AttachmentResponse,
   type ContractUserResponse,
   type UserResponse,
+  type ScanSource,
 } from "@/lib/userService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -113,6 +115,17 @@ export default function ContractsPage() {
   const [assignSearch, setAssignSearch] = useState("");
   const [assigning, setAssigning]       = useState(false);
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
+
+  // Scan modal
+  const [showScanModal, setShowScanModal]   = useState(false);
+  const [scanSources, setScanSources]       = useState<ScanSource[]>([]);
+  const [scanSourcesLoading, setScanSourcesLoading] = useState(false);
+  const [scanSourcesError, setScanSourcesError]     = useState("");
+  const [selectedSourceId, setSelectedSourceId]     = useState("");
+  const [scanColorMode, setScanColorMode]   = useState("color");
+  const [scanDpi, setScanDpi]               = useState(200);
+  const [scanning, setScanning]             = useState(false);
+  const [scanError, setScanError]           = useState("");
 
   // Delete confirm
   const [deleteId, setDeleteId]         = useState<string | null>(null);
@@ -329,6 +342,42 @@ export default function ContractsPage() {
     }
   };
 
+  // ── Scan ──────────────────────────────────────────────────────────────────
+
+  const openScanModal = async () => {
+    setScanError("");
+    setScanSourcesError("");
+    setSelectedSourceId("");
+    setScanColorMode("color");
+    setScanDpi(200);
+    setShowScanModal(true);
+    setScanSourcesLoading(true);
+    try {
+      const sources = await scanService.getSources();
+      setScanSources(sources);
+      if (sources.length > 0) setSelectedSourceId(sources[0].id);
+    } catch {
+      setScanSourcesError("Skanerlar ro'yxatini olishda xatolik. WIA xizmati ishlayotganini tekshiring.");
+    } finally {
+      setScanSourcesLoading(false);
+    }
+  };
+
+  const handleScanDocument = async () => {
+    if (!selectedSourceId) return;
+    setScanError("");
+    setScanning(true);
+    try {
+      const file = await scanService.scan(selectedSourceId, scanColorMode, scanDpi);
+      setPendingFiles(prev => [...prev, file]);
+      setShowScanModal(false);
+    } catch {
+      setScanError("Skanerlashda xatolik yuz berdi. Skaner ulanganini va tayyor ekanini tekshiring.");
+    } finally {
+      setScanning(false);
+    }
+  };
+
   // ── Delete ────────────────────────────────────────────────────────────────
 
   const handleDelete = async () => {
@@ -528,7 +577,7 @@ export default function ContractsPage() {
                               </div>
                               <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)" }}>{u.firstName} {u.lastName}</div>
-                                <div style={{ fontSize: 11, color: "var(--text3)" }}>{u.roleName ?? u.login}</div>
+                                {u.departmentName && <div style={{ fontSize: 11, color: "var(--text3)" }}>{u.departmentName}</div>}
                               </div>
                               {selected && (
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5">
@@ -553,27 +602,46 @@ export default function ContractsPage() {
               <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", display: "block", marginBottom: 8 }}>
                 Fayllar {!editTarget && <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text3)" }}>(ixtiyoriy)</span>}
               </label>
-              <label style={{
-                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                gap: 8, cursor: "pointer", border: "2px dashed var(--border)", borderRadius: 10,
-                padding: "20px 16px", background: "var(--bg1)", transition: "border-color 0.15s",
-              }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = "var(--accent)")}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border)")}
-              >
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.6">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
-                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)" }}>Fayl tanlash yoki bu yerga tashlash</span>
-                <span style={{ fontSize: 11, color: "var(--text3)" }}>PDF, Word, Excel, rasm — har qanday format</span>
-                <input type="file" multiple style={{ display: "none" }}
-                  onChange={e => {
-                    const files = Array.from(e.target.files ?? []);
-                    if (files.length) setPendingFiles(prev => [...prev, ...files]);
-                    e.target.value = "";
-                  }} />
-              </label>
+              <div style={{ display: "flex", gap: 10 }}>
+                <label style={{
+                  flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                  gap: 8, cursor: "pointer", border: "2px dashed var(--border)", borderRadius: 10,
+                  padding: "20px 16px", background: "var(--bg1)", transition: "border-color 0.15s",
+                }}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = "var(--accent)")}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border)")}
+                >
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.6">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)" }}>Fayl tanlash yoki bu yerga tashlash</span>
+                  <span style={{ fontSize: 11, color: "var(--text3)" }}>PDF, Word, Excel, rasm — har qanday format</span>
+                  <input type="file" multiple style={{ display: "none" }}
+                    onChange={e => {
+                      const files = Array.from(e.target.files ?? []);
+                      if (files.length) setPendingFiles(prev => [...prev, ...files]);
+                      e.target.value = "";
+                    }} />
+                </label>
+                <button type="button" onClick={openScanModal} style={{
+                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                  gap: 8, cursor: "pointer", border: "2px dashed var(--border)", borderRadius: 10,
+                  padding: "20px 24px", background: "var(--bg1)", transition: "border-color 0.15s",
+                }}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = "#0ea5e9")}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border)")}
+                >
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" strokeWidth="1.6">
+                    <rect x="2" y="7" width="20" height="10" rx="2" />
+                    <path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2" />
+                    <line x1="12" y1="12" x2="12" y2="12" strokeWidth="3" strokeLinecap="round" />
+                    <path d="M7 17v2a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2" />
+                  </svg>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "#0ea5e9", whiteSpace: "nowrap" }}>Skaner qilish</span>
+                  <span style={{ fontSize: 11, color: "var(--text3)", whiteSpace: "nowrap" }}>Printerdan skanerlash</span>
+                </button>
+              </div>
               {pendingFiles.length > 0 && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
                   {pendingFiles.map((f, i) => (
@@ -830,7 +898,7 @@ export default function ContractsPage() {
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.fullName}</div>
-                        {u.roleName && <div style={{ fontSize: 11, color: "var(--text3)" }}>{u.roleName}</div>}
+                        {u.departmentName && <div style={{ fontSize: 11, color: "var(--text3)" }}>{u.departmentName}</div>}
                       </div>
                     </div>
                   ))}
@@ -908,6 +976,119 @@ export default function ContractsPage() {
               <button className="btn-primary" onClick={handleStatusChange} disabled={changingStatus}
                 style={{ padding: "9px 20px", borderRadius: "var(--radius)" }}>
                 {changingStatus ? "Saqlanmoqda..." : "Saqlash"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Scan Modal ── */}
+      {showScanModal && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div onClick={() => { if (!scanning) setShowScanModal(false); }} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)" }} />
+          <div style={{ position: "relative", background: "var(--bg1)", borderRadius: 14, padding: 28, width: 440, boxShadow: "0 8px 40px rgba(0,0,0,0.22)", display: "flex", flexDirection: "column", gap: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 8, background: "#e0f2fe", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" strokeWidth="1.8">
+                    <rect x="2" y="7" width="20" height="10" rx="2" />
+                    <path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2" />
+                    <circle cx="12" cy="12" r="1.5" fill="#0ea5e9" stroke="none" />
+                    <path d="M7 17v2a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2" />
+                  </svg>
+                </div>
+                <span style={{ fontWeight: 700, fontSize: 16, color: "var(--text1)" }}>Hujjatni skanerlash</span>
+              </div>
+              <button onClick={() => { if (!scanning) setShowScanModal(false); }}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
+            </div>
+
+            {/* Skanerlar ro'yxati */}
+            <div>
+              <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", display: "block", marginBottom: 6 }}>Skaner tanlang</label>
+              {scanSourcesLoading ? (
+                <div style={{ fontSize: 13, color: "var(--text3)", padding: "10px 0" }}>Skanerlar qidirilmoqda...</div>
+              ) : scanSourcesError ? (
+                <div style={{ fontSize: 13, color: "var(--danger)", padding: "8px 12px", background: "var(--danger-dim)", borderRadius: 8, border: "1px solid var(--danger)33" }}>
+                  {scanSourcesError}
+                </div>
+              ) : scanSources.length === 0 ? (
+                <div style={{ fontSize: 13, color: "var(--text3)", padding: "10px 12px", background: "var(--bg3)", borderRadius: 8, border: "1.5px dashed var(--border)" }}>
+                  Ulangan skaner topilmadi. Printer/skaner ulangan va yoniqligini tekshiring.
+                </div>
+              ) : (
+                <select className="form-input" value={selectedSourceId}
+                  onChange={e => setSelectedSourceId(e.target.value)}
+                  style={{ width: "100%", cursor: "pointer" }}>
+                  {scanSources.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* Sifat sozlamalari */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <div>
+                <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", display: "block", marginBottom: 6 }}>Rang rejimi</label>
+                <select className="form-input" value={scanColorMode}
+                  onChange={e => setScanColorMode(e.target.value)}
+                  style={{ width: "100%", cursor: "pointer" }}>
+                  <option value="color">Rangli</option>
+                  <option value="gray">Kulrang (grayscale)</option>
+                  <option value="bw">Qora-oq</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", display: "block", marginBottom: 6 }}>Sifat (DPI)</label>
+                <select className="form-input" value={scanDpi}
+                  onChange={e => setScanDpi(Number(e.target.value))}
+                  style={{ width: "100%", cursor: "pointer" }}>
+                  <option value={100}>100 DPI (tez)</option>
+                  <option value={150}>150 DPI</option>
+                  <option value={200}>200 DPI (standart)</option>
+                  <option value={300}>300 DPI (yuqori)</option>
+                  <option value={600}>600 DPI (maksimal)</option>
+                </select>
+              </div>
+            </div>
+
+            {scanError && (
+              <div style={{ fontSize: 13, color: "var(--danger)", padding: "8px 12px", background: "var(--danger-dim)", borderRadius: 8, border: "1px solid var(--danger)33" }}>
+                {scanError}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button onClick={() => setShowScanModal(false)} disabled={scanning}
+                style={{ padding: "9px 20px", background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", color: "var(--text2)", fontSize: 13, fontWeight: 500 }}>
+                Bekor
+              </button>
+              <button onClick={handleScanDocument}
+                disabled={scanning || !selectedSourceId || scanSources.length === 0}
+                style={{
+                  padding: "9px 24px", background: scanning ? "var(--bg3)" : "#0ea5e9",
+                  border: "none", borderRadius: "var(--radius)", cursor: scanning || !selectedSourceId ? "not-allowed" : "pointer",
+                  color: scanning ? "var(--text3)" : "#fff", fontSize: 13, fontWeight: 600,
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                }}>
+                {scanning ? (
+                  <>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation: "spin 1s linear infinite" }}>
+                      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                    </svg>
+                    Skanerlayapti...
+                  </>
+                ) : (
+                  <>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <rect x="2" y="7" width="20" height="10" rx="2" />
+                      <path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2" />
+                      <path d="M7 17v2a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2" />
+                    </svg>
+                    Skanerlash
+                  </>
+                )}
               </button>
             </div>
           </div>

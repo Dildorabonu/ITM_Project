@@ -147,13 +147,13 @@ public class ContractService : IContractService
 
         var users = await _context.ContractUsers
             .Where(cu => cu.ContractId == contractId)
-            .Include(cu => cu.User).ThenInclude(u => u.Role)
+            .Include(cu => cu.User).ThenInclude(u => u.Department)
             .AsNoTracking()
             .Select(cu => new ContractUserDto
             {
-                UserId   = cu.UserId,
-                FullName = $"{cu.User.FirstName} {cu.User.LastName}",
-                RoleName = cu.User.Role != null ? cu.User.Role.Name : null,
+                UserId         = cu.UserId,
+                FullName       = $"{cu.User.FirstName} {cu.User.LastName}",
+                DepartmentName = cu.User.Department != null ? cu.User.Department.Name : null,
             })
             .ToListAsync();
 
@@ -226,7 +226,7 @@ public class ContractService : IContractService
             {
                 UserId   = cu.UserId,
                 FullName = $"{cu.User!.FirstName} {cu.User.LastName}",
-                RoleName = cu.User.Role?.Name,
+                DepartmentName = cu.User.Department?.Name,
             }).ToList(),
     };
 }
