@@ -68,8 +68,8 @@ function applyRadius(value: string) {
 }
 
 function applyFont(family: string, scale: number) {
-  const basePx = 14 * (scale / 100);
-  document.body.style.fontSize = `${basePx}px`;
+  const root = document.getElementById("app-root");
+  if (root) root.style.zoom = String(scale / 100);
   document.body.style.fontFamily = `'${family}', ${family}, sans-serif`;
 }
 
@@ -89,10 +89,13 @@ export default function AppearancePage() {
     const savedRadius = localStorage.getItem("appearance_radius");
 
     if (savedTheme === "dark" || savedTheme === "light") setTheme(savedTheme);
-    if (savedAccent) setAccent(savedAccent);
-    if (savedFont) setFont(savedFont);
-    if (savedScale) setScale(Number(savedScale));
-    if (savedRadius) setRadius(savedRadius);
+    if (savedAccent) { setAccent(savedAccent); applyAccent(savedAccent); }
+    const resolvedFont = savedFont ?? "Inter";
+    const resolvedScale = savedScale ? Number(savedScale) : 100;
+    if (savedFont) setFont(resolvedFont);
+    if (savedScale) setScale(resolvedScale);
+    applyFont(resolvedFont, resolvedScale);
+    if (savedRadius) { setRadius(savedRadius); applyRadius(savedRadius); }
   }, []);
 
   function handleTheme(val: "light" | "dark") {

@@ -328,9 +328,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         transition: "background 0.3s ease, color 0.3s ease",
         ...(isLoginPage
           ? { background: "var(--bg)", color: "var(--text)" }
-          : { display: "flex", height: "100vh", overflow: "hidden", background: "var(--bg)", color: "var(--text)" }),
+          : { height: "100vh", overflow: "hidden", background: "var(--bg)", color: "var(--text)" }),
       }}>
-      {isLoginPage ? children : !hasHydrated ? null : !accessToken ? null : (<>
+      {isLoginPage ? children : !hasHydrated ? null : !accessToken ? null : (<div id="app-root" style={{ display: "flex", width: "100%", height: "100%" }}>
 
         {/* ===== SIDEBAR ===== */}
         <aside style={{
@@ -757,7 +757,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </main>
 
         </div>
-      </>)}
+      </div>)}
       </body>
     </html>
   );
