@@ -427,17 +427,16 @@ export default function ProductsPage() {
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
           <input className="search-input" placeholder="Qidirish"
-            value={search} onChange={e => setSearch(e.target.value)} style={{ background: "#fff" }} />
+            value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <select
           className="form-input"
-          defaultValue={DEPT_PLACEHOLDER_VALUE}
           value={DEPT_PLACEHOLDER_VALUE}
           onChange={e => {
             const value = e.target.value;
             setFilterDept(value === DEPT_PLACEHOLDER_VALUE || value === DEPT_ALL_VALUE ? "" : value);
           }}
-          style={{ width: 200, cursor: "pointer", height: 36, padding: "0 10px", background: "#fff", fontSize: 14, fontWeight: 600 }}
+          style={{ width: 200, cursor: "pointer", height: 36, padding: "0 10px", fontSize: 14, fontWeight: 600 }}
         >
           <option value={DEPT_PLACEHOLDER_VALUE}>Bo‘limlar</option>
           <option value={DEPT_ALL_VALUE}>Barcha bo&apos;limlar</option>

@@ -385,12 +385,12 @@ export default function TechProcessPage() {
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
           <input className="search-input" placeholder="Qidirish: sarlavha, shartnoma, klient..."
-            value={search} onChange={e => setSearch(e.target.value)} style={{ background: "#fff" }} />
+            value={search} onChange={e => setSearch(e.target.value)} />
         </div>
 
         <select className="form-input" value={filterStatus}
           onChange={e => setFilterStatus(e.target.value)}
-          style={{ width: 190, cursor: "pointer", height: 36, padding: "0 10px", background: "#fff" }}>
+          style={{ width: 190, cursor: "pointer", height: 36, padding: "0 10px" }}>
           <option value="">Barcha statuslar</option>
           {Object.values(ProcessStatus).filter(v => typeof v === "number").map(v => (
             <option key={v} value={v}>{PROCESS_STATUS_LABELS[v as ProcessStatus]}</option>
