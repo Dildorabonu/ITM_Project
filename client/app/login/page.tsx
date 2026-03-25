@@ -9,12 +9,13 @@ export default function LoginPage() {
   const loginAction = useAuthStore((s) => s.login);
   const uiFont      = "var(--font-inter), Inter, sans-serif";
 
-  const [loginVal,     setLoginVal]     = useState("");
-  const [password,     setPassword]     = useState("");
-  const [error,        setError]        = useState("");
-  const [loading,      setLoading]      = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [mounted,      setMounted]      = useState(false);
+  const [loginVal,      setLoginVal]      = useState("");
+  const [password,      setPassword]      = useState("");
+  const [error,         setError]         = useState("");
+  const [loading,       setLoading]       = useState(false);
+  const [showPassword,  setShowPassword]  = useState(false);
+  const [mounted,       setMounted]       = useState(false);
+  const [exitAnim,      setExitAnim]      = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -144,10 +145,18 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await loginAction({ login: loginVal, password });
-      router.replace("/");
+      // Tell the browser to save/suggest these credentials next time
+      if (typeof window !== "undefined" && "PasswordCredential" in window) {
+        const cred = new (window as unknown as { PasswordCredential: new (init: { id: string; password: string }) => Credential }).PasswordCredential({
+          id: loginVal,
+          password,
+        });
+        await navigator.credentials.store(cred);
+      }
+      setExitAnim(true);
+      setTimeout(() => router.replace("/"), 600);
     } catch {
       setError("Login yoki parol noto'g'ri. Qayta urinib ko'ring.");
-    } finally {
       setLoading(false);
     }
   }
@@ -181,6 +190,15 @@ export default function LoginPage() {
         pointerEvents: "none", zIndex: 0,
       }} />
 
+      {/* Exit overlay */}
+      <div style={{
+        position: "fixed", inset: 0, zIndex: 50,
+        background: "#0d1424",
+        opacity: exitAnim ? 1 : 0,
+        pointerEvents: exitAnim ? "all" : "none",
+        transition: "opacity 0.5s ease",
+      }} />
+
       {/* Card */}
       <div style={{
         width: 420,
@@ -190,9 +208,13 @@ export default function LoginPage() {
         border: "1px solid rgba(255,255,255,0.08)",
         overflow: "hidden",
         position: "relative", zIndex: 1,
-        opacity: mounted ? 1 : 0,
-        transform: mounted ? "translateY(0) scale(1)" : "translateY(24px) scale(0.97)",
-        transition: "opacity 0.4s ease, transform 0.4s ease",
+        opacity: exitAnim ? 0 : mounted ? 1 : 0,
+        transform: exitAnim
+          ? "translateY(-20px) scale(0.95)"
+          : mounted ? "translateY(0) scale(1)" : "translateY(24px) scale(0.97)",
+        transition: exitAnim
+          ? "opacity 0.35s ease, transform 0.35s ease"
+          : "opacity 0.4s ease, transform 0.4s ease",
       }}>
 
         {/* Gradient Header */}
@@ -263,7 +285,7 @@ export default function LoginPage() {
 
           {/* Login field */}
           <div style={{ marginBottom: 16 }}>
-            <label style={{
+            <label htmlFor="username" style={{
               display: "block", fontSize: 11.5, fontWeight: 700,
               color: "#94a3b8", marginBottom: 7, letterSpacing: 0.8,
             }}>
@@ -280,7 +302,7 @@ export default function LoginPage() {
                 </svg>
               </span>
               <input
-                type="text" value={loginVal}
+                id="username" type="text" value={loginVal} name="username"
                 onChange={(e) => setLoginVal(e.target.value)}
                 placeholder="foydalanuvchi nomi" required autoComplete="username"
                 style={{
@@ -304,7 +326,7 @@ export default function LoginPage() {
 
           {/* Password field */}
           <div style={{ marginBottom: 24 }}>
-            <label style={{
+            <label htmlFor="password" style={{
               display: "block", fontSize: 11.5, fontWeight: 700,
               color: "#94a3b8", marginBottom: 7, letterSpacing: 0.8,
             }}>
@@ -321,7 +343,7 @@ export default function LoginPage() {
                 </svg>
               </span>
               <input
-                type={showPassword ? "text" : "password"} value={password}
+                id="password" type={showPassword ? "text" : "password"} value={password} name="password"
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••" required autoComplete="current-password"
                 style={{
