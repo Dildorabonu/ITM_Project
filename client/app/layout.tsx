@@ -60,8 +60,9 @@ const navGroups: NavGroup[] = [
     label: "Tizim",
     icon: "settings",
     items: [
-      { name: "Foydalanuvchilar",   href: "/users",  icon: "users" },
-      { name: "Rollar",             href: "/roles",  icon: "shield" },
+      { name: "Foydalanuvchilar",   href: "/users",       icon: "users" },
+      { name: "Rollar",             href: "/roles",       icon: "shield" },
+      { name: "Tashqi ko'rinish",   href: "/appearance",  icon: "palette" },
     ],
   },
 ];
@@ -113,13 +114,50 @@ function NavIcon({ type, size = 16, strokeWidth = 2, color }: { type: string; si
   if (type === "file-text")    return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10,9 9,9 8,9"/></svg>;
   if (type === "package")      return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27,6.96 12,12.01 20.73,6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>;
   if (type === "clipboard")    return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>;
+  if (type === "palette")      return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12c0 5.52 4.48 10 10 10 1.1 0 2-.9 2-2 0-.54-.21-1.03-.54-1.4-.32-.36-.52-.85-.52-1.36 0-1.1.9-2 2-2h2.35C19.9 15.24 22 13.24 22 11c0-4.97-4.48-9-10-9z"/><circle cx="6.5" cy="11.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="9.5" cy="7.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="14.5" cy="7.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="17.5" cy="11.5" r="1.5" fill="currentColor" stroke="none"/></svg>;
+  if (type === "eye")          return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>;
   if (type === "settings")     return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
   if (type === "shopping-bag") return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>;
   return null;
 }
 
+function applyAppearanceAccent(hex: string) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const dk = (f: number) => `#${[r,g,b].map(v=>Math.round(v*f).toString(16).padStart(2,"0")).join("")}`;
+  const lt = (f: number) => `#${[r,g,b].map(v=>Math.round(v+(255-v)*f).toString(16).padStart(2,"0")).join("")}`;
+  const el = document.documentElement;
+  el.style.setProperty("--accent", hex);
+  el.style.setProperty("--accent2", dk(0.82));
+  el.style.setProperty("--accent3", dk(0.62));
+  el.style.setProperty("--accent-light", lt(0.5));
+  el.style.setProperty("--accent-dim", `rgba(${r},${g},${b},0.08)`);
+  el.style.setProperty("--accent-mid", `rgba(${r},${g},${b},0.15)`);
+  const isDark = document.documentElement.classList.contains("dark") || localStorage.getItem("theme") === "dark";
+  el.style.setProperty("--sidebar-hover", `rgba(${r},${g},${b},${isDark ? 0.12 : 0.06})`);
+  el.style.setProperty("--sidebar-active", `rgba(${r},${g},${b},${isDark ? 0.18 : 0.10})`);
+  el.style.setProperty("--profile-text", isDark ? lt(0.5) : dk(0.62));
+  el.style.setProperty("--profile-text2", isDark ? hex : dk(0.82));
+  el.style.setProperty("--profile-avatar-bg", `linear-gradient(135deg, rgba(${r},${g},${b},0.12) 0%, rgba(${r},${g},${b},0.22) 50%, rgba(${r},${g},${b},0.14) 100%)`);
+}
+
+function applyAppearanceRadius(value: string) {
+  const map: Record<string, [string, string]> = {
+    small: ["3px", "6px"], medium: ["6px", "10px"], large: ["10px", "16px"],
+  };
+  const [r, r2] = map[value] ?? map.medium;
+  document.documentElement.style.setProperty("--radius", r);
+  document.documentElement.style.setProperty("--radius2", r2);
+}
+
+function applyAppearanceFont(family: string, scale: number) {
+  document.body.style.fontSize = `${14 * (scale / 100)}px`;
+  document.body.style.fontFamily = `'${family}', ${family}, sans-serif`;
+}
+
 // Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
-const readyRoutes = new Set(["/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/costnorm"]);
+const readyRoutes = new Set(["/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/costnorm", "/appearance"]);
 
 const pageTitles: Record<string, string> = {
   "/":              "Dashboard",
@@ -134,6 +172,7 @@ const pageTitles: Record<string, string> = {
   "/roles":         "Rollar",
   "/departments":   "Bo'limlar",
   "/products":      "Mahsulotlar",
+  "/appearance":    "Tashqi ko'rinish",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -215,10 +254,36 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     const saved = localStorage.getItem("theme");
     if (saved === "dark") setDarkMode(true);
+
+    // Apply saved accent color
+    const savedAccent = localStorage.getItem("appearance_accent");
+    if (savedAccent) applyAppearanceAccent(savedAccent);
+
+    // Apply saved border radius
+    const savedRadius = localStorage.getItem("appearance_radius");
+    if (savedRadius) applyAppearanceRadius(savedRadius);
+
+    // Apply saved font/scale
+    const savedFont = localStorage.getItem("appearance_font");
+    const savedScale = localStorage.getItem("appearance_scale");
+    if (savedFont || savedScale) {
+      applyAppearanceFont(savedFont ?? "Inter", Number(savedScale ?? 100));
+    }
+
+    // Listen for theme changes from appearance page
+    const onThemeChange = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.theme === "dark") setDarkMode(true);
+      else if (detail?.theme === "light") setDarkMode(false);
+    };
+    window.addEventListener("appearance-theme", onThemeChange);
+    return () => window.removeEventListener("appearance-theme", onThemeChange);
   }, []);
 
   useEffect(() => {
     localStorage.setItem("theme", darkMode ? "dark" : "light");
+    const savedAccent = localStorage.getItem("appearance_accent");
+    if (savedAccent) applyAppearanceAccent(savedAccent);
   }, [darkMode]);
 
   const themeVars = darkMode ? {
@@ -228,13 +293,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     "--text": "#e6edf3", "--text2": "#8b949e", "--text3": "#5a6a7a",
     "--sidebar-bg": "#0d1117", "--sidebar-text": "#e6edf3", "--sidebar-text2": "#8b949e",
     "--sidebar-border": "#30363d",
-    "--sidebar-hover": "rgba(26,110,235,0.12)", "--sidebar-active": "rgba(26,110,235,0.18)",
-    "--accent-dim": "rgba(26,110,235,0.15)", "--accent-mid": "rgba(26,110,235,0.25)",
     "--warn-dim": "rgba(224,123,0,0.15)", "--danger-dim": "rgba(217,48,37,0.15)",
     "--success-dim": "rgba(15,123,69,0.15)", "--purple-dim": "rgba(109,74,173,0.15)",
     "--shadow": "0 2px 12px rgba(0,0,0,0.4)", "--shadow2": "0 4px 24px rgba(0,0,0,0.5)",
-    "--profile-text": "#93bbf5", "--profile-text2": "#5a9cf8",
-    "--profile-avatar-bg": "linear-gradient(135deg,rgba(26,110,235,0.3) 0%,rgba(26,110,235,0.2) 50%,rgba(13,62,158,0.35) 100%)",
+    "--profile-text": "var(--accent-light)", "--profile-text2": "var(--accent)",
+    "--profile-avatar-bg": "linear-gradient(135deg,var(--accent-dim) 0%,var(--accent-mid) 50%,var(--accent-dim) 100%)",
   } as React.CSSProperties : {} as React.CSSProperties;
   const toggleGroup = (label: string) =>
     setCollapsedGroups((prev) => ({ ...prev, [label]: !prev[label] }));
@@ -284,7 +347,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {sidebarCollapsed ? (
               <div className="logo-icon-box" style={{
                 width: 42, height: 42, borderRadius: 0,
-                background: "radial-gradient(circle at 38% 32%, #4a9dff 0%, #1a6eeb 40%, #071d52 100%)",
+                background: "radial-gradient(circle at 38% 32%, var(--accent-light) 0%, var(--accent) 40%, var(--accent3) 100%)",
                 display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
                 clipPath: "polygon(50% 0%, 96% 25%, 96% 75%, 50% 100%, 4% 75%, 4% 25%)",
                 margin: "0 auto",
@@ -295,7 +358,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
                 <div className="logo-icon-box" style={{
                   width: 42, height: 42, borderRadius: 0,
-                  background: "radial-gradient(circle at 38% 32%, #4a9dff 0%, #1a6eeb 40%, #071d52 100%)",
+                  background: "radial-gradient(circle at 38% 32%, var(--accent-light) 0%, var(--accent) 40%, var(--accent3) 100%)",
                   display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
                   clipPath: "polygon(50% 0%, 96% 25%, 96% 75%, 50% 100%, 4% 75%, 4% 25%)",
                 }}>
@@ -304,7 +367,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <div>
                   <div className="font-head-itm ombor-text" style={{ fontSize: 20, fontWeight: 800, letterSpacing: 2, lineHeight: 1 }}>OMBORPRO</div>
                   <div className="font-body-itm" style={{ fontSize: 12, color: "var(--sidebar-text2)", letterSpacing: 1.5, marginTop: 3, display: "flex", alignItems: "center", gap: 5 }}>
-                    <span className="live-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", display: "inline-block", flexShrink: 0 }} />
+                    <span className="live-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--accent-light)", display: "inline-block", flexShrink: 0 }} />
                     KORXONA TIZIMI
                   </div>
                 </div>
@@ -330,12 +393,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             }
             .logo-icon-box { animation: logoPulse 2.8s ease-in-out infinite; }
             .ombor-text {
-              background: linear-gradient(90deg, var(--text) 0%, var(--text) 35%, #5a9cf8 50%, var(--text) 65%, var(--text) 100%);
+              background: linear-gradient(90deg, var(--accent) 0%, var(--accent3) 30%, #ffffff 48%, #ffffff 52%, var(--accent3) 70%, var(--accent) 100%);
               background-size: 200% auto;
               -webkit-background-clip: text;
               -webkit-text-fill-color: transparent;
               background-clip: text;
-              animation: omborShimmer 4s linear infinite;
+              animation: omborShimmer 2.5s linear infinite;
             }
             .live-dot { animation: dotPulse 1.6s ease-in-out infinite; }
             @keyframes logoSpin {
@@ -362,8 +425,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               100% { box-shadow: 0 0 0 0 rgba(0,0,0,0); }
             }
             .theme-icon-morph { animation: iconMorph 0.48s cubic-bezier(0.34,1.56,0.64,1) both; display: flex; }
-            .theme-btn-sun  { border-color: #f59e0b !important; color: #f59e0b !important; --glow-color: rgba(251,191,36,0.6); animation: btnGlow 0.5s ease-out; }
-            .theme-btn-moon { border-color: #818cf8 !important; color: #818cf8 !important; --glow-color: rgba(129,140,248,0.6); animation: btnGlow 0.5s ease-out; }
+            .theme-btn-sun  { border-color: var(--accent-light) !important; color: var(--accent-light) !important; --glow-color: var(--accent-mid); animation: btnGlow 0.5s ease-out; }
+            .theme-btn-moon { border-color: var(--accent) !important; color: var(--accent) !important; --glow-color: var(--accent-mid); animation: btnGlow 0.5s ease-out; }
           `}</style>
 
           {/* Nav scroll wrapper */}
@@ -415,7 +478,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       <Link key={item.href} href={item.href} className="nav-item" style={{
                         display: "flex", alignItems: "center", gap: 10,
                         padding: "9px 12px 9px 32px",
-                        color: isActive ? "#1a6eeb" : "var(--sidebar-text)",
+                        color: isActive ? "var(--accent)" : "var(--sidebar-text)",
                         background: isActive ? "linear-gradient(to right, transparent 22px, var(--sidebar-active) 22px)" : "transparent",
                         textDecoration: "none", fontSize: 14, fontWeight: 400,
                         whiteSpace: "nowrap", overflow: "hidden",
@@ -429,7 +492,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       >
                         <span className="nav-border" style={{ position: "absolute", left: 22, top: 0, bottom: 0, width: 3 }} />
                         <span style={{ opacity: isActive ? 1 : 0.75 }}>
-                          <NavIcon type={item.icon} strokeWidth={2.5} color="#060c14" />
+                          <NavIcon type={item.icon} strokeWidth={2.5} color={isActive ? "var(--accent)" : "var(--sidebar-text)"} />
                         </span>
                         {item.name}
                         {item.badge && (
@@ -458,11 +521,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 style={{
                   height: 16, flexShrink: 0, border: "none", background: "transparent",
                   cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                  color: "rgba(26,110,235,0.5)", padding: 0,
+                  color: "var(--accent-mid)", padding: 0,
                   borderRadius: "3px 3px 0 0",
                 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#1a6eeb"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(26,110,235,0.5)"; }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "var(--accent)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "var(--accent-mid)"; }}
               >
                 <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor"><polygon points="4,1 7,7 1,7"/></svg>
               </button>
@@ -470,7 +533,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {/* Track */}
               <div
                 ref={trackRef}
-                style={{ flex: 1, position: "relative", background: "rgba(26,110,235,0.1)", borderRadius: 3, cursor: "pointer" }}
+                style={{ flex: 1, position: "relative", background: "var(--accent-dim)", borderRadius: 3, cursor: "pointer" }}
                 onClick={(e) => {
                   if (didDrag.current) return;
                   const el = navRef.current;
@@ -485,7 +548,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   style={{
                     position: "absolute", left: 0, right: 0,
                     top: `${thumbTop}%`, height: `${thumbHeight}%`,
-                    background: "rgba(26,110,235,0.45)", borderRadius: 3,
+                    background: "var(--accent-mid)", borderRadius: 3,
                     cursor: "grab",
                   }}
                 />
@@ -497,11 +560,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 style={{
                   height: 16, flexShrink: 0, border: "none", background: "transparent",
                   cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                  color: "rgba(26,110,235,0.5)", padding: 0,
+                  color: "var(--accent-mid)", padding: 0,
                   borderRadius: "0 0 3px 3px",
                 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#1a6eeb"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(26,110,235,0.5)"; }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "var(--accent)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "var(--accent-mid)"; }}
               >
                 <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor"><polygon points="4,7 7,1 1,1"/></svg>
               </button>
