@@ -635,12 +635,12 @@ export default function ContractsPage() {
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
           <input className="search-input" placeholder="Qidirish (raqam)"
-            value={search} onChange={e => setSearch(e.target.value)} style={{ background: "#fff" }} />
+            value={search} onChange={e => setSearch(e.target.value)} />
         </div>
 
         <select className="form-input" value={filterStatus}
           onChange={e => setFilterStatus(e.target.value)}
-          style={{ width: 160, cursor: "pointer", height: 36, padding: "0 10px", background: "#fff" }}>
+          style={{ width: 160, cursor: "pointer", height: 36, padding: "0 10px" }}>
           <option value="">Barcha holat</option>
           {(Object.keys(CONTRACT_STATUS_LABELS) as unknown as ContractStatus[]).map(k => (
             <option key={k} value={k}>{CONTRACT_STATUS_LABELS[k]}</option>

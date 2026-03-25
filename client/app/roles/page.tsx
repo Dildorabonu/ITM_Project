@@ -376,7 +376,6 @@ export default function RolesPage() {
             placeholder="Qidirish"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            style={{ background: "#fff" }}
           />
         </div>
         <button
