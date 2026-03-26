@@ -151,21 +151,17 @@ export const permissionService = {
 export interface DepartmentResponse {
   id: string;
   name: string;
-  headUserId: string | null;
-  headUserFullName: string | null;
   employeeCount: number;
   createdAt: string;
 }
 
 export interface DepartmentCreatePayload {
   name: string;
-  headUserId?: string | null;
   employeeCount?: number;
 }
 
 export interface DepartmentUpdatePayload {
   name?: string;
-  headUserId?: string | null;
   employeeCount?: number | null;
 }
 

@@ -18,7 +18,6 @@ public class DepartmentService : IDepartmentService
     public async Task<ApiResult<IEnumerable<DepartmentResponseDto>>> GetAllAsync()
     {
         var departments = await _context.Departments
-            .Include(d => d.HeadUser)
             .AsNoTracking()
             .ToListAsync();
 
@@ -28,7 +27,6 @@ public class DepartmentService : IDepartmentService
     public async Task<ApiResult<DepartmentResponseDto>> GetByIdAsync(Guid id)
     {
         var department = await _context.Departments
-            .Include(d => d.HeadUser)
             .AsNoTracking()
             .FirstOrDefaultAsync(d => d.Id == id);
 
@@ -47,7 +45,6 @@ public class DepartmentService : IDepartmentService
         {
             Id = Guid.NewGuid(),
             Name = dto.Name,
-            HeadUserId = dto.HeadUserId,
             EmployeeCount = dto.EmployeeCount,
             CreatedAt = DateTime.UtcNow
         };
@@ -73,7 +70,6 @@ public class DepartmentService : IDepartmentService
             department.Name = dto.Name;
         }
 
-        if (dto.HeadUserId.HasValue) department.HeadUserId = dto.HeadUserId;
         if (dto.EmployeeCount.HasValue) department.EmployeeCount = dto.EmployeeCount.Value;
 
         await _context.SaveChangesAsync();
@@ -98,10 +94,6 @@ public class DepartmentService : IDepartmentService
     {
         Id = department.Id,
         Name = department.Name,
-        HeadUserId = department.HeadUserId,
-        HeadUserFullName = department.HeadUser is not null
-            ? $"{department.HeadUser.FirstName} {department.HeadUser.LastName}"
-            : null,
         EmployeeCount = department.EmployeeCount,
         CreatedAt = department.CreatedAt
     };
