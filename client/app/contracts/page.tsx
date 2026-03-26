@@ -76,6 +76,25 @@ function fmt(d: string) {
   return d ? d.slice(0, 10).split("-").reverse().join(".") : "—";
 }
 
+function isoToDisplayDate(iso: string) {
+  if (!iso) return "";
+  const [y, m, d] = iso.slice(0, 10).split("-");
+  if (!y || !m || !d) return "";
+  return `${d}-${m}-${y.slice(-2)}`;
+}
+
+function displayToIsoDate(v: string) {
+  const m = v.trim().match(/^(\d{2})-(\d{2})-(\d{2})$/);
+  if (!m) return "";
+  const day = Number(m[1]);
+  const month = Number(m[2]);
+  const year = 2000 + Number(m[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return "";
+  const dt = new Date(year, month - 1, day);
+  if (dt.getFullYear() !== year || dt.getMonth() !== month - 1 || dt.getDate() !== day) return "";
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ContractsPage() {
@@ -282,8 +301,8 @@ export default function ContractsPage() {
     setEditTarget(c);
     setForm({
       contractNo:    c.contractNo,
-      startDate:     c.startDate.slice(0, 10),
-      endDate:       c.endDate.slice(0, 10),
+      startDate:     isoToDisplayDate(c.startDate),
+      endDate:       isoToDisplayDate(c.endDate),
       priority:      String(c.priority),
       contractParty: c.contractParty ?? "",
       notes:         c.notes ?? "",
@@ -303,19 +322,22 @@ export default function ContractsPage() {
   };
 
   const isValid = () =>
-    form.contractNo.trim() && form.startDate && form.endDate;
+    form.contractNo.trim() && displayToIsoDate(form.startDate) && displayToIsoDate(form.endDate);
 
   const handleSave = async () => {
     setSubmitted(true);
     if (!isValid()) return;
+    const startDateIso = displayToIsoDate(form.startDate);
+    const endDateIso = displayToIsoDate(form.endDate);
+    if (!startDateIso || !endDateIso) return;
     setSaving(true);
     setFormError("");
     try {
       if (editTarget) {
         const dto: ContractUpdatePayload = {
           contractNo:    form.contractNo,
-          startDate:     form.startDate,
-          endDate:       form.endDate,
+          startDate:     startDateIso,
+          endDate:       endDateIso,
           priority:      Number(form.priority) as Priority,
           contractParty: form.contractParty || undefined,
           notes:         form.notes || null,
@@ -332,8 +354,8 @@ export default function ContractsPage() {
       } else {
         const dto: ContractCreatePayload = {
           contractNo:    form.contractNo,
-          startDate:     form.startDate,
-          endDate:       form.endDate,
+          startDate:     startDateIso,
+          endDate:       endDateIso,
           priority:      Number(form.priority) as Priority,
           contractParty: form.contractParty || undefined,
           notes:         form.notes || null,
@@ -430,6 +452,8 @@ export default function ContractsPage() {
   // ── Render: Form ──────────────────────────────────────────────────────────
 
   const fieldErr = (val: string) => submitted && !val.trim();
+  const startDateErr = submitted && !displayToIsoDate(form.startDate);
+  const endDateErr = submitted && !displayToIsoDate(form.endDate);
 
   if (showForm) {
     return (
@@ -458,24 +482,28 @@ export default function ContractsPage() {
 
             {/* Boshlanish sanasi */}
             <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: submitted && !form.startDate ? "var(--danger)" : "var(--text2)" }}>
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: startDateErr ? "var(--danger)" : "var(--text2)" }}>
                 Boshlanish sanasi <span style={{ color: "var(--danger)" }}>*</span>
               </label>
-              <input className="form-input" type="date" value={form.startDate}
+              <input className="form-input" type="text" inputMode="numeric" value={form.startDate}
                 onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))}
-                style={submitted && !form.startDate ? { borderColor: "var(--danger)" } : undefined}
+                placeholder="dd-mm-yy"
+                style={startDateErr ? { borderColor: "var(--danger)" } : undefined}
               />
+              {startDateErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Sana formati: dd-mm-yy</div>}
             </div>
 
             {/* Tugash sanasi */}
             <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: submitted && !form.endDate ? "var(--danger)" : "var(--text2)" }}>
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: endDateErr ? "var(--danger)" : "var(--text2)" }}>
                 Tugash sanasi <span style={{ color: "var(--danger)" }}>*</span>
               </label>
-              <input className="form-input" type="date" value={form.endDate}
+              <input className="form-input" type="text" inputMode="numeric" value={form.endDate}
                 onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))}
-                style={submitted && !form.endDate ? { borderColor: "var(--danger)" } : undefined}
+                placeholder="dd-mm-yy"
+                style={endDateErr ? { borderColor: "var(--danger)" } : undefined}
               />
+              {endDateErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Sana formati: dd-mm-yy</div>}
             </div>
 
             {/* Muhimlik */}
