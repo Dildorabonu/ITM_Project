@@ -64,6 +64,11 @@ export default function TechProcessPage() {
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving]       = useState(false);
   const [formError, setFormError] = useState("");
+  const [finalContractFile, setFinalContractFile] = useState<File | null>(null);
+  const [templateContractFile, setTemplateContractFile] = useState<File | null>(null);
+  const [submittingFiles, setSubmittingFiles] = useState(false);
+  const [fileSubmitError, setFileSubmitError] = useState("");
+  const [fileSubmitSuccess, setFileSubmitSuccess] = useState("");
 
   // Add step modal
   const [showStepModal, setShowStepModal]   = useState(false);
@@ -145,6 +150,10 @@ export default function TechProcessPage() {
     setForm({ contractId: "", title: "", notes: "" });
     setSubmitted(false);
     setFormError("");
+    setFinalContractFile(null);
+    setTemplateContractFile(null);
+    setFileSubmitError("");
+    setFileSubmitSuccess("");
     setShowForm(true);
     if (contracts.length === 0) {
       const data = await contractService.getAll();
@@ -172,6 +181,30 @@ export default function TechProcessPage() {
       setFormError(msg ?? "Saqlashda xatolik yuz berdi.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSubmitFiles = async () => {
+    setFileSubmitError("");
+    setFileSubmitSuccess("");
+    if (!form.contractId) {
+      setFileSubmitError("Avval shartnomani tanlang.");
+      return;
+    }
+    if (!finalContractFile || !templateContractFile) return;
+    setSubmittingFiles(true);
+    try {
+      await Promise.all([
+        contractService.uploadFile(form.contractId, finalContractFile),
+        contractService.uploadFile(form.contractId, templateContractFile),
+      ]);
+      setFileSubmitSuccess("Fayllar muvaffaqiyatli yuklandi.");
+      setFinalContractFile(null);
+      setTemplateContractFile(null);
+    } catch {
+      setFileSubmitError("Fayllarni yuklashda xatolik yuz berdi.");
+    } finally {
+      setSubmittingFiles(false);
     }
   };
 
@@ -306,11 +339,11 @@ export default function TechProcessPage() {
         </div>
 
         <div className="itm-card" style={{ padding: 28 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 640 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 20, alignItems: "start" }}>
 
             {/* Shartnoma */}
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: submitted && !form.contractId ? "var(--danger)" : "var(--text2)" }}>
+            <div style={{ gridColumn: "1 / 2" }}>
+              <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: submitted && !form.contractId ? "var(--danger)" : "var(--text2)" }}>
                 Shartnoma <span style={{ color: "var(--danger)" }}>*</span>
               </label>
               <select className="form-input" value={form.contractId}
@@ -326,8 +359,8 @@ export default function TechProcessPage() {
             </div>
 
             {/* Sarlavha */}
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: submitted && !form.title.trim() ? "var(--danger)" : "var(--text2)" }}>
+            <div style={{ gridColumn: "1 / 2" }}>
+              <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: submitted && !form.title.trim() ? "var(--danger)" : "var(--text2)" }}>
                 Sarlavha <span style={{ color: "var(--danger)" }}>*</span>
               </label>
               <input className="form-input" value={form.title}
@@ -339,11 +372,83 @@ export default function TechProcessPage() {
             </div>
 
             {/* Izoh */}
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Izoh</label>
+            <div style={{ gridColumn: "1 / 2" }}>
+              <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: "var(--text2)" }}>Izoh</label>
               <textarea className="form-input" value={form.notes}
                 onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-                placeholder="Qo'shimcha izoh (ixtiyoriy)" rows={3} style={{ resize: "none" }} />
+                placeholder="Qo'shimcha izoh (ixtiyoriy)" rows={6} style={{ resize: "none" }} />
+            </div>
+
+            <div style={{ gridColumn: "2 / 3", gridRow: "1 / span 3", marginTop: 0, display: "flex", flexDirection: "column", gap: 12, minHeight: "100%" }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text1)" }}>Shartnoma fayllari</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16, alignItems: "stretch" }}>
+                <div style={{ border: "1.5px dashed var(--border)", borderRadius: "var(--radius)", padding: 18, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, background: "var(--bg3)", minHeight: 165, textAlign: "center" }}>
+                  <input
+                    id="final-contract-file"
+                    type="file"
+                    style={{ display: "none" }}
+                    onChange={e => {
+                      setFinalContractFile(e.target.files?.[0] ?? null);
+                      setFileSubmitError("");
+                      setFileSubmitSuccess("");
+                    }}
+                  />
+                  <label htmlFor="final-contract-file" style={{ cursor: "pointer", padding: "9px 14px", borderRadius: 6, border: "1.5px solid var(--border)", background: "var(--bg2)", color: "var(--text2)", fontSize: 13, fontWeight: 700 }}>
+                    Asl shartnoma faylini tanlash
+                  </label>
+                  <div style={{ fontSize: 13, color: "var(--text3)", maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {finalContractFile ? finalContractFile.name : "Fayl tanlanmagan"}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--text3)" }}>Tayyor bo'lgan asl shartnoma fayli</div>
+                </div>
+
+                <div style={{ border: "1.5px dashed var(--border)", borderRadius: "var(--radius)", padding: 18, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, background: "var(--bg3)", minHeight: 165, textAlign: "center" }}>
+                  <input
+                    id="template-contract-file"
+                    type="file"
+                    style={{ display: "none" }}
+                    onChange={e => {
+                      setTemplateContractFile(e.target.files?.[0] ?? null);
+                      setFileSubmitError("");
+                      setFileSubmitSuccess("");
+                    }}
+                  />
+                  <label htmlFor="template-contract-file" style={{ cursor: "pointer", padding: "9px 14px", borderRadius: 6, border: "1.5px solid var(--border)", background: "var(--bg2)", color: "var(--text2)", fontSize: 13, fontWeight: 700 }}>
+                    Template faylini tanlash
+                  </label>
+                  <div style={{ fontSize: 13, color: "var(--text3)", maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {templateContractFile ? templateContractFile.name : "Fayl tanlanmagan"}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--text3)" }}>Shartnomaning template varianti</div>
+                </div>
+              </div>
+
+              <div style={{ marginTop: 2, fontSize: 12, color: "var(--text3)", textAlign: "center", lineHeight: 1.45 }}>
+                Asl va template fayllarni shu yerda yuklang, so&apos;ngra Submit tugmasini bosing.
+              </div>
+
+              {(fileSubmitError || fileSubmitSuccess) && (
+                <div style={{
+                  marginTop: 10,
+                  fontSize: 13,
+                  textAlign: "center",
+                  color: fileSubmitError ? "var(--danger)" : "var(--success)",
+                }}>
+                  {fileSubmitError || fileSubmitSuccess}
+                </div>
+              )}
+
+              <div style={{ marginTop: 2, display: "flex", justifyContent: "center" }}>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={handleSubmitFiles}
+                  disabled={!finalContractFile || !templateContractFile || submittingFiles}
+                  style={{ padding: "10px 28px", fontSize: 14, fontWeight: 700, borderRadius: "var(--radius)", border: "none", cursor: !finalContractFile || !templateContractFile || submittingFiles ? "not-allowed" : "pointer", opacity: !finalContractFile || !templateContractFile || submittingFiles ? 0.65 : 1 }}
+                >
+                  {submittingFiles ? "Yuklanmoqda..." : "Submit"}
+                </button>
+              </div>
             </div>
 
           </div>
