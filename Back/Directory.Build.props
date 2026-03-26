@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <!-- Stabilize restore/build in this environment by avoiding parallel project graph execution. -->
+    <RestoreBuildInParallel Condition="'$(RestoreBuildInParallel)' == ''">false</RestoreBuildInParallel>
+    <BuildInParallel Condition="'$(BuildInParallel)' == ''">false</BuildInParallel>
+  </PropertyGroup>
+</Project>

@@ -20,3 +20,5 @@ Back/**/bin/
 Back/**/obj/
 Back/.vs/
 Back/**/*.user
+.dotnet/
+.nuget/
