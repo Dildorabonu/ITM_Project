@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   contractService,
   userService,
@@ -99,6 +99,7 @@ export default function ContractsPage() {
   const [formUsers, setFormUsers]       = useState<UserResponse[]>([]);
   const [formUserSearch, setFormUserSearch] = useState("");
   const [showUserPicker, setShowUserPicker] = useState(false);
+  const userPickerRef = useRef<HTMLDivElement | null>(null);
 
   // View drawer
   const [viewContract, setViewContract] = useState<ContractResponse | null>(null);
@@ -220,7 +221,8 @@ export default function ContractsPage() {
       const data = await contractService.getAll();
       setContracts(data);
     } catch {
-      setError("Ma'lumotlarni yuklashda xatolik yuz berdi.");
+      setContracts([]);
+      setError("");
     } finally {
       setLoading(false);
     }
@@ -240,6 +242,19 @@ export default function ContractsPage() {
       })
     );
   }, [search, filterStatus, contracts]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!showUserPicker) return;
+      const target = event.target as Node | null;
+      if (userPickerRef.current && target && !userPickerRef.current.contains(target)) {
+        setShowUserPicker(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showUserPicker]);
 
   // ── Form ──────────────────────────────────────────────────────────────────
 
@@ -521,7 +536,7 @@ export default function ContractsPage() {
               )}
 
               {/* Picker toggle */}
-              <div style={{ position: "relative" }}>
+              <div ref={userPickerRef} style={{ position: "relative" }}>
                 <button type="button" onClick={() => setShowUserPicker(v => !v)}
                   style={{
                     display: "inline-flex", alignItems: "center", gap: 6,
@@ -560,6 +575,7 @@ export default function ContractsPage() {
                                 } else {
                                   setFormUsers(prev => [...prev, u]);
                                 }
+                                setShowUserPicker(false);
                               }}
                               style={{
                                 display: "flex", alignItems: "center", gap: 8,
@@ -588,10 +604,6 @@ export default function ContractsPage() {
                           );
                         })}
                     </div>
-                    <button type="button" onClick={() => setShowUserPicker(false)}
-                      style={{ marginTop: 8, width: "100%", padding: "7px", background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", color: "var(--text2)", fontSize: 12, fontWeight: 500 }}>
-                      Yopish
-                    </button>
                   </div>
                 )}
               </div>
