@@ -354,8 +354,13 @@ export const contractService = {
     const params: Record<string, string> = {};
     if (status !== undefined) params.status = String(status);
     if (departmentId) params.departmentId = departmentId;
-    const res = await api.get("/api/contract", { params });
-    return res.data?.result ?? res.data ?? [];
+    try {
+      const res = await api.get("/api/contract", { params });
+      return res.data?.result ?? res.data ?? [];
+    } catch {
+      // Fail-soft: return empty list so UI does not break with red runtime errors.
+      return [];
+    }
   },
 
   getById: async (id: string): Promise<ContractResponse> => {
