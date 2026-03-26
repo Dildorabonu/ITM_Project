@@ -438,7 +438,7 @@ export default function ProductsPage() {
           }}
           style={{ width: 200, cursor: "pointer", height: 36, padding: "0 10px", fontSize: 14, fontWeight: 600 }}
         >
-          <option value={DEPT_PLACEHOLDER_VALUE}>Bo‘limlar</option>
+          <option value={DEPT_PLACEHOLDER_VALUE} hidden>Bo&apos;limlar</option>
           <option value={DEPT_ALL_VALUE}>Barcha bo&apos;limlar</option>
           {departments.map(d => (
             <option key={d.id} value={d.id}>{d.name}</option>
@@ -631,3 +631,4 @@ export default function ProductsPage() {
     </div>
   );
 }
+
