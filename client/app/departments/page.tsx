@@ -3,21 +3,18 @@
 import { useEffect, useState } from "react";
 import {
   departmentService,
-  userService,
   type DepartmentResponse,
   type DepartmentCreatePayload,
   type DepartmentUpdatePayload,
-  type UserResponse,
 } from "@/lib/userService";
 import { useAuthStore } from "@/lib/store/authStore";
 
 interface DeptForm {
   name: string;
-  headUserId: string;
   employeeCount: string;
 }
 
-const emptyForm: DeptForm = { name: "", headUserId: "", employeeCount: "" };
+const emptyForm: DeptForm = { name: "", employeeCount: "" };
 
 export default function DepartmentsPage() {
   const hasPermission = useAuthStore(s => s.hasPermission);
@@ -30,7 +27,6 @@ export default function DepartmentsPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [users, setUsers] = useState<UserResponse[]>([]);
 
   // Inline form
   const [showForm, setShowForm] = useState(false);
@@ -59,16 +55,12 @@ export default function DepartmentsPage() {
 
   useEffect(() => {
     load();
-    userService.getAll(1, 1000).then(r => setUsers(r.items ?? [])).catch(() => {});
   }, []);
 
   useEffect(() => {
     const q = search.toLowerCase();
     setFiltered(
-      q ? depts.filter(d =>
-        d.name.toLowerCase().includes(q) ||
-        (d.headUserFullName ?? "").toLowerCase().includes(q)
-      ) : depts
+      q ? depts.filter(d => d.name.toLowerCase().includes(q)) : depts
     );
   }, [search, depts]);
 
@@ -81,7 +73,7 @@ export default function DepartmentsPage() {
 
   const openEdit = (d: DepartmentResponse) => {
     setEditTarget(d);
-    setForm({ name: d.name, headUserId: d.headUserId ?? "", employeeCount: String(d.employeeCount ?? "") });
+    setForm({ name: d.name, employeeCount: String(d.employeeCount ?? "") });
     setFormSubmitted(false);
     setShowForm(true);
   };
@@ -92,36 +84,28 @@ export default function DepartmentsPage() {
     setSaving(true);
     try {
       const count = form.employeeCount !== "" ? Number(form.employeeCount) : undefined;
-      const headUser = users.find(u => u.id === form.headUserId);
-      const headUserFullName = headUser ? `${headUser.firstName} ${headUser.lastName}` : null;
 
       if (editTarget) {
         const payload: DepartmentUpdatePayload = {
           name: form.name || undefined,
-          headUserId: form.headUserId || null,
           employeeCount: count ?? null,
         };
         await departmentService.update(editTarget.id, payload);
         const updated: DepartmentResponse = {
           ...editTarget,
           name: form.name || editTarget.name,
-          headUserId: form.headUserId || null,
-          headUserFullName,
           employeeCount: count ?? editTarget.employeeCount,
         };
         setDepts(prev => prev.map(d => d.id === editTarget.id ? updated : d));
       } else {
         const payload: DepartmentCreatePayload = {
           name: form.name,
-          headUserId: form.headUserId || null,
           employeeCount: count,
         };
         await departmentService.create(payload);
         const created: DepartmentResponse = {
           id: crypto.randomUUID(),
           name: form.name,
-          headUserId: form.headUserId || null,
-          headUserFullName,
           employeeCount: count ?? 0,
           createdAt: new Date().toISOString(),
         };
@@ -151,7 +135,6 @@ export default function DepartmentsPage() {
 
   /* ===== Inline form view ===== */
   if (showForm) {
-    const selectedUser = users.find(u => u.id === form.headUserId);
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* Header */}
@@ -189,24 +172,6 @@ export default function DepartmentsPage() {
               )}
             </div>
 
-            {/* Bo'lim boshlig'i */}
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>
-                Bo&apos;lim boshlig&apos;i
-              </label>
-              <select
-                className="form-input"
-                value={form.headUserId}
-                onChange={e => setForm(f => ({ ...f, headUserId: e.target.value }))}
-                style={{ width: "100%", cursor: "pointer" }}
-              >
-                <option value="">— Boshlig&apos; tanlang —</option>
-                {users.map(u => (
-                  <option key={u.id} value={u.id}>{u.firstName} {u.lastName}</option>
-                ))}
-              </select>
-            </div>
-
             {/* Xodimlar soni */}
             <div>
               <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>
@@ -224,7 +189,7 @@ export default function DepartmentsPage() {
           </div>
 
           {/* Preview card */}
-          {(form.name || form.headUserId) && (
+          {form.name && (
             <div style={{
               marginTop: 24, padding: "16px 20px",
               border: "1.5px solid var(--accent)44",
@@ -242,10 +207,10 @@ export default function DepartmentsPage() {
               </div>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)" }}>
-                  {form.name || "—"}
+                  {form.name}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--text2)", marginTop: 2 }}>
-                  Boshlig&apos;i: {selectedUser ? `${selectedUser.firstName} ${selectedUser.lastName}` : "Belgilanmagan"} · Xodimlar: {form.employeeCount || "0"}
+                  Xodimlar: {form.employeeCount || "0"}
                 </div>
               </div>
             </div>
@@ -330,21 +295,19 @@ export default function DepartmentsPage() {
                 <tr>
                   <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Bo&apos;lim nomi</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Bo&apos;lim boshlig&apos;i</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Xodimlar</th>
                   <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>Amal</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
+                  <tr><td colSpan={4} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
                 ) : filtered.map((d, i) => (
                   <tr key={d.id}>
                     <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>
                       {String(i + 1).padStart(2, "0")}
                     </td>
                     <td style={{ textAlign: "center" }}>{d.name}</td>
-                    <td style={{ textAlign: "center", color: "var(--text1)" }}>{d.headUserFullName ?? "—"}</td>
                     <td style={{ textAlign: "center", color: "var(--text1)" }}>{d.employeeCount ?? "—"}</td>
                     <td style={{ borderLeft: "2px solid var(--border)" }}>
                       {(canUpdate || canDelete) && (

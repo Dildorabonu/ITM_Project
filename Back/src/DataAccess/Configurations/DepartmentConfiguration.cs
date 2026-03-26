@@ -10,11 +10,6 @@ public class DepartmentConfiguration : IEntityTypeConfiguration<Department>
     {
         builder.HasKey(d => d.Id);
 
-        builder.HasOne(d => d.HeadUser)
-            .WithMany()
-            .HasForeignKey(d => d.HeadUserId)
-            .OnDelete(DeleteBehavior.SetNull);
-
         builder.HasMany(d => d.Users)
             .WithOne(u => u.Department)
             .HasForeignKey(u => u.DepartmentId)

@@ -158,16 +158,11 @@ namespace DataAccess.Migrations
                     b.Property<int>("EmployeeCount")
                         .HasColumnType("integer");
 
-                    b.Property<Guid?>("HeadUserId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("HeadUserId");
 
                     b.ToTable("Departments");
                 });
@@ -697,16 +692,6 @@ namespace DataAccess.Migrations
                     b.Navigation("Contract");
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("Core.Entities.Department", b =>
-                {
-                    b.HasOne("Core.Entities.User", "HeadUser")
-                        .WithMany()
-                        .HasForeignKey("HeadUserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("HeadUser");
                 });
 
             modelBuilder.Entity("Core.Entities.Notification", b =>
