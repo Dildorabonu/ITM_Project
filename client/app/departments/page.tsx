@@ -295,19 +295,21 @@ export default function DepartmentsPage() {
                 <tr>
                   <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Bo&apos;lim nomi</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Bo&apos;lim boshlig&apos;i</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Xodimlar</th>
                   <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>Amal</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={4} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
+                  <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
                 ) : filtered.map((d, i) => (
                   <tr key={d.id}>
                     <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>
                       {String(i + 1).padStart(2, "0")}
                     </td>
                     <td style={{ textAlign: "center" }}>{d.name}</td>
+                    <td style={{ textAlign: "center", color: "var(--text2)" }}>{d.headUserName ?? "—"}</td>
                     <td style={{ textAlign: "center", color: "var(--text1)" }}>{d.employeeCount ?? "—"}</td>
                     <td style={{ borderLeft: "2px solid var(--border)" }}>
                       {(canUpdate || canDelete) && (

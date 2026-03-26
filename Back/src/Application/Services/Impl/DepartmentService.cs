@@ -21,7 +21,18 @@ public class DepartmentService : IDepartmentService
             .AsNoTracking()
             .ToListAsync();
 
-        return ApiResult<IEnumerable<DepartmentResponseDto>>.Success(departments.Select(MapToResponse));
+        var headUsers = await _context.Users
+            .AsNoTracking()
+            .Where(u => u.DepartmentId != null)
+            .Select(u => new { u.DepartmentId, FullName = u.FirstName + " " + u.LastName })
+            .ToListAsync();
+
+        var headMap = headUsers
+            .GroupBy(u => u.DepartmentId)
+            .ToDictionary(g => g.Key!, g => g.First().FullName);
+
+        return ApiResult<IEnumerable<DepartmentResponseDto>>.Success(
+            departments.Select(d => MapToResponse(d, headMap.TryGetValue(d.Id, out var name) ? name : null)));
     }
 
     public async Task<ApiResult<DepartmentResponseDto>> GetByIdAsync(Guid id)
@@ -33,7 +44,13 @@ public class DepartmentService : IDepartmentService
         if (department is null)
             return ApiResult<DepartmentResponseDto>.Failure([$"Department with id '{id}' not found."]);
 
-        return ApiResult<DepartmentResponseDto>.Success(MapToResponse(department));
+        var headUser = await _context.Users
+            .AsNoTracking()
+            .Where(u => u.DepartmentId == id)
+            .Select(u => u.FirstName + " " + u.LastName)
+            .FirstOrDefaultAsync();
+
+        return ApiResult<DepartmentResponseDto>.Success(MapToResponse(department, headUser));
     }
 
     public async Task<ApiResult<int>> CreateAsync(DepartmentCreateDto dto)
@@ -90,11 +107,12 @@ public class DepartmentService : IDepartmentService
         return ApiResult<int>.Success(200);
     }
 
-    private static DepartmentResponseDto MapToResponse(Department department) => new()
+    private static DepartmentResponseDto MapToResponse(Department department, string? headUserName = null) => new()
     {
         Id = department.Id,
         Name = department.Name,
         EmployeeCount = department.EmployeeCount,
-        CreatedAt = department.CreatedAt
+        CreatedAt = department.CreatedAt,
+        HeadUserName = headUserName
     };
 }

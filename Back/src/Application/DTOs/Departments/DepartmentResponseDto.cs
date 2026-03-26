@@ -6,4 +6,5 @@ public class DepartmentResponseDto
     public string Name { get; set; } = string.Empty;
     public int EmployeeCount { get; set; }
     public DateTime CreatedAt { get; set; }
+    public string? HeadUserName { get; set; }
 }

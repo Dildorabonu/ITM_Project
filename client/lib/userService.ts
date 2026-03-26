@@ -153,6 +153,7 @@ export interface DepartmentResponse {
   name: string;
   employeeCount: number;
   createdAt: string;
+  headUserName?: string | null;
 }
 
 export interface DepartmentCreatePayload {
