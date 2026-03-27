@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type DrawingStatus = "pending" | "approved" | "in_progress" | "rejected";
 
@@ -100,10 +100,18 @@ export default function TechnicalDrawingsPage() {
 
   const selectedContract = CONTRACTS.find((c) => c.id === form.contractId);
 
+  useEffect(() => {
+    if (!showForm) return;
+    const handlePopState = () => setShowForm(false);
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [showForm]);
+
   const openCreate = () => {
     setForm({ contractId: "", title: "", notes: "", file: null });
     setSubmitted(false);
     setFileError("");
+    window.history.pushState({ showForm: true }, "");
     setShowForm(true);
   };
 

@@ -122,6 +122,13 @@ export default function TechProcessPage() {
     );
   }, [search, filterStatus, list]);
 
+  useEffect(() => {
+    if (!showForm) return;
+    const handlePopState = () => setShowForm(false);
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [showForm]);
+
   // ── Drawer ──────────────────────────────────────────────────────────────────
 
   const openDrawer = async (tp: TechProcessResponse) => {
@@ -151,6 +158,7 @@ export default function TechProcessPage() {
     setFinalContractFile(null);
     setTemplateContractFile(null);
     setFileSubmitError("");
+    window.history.pushState({ showForm: true }, "");
     setShowForm(true);
     if (contracts.length === 0) {
       const data = await contractService.getAll();
