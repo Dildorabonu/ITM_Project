@@ -12,7 +12,7 @@ public class Contract
     public string Unit { get; set; } = string.Empty;
     public DateOnly StartDate { get; set; }
     public DateOnly EndDate { get; set; }
-    public Guid DepartmentId { get; set; }
+    public Guid? DepartmentId { get; set; }
     public Priority Priority { get; set; }
     public string ContractParty { get; set; } = string.Empty;
     public ContractStatus Status { get; set; }
