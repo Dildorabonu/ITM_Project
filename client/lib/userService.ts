@@ -752,6 +752,90 @@ export const technicalDrawingService = {
     `/api/technicaldrawing/${id}/files/${fileId}/download`,
 };
 
+// ─── CostNorm ─────────────────────────────────────────────────────────────────
+
+export interface CostNormItemResponse {
+  id: string;
+  isSection: boolean;
+  sectionName: string | null;
+  no: string | null;
+  name: string | null;
+  unit: string | null;
+  readyQty: string | null;
+  wasteQty: string | null;
+  totalQty: string | null;
+  photoRaw: string | null;
+  photoSemi: string | null;
+  importType: string | null;
+  sortOrder: number;
+}
+
+export interface CostNormResponse {
+  id: string;
+  contractId: string;
+  contractNo: string;
+  clientName: string;
+  title: string;
+  notes: string | null;
+  createdBy: string;
+  createdByFullName: string | null;
+  createdAt: string;
+  items: CostNormItemResponse[];
+}
+
+export interface CostNormItemCreatePayload {
+  isSection: boolean;
+  sectionName?: string | null;
+  no?: string | null;
+  name?: string | null;
+  unit?: string | null;
+  readyQty?: string | null;
+  wasteQty?: string | null;
+  totalQty?: string | null;
+  photoRaw?: string | null;
+  photoSemi?: string | null;
+  importType?: string | null;
+  sortOrder: number;
+}
+
+export interface CostNormCreatePayload {
+  contractId: string;
+  title: string;
+  notes?: string | null;
+  items: CostNormItemCreatePayload[];
+}
+
+export const costNormService = {
+  getAll: async (contractId?: string): Promise<CostNormResponse[]> => {
+    const params: Record<string, string> = {};
+    if (contractId) params.contractId = contractId;
+    try {
+      const res = await api.get("/api/costnorm", { params });
+      return res.data?.result ?? res.data ?? [];
+    } catch {
+      return [];
+    }
+  },
+
+  getById: async (id: string): Promise<CostNormResponse> => {
+    const res = await api.get(`/api/costnorm/${id}`);
+    return res.data?.result ?? res.data;
+  },
+
+  create: async (dto: CostNormCreatePayload): Promise<string> => {
+    const res = await api.post("/api/costnorm", dto);
+    return res.data?.result as string;
+  },
+
+  update: async (id: string, dto: { title?: string; notes?: string | null }): Promise<void> => {
+    await api.put(`/api/costnorm/${id}`, dto);
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/api/costnorm/${id}`);
+  },
+};
+
 // ─── Scan Service ─────────────────────────────────────────────────────────────
 
 export interface ScanSource {
