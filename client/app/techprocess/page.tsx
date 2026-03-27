@@ -324,8 +324,8 @@ export default function TechProcessPage() {
         <div className="itm-card" style={{ padding: 28 }}>
           <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 20, alignItems: "start" }}>
 
-            {/* Shartnoma */}
-            <div style={{ gridColumn: "1 / 2" }}>
+            {/* Shartnoma + Sarlavha */}
+            <div style={{ gridColumn: "1 / 2", gridRow: "1 / 2" }}>
               <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: submitted && !form.contractId ? "var(--danger)" : "var(--text2)" }}>
                 Shartnoma <span style={{ color: "var(--danger)" }}>*</span>
               </label>
@@ -339,19 +339,18 @@ export default function TechProcessPage() {
                 ))}
               </select>
               {submitted && !form.contractId && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Shartnoma tanlash shart</div>}
-            </div>
 
-            {/* Sarlavha */}
-            <div style={{ gridColumn: "1 / 2" }}>
-              <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: submitted && !form.title.trim() ? "var(--danger)" : "var(--text2)" }}>
-                Sarlavha <span style={{ color: "var(--danger)" }}>*</span>
-              </label>
-              <input className="form-input" value={form.title}
-                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                placeholder="Masalan: Metall konstruktsiya ishlab chiqarish"
-                style={submitted && !form.title.trim() ? { borderColor: "var(--danger)" } : undefined}
-              />
-              {submitted && !form.title.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Sarlavha kiritish shart</div>}
+              <div style={{ marginTop: 12 }}>
+                <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: submitted && !form.title.trim() ? "var(--danger)" : "var(--text2)" }}>
+                  Sarlavha <span style={{ color: "var(--danger)" }}>*</span>
+                </label>
+                <input className="form-input" value={form.title}
+                  onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                  placeholder="Masalan: Metall konstruktsiya ishlab chiqarish"
+                  style={submitted && !form.title.trim() ? { borderColor: "var(--danger)" } : undefined}
+                />
+                {submitted && !form.title.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Sarlavha kiritish shart</div>}
+              </div>
             </div>
 
             {/* Izoh */}
@@ -362,83 +361,107 @@ export default function TechProcessPage() {
                 placeholder="Qo'shimcha izoh (ixtiyoriy)" rows={6} style={{ resize: "none" }} />
             </div>
 
-            <div style={{ gridColumn: "2 / 3", gridRow: "1 / span 3", marginTop: 0, display: "flex", flexDirection: "column", gap: 12, minHeight: "100%" }}>
-              <div style={{
-                border: "1.5px solid var(--border)",
-                borderRadius: "var(--radius)",
-                background: "var(--bg2)",
-                padding: 14,
-              }}>
-                <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 10, color: submitted && (!finalContractFile || !templateContractFile) ? "var(--danger)" : "var(--text2)" }}>
-                  Shartnoma fayllari <span style={{ color: "var(--danger)" }}>*</span>
-                </label>
+            <div style={{ gridColumn: "2 / 3", gridRow: "1 / 2" }}>
+              <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: submitted && !finalContractFile ? "var(--danger)" : "var(--text2)" }}>
+                Shartnoma fayllari <span style={{ color: "var(--danger)" }}>*</span>
+              </label>
+              <label
+                htmlFor="final-contract-file"
+                style={{
+                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                  gap: 8, cursor: "pointer", border: "2px dashed var(--border)", borderRadius: 10,
+                  padding: "20px 16px", background: "var(--bg1)", transition: "border-color 0.15s", textAlign: "center",
+                  minHeight: 130,
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = "var(--danger)";
+                  const icon = e.currentTarget.querySelector("svg");
+                  const action = e.currentTarget.querySelector(".upload-action");
+                  if (icon) icon.setAttribute("stroke", "var(--danger)");
+                  if (action) (action as HTMLElement).style.color = "var(--danger)";
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = "var(--border)";
+                  const icon = e.currentTarget.querySelector("svg");
+                  const action = e.currentTarget.querySelector(".upload-action");
+                  if (icon) icon.setAttribute("stroke", "var(--accent)");
+                  if (action) (action as HTMLElement).style.color = "var(--accent)";
+                }}
+              >
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.6">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+                <span className="upload-action" style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)" }}>Asl shartnoma faylini tanlash</span>
+                <span style={{ fontSize: 11, color: "var(--text3)" }}>
+                  {finalContractFile ? finalContractFile.name : "Fayl tanlanmagan"}
+                </span>
+                <span style={{ fontSize: 11, color: "var(--text3)" }}>Tayyor bo&apos;lgan asl shartnoma fayli</span>
+                <input
+                  id="final-contract-file"
+                  type="file"
+                  style={{ display: "none" }}
+                  onChange={e => {
+                    setFinalContractFile(e.target.files?.[0] ?? null);
+                    setFileSubmitError("");
+                  }}
+                />
+              </label>
+            </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "stretch" }}>
-                  <label htmlFor="final-contract-file" style={{
-                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                    gap: 8, cursor: "pointer", border: "2px dashed var(--border)", borderRadius: 10,
-                    padding: "20px 16px", background: "var(--bg1)", transition: "border-color 0.15s", textAlign: "center",
-                    minHeight: 170,
-                  }}>
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.6">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                      <polyline points="17 8 12 3 7 8" />
-                      <line x1="12" y1="3" x2="12" y2="15" />
-                    </svg>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)" }}>Asl shartnoma faylini tanlash</span>
-                    <span style={{ fontSize: 11, color: "var(--text3)" }}>
-                      {finalContractFile ? finalContractFile.name : "Fayl tanlanmagan"}
-                    </span>
-                    <span style={{ fontSize: 11, color: "var(--text3)" }}>Tayyor bo&apos;lgan asl shartnoma fayli</span>
-                    <input
-                      id="final-contract-file"
-                      type="file"
-                      style={{ display: "none" }}
-                      onChange={e => {
-                        setFinalContractFile(e.target.files?.[0] ?? null);
-                        setFileSubmitError("");
-                      }}
-                    />
-                  </label>
-
-                  <label htmlFor="template-contract-file" style={{
-                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                    gap: 8, cursor: "pointer", border: "2px dashed var(--border)", borderRadius: 10,
-                    padding: "20px 16px", background: "var(--bg1)", transition: "border-color 0.15s", textAlign: "center",
-                    minHeight: 170,
-                  }}>
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.6">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                      <polyline points="17 8 12 3 7 8" />
-                      <line x1="12" y1="3" x2="12" y2="15" />
-                    </svg>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)" }}>Template faylini tanlash</span>
-                    <span style={{ fontSize: 11, color: "var(--text3)" }}>
-                      {templateContractFile ? templateContractFile.name : "Fayl tanlanmagan"}
-                    </span>
-                    <span style={{ fontSize: 11, color: "var(--text3)" }}>Shartnomaning template varianti</span>
-                    <input
-                      id="template-contract-file"
-                      type="file"
-                      style={{ display: "none" }}
-                      onChange={e => {
-                        setTemplateContractFile(e.target.files?.[0] ?? null);
-                        setFileSubmitError("");
-                      }}
-                    />
-                  </label>
+            <div style={{ gridColumn: "2 / 3", gridRow: "2 / 3" }}>
+              <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: submitted && !templateContractFile ? "var(--danger)" : "var(--text2)" }}>
+                Template fayli <span style={{ color: "var(--danger)" }}>*</span>
+              </label>
+              <label
+                htmlFor="template-contract-file"
+                style={{
+                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                  gap: 8, cursor: "pointer", border: "2px dashed var(--border)", borderRadius: 10,
+                  padding: "20px 16px", background: "var(--bg1)", transition: "border-color 0.15s", textAlign: "center",
+                  minHeight: 130,
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = "var(--danger)";
+                  const icon = e.currentTarget.querySelector("svg");
+                  const action = e.currentTarget.querySelector(".upload-action");
+                  if (icon) icon.setAttribute("stroke", "var(--danger)");
+                  if (action) (action as HTMLElement).style.color = "var(--danger)";
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = "var(--border)";
+                  const icon = e.currentTarget.querySelector("svg");
+                  const action = e.currentTarget.querySelector(".upload-action");
+                  if (icon) icon.setAttribute("stroke", "var(--accent)");
+                  if (action) (action as HTMLElement).style.color = "var(--accent)";
+                }}
+              >
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.6">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+                <span className="upload-action" style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)" }}>Template faylini tanlash</span>
+                <span style={{ fontSize: 11, color: "var(--text3)" }}>
+                  {templateContractFile ? templateContractFile.name : "Fayl tanlanmagan"}
+                </span>
+                <span style={{ fontSize: 11, color: "var(--text3)" }}>Shartnomaning template varianti</span>
+                <input
+                  id="template-contract-file"
+                  type="file"
+                  style={{ display: "none" }}
+                  onChange={e => {
+                    setTemplateContractFile(e.target.files?.[0] ?? null);
+                    setFileSubmitError("");
+                  }}
+                />
+              </label>
+              {fileSubmitError && (
+                <div style={{ marginTop: 8, fontSize: 12, color: "var(--danger)" }}>
+                  {fileSubmitError}
                 </div>
-
-                <div style={{ marginTop: 8, fontSize: 12, color: "var(--text3)", lineHeight: 1.45 }}>
-                  Asl va template fayllarni shu yerda yuklang. Alohida Submit tugmasi talab qilinmaydi.
-                </div>
-
-                {fileSubmitError && (
-                  <div style={{ marginTop: 8, fontSize: 12, color: "var(--danger)" }}>
-                    {fileSubmitError}
-                  </div>
-                )}
-              </div>
+              )}
             </div>
 
           </div>
