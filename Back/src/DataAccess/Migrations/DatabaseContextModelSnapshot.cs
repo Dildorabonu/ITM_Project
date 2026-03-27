@@ -291,6 +291,9 @@ namespace DataAccess.Migrations
 
                     b.HasIndex("DepartmentId");
 
+                    b.HasIndex("Name", "DepartmentId")
+                        .IsUnique();
+
                     b.ToTable("Products");
                 });
 

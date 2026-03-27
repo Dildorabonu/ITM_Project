@@ -10,6 +10,9 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
     {
         builder.HasKey(p => p.Id);
 
+        builder.HasIndex(p => new { p.Name, p.DepartmentId })
+            .IsUnique();
+
         builder.HasOne(p => p.Department)
             .WithMany(d => d.Products)
             .HasForeignKey(p => p.DepartmentId)
