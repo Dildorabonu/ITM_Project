@@ -22,6 +22,7 @@ public static class ApplicationDependencyInjection
         services.AddScoped<IContractService, ContractService>();
         services.AddScoped<IAttachmentService, AttachmentService>();
         services.AddScoped<ITechProcessService, TechProcessService>();
+        services.AddScoped<ITechnicalDrawingService, TechnicalDrawingService>();
 
         return services;
     }

@@ -22,5 +22,6 @@ public class User
     public ICollection<StockIn> ReceivedStockIns { get; set; } = [];
     public ICollection<StockOut> IssuedStockOuts { get; set; } = [];
     public ICollection<TechProcess> ApprovedProcesses { get; set; } = [];
+    public ICollection<TechnicalDrawing> CreatedTechnicalDrawings { get; set; } = [];
     public ICollection<Notification> Notifications { get; set; } = [];
 }

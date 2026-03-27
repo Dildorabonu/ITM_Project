@@ -5,6 +5,7 @@ import {
   contractService,
   userService,
   scanService,
+  departmentService,
   ContractStatus,
   Priority,
   CONTRACT_STATUS_LABELS,
@@ -16,12 +17,18 @@ import {
   type ContractUserResponse,
   type UserResponse,
   type ScanSource,
+  type DepartmentResponse,
 } from "@/lib/userService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ContractForm {
   contractNo: string;
+  clientName: string;
+  productType: string;
+  quantity: string;
+  unit: string;
+  departmentId: string;
   startDate: string;
   endDate: string;
   priority: string;
@@ -30,7 +37,8 @@ interface ContractForm {
 }
 
 const emptyForm: ContractForm = {
-  contractNo: "", startDate: "", endDate: "",
+  contractNo: "", clientName: "", productType: "", quantity: "", unit: "",
+  departmentId: "", startDate: "", endDate: "",
   priority: String(Priority.Medium), contractParty: "", notes: "",
 };
 
@@ -95,6 +103,13 @@ function displayToIsoDate(v: string) {
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
+function autoFormatDate(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 6);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4, 6)}`;
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ContractsPage() {
@@ -126,6 +141,9 @@ export default function ContractsPage() {
   const [filesLoading, setFilesLoading] = useState(false);
   const [uploading, setUploading]       = useState(false);
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
+
+  // Departments
+  const [departments, setDepartments]   = useState<DepartmentResponse[]>([]);
 
   // Users
   const [drawerUsers, setDrawerUsers]   = useState<ContractUserResponse[]>([]);
@@ -277,11 +295,15 @@ export default function ContractsPage() {
 
   // ── Form ──────────────────────────────────────────────────────────────────
 
-  const ensureUsersLoaded = async () => {
+  const ensureDataLoaded = async () => {
+    const promises: Promise<unknown>[] = [];
     if (allUsers.length === 0) {
-      const { items } = await userService.getAll(1, 200);
-      setAllUsers(items);
+      promises.push(userService.getAll(1, 200).then(({ items }) => setAllUsers(items)));
     }
+    if (departments.length === 0) {
+      promises.push(departmentService.getAllFull().then(d => setDepartments(d)));
+    }
+    await Promise.all(promises);
   };
 
   const openCreate = async () => {
@@ -293,7 +315,7 @@ export default function ContractsPage() {
     setFormUsers([]);
     setFormUserSearch("");
     setShowUserPicker(false);
-    await ensureUsersLoaded();
+    await ensureDataLoaded();
     setShowForm(true);
   };
 
@@ -301,6 +323,11 @@ export default function ContractsPage() {
     setEditTarget(c);
     setForm({
       contractNo:    c.contractNo,
+      clientName:    c.clientName ?? "",
+      productType:   c.productType ?? "",
+      quantity:      c.quantity ? String(c.quantity) : "",
+      unit:          c.unit ?? "",
+      departmentId:  c.departmentId ?? "",
       startDate:     isoToDisplayDate(c.startDate),
       endDate:       isoToDisplayDate(c.endDate),
       priority:      String(c.priority),
@@ -311,18 +338,20 @@ export default function ContractsPage() {
     setFormError("");
     setFormUserSearch("");
     setShowUserPicker(false);
-    const [, users, { items }] = await Promise.all([
-      Promise.resolve(),
+    const [users, { items }, depts] = await Promise.all([
       contractService.getUsers(c.id),
       userService.getAll(1, 200),
+      departmentService.getAllFull(),
     ]);
     setAllUsers(items);
+    setDepartments(depts);
     setFormUsers(items.filter(u => users.some(cu => cu.userId === u.id)));
     setShowForm(true);
   };
 
   const isValid = () =>
-    form.contractNo.trim() && displayToIsoDate(form.startDate) && displayToIsoDate(form.endDate);
+    form.contractNo.trim() && form.departmentId.trim() &&
+    displayToIsoDate(form.startDate) && displayToIsoDate(form.endDate);
 
   const handleSave = async () => {
     setSubmitted(true);
@@ -336,6 +365,11 @@ export default function ContractsPage() {
       if (editTarget) {
         const dto: ContractUpdatePayload = {
           contractNo:    form.contractNo,
+          clientName:    form.clientName || undefined,
+          productType:   form.productType || undefined,
+          quantity:      form.quantity ? Number(form.quantity) : undefined,
+          unit:          form.unit || undefined,
+          departmentId:  form.departmentId || undefined,
           startDate:     startDateIso,
           endDate:       endDateIso,
           priority:      Number(form.priority) as Priority,
@@ -354,6 +388,11 @@ export default function ContractsPage() {
       } else {
         const dto: ContractCreatePayload = {
           contractNo:    form.contractNo,
+          clientName:    form.clientName || undefined,
+          productType:   form.productType || undefined,
+          quantity:      form.quantity ? Number(form.quantity) : undefined,
+          unit:          form.unit || undefined,
+          departmentId:  form.departmentId || undefined,
           startDate:     startDateIso,
           endDate:       endDateIso,
           priority:      Number(form.priority) as Priority,
@@ -454,6 +493,7 @@ export default function ContractsPage() {
   const fieldErr = (val: string) => submitted && !val.trim();
   const startDateErr = submitted && !displayToIsoDate(form.startDate);
   const endDateErr = submitted && !displayToIsoDate(form.endDate);
+  const deptErr = submitted && !form.departmentId.trim();
 
   if (showForm) {
     return (
@@ -486,8 +526,9 @@ export default function ContractsPage() {
                 Boshlanish sanasi <span style={{ color: "var(--danger)" }}>*</span>
               </label>
               <input className="form-input" type="text" inputMode="numeric" value={form.startDate}
-                onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))}
+                onChange={e => setForm(f => ({ ...f, startDate: autoFormatDate(e.target.value) }))}
                 placeholder="dd-mm-yy"
+                maxLength={8}
                 style={startDateErr ? { borderColor: "var(--danger)" } : undefined}
               />
               {startDateErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Sana formati: dd-mm-yy</div>}
@@ -499,23 +540,75 @@ export default function ContractsPage() {
                 Tugash sanasi <span style={{ color: "var(--danger)" }}>*</span>
               </label>
               <input className="form-input" type="text" inputMode="numeric" value={form.endDate}
-                onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))}
+                onChange={e => setForm(f => ({ ...f, endDate: autoFormatDate(e.target.value) }))}
                 placeholder="dd-mm-yy"
+                maxLength={8}
                 style={endDateErr ? { borderColor: "var(--danger)" } : undefined}
               />
               {endDateErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Sana formati: dd-mm-yy</div>}
             </div>
 
+            {/* Bo'lim */}
+            <div>
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: deptErr ? "var(--danger)" : "var(--text2)" }}>
+                Bo&apos;lim <span style={{ color: "var(--danger)" }}>*</span>
+              </label>
+              <select className="form-input" title="Bo'lim" value={form.departmentId}
+                onChange={e => setForm(f => ({ ...f, departmentId: e.target.value }))}
+                style={{ width: "100%", cursor: "pointer", borderColor: deptErr ? "var(--danger)" : undefined }}>
+                <option value="">— Bo&apos;lim tanlang —</option>
+                {departments.map(d => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+              {deptErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Bo&apos;limni tanlang</div>}
+            </div>
+
             {/* Muhimlik */}
             <div>
               <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Muhimlik</label>
-              <select className="form-input" value={form.priority}
+              <select className="form-input" title="Muhimlik" value={form.priority}
                 onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}
                 style={{ width: "100%", cursor: "pointer" }}>
                 {(Object.keys(PRIORITY_LABELS) as unknown as Priority[]).map(k => (
                   <option key={k} value={k}>{PRIORITY_LABELS[k]}</option>
                 ))}
               </select>
+            </div>
+
+            {/* Mijoz nomi */}
+            <div>
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Mijoz nomi</label>
+              <input className="form-input" value={form.clientName}
+                onChange={e => setForm(f => ({ ...f, clientName: e.target.value }))}
+                placeholder="Mijoz yoki tashkilot nomi"
+              />
+            </div>
+
+            {/* Mahsulot turi */}
+            <div>
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Mahsulot turi</label>
+              <input className="form-input" value={form.productType}
+                onChange={e => setForm(f => ({ ...f, productType: e.target.value }))}
+                placeholder="Masalan: Detal, Konstruktsiya..."
+              />
+            </div>
+
+            {/* Miqdor va o'lchov birligi */}
+            <div>
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Miqdor</label>
+              <input className="form-input" type="number" min="0" value={form.quantity}
+                onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))}
+                placeholder="0"
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>O&apos;lchov birligi</label>
+              <input className="form-input" value={form.unit}
+                onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
+                placeholder="dona, kg, m, m²..."
+              />
             </div>
 
             {/* Kim bilan tuzilgan */}
