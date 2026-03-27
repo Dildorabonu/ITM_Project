@@ -21,4 +21,7 @@ public enum PermissionModule
 
     [Display(Name = "Texnologik jarayon", Description = "settings")]
     TechProcess = 6,
+
+    [Display(Name = "Texnik chizmalar", Description = "pen-tool")]
+    TechnicalDrawings = 7,
 }

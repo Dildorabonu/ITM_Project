@@ -41,6 +41,13 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    label: "Texnik chizmalar",
+    icon: "file-text",
+    items: [
+      { name: "Texnik chizmalar", href: "/technicaldrawings", icon: "file" },
+    ],
+  },
+  {
     label: "Omborxona",
     icon: "package",
     items: [
@@ -157,7 +164,7 @@ function applyAppearanceFont(family: string, scale: number) {
 }
 
 // Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
-const readyRoutes = new Set(["/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/costnorm", "/appearance"]);
+const readyRoutes = new Set(["/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/costnorm", "/technicaldrawings", "/appearance"]);
 
 const pageTitles: Record<string, string> = {
   "/":              "Dashboard",
@@ -165,6 +172,7 @@ const pageTitles: Record<string, string> = {
   "/contracts":     "Shartnomalar",
   "/techprocess":   "Tex Protsess",
   "/costnorm":      "Me'yoriy Sarf",
+  "/technicaldrawings": "Texnik chizmalar",
   "/warehouse":     "Ombor Zaxirasi",
   "/deficit":       "Deficit Tekshiruv",
   "/tasks":         "Kunlik Vazifalar",

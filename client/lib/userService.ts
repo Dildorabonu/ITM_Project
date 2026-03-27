@@ -628,6 +628,102 @@ export const materialService = {
   },
 };
 
+// ─── Technical Drawings ───────────────────────────────────────────────────────
+
+export enum DrawingStatus {
+  Draft       = 0,
+  UnderReview = 1,
+  Approved    = 2,
+  Rejected    = 3,
+}
+
+export const DRAWING_STATUS_LABELS: Record<DrawingStatus, string> = {
+  [DrawingStatus.Draft]:       "Qoralama",
+  [DrawingStatus.UnderReview]: "Ko'rib chiqilmoqda",
+  [DrawingStatus.Approved]:    "Tasdiqlangan",
+  [DrawingStatus.Rejected]:    "Rad etilgan",
+};
+
+export interface TechnicalDrawingResponse {
+  id: string;
+  contractId: string;
+  contractNo: string;
+  clientName: string;
+  title: string;
+  notes: string | null;
+  status: DrawingStatus;
+  createdBy: string;
+  createdByFullName: string | null;
+  createdAt: string;
+}
+
+export interface TechnicalDrawingCreatePayload {
+  contractId: string;
+  title: string;
+  notes?: string | null;
+}
+
+export interface TechnicalDrawingUpdatePayload {
+  title?: string;
+  notes?: string | null;
+}
+
+export const technicalDrawingService = {
+  getAll: async (status?: DrawingStatus): Promise<TechnicalDrawingResponse[]> => {
+    const params: Record<string, string> = {};
+    if (status !== undefined) params.status = String(status);
+    try {
+      const res = await api.get("/api/technicaldrawing", { params });
+      return res.data?.result ?? res.data ?? [];
+    } catch {
+      return [];
+    }
+  },
+
+  getById: async (id: string): Promise<TechnicalDrawingResponse> => {
+    const res = await api.get(`/api/technicaldrawing/${id}`);
+    return res.data?.result ?? res.data;
+  },
+
+  create: async (dto: TechnicalDrawingCreatePayload): Promise<string> => {
+    const res = await api.post("/api/technicaldrawing", dto);
+    return res.data?.result as string;
+  },
+
+  update: async (id: string, dto: TechnicalDrawingUpdatePayload): Promise<void> => {
+    await api.put(`/api/technicaldrawing/${id}`, dto);
+  },
+
+  updateStatus: async (id: string, status: DrawingStatus): Promise<void> => {
+    await api.put(`/api/technicaldrawing/${id}/status`, { status });
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/api/technicaldrawing/${id}`);
+  },
+
+  getFiles: async (id: string): Promise<AttachmentResponse[]> => {
+    const res = await api.get(`/api/technicaldrawing/${id}/files`);
+    return res.data?.result ?? res.data ?? [];
+  },
+
+  uploadFile: async (id: string, file: File): Promise<AttachmentResponse> => {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await api.post(`/api/technicaldrawing/${id}/files`, fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data?.result ?? res.data;
+  },
+
+  deleteFile: async (id: string, fileId: string): Promise<void> => {
+    await api.delete(`/api/technicaldrawing/${id}/files/${fileId}`);
+  },
+
+  downloadFileUrl: (id: string, fileId: string): string =>
+    `/api/technicaldrawing/${id}/files/${fileId}/download`,
+};
+
 // ─── Scan Service ─────────────────────────────────────────────────────────────
 
 export interface ScanSource {
