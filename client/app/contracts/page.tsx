@@ -143,16 +143,14 @@ export default function ContractsPage() {
   const [uploading, setUploading]       = useState(false);
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
 
-<<<<<<< HEAD
   // Departments
   const [departments, setDepartments]   = useState<DepartmentResponse[]>([]);
-=======
+
   // TZ files
   const [drawerTzFiles, setDrawerTzFiles]     = useState<AttachmentResponse[]>([]);
   const [tzFilesLoading, setTzFilesLoading]   = useState(false);
   const [uploadingTz, setUploadingTz]         = useState(false);
   const [deletingTzFileId, setDeletingTzFileId] = useState<string | null>(null);
->>>>>>> 49e0000e1e154e403fe3eac79f6ada4e2f6a494c
 
   // Users
   const [drawerUsers, setDrawerUsers]   = useState<ContractUserResponse[]>([]);
@@ -328,6 +326,19 @@ export default function ContractsPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showUserPicker]);
 
+  useEffect(() => {
+    if (!showForm) return;
+    const handlePopState = () => {
+      setShowForm(false);
+      setPendingContractFiles([]);
+      setPendingTzFiles([]);
+      setFormUsers([]);
+      setShowUserPicker(false);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [showForm]);
+
   // ── Form ──────────────────────────────────────────────────────────────────
 
   const ensureDataLoaded = async () => {
@@ -352,6 +363,7 @@ export default function ContractsPage() {
     setFormUserSearch("");
     setShowUserPicker(false);
     await ensureDataLoaded();
+    window.history.pushState({ showForm: true }, "");
     setShowForm(true);
   };
 
@@ -374,22 +386,15 @@ export default function ContractsPage() {
     setFormError("");
     setFormUserSearch("");
     setShowUserPicker(false);
-<<<<<<< HEAD
     const [users, { items }, depts] = await Promise.all([
-=======
-    const [users, { items }] = await Promise.all([
->>>>>>> 49e0000e1e154e403fe3eac79f6ada4e2f6a494c
       contractService.getUsers(c.id),
       userService.getAll(1, 200),
       departmentService.getAllFull(),
     ]);
     setAllUsers(items);
-<<<<<<< HEAD
     setDepartments(depts);
-    setFormUsers(items.filter(u => users.some(cu => cu.userId === u.id)));
-=======
     setFormUsers(items.filter((u: UserResponse) => users.some((cu: ContractUserResponse) => cu.userId === u.id)));
->>>>>>> 49e0000e1e154e403fe3eac79f6ada4e2f6a494c
+    window.history.pushState({ showForm: true }, "");
     setShowForm(true);
   };
 

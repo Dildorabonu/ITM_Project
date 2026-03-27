@@ -75,6 +75,12 @@ export default function ProductsPage() {
   const [importSaveError, setImportSaveError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Import row inline editing
+  const [editingImportRowIdx, setEditingImportRowIdx] = useState<number | null>(null);
+  const [editingImportRowData, setEditingImportRowData] = useState<{
+    name: string; departmentId: string; quantity: string; unit: ProductUnit; description: string;
+  } | null>(null);
+
   const load = async () => {
     try {
       setLoading(true);
@@ -108,6 +114,13 @@ export default function ProductsPage() {
     );
   }, [search, filterDept, products]);
 
+  useEffect(() => {
+    if (!showForm) return;
+    const handlePopState = () => setShowForm(false);
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [showForm]);
+
   const openCreate = () => {
     setEditTarget(null);
     setForm(emptyForm);
@@ -117,6 +130,7 @@ export default function ProductsPage() {
     setImportRows([]);
     setImportErrors([]);
     setImportSaveError("");
+    window.history.pushState({ showForm: true }, "");
     setShowForm(true);
   };
 
@@ -124,6 +138,7 @@ export default function ProductsPage() {
     setEditTarget(p);
     setForm({ name: p.name, description: p.description ?? "", quantity: String(p.quantity), unit: String(p.unit), departmentId: p.departmentId });
     setFormSubmitted(false);
+    window.history.pushState({ showForm: true }, "");
     setShowForm(true);
   };
 
@@ -366,6 +381,46 @@ export default function ProductsPage() {
     setForms(prev => prev.filter((_, i) => i !== index));
   };
 
+  const startEditImportRow = (idx: number) => {
+    const row = importRows[idx];
+    setEditingImportRowIdx(idx);
+    setEditingImportRowData({
+      name: row.name,
+      departmentId: row.departmentId ?? "",
+      quantity: String(row.quantity),
+      unit: row.unit,
+      description: row.description,
+    });
+  };
+
+  const saveEditImportRow = () => {
+    if (editingImportRowIdx === null || !editingImportRowData) return;
+    const d = editingImportRowData;
+    const errors: string[] = [];
+    if (!d.name.trim()) errors.push("Mahsulot nomi kiritilmagan");
+    const dept = departments.find(dep => dep.id === d.departmentId);
+    if (!dept) errors.push(`"${d.departmentId || "(bo'sh)"}" bo'limi topilmadi`);
+    const quantity = d.quantity !== "" ? Number(d.quantity) : 0;
+    if (d.quantity && isNaN(Number(d.quantity))) errors.push("Miqdor noto'g'ri format");
+    setImportRows(prev => prev.map((r, i) => i === editingImportRowIdx ? {
+      ...r,
+      name: d.name,
+      departmentId: dept?.id,
+      departmentName: dept?.name ?? r.departmentName,
+      quantity: isNaN(quantity) ? 0 : quantity,
+      unit: d.unit,
+      description: d.description,
+      errors,
+    } : r));
+    setEditingImportRowIdx(null);
+    setEditingImportRowData(null);
+  };
+
+  const cancelEditImportRow = () => {
+    setEditingImportRowIdx(null);
+    setEditingImportRowData(null);
+  };
+
   /* ===== Inline form view ===== */
   if (showForm) {
     if (editTarget) {
@@ -581,28 +636,164 @@ export default function ProductsPage() {
                         <th style={{ textAlign: "center" }}>O&apos;lchov</th>
                         <th>Tavsif</th>
                         <th style={{ textAlign: "center" }}>Holat</th>
+                        <th style={{ textAlign: "center" }}>Tahrirlash</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {importRows.map(row => (
-                        <tr key={row.rowNum} style={row.errors.length > 0 ? { background: "var(--danger-dim)" } : undefined}>
-                          <td style={{ textAlign: "center", color: "var(--text3)", fontSize: 12 }}>{row.rowNum}</td>
-                          <td>{row.name || <span style={{ color: "var(--text3)" }}>—</span>}</td>
-                          <td>{row.departmentName || <span style={{ color: "var(--text3)" }}>—</span>}</td>
-                          <td style={{ textAlign: "center" }}>{row.quantity}</td>
-                          <td style={{ textAlign: "center" }}>{PRODUCT_UNIT_LABELS[row.unit]}</td>
-                          <td style={{ color: "var(--text2)", fontSize: 12 }}>{row.description || "—"}</td>
-                          <td style={{ textAlign: "center" }}>
-                            {row.errors.length === 0 ? (
-                              <span style={{ color: "#22c55e", fontSize: 12, fontWeight: 600 }}>✓</span>
-                            ) : (
-                              <span title={row.errors.join("; ")} style={{ color: "var(--danger)", fontSize: 12, cursor: "help", fontWeight: 600 }}>
-                                ✗ {row.errors[0]}
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                      {importRows.map((row, i) => {
+                        const isEditing = editingImportRowIdx === i && editingImportRowData !== null;
+                        if (isEditing && editingImportRowData) {
+                          return (
+                            <tr key={row.rowNum} style={{ background: "var(--accent-dim)" }}>
+                              <td style={{ textAlign: "center", color: "var(--text3)", fontSize: 12 }}>{row.rowNum}</td>
+                              <td>
+                                <input
+                                  className="form-input"
+                                  title="Mahsulot nomi"
+                                  placeholder="Mahsulot nomi"
+                                  value={editingImportRowData.name}
+                                  onChange={e => setEditingImportRowData(d => d && { ...d, name: e.target.value })}
+                                  style={{ minWidth: 130, padding: "4px 8px", fontSize: 13 }}
+                                />
+                              </td>
+                              <td>
+                                <select
+                                  className="form-input"
+                                  title="Bo'lim"
+                                  value={editingImportRowData.departmentId}
+                                  onChange={e => setEditingImportRowData(d => d && { ...d, departmentId: e.target.value })}
+                                  style={{ minWidth: 130, padding: "4px 8px", fontSize: 13, cursor: "pointer" }}
+                                >
+                                  <option value="">— Tanlang —</option>
+                                  {departments.map(dep => <option key={dep.id} value={dep.id}>{dep.name}</option>)}
+                                </select>
+                              </td>
+                              <td>
+                                <input
+                                  className="form-input"
+                                  type="number" min="0" step="any"
+                                  title="Miqdor"
+                                  placeholder="0"
+                                  value={editingImportRowData.quantity}
+                                  onChange={e => setEditingImportRowData(d => d && { ...d, quantity: e.target.value })}
+                                  style={{ width: 80, padding: "4px 8px", fontSize: 13 }}
+                                />
+                              </td>
+                              <td>
+                                <select
+                                  className="form-input"
+                                  title="O'lchov birligi"
+                                  value={editingImportRowData.unit}
+                                  onChange={e => setEditingImportRowData(d => d && { ...d, unit: Number(e.target.value) as ProductUnit })}
+                                  style={{ minWidth: 90, padding: "4px 8px", fontSize: 13, cursor: "pointer" }}
+                                >
+                                  {(Object.keys(PRODUCT_UNIT_LABELS) as unknown as ProductUnit[]).map(key => (
+                                    <option key={key} value={key}>{PRODUCT_UNIT_LABELS[key]}</option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td>
+                                <input
+                                  className="form-input"
+                                  title="Tavsif"
+                                  placeholder="Tavsif"
+                                  value={editingImportRowData.description}
+                                  onChange={e => setEditingImportRowData(d => d && { ...d, description: e.target.value })}
+                                  style={{ minWidth: 120, padding: "4px 8px", fontSize: 13 }}
+                                />
+                              </td>
+                              <td style={{ textAlign: "center" }}>—</td>
+                              <td style={{ textAlign: "center" }}>
+                                <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
+                                  <button
+                                    onClick={saveEditImportRow}
+                                    title="Saqlash"
+                                    style={{
+                                      display: "inline-flex", alignItems: "center", gap: 4,
+                                      padding: "4px 10px", borderRadius: 6, fontSize: 12, fontWeight: 600,
+                                      background: "#22c55e22", border: "1px solid #22c55e44",
+                                      color: "#22c55e", cursor: "pointer",
+                                    }}
+                                  >
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                      <polyline points="20 6 9 17 4 12" />
+                                    </svg>
+                                    Saqlash
+                                  </button>
+                                  <button
+                                    onClick={cancelEditImportRow}
+                                    title="Bekor"
+                                    style={{
+                                      display: "inline-flex", alignItems: "center",
+                                      padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 600,
+                                      background: "var(--bg3)", border: "1px solid var(--border)",
+                                      color: "var(--text2)", cursor: "pointer",
+                                    }}
+                                  >✕</button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        }
+                        return (
+                          <tr key={row.rowNum} style={row.errors.length > 0 ? { background: "var(--danger-dim)" } : undefined}>
+                            <td style={{ textAlign: "center", color: "var(--text3)", fontSize: 12 }}>{row.rowNum}</td>
+                            <td style={row.errors.some(e => e.includes("nomi")) ? { color: "var(--danger)", fontWeight: 600 } : undefined}>
+                              {row.name || <span style={{ color: "var(--text3)" }}>—</span>}
+                            </td>
+                            <td>{row.departmentName || <span style={{ color: "var(--text3)" }}>—</span>}</td>
+                            <td style={{ textAlign: "center" }}>{row.quantity}</td>
+                            <td style={{ textAlign: "center" }}>{PRODUCT_UNIT_LABELS[row.unit]}</td>
+                            <td style={{ color: "var(--text2)", fontSize: 12 }}>{row.description || "—"}</td>
+                            <td style={{ textAlign: "center" }}>
+                              {row.errors.length === 0 ? (
+                                <span style={{ color: "#22c55e", fontSize: 12, fontWeight: 600 }}>✓</span>
+                              ) : (
+                                <span title={row.errors.join("; ")} style={{ color: "var(--danger)", fontSize: 12, cursor: "help", fontWeight: 600 }}>
+                                  ✗ {row.errors[0]}
+                                </span>
+                              )}
+                            </td>
+                            <td style={{ textAlign: "center" }}>
+                              <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
+                                <button
+                                  onClick={() => startEditImportRow(i)}
+                                  title="Tahrirlash"
+                                  style={{
+                                    display: "inline-flex", alignItems: "center", gap: 4,
+                                    padding: "4px 10px", borderRadius: 6, fontSize: 12, fontWeight: 600,
+                                    background: "#3b82f622", border: "1px solid #3b82f644",
+                                    color: "#3b82f6", cursor: "pointer",
+                                  }}
+                                >
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                  </svg>
+                                  Tahrir
+                                </button>
+                                <button
+                                  onClick={() => setImportRows(prev => prev.filter((_, idx) => idx !== i))}
+                                  title="O'chirish"
+                                  style={{
+                                    display: "inline-flex", alignItems: "center",
+                                    padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 600,
+                                    background: "var(--danger-dim)", border: "1px solid var(--danger)44",
+                                    color: "var(--danger)", cursor: "pointer",
+                                  }}
+                                >
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <polyline points="3 6 5 6 21 6" />
+                                    <path d="M19 6l-1 14H6L5 6" />
+                                    <path d="M10 11v6M14 11v6" />
+                                    <path d="M9 6V4h6v2" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

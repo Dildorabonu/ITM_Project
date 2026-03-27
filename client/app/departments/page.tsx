@@ -64,10 +64,18 @@ export default function DepartmentsPage() {
     );
   }, [search, depts]);
 
+  useEffect(() => {
+    if (!showForm) return;
+    const handlePopState = () => setShowForm(false);
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [showForm]);
+
   const openCreate = () => {
     setEditTarget(null);
     setForm(emptyForm);
     setFormSubmitted(false);
+    window.history.pushState({ showForm: true }, "");
     setShowForm(true);
   };
 
@@ -75,6 +83,7 @@ export default function DepartmentsPage() {
     setEditTarget(d);
     setForm({ name: d.name, employeeCount: String(d.employeeCount ?? "") });
     setFormSubmitted(false);
+    window.history.pushState({ showForm: true }, "");
     setShowForm(true);
   };
 
