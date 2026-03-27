@@ -31,9 +31,72 @@ interface ParsedTable {
   rows: MaterialRow[];
 }
 
+// ─── Column validation ────────────────────────────────────────────────────────
+
+type ColField = "no" | "name" | "unit" | "readyQty" | "wasteQty" | "totalQty" | "photoRaw" | "photoSemi" | "importType";
+
+const REQUIRED_COLS: { field: ColField; label: string; test: (t: string) => boolean }[] = [
+  { field: "no",         label: "№ т/р",                           test: t => t.includes("№") },
+  { field: "name",       label: "Ҳом-ашё номи",                    test: t => t.includes("номи") },
+  { field: "unit",       label: "Ўлчов бирлиги",                   test: t => t.includes("лчов") },
+  { field: "readyQty",   label: "Тайёр маҳсулот",                  test: t => t.includes("тайёр") && !t.includes("ярим") },
+  { field: "wasteQty",   label: "Ҳом-ашё чиқиндиси",              test: t => t.includes("иқинди") },
+  { field: "totalQty",   label: "Умумий ҳом-ашё сарфи",            test: t => t.includes("мумий") },
+  { field: "importType", label: "Импорт / Местный / Локализация",   test: t => t.includes("импорт") },
+];
+
+const OPTIONAL_COLS: { field: ColField; test: (t: string) => boolean }[] = [
+  { field: "photoRaw",  test: t => t.includes("хом") && !t.includes("иқинди") && !t.includes("номи") },
+  { field: "photoSemi", test: t => t.includes("ярим") },
+];
+
+function buildColMap(thead: Element): { colMap: Partial<Record<ColField, number>>; error: string | null } {
+  const rows = Array.from(thead.querySelectorAll("tr"));
+  if (rows.length === 0) return { colMap: {}, error: "Header qatori topilmadi" };
+
+  const MAX_COLS = 12;
+  const grid: (string | null)[][] = Array.from({ length: rows.length }, () => Array(MAX_COLS).fill(null));
+
+  for (let ri = 0; ri < rows.length; ri++) {
+    const cells = Array.from(rows[ri].querySelectorAll("td, th"));
+    let ci = 0;
+    for (const cell of cells) {
+      while (ci < MAX_COLS && grid[ri][ci] !== null) ci++;
+      if (ci >= MAX_COLS) break;
+      const colspan = Math.max(1, parseInt(cell.getAttribute("colspan") || "1"));
+      const rowspan = Math.max(1, parseInt(cell.getAttribute("rowspan") || "1"));
+      const text = (cell.textContent?.trim() || "").toLowerCase();
+      for (let r = ri; r < Math.min(ri + rowspan, rows.length); r++)
+        for (let c = ci; c < Math.min(ci + colspan, MAX_COLS); c++)
+          if (grid[r][c] === null) grid[r][c] = text;
+      ci += colspan;
+    }
+  }
+
+  const lastRow = grid[rows.length - 1];
+  const colMap: Partial<Record<ColField, number>> = {};
+  const missing: string[] = [];
+
+  for (const { field, label, test } of REQUIRED_COLS) {
+    const idx = lastRow.findIndex(t => t !== null && test(t));
+    if (idx === -1) missing.push(label);
+    else colMap[field] = idx;
+  }
+
+  if (missing.length > 0)
+    return { colMap, error: `Fayl shablonga mos emas. Quyidagi ustunlar topilmadi: ${missing.join(", ")}` };
+
+  for (const { field, test } of OPTIONAL_COLS) {
+    const idx = lastRow.findIndex(t => t !== null && test(t));
+    if (idx !== -1) colMap[field] = idx;
+  }
+
+  return { colMap, error: null };
+}
+
 // ─── Parser ───────────────────────────────────────────────────────────────────
 
-function parseMainTables(html: string): ParsedTable[] {
+function parseMainTables(html: string): { tables: ParsedTable[]; error: string | null } {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, "text/html");
   const tables = Array.from(doc.querySelectorAll("table"));
@@ -43,8 +106,10 @@ function parseMainTables(html: string): ParsedTable[] {
   for (const table of tables) {
     const thead = table.querySelector("thead");
     if (!thead) continue;
-    const theadText = thead.textContent || "";
-    if (!theadText.includes("лчов")) continue;
+    if (!(thead.textContent || "").includes("лчов")) continue;
+
+    const { colMap, error } = buildColMap(thead);
+    if (error) return { tables: [], error };
 
     idx++;
     const rows: MaterialRow[] = [];
@@ -63,31 +128,31 @@ function parseMainTables(html: string): ParsedTable[] {
       }
       if (cells.length < 3) continue;
 
-      const getText = (cell: Element) => cell.textContent?.trim() || "";
-      const getPhoto = (cell: Element) => cell.querySelector("img")?.getAttribute("src") || "";
+      const getText = (idx: number) => cells[idx]?.textContent?.trim() || "";
+      const getPhoto = (idx: number) => cells[idx]?.querySelector("img")?.getAttribute("src") || "";
 
-      const name = getText(cells[1] ?? cells[0]);
+      const name = colMap.name !== undefined ? getText(colMap.name) : "";
       if (!name) continue;
 
       rows.push({
         isSection: false,
         sectionName: "",
-        no: getText(cells[0]),
+        no:         colMap.no         !== undefined ? getText(colMap.no)         : "",
         name,
-        unit: getText(cells[2]),
-        readyQty: getText(cells[3]),
-        wasteQty: getText(cells[4]),
-        totalQty: getText(cells[5]),
-        photoRaw: cells[6] ? getPhoto(cells[6]) : "",
-        photoSemi: cells[7] ? getPhoto(cells[7]) : "",
-        importType: cells[8] ? getText(cells[8]) : "",
+        unit:       colMap.unit       !== undefined ? getText(colMap.unit)       : "",
+        readyQty:   colMap.readyQty   !== undefined ? getText(colMap.readyQty)   : "",
+        wasteQty:   colMap.wasteQty   !== undefined ? getText(colMap.wasteQty)   : "",
+        totalQty:   colMap.totalQty   !== undefined ? getText(colMap.totalQty)   : "",
+        photoRaw:   colMap.photoRaw   !== undefined ? getPhoto(colMap.photoRaw)  : "",
+        photoSemi:  colMap.photoSemi  !== undefined ? getPhoto(colMap.photoSemi) : "",
+        importType: colMap.importType !== undefined ? getText(colMap.importType) : "",
       });
     }
 
     if (rows.length > 0) results.push({ title: `Jadval ${idx}`, rows });
   }
 
-  return results;
+  return { tables: results, error: null };
 }
 
 // ─── Photo Thumbnail ──────────────────────────────────────────────────────────
@@ -360,8 +425,10 @@ export default function CostNormPage() {
       const mammoth = await import("mammoth");
       const arrayBuffer = await file.arrayBuffer();
       const result = await mammoth.convertToHtml({ arrayBuffer });
-      const parsed = parseMainTables(result.value);
-      if (parsed.length === 0) {
+      const { tables: parsed, error: colError } = parseMainTables(result.value);
+      if (colError) {
+        setParseError(colError);
+      } else if (parsed.length === 0) {
         setParseError("Faylda mos jadval topilmadi.");
       } else {
         setParsedTables(parsed);
