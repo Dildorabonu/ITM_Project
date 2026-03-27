@@ -1,7 +1,14 @@
 "use client";
 
-import { useRef, useState, useMemo } from "react";
-import { Upload, FileText, X, Search, Image, ImageOff, ChevronDown, ChevronRight } from "lucide-react";
+import { useRef, useState, useMemo, useEffect, useCallback } from "react";
+import { Upload, X, Image, ImageOff, Trash2, Eye } from "lucide-react";
+import {
+  contractService,
+  costNormService,
+  type ContractResponse,
+  type CostNormResponse,
+  type CostNormItemResponse,
+} from "@/lib/userService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -37,7 +44,7 @@ function parseMainTables(html: string): ParsedTable[] {
     const thead = table.querySelector("thead");
     if (!thead) continue;
     const theadText = thead.textContent || "";
-    if (!theadText.includes("лчов")) continue; // Ўлчов бирлиги
+    if (!theadText.includes("лчов")) continue;
 
     idx++;
     const rows: MaterialRow[] = [];
@@ -46,7 +53,6 @@ function parseMainTables(html: string): ParsedTable[] {
     for (const tr of tbodyRows) {
       const cells = Array.from(tr.querySelectorAll("td, th"));
 
-      // Section header row (has a cell with large colspan)
       const hasColspan = cells.some(
         (td) => parseInt(td.getAttribute("colspan") || "1") >= 5
       );
@@ -86,7 +92,7 @@ function parseMainTables(html: string): ParsedTable[] {
 
 // ─── Photo Thumbnail ──────────────────────────────────────────────────────────
 
-function PhotoCell({ src }: { src: string }) {
+function PhotoCell({ src }: { src: string | null }) {
   const [open, setOpen] = useState(false);
   if (!src) return <span style={{ color: "var(--text3)", fontSize: 12 }}>—</span>;
   return (
@@ -109,379 +115,577 @@ function PhotoCell({ src }: { src: string }) {
   );
 }
 
-// ─── Table View ───────────────────────────────────────────────────────────────
+// ─── Items Table ──────────────────────────────────────────────────────────────
 
-function TableView({ rows, showPhotos }: { rows: MaterialRow[]; showPhotos: boolean }) {
-  const [search, setSearch] = useState("");
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-
-  const toggle = (s: string) =>
-    setCollapsed((prev) => {
-      const n = new Set(prev);
-      n.has(s) ? n.delete(s) : n.add(s);
-      return n;
-    });
-
-  // Group rows by section for filtering
-  const filtered = useMemo(() => {
-    if (!search.trim()) return rows;
-    const q = search.toLowerCase();
-    let currentSection = "";
-    const result: MaterialRow[] = [];
-
-    for (const row of rows) {
-      if (row.isSection) {
-        currentSection = row.sectionName;
-        continue;
-      }
-      if (
-        row.name.toLowerCase().includes(q) ||
-        row.unit.toLowerCase().includes(q) ||
-        row.importType.toLowerCase().includes(q)
-      ) {
-        // add section header if not already added
-        if (result.length === 0 || result[result.length - 1].sectionName !== currentSection) {
-          result.push({ isSection: true, sectionName: currentSection, no: "", name: "", unit: "", readyQty: "", wasteQty: "", totalQty: "", photoRaw: "", photoSemi: "", importType: "" });
-        }
-        result.push(row);
-      }
-    }
-    return result;
-  }, [rows, search]);
-
-  const dataCount = filtered.filter((r) => !r.isSection).length;
-  let currentSection = "";
+function ItemsTable({ rows, showPhotos }: { rows: (MaterialRow | CostNormItemResponse)[], showPhotos: boolean }) {
   let rowIndex = 0;
 
-  const thStyle: React.CSSProperties = {
-    padding: "8px 12px",
-    textAlign: "left",
-    fontWeight: 600,
-    color: "var(--text3)",
-    fontSize: 11,
-    background: "var(--bg2)",
-    borderBottom: "1px solid var(--border)",
-    whiteSpace: "nowrap",
-    position: "sticky",
-    top: 0,
-    zIndex: 1,
-  };
+  const normalizedRows = rows.map(r => {
+    if ("isSection" in r && typeof (r as MaterialRow).no === "string") {
+      const mr = r as MaterialRow;
+      return { isSection: mr.isSection, sectionName: mr.sectionName || mr.name, no: mr.no, name: mr.name, unit: mr.unit, readyQty: mr.readyQty, wasteQty: mr.wasteQty, totalQty: mr.totalQty, photoRaw: mr.photoRaw || null, photoSemi: mr.photoSemi || null, importType: mr.importType };
+    }
+    const ir = r as CostNormItemResponse;
+    return { isSection: ir.isSection, sectionName: ir.sectionName, no: ir.no, name: ir.name, unit: ir.unit, readyQty: ir.readyQty, wasteQty: ir.wasteQty, totalQty: ir.totalQty, photoRaw: ir.photoRaw, photoSemi: ir.photoSemi, importType: ir.importType };
+  });
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      {/* Search bar */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 16px" }}>
-        <div style={{ position: "relative", flex: 1 }}>
-          <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text3)" }} />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Материал номи bo'yicha qidirish..."
-            style={{
-              width: "100%", padding: "7px 12px 7px 32px",
-              border: "1px solid var(--border)", borderRadius: 7,
-              background: "var(--bg1)", color: "var(--text1)", fontSize: 13,
-              outline: "none", boxSizing: "border-box",
-            }}
-          />
-          {search && (
-            <button onClick={() => setSearch("")} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 2, color: "var(--text3)" }}>
-              <X size={13} />
-            </button>
+    <table className="itm-table">
+      <thead>
+        <tr>
+          <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
+          <th style={{ color: "var(--text1)", minWidth: 200 }}>Материал номи</th>
+          <th style={{ color: "var(--text1)", width: 70 }}>Ўлчов</th>
+          <th style={{ textAlign: "right", color: "var(--text1)", width: 110 }}>Тайёр маҳсулот</th>
+          <th style={{ textAlign: "right", color: "var(--text1)", width: 90 }}>Чиқинди</th>
+          <th style={{ textAlign: "right", color: "var(--text1)", width: 90 }}>Умумий сарф</th>
+          {showPhotos && (
+            <>
+              <th style={{ color: "var(--text1)", width: 70 }}>Хом-ашё</th>
+              <th style={{ color: "var(--text1)", width: 70 }}>Ярим тайёр</th>
+            </>
           )}
-        </div>
-        <span style={{ fontSize: 12, color: "var(--text3)", whiteSpace: "nowrap" }}>
-          {dataCount} ta yozuv
-        </span>
-      </div>
+          <th style={{ color: "var(--text1)", width: 120 }}>Манба</th>
+        </tr>
+      </thead>
+      <tbody>
+        {normalizedRows.map((row, i) => {
+          if (row.isSection) {
+            return (
+              <tr key={i}>
+                <td
+                  colSpan={showPhotos ? 9 : 7}
+                  style={{ padding: "8px 14px", background: "var(--bg2)", fontWeight: 700, fontSize: 12, color: "var(--text2)", borderTop: "2px solid var(--border)", letterSpacing: 0.3 }}
+                >
+                  {row.sectionName}
+                </td>
+              </tr>
+            );
+          }
 
-      {/* Table */}
-      <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "65vh" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-          <thead>
-            <tr>
-              <th style={{ ...thStyle, width: 36 }}>#</th>
-              <th style={{ ...thStyle, minWidth: 200 }}>Материал номи</th>
-              <th style={{ ...thStyle, width: 70 }}>Ўлчов</th>
-              <th style={{ ...thStyle, width: 90, textAlign: "right" }}>Тайёр маҳсулот</th>
-              <th style={{ ...thStyle, width: 90, textAlign: "right" }}>Чиқинди</th>
-              <th style={{ ...thStyle, width: 90, textAlign: "right", color: "var(--text1)" }}>Умумий сарф</th>
+          rowIndex++;
+          return (
+            <tr key={i}>
+              <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px", color: "var(--text3)", fontSize: 12 }}>
+                {String(rowIndex).padStart(2, "0")}
+              </td>
+              <td style={{ color: "var(--text1)", lineHeight: 1.4 }}>{row.name || "—"}</td>
+              <td style={{ color: "var(--text2)" }}>{row.unit || "—"}</td>
+              <td style={{ textAlign: "right", color: "var(--text2)", fontFamily: "var(--font-mono)" }}>{row.readyQty || "—"}</td>
+              <td style={{ textAlign: "right", color: "var(--text3)", fontFamily: "var(--font-mono)" }}>{row.wasteQty || "—"}</td>
+              <td style={{ textAlign: "right", fontWeight: 600, color: "var(--text1)", fontFamily: "var(--font-mono)" }}>{row.totalQty || "—"}</td>
               {showPhotos && (
                 <>
-                  <th style={{ ...thStyle, width: 60 }}>Хом-ашё</th>
-                  <th style={{ ...thStyle, width: 60 }}>Ярим тайёр</th>
+                  <td style={{ padding: "6px 12px" }}><PhotoCell src={row.photoRaw} /></td>
+                  <td style={{ padding: "6px 12px" }}><PhotoCell src={row.photoSemi} /></td>
                 </>
               )}
-              <th style={{ ...thStyle, width: 110 }}>Манба</th>
+              <td>
+                {row.importType ? (
+                  <span style={{
+                    display: "inline-block", padding: "2px 8px", borderRadius: 20, fontSize: 11, fontWeight: 600,
+                    background: row.importType.toLowerCase().includes("местный") || row.importType.toLowerCase().includes("локал") ? "#e6f4ea" : "#e8f0fe",
+                    color: row.importType.toLowerCase().includes("местный") || row.importType.toLowerCase().includes("локал") ? "#1e7e34" : "#1a56db",
+                    border: `1px solid ${row.importType.toLowerCase().includes("местный") || row.importType.toLowerCase().includes("локал") ? "#a8d5b5" : "#a4c0f4"}`,
+                  }}>
+                    {row.importType}
+                  </span>
+                ) : "—"}
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {filtered.map((row, i) => {
-              if (row.isSection) {
-                currentSection = row.sectionName;
-                const isCollapsed = collapsed.has(row.sectionName);
-                return (
-                  <tr key={i}>
-                    <td
-                      colSpan={showPhotos ? 9 : 7}
-                      onClick={() => toggle(row.sectionName)}
-                      style={{
-                        padding: "8px 12px",
-                        background: "var(--bg2)",
-                        fontWeight: 700,
-                        fontSize: 12,
-                        color: "var(--text2)",
-                        borderTop: "2px solid var(--border)",
-                        borderBottom: "1px solid var(--border)",
-                        cursor: "pointer",
-                        userSelect: "none",
-                        letterSpacing: 0.3,
-                      }}
-                    >
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                        {isCollapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
-                        {row.sectionName}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              }
-
-              if (collapsed.has(currentSection)) return null;
-              rowIndex++;
-              const even = rowIndex % 2 === 0;
-
-              return (
-                <tr
-                  key={i}
-                  style={{ background: even ? "var(--bg2)" : undefined, borderBottom: "1px solid var(--border)" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg3, #f0f4ff)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = even ? "var(--bg2)" : ""; }}
-                >
-                  <td style={{ padding: "8px 12px", color: "var(--text3)", fontSize: 12 }}>{rowIndex}</td>
-                  <td style={{ padding: "8px 12px", color: "var(--text1)", lineHeight: 1.4 }}>{row.name}</td>
-                  <td style={{ padding: "8px 12px", color: "var(--text2)" }}>{row.unit || "—"}</td>
-                  <td style={{ padding: "8px 12px", textAlign: "right", color: "var(--text2)", fontVariantNumeric: "tabular-nums" }}>{row.readyQty || "—"}</td>
-                  <td style={{ padding: "8px 12px", textAlign: "right", color: "var(--text3)", fontVariantNumeric: "tabular-nums" }}>{row.wasteQty || "—"}</td>
-                  <td style={{ padding: "8px 12px", textAlign: "right", fontWeight: 600, color: "var(--text1)", fontVariantNumeric: "tabular-nums" }}>{row.totalQty || "—"}</td>
-                  {showPhotos && (
-                    <>
-                      <td style={{ padding: "6px 12px" }}><PhotoCell src={row.photoRaw} /></td>
-                      <td style={{ padding: "6px 12px" }}><PhotoCell src={row.photoSemi} /></td>
-                    </>
-                  )}
-                  <td style={{ padding: "8px 12px" }}>
-                    {row.importType ? (
-                      <span style={{
-                        display: "inline-block", padding: "2px 8px", borderRadius: 20, fontSize: 11, fontWeight: 600,
-                        background: row.importType.toLowerCase().includes("местный") || row.importType.toLowerCase().includes("локал") ? "#e6f4ea" : "#e8f0fe",
-                        color: row.importType.toLowerCase().includes("местный") || row.importType.toLowerCase().includes("локал") ? "#1e7e34" : "#1a56db",
-                        border: `1px solid ${row.importType.toLowerCase().includes("местный") || row.importType.toLowerCase().includes("локал") ? "#a8d5b5" : "#a4c0f4"}`,
-                      }}>
-                        {row.importType}
-                      </span>
-                    ) : "—"}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {dataCount === 0 && (
-          <div style={{ textAlign: "center", padding: 40, color: "var(--text3)", fontSize: 14 }}>
-            Hech narsa topilmadi
-          </div>
+          );
+        })}
+        {normalizedRows.filter(r => !r.isSection).length === 0 && (
+          <tr>
+            <td colSpan={showPhotos ? 9 : 7} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>
+              Ma&apos;lumot topilmadi
+            </td>
+          </tr>
         )}
-      </div>
-    </div>
+      </tbody>
+    </table>
   );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function CostNormPage() {
-  const [fileName, setFileName] = useState<string | null>(null);
-  const [tables, setTables] = useState<ParsedTable[]>([]);
-  const [activeTab, setActiveTab] = useState(0);
-  const [showPhotos, setShowPhotos] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [dragging, setDragging] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+type Mode = "list" | "create" | "detail";
 
-  async function parseDocx(file: File) {
+export default function CostNormPage() {
+  const [mode, setMode] = useState<Mode>("list");
+  const [showPhotos, setShowPhotos] = useState(false);
+  const [search, setSearch] = useState("");
+
+  // List state
+  const [costNorms, setCostNorms] = useState<CostNormResponse[]>([]);
+  const [listLoading, setListLoading] = useState(true);
+
+  // Detail state
+  const [selectedNorm, setSelectedNorm] = useState<CostNormResponse | null>(null);
+  const [activeTab, setActiveTab] = useState(0);
+
+  // Create form state
+  const [contracts, setContracts] = useState<ContractResponse[]>([]);
+  const [contractsLoading, setContractsLoading] = useState(false);
+  const [form, setForm] = useState({ contractId: "", title: "", notes: "" });
+  const [submitted, setSubmitted] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Docx parsing (used in create form for preview)
+  const [formFile, setFormFile] = useState<File | null>(null);
+  const [parsedTables, setParsedTables] = useState<ParsedTable[]>([]);
+  const [parseLoading, setParseLoading] = useState(false);
+  const [parseError, setParseError] = useState<string | null>(null);
+  const formFileRef = useRef<HTMLInputElement>(null);
+
+  // ── Load list ─────────────────────────────────────────────────────────────
+
+  const loadList = useCallback(async () => {
+    setListLoading(true);
+    const data = await costNormService.getAll();
+    setCostNorms(data);
+    setListLoading(false);
+  }, []);
+
+  useEffect(() => { loadList(); }, [loadList]);
+
+  // ── Docx parsing ─────────────────────────────────────────────────────────
+
+  async function handleFormFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
     if (!file.name.toLowerCase().endsWith(".docx")) {
-      setError("Faqat .docx formatidagi fayllar qo'llab-quvvatlanadi");
+      setParseError("Faqat .docx formatidagi fayllar qo'llab-quvvatlanadi");
       return;
     }
-    setLoading(true);
-    setError(null);
-    setFileName(file.name);
-    setTables([]);
-    setActiveTab(0);
-
+    setFormFile(file);
+    setParseError(null);
+    setParsedTables([]);
+    setParseLoading(true);
     try {
       const mammoth = await import("mammoth");
       const arrayBuffer = await file.arrayBuffer();
       const result = await mammoth.convertToHtml({ arrayBuffer });
       const parsed = parseMainTables(result.value);
-
       if (parsed.length === 0) {
-        setError("Faylda mos jadval topilmadi.");
+        setParseError("Faylda mos jadval topilmadi.");
       } else {
-        setTables(parsed);
+        setParsedTables(parsed);
+        if (!form.title) {
+          setForm(f => ({ ...f, title: file.name.replace(/\.docx$/i, "") }));
+        }
       }
-    } catch (err) {
-      console.error(err);
-      setError("Faylni o'qishda xatolik yuz berdi");
+    } catch {
+      setParseError("Faylni o'qishda xatolik yuz berdi");
     } finally {
-      setLoading(false);
+      setParseLoading(false);
     }
   }
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file) parseDocx(file);
+  // ── Open create ───────────────────────────────────────────────────────────
+
+  async function openCreate() {
+    setForm({ contractId: "", title: "", notes: "" });
+    setFormFile(null);
+    setParsedTables([]);
+    setParseError(null);
+    setSaveError(null);
+    setSubmitted(false);
+    setActiveTab(0);
+    setMode("create");
+    setContractsLoading(true);
+    try {
+      const list = await contractService.getAll();
+      setContracts(list);
+    } catch {
+      setContracts([]);
+    } finally {
+      setContractsLoading(false);
+    }
   }
 
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    setDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) parseDocx(file);
+  // ── Save ─────────────────────────────────────────────────────────────────
+
+  async function handleSave() {
+    setSubmitted(true);
+    if (!form.contractId || parsedTables.length === 0) return;
+
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const allRows = parsedTables.flatMap(t => t.rows);
+      const items = allRows.map((row, idx) => ({
+        isSection: row.isSection,
+        sectionName: row.isSection ? row.sectionName : null,
+        no: row.no || null,
+        name: row.name || null,
+        unit: row.unit || null,
+        readyQty: row.readyQty || null,
+        wasteQty: row.wasteQty || null,
+        totalQty: row.totalQty || null,
+        photoRaw: row.photoRaw || null,
+        photoSemi: row.photoSemi || null,
+        importType: row.importType || null,
+        sortOrder: idx,
+      }));
+
+      await costNormService.create({
+        contractId: form.contractId,
+        title: form.title || formFile?.name?.replace(/\.docx$/i, "") || "Me'yoriy sarf",
+        notes: form.notes || null,
+        items,
+      });
+
+      await loadList();
+      setMode("list");
+    } catch {
+      setSaveError("Saqlashda xatolik yuz berdi");
+    } finally {
+      setSaving(false);
+    }
   }
 
-  function handleClear() {
-    setFileName(null);
-    setTables([]);
-    setError(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+  // ── Delete ────────────────────────────────────────────────────────────────
+
+  async function handleDelete(id: string) {
+    if (!confirm("Bu yozuvni o'chirmoqchimisiz?")) return;
+    await costNormService.delete(id);
+    await loadList();
   }
 
-  return (
-    <>
-      <div className="page-header">
-        <div className="ph-title">Me&apos;yoriy Sarf</div>
-        <span className="mono" style={{ fontSize: 12, color: "var(--text3)" }}>
-          Tex protsess asosidagi sarf me&apos;yorlari
-        </span>
-      </div>
+  // ── Open detail ───────────────────────────────────────────────────────────
 
-      {/* Upload card */}
-      <div className="itm-card">
-        <div className="itm-card-header">
-          <span className="itm-card-title">Word fayl yuklash</span>
-          <div style={{ display: "flex", gap: 8 }}>
-            {tables.length > 0 && (
-              <button
-                onClick={() => setShowPhotos((p) => !p)}
-                style={{
-                  display: "flex", alignItems: "center", gap: 5,
-                  padding: "4px 10px", borderRadius: 6,
-                  border: "1px solid var(--border)",
-                  background: showPhotos ? "var(--accent-dim, #e8f0fe)" : "var(--bg2)",
-                  color: showPhotos ? "var(--accent, #1a56db)" : "var(--text2)",
-                  fontSize: 13, cursor: "pointer",
-                }}
-              >
-                {showPhotos ? <Image size={13} /> : <ImageOff size={13} />}
-                {showPhotos ? "Fotolar yashirish" : "Fotolar ko'rsatish"}
-              </button>
-            )}
-            {fileName && (
-              <button
-                onClick={handleClear}
-                style={{
-                  display: "flex", alignItems: "center", gap: 4,
-                  padding: "4px 10px", borderRadius: 6,
-                  border: "1px solid var(--border)",
-                  background: "var(--bg2)", color: "var(--text2)",
-                  fontSize: 13, cursor: "pointer",
-                }}
-              >
-                <X size={13} /> Tozalash
-              </button>
-            )}
-          </div>
+  function openDetail(norm: CostNormResponse) {
+    setSelectedNorm(norm);
+    setActiveTab(0);
+    setSearch("");
+    setShowPhotos(false);
+    setMode("detail");
+  }
+
+  // ── Detail: split items into tables by section boundaries ─────────────────
+
+  const detailTables = useMemo(() => {
+    if (!selectedNorm) return [];
+    const sorted = [...selectedNorm.items].sort((a, b) => a.sortOrder - b.sortOrder);
+    // Group by... all items together (backend stores all tables flat with SortOrder)
+    return [{ title: selectedNorm.title, rows: sorted }];
+  }, [selectedNorm]);
+
+  const detailRows = detailTables[activeTab]?.rows ?? [];
+
+  const filteredDetail = useMemo(() => {
+    if (!search.trim()) return detailRows;
+    const q = search.toLowerCase();
+    let currentSection = "";
+    const result: CostNormItemResponse[] = [];
+    for (const row of detailRows) {
+      if (row.isSection) { currentSection = row.sectionName || ""; continue; }
+      if (
+        (row.name ?? "").toLowerCase().includes(q) ||
+        (row.unit ?? "").toLowerCase().includes(q) ||
+        (row.importType ?? "").toLowerCase().includes(q)
+      ) {
+        if (result.length === 0 || result[result.length - 1].sectionName !== currentSection) {
+          result.push({ id: "", isSection: true, sectionName: currentSection, no: null, name: null, unit: null, readyQty: null, wasteQty: null, totalQty: null, photoRaw: null, photoSemi: null, importType: null, sortOrder: -1 });
+        }
+        result.push(row);
+      }
+    }
+    return result;
+  }, [detailRows, search]);
+
+  // ── List search ───────────────────────────────────────────────────────────
+
+  const filteredList = useMemo(() => {
+    if (!search.trim()) return costNorms;
+    const q = search.toLowerCase();
+    return costNorms.filter(n =>
+      n.contractNo.toLowerCase().includes(q) ||
+      n.clientName.toLowerCase().includes(q) ||
+      n.title.toLowerCase().includes(q)
+    );
+  }, [costNorms, search]);
+
+  // ── Render: Create ────────────────────────────────────────────────────────
+
+  if (mode === "create") {
+    const currentRows = parsedTables[activeTab]?.rows ?? [];
+    const dataCount = currentRows.filter(r => !r.isSection).length;
+
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>Yangi me&apos;yoriy sarf yozuvi</span>
         </div>
-        <div className="itm-card-body" style={{ paddingBottom: fileName ? 8 : undefined }}>
-          {!fileName ? (
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              onDrop={handleDrop}
-              onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-              onDragLeave={() => setDragging(false)}
-              style={{
-                border: `2px dashed ${dragging ? "var(--accent, #2563eb)" : "var(--border)"}`,
-                borderRadius: 10, padding: "40px 20px",
-                display: "flex", flexDirection: "column", alignItems: "center", gap: 10,
-                cursor: "pointer",
-                background: dragging ? "var(--accent-dim, #eff6ff)" : "var(--bg2)",
-                transition: "all 0.15s",
-              }}
-            >
-              <Upload size={30} color="var(--text3)" />
-              <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text1)" }}>
-                Word faylni shu yerga tashlang yoki bosing
-              </div>
-              <div style={{ fontSize: 13, color: "var(--text3)" }}>Faqat .docx format</div>
-              <input ref={fileInputRef} type="file" accept=".docx" onChange={handleFileChange} style={{ display: "none" }} />
-            </div>
-          ) : (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0" }}>
-              <FileText size={17} color="var(--accent, #2563eb)" />
-              <span style={{ fontSize: 14, color: "var(--text1)", fontWeight: 500 }}>{fileName}</span>
-              {loading && <span style={{ fontSize: 13, color: "var(--text3)", marginLeft: "auto" }}>O&apos;qilmoqda...</span>}
-              {!loading && tables.length > 0 && (
-                <span style={{ fontSize: 13, color: "var(--text3)", marginLeft: "auto" }}>
-                  {tables.length} ta jadval • {tables.reduce((s, t) => s + t.rows.filter(r => !r.isSection).length, 0)} ta yozuv
-                </span>
+
+        <div className="itm-card" style={{ padding: 28 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+
+            {/* Shartnoma */}
+            <div style={{ gridColumn: "1 / 3" }}>
+              <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: submitted && !form.contractId ? "var(--danger)" : "var(--text2)" }}>
+                Shartnoma <span style={{ color: "var(--danger)" }}>*</span>
+              </label>
+              <select
+                className="form-input"
+                value={form.contractId}
+                onChange={e => setForm(f => ({ ...f, contractId: e.target.value }))}
+                style={{ cursor: "pointer", ...(submitted && !form.contractId ? { borderColor: "var(--danger)" } : {}) }}
+                disabled={contractsLoading}
+              >
+                <option value="">{contractsLoading ? "Yuklanmoqda..." : "Shartnoma tanlang"}</option>
+                {contracts.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.contractNo}{c.clientName ? ` — ${c.clientName}` : ""}
+                  </option>
+                ))}
+              </select>
+              {submitted && !form.contractId && (
+                <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Shartnoma tanlash shart</div>
               )}
             </div>
-          )}
 
-          {error && (
-            <div style={{ marginTop: 10, padding: "9px 14px", borderRadius: 8, background: "var(--danger-dim, #fee2e2)", color: "var(--danger, #dc2626)", fontSize: 13, border: "1px solid var(--danger, #fca5a5)" }}>
-              {error}
+            {/* Sarlavha */}
+            <div style={{ gridColumn: "1 / 3" }}>
+              <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: "var(--text2)" }}>
+                Sarlavha
+              </label>
+              <input
+                className="form-input"
+                value={form.title}
+                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                placeholder="Avtomatik to'ldiriladi"
+              />
             </div>
-          )}
+
+            {/* Fayl yuklash */}
+            <div style={{ gridColumn: "1 / 3" }}>
+              <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: submitted && parsedTables.length === 0 ? "var(--danger)" : "var(--text2)" }}>
+                Word fayl (.docx) <span style={{ color: "var(--danger)" }}>*</span>
+              </label>
+              <input ref={formFileRef} type="file" accept=".docx" style={{ display: "none" }} onChange={handleFormFileChange} />
+              {formFile ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: "var(--radius)", border: "1px solid var(--border)", background: "var(--bg2)" }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent,#2563eb)" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+                  </svg>
+                  <span style={{ fontSize: 13, color: "var(--text1)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{formFile.name}</span>
+                  <span style={{ fontSize: 12, color: "var(--text3)", whiteSpace: "nowrap" }}>{(formFile.size / 1024).toFixed(0)} KB</span>
+                  <button onClick={() => { setFormFile(null); setParsedTables([]); if (formFileRef.current) formFileRef.current.value = ""; }} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "var(--text3)", display: "flex" }}>
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => formFileRef.current?.click()}
+                  style={{ width: "100%", padding: "14px 0", borderRadius: "var(--radius)", border: `1.5px dashed ${submitted && parsedTables.length === 0 ? "var(--danger)" : "var(--border)"}`, background: "var(--bg2)", cursor: "pointer", color: submitted && parsedTables.length === 0 ? "var(--danger)" : "var(--text2)", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+                >
+                  <Upload size={15} />
+                  Fayl tanlang yoki bu yerga tashlang
+                </button>
+              )}
+              {submitted && parsedTables.length === 0 && !parseLoading && (
+                <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Fayl yuklash va jadval topilishi shart</div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Parse xatolik */}
+        {parseError && (
+          <div style={{ padding: "10px 16px", borderRadius: 8, background: "var(--danger-dim,#fee2e2)", color: "var(--danger,#dc2626)", fontSize: 13, border: "1px solid var(--danger,#fca5a5)" }}>
+            {parseError}
+          </div>
+        )}
+
+        {/* Parse loading */}
+        {parseLoading && (
+          <div style={{ padding: 20, textAlign: "center", color: "var(--text2)", fontSize: 13 }}>Fayl o&apos;qilmoqda...</div>
+        )}
+
+        {/* Preview */}
+        {parsedTables.length > 0 && (
+          <div className="itm-card" style={{ flex: 1 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: "1px solid var(--border)", flexWrap: "wrap" }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)" }}>Ko&apos;rinish</span>
+              <span style={{ fontSize: 12, color: "var(--text3)", marginRight: "auto" }}>
+                {parsedTables.length} ta jadval · {dataCount} ta yozuv
+              </span>
+              {parsedTables.length > 1 && (
+                <select className="form-input" value={activeTab} onChange={e => setActiveTab(Number(e.target.value))} style={{ width: 140, cursor: "pointer", height: 32, padding: "0 8px", fontSize: 12 }}>
+                  {parsedTables.map((t, i) => (
+                    <option key={i} value={i}>{t.title} ({t.rows.filter(r => !r.isSection).length})</option>
+                  ))}
+                </select>
+              )}
+              <button onClick={() => setShowPhotos(p => !p)} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "0 10px", height: 32, borderRadius: "var(--radius)", border: "1px solid var(--border)", background: showPhotos ? "var(--accent-dim,#e8f0fe)" : "var(--bg2)", color: showPhotos ? "var(--accent,#1a56db)" : "var(--text2)", fontSize: 12, cursor: "pointer" }}>
+                {showPhotos ? <Image size={12} /> : <ImageOff size={12} />}
+                {showPhotos ? "Yashirish" : "Fotolar"}
+              </button>
+            </div>
+            <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "calc(100vh - 520px)" }}>
+              <ItemsTable rows={currentRows} showPhotos={showPhotos} />
+            </div>
+          </div>
+        )}
+
+        {saveError && (
+          <div style={{ padding: "10px 16px", borderRadius: 8, background: "var(--danger-dim,#fee2e2)", color: "var(--danger,#dc2626)", fontSize: 13, border: "1px solid var(--danger,#fca5a5)" }}>
+            {saveError}
+          </div>
+        )}
+
+        <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 4 }}>
+          <button onClick={() => setMode("list")} style={{ background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", padding: "10px 24px", color: "var(--text2)", fontSize: 14, fontWeight: 500 }}>
+            Bekor qilish
+          </button>
+          <button className="btn-primary" onClick={handleSave} disabled={saving} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+              <polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
+            </svg>
+            {saving ? "Saqlanmoqda..." : "Saqlash"}
+          </button>
         </div>
       </div>
+    );
+  }
 
-      {/* Data card */}
-      {tables.length > 0 && (
-        <div className="itm-card">
-          <div className="itm-card-header" style={{ paddingBottom: 0, borderBottom: "none" }}>
-            <div style={{ display: "flex", gap: 4 }}>
-              {tables.map((t, i) => (
-                <button
-                  key={i}
-                  onClick={() => setActiveTab(i)}
-                  style={{
-                    padding: "6px 16px", borderRadius: "6px 6px 0 0",
-                    border: "1px solid var(--border)",
-                    borderBottom: activeTab === i ? "1px solid var(--bg1, white)" : undefined,
-                    background: activeTab === i ? "var(--bg1, white)" : "var(--bg2)",
-                    color: activeTab === i ? "var(--text1)" : "var(--text2)",
-                    fontWeight: activeTab === i ? 600 : 400,
-                    fontSize: 13, cursor: "pointer",
-                    marginBottom: activeTab === i ? -1 : 0,
-                    position: "relative", zIndex: activeTab === i ? 1 : 0,
-                  }}
-                >
-                  {t.title}
-                  <span style={{ marginLeft: 6, fontSize: 11, color: "var(--text3)" }}>
-                    ({t.rows.filter(r => !r.isSection).length})
-                  </span>
-                </button>
-              ))}
-            </div>
+  // ── Render: Detail ────────────────────────────────────────────────────────
+
+  if (mode === "detail" && selectedNorm) {
+    const dataCount = filteredDetail.filter(r => !r.isSection).length;
+
+    return (
+      <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+        <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px", flexWrap: "wrap" }}>
+          <button onClick={() => { setMode("list"); setSelectedNorm(null); setSearch(""); }} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "0 12px", height: 36, borderRadius: "var(--radius)", border: "1px solid var(--border)", background: "var(--bg2)", color: "var(--text2)", fontSize: 13, cursor: "pointer" }}>
+            ← Orqaga
+          </button>
+
+          <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {selectedNorm.title}
+            </span>
+            <span style={{ fontSize: 12, color: "var(--text3)" }}>
+              {selectedNorm.contractNo} — {selectedNorm.clientName} · {new Date(selectedNorm.createdAt).toLocaleDateString("uz-UZ")}
+            </span>
           </div>
-          <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12 }}>
-            <TableView key={activeTab} rows={tables[activeTab].rows} showPhotos={showPhotos} />
+
+          <div className="search-wrap" style={{ maxWidth: 240, minWidth: 160 }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input className="search-input" placeholder="Qidirish..." value={search} onChange={e => setSearch(e.target.value)} />
+          </div>
+
+          <span style={{ fontSize: 12, color: "var(--text3)", whiteSpace: "nowrap" }}>{dataCount} ta yozuv</span>
+
+          <button onClick={() => setShowPhotos(p => !p)} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "0 12px", height: 36, borderRadius: "var(--radius)", border: "1px solid var(--border)", background: showPhotos ? "var(--accent-dim,#e8f0fe)" : "var(--bg2)", color: showPhotos ? "var(--accent,#1a56db)" : "var(--text2)", fontSize: 13, cursor: "pointer" }}>
+            {showPhotos ? <Image size={13} /> : <ImageOff size={13} />}
+            {showPhotos ? "Yashirish" : "Fotolar"}
+          </button>
+        </div>
+
+        <div className="itm-card" style={{ flex: 1 }}>
+          <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "calc(100vh - 200px)" }}>
+            <ItemsTable rows={filteredDetail} showPhotos={showPhotos} />
           </div>
         </div>
-      )}
-    </>
+      </div>
+    );
+  }
+
+  // ── Render: List ──────────────────────────────────────────────────────────
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px", flexWrap: "wrap" }}>
+        <div className="search-wrap" style={{ maxWidth: "none", flex: 1, minWidth: 180 }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input className="search-input" placeholder="Qidirish: shartnoma, mijoz, sarlavha..." value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+
+        <button
+          onClick={openCreate}
+          className="btn-primary"
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "0 18px", height: 36, fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "none", cursor: "pointer" }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          Yaratish
+        </button>
+      </div>
+
+      <div className="itm-card" style={{ flex: 1 }}>
+        {listLoading ? (
+          <div style={{ padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
+        ) : filteredList.length === 0 ? (
+          <div style={{ padding: 60, textAlign: "center", color: "var(--text3)", fontSize: 14, display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+            <Upload size={32} color="var(--text3)" />
+            <div>{search ? "Natija topilmadi" : "Hali me'yoriy sarf yozuvlari yo'q"}</div>
+            {!search && <div style={{ fontSize: 12 }}>Yangi yozuv qo&apos;shish uchun <strong>Yaratish</strong> tugmasini bosing</div>}
+          </div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table className="itm-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 48, textAlign: "center", textTransform: "none" }}>T/r</th>
+                  <th>Shartnoma</th>
+                  <th>Mijoz</th>
+                  <th>Sarlavha</th>
+                  <th style={{ width: 80, textAlign: "center" }}>Yozuvlar</th>
+                  <th style={{ width: 110 }}>Sana</th>
+                  <th style={{ width: 90, textAlign: "center" }}>Amallar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredList.map((norm, i) => {
+                  const dataItems = norm.items.filter(it => !it.isSection).length;
+                  return (
+                    <tr key={norm.id} style={{ cursor: "pointer" }} onClick={() => openDetail(norm)}>
+                      <td style={{ textAlign: "center", color: "var(--text3)", fontSize: 12 }}>
+                        {String(i + 1).padStart(2, "0")}
+                      </td>
+                      <td style={{ fontWeight: 600, color: "var(--accent,#2563eb)" }}>{norm.contractNo}</td>
+                      <td style={{ color: "var(--text2)" }}>{norm.clientName || "—"}</td>
+                      <td style={{ color: "var(--text1)" }}>{norm.title}</td>
+                      <td style={{ textAlign: "center", color: "var(--text3)", fontSize: 12 }}>{dataItems}</td>
+                      <td style={{ color: "var(--text3)", fontSize: 12 }}>
+                        {new Date(norm.createdAt).toLocaleDateString("uz-UZ")}
+                      </td>
+                      <td style={{ textAlign: "center" }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: "inline-flex", gap: 6 }}>
+                          <button
+                            onClick={() => openDetail(norm)}
+                            title="Ko'rish"
+                            style={{ padding: "4px 8px", borderRadius: "var(--radius)", border: "1px solid var(--border)", background: "var(--bg2)", cursor: "pointer", color: "var(--text2)", display: "flex", alignItems: "center" }}
+                          >
+                            <Eye size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(norm.id)}
+                            title="O'chirish"
+                            style={{ padding: "4px 8px", borderRadius: "var(--radius)", border: "1px solid var(--danger,#fca5a5)", background: "var(--danger-dim,#fee2e2)", cursor: "pointer", color: "var(--danger,#dc2626)", display: "flex", alignItems: "center" }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
