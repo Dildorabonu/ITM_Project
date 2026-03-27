@@ -78,8 +78,8 @@ public class ProductService : IProductService
     {
         var list = dtos.ToList();
 
-        if (list.Count > 50)
-            return ApiResult<int>.Failure(["Bir vaqtda 50 tadan ortiq mahsulot qo'shib bo'lmaydi."]);
+        if (list.Count > 200)
+            return ApiResult<int>.Failure(["Bir vaqtda 200 tadan ortiq mahsulot qo'shib bo'lmaydi."]);
 
         foreach (var dto in list)
         {
