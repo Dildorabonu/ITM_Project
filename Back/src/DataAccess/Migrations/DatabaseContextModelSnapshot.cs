@@ -93,7 +93,7 @@ namespace DataAccess.Migrations
                     b.Property<Guid>("CreatedBy")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("DepartmentId")
+                    b.Property<Guid?>("DepartmentId")
                         .HasColumnType("uuid");
 
                     b.Property<DateOnly>("EndDate")
@@ -290,6 +290,9 @@ namespace DataAccess.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("DepartmentId");
+
+                    b.HasIndex("Name", "DepartmentId")
+                        .IsUnique();
 
                     b.ToTable("Products");
                 });
@@ -703,8 +706,7 @@ namespace DataAccess.Migrations
                     b.HasOne("Core.Entities.Department", "Department")
                         .WithMany("Contracts")
                         .HasForeignKey("DepartmentId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Creator");
 

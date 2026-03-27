@@ -57,7 +57,7 @@ public class ContractService : IContractService
         if (await _context.Contracts.AnyAsync(c => c.ContractNo == dto.ContractNo))
             return ApiResult<Guid>.Failure([$"Contract with number '{dto.ContractNo}' already exists."]);
 
-        var contract = new Contract
+var contract = new Contract
         {
             Id = Guid.NewGuid(),
             ContractNo = dto.ContractNo,

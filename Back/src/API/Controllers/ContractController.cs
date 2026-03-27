@@ -136,7 +136,8 @@ public class ContractController : ControllerBase
 
     // ── Files ────────────────────────────────────────────────────────────────
 
-    private const string EntityType = "contracts";
+    private const string EntityType   = "contracts";
+    private const string TzEntityType = "contract-tz";
 
     [HasPermission("Contracts.View")]
     [HttpGet("{id:guid}/files")]
@@ -189,6 +190,66 @@ public class ContractController : ControllerBase
     public async Task<IActionResult> DeleteFile(Guid id, Guid fileId)
     {
         var result = await _attachmentService.DeleteAsync(EntityType, id, fileId);
+
+        if (!result.Succeeded)
+            return NotFound(result);
+
+        return Ok(result);
+    }
+
+    // ── TZ Files ─────────────────────────────────────────────────────────────
+
+    [HasPermission("Contracts.View")]
+    [HttpGet("{id:guid}/tz-files")]
+    public async Task<IActionResult> GetTzFiles(Guid id)
+    {
+        var result = await _attachmentService.GetAllAsync(TzEntityType, id);
+        return Ok(result);
+    }
+
+    [HasPermission("Contracts.Update")]
+    [HttpPost("{id:guid}/tz-files")]
+    [RequestSizeLimit(50 * 1024 * 1024)]
+    public async Task<IActionResult> UploadTzFile(Guid id, IFormFile file)
+    {
+        if (file is null || file.Length == 0)
+            return BadRequest("Fayl tanlanmagan.");
+
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        await using var stream = file.OpenReadStream();
+        var result = await _attachmentService.UploadAsync(
+            TzEntityType, id,
+            stream, file.FileName, file.ContentType, file.Length,
+            userId);
+
+        if (!result.Succeeded)
+            return BadRequest(result);
+
+        return StatusCode(201, result);
+    }
+
+    [HasPermission("Contracts.View")]
+    [HttpGet("{id:guid}/tz-files/{fileId:guid}/download")]
+    public async Task<IActionResult> DownloadTzFile(Guid id, Guid fileId)
+    {
+        var result = await _attachmentService.GetForDownloadAsync(TzEntityType, id, fileId);
+
+        if (!result.Succeeded)
+            return NotFound(result);
+
+        var (filePath, contentType, fileName) = result.Result;
+        var bytes = await System.IO.File.ReadAllBytesAsync(filePath);
+        return File(bytes, contentType, fileName);
+    }
+
+    [HasPermission("Contracts.Update")]
+    [HttpDelete("{id:guid}/tz-files/{fileId:guid}")]
+    public async Task<IActionResult> DeleteTzFile(Guid id, Guid fileId)
+    {
+        var result = await _attachmentService.DeleteAsync(TzEntityType, id, fileId);
 
         if (!result.Succeeded)
             return NotFound(result);

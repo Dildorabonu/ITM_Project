@@ -414,6 +414,34 @@ export const contractService = {
     await api.delete(`/api/contract/${id}/files/${fileId}`);
   },
 
+  getTzFiles: async (id: string): Promise<AttachmentResponse[]> => {
+    const res = await api.get(`/api/contract/${id}/tz-files`);
+    return res.data?.result ?? res.data ?? [];
+  },
+
+  uploadTzFile: async (id: string, file: File): Promise<AttachmentResponse> => {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await api.post(`/api/contract/${id}/tz-files`, form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data?.result ?? res.data;
+  },
+
+  downloadTzFile: async (id: string, fileId: string, fileName: string): Promise<void> => {
+    const res = await api.get(`/api/contract/${id}/tz-files/${fileId}/download`, { responseType: "blob" });
+    const url = URL.createObjectURL(res.data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+
+  deleteTzFile: async (id: string, fileId: string): Promise<void> => {
+    await api.delete(`/api/contract/${id}/tz-files/${fileId}`);
+  },
+
   getUsers: async (id: string): Promise<ContractUserResponse[]> => {
     const res = await api.get(`/api/contract/${id}/users`);
     return res.data?.result ?? res.data ?? [];
