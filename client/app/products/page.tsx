@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import * as XLSX from "xlsx";
 import {
   productService,
   departmentService,
@@ -12,6 +13,17 @@ import {
   type DepartmentOption,
 } from "@/lib/userService";
 import { useAuthStore } from "@/lib/store/authStore";
+
+interface ParsedImportRow {
+  rowNum: number;
+  name: string;
+  departmentName: string;
+  departmentId?: string;
+  quantity: number;
+  unit: ProductUnit;
+  description: string;
+  errors: string[];
+}
 
 interface ProductForm {
   name: string;
@@ -55,6 +67,14 @@ export default function ProductsPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // File import
+  const [createTab, setCreateTab] = useState<"manual" | "file">("manual");
+  const [importRows, setImportRows] = useState<ParsedImportRow[]>([]);
+  const [importErrors, setImportErrors] = useState<string[]>([]);
+  const [importSaving, setImportSaving] = useState(false);
+  const [importSaveError, setImportSaveError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const load = async () => {
     try {
       setLoading(true);
@@ -93,6 +113,10 @@ export default function ProductsPage() {
     setForm(emptyForm);
     setForms([{ ...emptyForm }]);
     setFormSubmitted(false);
+    setCreateTab("manual");
+    setImportRows([]);
+    setImportErrors([]);
+    setImportSaveError("");
     setShowForm(true);
   };
 
@@ -192,11 +216,147 @@ export default function ProductsPage() {
     }
   };
 
+  const downloadTemplate = () => {
+    const wb = XLSX.utils.book_new();
+
+    // Sheet 1: Products template
+    const headers = ["Mahsulot nomi *", "Bo'lim nomi *", "Miqdor", "O'lchov birligi", "Tavsif"];
+    const example = [
+      "Printer qog'ozi",
+      departments[0]?.name ?? "Bo'lim nomini kiriting",
+      "100",
+      "Dona",
+      "A4 formatdagi qog'oz",
+    ];
+    const ws = XLSX.utils.aoa_to_sheet([
+      ["Ko'rsatma: * belgisi bilan belgilangan ustunlar majburiy. Maksimal 200 ta mahsulot. 3-qatordan boshlab ma'lumot kiriting."],
+      headers,
+      example,
+    ]);
+    ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
+    ws["!cols"] = [{ wch: 32 }, { wch: 28 }, { wch: 12 }, { wch: 20 }, { wch: 32 }];
+    XLSX.utils.book_append_sheet(wb, ws, "Mahsulotlar");
+
+    // Sheet 2: Department list
+    const deptWs = XLSX.utils.aoa_to_sheet([
+      ["Bo'lim nomlari (nusxalash uchun)"],
+      ...departments.map(d => [d.name]),
+    ]);
+    deptWs["!cols"] = [{ wch: 40 }];
+    XLSX.utils.book_append_sheet(wb, deptWs, "Bo'limlar");
+
+    // Sheet 3: Unit labels
+    const unitWs = XLSX.utils.aoa_to_sheet([
+      ["O'lchov birliklari (nusxalash uchun)"],
+      ...Object.values(PRODUCT_UNIT_LABELS).map(l => [l]),
+    ]);
+    unitWs["!cols"] = [{ wch: 25 }];
+    XLSX.utils.book_append_sheet(wb, unitWs, "O'lchov birliklari");
+
+    XLSX.writeFile(wb, "mahsulotlar_shablon.xlsx");
+  };
+
+  const handleFileUpload = (file: File) => {
+    setImportErrors([]);
+    setImportRows([]);
+    setImportSaveError("");
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const data = new Uint8Array(e.target!.result as ArrayBuffer);
+        const wb = XLSX.read(data, { type: "array" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const allRows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1 }) as unknown[][];
+
+        // Skip row 1 (instruction) and row 2 (headers); data starts at row 3
+        const dataRows = allRows.slice(2).filter(row =>
+          Array.isArray(row) && row.some(c => c !== undefined && c !== null && String(c).trim() !== "")
+        );
+
+        if (dataRows.length === 0) {
+          setImportErrors(["Faylda ma'lumot topilmadi. 3-qatordan boshlab mahsulotlarni kiriting."]);
+          return;
+        }
+        if (dataRows.length > 200) {
+          setImportErrors([`Faylda ${dataRows.length} ta qator bor. Maksimal: 200 ta mahsulot.`]);
+          return;
+        }
+
+        const deptMap = new Map(departments.map(d => [d.name.toLowerCase().trim(), d]));
+        const unitMap = new Map(
+          (Object.entries(PRODUCT_UNIT_LABELS) as [string, string][]).map(
+            ([k, v]) => [v.toLowerCase().trim(), Number(k) as ProductUnit]
+          )
+        );
+
+        const parsed: ParsedImportRow[] = dataRows.map((row, i) => {
+          const cols = (row as unknown[]).map(c => String(c ?? "").trim());
+          const [name, deptName, qty, unitLabel, desc] = cols;
+          const errors: string[] = [];
+
+          if (!name) errors.push("Mahsulot nomi kiritilmagan");
+          const dept = deptMap.get((deptName ?? "").toLowerCase().trim());
+          if (!dept) errors.push(`"${deptName || "(bo'sh)"}" bo'limi topilmadi`);
+
+          const quantity = qty ? Number(qty) : 0;
+          if (qty && isNaN(Number(qty))) errors.push("Miqdor noto'g'ri format");
+
+          const unit = unitLabel
+            ? (unitMap.get(unitLabel.toLowerCase().trim()) ?? ProductUnit.Dona)
+            : ProductUnit.Dona;
+
+          return {
+            rowNum: i + 3,
+            name: name ?? "",
+            departmentName: deptName ?? "",
+            departmentId: dept?.id,
+            quantity: isNaN(quantity) ? 0 : quantity,
+            unit,
+            description: desc ?? "",
+            errors,
+          };
+        });
+
+        setImportRows(parsed);
+      } catch {
+        setImportErrors(["Faylni o'qishda xatolik. Excel formatini tekshiring."]);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleImport = async () => {
+    const validRows = importRows.filter(r => r.errors.length === 0 && r.departmentId);
+    if (validRows.length === 0) return;
+    setImportSaving(true);
+    setImportSaveError("");
+    try {
+      const payloads: ProductCreatePayload[] = validRows.map(r => ({
+        name: r.name,
+        description: r.description || null,
+        quantity: r.quantity,
+        unit: r.unit,
+        departmentId: r.departmentId!,
+      }));
+      await productService.createBulk(payloads);
+      await load();
+      setShowForm(false);
+      setImportRows([]);
+      setImportErrors([]);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
+      setImportSaveError(msg ?? "Saqlashda xatolik yuz berdi.");
+    } finally {
+      setImportSaving(false);
+    }
+  };
+
+
   const updateFormRow = (index: number, field: keyof ProductForm, value: string) => {
     setForms(prev => prev.map((f, i) => i === index ? { ...f, [field]: value } : f));
   };
 
-  const BULK_LIMIT = 50;
+  const BULK_LIMIT = 200;
 
   const addFormRow = () => {
     setForms(prev => prev.length < BULK_LIMIT ? [...prev, { ...emptyForm }] : prev);
@@ -287,13 +447,202 @@ export default function ProductsPage() {
       );
     }
 
-    // Multi-create form
+    // Multi-create / file-import form
+    const importValidRows = importRows.filter(r => r.errors.length === 0);
+    const importErrorRows = importRows.filter(r => r.errors.length > 0);
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        {/* Header + tabs */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>Yangi mahsulot(lar)</span>
-          <span style={{ fontSize: 13, color: "var(--text2)" }}>{forms.length} ta mahsulot</span>
+          {createTab === "manual" && (
+            <span style={{ fontSize: 13, color: "var(--text2)" }}>{forms.length} ta mahsulot</span>
+          )}
         </div>
+
+        {/* Tab bar */}
+        <div style={{ display: "flex", gap: 4, borderBottom: "2px solid var(--border)", paddingBottom: 0 }}>
+          {(["manual", "file"] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setCreateTab(tab)}
+              style={{
+                padding: "8px 20px", fontSize: 13, fontWeight: 600, cursor: "pointer",
+                border: "none", background: "none",
+                color: createTab === tab ? "var(--accent)" : "var(--text3)",
+                borderBottom: createTab === tab ? "2px solid var(--accent)" : "2px solid transparent",
+                marginBottom: -2, transition: "color 0.15s",
+              }}
+            >
+              {tab === "manual" ? "Qo\u2019lda kiritish" : "Fayldan import"}
+            </button>
+          ))}
+        </div>
+
+        {createTab === "file" && (
+          <>
+            {/* Step 1: Download template */}
+            <div className="itm-card" style={{ padding: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", marginBottom: 12 }}>
+                1-qadam: Namuna faylni yuklab oling, to&apos;ldiring
+              </div>
+              <button
+                onClick={downloadTemplate}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  padding: "9px 20px", borderRadius: "var(--radius)",
+                  background: "var(--accent-dim)", border: "1.5px solid var(--accent)44",
+                  color: "var(--accent)", fontSize: 13, fontWeight: 600, cursor: "pointer",
+                }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Namuna faylni yuklash (.xlsx)
+              </button>
+              <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 8 }}>
+                Fayl 3 ta varaq o&apos;z ichiga oladi: Mahsulotlar (to&apos;ldirish uchun), Bo&apos;limlar va O&apos;lchov birliklari (ma&apos;lumotnoma).
+              </div>
+            </div>
+
+            {/* Step 2: Upload file */}
+            <div className="itm-card" style={{ padding: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", marginBottom: 12 }}>
+                2-qadam: To&apos;ldirilgan faylni yuklang
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                style={{ display: "none" }}
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (file) handleFileUpload(file);
+                  e.target.value = "";
+                }}
+              />
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={e => e.preventDefault()}
+                onDrop={e => {
+                  e.preventDefault();
+                  const file = e.dataTransfer.files[0];
+                  if (file) handleFileUpload(file);
+                }}
+                style={{
+                  border: "2px dashed var(--border)", borderRadius: "var(--radius)",
+                  padding: "32px 20px", textAlign: "center", cursor: "pointer",
+                  background: "var(--bg3)", transition: "border-color 0.15s",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = "var(--accent)")}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border)")}
+              >
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" strokeWidth="1.5" style={{ marginBottom: 8 }}>
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+                <div style={{ fontSize: 14, color: "var(--text2)", fontWeight: 500 }}>Faylni bu yerga tashlang yoki bosing</div>
+                <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 4 }}>.xlsx, .xls, .csv formatlar qabul qilinadi</div>
+              </div>
+            </div>
+
+            {/* Parse errors */}
+            {importErrors.length > 0 && (
+              <div style={{ padding: "12px 16px", borderRadius: 8, background: "var(--danger-dim)", border: "1px solid var(--danger)44", color: "var(--danger)", fontSize: 13 }}>
+                {importErrors.map((e, i) => <div key={i}>{e}</div>)}
+              </div>
+            )}
+
+            {/* Parsed preview */}
+            {importRows.length > 0 && (
+              <div className="itm-card" style={{ padding: 20 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)" }}>Natija: {importRows.length} ta qator</span>
+                  <span style={{ fontSize: 12, padding: "2px 10px", borderRadius: 20, background: "#22c55e22", color: "#22c55e", fontWeight: 600 }}>
+                    {importValidRows.length} ta to&apos;g&apos;ri
+                  </span>
+                  {importErrorRows.length > 0 && (
+                    <span style={{ fontSize: 12, padding: "2px 10px", borderRadius: 20, background: "var(--danger-dim)", color: "var(--danger)", fontWeight: 600 }}>
+                      {importErrorRows.length} ta xatolik
+                    </span>
+                  )}
+                </div>
+                <div style={{ overflowX: "auto" }}>
+                  <table className="itm-table">
+                    <thead>
+                      <tr>
+                        <th style={{ textAlign: "center" }}>Qator</th>
+                        <th>Mahsulot nomi</th>
+                        <th>Bo&apos;lim</th>
+                        <th style={{ textAlign: "center" }}>Miqdor</th>
+                        <th style={{ textAlign: "center" }}>O&apos;lchov</th>
+                        <th>Tavsif</th>
+                        <th style={{ textAlign: "center" }}>Holat</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importRows.map(row => (
+                        <tr key={row.rowNum} style={row.errors.length > 0 ? { background: "var(--danger-dim)" } : undefined}>
+                          <td style={{ textAlign: "center", color: "var(--text3)", fontSize: 12 }}>{row.rowNum}</td>
+                          <td>{row.name || <span style={{ color: "var(--text3)" }}>—</span>}</td>
+                          <td>{row.departmentName || <span style={{ color: "var(--text3)" }}>—</span>}</td>
+                          <td style={{ textAlign: "center" }}>{row.quantity}</td>
+                          <td style={{ textAlign: "center" }}>{PRODUCT_UNIT_LABELS[row.unit]}</td>
+                          <td style={{ color: "var(--text2)", fontSize: 12 }}>{row.description || "—"}</td>
+                          <td style={{ textAlign: "center" }}>
+                            {row.errors.length === 0 ? (
+                              <span style={{ color: "#22c55e", fontSize: 12, fontWeight: 600 }}>✓</span>
+                            ) : (
+                              <span title={row.errors.join("; ")} style={{ color: "var(--danger)", fontSize: 12, cursor: "help", fontWeight: 600 }}>
+                                ✗ {row.errors[0]}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {importSaveError && (
+              <div style={{ padding: "10px 14px", borderRadius: 8, background: "var(--danger-dim)", border: "1px solid var(--danger)44", color: "var(--danger)", fontSize: 13 }}>
+                {importSaveError}
+              </div>
+            )}
+
+            <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 4 }}>
+              <button
+                onClick={() => setShowForm(false)}
+                style={{ background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", padding: "10px 24px", color: "var(--text2)", fontSize: 14, fontWeight: 500 }}
+              >
+                Bekor qilish
+              </button>
+              {importValidRows.length > 0 && (
+                <button
+                  className="btn-primary"
+                  onClick={handleImport}
+                  disabled={importSaving}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                  {importSaving ? "Yuklanmoqda..." : `${importValidRows.length} ta mahsulotni import qilish`}
+                </button>
+              )}
+            </div>
+          </>
+        )}
+
+        {createTab === "manual" && (
+          <>
 
         {forms.map((f, index) => (
           <div key={index} className="itm-card" style={{ padding: 24 }}>
@@ -390,7 +739,7 @@ export default function ProductsPage() {
           </button>
         ) : (
           <div style={{ textAlign: "center", fontSize: 13, color: "var(--text2)", padding: "10px 0" }}>
-            Maksimal chegara: bir vaqtda 50 ta mahsulot qo&apos;shish mumkin
+            Maksimal chegara: bir vaqtda 200 ta mahsulot qo&apos;shish mumkin
           </div>
         )}
 
@@ -414,6 +763,8 @@ export default function ProductsPage() {
             {saving ? "Saqlanmoqda..." : `${forms.length} ta mahsulot saqlash`}
           </button>
         </div>
+          </>
+        )}
       </div>
     );
   }
