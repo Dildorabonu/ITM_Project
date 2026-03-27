@@ -3,6 +3,7 @@ using System;
 using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DataAccess.Migrations
 {
     [DbContext(typeof(DatabaseContext))]
-    partial class DatabaseContextModelSnapshot : ModelSnapshot
+    [Migration("20260327062749_AddProductNameDepartmentUniqueIndex")]
+    partial class AddProductNameDepartmentUniqueIndex
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -605,42 +608,6 @@ namespace DataAccess.Migrations
                     b.ToTable("TechSteps");
                 });
 
-            modelBuilder.Entity("Core.Entities.TechnicalDrawing", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ContractId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("CreatedBy")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ContractId");
-
-                    b.HasIndex("CreatedBy");
-
-                    b.ToTable("TechnicalDrawings");
-                });
-
             modelBuilder.Entity("Core.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -918,25 +885,6 @@ namespace DataAccess.Migrations
                     b.Navigation("TechProcess");
                 });
 
-            modelBuilder.Entity("Core.Entities.TechnicalDrawing", b =>
-                {
-                    b.HasOne("Core.Entities.Contract", "Contract")
-                        .WithMany("TechnicalDrawings")
-                        .HasForeignKey("ContractId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Core.Entities.User", "Creator")
-                        .WithMany("CreatedTechnicalDrawings")
-                        .HasForeignKey("CreatedBy")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Contract");
-
-                    b.Navigation("Creator");
-                });
-
             modelBuilder.Entity("Core.Entities.User", b =>
                 {
                     b.HasOne("Core.Entities.Department", "Department")
@@ -963,8 +911,6 @@ namespace DataAccess.Migrations
                     b.Navigation("StockOuts");
 
                     b.Navigation("TechProcesses");
-
-                    b.Navigation("TechnicalDrawings");
                 });
 
             modelBuilder.Entity("Core.Entities.Department", b =>
@@ -1019,8 +965,6 @@ namespace DataAccess.Migrations
                     b.Navigation("CreatedContracts");
 
                     b.Navigation("CreatedTasks");
-
-                    b.Navigation("CreatedTechnicalDrawings");
 
                     b.Navigation("IssuedStockOuts");
 
