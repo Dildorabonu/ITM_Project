@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 :root {
   --bg: #f0f4f8;
   --bg2: #ffffff;
