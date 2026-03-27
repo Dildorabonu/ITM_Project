@@ -146,6 +146,89 @@ namespace DataAccess.Migrations
                     b.ToTable("ContractUsers");
                 });
 
+            modelBuilder.Entity("Core.Entities.CostNorm", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ContractId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContractId");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.ToTable("CostNorms");
+                });
+
+            modelBuilder.Entity("Core.Entities.CostNormItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CostNormId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ImportType")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsSection")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("text");
+
+                    b.Property<string>("No")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PhotoRaw")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PhotoSemi")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReadyQty")
+                        .HasColumnType("text");
+
+                    b.Property<string>("SectionName")
+                        .HasColumnType("text");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TotalQty")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Unit")
+                        .HasColumnType("text");
+
+                    b.Property<string>("WasteQty")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CostNormId");
+
+                    b.ToTable("CostNormItems");
+                });
+
             modelBuilder.Entity("Core.Entities.Department", b =>
                 {
                     b.Property<Guid>("Id")
@@ -732,6 +815,36 @@ namespace DataAccess.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Core.Entities.CostNorm", b =>
+                {
+                    b.HasOne("Core.Entities.Contract", "Contract")
+                        .WithMany("CostNorms")
+                        .HasForeignKey("ContractId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Core.Entities.User", "Creator")
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Contract");
+
+                    b.Navigation("Creator");
+                });
+
+            modelBuilder.Entity("Core.Entities.CostNormItem", b =>
+                {
+                    b.HasOne("Core.Entities.CostNorm", "CostNorm")
+                        .WithMany("Items")
+                        .HasForeignKey("CostNormId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CostNorm");
+                });
+
             modelBuilder.Entity("Core.Entities.Notification", b =>
                 {
                     b.HasOne("Core.Entities.User", "User")
@@ -958,6 +1071,8 @@ namespace DataAccess.Migrations
                 {
                     b.Navigation("ContractUsers");
 
+                    b.Navigation("CostNorms");
+
                     b.Navigation("StockIns");
 
                     b.Navigation("StockOuts");
@@ -965,6 +1080,11 @@ namespace DataAccess.Migrations
                     b.Navigation("TechProcesses");
 
                     b.Navigation("TechnicalDrawings");
+                });
+
+            modelBuilder.Entity("Core.Entities.CostNorm", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("Core.Entities.Department", b =>

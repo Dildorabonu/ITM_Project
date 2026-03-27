@@ -28,6 +28,8 @@ public class DatabaseContext : DbContext
     public DbSet<Product> Products { get; set; }
     public DbSet<Attachment> Attachments { get; set; }
     public DbSet<TechnicalDrawing> TechnicalDrawings { get; set; }
+    public DbSet<CostNorm> CostNorms { get; set; }
+    public DbSet<CostNormItem> CostNormItems { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

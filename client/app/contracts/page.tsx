@@ -394,7 +394,10 @@ export default function ContractsPage() {
     setAllUsers(items);
     setDepartments(depts);
     setFormUsers(items.filter((u: UserResponse) => users.some((cu: ContractUserResponse) => cu.userId === u.id)));
+<<<<<<< HEAD
     window.history.pushState({ showForm: true }, "");
+=======
+>>>>>>> 5903d5e42546fc511020736a5f9bc72f1d1709f1
     setShowForm(true);
   };
 
