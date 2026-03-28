@@ -9,6 +9,7 @@ import {
   type ContractResponse,
   type CostNormResponse,
   type CostNormItemResponse,
+  type AttachmentResponse,
 } from "@/lib/userService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -320,14 +321,14 @@ function CollapsibleItemsTable({ rows, showPhotos }: { rows: (MaterialRow | Cost
                   const rowNum = globalRowIdx;
                   return (
                     <tr key={`${section.sectionIdx}-${ri}`}>
-                      <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px", color: "var(--text3)", fontSize: 12 }}>
+                      <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px", color: "var(--text1)", fontSize: 12 }}>
                         {String(rowNum).padStart(2, "0")}
                       </td>
                       <td style={{ color: "var(--text1)", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 220 }} title={row.name ?? ""}>{row.name || "—"}</td>
-                      <td style={{ color: "var(--text2)" }}>{row.unit || "—"}</td>
-                      <td style={{ textAlign: "right", color: "var(--text2)", fontFamily: "var(--font-mono)" }}>{row.readyQty || "—"}</td>
-                      <td style={{ textAlign: "right", color: "var(--text3)", fontFamily: "var(--font-mono)" }}>{row.wasteQty || "—"}</td>
-                      <td style={{ textAlign: "right", fontWeight: 600, color: "var(--text1)", fontFamily: "var(--font-mono)" }}>{row.totalQty || "—"}</td>
+                      <td style={{ color: "var(--text1)" }}>{row.unit || "—"}</td>
+                      <td style={{ textAlign: "right", color: "var(--text1)", fontFamily: "Inter, sans-serif" }}>{row.readyQty || "—"}</td>
+                      <td style={{ textAlign: "right", color: "var(--text1)", fontFamily: "Inter, sans-serif" }}>{row.wasteQty || "—"}</td>
+                      <td style={{ textAlign: "right", color: "var(--text1)", fontFamily: "Inter, sans-serif" }}>{row.totalQty || "—"}</td>
                       {showPhotos && (
                         <>
                           <td style={{ padding: "6px 12px" }}><PhotoCell src={row.photoRaw} /></td>
@@ -381,6 +382,7 @@ export default function CostNormPage() {
   // Detail state
   const [selectedNorm, setSelectedNorm] = useState<CostNormResponse | null>(null);
   const [activeTab, setActiveTab] = useState(0);
+  const [detailFiles, setDetailFiles] = useState<AttachmentResponse[]>([]);
 
   // Create form state
   const [contracts, setContracts] = useState<ContractResponse[]>([]);
@@ -504,12 +506,16 @@ export default function CostNormPage() {
         sortOrder: idx,
       }));
 
-      await costNormService.create({
+      const newId = await costNormService.create({
         contractId: form.contractId,
         title: form.title || formFile?.name?.replace(/\.docx$/i, "") || "Me'yoriy sarf",
         notes: form.notes || null,
         items,
       });
+
+      if (formFile && newId) {
+        await costNormService.uploadFile(newId, formFile);
+      }
 
       await loadList();
       setMode("list");
@@ -535,7 +541,9 @@ export default function CostNormPage() {
     setActiveTab(0);
     setSearch("");
     setShowPhotos(false);
+    setDetailFiles([]);
     setMode("detail");
+    costNormService.getFiles(norm.id).then(setDetailFiles).catch(() => {});
   }
 
   // ── Detail: split items into tables by section boundaries ─────────────────
@@ -797,6 +805,19 @@ export default function CostNormPage() {
             </span>
           </div>
 
+          {detailFiles.length > 0 && (
+            <button
+              onClick={() => costNormService.downloadFile(norm.id, detailFiles[0].id, detailFiles[0].fileName)}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "0 14px", height: 36, borderRadius: "var(--radius)", border: "1px solid var(--border)", background: "var(--bg2)", color: "var(--text2)", fontSize: 13, cursor: "pointer", whiteSpace: "nowrap" }}
+              title={detailFiles[0].fileName}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Asl fayl
+            </button>
+          )}
+
           <div className="search-wrap" style={{ maxWidth: 240, minWidth: 160 }}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -877,13 +898,13 @@ export default function CostNormPage() {
                       </td>
                       <td style={{ textAlign: "center", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         <button onClick={() => openDetail(norm)}
-                          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 13, color: "var(--accent)", fontFamily: "var(--font-mono)", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block" }}>
+                          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 13, color: "var(--text1)", fontFamily: "var(--font-mono)", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block" }}>
                           {norm.contractNo}
                         </button>
                       </td>
                       <td style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text1)" }}>{norm.title}</td>
-                      <td style={{ textAlign: "center", color: "var(--text3)", fontSize: 12 }}>{dataItems}</td>
-                      <td style={{ textAlign: "center", color: "var(--text3)", fontSize: 12, whiteSpace: "nowrap" }}>
+                      <td style={{ textAlign: "center", color: "var(--text1)", fontSize: 12 }}>{dataItems}</td>
+                      <td style={{ textAlign: "center", color: "var(--text1)", fontSize: 12, whiteSpace: "nowrap" }}>
                         {new Date(norm.createdAt).toLocaleDateString("uz-UZ")}
                       </td>
                       <td style={{ borderLeft: "2px solid var(--border)" }}>
