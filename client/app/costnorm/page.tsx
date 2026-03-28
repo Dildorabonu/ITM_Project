@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef, useState, useMemo, useEffect, useCallback } from "react";
+import { useDraft } from "@/lib/useDraft";
 import { Upload, X, Image, ImageOff, Trash2, Eye, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import {
   contractService,
@@ -396,6 +397,17 @@ export default function CostNormPage() {
   const [parseLoading, setParseLoading] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
   const formFileRef = useRef<HTMLInputElement>(null);
+
+  useDraft(
+    "draft_costnorm",
+    mode === "create",
+    form,
+    (d) => {
+      setForm(d);
+      setMode("create");
+      contractService.getAll().then(setContracts).catch(() => {});
+    },
+  );
 
   // ── Load list ─────────────────────────────────────────────────────────────
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useDraft } from "@/lib/useDraft";
 import {
   techProcessService,
   contractService,
@@ -90,6 +91,17 @@ export default function TechProcessPage() {
   // Action buttons
   const [approving, setApproving]             = useState(false);
   const [sendingWarehouse, setSendingWarehouse] = useState(false);
+
+  useDraft(
+    "draft_techprocess",
+    showForm,
+    form,
+    (d) => {
+      setForm(d);
+      setShowForm(true);
+      contractService.getAll().then(setContracts).catch(() => {});
+    },
+  );
 
   // ── Load ────────────────────────────────────────────────────────────────────
 

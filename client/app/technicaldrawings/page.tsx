@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useDraft } from "@/lib/useDraft";
 
 type DrawingStatus = "pending" | "approved" | "in_progress" | "rejected";
 
@@ -99,6 +100,14 @@ export default function TechnicalDrawingsPage() {
   }, [list, search, filterStatus]);
 
   const selectedContract = CONTRACTS.find((c) => c.id === form.contractId);
+
+  // File field saqlanmaydi (File ob'ektlari JSON'ga aylanmaydi)
+  useDraft<{ contractId: string; title: string; notes: string }>(
+    "draft_technicaldrawings",
+    showForm,
+    { contractId: form.contractId, title: form.title, notes: form.notes },
+    (d) => { setForm({ contractId: d.contractId, title: d.title, notes: d.notes, file: null }); setShowForm(true); },
+  );
 
   useEffect(() => {
     if (!showForm) return;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useDraft } from "@/lib/useDraft";
 import * as XLSX from "xlsx";
 import {
   productService,
@@ -80,6 +81,13 @@ export default function ProductsPage() {
   const [editingImportRowData, setEditingImportRowData] = useState<{
     name: string; departmentId: string; quantity: string; unit: ProductUnit; description: string;
   } | null>(null);
+
+  useDraft(
+    "draft_products",
+    showForm,
+    { form, editTarget },
+    (d) => { setForm(d.form); setEditTarget(d.editTarget); setShowForm(true); },
+  );
 
   const load = async () => {
     try {

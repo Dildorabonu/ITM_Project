@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useDraft } from "@/lib/useDraft";
 import {
   departmentService,
   type DepartmentResponse,
@@ -38,6 +39,13 @@ export default function DepartmentsPage() {
   // Delete confirm
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  useDraft(
+    "draft_departments",
+    showForm,
+    { form, editTarget },
+    (d) => { setForm(d.form); setEditTarget(d.editTarget); setShowForm(true); },
+  );
 
   const load = async () => {
     try {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useDraft } from "@/lib/useDraft";
 import {
   contractService,
   userService,
@@ -181,6 +182,13 @@ export default function ContractsPage() {
   const [statusTarget, setStatusTarget] = useState<ContractResponse | null>(null);
   const [newStatus, setNewStatus]       = useState<string>("");
   const [changingStatus, setChangingStatus] = useState(false);
+
+  useDraft(
+    "draft_contracts",
+    showForm,
+    { form, editTarget },
+    (d) => { setForm(d.form); setEditTarget(d.editTarget); setShowForm(true); },
+  );
 
   // ── Load files ────────────────────────────────────────────────────────────
 
