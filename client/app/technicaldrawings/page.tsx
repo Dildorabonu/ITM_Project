@@ -270,8 +270,8 @@ export default function TechnicalDrawingsPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 2, padding: "14px 16px", flexWrap: "wrap" }}>
-        <div className="search-wrap" style={{ maxWidth: "none", flex: 1, minWidth: 220 }}>
+      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 2, padding: "10px 14px", flexWrap: "wrap" }}>
+        <div className="search-wrap" style={{ maxWidth: "none", flex: 1, minWidth: 180 }}>
           <svg width="16" height="16" fill="none" stroke="var(--text3)" strokeWidth="2" viewBox="0 0 24 24">
             <circle cx="11" cy="11" r="8" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -281,11 +281,10 @@ export default function TechnicalDrawingsPage() {
             placeholder="Qidirish: sarlavha, shartnoma, fayl..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{ fontSize: 14 }}
           />
         </div>
 
-        <select className="form-input" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ width: 190, height: 44, fontSize: 14, cursor: "pointer" }}>
+        <select className="form-input" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ width: 160, height: 36, cursor: "pointer", padding: "0 10px" }}>
           <option value="">Barcha statuslar</option>
           <option value="pending">Kutilmoqda</option>
           <option value="in_progress">Jarayonda</option>
@@ -293,7 +292,7 @@ export default function TechnicalDrawingsPage() {
           <option value="rejected">Rad etilgan</option>
         </select>
 
-        <button className="btn-icon" onClick={refresh} title="Yangilash" style={{ width: 44, height: 44 }}>
+        <button className="btn-icon" onClick={refresh} title="Yangilash" style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}>
           <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
             <polyline points="23,4 23,10 17,10" />
             <polyline points="1,20 1,14 7,14" />
@@ -301,8 +300,8 @@ export default function TechnicalDrawingsPage() {
           </svg>
         </button>
 
-        <button className="btn-primary" onClick={openCreate} style={{ display: "inline-flex", alignItems: "center", gap: 7, height: 44, fontSize: 14, paddingInline: 16 }}>
-          <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.6" viewBox="0 0 24 24">
+        <button className="btn-primary" onClick={openCreate} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "none", cursor: "pointer" }}>
+          <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
@@ -315,32 +314,34 @@ export default function TechnicalDrawingsPage() {
           <table className="itm-table">
             <thead>
               <tr>
-                <th style={{ width: 110 }}>ID</th>
-                <th style={{ width: 170 }}>Shartnoma</th>
-                <th>Sarlavha</th>
-                <th style={{ width: 200 }}>Fayl</th>
-                <th style={{ width: 150 }}>Status</th>
-                <th style={{ width: 130 }}>Sana</th>
+                <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
+                <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>ID</th>
+                <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Shartnoma</th>
+                <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Sarlavha</th>
+                <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Fayl</th>
+                <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Status</th>
+                <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Sana</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: "center", padding: "30px 14px", color: "var(--text3)" }}>
+                  <td colSpan={7} style={{ textAlign: "center", padding: "30px 14px", color: "var(--text3)" }}>
                     Ma&apos;lumot topilmadi
                   </td>
                 </tr>
               ) : (
-                filtered.map((item) => (
+                filtered.map((item, i) => (
                   <tr key={item.id}>
-                    <td className="mono" style={{ color: "var(--accent)", fontWeight: 700 }}>{item.id}</td>
-                    <td className="mono" style={{ color: "var(--text2)" }}>{item.contractNo}</td>
-                    <td style={{ fontSize: 14, fontWeight: 600 }}>{item.title}</td>
-                    <td style={{ fontSize: 13 }}>{item.fileName}</td>
-                    <td>
+                    <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>{String(i + 1).padStart(2, "0")}</td>
+                    <td style={{ textAlign: "center", color: "var(--accent)", fontWeight: 700, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.id}</td>
+                    <td style={{ textAlign: "center", color: "var(--text2)", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.contractNo}</td>
+                    <td style={{ textAlign: "center", fontSize: 14, fontWeight: 600, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</td>
+                    <td style={{ textAlign: "center", fontSize: 13, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.fileName}</td>
+                    <td style={{ textAlign: "center" }}>
                       <StatusBadge status={item.status} />
                     </td>
-                    <td style={{ fontSize: 13 }}>{fmtDate(item.createdAt)}</td>
+                    <td style={{ textAlign: "center", fontSize: 13 }}>{fmtDate(item.createdAt)}</td>
                   </tr>
                 ))
               )}
