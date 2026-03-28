@@ -686,7 +686,15 @@ export default function CostNormPage() {
                   ) : (
                     <button
                       onClick={() => formFileRef.current?.click()}
-                      style={{ width: "100%", padding: "22px 0", borderRadius: "var(--radius)", border: `1.5px dashed ${submitted && parsedTables.length === 0 ? "var(--danger)" : "var(--border)"}`, background: "var(--bg2)", cursor: "pointer", color: submitted && parsedTables.length === 0 ? "var(--danger)" : "var(--text2)", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+                      style={{ width: "100%", padding: "22px 0", borderRadius: "var(--radius)", border: `1.5px dashed ${submitted && parsedTables.length === 0 ? "var(--danger)" : "var(--border)"}`, background: "var(--bg2)", cursor: "pointer", color: submitted && parsedTables.length === 0 ? "var(--danger)" : "var(--text2)", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, transition: "border-color 0.15s, color 0.15s" }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.borderColor = "var(--accent)";
+                        e.currentTarget.style.color = "var(--accent)";
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.borderColor = submitted && parsedTables.length === 0 ? "var(--danger)" : "var(--border)";
+                        e.currentTarget.style.color = submitted && parsedTables.length === 0 ? "var(--danger)" : "var(--text2)";
+                      }}
                     >
                       <Upload size={15} />
                       Fayl tanlang yoki bu yerga tashlang

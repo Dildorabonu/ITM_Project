@@ -394,10 +394,7 @@ export default function ContractsPage() {
     setAllUsers(items);
     setDepartments(depts);
     setFormUsers(items.filter((u: UserResponse) => users.some((cu: ContractUserResponse) => cu.userId === u.id)));
-<<<<<<< HEAD
     window.history.pushState({ showForm: true }, "");
-=======
->>>>>>> 5903d5e42546fc511020736a5f9bc72f1d1709f1
     setShowForm(true);
   };
 
@@ -1036,12 +1033,12 @@ export default function ContractsPage() {
                     <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>{String(i + 1).padStart(2, "0")}</td>
                     <td style={{ textAlign: "center", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       <button onClick={() => openDrawer(c)}
-                        style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontWeight: 700, fontSize: 13, color: "var(--accent)", fontFamily: "var(--font-mono)", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block" }}>
+                        style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 13, color: "var(--text1)", fontFamily: "var(--font-mono)", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block" }}>
                         {c.contractNo}
                       </button>
                     </td>
                     <td style={{ textAlign: "center", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      <span style={{ fontSize: 13, color: "var(--text2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>
+                      <span style={{ fontSize: 13, color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>
                         {fmt(c.startDate)} – {fmt(c.endDate)}
                       </span>
                     </td>

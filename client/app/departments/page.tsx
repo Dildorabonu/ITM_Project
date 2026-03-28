@@ -318,7 +318,7 @@ export default function DepartmentsPage() {
                       {String(i + 1).padStart(2, "0")}
                     </td>
                     <td style={{ textAlign: "center" }}>{d.name}</td>
-                    <td style={{ textAlign: "center", color: "var(--text2)" }}>{d.headUserName ?? "—"}</td>
+                    <td style={{ textAlign: "center", color: "var(--text1)" }}>{d.headUserName ?? "—"}</td>
                     <td style={{ textAlign: "center", color: "var(--text1)" }}>{d.employeeCount ?? "—"}</td>
                     <td style={{ borderLeft: "2px solid var(--border)" }}>
                       {(canUpdate || canDelete) && (
