@@ -836,7 +836,7 @@ export default function CostNormPage() {
         <button
           onClick={openCreate}
           className="btn-primary"
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "0 18px", height: 36, fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "none", cursor: "pointer" }}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "0 18px", height: 36, fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", borderTop: "none", borderRight: "none", borderBottom: "none", borderLeft: "none", cursor: "pointer" }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
@@ -859,44 +859,41 @@ export default function CostNormPage() {
             <table className="itm-table">
               <thead>
                 <tr>
-                  <th style={{ width: 48, textAlign: "center", textTransform: "none" }}>T/r</th>
-                  <th>Shartnoma</th>
-                  <th>Mijoz</th>
-                  <th>Sarlavha</th>
-                  <th style={{ width: 80, textAlign: "center" }}>Yozuvlar</th>
-                  <th style={{ width: 110 }}>Sana</th>
-                  <th style={{ width: 90, textAlign: "center" }}>Amallar</th>
+                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Shartnoma</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Sarlavha</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Yozuvlar</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Sana</th>
+                  <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>Amallar</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredList.map((norm, i) => {
                   const dataItems = norm.items.filter(it => !it.isSection).length;
                   return (
-                    <tr key={norm.id} style={{ cursor: "pointer" }} onClick={() => openDetail(norm)}>
-                      <td style={{ textAlign: "center", color: "var(--text3)", fontSize: 12 }}>
+                    <tr key={norm.id}>
+                      <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>
                         {String(i + 1).padStart(2, "0")}
                       </td>
-                      <td style={{ fontWeight: 600, color: "var(--accent,#2563eb)" }}>{norm.contractNo}</td>
-                      <td style={{ color: "var(--text2)" }}>{norm.clientName || "—"}</td>
-                      <td style={{ color: "var(--text1)" }}>{norm.title}</td>
+                      <td style={{ textAlign: "center", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <button onClick={() => openDetail(norm)}
+                          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 13, color: "var(--accent)", fontFamily: "var(--font-mono)", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block" }}>
+                          {norm.contractNo}
+                        </button>
+                      </td>
+                      <td style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text1)" }}>{norm.title}</td>
                       <td style={{ textAlign: "center", color: "var(--text3)", fontSize: 12 }}>{dataItems}</td>
-                      <td style={{ color: "var(--text3)", fontSize: 12 }}>
+                      <td style={{ textAlign: "center", color: "var(--text3)", fontSize: 12, whiteSpace: "nowrap" }}>
                         {new Date(norm.createdAt).toLocaleDateString("uz-UZ")}
                       </td>
-                      <td style={{ textAlign: "center" }} onClick={e => e.stopPropagation()}>
-                        <div style={{ display: "inline-flex", gap: 6 }}>
-                          <button
-                            onClick={() => openDetail(norm)}
-                            title="Ko'rish"
-                            style={{ padding: "4px 8px", borderRadius: "var(--radius)", border: "1px solid var(--border)", background: "var(--bg2)", cursor: "pointer", color: "var(--text2)", display: "flex", alignItems: "center" }}
-                          >
+                      <td style={{ borderLeft: "2px solid var(--border)" }}>
+                        <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                          <button className="btn-icon" onClick={() => openDetail(norm)} title="Ko'rish"
+                            style={{ color: "var(--accent)", borderColor: "var(--accent-mid)", background: "var(--accent-dim)" }}>
                             <Eye size={14} />
                           </button>
-                          <button
-                            onClick={() => handleDelete(norm.id)}
-                            title="O'chirish"
-                            style={{ padding: "4px 8px", borderRadius: "var(--radius)", border: "1px solid var(--danger,#fca5a5)", background: "var(--danger-dim,#fee2e2)", cursor: "pointer", color: "var(--danger,#dc2626)", display: "flex", alignItems: "center" }}
-                          >
+                          <button className="btn-icon btn-icon-danger" onClick={() => handleDelete(norm.id)} title="O'chirish"
+                            style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
                             <Trash2 size={14} />
                           </button>
                         </div>

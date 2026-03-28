@@ -24,4 +24,7 @@ public enum PermissionModule
 
     [Display(Name = "Texnik chizmalar", Description = "pen-tool")]
     TechnicalDrawings = 7,
+
+    [Display(Name = "Xarajat me'yorlari", Description = "calculator")]
+    CostNorm = 8,
 }
