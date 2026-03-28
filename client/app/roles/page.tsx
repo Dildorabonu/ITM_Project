@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useDraft } from "@/lib/useDraft";
 import {
   roleService,
   permissionService,
@@ -38,6 +39,25 @@ export default function RolesPage() {
   const [formSubmitted, setFormSubmitted] = useState(false);
 
   const totalPermissions = permissions.reduce((sum, m) => sum + m.actions.length, 0);
+
+  useDraft(
+    "draft_roles",
+    showRoleModal,
+    { roleForm, editRole },
+    (d) => {
+      setRoleForm(d.roleForm);
+      if (d.editRole) {
+        setEditRole(d.editRole);
+        setShowRoleModal(true);
+        setPermsLoading(true);
+        roleService.getPermissions(d.editRole.id)
+          .then(ids => setSelectedPerms(new Set(ids)))
+          .finally(() => setPermsLoading(false));
+      } else {
+        setShowRoleModal(true);
+      }
+    },
+  );
 
   const fetchAll = async () => {
     setLoading(true);

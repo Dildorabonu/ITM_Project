@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useDraft } from "@/lib/useDraft";
 import {
   userService,
   roleService,
@@ -49,6 +50,20 @@ function UsersPageInner() {
   const showCreate = view === "create";
   const showEdit = view === "edit" && !!editId;
   const editTarget = users.find(u => u.id === editId) ?? null;
+
+  useDraft(
+    "draft_users",
+    showCreate || showEdit,
+    { form, editId: editId ?? null },
+    (d) => {
+      setForm(d.form);
+      if (d.editId) {
+        router.replace(`${pathname}?view=edit&id=${d.editId}`);
+      } else {
+        router.replace(`${pathname}?view=create`);
+      }
+    },
+  );
 
   const load = async (p = page) => {
     try {
