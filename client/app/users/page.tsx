@@ -18,7 +18,7 @@ import {
 import { useAuthStore } from "@/lib/store/authStore";
 
 
-const emptyForm = { firstName: "", lastName: "", login: "", password: "", roleId: "", departmentId: "", isActive: true };
+const emptyForm = { firstName: "", lastName: "", login: "", password: "", roleId: "", departmentId: "", isActive: true, isHead: false };
 
 const TYPE_STYLE = {
   [DepartmentType.IshlabChiqarish]: { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa", icon: "🏭" },
@@ -230,6 +230,7 @@ function UsersPageInner() {
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [confirmHead, setConfirmHead] = useState<{ headName: string } | null>(null);
 
   const showCreate = view === "create";
   const showEdit = view === "edit" && !!editId;
@@ -302,6 +303,7 @@ function UsersPageInner() {
         roleId: editTarget.roleId ?? "",
         departmentId: editTarget.departmentId ?? "",
         isActive: editTarget.isActive,
+        isHead: editTarget.isHead,
       });
     }
     if (!showEdit) {
@@ -325,6 +327,18 @@ function UsersPageInner() {
     router.push(`${pathname}?view=edit&id=${u.id}`);
   };
 
+  const handleIsHeadChange = (checked: boolean) => {
+    if (!checked) { setForm(f => ({ ...f, isHead: false })); return; }
+    const dept = departments.find(d => d.id === form.departmentId);
+    const existingHead = dept?.headUserName;
+    const currentUserIsHead = showEdit && editTarget?.isHead && editTarget?.departmentId === form.departmentId;
+    if (existingHead && !currentUserIsHead) {
+      setConfirmHead({ headName: existingHead });
+    } else {
+      setForm(f => ({ ...f, isHead: true }));
+    }
+  };
+
   const handleCreate = async () => {
     setFormSubmitted(true);
     if (!form.firstName || !form.lastName || !form.login || !form.password || !form.roleId || !form.departmentId) return;
@@ -337,6 +351,7 @@ function UsersPageInner() {
         password: form.password,
         roleId: form.roleId || null,
         departmentId: form.departmentId || null,
+        isHead: form.isHead,
       };
       await userService.create(payload);
       sessionStorage.removeItem("draft_users");
@@ -363,6 +378,7 @@ function UsersPageInner() {
         roleId: form.roleId || null,
         departmentId: form.departmentId || null,
         isActive: form.isActive,
+        isHead: form.isHead,
       };
       await userService.update(editTarget.id, payload);
       sessionStorage.removeItem("draft_users");
@@ -462,24 +478,51 @@ function UsersPageInner() {
           </div>
           <div>
             <label style={{ fontSize: 13, fontWeight: 600, color: formSubmitted && !form.departmentId ? "var(--danger)" : "var(--text2)", marginBottom: 6, display: "block" }}>
-              Bo&apos;lim <span style={{ color: "var(--danger)" }}>*</span>
+              Tuzilma <span style={{ color: "var(--danger)" }}>*</span>
             </label>
             <CustomGroupedSelect
               value={form.departmentId}
               onChange={v => setForm(f => ({ ...f, departmentId: v }))}
               departments={departments}
-              placeholder="— Bo'lim tanlang —"
+              placeholder="— Tuzilma tanlang —"
               hasError={formSubmitted && !form.departmentId}
             />
             {formSubmitted && !form.departmentId && (
-              <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Bo'lim tanlang</div>
+              <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Tuzilma tanlang</div>
             )}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "var(--text2)", cursor: "pointer" }}>
               <input type="checkbox" checked={form.isActive}
                 onChange={e => setForm(f => ({ ...f, isActive: e.target.checked }))} />
               Aktiv
+            </label>
+          </div>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <label style={{
+              display: "flex", alignItems: "center", gap: 12,
+              padding: "12px 16px", borderRadius: "var(--radius)",
+              border: `1.5px solid ${form.isHead ? "#fbbf24" : "var(--border)"}`,
+              background: form.isHead ? "#fffbeb" : "var(--bg3)",
+              cursor: form.departmentId ? "pointer" : "not-allowed",
+              opacity: form.departmentId ? 1 : 0.5,
+              transition: "all 0.15s",
+            }}>
+              <input type="checkbox" checked={form.isHead}
+                onChange={e => handleIsHeadChange(e.target.checked)}
+                disabled={!form.departmentId}
+                style={{ width: 16, height: 16, cursor: form.departmentId ? "pointer" : "not-allowed", accentColor: "#f59e0b" }} />
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 18 }}>👑</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: form.isHead ? "#92400e" : "var(--text2)" }}>
+                  Tuzilma boshlig&apos;i
+                </span>
+                {!form.departmentId && (
+                  <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400 }}>
+                    (avval bo&apos;lim tanlang)
+                  </span>
+                )}
+              </span>
             </label>
           </div>
         </div>
@@ -592,18 +635,45 @@ function UsersPageInner() {
           </div>
           <div>
             <label style={{ fontSize: 13, fontWeight: 600, color: formSubmitted && !form.departmentId ? "var(--danger)" : "var(--text2)", marginBottom: 6, display: "block" }}>
-              Bo&apos;lim <span style={{ color: "var(--danger)" }}>*</span>
+              Tuzilma <span style={{ color: "var(--danger)" }}>*</span>
             </label>
             <CustomGroupedSelect
               value={form.departmentId}
               onChange={v => setForm(f => ({ ...f, departmentId: v }))}
               departments={departments}
-              placeholder="— Bo'lim tanlang —"
+              placeholder="— Tuzilma tanlang —"
               hasError={formSubmitted && !form.departmentId}
             />
             {formSubmitted && !form.departmentId && (
-              <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Bo'lim tanlang</div>
+              <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Tuzilma tanlang</div>
             )}
+          </div>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <label style={{
+              display: "flex", alignItems: "center", gap: 12,
+              padding: "12px 16px", borderRadius: "var(--radius)",
+              border: `1.5px solid ${form.isHead ? "#fbbf24" : "var(--border)"}`,
+              background: form.isHead ? "#fffbeb" : "var(--bg3)",
+              cursor: form.departmentId ? "pointer" : "not-allowed",
+              opacity: form.departmentId ? 1 : 0.5,
+              transition: "all 0.15s",
+            }}>
+              <input type="checkbox" checked={form.isHead}
+                onChange={e => handleIsHeadChange(e.target.checked)}
+                disabled={!form.departmentId}
+                style={{ width: 16, height: 16, cursor: form.departmentId ? "pointer" : "not-allowed", accentColor: "#f59e0b" }} />
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 18 }}>👑</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: form.isHead ? "#92400e" : "var(--text2)" }}>
+                  Tuzilma boshlig&apos;i
+                </span>
+                {!form.departmentId && (
+                  <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400 }}>
+                    (avval bo&apos;lim tanlang)
+                  </span>
+                )}
+              </span>
+            </label>
           </div>
         </div>
 
@@ -724,7 +794,7 @@ function UsersPageInner() {
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Ism</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Familiya</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Login</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Bo&apos;lim / Sex</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", maxWidth: 180 }}>Tuzilma nomi</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Holat</th>
                   <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>Amallar</th>
                 </tr>
@@ -741,14 +811,16 @@ function UsersPageInner() {
                     <td style={{ textAlign: "center" }}>{u.firstName}</td>
                     <td style={{ textAlign: "center", color: "var(--text1)" }}>{u.lastName}</td>
                     <td style={{ textAlign: "center" }}>{u.login}</td>
-                    <td style={{ textAlign: "center" }}>
+                    <td style={{ textAlign: "center", maxWidth: 180, overflow: "hidden" }}>
                       {u.departmentName && ts ? (
                         <span style={{
                           display: "inline-flex", alignItems: "center", gap: 4,
                           padding: "2px 8px", borderRadius: 12, fontSize: 12, fontWeight: 600,
                           background: ts.bg, color: ts.color, border: `1px solid ${ts.border}`,
-                        }}>
-                          {ts.icon} {u.departmentName}
+                          maxWidth: "100%", overflow: "hidden",
+                        }} title={u.departmentName}>
+                          <span style={{ flexShrink: 0 }}>{ts.icon}</span>
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{u.departmentName}</span>
                         </span>
                       ) : (
                         <span style={{ color: "var(--text3)", fontSize: 12 }}>—</span>
@@ -822,6 +894,34 @@ function UsersPageInner() {
             >
               Keyingi →
             </button>
+          </div>
+        </div>
+      )}
+
+      {confirmHead && (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000,
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <div style={{
+            background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12,
+            padding: 28, width: 360, maxWidth: "95vw", textAlign: "center",
+          }}>
+            <div style={{ fontSize: 22, marginBottom: 10 }}>👑</div>
+            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8, color: "var(--text1)" }}>
+              Rahbar allaqachon belgilangan
+            </div>
+            <div style={{ color: "var(--text2)", fontSize: 13, marginBottom: 20 }}>
+              Ushbu tuzilmaning rahbari: <strong>{confirmHead.headName}</strong>.<br />
+              Almashtirishni istaysizmi?
+            </div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+              <button className="btn btn-outline" onClick={() => setConfirmHead(null)}>Bekor qilish</button>
+              <button className="btn" style={{ background: "#f59e0b", color: "#fff", border: "none", fontWeight: 600 }}
+                onClick={() => { setForm(f => ({ ...f, isHead: true })); setConfirmHead(null); }}>
+                Ha, almashtirish
+              </button>
+            </div>
           </div>
         </div>
       )}

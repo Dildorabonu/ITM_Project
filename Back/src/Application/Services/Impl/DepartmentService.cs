@@ -23,13 +23,12 @@ public class DepartmentService : IDepartmentService
 
         var headUsers = await _context.Users
             .AsNoTracking()
-            .Where(u => u.DepartmentId != null)
+            .Where(u => u.DepartmentId != null && u.IsHead)
             .Select(u => new { u.DepartmentId, FullName = u.FirstName + " " + u.LastName })
             .ToListAsync();
 
         var headMap = headUsers
-            .GroupBy(u => u.DepartmentId)
-            .ToDictionary(g => g.Key!, g => g.First().FullName);
+            .ToDictionary(u => u.DepartmentId!, u => u.FullName);
 
         return ApiResult<IEnumerable<DepartmentResponseDto>>.Success(
             departments.Select(d => MapToResponse(d, headMap.TryGetValue(d.Id, out var name) ? name : null)));
@@ -46,7 +45,7 @@ public class DepartmentService : IDepartmentService
 
         var headUser = await _context.Users
             .AsNoTracking()
-            .Where(u => u.DepartmentId == id)
+            .Where(u => u.DepartmentId == id && u.IsHead)
             .Select(u => u.FirstName + " " + u.LastName)
             .FirstOrDefaultAsync();
 

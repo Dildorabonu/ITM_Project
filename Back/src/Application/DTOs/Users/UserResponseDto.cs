@@ -11,5 +11,6 @@ public class UserResponseDto
     public Guid? DepartmentId { get; set; }
     public string? DepartmentName { get; set; }
     public bool IsActive { get; set; }
+    public bool IsHead { get; set; }
     public DateTime CreatedAt { get; set; }
 }

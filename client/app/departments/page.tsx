@@ -23,6 +23,7 @@ const emptyForm: DeptForm = { name: "", type: DepartmentType.Bolim, employeeCoun
 const TYPE_STYLE: Partial<Record<DepartmentType, { bg: string; color: string; border: string; icon: string }>> = {
   [DepartmentType.IshlabChiqarish]:     { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa", icon: "🏭" },
   [DepartmentType.Bolim]:   { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe", icon: "🏢" },
+  [DepartmentType.Boshqaruv]: { bg: "#f5f3ff", color: "#6d28d9", border: "#ddd6fe", icon: "👔" },
 };
 
 export default function DepartmentsPage() {
@@ -221,7 +222,7 @@ export default function DepartmentsPage() {
                 Toifa <span style={{ color: "var(--danger)" }}>*</span>
               </label>
               <div style={{ display: "flex", gap: 12 }}>
-                {([DepartmentType.IshlabChiqarish, DepartmentType.Bolim] as const).map(t => {
+                {([DepartmentType.IshlabChiqarish, DepartmentType.Bolim, DepartmentType.Boshqaruv] as const).map(t => {
                   const s = TYPE_STYLE[t];
                   const selected = form.type === t;
                   return (
@@ -267,7 +268,7 @@ export default function DepartmentsPage() {
                 {ts.icon}
               </div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)" }}>{form.name}</div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: "#1a2332" }}>{form.name}</div>
                 <div style={{ fontSize: 12, color: ts.color, marginTop: 2, fontWeight: 600 }}>
                   {DEPARTMENT_TYPE_LABELS[form.type]} · Xodimlar: {form.employeeCount || "0"}
                 </div>
@@ -306,8 +307,9 @@ export default function DepartmentsPage() {
 
   /* ===== List view ===== */
   const counts = {
-    [DepartmentType.IshlabChiqarish]:     depts.filter(d => d.type === DepartmentType.IshlabChiqarish).length,
-    [DepartmentType.Bolim]:   depts.filter(d => d.type === DepartmentType.Bolim).length,
+    [DepartmentType.IshlabChiqarish]: depts.filter(d => d.type === DepartmentType.IshlabChiqarish).length,
+    [DepartmentType.Bolim]:           depts.filter(d => d.type === DepartmentType.Bolim).length,
+    [DepartmentType.Boshqaruv]:       depts.filter(d => d.type === DepartmentType.Boshqaruv).length,
   };
 
   return (
@@ -315,7 +317,7 @@ export default function DepartmentsPage() {
 
       {/* Stats chips */}
       <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
-        {([null, DepartmentType.IshlabChiqarish, DepartmentType.Bolim] as const).map(t => {
+        {([null, DepartmentType.IshlabChiqarish, DepartmentType.Bolim, DepartmentType.Boshqaruv] as const).map(t => {
           const active = typeFilter === t;
           const label = t === null ? "Barchasi" : DEPARTMENT_TYPE_LABELS[t];
           const count = t === null ? depts.length : (counts as Record<DepartmentType, number>)[t] ?? 0;
@@ -416,12 +418,20 @@ export default function DepartmentsPage() {
                       <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>
                         {String(i + 1).padStart(2, "0")}
                       </td>
-                      <td style={{ textAlign: "center", fontWeight: 600 }}>
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                          {d.name}
+                      <td style={{ textAlign: "center", fontWeight: 600, maxWidth: 260 }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, maxWidth: "100%" }}>
+                          <span
+                            title={d.name}
+                            style={{
+                              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                              maxWidth: inactive ? "calc(100% - 80px)" : "100%",
+                            }}
+                          >
+                            {d.name}
+                          </span>
                           {inactive && (
                             <span style={{
-                              fontSize: 11, fontWeight: 600, padding: "1px 8px", borderRadius: 10,
+                              fontSize: 11, fontWeight: 600, padding: "1px 8px", borderRadius: 10, flexShrink: 0,
                               background: "#f3f4f6", color: "#9ca3af", border: "1px solid #e5e7eb",
                             }}>Noaktiv</span>
                           )}
