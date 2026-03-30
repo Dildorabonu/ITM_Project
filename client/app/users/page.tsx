@@ -20,6 +20,185 @@ import { useAuthStore } from "@/lib/store/authStore";
 
 const emptyForm = { firstName: "", lastName: "", login: "", password: "", roleId: "", departmentId: "", isActive: true };
 
+const TYPE_STYLE = {
+  [DepartmentType.IshlabChiqarish]: { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa", icon: "🏭" },
+  [DepartmentType.Bolim]:           { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe", icon: "🏢" },
+  [DepartmentType.Boshqaruv]:       { bg: "#f5f3ff", color: "#6d28d9", border: "#ddd6fe", icon: "👔" },
+};
+
+function CustomSelect({
+  value, onChange, options, placeholder, hasError,
+}: {
+  value: string; onChange: (v: string) => void;
+  options: { id: string; name: string }[];
+  placeholder: string; hasError?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = options.find(o => o.id === value);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button type="button" onClick={() => setOpen(o => !o)} style={{
+        width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+        background: "var(--bg3)",
+        border: `1.5px solid ${hasError ? "var(--danger)" : open ? "var(--accent)" : "var(--border)"}`,
+        borderRadius: "var(--radius)", padding: "9px 12px",
+        color: selected ? "var(--text)" : "var(--text3)",
+        fontSize: 14, cursor: "pointer", textAlign: "left",
+        boxShadow: hasError ? "0 0 0 3px rgba(217,48,37,0.2)" : open ? "0 0 0 3px var(--accent-dim)" : "none",
+        transition: "border-color 0.14s, box-shadow 0.14s",
+        fontFamily: "var(--font-inter), Inter, sans-serif",
+      }}>
+        <span>{selected ? selected.name : placeholder}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+          style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s", color: "var(--text3)" }}>
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0,
+          background: "var(--surface)", border: "1.5px solid var(--border2)",
+          borderRadius: "var(--radius2)", boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+          zIndex: 200, maxHeight: 220, overflowY: "auto",
+        }}>
+          {options.map(o => (
+            <div key={o.id}
+              onClick={() => { onChange(o.id); setOpen(false); }}
+              onMouseEnter={e => { if (o.id !== value) e.currentTarget.style.background = "var(--bg3)"; }}
+              onMouseLeave={e => { if (o.id !== value) e.currentTarget.style.background = "transparent"; }}
+              style={{
+                padding: "9px 14px", cursor: "pointer", fontSize: 14,
+                color: o.id === value ? "var(--accent)" : "var(--text)",
+                background: o.id === value ? "var(--accent-dim)" : "transparent",
+                fontWeight: o.id === value ? 600 : 400,
+                display: "flex", alignItems: "center", gap: 8,
+              }}>
+              {o.id === value ? (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ flexShrink: 0 }}>
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              ) : <span style={{ width: 12 }} />}
+              {o.name}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CustomGroupedSelect({
+  value, onChange, departments, placeholder, hasError,
+}: {
+  value: string; onChange: (v: string) => void;
+  departments: DepartmentOption[];
+  placeholder: string; hasError?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = departments.find(d => d.id === value);
+  const selectedTs = selected?.type !== undefined ? TYPE_STYLE[selected.type] : null;
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const groups = ([DepartmentType.IshlabChiqarish, DepartmentType.Bolim, DepartmentType.Boshqaruv] as const)
+    .map(t => ({ type: t, items: departments.filter(d => d.type === t) }))
+    .filter(g => g.items.length > 0);
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button type="button" onClick={() => setOpen(o => !o)} style={{
+        width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+        background: "var(--bg3)",
+        border: `1.5px solid ${hasError ? "var(--danger)" : open ? "var(--accent)" : "var(--border)"}`,
+        borderRadius: "var(--radius)", padding: "9px 12px",
+        fontSize: 14, cursor: "pointer", textAlign: "left",
+        boxShadow: hasError ? "0 0 0 3px rgba(217,48,37,0.2)" : open ? "0 0 0 3px var(--accent-dim)" : "none",
+        transition: "border-color 0.14s, box-shadow 0.14s",
+        fontFamily: "var(--font-inter), Inter, sans-serif",
+      }}>
+        {selected && selectedTs ? (
+          <span style={{
+            display: "inline-flex", alignItems: "center", gap: 5,
+            padding: "2px 9px", borderRadius: 10, fontSize: 12, fontWeight: 600,
+            background: selectedTs.bg, color: selectedTs.color, border: `1px solid ${selectedTs.border}`,
+          }}>
+            {selectedTs.icon} {selected.name}
+          </span>
+        ) : (
+          <span style={{ color: "var(--text3)" }}>{placeholder}</span>
+        )}
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+          style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s", color: "var(--text3)" }}>
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0,
+          background: "var(--surface)", border: "1.5px solid var(--border2)",
+          borderRadius: "var(--radius2)", boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+          zIndex: 200, maxHeight: 260, overflowY: "auto",
+        }}>
+          {groups.map((g, gi) => {
+            const ts = TYPE_STYLE[g.type];
+            return (
+              <div key={g.type}>
+                <div style={{
+                  padding: "7px 12px 5px", fontSize: 11, fontWeight: 700,
+                  letterSpacing: "0.7px", textTransform: "uppercase",
+                  color: ts.color, background: ts.bg,
+                  display: "flex", alignItems: "center", gap: 6,
+                  borderTop: gi > 0 ? "1px solid var(--border)" : "none",
+                  position: "sticky", top: 0,
+                }}>
+                  {ts.icon} {DEPARTMENT_TYPE_LABELS[g.type]}
+                </div>
+                {g.items.map(d => (
+                  <div key={d.id}
+                    onClick={() => { onChange(d.id); setOpen(false); }}
+                    onMouseEnter={e => { if (d.id !== value) e.currentTarget.style.background = "var(--bg3)"; }}
+                    onMouseLeave={e => { if (d.id !== value) e.currentTarget.style.background = d.id === value ? ts.bg : "transparent"; }}
+                    style={{
+                      padding: "8px 16px 8px 20px", cursor: "pointer", fontSize: 13,
+                      color: d.id === value ? ts.color : "var(--text)",
+                      background: d.id === value ? ts.bg : "transparent",
+                      fontWeight: d.id === value ? 600 : 400,
+                      display: "flex", alignItems: "center", gap: 8,
+                    }}>
+                    {d.id === value ? (
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ flexShrink: 0, color: ts.color }}>
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    ) : <span style={{ width: 11 }} />}
+                    {d.name}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function UsersPageInner() {
   const router = useRouter();
   const pathname = usePathname();
@@ -158,7 +337,8 @@ function UsersPageInner() {
         departmentId: form.departmentId || null,
       };
       await userService.create(payload);
-      router.back();
+      sessionStorage.removeItem("draft_users");
+      router.push(pathname);
       await load();
     } catch {
       // stay open on error
@@ -183,7 +363,8 @@ function UsersPageInner() {
         isActive: form.isActive,
       };
       await userService.update(editTarget.id, payload);
-      router.back();
+      sessionStorage.removeItem("draft_users");
+      router.push(pathname);
       await load();
     } catch {
       // stay open on error
@@ -266,11 +447,13 @@ function UsersPageInner() {
             <label style={{ fontSize: 13, fontWeight: 600, color: formSubmitted && !form.roleId ? "var(--danger)" : "var(--text2)", marginBottom: 6, display: "block" }}>
               Rol <span style={{ color: "var(--danger)" }}>*</span>
             </label>
-            <select className="form-input" value={form.roleId} onChange={e => setForm(f => ({ ...f, roleId: e.target.value }))}
-              style={formSubmitted && !form.roleId ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : undefined}>
-              <option value="">— Rol tanlang —</option>
-              {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-            </select>
+            <CustomSelect
+              value={form.roleId}
+              onChange={v => setForm(f => ({ ...f, roleId: v }))}
+              options={roles}
+              placeholder="— Rol tanlang —"
+              hasError={formSubmitted && !form.roleId}
+            />
             {formSubmitted && !form.roleId && (
               <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Rol tanlang</div>
             )}
@@ -279,19 +462,13 @@ function UsersPageInner() {
             <label style={{ fontSize: 13, fontWeight: 600, color: formSubmitted && !form.departmentId ? "var(--danger)" : "var(--text2)", marginBottom: 6, display: "block" }}>
               Bo&apos;lim <span style={{ color: "var(--danger)" }}>*</span>
             </label>
-            <select className="form-input" value={form.departmentId} onChange={e => setForm(f => ({ ...f, departmentId: e.target.value }))}
-              style={formSubmitted && !form.departmentId ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : undefined}>
-              <option value="">— Bo&apos;lim tanlang —</option>
-              {([DepartmentType.IshlabChiqarish, DepartmentType.Bolim, DepartmentType.Boshqaruv] as const).map(t => {
-                const group = departments.filter(d => d.type === t);
-                if (!group.length) return null;
-                return (
-                  <optgroup key={t} label={DEPARTMENT_TYPE_LABELS[t]}>
-                    {group.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                  </optgroup>
-                );
-              })}
-            </select>
+            <CustomGroupedSelect
+              value={form.departmentId}
+              onChange={v => setForm(f => ({ ...f, departmentId: v }))}
+              departments={departments}
+              placeholder="— Bo'lim tanlang —"
+              hasError={formSubmitted && !form.departmentId}
+            />
             {formSubmitted && !form.departmentId && (
               <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Bo'lim tanlang</div>
             )}
@@ -307,7 +484,7 @@ function UsersPageInner() {
 
         {/* Footer actions */}
         <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 8 }}>
-          <button className="btn-secondary" onClick={() => router.back()}>Bekor qilish</button>
+          <button className="btn-secondary" onClick={() => { sessionStorage.removeItem("draft_users"); router.push(pathname); }}>Bekor qilish</button>
           <button className="btn-primary" onClick={handleUpdate} disabled={saving}
             style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -372,6 +549,7 @@ function UsersPageInner() {
               value={form.login}
               onChange={e => setForm(f => ({ ...f, login: e.target.value }))}
               placeholder="Login"
+              autoComplete="off"
               style={formSubmitted && !form.login.trim() ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : undefined}
             />
             {formSubmitted && !form.login.trim() && (
@@ -388,6 +566,7 @@ function UsersPageInner() {
               value={form.password}
               onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
               placeholder="Parol"
+              autoComplete="new-password"
               style={formSubmitted && !form.password.trim() ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : undefined}
             />
             {formSubmitted && !form.password.trim() && (
@@ -398,11 +577,13 @@ function UsersPageInner() {
             <label style={{ fontSize: 13, fontWeight: 600, color: formSubmitted && !form.roleId ? "var(--danger)" : "var(--text2)", marginBottom: 6, display: "block" }}>
               Rol <span style={{ color: "var(--danger)" }}>*</span>
             </label>
-            <select className="form-input" value={form.roleId} onChange={e => setForm(f => ({ ...f, roleId: e.target.value }))}
-              style={formSubmitted && !form.roleId ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : undefined}>
-              <option value="">— Rol tanlang —</option>
-              {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-            </select>
+            <CustomSelect
+              value={form.roleId}
+              onChange={v => setForm(f => ({ ...f, roleId: v }))}
+              options={roles}
+              placeholder="— Rol tanlang —"
+              hasError={formSubmitted && !form.roleId}
+            />
             {formSubmitted && !form.roleId && (
               <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Rol tanlang</div>
             )}
@@ -411,19 +592,13 @@ function UsersPageInner() {
             <label style={{ fontSize: 13, fontWeight: 600, color: formSubmitted && !form.departmentId ? "var(--danger)" : "var(--text2)", marginBottom: 6, display: "block" }}>
               Bo&apos;lim <span style={{ color: "var(--danger)" }}>*</span>
             </label>
-            <select className="form-input" value={form.departmentId} onChange={e => setForm(f => ({ ...f, departmentId: e.target.value }))}
-              style={formSubmitted && !form.departmentId ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : undefined}>
-              <option value="">— Bo&apos;lim tanlang —</option>
-              {([DepartmentType.IshlabChiqarish, DepartmentType.Bolim, DepartmentType.Boshqaruv] as const).map(t => {
-                const group = departments.filter(d => d.type === t);
-                if (!group.length) return null;
-                return (
-                  <optgroup key={t} label={DEPARTMENT_TYPE_LABELS[t]}>
-                    {group.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                  </optgroup>
-                );
-              })}
-            </select>
+            <CustomGroupedSelect
+              value={form.departmentId}
+              onChange={v => setForm(f => ({ ...f, departmentId: v }))}
+              departments={departments}
+              placeholder="— Bo'lim tanlang —"
+              hasError={formSubmitted && !form.departmentId}
+            />
             {formSubmitted && !form.departmentId && (
               <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Bo'lim tanlang</div>
             )}
@@ -432,7 +607,7 @@ function UsersPageInner() {
 
         {/* Footer actions */}
         <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 8 }}>
-          <button className="btn-secondary" onClick={() => router.back()}>Bekor qilish</button>
+          <button className="btn-secondary" onClick={() => { sessionStorage.removeItem("draft_users"); router.push(pathname); }}>Bekor qilish</button>
           <button className="btn-primary" onClick={handleCreate} disabled={saving}
             style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -446,12 +621,6 @@ function UsersPageInner() {
       </div>
     );
   }
-
-  const TYPE_STYLE = {
-    [DepartmentType.IshlabChiqarish]: { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa", icon: "🏭" },
-    [DepartmentType.Bolim]:           { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe", icon: "🏢" },
-    [DepartmentType.Boshqaruv]:       { bg: "#f5f3ff", color: "#6d28d9", border: "#ddd6fe", icon: "👔" },
-  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
