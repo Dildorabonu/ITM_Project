@@ -5,7 +5,6 @@ public class CostNormResponseDto
     public Guid Id { get; set; }
     public Guid ContractId { get; set; }
     public string ContractNo { get; set; } = string.Empty;
-    public string ClientName { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string? Notes { get; set; }
     public Guid CreatedBy { get; set; }

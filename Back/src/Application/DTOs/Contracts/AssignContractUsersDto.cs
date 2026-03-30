@@ -1,6 +1,14 @@
+using Core.Enums;
+
 namespace Application.DTOs.Contracts;
 
 public class AssignContractUsersDto
 {
-    public List<Guid> UserIds { get; set; } = [];
+    public List<ContractUserAssignItem> Users { get; set; } = [];
+}
+
+public class ContractUserAssignItem
+{
+    public Guid UserId { get; set; }
+    public ContractUserRole Role { get; set; }
 }

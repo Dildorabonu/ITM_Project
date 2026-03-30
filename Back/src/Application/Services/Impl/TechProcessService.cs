@@ -250,7 +250,6 @@ public class TechProcessService : ITechProcessService
         Id = tp.Id,
         ContractId = tp.ContractId,
         ContractNo = tp.Contract?.ContractNo ?? string.Empty,
-        ClientName = tp.Contract?.ClientName ?? string.Empty,
         Title = tp.Title,
         Status = tp.Status,
         CurrentStep = tp.CurrentStep,

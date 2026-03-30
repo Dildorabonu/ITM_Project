@@ -129,7 +129,6 @@ public class CostNormService : ICostNormService
         Id = c.Id,
         ContractId = c.ContractId,
         ContractNo = c.Contract?.ContractNo ?? string.Empty,
-        ClientName = c.Contract?.ClientName ?? string.Empty,
         Title = c.Title,
         Notes = c.Notes,
         CreatedBy = c.CreatedBy,
