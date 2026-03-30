@@ -6,6 +6,7 @@ namespace Application.Services;
 public interface IRoleService
 {
     Task<ApiResult<IEnumerable<RoleResponseDto>>> GetAllAsync();
+    Task<ApiResult<IEnumerable<RoleResponseDto>>> GetLookupAsync();
     Task<ApiResult<RoleResponseDto>> GetByIdAsync(Guid id);
     Task<ApiResult<object>> CreateAsync(RoleCreateDto dto);
     Task<ApiResult<object>> UpdateAsync(Guid id, RoleUpdateDto dto);

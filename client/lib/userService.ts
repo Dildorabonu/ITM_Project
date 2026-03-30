@@ -110,6 +110,7 @@ export interface RoleResponse {
   id: string;
   name: string;
   description: string | null;
+  isActive: boolean;
   createdAt: string;
 }
 
@@ -121,6 +122,7 @@ export interface RoleCreatePayload {
 export interface RoleUpdatePayload {
   name?: string;
   description?: string;
+  isActive?: boolean;
 }
 
 export interface PermissionActionResponse {
@@ -138,6 +140,14 @@ export interface PermissionModuleResponse {
 }
 
 export const roleService = {
+  // Returns only active roles — use in dropdowns
+  getLookup: async (): Promise<RoleOption[]> => {
+    const res = await api.get("/api/role/lookup");
+    const data = res.data?.result ?? res.data ?? [];
+    return data.map((r: { id: string; name: string }) => ({ id: r.id, name: r.name }));
+  },
+
+  // Returns all roles (active + inactive) — use in management page
   getAll: async (): Promise<RoleOption[]> => {
     const res = await api.get("/api/role");
     const data = res.data?.result ?? res.data ?? [];
