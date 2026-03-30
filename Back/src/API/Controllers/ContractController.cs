@@ -114,7 +114,7 @@ public class ContractController : ControllerBase
     [HttpPost("{id:guid}/users")]
     public async Task<IActionResult> AssignUsers(Guid id, [FromBody] AssignContractUsersDto dto)
     {
-        var result = await _contractService.AssignUsersAsync(id, dto.UserIds);
+        var result = await _contractService.AssignUsersAsync(id, dto.Users);
 
         if (!result.Succeeded)
             return result.StatusCode == 404 ? NotFound(result) : BadRequest(result);
