@@ -20,10 +20,9 @@ interface DeptForm {
 
 const emptyForm: DeptForm = { name: "", type: DepartmentType.Bolim, employeeCount: "" };
 
-const TYPE_STYLE: Record<DepartmentType, { bg: string; color: string; border: string; icon: string }> = {
+const TYPE_STYLE: Partial<Record<DepartmentType, { bg: string; color: string; border: string; icon: string }>> = {
   [DepartmentType.IshlabChiqarish]:     { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa", icon: "🏭" },
   [DepartmentType.Bolim]:   { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe", icon: "🏢" },
-  [DepartmentType.Boshqaruv]: { bg: "#f5f3ff", color: "#6d28d9", border: "#ddd6fe", icon: "👔" },
 };
 
 export default function DepartmentsPage() {
@@ -162,7 +161,7 @@ export default function DepartmentsPage() {
 
   /* ===== Inline form view ===== */
   if (showForm) {
-    const ts = TYPE_STYLE[form.type];
+    const ts = TYPE_STYLE[form.type] ?? { bg: "var(--bg1)", color: "var(--text2)", border: "var(--border)", icon: "🏢" };
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -218,7 +217,7 @@ export default function DepartmentsPage() {
                 Toifa <span style={{ color: "var(--danger)" }}>*</span>
               </label>
               <div style={{ display: "flex", gap: 12 }}>
-                {([DepartmentType.IshlabChiqarish, DepartmentType.Bolim, DepartmentType.Boshqaruv] as const).map(t => {
+                {([DepartmentType.IshlabChiqarish, DepartmentType.Bolim] as const).map(t => {
                   const s = TYPE_STYLE[t];
                   const selected = form.type === t;
                   return (
@@ -305,7 +304,6 @@ export default function DepartmentsPage() {
   const counts = {
     [DepartmentType.IshlabChiqarish]:     depts.filter(d => d.type === DepartmentType.IshlabChiqarish).length,
     [DepartmentType.Bolim]:   depts.filter(d => d.type === DepartmentType.Bolim).length,
-    [DepartmentType.Boshqaruv]: depts.filter(d => d.type === DepartmentType.Boshqaruv).length,
   };
 
   return (
@@ -313,10 +311,10 @@ export default function DepartmentsPage() {
 
       {/* Stats chips */}
       <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
-        {([null, DepartmentType.IshlabChiqarish, DepartmentType.Bolim, DepartmentType.Boshqaruv] as const).map(t => {
+        {([null, DepartmentType.IshlabChiqarish, DepartmentType.Bolim] as const).map(t => {
           const active = typeFilter === t;
           const label = t === null ? "Barchasi" : DEPARTMENT_TYPE_LABELS[t];
-          const count = t === null ? depts.length : counts[t];
+          const count = t === null ? depts.length : (counts as Record<DepartmentType, number>)[t] ?? 0;
           const s = t !== null ? TYPE_STYLE[t] : null;
           return (
             <button
@@ -407,7 +405,7 @@ export default function DepartmentsPage() {
                 {filtered.length === 0 ? (
                   <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
                 ) : filtered.map((d, i) => {
-                  const ts = TYPE_STYLE[d.type];
+                  const ts = TYPE_STYLE[d.type] ?? { bg: "var(--bg1)", color: "var(--text2)", border: "var(--border)", icon: "🏢" };
                   return (
                     <tr key={d.id}>
                       <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>
