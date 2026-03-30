@@ -8,4 +8,5 @@ public class UserCreateDto
     public string Password { get; set; } = string.Empty;
     public Guid? RoleId { get; set; }
     public Guid? DepartmentId { get; set; }
+    public bool IsHead { get; set; } = false;
 }
