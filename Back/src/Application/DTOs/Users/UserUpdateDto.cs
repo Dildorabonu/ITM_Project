@@ -9,4 +9,5 @@ public class UserUpdateDto
     public Guid? RoleId { get; set; }
     public Guid? DepartmentId { get; set; }
     public bool? IsActive { get; set; }
+    public bool? IsHead { get; set; }
 }
