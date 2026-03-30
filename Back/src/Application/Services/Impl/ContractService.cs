@@ -61,7 +61,6 @@ var contract = new Contract
         {
             Id = Guid.NewGuid(),
             ContractNo = dto.ContractNo,
-            ClientName = dto.ClientName,
             ProductType = dto.ProductType,
             Quantity = dto.Quantity,
             Unit = dto.Unit,
@@ -97,7 +96,6 @@ var contract = new Contract
             contract.ContractNo = dto.ContractNo;
         }
 
-        if (dto.ClientName is not null) contract.ClientName = dto.ClientName;
         if (dto.ProductType is not null) contract.ProductType = dto.ProductType;
         if (dto.Quantity.HasValue) contract.Quantity = dto.Quantity.Value;
         if (dto.Unit is not null) contract.Unit = dto.Unit;
@@ -154,13 +152,14 @@ var contract = new Contract
                 UserId         = cu.UserId,
                 FullName       = $"{cu.User.FirstName} {cu.User.LastName}",
                 DepartmentName = cu.User.Department != null ? cu.User.Department.Name : null,
+                Role           = cu.Role,
             })
             .ToListAsync();
 
         return ApiResult<IEnumerable<ContractUserDto>>.Success(users);
     }
 
-    public async Task<ApiResult<int>> AssignUsersAsync(Guid contractId, List<Guid> userIds)
+    public async Task<ApiResult<int>> AssignUsersAsync(Guid contractId, List<ContractUserAssignItem> users)
     {
         var exists = await _context.Contracts.AnyAsync(c => c.Id == contractId);
         if (!exists)
@@ -168,21 +167,27 @@ var contract = new Contract
 
         var existing = await _context.ContractUsers
             .Where(cu => cu.ContractId == contractId)
-            .Select(cu => cu.UserId)
             .ToListAsync();
 
-        var toAdd = userIds.Distinct().Except(existing).ToList();
-
-        if (toAdd.Count > 0)
+        foreach (var item in users.DistinctBy(u => u.UserId))
         {
-            _context.ContractUsers.AddRange(toAdd.Select(uid => new ContractUser
+            var ex = existing.FirstOrDefault(e => e.UserId == item.UserId);
+            if (ex is null)
             {
-                ContractId = contractId,
-                UserId     = uid,
-            }));
-            await _context.SaveChangesAsync();
+                _context.ContractUsers.Add(new ContractUser
+                {
+                    ContractId = contractId,
+                    UserId     = item.UserId,
+                    Role       = item.Role,
+                });
+            }
+            else
+            {
+                ex.Role = item.Role;
+            }
         }
 
+        await _context.SaveChangesAsync();
         return ApiResult<int>.Success(200);
     }
 
@@ -204,7 +209,6 @@ var contract = new Contract
     {
         Id = contract.Id,
         ContractNo = contract.ContractNo,
-        ClientName = contract.ClientName,
         ProductType = contract.ProductType,
         Quantity = contract.Quantity,
         Unit = contract.Unit,
@@ -224,9 +228,10 @@ var contract = new Contract
         AssignedUsers = contract.ContractUsers
             .Select(cu => new ContractUserDto
             {
-                UserId   = cu.UserId,
-                FullName = $"{cu.User!.FirstName} {cu.User.LastName}",
+                UserId         = cu.UserId,
+                FullName       = $"{cu.User!.FirstName} {cu.User.LastName}",
                 DepartmentName = cu.User.Department?.Name,
+                Role           = cu.Role,
             }).ToList(),
     };
 }

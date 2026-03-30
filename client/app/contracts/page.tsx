@@ -25,7 +25,6 @@ import {
 
 interface ContractForm {
   contractNo: string;
-  clientName: string;
   productType: string;
   quantity: string;
   unit: string;
@@ -38,7 +37,7 @@ interface ContractForm {
 }
 
 const emptyForm: ContractForm = {
-  contractNo: "", clientName: "", productType: "", quantity: "", unit: "",
+  contractNo: "", productType: "", quantity: "", unit: "",
   departmentId: "", startDate: "", endDate: "",
   priority: String(Priority.Medium), contractParty: "", notes: "",
 };
@@ -132,10 +131,18 @@ export default function ContractsPage() {
   const [formError, setFormError]       = useState("");
   const [pendingContractFiles, setPendingContractFiles] = useState<File[]>([]);
   const [pendingTzFiles, setPendingTzFiles]             = useState<File[]>([]);
-  const [formUsers, setFormUsers]       = useState<UserResponse[]>([]);
-  const [formUserSearch, setFormUserSearch] = useState("");
-  const [showUserPicker, setShowUserPicker] = useState(false);
-  const userPickerRef = useRef<HTMLDivElement | null>(null);
+  const [formUsers, setFormUsers]             = useState<UserResponse[]>([]);
+  const [formSupervisors, setFormSupervisors] = useState<UserResponse[]>([]);
+  const [formObservers, setFormObservers]     = useState<UserResponse[]>([]);
+  const [formUserSearch, setFormUserSearch]   = useState("");
+  const [formSuperSearch, setFormSuperSearch] = useState("");
+  const [formObsSearch, setFormObsSearch]     = useState("");
+  const [showUserPicker, setShowUserPicker]   = useState(false);
+  const [showSuperPicker, setShowSuperPicker] = useState(false);
+  const [showObsPicker, setShowObsPicker]     = useState(false);
+  const userPickerRef  = useRef<HTMLDivElement | null>(null);
+  const superPickerRef = useRef<HTMLDivElement | null>(null);
+  const obsPickerRef   = useRef<HTMLDivElement | null>(null);
 
   // View drawer
   const [viewContract, setViewContract] = useState<ContractResponse | null>(null);
@@ -323,16 +330,17 @@ export default function ContractsPage() {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (!showUserPicker) return;
       const target = event.target as Node | null;
-      if (userPickerRef.current && target && !userPickerRef.current.contains(target)) {
+      if (showUserPicker && userPickerRef.current && target && !userPickerRef.current.contains(target))
         setShowUserPicker(false);
-      }
+      if (showSuperPicker && superPickerRef.current && target && !superPickerRef.current.contains(target))
+        setShowSuperPicker(false);
+      if (showObsPicker && obsPickerRef.current && target && !obsPickerRef.current.contains(target))
+        setShowObsPicker(false);
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showUserPicker]);
+  }, [showUserPicker, showSuperPicker, showObsPicker]);
 
   useEffect(() => {
     if (!showForm) return;
@@ -368,8 +376,14 @@ export default function ContractsPage() {
     setPendingContractFiles([]);
     setPendingTzFiles([]);
     setFormUsers([]);
+    setFormSupervisors([]);
+    setFormObservers([]);
     setFormUserSearch("");
+    setFormSuperSearch("");
+    setFormObsSearch("");
     setShowUserPicker(false);
+    setShowSuperPicker(false);
+    setShowObsPicker(false);
     await ensureDataLoaded();
     window.history.pushState({ showForm: true }, "");
     setShowForm(true);
@@ -379,7 +393,6 @@ export default function ContractsPage() {
     setEditTarget(c);
     setForm({
       contractNo:    c.contractNo,
-      clientName:    c.clientName ?? "",
       productType:   c.productType ?? "",
       quantity:      c.quantity ? String(c.quantity) : "",
       unit:          c.unit ?? "",
@@ -393,7 +406,11 @@ export default function ContractsPage() {
     setSubmitted(false);
     setFormError("");
     setFormUserSearch("");
+    setFormSuperSearch("");
+    setFormObsSearch("");
     setShowUserPicker(false);
+    setShowSuperPicker(false);
+    setShowObsPicker(false);
     const [users, { items }, depts] = await Promise.all([
       contractService.getUsers(c.id),
       userService.getAll(1, 200),
@@ -401,7 +418,9 @@ export default function ContractsPage() {
     ]);
     setAllUsers(items);
     setDepartments(depts);
-    setFormUsers(items.filter((u: UserResponse) => users.some((cu: ContractUserResponse) => cu.userId === u.id)));
+    setFormUsers(items.filter((u: UserResponse) => users.some((cu: ContractUserResponse) => cu.userId === u.id && cu.role === 0)));
+    setFormSupervisors(items.filter((u: UserResponse) => users.some((cu: ContractUserResponse) => cu.userId === u.id && cu.role === 1)));
+    setFormObservers(items.filter((u: UserResponse) => users.some((cu: ContractUserResponse) => cu.userId === u.id && cu.role === 2)));
     window.history.pushState({ showForm: true }, "");
     setShowForm(true);
   };
@@ -422,7 +441,6 @@ export default function ContractsPage() {
       if (editTarget) {
         const dto: ContractUpdatePayload = {
           contractNo:    form.contractNo,
-          clientName:    form.clientName || undefined,
           productType:   form.productType || undefined,
           quantity:      form.quantity ? Number(form.quantity) : undefined,
           unit:          form.unit || undefined,
@@ -434,18 +452,22 @@ export default function ContractsPage() {
           notes:         form.notes || null,
         };
         await contractService.update(editTarget.id, dto);
-        // sync users
+        // sync users by role
         const currentUsers = await contractService.getUsers(editTarget.id);
-        const currentIds = currentUsers.map(u => u.userId);
-        const newIds = formUsers.map(u => u.id);
-        const toAdd = newIds.filter(id => !currentIds.includes(id));
-        const toRemove = currentIds.filter(id => !newIds.includes(id));
+        const newUserMap = new Map<string, number>([
+          ...formUsers.map(u => [u.id, 0] as [string, number]),
+          ...formSupervisors.map(u => [u.id, 1] as [string, number]),
+          ...formObservers.map(u => [u.id, 2] as [string, number]),
+        ]);
+        const toAdd = [...newUserMap.entries()]
+          .filter(([id, role]) => { const ex = currentUsers.find(cu => cu.userId === id); return !ex || ex.role !== role; })
+          .map(([userId, role]) => ({ userId, role }));
+        const toRemove = currentUsers.filter(cu => !newUserMap.has(cu.userId)).map(cu => cu.userId);
         if (toAdd.length > 0) await contractService.assignUsers(editTarget.id, toAdd);
         for (const uid of toRemove) await contractService.removeUser(editTarget.id, uid);
       } else {
         const dto: ContractCreatePayload = {
           contractNo:    form.contractNo,
-          clientName:    form.clientName || undefined,
           productType:   form.productType || undefined,
           quantity:      form.quantity ? Number(form.quantity) : undefined,
           unit:          form.unit || undefined,
@@ -458,8 +480,13 @@ export default function ContractsPage() {
         };
         const newId = await contractService.create(dto);
         if (newId) {
-          if (formUsers.length > 0)
-            await contractService.assignUsers(newId, formUsers.map(u => u.id));
+          const allNewUsers = [
+            ...formUsers.map(u => ({ userId: u.id, role: 0 })),
+            ...formSupervisors.map(u => ({ userId: u.id, role: 1 })),
+            ...formObservers.map(u => ({ userId: u.id, role: 2 })),
+          ];
+          if (allNewUsers.length > 0)
+            await contractService.assignUsers(newId, allNewUsers);
           for (const file of pendingContractFiles)
             await contractService.uploadFile(newId, file);
           for (const file of pendingTzFiles)
@@ -582,6 +609,17 @@ export default function ContractsPage() {
               {fieldErr(form.contractNo) && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Shartnoma raqamini kiriting</div>}
             </div>
 
+            {/* Shartnoma tuzilgan tomon */}
+            <div>
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>
+                Shartnoma tuzilgan tomon
+              </label>
+              <input className="form-input" value={form.contractParty}
+                onChange={e => setForm(f => ({ ...f, contractParty: e.target.value }))}
+                placeholder="Masalan: Ichki ishlar vazirligi, 3-sex, Texnologiya bo'limi..."
+              />
+            </div>
+
             {/* Boshlanish sanasi */}
             <div>
               <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: startDateErr ? "var(--danger)" : "var(--text2)" }}>
@@ -610,20 +648,31 @@ export default function ContractsPage() {
               {endDateErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Sana formati: dd-mm-yy</div>}
             </div>
 
-            {/* Bo'lim */}
+            {/* Mahsulot turi */}
             <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: deptErr ? "var(--danger)" : "var(--text2)" }}>
-                Bo&apos;lim <span style={{ color: "var(--danger)" }}>*</span>
-              </label>
-              <select className="form-input" title="Bo'lim" value={form.departmentId}
-                onChange={e => setForm(f => ({ ...f, departmentId: e.target.value }))}
-                style={{ width: "100%", cursor: "pointer", borderColor: deptErr ? "var(--danger)" : undefined }}>
-                <option value="">— Bo&apos;lim tanlang —</option>
-                {departments.map(d => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </select>
-              {deptErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Bo&apos;limni tanlang</div>}
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Mahsulot turi</label>
+              <input className="form-input" value={form.productType}
+                onChange={e => setForm(f => ({ ...f, productType: e.target.value }))}
+                placeholder="Masalan: Detal, Konstruktsiya..."
+              />
+            </div>
+
+            {/* Miqdor */}
+            <div>
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Miqdor</label>
+              <input className="form-input" type="number" min="0" value={form.quantity}
+                onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))}
+                placeholder="0"
+              />
+            </div>
+
+            {/* O'lchov birligi */}
+            <div>
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>O&apos;lchov birligi</label>
+              <input className="form-input" value={form.unit}
+                onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
+                placeholder="dona, kg, m, m²..."
+              />
             </div>
 
             {/* Muhimlik */}
@@ -638,50 +687,20 @@ export default function ContractsPage() {
               </select>
             </div>
 
-            {/* Mijoz nomi */}
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Mijoz nomi</label>
-              <input className="form-input" value={form.clientName}
-                onChange={e => setForm(f => ({ ...f, clientName: e.target.value }))}
-                placeholder="Mijoz yoki tashkilot nomi"
-              />
-            </div>
-
-            {/* Mahsulot turi */}
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Mahsulot turi</label>
-              <input className="form-input" value={form.productType}
-                onChange={e => setForm(f => ({ ...f, productType: e.target.value }))}
-                placeholder="Masalan: Detal, Konstruktsiya..."
-              />
-            </div>
-
-            {/* Miqdor va o'lchov birligi */}
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Miqdor</label>
-              <input className="form-input" type="number" min="0" value={form.quantity}
-                onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))}
-                placeholder="0"
-              />
-            </div>
-
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>O&apos;lchov birligi</label>
-              <input className="form-input" value={form.unit}
-                onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
-                placeholder="dona, kg, m, m²..."
-              />
-            </div>
-
-            {/* Kim bilan tuzilgan */}
+            {/* Bo'lim */}
             <div style={{ gridColumn: "1 / -1" }}>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>
-                Shartnoma tuzilgan tomon
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: deptErr ? "var(--danger)" : "var(--text2)" }}>
+                Bo&apos;lim <span style={{ color: "var(--danger)" }}>*</span>
               </label>
-              <input className="form-input" value={form.contractParty}
-                onChange={e => setForm(f => ({ ...f, contractParty: e.target.value }))}
-                placeholder="Masalan: Ichki ishlar vazirligi, 3-sex, Texnologiya bo'limi..."
-              />
+              <select className="form-input" title="Bo'lim" value={form.departmentId}
+                onChange={e => setForm(f => ({ ...f, departmentId: e.target.value }))}
+                style={{ width: "100%", cursor: "pointer", borderColor: deptErr ? "var(--danger)" : undefined }}>
+                <option value="">— Bo&apos;lim tanlang —</option>
+                {departments.map(d => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+              {deptErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Bo&apos;limni tanlang</div>}
             </div>
 
             {/* Izoh */}
@@ -692,104 +711,109 @@ export default function ContractsPage() {
                 placeholder="Qo'shimcha izoh (ixtiyoriy)" rows={2} style={{ resize: "none" }} />
             </div>
 
-            {/* Mas'ul xodimlar */}
-            <div style={{ gridColumn: "1 / -1" }}>
-              <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", display: "block", marginBottom: 8 }}>
-                Mas&apos;ul xodimlar <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text3)" }}>(ixtiyoriy)</span>
-              </label>
+            {/* Xodimlar - 3 ta rol */}
+            <div style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
 
-              {/* Selected chips */}
-              {formUsers.length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-                  {formUsers.map(u => (
-                    <div key={u.id} style={{
-                      display: "inline-flex", alignItems: "center", gap: 6,
-                      background: "var(--accent-dim)", border: "1.5px solid var(--accent-mid)",
-                      borderRadius: 20, padding: "4px 10px 4px 8px", fontSize: 12, color: "var(--accent)",
-                    }}>
-                      <span style={{ width: 20, height: 20, borderRadius: "50%", background: "var(--accent)", color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
-                        {u.firstName.charAt(0).toUpperCase()}
-                      </span>
-                      <span style={{ fontWeight: 600 }}>{u.firstName} {u.lastName}</span>
-                      <button type="button" onClick={() => setFormUsers(prev => prev.filter(x => x.id !== u.id))}
-                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent)", padding: 0, lineHeight: 1, fontSize: 14, opacity: 0.7 }}>✕</button>
+              {/* Mas'ul xodimlar */}
+              {([
+                { label: "Mas\u02BCul xodimlar", list: formUsers, setList: setFormUsers, search: formUserSearch, setSearch: setFormUserSearch, showPicker: showUserPicker, setShowPicker: setShowUserPicker, ref_: userPickerRef },
+                { label: "Nazoratchi xodimlar", list: formSupervisors, setList: setFormSupervisors, search: formSuperSearch, setSearch: setFormSuperSearch, showPicker: showSuperPicker, setShowPicker: setShowSuperPicker, ref_: superPickerRef },
+                { label: "Kuzatuvchi xodimlar", list: formObservers, setList: setFormObservers, search: formObsSearch, setSearch: setFormObsSearch, showPicker: showObsPicker, setShowPicker: setShowObsPicker, ref_: obsPickerRef },
+              ] as const).map(({ label, list, setList, search, setSearch, showPicker, setShowPicker, ref_ }) => (
+                <div key={label}>
+                  <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", display: "block", marginBottom: 8 }}>
+                    {label} <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text3)" }}>(ixtiyoriy)</span>
+                  </label>
+
+                  {list.length > 0 && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                      {list.map(u => (
+                        <div key={u.id} style={{
+                          display: "inline-flex", alignItems: "center", gap: 6,
+                          background: "var(--accent-dim)", border: "1.5px solid var(--accent-mid)",
+                          borderRadius: 20, padding: "4px 10px 4px 8px", fontSize: 12, color: "var(--accent)",
+                        }}>
+                          <span style={{ width: 20, height: 20, borderRadius: "50%", background: "var(--accent)", color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
+                            {u.firstName.charAt(0).toUpperCase()}
+                          </span>
+                          <span style={{ fontWeight: 600 }}>{u.firstName} {u.lastName}</span>
+                          <button type="button" onClick={() => setList((prev: typeof list) => prev.filter(x => x.id !== u.id))}
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent)", padding: 0, lineHeight: 1, fontSize: 14, opacity: 0.7 }}>✕</button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
+                  )}
 
-              {/* Picker toggle */}
-              <div ref={userPickerRef} style={{ position: "relative" }}>
-                <button type="button" onClick={() => setShowUserPicker(v => !v)}
-                  style={{
-                    display: "inline-flex", alignItems: "center", gap: 6,
-                    fontSize: 13, fontWeight: 500, cursor: "pointer",
-                    color: "var(--text2)", border: "1.5px solid var(--border)",
-                    borderRadius: "var(--radius)", padding: "8px 14px", background: "var(--bg1)",
-                  }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-                  </svg>
-                  Xodim qo&apos;shish
-                </button>
+                  <div ref={ref_} style={{ position: "relative" }}>
+                    <button type="button" onClick={() => setShowPicker((v: boolean) => !v)}
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: 6,
+                        fontSize: 13, fontWeight: 500, cursor: "pointer",
+                        color: "var(--text2)", border: "1.5px solid var(--border)",
+                        borderRadius: "var(--radius)", padding: "8px 14px", background: "var(--bg1)",
+                      }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                      </svg>
+                      Xodim qo&apos;shish
+                    </button>
 
-                {showUserPicker && (
-                  <div style={{
-                    position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 50,
-                    background: "var(--bg1)", border: "1.5px solid var(--border)", borderRadius: 10,
-                    boxShadow: "0 6px 24px rgba(0,0,0,0.14)", width: 320, padding: 12,
-                  }}>
-                    <input className="form-input" placeholder="Qidirish..." value={formUserSearch}
-                      onChange={e => setFormUserSearch(e.target.value)}
-                      style={{ width: "100%", marginBottom: 8 }} autoFocus />
-                    <div style={{ maxHeight: 220, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
-                      {allUsers
-                        .filter(u => {
-                          const q = formUserSearch.toLowerCase();
-                          return !q || `${u.firstName} ${u.lastName}`.toLowerCase().includes(q) || u.login.toLowerCase().includes(q);
-                        })
-                        .map(u => {
-                          const selected = formUsers.some(x => x.id === u.id);
-                          return (
-                            <button key={u.id} type="button"
-                              onClick={() => {
-                                if (selected) {
-                                  setFormUsers(prev => prev.filter(x => x.id !== u.id));
-                                } else {
-                                  setFormUsers(prev => [...prev, u]);
-                                }
-                                setShowUserPicker(false);
-                              }}
-                              style={{
-                                display: "flex", alignItems: "center", gap: 8,
-                                padding: "7px 10px", border: "none", borderRadius: 6,
-                                background: selected ? "var(--accent-dim)" : "transparent",
-                                cursor: "pointer", textAlign: "left",
-                              }}>
-                              <div style={{
-                                width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
-                                background: selected ? "var(--accent)" : "var(--bg3)",
-                                display: "flex", alignItems: "center", justifyContent: "center",
-                                fontSize: 11, fontWeight: 700, color: selected ? "#fff" : "var(--text2)",
-                              }}>
-                                {u.firstName.charAt(0).toUpperCase()}
-                              </div>
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)" }}>{u.firstName} {u.lastName}</div>
-                                {u.departmentName && <div style={{ fontSize: 11, color: "var(--text3)" }}>{u.departmentName}</div>}
-                              </div>
-                              {selected && (
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5">
-                                  <polyline points="20 6 9 17 4 12" />
-                                </svg>
-                              )}
-                            </button>
-                          );
-                        })}
-                    </div>
+                    {showPicker && (
+                      <div style={{
+                        position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 50,
+                        background: "var(--bg1)", border: "1.5px solid var(--border)", borderRadius: 10,
+                        boxShadow: "0 6px 24px rgba(0,0,0,0.14)", width: 280, padding: 12,
+                      }}>
+                        <input className="form-input" placeholder="Qidirish..." value={search}
+                          onChange={e => setSearch(e.target.value)}
+                          style={{ width: "100%", marginBottom: 8 }} autoFocus />
+                        <div style={{ maxHeight: 200, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
+                          {allUsers
+                            .filter(u => {
+                              const q = search.toLowerCase();
+                              return !q || `${u.firstName} ${u.lastName}`.toLowerCase().includes(q) || u.login.toLowerCase().includes(q);
+                            })
+                            .map(u => {
+                              const selected = list.some(x => x.id === u.id);
+                              return (
+                                <button key={u.id} type="button"
+                                  onClick={() => {
+                                    if (selected) setList((prev: typeof list) => prev.filter(x => x.id !== u.id));
+                                    else setList((prev: typeof list) => [...prev, u]);
+                                    setShowPicker(false);
+                                  }}
+                                  style={{
+                                    display: "flex", alignItems: "center", gap: 8,
+                                    padding: "7px 10px", border: "none", borderRadius: 6,
+                                    background: selected ? "var(--accent-dim)" : "transparent",
+                                    cursor: "pointer", textAlign: "left",
+                                  }}>
+                                  <div style={{
+                                    width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
+                                    background: selected ? "var(--accent)" : "var(--bg3)",
+                                    display: "flex", alignItems: "center", justifyContent: "center",
+                                    fontSize: 11, fontWeight: 700, color: selected ? "#fff" : "var(--text2)",
+                                  }}>
+                                    {u.firstName.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)" }}>{u.firstName} {u.lastName}</div>
+                                    {u.departmentName && <div style={{ fontSize: 11, color: "var(--text3)" }}>{u.departmentName}</div>}
+                                  </div>
+                                  {selected && (
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5">
+                                      <polyline points="20 6 9 17 4 12" />
+                                    </svg>
+                                  )}
+                                </button>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </div>
+              ))}
             </div>
 
             {/* Shartnoma fayli */}

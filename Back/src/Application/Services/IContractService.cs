@@ -13,6 +13,6 @@ public interface IContractService
     Task<ApiResult<int>> UpdateStatusAsync(Guid id, ContractStatus status);
     Task<ApiResult<int>> DeleteAsync(Guid id);
     Task<ApiResult<IEnumerable<ContractUserDto>>> GetUsersAsync(Guid contractId);
-    Task<ApiResult<int>> AssignUsersAsync(Guid contractId, List<Guid> userIds);
+    Task<ApiResult<int>> AssignUsersAsync(Guid contractId, List<ContractUserAssignItem> users);
     Task<ApiResult<int>> RemoveUserAsync(Guid contractId, Guid userId);
 }

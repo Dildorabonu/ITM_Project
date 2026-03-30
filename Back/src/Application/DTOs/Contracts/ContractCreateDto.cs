@@ -5,7 +5,6 @@ namespace Application.DTOs.Contracts;
 public class ContractCreateDto
 {
     public string ContractNo { get; set; } = string.Empty;
-    public string ClientName { get; set; } = string.Empty;
     public string ProductType { get; set; } = string.Empty;
     public int Quantity { get; set; }
     public string Unit { get; set; } = string.Empty;
