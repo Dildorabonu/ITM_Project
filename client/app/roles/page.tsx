@@ -173,18 +173,31 @@ export default function RolesPage() {
 
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const deleteRole = async () => {
     if (!deleteConfirmId) return;
     setDeleting(true);
+    setDeleteError(null);
     try {
       await roleService.delete(deleteConfirmId);
       setDeleteConfirmId(null);
       await fetchAll();
-    } catch {
-      // stay open on error
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { errors?: string[] } } };
+      const msg = axiosErr?.response?.data?.errors?.[0] ?? "Xatolik yuz berdi.";
+      setDeleteError(msg);
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const activateRole = async (id: string) => {
+    try {
+      await roleService.update(id, { isActive: true });
+      await fetchAll();
+    } catch {
+      // ignore
     }
   };
 
@@ -433,20 +446,28 @@ export default function RolesPage() {
               <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
               <th style={{ textAlign: "center", color: "var(--text1)" }}>Nomi</th>
               <th style={{ textAlign: "center", color: "var(--text1)" }}>Tavsif</th>
-              <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>Amallar</th>
+              <th style={{ textAlign: "center", color: "var(--text1)" }}>Holat</th>
+              <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", width: 124 }}>Amallar</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={4} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Yuklanmoqda...</td></tr>
+              <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Yuklanmoqda...</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={4} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Rollar topilmadi</td></tr>
+              <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Rollar topilmadi</td></tr>
             ) : filtered.map((r, i) => (
-              <tr key={r.id}>
+              <tr key={r.id} style={{ opacity: r.isActive === false ? 0.6 : 1 }}>
                 <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>{String(i + 1).padStart(2, "0")}</td>
                 <td style={{ textAlign: "center" }}>{r.name}</td>
                 <td style={{ textAlign: "center", color: "var(--text1)" }}>{r.description || "—"}</td>
-                <td style={{ borderLeft: "2px solid var(--border)" }}>
+                <td style={{ textAlign: "center" }}>
+                  {r.isActive === false ? (
+                    <span style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 999, fontSize: 11, fontWeight: 700, padding: "3px 10px" }}>Noaktiv</span>
+                  ) : (
+                    <span style={{ background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0", borderRadius: 999, fontSize: 11, fontWeight: 700, padding: "3px 10px" }}>Aktiv</span>
+                  )}
+                </td>
+                <td className="td-actions" style={{ borderLeft: "2px solid var(--border)" }}>
                   <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
                     <button className="btn-icon" title="Ko'rish" onClick={() => openViewRole(r)}
                       style={{ color: "#0ea5e9", borderColor: "#0ea5e933", background: "#0ea5e912" }}>
@@ -457,7 +478,7 @@ export default function RolesPage() {
                     </button>
                     {r.id !== "00000000-0000-0000-0000-000000000001" && (
                       <>
-                        {canUpdate && (
+                        {canUpdate && r.isActive !== false && (
                           <button className="btn-icon" title="Tahrirlash" onClick={() => openEditRole(r)}
                             style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -466,14 +487,20 @@ export default function RolesPage() {
                             </svg>
                           </button>
                         )}
-                        {canDelete && (
-                          <button className="btn-icon btn-icon-danger" title="O'chirish" onClick={() => setDeleteConfirmId(r.id)}
+                        {canUpdate && r.isActive === false && (
+                          <button className="btn-icon" title="Aktivlashtirish" onClick={() => activateRole(r.id)}
+                            style={{ color: "#16a34a", borderColor: "#16a34a33", background: "#f0fdf4" }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          </button>
+                        )}
+                        {canDelete && r.isActive !== false && (
+                          <button className="btn-icon btn-icon-danger" title="Noaktiv qilish" onClick={() => { setDeleteConfirmId(r.id); setDeleteError(null); }}
                             style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <polyline points="3 6 5 6 21 6" />
-                              <path d="M19 6l-1 14H6L5 6" />
-                              <path d="M10 11v6M14 11v6" />
-                              <path d="M9 6V4h6v2" />
+                              <circle cx="12" cy="12" r="7"/>
+                              <line x1="6.7" y1="6.7" x2="17.3" y2="17.3"/>
                             </svg>
                           </button>
                         )}
@@ -488,7 +515,7 @@ export default function RolesPage() {
         </div>
       </div>
 
-      {/* ===== Delete Confirm Modal ===== */}
+      {/* ===== Deactivate Confirm Modal ===== */}
       {deleteConfirmId && (
         <div style={{
           position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000,
@@ -496,18 +523,28 @@ export default function RolesPage() {
         }}>
           <div style={{
             background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12,
-            padding: 28, width: 340, maxWidth: "95vw", textAlign: "center",
+            padding: 28, width: 380, maxWidth: "95vw", textAlign: "center",
           }}>
-            <div style={{ fontSize: 15, marginBottom: 8 }}>Rolni o&apos;chirish</div>
-            <div style={{ color: "var(--text2)", fontSize: 13, marginBottom: 20 }}>
-              Ushbu rol o&apos;chiriladi. Davom etasizmi?
+            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>Rolni noaktiv qilish</div>
+            <div style={{ color: "var(--text2)", fontSize: 13, marginBottom: deleteError ? 12 : 20 }}>
+              Ushbu rol noaktiv qilinadi va yangi foydalanuvchilarga biriktirib bo&apos;lmaydi. Davom etasizmi?
             </div>
+            {deleteError && (
+              <div style={{
+                background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8,
+                color: "#dc2626", fontSize: 13, padding: "10px 14px", marginBottom: 16, textAlign: "left",
+              }}>
+                {deleteError}
+              </div>
+            )}
             <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-              <button className="btn-secondary" style={{ padding: "8px 20px" }} onClick={() => setDeleteConfirmId(null)} disabled={deleting}>Bekor</button>
-              <button className="btn-primary" style={{ background: "var(--danger)", borderColor: "var(--danger)", padding: "8px 20px", borderRadius: "var(--radius)" }}
-                onClick={deleteRole} disabled={deleting}>
-                {deleting ? "O'chirilmoqda..." : "O'chirish"}
-              </button>
+              <button className="btn-secondary" style={{ padding: "8px 20px" }} onClick={() => { setDeleteConfirmId(null); setDeleteError(null); }} disabled={deleting}>Bekor</button>
+              {!deleteError && (
+                <button className="btn-primary" style={{ background: "var(--danger)", borderColor: "var(--danger)", padding: "8px 20px", borderRadius: "var(--radius)" }}
+                  onClick={deleteRole} disabled={deleting}>
+                  {deleting ? "Noaktiv qilinmoqda..." : "Noaktiv qilish"}
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -174,7 +174,8 @@ public class UserService : IUserService
         if (user is null)
             return ApiResult<int>.Failure([$"User with id '{id}' not found."]);
 
-        _context.Users.Remove(user);
+        user.IsActive = false;
+        user.IsHead = false;
         await _context.SaveChangesAsync();
         _cache.Remove(LookupCacheKey);
 

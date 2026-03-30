@@ -26,6 +26,13 @@ public class RoleController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("lookup")]
+    public async Task<IActionResult> GetLookup()
+    {
+        var result = await _roleService.GetLookupAsync();
+        return Ok(result);
+    }
+
     [HasPermission("Roles.View")]
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id)

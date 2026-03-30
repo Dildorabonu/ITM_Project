@@ -268,7 +268,7 @@ function UsersPageInner() {
 
   useEffect(() => {
     load(page);
-    roleService.getAll().then(setRoles).catch(() => {});
+    roleService.getLookup().then(setRoles).catch(() => {});
     departmentService.getAll().then(setDepartments).catch(() => {});
   }, [page]);
 
