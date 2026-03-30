@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useDraft } from "@/lib/useDraft";
 import {
   departmentService,
+  DepartmentType,
+  DEPARTMENT_TYPE_LABELS,
   type DepartmentResponse,
   type DepartmentCreatePayload,
   type DepartmentUpdatePayload,
@@ -12,10 +14,17 @@ import { useAuthStore } from "@/lib/store/authStore";
 
 interface DeptForm {
   name: string;
+  type: DepartmentType;
   employeeCount: string;
 }
 
-const emptyForm: DeptForm = { name: "", employeeCount: "" };
+const emptyForm: DeptForm = { name: "", type: DepartmentType.Bolim, employeeCount: "" };
+
+const TYPE_STYLE: Record<DepartmentType, { bg: string; color: string; border: string; icon: string }> = {
+  [DepartmentType.IshlabChiqarish]:     { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa", icon: "🏭" },
+  [DepartmentType.Bolim]:   { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe", icon: "🏢" },
+  [DepartmentType.Boshqaruv]: { bg: "#f5f3ff", color: "#6d28d9", border: "#ddd6fe", icon: "👔" },
+};
 
 export default function DepartmentsPage() {
   const hasPermission = useAuthStore(s => s.hasPermission);
@@ -26,17 +35,16 @@ export default function DepartmentsPage() {
   const [depts, setDepts] = useState<DepartmentResponse[]>([]);
   const [filtered, setFiltered] = useState<DepartmentResponse[]>([]);
   const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<DepartmentType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Inline form
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState<DepartmentResponse | null>(null);
   const [form, setForm] = useState<DeptForm>(emptyForm);
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Delete confirm
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -53,7 +61,6 @@ export default function DepartmentsPage() {
       setError("");
       const data = await departmentService.getAllFull();
       setDepts(data);
-      setFiltered(data);
     } catch {
       setError("Ma'lumotlarni yuklashda xatolik yuz berdi.");
     } finally {
@@ -61,16 +68,15 @@ export default function DepartmentsPage() {
     }
   };
 
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { load(); }, []);
 
   useEffect(() => {
     const q = search.toLowerCase();
-    setFiltered(
-      q ? depts.filter(d => d.name.toLowerCase().includes(q)) : depts
-    );
-  }, [search, depts]);
+    let list = depts;
+    if (typeFilter !== null) list = list.filter(d => d.type === typeFilter);
+    if (q) list = list.filter(d => d.name.toLowerCase().includes(q));
+    setFiltered(list);
+  }, [search, typeFilter, depts]);
 
   useEffect(() => {
     if (!showForm) return;
@@ -89,7 +95,7 @@ export default function DepartmentsPage() {
 
   const openEdit = (d: DepartmentResponse) => {
     setEditTarget(d);
-    setForm({ name: d.name, employeeCount: String(d.employeeCount ?? "") });
+    setForm({ name: d.name, type: d.type, employeeCount: String(d.employeeCount ?? "") });
     setFormSubmitted(false);
     window.history.pushState({ showForm: true }, "");
     setShowForm(true);
@@ -105,24 +111,28 @@ export default function DepartmentsPage() {
       if (editTarget) {
         const payload: DepartmentUpdatePayload = {
           name: form.name || undefined,
+          type: form.type,
           employeeCount: count ?? null,
         };
         await departmentService.update(editTarget.id, payload);
         const updated: DepartmentResponse = {
           ...editTarget,
           name: form.name || editTarget.name,
+          type: form.type,
           employeeCount: count ?? editTarget.employeeCount,
         };
         setDepts(prev => prev.map(d => d.id === editTarget.id ? updated : d));
       } else {
         const payload: DepartmentCreatePayload = {
           name: form.name,
+          type: form.type,
           employeeCount: count,
         };
         await departmentService.create(payload);
         const created: DepartmentResponse = {
           id: crypto.randomUUID(),
           name: form.name,
+          type: form.type,
           employeeCount: count ?? 0,
           createdAt: new Date().toISOString(),
         };
@@ -152,40 +162,38 @@ export default function DepartmentsPage() {
 
   /* ===== Inline form view ===== */
   if (showForm) {
+    const ts = TYPE_STYLE[form.type];
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-        {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>
-            {editTarget ? "Bo'limni tahrirlash" : "Yangi bo'lim"}
+            {editTarget ? "Bo'limni tahrirlash" : "Yangi bo'lim / ishlab chiqarish / boshliq"}
           </span>
         </div>
 
-        {/* Form fields */}
         <div className="itm-card" style={{ padding: 28 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-            {/* Bo'lim nomi */}
+
+            {/* Nomi */}
             <div>
               <label style={{
                 fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6,
                 color: formSubmitted && !form.name.trim() ? "var(--danger)" : "var(--text2)",
               }}>
-                Bo&apos;lim nomi <span style={{ color: "var(--danger)" }}>*</span>
+                Nomi <span style={{ color: "var(--danger)" }}>*</span>
               </label>
               <input
                 className="form-input"
                 value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="Bo'lim nomini kiriting"
+                placeholder="Nomini kiriting"
                 style={formSubmitted && !form.name.trim() ? {
                   borderColor: "var(--danger)", outline: "none",
                   boxShadow: "0 0 0 2px var(--danger)33",
                 } : undefined}
               />
               {formSubmitted && !form.name.trim() && (
-                <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>
-                  Bo&apos;lim nomini kiriting
-                </div>
+                <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Nomini kiriting</div>
               )}
             </div>
 
@@ -203,38 +211,68 @@ export default function DepartmentsPage() {
                 placeholder="0"
               />
             </div>
+
+            {/* Toifa */}
+            <div style={{ gridColumn: "1 / -1" }}>
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 10, color: "var(--text2)" }}>
+                Toifa <span style={{ color: "var(--danger)" }}>*</span>
+              </label>
+              <div style={{ display: "flex", gap: 12 }}>
+                {([DepartmentType.IshlabChiqarish, DepartmentType.Bolim, DepartmentType.Boshqaruv] as const).map(t => {
+                  const s = TYPE_STYLE[t];
+                  const selected = form.type === t;
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, type: t }))}
+                      style={{
+                        flex: 1, padding: "14px 12px", borderRadius: 10, cursor: "pointer",
+                        border: selected ? `2px solid ${s.color}` : "2px solid var(--border)",
+                        background: selected ? s.bg : "var(--bg1)",
+                        display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+                        transition: "all 0.15s",
+                      }}
+                    >
+                      <span style={{ fontSize: 22 }}>{s.icon}</span>
+                      <span style={{
+                        fontSize: 13, fontWeight: 700,
+                        color: selected ? s.color : "var(--text2)",
+                      }}>
+                        {DEPARTMENT_TYPE_LABELS[t]}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
-          {/* Preview card */}
+          {/* Preview */}
           {form.name && (
             <div style={{
               marginTop: 24, padding: "16px 20px",
-              border: "1.5px solid var(--accent)44",
-              borderRadius: 10, background: "var(--accent-dim)",
+              border: `1.5px solid ${ts.border}`,
+              borderRadius: 10, background: ts.bg,
               display: "flex", alignItems: "center", gap: 16,
             }}>
               <div style={{
                 width: 40, height: 40, borderRadius: 10,
-                background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                background: ts.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                fontSize: 20,
               }}>
-                <svg width="18" height="18" fill="none" stroke="#fff" strokeWidth="2" viewBox="0 0 24 24">
-                  <rect x="2" y="7" width="20" height="14" rx="2" />
-                  <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
-                </svg>
+                {ts.icon}
               </div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)" }}>
-                  {form.name}
-                </div>
-                <div style={{ fontSize: 12, color: "var(--text2)", marginTop: 2 }}>
-                  Xodimlar: {form.employeeCount || "0"}
+                <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)" }}>{form.name}</div>
+                <div style={{ fontSize: 12, color: ts.color, marginTop: 2, fontWeight: 600 }}>
+                  {DEPARTMENT_TYPE_LABELS[form.type]} · Xodimlar: {form.employeeCount || "0"}
                 </div>
               </div>
             </div>
           )}
         </div>
 
-        {/* Footer */}
         <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 8 }}>
           <button
             onClick={() => setShowForm(false)}
@@ -256,7 +294,7 @@ export default function DepartmentsPage() {
               <polyline points="17 21 17 13 7 13 7 21" />
               <polyline points="7 3 7 8 15 8" />
             </svg>
-            {saving ? "Saqlanmoqda..." : editTarget ? "O'zgarishlarni saqlash" : "Bo'lim yaratish"}
+            {saving ? "Saqlanmoqda..." : editTarget ? "O'zgarishlarni saqlash" : "Yaratish"}
           </button>
         </div>
       </div>
@@ -264,8 +302,55 @@ export default function DepartmentsPage() {
   }
 
   /* ===== List view ===== */
+  const counts = {
+    [DepartmentType.IshlabChiqarish]:     depts.filter(d => d.type === DepartmentType.IshlabChiqarish).length,
+    [DepartmentType.Bolim]:   depts.filter(d => d.type === DepartmentType.Bolim).length,
+    [DepartmentType.Boshqaruv]: depts.filter(d => d.type === DepartmentType.Boshqaruv).length,
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+
+      {/* Stats chips */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+        {([null, DepartmentType.IshlabChiqarish, DepartmentType.Bolim, DepartmentType.Boshqaruv] as const).map(t => {
+          const active = typeFilter === t;
+          const label = t === null ? "Barchasi" : DEPARTMENT_TYPE_LABELS[t];
+          const count = t === null ? depts.length : counts[t];
+          const s = t !== null ? TYPE_STYLE[t] : null;
+          return (
+            <button
+              key={String(t)}
+              type="button"
+              onClick={() => setTypeFilter(t)}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 13, fontWeight: 600,
+                border: active
+                  ? `1.5px solid ${s ? s.color : "var(--accent)"}`
+                  : "1.5px solid var(--border)",
+                background: active
+                  ? (s ? s.bg : "var(--accent-dim)")
+                  : "var(--bg1)",
+                color: active
+                  ? (s ? s.color : "var(--accent)")
+                  : "var(--text2)",
+                transition: "all 0.15s",
+              }}
+            >
+              {t !== null && <span>{s!.icon}</span>}
+              {label}
+              <span style={{
+                background: active ? (s ? s.color : "var(--accent)") : "var(--border)",
+                color: active ? "#fff" : "var(--text2)",
+                borderRadius: 10, padding: "1px 7px", fontSize: 11,
+              }}>{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Toolbar */}
       <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px" }}>
         <div className="search-wrap" style={{ maxWidth: "none", flex: 1 }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -311,7 +396,8 @@ export default function DepartmentsPage() {
               <thead>
                 <tr>
                   <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Bo&apos;lim nomi</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Nomi</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Toifa</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Bo&apos;lim boshlig&apos;i</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Xodimlar</th>
                   <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>Amal</th>
@@ -319,44 +405,56 @@ export default function DepartmentsPage() {
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
-                ) : filtered.map((d, i) => (
-                  <tr key={d.id}>
-                    <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>
-                      {String(i + 1).padStart(2, "0")}
-                    </td>
-                    <td style={{ textAlign: "center" }}>{d.name}</td>
-                    <td style={{ textAlign: "center", color: "var(--text1)" }}>{d.headUserName ?? "—"}</td>
-                    <td style={{ textAlign: "center", color: "var(--text1)" }}>{d.employeeCount ?? "—"}</td>
-                    <td style={{ borderLeft: "2px solid var(--border)" }}>
-                      {(canUpdate || canDelete) && (
-                        <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-                          {canUpdate && (
-                            <button className="btn-icon" title="Tahrirlash" onClick={() => openEdit(d)}
-                              style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                              </svg>
-                            </button>
-                          )}
-                          {canDelete && (
-                            <button className="btn-icon btn-icon-danger" title="O'chirish"
-                              style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}
-                              onClick={() => setDeleteId(d.id)}>
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <polyline points="3 6 5 6 21 6" />
-                                <path d="M19 6l-1 14H6L5 6" />
-                                <path d="M10 11v6M14 11v6" />
-                                <path d="M9 6V4h6v2" />
-                              </svg>
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                  <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
+                ) : filtered.map((d, i) => {
+                  const ts = TYPE_STYLE[d.type];
+                  return (
+                    <tr key={d.id}>
+                      <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>
+                        {String(i + 1).padStart(2, "0")}
+                      </td>
+                      <td style={{ textAlign: "center", fontWeight: 600 }}>{d.name}</td>
+                      <td style={{ textAlign: "center" }}>
+                        <span style={{
+                          display: "inline-flex", alignItems: "center", gap: 5,
+                          padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600,
+                          background: ts.bg, color: ts.color, border: `1px solid ${ts.border}`,
+                        }}>
+                          {ts.icon} {DEPARTMENT_TYPE_LABELS[d.type]}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: "center", color: "var(--text1)" }}>{d.headUserName ?? "—"}</td>
+                      <td style={{ textAlign: "center", color: "var(--text1)" }}>{d.employeeCount ?? "—"}</td>
+                      <td style={{ borderLeft: "2px solid var(--border)" }}>
+                        {(canUpdate || canDelete) && (
+                          <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                            {canUpdate && (
+                              <button className="btn-icon" title="Tahrirlash" onClick={() => openEdit(d)}
+                                style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                </svg>
+                              </button>
+                            )}
+                            {canDelete && (
+                              <button className="btn-icon btn-icon-danger" title="O'chirish"
+                                style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}
+                                onClick={() => setDeleteId(d.id)}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <polyline points="3 6 5 6 21 6" />
+                                  <path d="M19 6l-1 14H6L5 6" />
+                                  <path d="M10 11v6M14 11v6" />
+                                  <path d="M9 6V4h6v2" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -373,9 +471,9 @@ export default function DepartmentsPage() {
             background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12,
             padding: 28, width: 340, maxWidth: "95vw", textAlign: "center",
           }}>
-            <div style={{ fontSize: 15, marginBottom: 8 }}>Bo&apos;limni o&apos;chirish</div>
+            <div style={{ fontSize: 15, marginBottom: 8 }}>O&apos;chirishni tasdiqlang</div>
             <div style={{ color: "var(--text2)", fontSize: 13, marginBottom: 20 }}>
-              Ushbu bo&apos;lim o&apos;chiriladi. Davom etasizmi?
+              Ushbu yozuv o&apos;chiriladi. Davom etasizmi?
             </div>
             <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
               <button className="btn btn-outline" onClick={() => setDeleteId(null)} disabled={deleting}>Bekor</button>
