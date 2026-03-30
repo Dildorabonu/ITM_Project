@@ -98,13 +98,37 @@ public class CostNormService : ICostNormService
 
     public async Task<ApiResult<int>> UpdateAsync(Guid id, CostNormUpdateDto dto)
     {
-        var costNorm = await _context.CostNorms.FirstOrDefaultAsync(c => c.Id == id);
+        var costNorm = await _context.CostNorms
+            .Include(c => c.Items)
+            .FirstOrDefaultAsync(c => c.Id == id);
 
         if (costNorm is null)
             return ApiResult<int>.Failure([$"CostNorm with id '{id}' not found."], 404);
 
         if (dto.Title is not null) costNorm.Title = dto.Title;
         if (dto.Notes is not null) costNorm.Notes = dto.Notes;
+
+        if (dto.Items is not null)
+        {
+            _context.CostNormItems.RemoveRange(costNorm.Items);
+            costNorm.Items = dto.Items.Select((item, index) => new CostNormItem
+            {
+                Id = Guid.NewGuid(),
+                CostNormId = costNorm.Id,
+                IsSection = item.IsSection,
+                SectionName = item.SectionName,
+                No = item.No,
+                Name = item.Name,
+                Unit = item.Unit,
+                ReadyQty = item.ReadyQty,
+                WasteQty = item.WasteQty,
+                TotalQty = item.TotalQty,
+                PhotoRaw = item.PhotoRaw,
+                PhotoSemi = item.PhotoSemi,
+                ImportType = item.ImportType,
+                SortOrder = item.SortOrder > 0 ? item.SortOrder : index,
+            }).ToList();
+        }
 
         await _context.SaveChangesAsync();
 

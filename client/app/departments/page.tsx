@@ -47,6 +47,7 @@ export default function DepartmentsPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+
   useDraft(
     "draft_departments",
     showForm,
@@ -455,6 +456,7 @@ export default function DepartmentsPage() {
                 })}
               </tbody>
             </table>
+
           </div>
         )}
       </div>

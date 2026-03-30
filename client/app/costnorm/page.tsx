@@ -206,25 +206,29 @@ function normalizeRow(r: MaterialRow | CostNormItemResponse): NormRow {
   return { isSection: ir.isSection, sectionName: ir.sectionName, name: ir.name, unit: ir.unit, readyQty: ir.readyQty, wasteQty: ir.wasteQty, totalQty: ir.totalQty, photoRaw: ir.photoRaw, photoSemi: ir.photoSemi, importType: ir.importType };
 }
 
-function CollapsibleItemsTable({ rows, showPhotos }: { rows: (MaterialRow | CostNormItemResponse)[]; showPhotos: boolean }) {
+function CollapsibleItemsTable({ rows, showPhotos, onUpdateRow, onDeleteRow }: { rows: (MaterialRow | CostNormItemResponse)[]; showPhotos: boolean; onUpdateRow?: (flatIndex: number, updated: Partial<MaterialRow>) => void; onDeleteRow?: (flatIndex: number) => void }) {
+  const editable = !!onUpdateRow;
   const normalized = useMemo(() => rows.map(normalizeRow), [rows]);
+  const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState<Partial<NormRow>>({});
 
-  // Group rows into sections
+  // Group rows into sections (with original flat index for editing)
   const sections = useMemo(() => {
-    const groups: { sectionIdx: number; sectionName: string; items: NormRow[] }[] = [];
-    let current: { sectionIdx: number; sectionName: string; items: NormRow[] } = {
+    const groups: { sectionIdx: number; sectionName: string; items: { row: NormRow; flatIdx: number }[] }[] = [];
+    let current: { sectionIdx: number; sectionName: string; items: { row: NormRow; flatIdx: number }[] } = {
       sectionIdx: 0,
       sectionName: "",
       items: [],
     };
     let sectionIdx = 0;
-    for (const row of normalized) {
+    for (let fi = 0; fi < normalized.length; fi++) {
+      const row = normalized[fi];
       if (row.isSection) {
         if (current.items.length > 0 || current.sectionName) groups.push(current);
         sectionIdx++;
         current = { sectionIdx, sectionName: row.sectionName || "", items: [] };
       } else {
-        current.items.push(row);
+        current.items.push({ row, flatIdx: fi });
       }
     }
     groups.push(current);
@@ -244,7 +248,7 @@ function CollapsibleItemsTable({ rows, showPhotos }: { rows: (MaterialRow | Cost
   const expandAll = () => setCollapsed(new Set());
   const allCollapsed = collapsed.size === sections.filter(s => s.sectionName).length;
 
-  const colCount = showPhotos ? 9 : 7;
+  const colCount = (showPhotos ? 9 : 7) + (editable ? 1 : 0);
   let globalRowIdx = 0;
 
   return (
@@ -262,22 +266,23 @@ function CollapsibleItemsTable({ rows, showPhotos }: { rows: (MaterialRow | Cost
         </div>
       )}
 
-      <table className="itm-table" style={{ tableLayout: "fixed", width: "100%" }}>
+      <table className="itm-table" style={{ width: "100%", tableLayout: "auto" }}>
         <thead>
           <tr>
-            <th style={{ width: 56, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", position: "sticky", top: 0, zIndex: 2, background: "var(--bg2)" }}>T/r</th>
-            <th style={{ color: "var(--text1)", width: 220, position: "sticky", top: 0, zIndex: 2, background: "var(--bg2)" }}>Материал номи</th>
-            <th style={{ color: "var(--text1)", width: 70, position: "sticky", top: 0, zIndex: 2, background: "var(--bg2)" }}>Ўлчов</th>
-            <th style={{ textAlign: "right", color: "var(--text1)", width: 110, position: "sticky", top: 0, zIndex: 2, background: "var(--bg2)" }}>Тайёр маҳсулот</th>
-            <th style={{ textAlign: "right", color: "var(--text1)", width: 90, position: "sticky", top: 0, zIndex: 2, background: "var(--bg2)" }}>Чиқинди</th>
-            <th style={{ textAlign: "right", color: "var(--text1)", width: 90, position: "sticky", top: 0, zIndex: 2, background: "var(--bg2)" }}>Умумий сарф</th>
+            <th style={{ width: 42, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", position: "sticky", top: 0, zIndex: 2, background: "var(--bg2)" }}>T/r</th>
+            <th style={{ color: "var(--text1)", textAlign: "center", whiteSpace: "nowrap", position: "sticky", top: 0, zIndex: 2, background: "var(--bg2)" }}>Материал номи</th>
+            <th style={{ color: "var(--text1)", textAlign: "center", whiteSpace: "nowrap", position: "sticky", top: 0, zIndex: 2, background: "var(--bg2)" }}>Ўлчов</th>
+            <th style={{ textAlign: "center", color: "var(--text1)", whiteSpace: "nowrap", position: "sticky", top: 0, zIndex: 2, background: "var(--bg2)" }}>Тайёр маҳсулот</th>
+            <th style={{ textAlign: "center", color: "var(--text1)", whiteSpace: "nowrap", position: "sticky", top: 0, zIndex: 2, background: "var(--bg2)" }}>Чиқинди</th>
+            <th style={{ textAlign: "center", color: "var(--text1)", whiteSpace: "nowrap", position: "sticky", top: 0, zIndex: 2, background: "var(--bg2)" }}>Умумий сарф</th>
             {showPhotos && (
               <>
-                <th style={{ color: "var(--text1)", width: 70, position: "sticky", top: 0, zIndex: 2, background: "var(--bg2)" }}>Хом-ашё</th>
-                <th style={{ color: "var(--text1)", width: 70, position: "sticky", top: 0, zIndex: 2, background: "var(--bg2)" }}>Ярим тайёр</th>
+                <th style={{ color: "var(--text1)", textAlign: "center", whiteSpace: "nowrap", position: "sticky", top: 0, zIndex: 2, background: "var(--bg2)" }}>Хом-ашё</th>
+                <th style={{ color: "var(--text1)", textAlign: "center", whiteSpace: "nowrap", position: "sticky", top: 0, zIndex: 2, background: "var(--bg2)" }}>Ярим тайёр</th>
               </>
             )}
-            <th style={{ color: "var(--text1)", width: 120, position: "sticky", top: 0, zIndex: 2, background: "var(--bg2)" }}>Манба</th>
+            <th style={{ color: "var(--text1)", textAlign: "center", whiteSpace: "nowrap", position: "sticky", top: 0, zIndex: 2, background: "var(--bg2)" }}>Манба</th>
+            {editable && <th style={{ whiteSpace: "nowrap", textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", position: "sticky", top: 0, zIndex: 2, background: "var(--bg2)" }}>Amal</th>}
           </tr>
         </thead>
         <tbody>
@@ -316,37 +321,138 @@ function CollapsibleItemsTable({ rows, showPhotos }: { rows: (MaterialRow | Cost
                     </td>
                   </tr>
                 )}
-                {!isCollapsed && section.items.map((row, ri) => {
+                {!isCollapsed && section.items.map(({ row, flatIdx }, ri) => {
                   globalRowIdx++;
                   const rowNum = globalRowIdx;
+                  const isEditing = editingIdx === flatIdx;
                   return (
-                    <tr key={`${section.sectionIdx}-${ri}`}>
-                      <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px", color: "var(--text1)", fontSize: 12 }}>
+                    <tr key={`${section.sectionIdx}-${ri}`} style={isEditing ? { background: "var(--accent-dim)" } : undefined}>
+                      <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 40, padding: "0 4px", color: "var(--text1)", fontSize: 12 }}>
                         {String(rowNum).padStart(2, "0")}
                       </td>
-                      <td style={{ color: "var(--text1)", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 220 }} title={row.name ?? ""}>{row.name || "—"}</td>
-                      <td style={{ color: "var(--text1)" }}>{row.unit || "—"}</td>
-                      <td style={{ textAlign: "right", color: "var(--text1)", fontFamily: "Inter, sans-serif" }}>{row.readyQty || "—"}</td>
-                      <td style={{ textAlign: "right", color: "var(--text1)", fontFamily: "Inter, sans-serif" }}>{row.wasteQty || "—"}</td>
-                      <td style={{ textAlign: "right", color: "var(--text1)", fontFamily: "Inter, sans-serif" }}>{row.totalQty || "—"}</td>
-                      {showPhotos && (
+                      {isEditing ? (
                         <>
-                          <td style={{ padding: "6px 12px" }}><PhotoCell src={row.photoRaw} /></td>
-                          <td style={{ padding: "6px 12px" }}><PhotoCell src={row.photoSemi} /></td>
+                          <td><input className="form-input" placeholder="Nomi" style={{ width: "100%", padding: "4px 8px", fontSize: 13 }} value={editDraft.name ?? row.name ?? ""} onChange={e => setEditDraft(d => ({ ...d, name: e.target.value }))} /></td>
+                          <td><input className="form-input" placeholder="Birlik" style={{ width: "100%", padding: "4px 8px", fontSize: 13 }} value={editDraft.unit ?? row.unit ?? ""} onChange={e => setEditDraft(d => ({ ...d, unit: e.target.value }))} /></td>
+                          <td><input className="form-input" placeholder="Tayyor" style={{ width: "100%", padding: "4px 8px", fontSize: 13 }} value={editDraft.readyQty ?? row.readyQty ?? ""} onChange={e => setEditDraft(d => ({ ...d, readyQty: e.target.value }))} /></td>
+                          <td><input className="form-input" placeholder="Chiqindi" style={{ width: "100%", padding: "4px 8px", fontSize: 13 }} value={editDraft.wasteQty ?? row.wasteQty ?? ""} onChange={e => setEditDraft(d => ({ ...d, wasteQty: e.target.value }))} /></td>
+                          <td><input className="form-input" placeholder="Umumiy" style={{ width: "100%", padding: "4px 8px", fontSize: 13 }} value={editDraft.totalQty ?? row.totalQty ?? ""} onChange={e => setEditDraft(d => ({ ...d, totalQty: e.target.value }))} /></td>
+                          {showPhotos && (
+                            <>
+                              <td style={{ padding: "6px 12px" }}><PhotoCell src={row.photoRaw} /></td>
+                              <td style={{ padding: "6px 12px" }}><PhotoCell src={row.photoSemi} /></td>
+                            </>
+                          )}
+                          <td><input className="form-input" placeholder="Manba" style={{ width: "100%", padding: "4px 8px", fontSize: 13 }} value={editDraft.importType ?? row.importType ?? ""} onChange={e => setEditDraft(d => ({ ...d, importType: e.target.value }))} /></td>
+                          <td style={{ borderLeft: "2px solid var(--border)", textAlign: "center" }}>
+                            <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
+                              <button
+                                onClick={() => {
+                                  if (onUpdateRow) {
+                                    onUpdateRow(flatIdx, {
+                                      name: (editDraft.name ?? row.name) || "",
+                                      unit: (editDraft.unit ?? row.unit) || "",
+                                      readyQty: (editDraft.readyQty ?? row.readyQty) || "",
+                                      wasteQty: (editDraft.wasteQty ?? row.wasteQty) || "",
+                                      totalQty: (editDraft.totalQty ?? row.totalQty) || "",
+                                      importType: (editDraft.importType ?? row.importType) || "",
+                                    } as Partial<MaterialRow>);
+                                  }
+                                  setEditingIdx(null);
+                                  setEditDraft({});
+                                }}
+                                title="Saqlash"
+                                style={{
+                                  display: "inline-flex", alignItems: "center", gap: 4,
+                                  padding: "4px 10px", borderRadius: 6, fontSize: 12, fontWeight: 600,
+                                  background: "#22c55e22", border: "1px solid #22c55e44",
+                                  color: "#22c55e", cursor: "pointer",
+                                }}
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                  <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                                Saqlash
+                              </button>
+                              <button
+                                onClick={() => { setEditingIdx(null); setEditDraft({}); }}
+                                title="Bekor qilish"
+                                style={{
+                                  display: "inline-flex", alignItems: "center",
+                                  padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 600,
+                                  background: "var(--bg3)", border: "1px solid var(--border)",
+                                  color: "var(--text2)", cursor: "pointer",
+                                }}
+                              >✕</button>
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td style={{ color: "var(--text1)", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.name ?? ""}>{row.name || "—"}</td>
+                          <td style={{ textAlign: "center", color: "var(--text1)" }}>{row.unit || "—"}</td>
+                          <td style={{ textAlign: "center", color: "var(--text1)", fontFamily: "Inter, sans-serif" }}>{row.readyQty || "—"}</td>
+                          <td style={{ textAlign: "center", color: "var(--text1)", fontFamily: "Inter, sans-serif" }}>{row.wasteQty || "—"}</td>
+                          <td style={{ textAlign: "center", color: "var(--text1)", fontFamily: "Inter, sans-serif" }}>{row.totalQty || "—"}</td>
+                          {showPhotos && (
+                            <>
+                              <td style={{ padding: "6px 12px" }}><PhotoCell src={row.photoRaw} /></td>
+                              <td style={{ padding: "6px 12px" }}><PhotoCell src={row.photoSemi} /></td>
+                            </>
+                          )}
+                          <td style={{ textAlign: "center" }}>
+                            {row.importType ? (
+                              <span style={{
+                                display: "inline-block", padding: "2px 8px", borderRadius: 20, fontSize: 11, fontWeight: 600,
+                                background: row.importType.toLowerCase().includes("местный") || row.importType.toLowerCase().includes("локал") ? "#e6f4ea" : "#e8f0fe",
+                                color: row.importType.toLowerCase().includes("местный") || row.importType.toLowerCase().includes("локал") ? "#1e7e34" : "#1a56db",
+                                border: `1px solid ${row.importType.toLowerCase().includes("местный") || row.importType.toLowerCase().includes("локал") ? "#a8d5b5" : "#a4c0f4"}`,
+                              }}>
+                                {row.importType}
+                              </span>
+                            ) : "—"}
+                          </td>
+                          {editable && (
+                            <td style={{ borderLeft: "2px solid var(--border)", textAlign: "center" }}>
+                              <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
+                                <button
+                                  onClick={() => { setEditingIdx(flatIdx); setEditDraft({}); }}
+                                  title="Tahrirlash"
+                                  style={{
+                                    display: "inline-flex", alignItems: "center", gap: 4,
+                                    padding: "4px 10px", borderRadius: 6, fontSize: 12, fontWeight: 600,
+                                    background: "#3b82f622", border: "1px solid #3b82f644",
+                                    color: "#3b82f6", cursor: "pointer",
+                                  }}
+                                >
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                  </svg>
+                                  Tahrir
+                                </button>
+                                <button
+                                  onClick={() => { if (onDeleteRow) onDeleteRow(flatIdx); }}
+                                  title="O'chirish"
+                                  style={{
+                                    display: "inline-flex", alignItems: "center",
+                                    padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 600,
+                                    background: "var(--danger-dim)", border: "1px solid var(--danger)44",
+                                    color: "var(--danger)", cursor: "pointer",
+                                  }}
+                                >
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <polyline points="3 6 5 6 21 6" />
+                                    <path d="M19 6l-1 14H6L5 6" />
+                                    <path d="M10 11v6M14 11v6" />
+                                    <path d="M9 6V4h6v2" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </td>
+                          )}
                         </>
                       )}
-                      <td>
-                        {row.importType ? (
-                          <span style={{
-                            display: "inline-block", padding: "2px 8px", borderRadius: 20, fontSize: 11, fontWeight: 600,
-                            background: row.importType.toLowerCase().includes("местный") || row.importType.toLowerCase().includes("локал") ? "#e6f4ea" : "#e8f0fe",
-                            color: row.importType.toLowerCase().includes("местный") || row.importType.toLowerCase().includes("локал") ? "#1e7e34" : "#1a56db",
-                            border: `1px solid ${row.importType.toLowerCase().includes("местный") || row.importType.toLowerCase().includes("локал") ? "#a8d5b5" : "#a4c0f4"}`,
-                          }}>
-                            {row.importType}
-                          </span>
-                        ) : "—"}
-                      </td>
                     </tr>
                   );
                 })}
@@ -368,7 +474,7 @@ function CollapsibleItemsTable({ rows, showPhotos }: { rows: (MaterialRow | Cost
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-type Mode = "list" | "create" | "detail";
+type Mode = "list" | "create" | "detail" | "edit";
 
 export default function CostNormPage() {
   const [mode, setMode] = useState<Mode>("list");
@@ -383,6 +489,7 @@ export default function CostNormPage() {
   const [selectedNorm, setSelectedNorm] = useState<CostNormResponse | null>(null);
   const [activeTab, setActiveTab] = useState(0);
   const [detailFiles, setDetailFiles] = useState<AttachmentResponse[]>([]);
+  const [detailItems, setDetailItems] = useState<CostNormItemResponse[]>([]);
 
   // Create form state
   const [contracts, setContracts] = useState<ContractResponse[]>([]);
@@ -392,6 +499,16 @@ export default function CostNormPage() {
   const [saving, setSaving] = useState(false);
   const [createTab, setCreateTab] = useState<"form" | "table">("form");
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Edit state
+  const [editingNorm, setEditingNorm] = useState<CostNormResponse | null>(null);
+  const [editForm, setEditForm] = useState({ title: "", notes: "" });
+  const [editItems, setEditItems] = useState<MaterialRow[]>([]);
+  const [editFiles, setEditFiles] = useState<AttachmentResponse[]>([]);
+  const [editNewFile, setEditNewFile] = useState<File | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editSaveError, setEditSaveError] = useState<string | null>(null);
+  const editFileRef = useRef<HTMLInputElement>(null);
 
   // Docx parsing (used in create form for preview)
   const [formFile, setFormFile] = useState<File | null>(null);
@@ -421,6 +538,22 @@ export default function CostNormPage() {
   }, []);
 
   useEffect(() => { loadList(); }, [loadList]);
+
+  // ── Browser back button handling ────────────────────────────────────────
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setMode(prev => {
+        if (prev === "detail" || prev === "edit" || prev === "create") return "list";
+        return prev;
+      });
+      setSelectedNorm(null);
+      setEditingNorm(null);
+      setSearch("");
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   // ── Docx parsing ─────────────────────────────────────────────────────────
 
@@ -469,6 +602,7 @@ export default function CostNormPage() {
     setSubmitted(false);
     setActiveTab(0);
     setCreateTab("form");
+    window.history.pushState({ mode: "create" }, "");
     setMode("create");
     setContractsLoading(true);
     try {
@@ -526,6 +660,113 @@ export default function CostNormPage() {
     }
   }
 
+  // ── Open edit ─────────────────────────────────────────────────────────────
+
+  async function openEdit(norm: CostNormResponse) {
+    setEditingNorm(norm);
+    setEditForm({ title: norm.title, notes: norm.notes || "" });
+    setEditItems(
+      [...norm.items].sort((a, b) => a.sortOrder - b.sortOrder).map(it => ({
+        no: it.no || "",
+        name: it.name || "",
+        unit: it.unit || "",
+        readyQty: it.readyQty || "",
+        wasteQty: it.wasteQty || "",
+        totalQty: it.totalQty || "",
+        photoRaw: it.photoRaw || "",
+        photoSemi: it.photoSemi || "",
+        importType: it.importType || "",
+        isSection: it.isSection,
+        sectionName: it.sectionName || "",
+      }))
+    );
+    setEditNewFile(null);
+    setEditSaveError(null);
+    setEditSaving(false);
+    setShowPhotos(false);
+    window.history.pushState({ mode: "edit" }, "");
+    setMode("edit");
+    try {
+      const files = await costNormService.getFiles(norm.id);
+      setEditFiles(files);
+    } catch {
+      setEditFiles([]);
+    }
+  }
+
+  // ── Edit docx parse ──────────────────────────────────────────────────────
+
+  async function handleEditFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".docx")) {
+      setEditSaveError("Faqat .docx formatidagi fayllar qo'llab-quvvatlanadi");
+      return;
+    }
+    setEditNewFile(file);
+    setEditSaveError(null);
+    try {
+      const mammoth = await import("mammoth");
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await mammoth.convertToHtml({ arrayBuffer });
+      const { tables: parsed, error: colError } = parseMainTables(result.value);
+      if (colError) {
+        setEditSaveError(colError);
+      } else if (parsed.length > 0) {
+        setEditItems(parsed.flatMap(t => t.rows));
+      }
+    } catch {
+      setEditSaveError("Faylni o'qishda xatolik yuz berdi");
+    }
+  }
+
+  // ── Save edit ────────────────────────────────────────────────────────────
+
+  async function handleEditSave() {
+    if (!editingNorm) return;
+    setEditSaving(true);
+    setEditSaveError(null);
+    try {
+      const items = editItems.map((row, idx) => ({
+        isSection: row.isSection,
+        sectionName: row.isSection ? row.sectionName : null,
+        no: row.no || null,
+        name: row.name || null,
+        unit: row.unit || null,
+        readyQty: row.readyQty || null,
+        wasteQty: row.wasteQty || null,
+        totalQty: row.totalQty || null,
+        photoRaw: row.photoRaw || null,
+        photoSemi: row.photoSemi || null,
+        importType: row.importType || null,
+        sortOrder: idx,
+      }));
+
+      await costNormService.update(editingNorm.id, {
+        title: editForm.title,
+        notes: editForm.notes || null,
+        items,
+      });
+
+      // Handle new file upload
+      if (editNewFile) {
+        // Delete old files first
+        for (const f of editFiles) {
+          await costNormService.deleteFile(editingNorm.id, f.id);
+        }
+        await costNormService.uploadFile(editingNorm.id, editNewFile);
+      }
+
+      await loadList();
+      setMode("list");
+      setEditingNorm(null);
+    } catch {
+      setEditSaveError("Saqlashda xatolik yuz berdi");
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
   // ── Delete ────────────────────────────────────────────────────────────────
 
   async function handleDelete(id: string) {
@@ -542,6 +783,8 @@ export default function CostNormPage() {
     setSearch("");
     setShowPhotos(false);
     setDetailFiles([]);
+    setDetailItems([...norm.items].sort((a, b) => a.sortOrder - b.sortOrder));
+    window.history.pushState({ mode: "detail" }, "");
     setMode("detail");
     costNormService.getFiles(norm.id).then(setDetailFiles).catch(() => {});
   }
@@ -550,11 +793,8 @@ export default function CostNormPage() {
 
   const detailTables = useMemo(() => {
     if (!selectedNorm) return [];
-    const norm = selectedNorm;
-    const sorted = [...norm.items].sort((a, b) => a.sortOrder - b.sortOrder);
-    // Group by... all items together (backend stores all tables flat with SortOrder)
-    return [{ title: norm.title, rows: sorted }];
-  }, [selectedNorm]);
+    return [{ title: selectedNorm.title, rows: detailItems }];
+  }, [selectedNorm, detailItems]);
 
   const detailRows = detailTables[activeTab]?.rows ?? [];
 
@@ -773,7 +1013,237 @@ export default function CostNormPage() {
               </button>
             </div>
             <div style={{ flex: 1, overflowX: "auto", overflowY: "auto" }}>
-              <CollapsibleItemsTable rows={currentRows} showPhotos={showPhotos} />
+              <CollapsibleItemsTable rows={currentRows} showPhotos={showPhotos} onUpdateRow={(flatIdx, updated) => {
+                setParsedTables(prev => {
+                  const next = [...prev];
+                  const tab = { ...next[activeTab], rows: [...next[activeTab].rows] };
+                  tab.rows[flatIdx] = { ...tab.rows[flatIdx], ...updated };
+                  next[activeTab] = tab;
+                  return next;
+                });
+              }} onDeleteRow={(flatIdx) => {
+                setParsedTables(prev => {
+                  const next = [...prev];
+                  const tab = { ...next[activeTab], rows: [...next[activeTab].rows] };
+                  tab.rows.splice(flatIdx, 1);
+                  next[activeTab] = tab;
+                  return next;
+                });
+              }} />
+            </div>
+          </div>
+        )}
+
+      </div>
+    );
+  }
+
+  // ── Render: Edit ──────────────────────────────────────────────────────────
+
+  if (mode === "edit" && editingNorm) {
+    const editDataCount = editItems.filter(r => !r.isSection).length;
+
+    return (
+      <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+
+        {/* ── Tab bar ── */}
+        <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 16, padding: "0 16px", flexShrink: 0 }}>
+          <button
+            onClick={() => setActiveTab(-1)}
+            style={{ padding: "12px 20px", fontSize: 13, fontWeight: activeTab === -1 ? 700 : 500, color: activeTab === -1 ? "var(--accent,#1a56db)" : "var(--text2)", background: "none", border: "none", borderBottom: activeTab === -1 ? "2px solid var(--accent,#1a56db)" : "2px solid transparent", cursor: "pointer", marginBottom: -1 }}
+          >
+            Forma
+          </button>
+          <button
+            onClick={() => setActiveTab(0)}
+            style={{ padding: "12px 20px", fontSize: 13, fontWeight: activeTab === 0 ? 700 : 500, color: activeTab === 0 ? "var(--accent,#1a56db)" : "var(--text2)", background: "none", border: "none", borderBottom: activeTab === 0 ? "2px solid var(--accent,#1a56db)" : "2px solid transparent", cursor: "pointer", marginBottom: -1, display: "flex", alignItems: "center", gap: 6 }}
+          >
+            Jadval ko&apos;rinishi
+            <span style={{ fontSize: 11, fontWeight: 600, background: "var(--accent,#1a56db)", color: "#fff", borderRadius: 20, padding: "1px 7px" }}>{editDataCount}</span>
+          </button>
+
+          <div style={{ flex: 1 }} />
+
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {editSaveError && (
+              <span style={{ fontSize: 12, color: "var(--danger)" }}>{editSaveError}</span>
+            )}
+            <button onClick={() => { setMode("list"); setEditingNorm(null); }} style={{ background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", padding: "7px 18px", color: "var(--text2)", fontSize: 13, fontWeight: 500 }}>
+              Bekor qilish
+            </button>
+            <button className="btn-primary" onClick={handleEditSave} disabled={editSaving} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 20px", borderRadius: "var(--radius)", fontSize: 13 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                <polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
+              </svg>
+              {editSaving ? "Saqlanmoqda..." : "Saqlash"}
+            </button>
+          </div>
+        </div>
+
+        {/* ── Asl fayl ── */}
+        {(editFiles.length > 0 || editNewFile) && (
+          <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent,#2563eb)" strokeWidth="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+            </svg>
+            <span style={{ fontSize: 13, color: "var(--text1)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {editNewFile ? editNewFile.name : editFiles[0]?.fileName}
+            </span>
+            {!editNewFile && editFiles.length > 0 && (
+              <button
+                onClick={() => costNormService.downloadFile(editingNorm.id, editFiles[0].id, editFiles[0].fileName)}
+                title="Yuklab olish"
+                style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, fontSize: 12, fontWeight: 600, background: "var(--bg3)", border: "1px solid var(--border)", color: "var(--text2)", cursor: "pointer" }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Yuklab olish
+              </button>
+            )}
+            <input ref={editFileRef} type="file" accept=".docx" title="Fayl tanlash" style={{ display: "none" }} onChange={handleEditFileChange} />
+            <button
+              onClick={() => editFileRef.current?.click()}
+              title="Tahrirlash"
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 4,
+                padding: "4px 10px", borderRadius: 6, fontSize: 12, fontWeight: 600,
+                background: "#3b82f622", border: "1px solid #3b82f644",
+                color: "#3b82f6", cursor: "pointer",
+              }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+              </svg>
+              Tahrir
+            </button>
+            <button
+              onClick={async () => {
+                if (editNewFile) {
+                  setEditNewFile(null);
+                } else if (editFiles.length > 0) {
+                  try {
+                    await costNormService.deleteFile(editingNorm.id, editFiles[0].id);
+                    setEditFiles([]);
+                  } catch { /* ignore */ }
+                }
+              }}
+              title="O'chirish"
+              style={{
+                display: "inline-flex", alignItems: "center",
+                padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 600,
+                background: "var(--danger-dim)", border: "1px solid var(--danger)44",
+                color: "var(--danger)", cursor: "pointer",
+              }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6l-1 14H6L5 6" />
+                <path d="M10 11v6M14 11v6" />
+                <path d="M9 6V4h6v2" />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        {/* Fayl yo'q bo'lsa - yuklash */}
+        {editFiles.length === 0 && !editNewFile && (
+          <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px" }}>
+            <input ref={editFileRef} type="file" accept=".docx" title="Fayl tanlash" style={{ display: "none" }} onChange={handleEditFileChange} />
+            <button
+              onClick={() => editFileRef.current?.click()}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "6px 14px", borderRadius: 6, fontSize: 13, fontWeight: 500,
+                background: "var(--bg3)", border: "1.5px dashed var(--border)",
+                color: "var(--text2)", cursor: "pointer",
+              }}
+            >
+              <Upload size={14} />
+              Fayl yuklash
+            </button>
+          </div>
+        )}
+
+        {/* ── Forma tab ── */}
+        {activeTab === -1 && (
+          <div style={{ maxWidth: 560, display: "flex", flexDirection: "column", gap: 16 }}>
+            <div className="itm-card" style={{ padding: 24 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+
+                {/* Shartnoma (read-only) */}
+                <div>
+                  <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: "var(--text2)" }}>
+                    Shartnoma
+                  </label>
+                  <input
+                    className="form-input"
+                    value={editingNorm.contractNo}
+                    disabled
+                    style={{ opacity: 0.7 }}
+                  />
+                </div>
+
+                {/* Sarlavha */}
+                <div>
+                  <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: "var(--text2)" }}>
+                    Sarlavha
+                  </label>
+                  <input
+                    className="form-input"
+                    value={editForm.title}
+                    onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))}
+                    placeholder="Sarlavha"
+                  />
+                </div>
+
+                {/* Izoh */}
+                <div>
+                  <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: "var(--text2)" }}>
+                    Izoh
+                  </label>
+                  <input
+                    className="form-input"
+                    value={editForm.notes}
+                    onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
+                    placeholder="Izoh (ixtiyoriy)"
+                  />
+                </div>
+
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Jadval tab ── */}
+        {activeTab === 0 && (
+          <div className="itm-card" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+              <span style={{ fontSize: 12, color: "var(--text3)" }}>
+                {editDataCount} ta yozuv
+              </span>
+              <div style={{ flex: 1 }} />
+              <button onClick={() => setShowPhotos(p => !p)} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "0 10px", height: 30, borderRadius: "var(--radius)", border: "1px solid var(--border)", background: showPhotos ? "var(--accent-dim,#e8f0fe)" : "var(--bg2)", color: showPhotos ? "var(--accent,#1a56db)" : "var(--text2)", fontSize: 12, cursor: "pointer" }}>
+                {showPhotos ? <Image size={12} /> : <ImageOff size={12} />}
+                {showPhotos ? "Yashirish" : "Fotolar"}
+              </button>
+            </div>
+            <div style={{ flex: 1, overflowX: "auto", overflowY: "auto" }}>
+              <CollapsibleItemsTable rows={editItems} showPhotos={showPhotos} onUpdateRow={(flatIdx, updated) => {
+                setEditItems(prev => {
+                  const next = [...prev];
+                  next[flatIdx] = { ...next[flatIdx], ...updated };
+                  return next;
+                });
+              }} onDeleteRow={(flatIdx) => {
+                setEditItems(prev => {
+                  const next = [...prev];
+                  next.splice(flatIdx, 1);
+                  return next;
+                });
+              }} />
             </div>
           </div>
         )}
@@ -800,7 +1270,7 @@ export default function CostNormPage() {
               {norm.title}
             </span>
             <span style={{ fontSize: 12, color: "var(--text3)" }}>
-              {norm.contractNo} · {new Date(norm.createdAt).toLocaleDateString("uz-UZ")}
+              {norm.contractNo} · {(() => { const d = norm.createdAt?.slice(0, 10).split("-"); return d && d.length === 3 ? `${d[2]}-${d[1]}-${d[0].slice(-2)}` : "—"; })()}
             </span>
           </div>
 
@@ -830,6 +1300,7 @@ export default function CostNormPage() {
             {showPhotos ? <Image size={13} /> : <ImageOff size={13} />}
             {showPhotos ? "Yashirish" : "Fotolar"}
           </button>
+
         </div>
 
         <div className="itm-card" style={{ flex: 1 }}>
@@ -904,13 +1375,20 @@ export default function CostNormPage() {
                       <td style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text1)" }}>{norm.title}</td>
                       <td style={{ textAlign: "center", color: "var(--text1)", fontSize: 12 }}>{dataItems}</td>
                       <td style={{ textAlign: "center", color: "var(--text1)", fontSize: 12, whiteSpace: "nowrap" }}>
-                        {new Date(norm.createdAt).toLocaleDateString("uz-UZ")}
+                        {(() => { const d = norm.createdAt?.slice(0, 10).split("-"); return d && d.length === 3 ? `${d[2]}-${d[1]}-${d[0].slice(-2)}` : "—"; })()}
                       </td>
                       <td style={{ borderLeft: "2px solid var(--border)" }}>
                         <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
                           <button className="btn-icon" onClick={() => openDetail(norm)} title="Ko'rish"
-                            style={{ color: "var(--accent)", borderColor: "var(--accent-mid)", background: "var(--accent-dim)" }}>
+                            style={{ color: "#0ea5e9", borderColor: "#0ea5e933", background: "#0ea5e912" }}>
                             <Eye size={14} />
+                          </button>
+                          <button className="btn-icon" onClick={() => openEdit(norm)} title="Tahrirlash"
+                            style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
                           </button>
                           <button className="btn-icon btn-icon-danger" onClick={() => handleDelete(norm.id)} title="O'chirish"
                             style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
