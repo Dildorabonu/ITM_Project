@@ -108,7 +108,6 @@ public class TechnicalDrawingService : ITechnicalDrawingService
         Id = d.Id,
         ContractId = d.ContractId,
         ContractNo = d.Contract?.ContractNo ?? "",
-        ClientName = d.Contract?.ClientName ?? "",
         Title = d.Title,
         Notes = d.Notes,
         Status = d.Status,

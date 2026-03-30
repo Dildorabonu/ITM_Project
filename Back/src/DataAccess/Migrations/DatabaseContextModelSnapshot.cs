@@ -75,10 +75,6 @@ namespace DataAccess.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("ClientName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<string>("ContractNo")
                         .IsRequired()
                         .HasColumnType("text");
@@ -135,6 +131,9 @@ namespace DataAccess.Migrations
                 {
                     b.Property<Guid>("ContractId")
                         .HasColumnType("uuid");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");

@@ -17,7 +17,6 @@ type DrawingItem = {
 type ContractOption = {
   id: string;
   contractNo: string;
-  clientName: string;
 };
 
 const STATUS_LABEL: Record<DrawingStatus, string> = {
@@ -35,9 +34,9 @@ const STATUS_STYLE: Record<DrawingStatus, { bg: string; color: string; border: s
 };
 
 const CONTRACTS: ContractOption[] = [
-  { id: "c1", contractNo: "SH-2026-011", clientName: "UzTech Metall" },
-  { id: "c2", contractNo: "SH-2026-014", clientName: "Toshkent Plast" },
-  { id: "c3", contractNo: "SH-2026-019", clientName: "Sam Auto Parts" },
+  { id: "c1", contractNo: "SH-2026-011" },
+  { id: "c2", contractNo: "SH-2026-014" },
+  { id: "c3", contractNo: "SH-2026-019" },
 ];
 
 const INITIAL_DRAWINGS: DrawingItem[] = [
@@ -176,7 +175,7 @@ export default function TechnicalDrawingsPage() {
                   <option value="">— Shartnomani tanlang —</option>
                   {CONTRACTS.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.contractNo} — {c.clientName}
+                      {c.contractNo}
                     </option>
                   ))}
                 </select>

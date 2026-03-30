@@ -299,7 +299,6 @@ export const PRIORITY_LABELS: Record<Priority, string> = {
 export interface ContractResponse {
   id: string;
   contractNo: string;
-  clientName: string;
   productType: string;
   quantity: number;
   unit: string;
@@ -318,7 +317,6 @@ export interface ContractResponse {
 
 export interface ContractCreatePayload {
   contractNo: string;
-  clientName?: string;
   productType?: string;
   quantity?: number;
   unit?: string;
@@ -332,7 +330,6 @@ export interface ContractCreatePayload {
 
 export interface ContractUpdatePayload {
   contractNo?: string;
-  clientName?: string;
   productType?: string;
   quantity?: number;
   unit?: string;
@@ -344,10 +341,13 @@ export interface ContractUpdatePayload {
   notes?: string | null;
 }
 
+export const ContractUserRole = { Responsible: 0, Supervisor: 1, Observer: 2 } as const;
+
 export interface ContractUserResponse {
   userId: string;
   fullName: string;
   departmentName: string | null;
+  role: number;
 }
 
 export const contractService = {
@@ -447,8 +447,8 @@ export const contractService = {
     return res.data?.result ?? res.data ?? [];
   },
 
-  assignUsers: async (id: string, userIds: string[]): Promise<void> => {
-    await api.post(`/api/contract/${id}/users`, { userIds });
+  assignUsers: async (id: string, users: { userId: string; role: number }[]): Promise<void> => {
+    await api.post(`/api/contract/${id}/users`, { users });
   },
 
   removeUser: async (id: string, userId: string): Promise<void> => {
@@ -529,7 +529,6 @@ export interface TechProcessResponse {
   id: string;
   contractId: string;
   contractNo: string;
-  clientName: string;
   title: string;
   status: ProcessStatus;
   currentStep: number;
@@ -676,7 +675,6 @@ export interface TechnicalDrawingResponse {
   id: string;
   contractId: string;
   contractNo: string;
-  clientName: string;
   title: string;
   notes: string | null;
   status: DrawingStatus;
@@ -774,7 +772,6 @@ export interface CostNormResponse {
   id: string;
   contractId: string;
   contractNo: string;
-  clientName: string;
   title: string;
   notes: string | null;
   createdBy: string;

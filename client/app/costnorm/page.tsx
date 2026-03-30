@@ -586,7 +586,6 @@ export default function CostNormPage() {
     const q = search.toLowerCase();
     return costNorms.filter(n =>
       n.contractNo.toLowerCase().includes(q) ||
-      n.clientName.toLowerCase().includes(q) ||
       n.title.toLowerCase().includes(q)
     );
   }, [costNorms, search]);
@@ -664,7 +663,7 @@ export default function CostNormPage() {
                     <option value="">{contractsLoading ? "Yuklanmoqda..." : "Shartnoma tanlang"}</option>
                     {contracts.map(c => (
                       <option key={c.id} value={c.id}>
-                        {c.contractNo}{c.clientName ? ` — ${c.clientName}` : ""}
+                        {c.contractNo}
                       </option>
                     ))}
                   </select>
@@ -801,7 +800,7 @@ export default function CostNormPage() {
               {norm.title}
             </span>
             <span style={{ fontSize: 12, color: "var(--text3)" }}>
-              {norm.contractNo} — {norm.clientName} · {new Date(norm.createdAt).toLocaleDateString("uz-UZ")}
+              {norm.contractNo} · {new Date(norm.createdAt).toLocaleDateString("uz-UZ")}
             </span>
           </div>
 

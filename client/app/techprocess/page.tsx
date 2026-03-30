@@ -126,8 +126,7 @@ export default function TechProcessPage() {
       list.filter(t => {
         const matchSearch = !q ||
           t.title.toLowerCase().includes(q) ||
-          t.contractNo.toLowerCase().includes(q) ||
-          t.clientName.toLowerCase().includes(q);
+          t.contractNo.toLowerCase().includes(q);
         const matchStatus = filterStatus === "" || t.status === Number(filterStatus);
         return matchSearch && matchStatus;
       })
@@ -355,7 +354,7 @@ export default function TechProcessPage() {
               >
                 <option value="">— Shartnomani tanlang —</option>
                 {contracts.map(c => (
-                  <option key={c.id} value={c.id}>{c.contractNo} — {c.clientName}</option>
+                  <option key={c.id} value={c.id}>{c.contractNo}</option>
                 ))}
               </select>
               {submitted && !form.contractId && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Shartnoma tanlash shart</div>}
@@ -584,9 +583,6 @@ export default function TechProcessPage() {
                         style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontWeight: 700, fontSize: 13, color: "var(--accent)", fontFamily: "var(--font-mono)" }}>
                         {tp.contractNo}
                       </button>
-                      {tp.clientName && (
-                        <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 1 }}>{tp.clientName}</div>
-                      )}
                     </td>
                     <td style={{ fontWeight: 500 }}>{tp.title}</td>
                     <td style={{ textAlign: "center" }}>
@@ -688,10 +684,6 @@ export default function TechProcessPage() {
               <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
                 <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Yaratilgan sana</div>
                 <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)" }}>{fmt(drawer.createdAt)}</div>
-              </div>
-              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
-                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Mijoz</div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)" }}>{drawer.clientName || "—"}</div>
               </div>
               <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
                 <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Qadamlar soni</div>
