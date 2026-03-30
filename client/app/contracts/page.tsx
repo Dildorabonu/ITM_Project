@@ -349,7 +349,7 @@ export default function ContractsPage() {
   const ensureDataLoaded = async () => {
     await Promise.all([
       allUsers.length === 0 ? userService.getLookup().then(items => setAllUsers(items)) : Promise.resolve(),
-      departments.length === 0 ? departmentService.getAllFull().then(d => setDepartments(d)) : Promise.resolve(),
+      departments.length === 0 ? departmentService.getAllFull().then(d => setDepartments(d.filter(dep => dep.isActive))) : Promise.resolve(),
     ]);
   };
 
@@ -387,7 +387,7 @@ export default function ContractsPage() {
     const [users, lookup, depts] = await Promise.all([
       contractService.getUsers(c.id),
       allUsers.length > 0 ? Promise.resolve(allUsers) : userService.getLookup(),
-      departments.length > 0 ? Promise.resolve(departments) : departmentService.getAllFull(),
+      departments.length > 0 ? Promise.resolve(departments) : departmentService.getAllFull().then(d => d.filter(dep => dep.isActive)),
     ]);
     if (lookup !== allUsers) setAllUsers(lookup);
     if (depts !== departments) setDepartments(depts);

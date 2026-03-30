@@ -211,6 +211,8 @@ function UsersPageInner() {
   const canUpdate = hasPermission("Users.Update");
   const canDelete = hasPermission("Users.Delete");
 
+  const animOffset = useRef(-(Date.now() % 1500) / 1000);
+
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [filtered, setFiltered] = useState<UserResponse[]>([]);
   const [search, setSearch] = useState("");
@@ -635,7 +637,7 @@ function UsersPageInner() {
           border-radius: 50%;
           vertical-align: middle;
         }
-        .sdot-on  { background: #22c55e; animation: sdot-ping 1.5s ease-out infinite; }
+        .sdot-on  { background: #22c55e; animation: sdot-ping 1.5s ease-out ${animOffset.current}s infinite; }
         .sdot-off { background: #94a3b8; }
       `}</style>
 

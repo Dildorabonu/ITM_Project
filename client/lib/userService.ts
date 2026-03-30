@@ -181,6 +181,7 @@ export interface DepartmentResponse {
   employeeCount: number;
   createdAt: string;
   headUserName?: string | null;
+  isActive: boolean;
 }
 
 export interface DepartmentCreatePayload {
@@ -489,7 +490,9 @@ export const departmentService = {
   getAll: async (): Promise<DepartmentOption[]> => {
     const res = await api.get("/api/department");
     const data = res.data?.result ?? res.data ?? [];
-    return data.map((d: { id: string; name: string; type: DepartmentType }) => ({ id: d.id, name: d.name, type: d.type }));
+    return data
+      .filter((d: { id: string; name: string; type: DepartmentType; isActive: boolean }) => d.isActive !== false)
+      .map((d: { id: string; name: string; type: DepartmentType }) => ({ id: d.id, name: d.name, type: d.type }));
   },
 
   getAllFull: async (): Promise<DepartmentResponse[]> => {
