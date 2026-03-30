@@ -40,6 +40,7 @@ export interface UserResponse {
   departmentId: string | null;
   departmentName: string | null;
   isActive: boolean;
+  isHead: boolean;
   createdAt: string;
 }
 
@@ -50,6 +51,7 @@ export interface UserCreatePayload {
   password: string;
   roleId: string | null;
   departmentId: string | null;
+  isHead?: boolean;
 }
 
 export interface UserUpdatePayload {
@@ -60,6 +62,7 @@ export interface UserUpdatePayload {
   roleId?: string | null;
   departmentId?: string | null;
   isActive?: boolean;
+  isHead?: boolean;
 }
 
 export interface RoleOption {
@@ -71,6 +74,7 @@ export interface DepartmentOption {
   id: string;
   name: string;
   type?: DepartmentType;
+  headUserName?: string | null;
 }
 
 export const userService = {
@@ -492,7 +496,7 @@ export const departmentService = {
     const data = res.data?.result ?? res.data ?? [];
     return data
       .filter((d: { id: string; name: string; type: DepartmentType; isActive: boolean }) => d.isActive !== false)
-      .map((d: { id: string; name: string; type: DepartmentType }) => ({ id: d.id, name: d.name, type: d.type }));
+      .map((d: { id: string; name: string; type: DepartmentType; headUserName?: string | null }) => ({ id: d.id, name: d.name, type: d.type, headUserName: d.headUserName }));
   },
 
   getAllFull: async (): Promise<DepartmentResponse[]> => {
