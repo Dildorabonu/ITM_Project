@@ -559,6 +559,7 @@ export interface TechProcessResponse {
   contractId: string;
   contractNo: string;
   title: string;
+  notes: string | null;
   status: ProcessStatus;
   currentStep: number;
   approvedBy: string | null;
@@ -853,7 +854,7 @@ export const costNormService = {
     return res.data?.result as string;
   },
 
-  update: async (id: string, dto: { title?: string; notes?: string | null }): Promise<void> => {
+  update: async (id: string, dto: { title?: string; notes?: string | null; items?: CostNormItemCreatePayload[] }): Promise<void> => {
     await api.put(`/api/costnorm/${id}`, dto);
   },
 
