@@ -103,7 +103,7 @@ public class DepartmentService : IDepartmentService
         if (department is null)
             return ApiResult<int>.Failure([$"Department with id '{id}' not found."]);
 
-        _context.Departments.Remove(department);
+        department.IsActive = !department.IsActive;
         await _context.SaveChangesAsync();
 
         return ApiResult<int>.Success(200);
@@ -116,6 +116,7 @@ public class DepartmentService : IDepartmentService
         Type = department.Type,
         EmployeeCount = department.EmployeeCount,
         CreatedAt = department.CreatedAt,
-        HeadUserName = headUserName
+        HeadUserName = headUserName,
+        IsActive = department.IsActive,
     };
 }

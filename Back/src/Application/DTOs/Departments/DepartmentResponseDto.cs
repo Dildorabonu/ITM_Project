@@ -10,4 +10,5 @@ public class DepartmentResponseDto
     public int EmployeeCount { get; set; }
     public DateTime CreatedAt { get; set; }
     public string? HeadUserName { get; set; }
+    public bool IsActive { get; set; }
 }

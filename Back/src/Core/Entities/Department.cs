@@ -9,6 +9,7 @@ public class Department
     public DepartmentType Type { get; set; } = DepartmentType.Bolim;
     public int EmployeeCount { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public bool IsActive { get; set; } = true;
 
     // Navigation properties
     public ICollection<User> Users { get; set; } = [];
