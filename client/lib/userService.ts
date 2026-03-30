@@ -10,6 +10,13 @@ export interface PagedResult<T> {
   hasNextPage: boolean;
 }
 
+export interface UserLookup {
+  id: string;
+  firstName: string;
+  lastName: string;
+  departmentName: string | null;
+}
+
 export interface UserResponse {
   id: string;
   firstName: string;
@@ -53,6 +60,11 @@ export interface DepartmentOption {
 }
 
 export const userService = {
+  getLookup: async (): Promise<UserLookup[]> => {
+    const res = await api.get("/api/user/lookup");
+    return res.data?.result ?? res.data ?? [];
+  },
+
   getAll: async (page = 1, pageSize = 20): Promise<PagedResult<UserResponse>> => {
     const res = await api.get("/api/user", { params: { page, pageSize } });
     return res.data?.result ?? res.data;
