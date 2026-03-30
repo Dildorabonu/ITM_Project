@@ -4,16 +4,36 @@ using Application.Helpers;
 using Core.Entities;
 using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Application.Services.Impl;
 
 public class UserService : IUserService
 {
     private readonly DatabaseContext _context;
+    private readonly IMemoryCache _cache;
+    private const string LookupCacheKey = "user_lookup";
 
-    public UserService(DatabaseContext context)
+    // Compiled once at startup — EF Core does not re-translate this query on every call
+    private static readonly Func<DatabaseContext, IAsyncEnumerable<UserLookupDto>> CompiledLookup =
+        EF.CompileAsyncQuery((DatabaseContext db) =>
+            db.Users
+              .AsNoTracking()
+              .Where(u => u.IsActive)
+              .OrderBy(u => u.FirstName).ThenBy(u => u.LastName)
+              .Select(u => new UserLookupDto
+              {
+                  Id             = u.Id,
+                  FirstName      = u.FirstName,
+                  LastName       = u.LastName,
+                  DepartmentName = u.Department != null ? u.Department.Name : null,
+                  DepartmentType = u.Department != null ? (Core.Enums.DepartmentType?)u.Department.Type : null,
+              }));
+
+    public UserService(DatabaseContext context, IMemoryCache cache)
     {
         _context = context;
+        _cache   = cache;
     }
 
     public async Task<ApiResult<PagedResult<UserResponseDto>>> GetAllAsync(PaginationParams pagination)
@@ -37,19 +57,14 @@ public class UserService : IUserService
 
     public async Task<ApiResult<IEnumerable<UserLookupDto>>> GetLookupAsync()
     {
-        var users = await _context.Users
-            .Include(u => u.Department)
-            .AsNoTracking()
-            .Where(u => u.IsActive)
-            .OrderBy(u => u.FirstName).ThenBy(u => u.LastName)
-            .Select(u => new UserLookupDto
-            {
-                Id             = u.Id,
-                FirstName      = u.FirstName,
-                LastName       = u.LastName,
-                DepartmentName = u.Department != null ? u.Department.Name : null,
-            })
-            .ToListAsync();
+        if (_cache.TryGetValue(LookupCacheKey, out List<UserLookupDto>? cached))
+            return ApiResult<IEnumerable<UserLookupDto>>.Success(cached!);
+
+        var users = new List<UserLookupDto>();
+        await foreach (var u in CompiledLookup(_context))
+            users.Add(u);
+
+        _cache.Set(LookupCacheKey, users, TimeSpan.FromMinutes(5));
 
         return ApiResult<IEnumerable<UserLookupDto>>.Success(users);
     }
@@ -88,6 +103,7 @@ public class UserService : IUserService
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
+        _cache.Remove(LookupCacheKey);
 
         return ApiResult<int>.Success(201);
     }
@@ -120,6 +136,7 @@ public class UserService : IUserService
         if (dto.IsActive.HasValue) user.IsActive = dto.IsActive.Value;
 
         await _context.SaveChangesAsync();
+        _cache.Remove(LookupCacheKey);
 
         return ApiResult<int>.Success(200);
     }
@@ -136,6 +153,7 @@ public class UserService : IUserService
 
         _context.Users.Remove(user);
         await _context.SaveChangesAsync();
+        _cache.Remove(LookupCacheKey);
 
         return ApiResult<int>.Success(200);
     }
