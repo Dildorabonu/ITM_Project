@@ -62,6 +62,7 @@ public class DepartmentService : IDepartmentService
         {
             Id = Guid.NewGuid(),
             Name = dto.Name,
+            Type = dto.Type,
             EmployeeCount = dto.EmployeeCount,
             CreatedAt = DateTime.UtcNow
         };
@@ -87,6 +88,7 @@ public class DepartmentService : IDepartmentService
             department.Name = dto.Name;
         }
 
+        if (dto.Type.HasValue) department.Type = dto.Type.Value;
         if (dto.EmployeeCount.HasValue) department.EmployeeCount = dto.EmployeeCount.Value;
 
         await _context.SaveChangesAsync();
@@ -111,6 +113,7 @@ public class DepartmentService : IDepartmentService
     {
         Id = department.Id,
         Name = department.Name,
+        Type = department.Type,
         EmployeeCount = department.EmployeeCount,
         CreatedAt = department.CreatedAt,
         HeadUserName = headUserName

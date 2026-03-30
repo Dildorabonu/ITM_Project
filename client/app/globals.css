@@ -265,6 +265,14 @@ body {
 }
 .form-textarea { resize: vertical; min-height: 80px; }
 .form-label { font-size: 12px; color: var(--text3); letter-spacing: 1px; text-transform: uppercase; font-family: var(--font-inter), Inter, sans-serif; }
+.form-input:-webkit-autofill,
+.form-input:-webkit-autofill:hover,
+.form-input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--bg3) inset !important;
+  -webkit-text-fill-color: var(--text) !important;
+  border-color: var(--border) !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
 
 /* ===== NUMBER INPUT SPIN BUTTONS ===== */
 .dark .form-input[type="number"] {

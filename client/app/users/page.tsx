@@ -7,6 +7,8 @@ import {
   userService,
   roleService,
   departmentService,
+  DepartmentType,
+  DEPARTMENT_TYPE_LABELS,
   type UserResponse,
   type RoleOption,
   type DepartmentOption,
@@ -17,6 +19,185 @@ import { useAuthStore } from "@/lib/store/authStore";
 
 
 const emptyForm = { firstName: "", lastName: "", login: "", password: "", roleId: "", departmentId: "", isActive: true };
+
+const TYPE_STYLE = {
+  [DepartmentType.IshlabChiqarish]: { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa", icon: "🏭" },
+  [DepartmentType.Bolim]:           { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe", icon: "🏢" },
+  [DepartmentType.Boshqaruv]:       { bg: "#f5f3ff", color: "#6d28d9", border: "#ddd6fe", icon: "👔" },
+};
+
+function CustomSelect({
+  value, onChange, options, placeholder, hasError,
+}: {
+  value: string; onChange: (v: string) => void;
+  options: { id: string; name: string }[];
+  placeholder: string; hasError?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = options.find(o => o.id === value);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button type="button" onClick={() => setOpen(o => !o)} style={{
+        width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+        background: "var(--bg3)",
+        border: `1.5px solid ${hasError ? "var(--danger)" : open ? "var(--accent)" : "var(--border)"}`,
+        borderRadius: "var(--radius)", padding: "9px 12px",
+        color: selected ? "var(--text)" : "var(--text3)",
+        fontSize: 14, cursor: "pointer", textAlign: "left",
+        boxShadow: hasError ? "0 0 0 3px rgba(217,48,37,0.2)" : open ? "0 0 0 3px var(--accent-dim)" : "none",
+        transition: "border-color 0.14s, box-shadow 0.14s",
+        fontFamily: "var(--font-inter), Inter, sans-serif",
+      }}>
+        <span>{selected ? selected.name : placeholder}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+          style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s", color: "var(--text3)" }}>
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0,
+          background: "var(--surface)", border: "1.5px solid var(--border2)",
+          borderRadius: "var(--radius2)", boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+          zIndex: 200, maxHeight: 220, overflowY: "auto",
+        }}>
+          {options.map(o => (
+            <div key={o.id}
+              onClick={() => { onChange(o.id); setOpen(false); }}
+              onMouseEnter={e => { if (o.id !== value) e.currentTarget.style.background = "var(--bg3)"; }}
+              onMouseLeave={e => { if (o.id !== value) e.currentTarget.style.background = "transparent"; }}
+              style={{
+                padding: "9px 14px", cursor: "pointer", fontSize: 14,
+                color: o.id === value ? "var(--accent)" : "var(--text)",
+                background: o.id === value ? "var(--accent-dim)" : "transparent",
+                fontWeight: o.id === value ? 600 : 400,
+                display: "flex", alignItems: "center", gap: 8,
+              }}>
+              {o.id === value ? (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ flexShrink: 0 }}>
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              ) : <span style={{ width: 12 }} />}
+              {o.name}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CustomGroupedSelect({
+  value, onChange, departments, placeholder, hasError,
+}: {
+  value: string; onChange: (v: string) => void;
+  departments: DepartmentOption[];
+  placeholder: string; hasError?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = departments.find(d => d.id === value);
+  const selectedTs = selected?.type !== undefined ? TYPE_STYLE[selected.type] : null;
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const groups = ([DepartmentType.IshlabChiqarish, DepartmentType.Bolim, DepartmentType.Boshqaruv] as const)
+    .map(t => ({ type: t, items: departments.filter(d => d.type === t) }))
+    .filter(g => g.items.length > 0);
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button type="button" onClick={() => setOpen(o => !o)} style={{
+        width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+        background: "var(--bg3)",
+        border: `1.5px solid ${hasError ? "var(--danger)" : open ? "var(--accent)" : "var(--border)"}`,
+        borderRadius: "var(--radius)", padding: "9px 12px",
+        fontSize: 14, cursor: "pointer", textAlign: "left",
+        boxShadow: hasError ? "0 0 0 3px rgba(217,48,37,0.2)" : open ? "0 0 0 3px var(--accent-dim)" : "none",
+        transition: "border-color 0.14s, box-shadow 0.14s",
+        fontFamily: "var(--font-inter), Inter, sans-serif",
+      }}>
+        {selected && selectedTs ? (
+          <span style={{
+            display: "inline-flex", alignItems: "center", gap: 5,
+            padding: "2px 9px", borderRadius: 10, fontSize: 12, fontWeight: 600,
+            background: selectedTs.bg, color: selectedTs.color, border: `1px solid ${selectedTs.border}`,
+          }}>
+            {selectedTs.icon} {selected.name}
+          </span>
+        ) : (
+          <span style={{ color: "var(--text3)" }}>{placeholder}</span>
+        )}
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+          style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s", color: "var(--text3)" }}>
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0,
+          background: "var(--surface)", border: "1.5px solid var(--border2)",
+          borderRadius: "var(--radius2)", boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+          zIndex: 200, maxHeight: 260, overflowY: "auto",
+        }}>
+          {groups.map((g, gi) => {
+            const ts = TYPE_STYLE[g.type];
+            return (
+              <div key={g.type}>
+                <div style={{
+                  padding: "7px 12px 5px", fontSize: 11, fontWeight: 700,
+                  letterSpacing: "0.7px", textTransform: "uppercase",
+                  color: ts.color, background: ts.bg,
+                  display: "flex", alignItems: "center", gap: 6,
+                  borderTop: gi > 0 ? "1px solid var(--border)" : "none",
+                  position: "sticky", top: 0,
+                }}>
+                  {ts.icon} {DEPARTMENT_TYPE_LABELS[g.type]}
+                </div>
+                {g.items.map(d => (
+                  <div key={d.id}
+                    onClick={() => { onChange(d.id); setOpen(false); }}
+                    onMouseEnter={e => { if (d.id !== value) e.currentTarget.style.background = "var(--bg3)"; }}
+                    onMouseLeave={e => { if (d.id !== value) e.currentTarget.style.background = d.id === value ? ts.bg : "transparent"; }}
+                    style={{
+                      padding: "8px 16px 8px 20px", cursor: "pointer", fontSize: 13,
+                      color: d.id === value ? ts.color : "var(--text)",
+                      background: d.id === value ? ts.bg : "transparent",
+                      fontWeight: d.id === value ? 600 : 400,
+                      display: "flex", alignItems: "center", gap: 8,
+                    }}>
+                    {d.id === value ? (
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ flexShrink: 0, color: ts.color }}>
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    ) : <span style={{ width: 11 }} />}
+                    {d.name}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function UsersPageInner() {
   const router = useRouter();
@@ -33,6 +214,7 @@ function UsersPageInner() {
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [filtered, setFiltered] = useState<UserResponse[]>([]);
   const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<DepartmentType | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -89,21 +271,27 @@ function UsersPageInner() {
 
   useEffect(() => {
     const q = search.toLowerCase();
-    setFiltered(
-      q ? users.filter(u =>
-        `${u.firstName} ${u.lastName}`.toLowerCase().includes(q) ||
-        u.login.toLowerCase().includes(q) ||
-        (u.roleName ?? "").toLowerCase().includes(q) ||
-        (u.departmentName ?? "").toLowerCase().includes(q)
-      ) : users
+    const deptIdsByType = typeFilter !== null
+      ? new Set(departments.filter(d => d.type === typeFilter).map(d => d.id))
+      : null;
+
+    let list = users;
+    if (deptIdsByType !== null) list = list.filter(u => u.departmentId !== null && deptIdsByType.has(u.departmentId));
+    if (q) list = list.filter(u =>
+      `${u.firstName} ${u.lastName}`.toLowerCase().includes(q) ||
+      u.login.toLowerCase().includes(q) ||
+      (u.roleName ?? "").toLowerCase().includes(q) ||
+      (u.departmentName ?? "").toLowerCase().includes(q)
     );
-  }, [search, users]);
+    setFiltered(list);
+  }, [search, typeFilter, users, departments]);
 
   // Initialize form when entering edit mode or when editTarget becomes available
   const initializedEditIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (showEdit && editTarget && initializedEditIdRef.current !== editId) {
       initializedEditIdRef.current = editId;
+      setFormSubmitted(false);
       setForm({
         firstName: editTarget.firstName,
         lastName: editTarget.lastName,
@@ -137,7 +325,7 @@ function UsersPageInner() {
 
   const handleCreate = async () => {
     setFormSubmitted(true);
-    if (!form.firstName || !form.lastName || !form.login || !form.password) return;
+    if (!form.firstName || !form.lastName || !form.login || !form.password || !form.roleId || !form.departmentId) return;
     setSaving(true);
     try {
       const payload: UserCreatePayload = {
@@ -149,7 +337,8 @@ function UsersPageInner() {
         departmentId: form.departmentId || null,
       };
       await userService.create(payload);
-      router.back();
+      sessionStorage.removeItem("draft_users");
+      router.push(pathname);
       await load();
     } catch {
       // stay open on error
@@ -160,6 +349,8 @@ function UsersPageInner() {
 
   const handleUpdate = async () => {
     if (!editTarget) return;
+    setFormSubmitted(true);
+    if (!form.roleId || !form.departmentId) return;
     setSaving(true);
     try {
       const payload: UserUpdatePayload = {
@@ -172,7 +363,8 @@ function UsersPageInner() {
         isActive: form.isActive,
       };
       await userService.update(editTarget.id, payload);
-      router.back();
+      sessionStorage.removeItem("draft_users");
+      router.push(pathname);
       await load();
     } catch {
       // stay open on error
@@ -252,18 +444,34 @@ function UsersPageInner() {
             />
           </div>
           <div>
-            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", marginBottom: 6, display: "block" }}>Rol</label>
-            <select className="form-input" value={form.roleId} onChange={e => setForm(f => ({ ...f, roleId: e.target.value }))}>
-              <option value="">— Rol tanlang —</option>
-              {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-            </select>
+            <label style={{ fontSize: 13, fontWeight: 600, color: formSubmitted && !form.roleId ? "var(--danger)" : "var(--text2)", marginBottom: 6, display: "block" }}>
+              Rol <span style={{ color: "var(--danger)" }}>*</span>
+            </label>
+            <CustomSelect
+              value={form.roleId}
+              onChange={v => setForm(f => ({ ...f, roleId: v }))}
+              options={roles}
+              placeholder="— Rol tanlang —"
+              hasError={formSubmitted && !form.roleId}
+            />
+            {formSubmitted && !form.roleId && (
+              <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Rol tanlang</div>
+            )}
           </div>
           <div>
-            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", marginBottom: 6, display: "block" }}>Bo&apos;lim</label>
-            <select className="form-input" value={form.departmentId} onChange={e => setForm(f => ({ ...f, departmentId: e.target.value }))}>
-              <option value="">— Bo&apos;lim tanlang —</option>
-              {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
+            <label style={{ fontSize: 13, fontWeight: 600, color: formSubmitted && !form.departmentId ? "var(--danger)" : "var(--text2)", marginBottom: 6, display: "block" }}>
+              Bo&apos;lim <span style={{ color: "var(--danger)" }}>*</span>
+            </label>
+            <CustomGroupedSelect
+              value={form.departmentId}
+              onChange={v => setForm(f => ({ ...f, departmentId: v }))}
+              departments={departments}
+              placeholder="— Bo'lim tanlang —"
+              hasError={formSubmitted && !form.departmentId}
+            />
+            {formSubmitted && !form.departmentId && (
+              <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Bo'lim tanlang</div>
+            )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "var(--text2)", cursor: "pointer" }}>
@@ -276,7 +484,7 @@ function UsersPageInner() {
 
         {/* Footer actions */}
         <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 8 }}>
-          <button className="btn-secondary" onClick={() => router.back()}>Bekor qilish</button>
+          <button className="btn-secondary" onClick={() => { sessionStorage.removeItem("draft_users"); router.push(pathname); }}>Bekor qilish</button>
           <button className="btn-primary" onClick={handleUpdate} disabled={saving}
             style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -341,6 +549,7 @@ function UsersPageInner() {
               value={form.login}
               onChange={e => setForm(f => ({ ...f, login: e.target.value }))}
               placeholder="Login"
+              autoComplete="off"
               style={formSubmitted && !form.login.trim() ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : undefined}
             />
             {formSubmitted && !form.login.trim() && (
@@ -357,6 +566,7 @@ function UsersPageInner() {
               value={form.password}
               onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
               placeholder="Parol"
+              autoComplete="new-password"
               style={formSubmitted && !form.password.trim() ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : undefined}
             />
             {formSubmitted && !form.password.trim() && (
@@ -364,24 +574,40 @@ function UsersPageInner() {
             )}
           </div>
           <div>
-            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", marginBottom: 6, display: "block" }}>Rol</label>
-            <select className="form-input" value={form.roleId} onChange={e => setForm(f => ({ ...f, roleId: e.target.value }))}>
-              <option value="">— Rol tanlang —</option>
-              {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-            </select>
+            <label style={{ fontSize: 13, fontWeight: 600, color: formSubmitted && !form.roleId ? "var(--danger)" : "var(--text2)", marginBottom: 6, display: "block" }}>
+              Rol <span style={{ color: "var(--danger)" }}>*</span>
+            </label>
+            <CustomSelect
+              value={form.roleId}
+              onChange={v => setForm(f => ({ ...f, roleId: v }))}
+              options={roles}
+              placeholder="— Rol tanlang —"
+              hasError={formSubmitted && !form.roleId}
+            />
+            {formSubmitted && !form.roleId && (
+              <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Rol tanlang</div>
+            )}
           </div>
           <div>
-            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", marginBottom: 6, display: "block" }}>Bo&apos;lim</label>
-            <select className="form-input" value={form.departmentId} onChange={e => setForm(f => ({ ...f, departmentId: e.target.value }))}>
-              <option value="">— Bo&apos;lim tanlang —</option>
-              {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
+            <label style={{ fontSize: 13, fontWeight: 600, color: formSubmitted && !form.departmentId ? "var(--danger)" : "var(--text2)", marginBottom: 6, display: "block" }}>
+              Bo&apos;lim <span style={{ color: "var(--danger)" }}>*</span>
+            </label>
+            <CustomGroupedSelect
+              value={form.departmentId}
+              onChange={v => setForm(f => ({ ...f, departmentId: v }))}
+              departments={departments}
+              placeholder="— Bo'lim tanlang —"
+              hasError={formSubmitted && !form.departmentId}
+            />
+            {formSubmitted && !form.departmentId && (
+              <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Bo'lim tanlang</div>
+            )}
           </div>
         </div>
 
         {/* Footer actions */}
         <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 8 }}>
-          <button className="btn-secondary" onClick={() => router.back()}>Bekor qilish</button>
+          <button className="btn-secondary" onClick={() => { sessionStorage.removeItem("draft_users"); router.push(pathname); }}>Bekor qilish</button>
           <button className="btn-primary" onClick={handleCreate} disabled={saving}
             style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -412,6 +638,41 @@ function UsersPageInner() {
         .sdot-on  { background: #22c55e; animation: sdot-ping 1.5s ease-out infinite; }
         .sdot-off { background: #94a3b8; }
       `}</style>
+
+      {/* Toifa filter chips */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+        {([null, DepartmentType.IshlabChiqarish, DepartmentType.Bolim, DepartmentType.Boshqaruv] as const).map(t => {
+          const active = typeFilter === t;
+          const label = t === null ? "Barchasi" : DEPARTMENT_TYPE_LABELS[t];
+          const deptIds = t === null ? null : new Set(departments.filter(d => d.type === t).map(d => d.id));
+          const count = t === null ? users.length : users.filter(u => u.departmentId && deptIds!.has(u.departmentId)).length;
+          const s = t !== null ? TYPE_STYLE[t] : null;
+          return (
+            <button
+              key={String(t)}
+              type="button"
+              onClick={() => setTypeFilter(t)}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 13, fontWeight: 600,
+                border: active ? `1.5px solid ${s ? s.color : "var(--accent)"}` : "1.5px solid var(--border)",
+                background: active ? (s ? s.bg : "var(--accent-dim)") : "var(--bg1)",
+                color: active ? (s ? s.color : "var(--accent)") : "var(--text2)",
+                transition: "all 0.15s",
+              }}
+            >
+              {t !== null && <span>{s!.icon}</span>}
+              {label}
+              <span style={{
+                background: active ? (s ? s.color : "var(--accent)") : "var(--border)",
+                color: active ? "#fff" : "var(--text2)",
+                borderRadius: 10, padding: "1px 7px", fontSize: 11,
+              }}>{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
       <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px" }}>
         <div className="search-wrap" style={{ maxWidth: "none", flex: 1 }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -461,19 +722,36 @@ function UsersPageInner() {
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Ism</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Familiya</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Login</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Bo&apos;lim / Sex</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Holat</th>
                   <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>Amallar</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
-                ) : filtered.map((u, i) => (
+                  <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
+                ) : filtered.map((u, i) => {
+                  const dept = u.departmentId ? departments.find(d => d.id === u.departmentId) : null;
+                  const ts = dept?.type !== undefined ? TYPE_STYLE[dept.type] : null;
+                  return (
                   <tr key={u.id}>
                     <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>{String((page - 1) * 20 + i + 1).padStart(2, "0")}</td>
                     <td style={{ textAlign: "center" }}>{u.firstName}</td>
                     <td style={{ textAlign: "center", color: "var(--text1)" }}>{u.lastName}</td>
                     <td style={{ textAlign: "center" }}>{u.login}</td>
+                    <td style={{ textAlign: "center" }}>
+                      {u.departmentName && ts ? (
+                        <span style={{
+                          display: "inline-flex", alignItems: "center", gap: 4,
+                          padding: "2px 8px", borderRadius: 12, fontSize: 12, fontWeight: 600,
+                          background: ts.bg, color: ts.color, border: `1px solid ${ts.border}`,
+                        }}>
+                          {ts.icon} {u.departmentName}
+                        </span>
+                      ) : (
+                        <span style={{ color: "var(--text3)", fontSize: 12 }}>—</span>
+                      )}
+                    </td>
                     <td style={{ textAlign: "center" }}>
                       <span
                         className={`sdot ${u.isActive ? "sdot-on" : "sdot-off"}`}
@@ -509,7 +787,8 @@ function UsersPageInner() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

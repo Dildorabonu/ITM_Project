@@ -2,6 +2,7 @@ using System.Text;
 using API.Authorization;
 using Application;
 using Application.Options;
+using Application.Services;
 using Microsoft.Extensions.Options;
 using Core.Enums;
 using DataAccess.Persistence;
@@ -80,6 +81,7 @@ namespace API
                 });
             });
 
+            builder.Services.AddMemoryCache();
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
@@ -130,6 +132,13 @@ namespace API
             app.MapControllers();
 
             await app.Services.ApplyMigrationsAsync();
+
+            // Pre-warm user lookup cache so first request is instant
+            using (var scope = app.Services.CreateScope())
+            {
+                var userService = scope.ServiceProvider.GetRequiredService<IUserService>();
+                await userService.GetLookupAsync();
+            }
 
             app.Run();
         }
