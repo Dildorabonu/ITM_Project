@@ -1,3 +1,5 @@
+using Core.Enums;
+
 namespace Application.DTOs.Users;
 
 public class UserLookupDto
@@ -6,4 +8,5 @@ public class UserLookupDto
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
     public string? DepartmentName { get; set; }
+    public DepartmentType? DepartmentType { get; set; }
 }

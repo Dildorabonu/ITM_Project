@@ -9,6 +9,7 @@ import {
   departmentService,
   ContractStatus,
   Priority,
+  DepartmentType,
   CONTRACT_STATUS_LABELS,
   PRIORITY_LABELS,
   type ContractResponse,
@@ -187,7 +188,7 @@ export default function ContractsPage() {
     "draft_contracts",
     showForm,
     { form, editTarget },
-    (d) => { setForm(d.form); setEditTarget(d.editTarget); setShowForm(true); },
+    (d) => { setForm(d.form); setEditTarget(d.editTarget); ensureDataLoaded().then(() => setShowForm(true)); },
   );
 
   // ── Load files ────────────────────────────────────────────────────────────
@@ -347,7 +348,7 @@ export default function ContractsPage() {
 
   const ensureDataLoaded = async () => {
     await Promise.all([
-      userService.getLookup().then(items => setAllUsers(items)),
+      allUsers.length === 0 ? userService.getLookup().then(items => setAllUsers(items)) : Promise.resolve(),
       departments.length === 0 ? departmentService.getAllFull().then(d => setDepartments(d)) : Promise.resolve(),
     ]);
   };
@@ -385,11 +386,11 @@ export default function ContractsPage() {
     setFormError("");
     const [users, lookup, depts] = await Promise.all([
       contractService.getUsers(c.id),
-      userService.getLookup(),
-      departmentService.getAllFull(),
+      allUsers.length > 0 ? Promise.resolve(allUsers) : userService.getLookup(),
+      departments.length > 0 ? Promise.resolve(departments) : departmentService.getAllFull(),
     ]);
-    setAllUsers(lookup);
-    setDepartments(depts);
+    if (lookup !== allUsers) setAllUsers(lookup);
+    if (depts !== departments) setDepartments(depts);
     setFormUsers(lookup.filter((u: UserLookup) => users.some((cu: ContractUserResponse) => cu.userId === u.id && cu.role === 0)));
     setFormSupervisors(lookup.filter((u: UserLookup) => users.some((cu: ContractUserResponse) => cu.userId === u.id && cu.role === 1)));
     setFormObservers(lookup.filter((u: UserLookup) => users.some((cu: ContractUserResponse) => cu.userId === u.id && cu.role === 2)));
@@ -690,21 +691,21 @@ export default function ContractsPage() {
                 placeholder="Qo'shimcha izoh (ixtiyoriy)" rows={2} style={{ resize: "none" }} />
             </div>
 
-            {/* Xodimlar - 3 ta rol */}
+            {/* Xodimlar - 3 ta toifa */}
             <div style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
 
-              {/* Mas'ul xodimlar */}
               {([
-                { label: "Mas\u02BCul xodimlar",    list: formUsers,       setList: setFormUsers },
-                { label: "Nazoratchi xodimlar", list: formSupervisors, setList: setFormSupervisors },
-                { label: "Kuzatuvchi xodimlar", list: formObservers,   setList: setFormObservers },
-              ] as const).map(({ label, list, setList }, idx) => {
+                { label: "Sex xodimlari",      list: formUsers,       setList: setFormUsers,       deptType: DepartmentType.Sex,     color: "#c2410c", bg: "#fff7ed", icon: "🏭" },
+                { label: "Bo\u02BClim xodimlari", list: formSupervisors, setList: setFormSupervisors, deptType: DepartmentType.Bolim,   color: "#1d4ed8", bg: "#eff6ff", icon: "🏢" },
+                { label: "Boshliqlar",          list: formObservers,   setList: setFormObservers,   deptType: DepartmentType.Boshqaruv, color: "#6d28d9", bg: "#f5f3ff", icon: "👔" },
+              ] as const).map(({ label, list, setList, deptType, color, bg, icon }, idx) => {
                 const isOpen = openPickerIdx === idx;
-                const available = allUsers.filter(u => !list.some(x => x.id === u.id));
+                const poolByType = allUsers.filter(u => u.departmentType === deptType);
+                const available = poolByType.filter(u => !list.some(x => x.id === u.id));
                 return (
                   <div key={label}>
-                    <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", display: "block", marginBottom: 8 }}>
-                      {label} <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text3)" }}>(ixtiyoriy)</span>
+                    <label style={{ fontSize: 13, fontWeight: 600, color, display: "block", marginBottom: 8 }}>
+                      {icon} {label} <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text3)" }}>(ixtiyoriy)</span>
                     </label>
 
                     {list.length > 0 && (
@@ -712,15 +713,15 @@ export default function ContractsPage() {
                         {list.map(u => (
                           <div key={u.id} style={{
                             display: "inline-flex", alignItems: "center", gap: 6,
-                            background: "var(--accent-dim)", border: "1.5px solid var(--accent-mid)",
-                            borderRadius: 20, padding: "4px 10px 4px 8px", fontSize: 12, color: "var(--accent)",
+                            background: bg, border: `1.5px solid ${color}44`,
+                            borderRadius: 20, padding: "4px 10px 4px 8px", fontSize: 12, color,
                           }}>
-                            <span style={{ width: 20, height: 20, borderRadius: "50%", background: "var(--accent)", color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
+                            <span style={{ width: 20, height: 20, borderRadius: "50%", background: color, color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
                               {u.firstName.charAt(0).toUpperCase()}
                             </span>
                             <span style={{ fontWeight: 600 }}>{u.firstName} {u.lastName}</span>
                             <button type="button" onClick={() => setList((prev: typeof list) => prev.filter(x => x.id !== u.id))}
-                              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent)", padding: 0, lineHeight: 1, fontSize: 14, opacity: 0.7 }}>✕</button>
+                              style={{ background: "none", border: "none", cursor: "pointer", color, padding: 0, lineHeight: 1, fontSize: 14, opacity: 0.7 }}>✕</button>
                           </div>
                         ))}
                       </div>
@@ -751,6 +752,10 @@ export default function ContractsPage() {
                           {allUsers.length === 0 ? (
                             <div style={{ padding: "14px 14px", fontSize: 13, color: "var(--text3)", textAlign: "center" }}>
                               Yuklanmoqda...
+                            </div>
+                          ) : poolByType.length === 0 ? (
+                            <div style={{ padding: "14px 14px", fontSize: 13, color: "var(--text3)", textAlign: "center" }}>
+                              Bu toifada xodim yo&apos;q
                             </div>
                           ) : available.length === 0 ? (
                             <div style={{ padding: "14px 14px", fontSize: 13, color: "var(--text3)", textAlign: "center" }}>

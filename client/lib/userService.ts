@@ -10,11 +10,24 @@ export interface PagedResult<T> {
   hasNextPage: boolean;
 }
 
+export enum DepartmentType {
+  IshlabChiqarish = 0,
+  Bolim           = 1,
+  Boshqaruv         = 2,
+}
+
+export const DEPARTMENT_TYPE_LABELS: Record<DepartmentType, string> = {
+  [DepartmentType.IshlabChiqarish]: "Ishlab chiqarish",
+  [DepartmentType.Bolim]:           "Bo'lim",
+  [DepartmentType.Boshqaruv]:         "Boshqaruv",
+};
+
 export interface UserLookup {
   id: string;
   firstName: string;
   lastName: string;
   departmentName: string | null;
+  departmentType: DepartmentType | null;
 }
 
 export interface UserResponse {
@@ -57,6 +70,7 @@ export interface RoleOption {
 export interface DepartmentOption {
   id: string;
   name: string;
+  type?: DepartmentType;
 }
 
 export const userService = {
@@ -163,6 +177,7 @@ export const permissionService = {
 export interface DepartmentResponse {
   id: string;
   name: string;
+  type: DepartmentType;
   employeeCount: number;
   createdAt: string;
   headUserName?: string | null;
@@ -170,11 +185,13 @@ export interface DepartmentResponse {
 
 export interface DepartmentCreatePayload {
   name: string;
+  type: DepartmentType;
   employeeCount?: number;
 }
 
 export interface DepartmentUpdatePayload {
   name?: string;
+  type?: DepartmentType;
   employeeCount?: number | null;
 }
 
@@ -472,7 +489,7 @@ export const departmentService = {
   getAll: async (): Promise<DepartmentOption[]> => {
     const res = await api.get("/api/department");
     const data = res.data?.result ?? res.data ?? [];
-    return data.map((d: { id: string; name: string }) => ({ id: d.id, name: d.name }));
+    return data.map((d: { id: string; name: string; type: DepartmentType }) => ({ id: d.id, name: d.name, type: d.type }));
   },
 
   getAllFull: async (): Promise<DepartmentResponse[]> => {

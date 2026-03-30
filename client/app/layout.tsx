@@ -52,7 +52,7 @@ const navGroups: NavGroup[] = [
     icon: "package",
     items: [
       { name: "Mahsulotlar",       href: "/products",    icon: "shopping-bag" },
-      { name: "Bo'limlar",         href: "/departments", icon: "briefcase" },
+      { name: "Tuzilma",            href: "/departments", icon: "briefcase" },
       { name: "Deficit Tekshiruv", href: "/deficit",     icon: "alert-circle" },
     ],
   },
@@ -178,7 +178,7 @@ const pageTitles: Record<string, string> = {
   "/tasks":         "Kunlik Vazifalar",
   "/users":         "Foydalanuvchilar",
   "/roles":         "Rollar",
-  "/departments":   "Bo'limlar",
+  "/departments":   "Tuzilma",
   "/products":      "Mahsulotlar",
   "/appearance":    "Tashqi ko'rinish",
 };
