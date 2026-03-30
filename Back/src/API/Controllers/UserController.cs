@@ -19,6 +19,13 @@ public class UserController : ControllerBase
         _userService = userService;
     }
 
+    [HttpGet("lookup")]
+    public async Task<IActionResult> GetLookup()
+    {
+        var result = await _userService.GetLookupAsync();
+        return Ok(result);
+    }
+
     [HasPermission("Users.View")]
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] PaginationParams pagination)

@@ -35,6 +35,25 @@ public class UserService : IUserService
         return ApiResult<PagedResult<UserResponseDto>>.Success(paged);
     }
 
+    public async Task<ApiResult<IEnumerable<UserLookupDto>>> GetLookupAsync()
+    {
+        var users = await _context.Users
+            .Include(u => u.Department)
+            .AsNoTracking()
+            .Where(u => u.IsActive)
+            .OrderBy(u => u.FirstName).ThenBy(u => u.LastName)
+            .Select(u => new UserLookupDto
+            {
+                Id             = u.Id,
+                FirstName      = u.FirstName,
+                LastName       = u.LastName,
+                DepartmentName = u.Department != null ? u.Department.Name : null,
+            })
+            .ToListAsync();
+
+        return ApiResult<IEnumerable<UserLookupDto>>.Success(users);
+    }
+
     public async Task<ApiResult<UserResponseDto>> GetByIdAsync(Guid id)
     {
         var user = await _context.Users

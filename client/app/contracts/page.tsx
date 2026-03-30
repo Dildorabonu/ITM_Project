@@ -16,7 +16,7 @@ import {
   type ContractUpdatePayload,
   type AttachmentResponse,
   type ContractUserResponse,
-  type UserResponse,
+  type UserLookup,
   type ScanSource,
   type DepartmentResponse,
 } from "@/lib/userService";
@@ -131,18 +131,11 @@ export default function ContractsPage() {
   const [formError, setFormError]       = useState("");
   const [pendingContractFiles, setPendingContractFiles] = useState<File[]>([]);
   const [pendingTzFiles, setPendingTzFiles]             = useState<File[]>([]);
-  const [formUsers, setFormUsers]             = useState<UserResponse[]>([]);
-  const [formSupervisors, setFormSupervisors] = useState<UserResponse[]>([]);
-  const [formObservers, setFormObservers]     = useState<UserResponse[]>([]);
-  const [formUserSearch, setFormUserSearch]   = useState("");
-  const [formSuperSearch, setFormSuperSearch] = useState("");
-  const [formObsSearch, setFormObsSearch]     = useState("");
-  const [showUserPicker, setShowUserPicker]   = useState(false);
-  const [showSuperPicker, setShowSuperPicker] = useState(false);
-  const [showObsPicker, setShowObsPicker]     = useState(false);
-  const userPickerRef  = useRef<HTMLDivElement | null>(null);
-  const superPickerRef = useRef<HTMLDivElement | null>(null);
-  const obsPickerRef   = useRef<HTMLDivElement | null>(null);
+  const [formUsers, setFormUsers]             = useState<UserLookup[]>([]);
+  const [formSupervisors, setFormSupervisors] = useState<UserLookup[]>([]);
+  const [formObservers, setFormObservers]     = useState<UserLookup[]>([]);
+  const [openPickerIdx, setOpenPickerIdx]     = useState<number | null>(null);
+  const pickerRef                             = useRef<HTMLDivElement | null>(null);
 
   // View drawer
   const [viewContract, setViewContract] = useState<ContractResponse | null>(null);
@@ -164,7 +157,7 @@ export default function ContractsPage() {
   const [drawerUsers, setDrawerUsers]   = useState<ContractUserResponse[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [showAssign, setShowAssign]     = useState(false);
-  const [allUsers, setAllUsers]         = useState<UserResponse[]>([]);
+  const [allUsers, setAllUsers]         = useState<UserLookup[]>([]);
   const [assignSearch, setAssignSearch] = useState("");
   const [assigning, setAssigning]       = useState(false);
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
@@ -227,7 +220,7 @@ export default function ContractsPage() {
     setAssignSearch("");
     setShowAssign(true);
     if (allUsers.length === 0) {
-      const { items } = await userService.getAll(1, 200);
+      const items = await userService.getLookup();
       setAllUsers(items);
     }
   };
@@ -329,18 +322,14 @@ export default function ContractsPage() {
   }, [search, filterStatus, contracts]);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node | null;
-      if (showUserPicker && userPickerRef.current && target && !userPickerRef.current.contains(target))
-        setShowUserPicker(false);
-      if (showSuperPicker && superPickerRef.current && target && !superPickerRef.current.contains(target))
-        setShowSuperPicker(false);
-      if (showObsPicker && obsPickerRef.current && target && !obsPickerRef.current.contains(target))
-        setShowObsPicker(false);
+    if (openPickerIdx === null) return;
+    const handler = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node))
+        setOpenPickerIdx(null);
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showUserPicker, showSuperPicker, showObsPicker]);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [openPickerIdx]);
 
   useEffect(() => {
     if (!showForm) return;
@@ -349,7 +338,6 @@ export default function ContractsPage() {
       setPendingContractFiles([]);
       setPendingTzFiles([]);
       setFormUsers([]);
-      setShowUserPicker(false);
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
@@ -358,14 +346,10 @@ export default function ContractsPage() {
   // ── Form ──────────────────────────────────────────────────────────────────
 
   const ensureDataLoaded = async () => {
-    const promises: Promise<unknown>[] = [];
-    if (allUsers.length === 0) {
-      promises.push(userService.getAll(1, 200).then(({ items }) => setAllUsers(items)));
-    }
-    if (departments.length === 0) {
-      promises.push(departmentService.getAllFull().then(d => setDepartments(d)));
-    }
-    await Promise.all(promises);
+    await Promise.all([
+      userService.getLookup().then(items => setAllUsers(items)),
+      departments.length === 0 ? departmentService.getAllFull().then(d => setDepartments(d)) : Promise.resolve(),
+    ]);
   };
 
   const openCreate = async () => {
@@ -378,12 +362,6 @@ export default function ContractsPage() {
     setFormUsers([]);
     setFormSupervisors([]);
     setFormObservers([]);
-    setFormUserSearch("");
-    setFormSuperSearch("");
-    setFormObsSearch("");
-    setShowUserPicker(false);
-    setShowSuperPicker(false);
-    setShowObsPicker(false);
     await ensureDataLoaded();
     window.history.pushState({ showForm: true }, "");
     setShowForm(true);
@@ -397,43 +375,37 @@ export default function ContractsPage() {
       quantity:      c.quantity ? String(c.quantity) : "",
       unit:          c.unit ?? "",
       departmentId:  c.departmentId ?? "",
-      startDate:     isoToDisplayDate(c.startDate),
-      endDate:       isoToDisplayDate(c.endDate),
+      startDate:     c.startDate ? c.startDate.slice(0, 10) : "",
+      endDate:       c.endDate ? c.endDate.slice(0, 10) : "",
       priority:      String(c.priority),
       contractParty: c.contractParty ?? "",
       notes:         c.notes ?? "",
     });
     setSubmitted(false);
     setFormError("");
-    setFormUserSearch("");
-    setFormSuperSearch("");
-    setFormObsSearch("");
-    setShowUserPicker(false);
-    setShowSuperPicker(false);
-    setShowObsPicker(false);
-    const [users, { items }, depts] = await Promise.all([
+    const [users, lookup, depts] = await Promise.all([
       contractService.getUsers(c.id),
-      userService.getAll(1, 200),
+      userService.getLookup(),
       departmentService.getAllFull(),
     ]);
-    setAllUsers(items);
+    setAllUsers(lookup);
     setDepartments(depts);
-    setFormUsers(items.filter((u: UserResponse) => users.some((cu: ContractUserResponse) => cu.userId === u.id && cu.role === 0)));
-    setFormSupervisors(items.filter((u: UserResponse) => users.some((cu: ContractUserResponse) => cu.userId === u.id && cu.role === 1)));
-    setFormObservers(items.filter((u: UserResponse) => users.some((cu: ContractUserResponse) => cu.userId === u.id && cu.role === 2)));
+    setFormUsers(lookup.filter((u: UserLookup) => users.some((cu: ContractUserResponse) => cu.userId === u.id && cu.role === 0)));
+    setFormSupervisors(lookup.filter((u: UserLookup) => users.some((cu: ContractUserResponse) => cu.userId === u.id && cu.role === 1)));
+    setFormObservers(lookup.filter((u: UserLookup) => users.some((cu: ContractUserResponse) => cu.userId === u.id && cu.role === 2)));
     window.history.pushState({ showForm: true }, "");
     setShowForm(true);
   };
 
   const isValid = () =>
     form.contractNo.trim() && form.departmentId.trim() &&
-    displayToIsoDate(form.startDate) && displayToIsoDate(form.endDate);
+    form.startDate && form.endDate;
 
   const handleSave = async () => {
     setSubmitted(true);
     if (!isValid()) return;
-    const startDateIso = displayToIsoDate(form.startDate);
-    const endDateIso = displayToIsoDate(form.endDate);
+    const startDateIso = form.startDate;
+    const endDateIso = form.endDate;
     if (!startDateIso || !endDateIso) return;
     setSaving(true);
     setFormError("");
@@ -580,8 +552,8 @@ export default function ContractsPage() {
   // ── Render: Form ──────────────────────────────────────────────────────────
 
   const fieldErr = (val: string) => submitted && !val.trim();
-  const startDateErr = submitted && !displayToIsoDate(form.startDate);
-  const endDateErr = submitted && !displayToIsoDate(form.endDate);
+  const startDateErr = submitted && !form.startDate;
+  const endDateErr = submitted && !form.endDate;
   const deptErr = submitted && !form.departmentId.trim();
 
   if (showForm) {
@@ -625,13 +597,11 @@ export default function ContractsPage() {
               <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: startDateErr ? "var(--danger)" : "var(--text2)" }}>
                 Boshlanish sanasi <span style={{ color: "var(--danger)" }}>*</span>
               </label>
-              <input className="form-input" type="text" inputMode="numeric" value={form.startDate}
-                onChange={e => setForm(f => ({ ...f, startDate: autoFormatDate(e.target.value) }))}
-                placeholder="dd-mm-yy"
-                maxLength={8}
+              <input className="form-input" type="date" value={form.startDate}
+                onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))}
                 style={startDateErr ? { borderColor: "var(--danger)" } : undefined}
               />
-              {startDateErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Sana formati: dd-mm-yy</div>}
+              {startDateErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Boshlanish sanasini tanlang</div>}
             </div>
 
             {/* Tugash sanasi */}
@@ -639,13 +609,11 @@ export default function ContractsPage() {
               <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: endDateErr ? "var(--danger)" : "var(--text2)" }}>
                 Tugash sanasi <span style={{ color: "var(--danger)" }}>*</span>
               </label>
-              <input className="form-input" type="text" inputMode="numeric" value={form.endDate}
-                onChange={e => setForm(f => ({ ...f, endDate: autoFormatDate(e.target.value) }))}
-                placeholder="dd-mm-yy"
-                maxLength={8}
+              <input className="form-input" type="date" value={form.endDate}
+                onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))}
                 style={endDateErr ? { borderColor: "var(--danger)" } : undefined}
               />
-              {endDateErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Sana formati: dd-mm-yy</div>}
+              {endDateErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Tugash sanasini tanlang</div>}
             </div>
 
             {/* Mahsulot turi */}
@@ -669,10 +637,21 @@ export default function ContractsPage() {
             {/* O'lchov birligi */}
             <div>
               <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>O&apos;lchov birligi</label>
-              <input className="form-input" value={form.unit}
+              <select className="form-input" title="O'lchov birligi" value={form.unit}
                 onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
-                placeholder="dona, kg, m, m²..."
-              />
+                style={{ width: "100%", cursor: "pointer" }}>
+                <option value="">— Tanlang —</option>
+                <option value="Dona">Dona</option>
+                <option value="Kilogramm">Kilogramm</option>
+                <option value="Gramm">Gramm</option>
+                <option value="Litr">Litr</option>
+                <option value="Metr">Metr</option>
+                <option value="KvMetr">Kv. Metr (m²)</option>
+                <option value="KubMetr">Kub Metr (m³)</option>
+                <option value="Quti">Quti</option>
+                <option value="Paket">Paket</option>
+                <option value="Toʻplam">To'plam</option>
+              </select>
             </div>
 
             {/* Muhimlik */}
@@ -716,104 +695,103 @@ export default function ContractsPage() {
 
               {/* Mas'ul xodimlar */}
               {([
-                { label: "Mas\u02BCul xodimlar", list: formUsers, setList: setFormUsers, search: formUserSearch, setSearch: setFormUserSearch, showPicker: showUserPicker, setShowPicker: setShowUserPicker, ref_: userPickerRef },
-                { label: "Nazoratchi xodimlar", list: formSupervisors, setList: setFormSupervisors, search: formSuperSearch, setSearch: setFormSuperSearch, showPicker: showSuperPicker, setShowPicker: setShowSuperPicker, ref_: superPickerRef },
-                { label: "Kuzatuvchi xodimlar", list: formObservers, setList: setFormObservers, search: formObsSearch, setSearch: setFormObsSearch, showPicker: showObsPicker, setShowPicker: setShowObsPicker, ref_: obsPickerRef },
-              ] as const).map(({ label, list, setList, search, setSearch, showPicker, setShowPicker, ref_ }) => (
-                <div key={label}>
-                  <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", display: "block", marginBottom: 8 }}>
-                    {label} <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text3)" }}>(ixtiyoriy)</span>
-                  </label>
+                { label: "Mas\u02BCul xodimlar",    list: formUsers,       setList: setFormUsers },
+                { label: "Nazoratchi xodimlar", list: formSupervisors, setList: setFormSupervisors },
+                { label: "Kuzatuvchi xodimlar", list: formObservers,   setList: setFormObservers },
+              ] as const).map(({ label, list, setList }, idx) => {
+                const isOpen = openPickerIdx === idx;
+                const available = allUsers.filter(u => !list.some(x => x.id === u.id));
+                return (
+                  <div key={label}>
+                    <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", display: "block", marginBottom: 8 }}>
+                      {label} <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text3)" }}>(ixtiyoriy)</span>
+                    </label>
 
-                  {list.length > 0 && (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-                      {list.map(u => (
-                        <div key={u.id} style={{
-                          display: "inline-flex", alignItems: "center", gap: 6,
-                          background: "var(--accent-dim)", border: "1.5px solid var(--accent-mid)",
-                          borderRadius: 20, padding: "4px 10px 4px 8px", fontSize: 12, color: "var(--accent)",
-                        }}>
-                          <span style={{ width: 20, height: 20, borderRadius: "50%", background: "var(--accent)", color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
-                            {u.firstName.charAt(0).toUpperCase()}
-                          </span>
-                          <span style={{ fontWeight: 600 }}>{u.firstName} {u.lastName}</span>
-                          <button type="button" onClick={() => setList((prev: typeof list) => prev.filter(x => x.id !== u.id))}
-                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent)", padding: 0, lineHeight: 1, fontSize: 14, opacity: 0.7 }}>✕</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div ref={ref_} style={{ position: "relative" }}>
-                    <button type="button" onClick={() => setShowPicker((v: boolean) => !v)}
-                      style={{
-                        display: "inline-flex", alignItems: "center", gap: 6,
-                        fontSize: 13, fontWeight: 500, cursor: "pointer",
-                        color: "var(--text2)", border: "1.5px solid var(--border)",
-                        borderRadius: "var(--radius)", padding: "8px 14px", background: "var(--bg1)",
-                      }}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-                      </svg>
-                      Xodim qo&apos;shish
-                    </button>
-
-                    {showPicker && (
-                      <div style={{
-                        position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 50,
-                        background: "var(--bg1)", border: "1.5px solid var(--border)", borderRadius: 10,
-                        boxShadow: "0 6px 24px rgba(0,0,0,0.14)", width: 280, padding: 12,
-                      }}>
-                        <input className="form-input" placeholder="Qidirish..." value={search}
-                          onChange={e => setSearch(e.target.value)}
-                          style={{ width: "100%", marginBottom: 8 }} autoFocus />
-                        <div style={{ maxHeight: 200, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
-                          {allUsers
-                            .filter(u => {
-                              const q = search.toLowerCase();
-                              return !q || `${u.firstName} ${u.lastName}`.toLowerCase().includes(q) || u.login.toLowerCase().includes(q);
-                            })
-                            .map(u => {
-                              const selected = list.some(x => x.id === u.id);
-                              return (
-                                <button key={u.id} type="button"
-                                  onClick={() => {
-                                    if (selected) setList((prev: typeof list) => prev.filter(x => x.id !== u.id));
-                                    else setList((prev: typeof list) => [...prev, u]);
-                                    setShowPicker(false);
-                                  }}
-                                  style={{
-                                    display: "flex", alignItems: "center", gap: 8,
-                                    padding: "7px 10px", border: "none", borderRadius: 6,
-                                    background: selected ? "var(--accent-dim)" : "transparent",
-                                    cursor: "pointer", textAlign: "left",
-                                  }}>
-                                  <div style={{
-                                    width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
-                                    background: selected ? "var(--accent)" : "var(--bg3)",
-                                    display: "flex", alignItems: "center", justifyContent: "center",
-                                    fontSize: 11, fontWeight: 700, color: selected ? "#fff" : "var(--text2)",
-                                  }}>
-                                    {u.firstName.charAt(0).toUpperCase()}
-                                  </div>
-                                  <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)" }}>{u.firstName} {u.lastName}</div>
-                                    {u.departmentName && <div style={{ fontSize: 11, color: "var(--text3)" }}>{u.departmentName}</div>}
-                                  </div>
-                                  {selected && (
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5">
-                                      <polyline points="20 6 9 17 4 12" />
-                                    </svg>
-                                  )}
-                                </button>
-                              );
-                            })}
-                        </div>
+                    {list.length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                        {list.map(u => (
+                          <div key={u.id} style={{
+                            display: "inline-flex", alignItems: "center", gap: 6,
+                            background: "var(--accent-dim)", border: "1.5px solid var(--accent-mid)",
+                            borderRadius: 20, padding: "4px 10px 4px 8px", fontSize: 12, color: "var(--accent)",
+                          }}>
+                            <span style={{ width: 20, height: 20, borderRadius: "50%", background: "var(--accent)", color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
+                              {u.firstName.charAt(0).toUpperCase()}
+                            </span>
+                            <span style={{ fontWeight: 600 }}>{u.firstName} {u.lastName}</span>
+                            <button type="button" onClick={() => setList((prev: typeof list) => prev.filter(x => x.id !== u.id))}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent)", padding: 0, lineHeight: 1, fontSize: 14, opacity: 0.7 }}>✕</button>
+                          </div>
+                        ))}
                       </div>
                     )}
+
+                    <div ref={isOpen ? pickerRef : null} style={{ position: "relative" }}>
+                      <button type="button"
+                        onClick={() => setOpenPickerIdx(isOpen ? null : idx)}
+                        style={{
+                          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                          padding: "9px 12px", background: "var(--bg1)", border: "1.5px solid var(--border)",
+                          borderRadius: "var(--radius)", cursor: "pointer", fontSize: 13, color: available.length ? "var(--text2)" : "var(--text3)",
+                        }}>
+                        <span>Xodim tanlang</span>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+                          style={{ transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s", flexShrink: 0 }}>
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                      </button>
+
+                      {isOpen && (
+                        <div style={{
+                          position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 50,
+                          background: "var(--bg2)", border: "1.5px solid var(--border)", borderRadius: 10,
+                          boxShadow: "0 6px 24px rgba(0,0,0,0.13)",
+                          maxHeight: 260, overflow: "auto",
+                        }}>
+                          {allUsers.length === 0 ? (
+                            <div style={{ padding: "14px 14px", fontSize: 13, color: "var(--text3)", textAlign: "center" }}>
+                              Yuklanmoqda...
+                            </div>
+                          ) : available.length === 0 ? (
+                            <div style={{ padding: "14px 14px", fontSize: 13, color: "var(--text3)", textAlign: "center" }}>
+                              Barcha xodimlar tanlangan
+                            </div>
+                          ) : available.map(u => (
+                            <button key={u.id} type="button"
+                              onClick={() => { setList((prev: typeof list) => [...prev, u]); setOpenPickerIdx(null); }}
+                              style={{
+                                width: "100%", display: "flex", alignItems: "center", gap: 10,
+                                padding: "10px 14px", border: "none", background: "transparent",
+                                cursor: "pointer", textAlign: "left", borderBottom: "1px solid var(--border)",
+                              }}
+                              onMouseEnter={e => (e.currentTarget.style.background = "var(--bg3)")}
+                              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                            >
+                              <div style={{
+                                width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
+                                background: "var(--accent-dim)", display: "flex", alignItems: "center",
+                                justifyContent: "center", fontSize: 13, fontWeight: 700, color: "var(--accent)",
+                              }}>
+                                {u.firstName.charAt(0).toUpperCase()}
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {u.firstName} {u.lastName}
+                                </div>
+                                {u.departmentName && (
+                                  <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    {u.departmentName}
+                                  </div>
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Shartnoma fayli */}
@@ -980,7 +958,7 @@ export default function ContractsPage() {
         )}
 
         <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 4 }}>
-          <button onClick={() => { setShowForm(false); setPendingContractFiles([]); setPendingTzFiles([]); setFormUsers([]); setShowUserPicker(false); }}
+          <button onClick={() => { setShowForm(false); setPendingContractFiles([]); setPendingTzFiles([]); setFormUsers([]); }}
             style={{ background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", padding: "10px 24px", color: "var(--text2)", fontSize: 14, fontWeight: 500 }}>
             Bekor qilish
           </button>
