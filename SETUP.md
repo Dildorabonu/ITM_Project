@@ -122,7 +122,7 @@ Serverdan kelgan o'zgarish
 >>>>>>> origin/main
 ```
 
-Kerakli qismini qoldiring, qolganini o'chiring. Keyin:
+Kerakli qismini qoldiring, qolganini o'chiring. Keyin: 
 
 ```bash
 git add .

@@ -476,6 +476,120 @@ function CollapsibleItemsTable({ rows, showPhotos, onUpdateRow, onDeleteRow }: {
 
 type Mode = "list" | "create" | "detail" | "edit";
 
+// ─── File parsing loading overlay ────────────────────────────────────────────
+
+const fileLoadingKeyframes = `
+@keyframes overlayFadeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes overlayFadeOut { 0% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes spinRing { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+@keyframes orbitDot { 0% { transform: rotate(0deg) translateX(52px) rotate(0deg); opacity: 0.9; } 50% { opacity: 0.4; } 100% { transform: rotate(360deg) translateX(52px) rotate(-360deg); opacity: 0.9; } }
+@keyframes orbitDot2 { 0% { transform: rotate(120deg) translateX(52px) rotate(-120deg); opacity: 0.7; } 50% { opacity: 0.3; } 100% { transform: rotate(480deg) translateX(52px) rotate(-480deg); opacity: 0.7; } }
+@keyframes orbitDot3 { 0% { transform: rotate(240deg) translateX(52px) rotate(-240deg); opacity: 0.5; } 50% { opacity: 0.2; } 100% { transform: rotate(600deg) translateX(52px) rotate(-600deg); opacity: 0.5; } }
+@keyframes pulseCore { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.3); } 50% { transform: scale(1.08); box-shadow: 0 0 30px 8px rgba(59, 130, 246, 0.15); } }
+@keyframes textFadeUp { 0% { opacity: 0; transform: translateY(12px); } 100% { opacity: 1; transform: translateY(0); } }
+@keyframes dataStreamLine { 0% { transform: translateX(-100%); opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { transform: translateX(100%); opacity: 0; } }
+`;
+
+function FileParsingOverlay({ dataReady, onComplete }: { dataReady: boolean; onComplete: () => void }) {
+  const [progress, setProgress] = useState(0);
+  const [phase, setPhase] = useState(0);
+  const [fadeOut, setFadeOut] = useState(false);
+  const startRef = useRef(Date.now());
+  const completedRef = useRef(false);
+  const minDuration = 5000;
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - startRef.current;
+      let pct: number;
+      if (elapsed < minDuration) {
+        pct = Math.min(85, (elapsed / minDuration) * 85);
+      } else if (!dataReady) {
+        pct = Math.min(95, 85 + ((elapsed - minDuration) / 5000) * 10);
+      } else {
+        pct = 100;
+      }
+      setProgress(pct);
+      if (elapsed > 1500) setPhase(1);
+      if (elapsed > 3500) setPhase(2);
+
+      if (elapsed >= minDuration && dataReady && !completedRef.current) {
+        completedRef.current = true;
+        setProgress(100);
+        clearInterval(interval);
+        setTimeout(() => {
+          setFadeOut(true);
+          setTimeout(onComplete, 400);
+        }, 300);
+      }
+    }, 30);
+    return () => clearInterval(interval);
+  }, [dataReady, onComplete]);
+
+  const phaseTexts = [
+    "Fayl ma\u2018lumotlari o\u2018qilmoqda...",
+    "Mahsulotlar jadvaldan ajratilmoqda...",
+    "Ma\u2018lumotlar tayyorlanmoqda...",
+  ];
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 9999,
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+      backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
+      background: "rgba(15, 23, 42, 0.65)",
+      animation: fadeOut ? "overlayFadeOut 0.4s ease-out forwards" : "overlayFadeIn 0.3s ease-out",
+    }}>
+      <style dangerouslySetInnerHTML={{ __html: fileLoadingKeyframes }} />
+
+      <div style={{ position: "relative", width: 130, height: 130, marginBottom: 32 }}>
+        <div style={{ position: "absolute", inset: 12, borderRadius: "50%", border: "1px solid rgba(99, 152, 255, 0.15)" }} />
+        <div style={{ position: "absolute", top: "50%", left: "50%", width: 10, height: 10, marginLeft: -5, marginTop: -5, borderRadius: "50%", background: "#60a5fa", animation: "orbitDot 2.5s linear infinite" }} />
+        <div style={{ position: "absolute", top: "50%", left: "50%", width: 7, height: 7, marginLeft: -3.5, marginTop: -3.5, borderRadius: "50%", background: "#818cf8", animation: "orbitDot2 3s linear infinite" }} />
+        <div style={{ position: "absolute", top: "50%", left: "50%", width: 5, height: 5, marginLeft: -2.5, marginTop: -2.5, borderRadius: "50%", background: "#a78bfa", animation: "orbitDot3 3.5s linear infinite" }} />
+        <div style={{ position: "absolute", top: "50%", left: "50%", width: 60, height: 60, marginLeft: -30, marginTop: -30, borderRadius: "50%", border: "3px solid transparent", borderTopColor: "#3b82f6", borderRightColor: "#6366f1", animation: "spinRing 1.2s linear infinite" }} />
+        <div style={{
+          position: "absolute", top: "50%", left: "50%", width: 40, height: 40,
+          marginLeft: -20, marginTop: -20, borderRadius: "50%",
+          background: "linear-gradient(135deg, #3b82f6 0%, #6366f1 50%, #8b5cf6 100%)",
+          animation: "pulseCore 2s ease-in-out infinite",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          {/* Document icon */}
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+          </svg>
+        </div>
+      </div>
+
+      <div style={{ width: 200, height: 3, marginBottom: 20, position: "relative", overflow: "hidden", borderRadius: 2, background: "rgba(99, 152, 255, 0.1)" }}>
+        <div style={{ position: "absolute", top: 0, left: 0, width: "40%", height: "100%", background: "linear-gradient(90deg, transparent, #3b82f6, transparent)", animation: "dataStreamLine 1.5s ease-in-out infinite" }} />
+      </div>
+
+      <div key={phase} style={{ fontSize: 15, fontWeight: 500, color: "#e2e8f0", letterSpacing: 0.3, animation: "textFadeUp 0.4s ease-out", marginBottom: 8 }}>
+        {phaseTexts[phase]}
+      </div>
+
+      <div style={{ fontSize: 12, color: "rgba(148, 163, 184, 0.8)", marginBottom: 24, animation: "textFadeUp 0.4s ease-out 0.15s both" }}>
+        Ma&apos;lumotlar yuklanmoqda, biroz kutib turing
+      </div>
+
+      <div style={{ width: 260, height: 4, borderRadius: 2, background: "rgba(51, 65, 85, 0.6)", overflow: "hidden" }}>
+        <div style={{ height: "100%", borderRadius: 2, width: `${progress}%`, background: "linear-gradient(90deg, #3b82f6, #6366f1, #8b5cf6)", transition: "width 0.1s linear", boxShadow: "0 0 12px rgba(99, 102, 241, 0.4)" }} />
+      </div>
+
+      <div style={{ fontSize: 11, color: "rgba(148, 163, 184, 0.6)", marginTop: 10, fontFamily: "Inter, monospace", letterSpacing: 1 }}>
+        {Math.round(progress)}%
+      </div>
+    </div>
+  );
+}
+
+// ─── Page ────────────────────────────────────────────────────────────────────
+
 export default function CostNormPage() {
   const [mode, setMode] = useState<Mode>("list");
   const [showPhotos, setShowPhotos] = useState(false);
@@ -516,6 +630,9 @@ export default function CostNormPage() {
   const [parseLoading, setParseLoading] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
   const formFileRef = useRef<HTMLInputElement>(null);
+  const [fileOverlayVisible, setFileOverlayVisible] = useState(false);
+  const [fileParseReady, setFileParseReady] = useState(false);
+  const pendingParseResult = useRef<{ tables: ParsedTable[]; error: string | null; fileName: string } | null>(null);
 
   useDraft(
     "draft_costnorm",
@@ -568,27 +685,26 @@ export default function CostNormPage() {
     setParseError(null);
     setParsedTables([]);
     setParseLoading(true);
+    setFileParseReady(false);
+    setFileOverlayVisible(true);
+    pendingParseResult.current = null;
+
     try {
       const mammoth = await import("mammoth");
       const arrayBuffer = await file.arrayBuffer();
       const result = await mammoth.convertToHtml({ arrayBuffer });
       const { tables: parsed, error: colError } = parseMainTables(result.value);
       if (colError) {
-        setParseError(colError);
+        pendingParseResult.current = { tables: [], error: colError, fileName: file.name };
       } else if (parsed.length === 0) {
-        setParseError("Faylda mos jadval topilmadi.");
+        pendingParseResult.current = { tables: [], error: "Faylda mos jadval topilmadi.", fileName: file.name };
       } else {
-        setParsedTables(parsed);
-        setCreateTab("table");
-        if (!form.title) {
-          setForm(f => ({ ...f, title: file.name.replace(/\.docx$/i, "") }));
-        }
+        pendingParseResult.current = { tables: parsed, error: null, fileName: file.name };
       }
     } catch {
-      setParseError("Faylni o'qishda xatolik yuz berdi");
-    } finally {
-      setParseLoading(false);
+      pendingParseResult.current = { tables: [], error: "Faylni o'qishda xatolik yuz berdi", fileName: file.name };
     }
+    setFileParseReady(true);
   }
 
   // ── Open create ───────────────────────────────────────────────────────────
@@ -705,19 +821,26 @@ export default function CostNormPage() {
     }
     setEditNewFile(file);
     setEditSaveError(null);
+    setFileParseReady(false);
+    setFileOverlayVisible(true);
+    pendingParseResult.current = null;
+
     try {
       const mammoth = await import("mammoth");
       const arrayBuffer = await file.arrayBuffer();
       const result = await mammoth.convertToHtml({ arrayBuffer });
       const { tables: parsed, error: colError } = parseMainTables(result.value);
       if (colError) {
-        setEditSaveError(colError);
+        pendingParseResult.current = { tables: [], error: colError, fileName: file.name };
       } else if (parsed.length > 0) {
-        setEditItems(parsed.flatMap(t => t.rows));
+        pendingParseResult.current = { tables: parsed, error: null, fileName: file.name };
+      } else {
+        pendingParseResult.current = { tables: [], error: null, fileName: file.name };
       }
     } catch {
-      setEditSaveError("Faylni o'qishda xatolik yuz berdi");
+      pendingParseResult.current = { tables: [], error: "Faylni o'qishda xatolik yuz berdi", fileName: file.name };
     }
+    setFileParseReady(true);
   }
 
   // ── Save edit ────────────────────────────────────────────────────────────
@@ -838,6 +961,25 @@ export default function CostNormPage() {
 
     return (
       <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+
+        {fileOverlayVisible && (
+          <FileParsingOverlay dataReady={fileParseReady} onComplete={() => {
+            setFileOverlayVisible(false);
+            setParseLoading(false);
+            const result = pendingParseResult.current;
+            if (result) {
+              if (result.error) {
+                setParseError(result.error);
+              } else {
+                setParsedTables(result.tables);
+                setCreateTab("table");
+                if (!form.title) {
+                  setForm(f => ({ ...f, title: result.fileName.replace(/\.docx$/i, "") }));
+                }
+              }
+            }
+          }} />
+        )}
 
         {/* ── Tab bar ── */}
         <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 16, padding: "0 16px", flexShrink: 0 }}>
@@ -1046,6 +1188,20 @@ export default function CostNormPage() {
     return (
       <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
 
+        {fileOverlayVisible && (
+          <FileParsingOverlay dataReady={fileParseReady} onComplete={() => {
+            setFileOverlayVisible(false);
+            const result = pendingParseResult.current;
+            if (result) {
+              if (result.error) {
+                setEditSaveError(result.error);
+              } else if (result.tables.length > 0) {
+                setEditItems(result.tables.flatMap(t => t.rows));
+              }
+            }
+          }} />
+        )}
+
         {/* ── Tab bar ── */}
         <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 16, padding: "0 16px", flexShrink: 0 }}>
           <button
@@ -1118,32 +1274,6 @@ export default function CostNormPage() {
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
               </svg>
               Tahrir
-            </button>
-            <button
-              onClick={async () => {
-                if (editNewFile) {
-                  setEditNewFile(null);
-                } else if (editFiles.length > 0) {
-                  try {
-                    await costNormService.deleteFile(editingNorm.id, editFiles[0].id);
-                    setEditFiles([]);
-                  } catch { /* ignore */ }
-                }
-              }}
-              title="O'chirish"
-              style={{
-                display: "inline-flex", alignItems: "center",
-                padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 600,
-                background: "var(--danger-dim)", border: "1px solid var(--danger)44",
-                color: "var(--danger)", cursor: "pointer",
-              }}
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="3 6 5 6 21 6" />
-                <path d="M19 6l-1 14H6L5 6" />
-                <path d="M10 11v6M14 11v6" />
-                <path d="M9 6V4h6v2" />
-              </svg>
             </button>
           </div>
         )}
