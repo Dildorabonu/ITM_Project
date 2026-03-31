@@ -28,6 +28,9 @@ public enum PermissionModule
     [Display(Name = "Xarajat me'yorlari", Description = "calculator")]
     CostNorm = 8,
 
+    [Display(Name = "Materiallar ombori", Description = "package")]
+    MaterialInventory = 9,
+
     [Display(Name = "Vazifalar", Description = "check-square")]
-    Tasks = 9,
+    Tasks = 10,
 }
