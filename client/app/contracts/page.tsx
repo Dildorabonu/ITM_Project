@@ -824,25 +824,6 @@ export default function ContractsPage() {
                       {label} <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text3)" }}>(ixtiyoriy)</span>
                     </label>
 
-                    {list.length > 0 && (
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-                        {list.map(u => (
-                          <div key={u.id} style={{
-                            display: "inline-flex", alignItems: "center", gap: 6,
-                            background: bg, border: `1.5px solid ${color}44`,
-                            borderRadius: 20, padding: "4px 10px 4px 8px", fontSize: 12, color,
-                          }}>
-                            <span style={{ width: 20, height: 20, borderRadius: "50%", background: color, color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
-                              {u.firstName.charAt(0).toUpperCase()}
-                            </span>
-                            <span style={{ fontWeight: 600 }}>{u.firstName} {u.lastName}</span>
-                            <button type="button" onClick={() => setList((prev: typeof list) => prev.filter(x => x.id !== u.id))}
-                              style={{ background: "none", border: "none", cursor: "pointer", color, padding: 0, lineHeight: 1, fontSize: 14, opacity: 0.7 }}>✕</button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
                     <div ref={isOpen ? pickerRef : null} style={{ position: "relative" }}>
                       <button type="button"
                         onClick={() => setOpenPickerIdx(isOpen ? null : idx)}
@@ -910,6 +891,25 @@ export default function ContractsPage() {
                         </div>
                       )}
                     </div>
+
+                    {list.length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                        {list.map(u => (
+                          <div key={u.id} style={{
+                            display: "inline-flex", alignItems: "center", gap: 6,
+                            background: bg, border: `1.5px solid ${color}44`,
+                            borderRadius: 20, padding: "4px 10px 4px 8px", fontSize: 12, color,
+                          }}>
+                            <span style={{ width: 20, height: 20, borderRadius: "50%", background: color, color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
+                              {u.firstName.charAt(0).toUpperCase()}
+                            </span>
+                            <span style={{ fontWeight: 600 }}>{u.firstName} {u.lastName}</span>
+                            <button type="button" onClick={() => setList((prev: typeof list) => prev.filter(x => x.id !== u.id))}
+                              style={{ background: "none", border: "none", cursor: "pointer", color, padding: 0, lineHeight: 1, fontSize: 14, opacity: 0.7 }}>✕</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
