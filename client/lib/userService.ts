@@ -917,6 +917,61 @@ export const costNormService = {
   },
 };
 
+// ─── ContractTask ─────────────────────────────────────────────────────────────
+
+export interface ContractTaskResponse {
+  id: string;
+  contractId: string;
+  orderNo: number;
+  name: string;
+  completedAmount: number;
+  totalAmount: number;
+  importance: number;
+  percentComplete: number;
+  createdBy: string;
+  createdByFullName: string | null;
+  createdAt: string;
+}
+
+export interface ContractTaskCreatePayload {
+  contractId: string;
+  name: string;
+  completedAmount: number;
+  totalAmount: number;
+  importance: number;
+}
+
+export interface ContractTaskUpdatePayload {
+  name?: string;
+  completedAmount?: number;
+  totalAmount?: number;
+  importance?: number;
+}
+
+export const contractTaskService = {
+  getByContract: async (contractId: string): Promise<ContractTaskResponse[]> => {
+    try {
+      const res = await api.get(`/api/contracttask/by-contract/${contractId}`);
+      return res.data?.result ?? res.data ?? [];
+    } catch {
+      return [];
+    }
+  },
+
+  create: async (dto: ContractTaskCreatePayload): Promise<string> => {
+    const res = await api.post("/api/contracttask", dto);
+    return res.data?.result as string;
+  },
+
+  update: async (id: string, dto: ContractTaskUpdatePayload): Promise<void> => {
+    await api.put(`/api/contracttask/${id}`, dto);
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/api/contracttask/${id}`);
+  },
+};
+
 // ─── Scan Service ─────────────────────────────────────────────────────────────
 
 export interface ScanSource {

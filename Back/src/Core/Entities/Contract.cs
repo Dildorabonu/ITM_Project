@@ -28,4 +28,5 @@ public class Contract
     public ICollection<StockOut> StockOuts { get; set; } = [];
     public ICollection<TechnicalDrawing> TechnicalDrawings { get; set; } = [];
     public ICollection<CostNorm> CostNorms { get; set; } = [];
+    public ICollection<ContractTask> ContractTasks { get; set; } = [];
 }
