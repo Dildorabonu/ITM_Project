@@ -499,6 +499,15 @@ export const contractService = {
   removeUser: async (id: string, userId: string): Promise<void> => {
     await api.delete(`/api/contract/${id}/users/${userId}`);
   },
+
+  getMyProductionTasks: async (): Promise<ContractResponse[]> => {
+    try {
+      const res = await api.get("/api/contract/my-tasks");
+      return res.data?.result ?? res.data ?? [];
+    } catch {
+      return [];
+    }
+  },
 };
 
 export const departmentService = {

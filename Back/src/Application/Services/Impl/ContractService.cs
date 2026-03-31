@@ -205,6 +205,34 @@ var contract = new Contract
         return ApiResult<int>.Success(200);
     }
 
+    public async Task<ApiResult<IEnumerable<ContractResponseDto>>> GetMyProductionTasksAsync(Guid userId)
+    {
+        // Foydalanuvchining bo'limi IshlabChiqarish ekanligini tekshirish
+        var user = await _context.Users
+            .Include(u => u.Department)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (user is null)
+            return ApiResult<IEnumerable<ContractResponseDto>>.Failure(["User not found."], 404);
+
+        if (user.Department is null || user.Department.Type != Core.Enums.DepartmentType.IshlabChiqarish)
+            return ApiResult<IEnumerable<ContractResponseDto>>.Success(Enumerable.Empty<ContractResponseDto>());
+
+        // Ushbu foydalanuvchi biriktirilgan shartnomalarni qaytarish
+        var contracts = await _context.ContractUsers
+            .Where(cu => cu.UserId == userId)
+            .Include(cu => cu.Contract).ThenInclude(c => c.Department)
+            .Include(cu => cu.Contract).ThenInclude(c => c.Creator)
+            .Include(cu => cu.Contract).ThenInclude(c => c.ContractUsers).ThenInclude(cu2 => cu2.User).ThenInclude(u => u.Role)
+            .AsNoTracking()
+            .Select(cu => cu.Contract)
+            .OrderByDescending(c => c.CreatedAt)
+            .ToListAsync();
+
+        return ApiResult<IEnumerable<ContractResponseDto>>.Success(contracts.Select(MapToResponse));
+    }
+
     private static ContractResponseDto MapToResponse(Contract contract) => new()
     {
         Id = contract.Id,
