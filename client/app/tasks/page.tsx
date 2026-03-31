@@ -43,6 +43,47 @@ function formatDate(dateStr: string) {
   });
 }
 
+// ─── Contract bar (compact, shown when selected) ──────────────────────────────
+
+function ContractBar({
+  contract,
+  onClick,
+}: {
+  contract: ContractResponse;
+  onClick: () => void;
+}) {
+  return (
+    <div className="tasks-contract-bar" onClick={onClick}>
+      <div className="tcb-back" title="Orqaga">
+        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+      </div>
+      <div className="tcb-sep" />
+      <div className="tcb-identity">
+        <span className="tcb-no mono">#{contract.contractNo}</span>
+        <span className="tcb-party">{contract.contractParty}</span>
+      </div>
+      <div className="tcb-sep" />
+      <div className="tcb-meta">
+        <span className="tcb-product">{contract.productType}</span>
+        <span className="tcb-qty">{contract.quantity.toLocaleString()} {contract.unit}</span>
+        <span className={`status ${PRIORITY_COLORS[contract.priority]}`} style={{ fontSize: 11 }}>
+          {PRIORITY_LABELS[contract.priority]}
+        </span>
+        <span className="tcb-dates mono">
+          {formatDate(contract.startDate)}
+          <span style={{ margin: "0 6px", color: "var(--text3)" }}>→</span>
+          <span style={{ color: "var(--danger)" }}>{formatDate(contract.endDate)}</span>
+        </span>
+      </div>
+      <span className={`status ${STATUS_COLORS[contract.status]}`} style={{ marginLeft: "auto", flexShrink: 0 }}>
+        {STATUS_LABELS[contract.status]}
+      </span>
+    </div>
+  );
+}
+
 // ─── Contract card ────────────────────────────────────────────────────────────
 
 function ContractCard({
@@ -57,7 +98,7 @@ function ContractCard({
   return (
     <div
       onClick={onClick}
-      className={`tasks-contract-card${selected ? " selected" : ""}`}
+      className={`tasks-contract-card${selected ? " selected launching" : ""}`}
     >
       {/* Top row */}
       <div className="tcc-header">
@@ -268,7 +309,7 @@ function AddTaskForm({
 
 // ─── Task panel ───────────────────────────────────────────────────────────────
 
-function TaskPanel({ contract }: { contract: ContractResponse }) {
+function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideHeader?: boolean }) {
   const [tasks, setTasks] = useState<ContractTaskResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -300,7 +341,7 @@ function TaskPanel({ contract }: { contract: ContractResponse }) {
   return (
     <div className="task-panel">
       {/* Contract header */}
-      <div className="tp-contract-header">
+      {!hideHeader && <div className="tp-contract-header">
         <div className="tp-contract-info">
           <div className="tp-contract-no mono">#{contract.contractNo}</div>
           <div className="tp-contract-party">{contract.contractParty}</div>
@@ -311,7 +352,7 @@ function TaskPanel({ contract }: { contract: ContractResponse }) {
         <span className={`status ${STATUS_COLORS[contract.status]}`}>
           {STATUS_LABELS[contract.status]}
         </span>
-      </div>
+      </div>}
 
       {/* Importance banner */}
       {tasks.length > 0 && (
@@ -383,11 +424,27 @@ function TaskPanel({ contract }: { contract: ContractResponse }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+type Phase = "grid" | "grid-exit" | "panel" | "panel-exit";
+
 export default function TasksPage() {
   const hasPermission = useAuthStore(s => s.hasPermission);
   const [contracts, setContracts] = useState<ContractResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ContractResponse | null>(null);
+  const [phase, setPhase] = useState<Phase>("grid");
+
+  const handleSelect = (c: ContractResponse) => {
+    if (phase !== "grid") return;
+    setSelected(c);
+    setPhase("grid-exit");
+    setTimeout(() => setPhase("panel"), 280);
+  };
+
+  const handleBack = () => {
+    if (phase !== "panel") return;
+    setPhase("panel-exit");
+    setTimeout(() => { setSelected(null); setPhase("grid"); }, 230);
+  };
 
   useEffect(() => {
     if (!hasPermission("Tasks.View")) return;
@@ -420,26 +477,23 @@ export default function TasksPage() {
           </svg>
           <div>Sizga biriktirilgan shartnoma topilmadi.</div>
         </div>
+      ) : (phase === "grid" || phase === "grid-exit") ? (
+        /* Grid view (with exit animation when transitioning) */
+        <div className={`tasks-contract-grid${phase === "grid-exit" ? " tg-exiting" : ""}`}>
+          {contracts.map(c => (
+            <ContractCard
+              key={c.id}
+              contract={c}
+              selected={selected?.id === c.id}
+              onClick={() => handleSelect(c)}
+            />
+          ))}
+        </div>
       ) : (
-        <div className={`tasks-layout${selected ? " has-panel" : ""}`}>
-          {/* Contract grid: 2 columns */}
-          <div className="tasks-contract-grid">
-            {contracts.map(c => (
-              <ContractCard
-                key={c.id}
-                contract={c}
-                selected={selected?.id === c.id}
-                onClick={() => setSelected(prev => prev?.id === c.id ? null : c)}
-              />
-            ))}
-          </div>
-
-          {/* Right: task panel */}
-          {selected && (
-            <div className="tasks-panel-sticky">
-              <TaskPanel key={selected.id} contract={selected} />
-            </div>
-          )}
+        /* Panel view (bar + tasks) */
+        <div className={`tasks-selected-layout${phase === "panel-exit" ? " tsl-exiting" : ""}`}>
+          <ContractBar contract={selected!} onClick={handleBack} />
+          <TaskPanel key={selected!.id} contract={selected!} hideHeader />
         </div>
       )}
     </>
