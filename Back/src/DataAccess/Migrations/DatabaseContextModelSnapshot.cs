@@ -127,6 +127,50 @@ namespace DataAccess.Migrations
                     b.ToTable("Contracts");
                 });
 
+            modelBuilder.Entity("Core.Entities.ContractTask", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("CompletedAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("ContractId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Importance")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("OrderNo")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContractId");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.ToTable("ContractTasks");
+                });
+
             modelBuilder.Entity("Core.Entities.ContractUser", b =>
                 {
                     b.Property<Guid>("ContractId")
@@ -239,6 +283,9 @@ namespace DataAccess.Migrations
 
                     b.Property<int>("EmployeeCount")
                         .HasColumnType("integer");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -805,6 +852,25 @@ namespace DataAccess.Migrations
                     b.Navigation("Department");
                 });
 
+            modelBuilder.Entity("Core.Entities.ContractTask", b =>
+                {
+                    b.HasOne("Core.Entities.Contract", "Contract")
+                        .WithMany("ContractTasks")
+                        .HasForeignKey("ContractId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Core.Entities.User", "Creator")
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Contract");
+
+                    b.Navigation("Creator");
+                });
+
             modelBuilder.Entity("Core.Entities.ContractUser", b =>
                 {
                     b.HasOne("Core.Entities.Contract", "Contract")
@@ -1078,6 +1144,8 @@ namespace DataAccess.Migrations
 
             modelBuilder.Entity("Core.Entities.Contract", b =>
                 {
+                    b.Navigation("ContractTasks");
+
                     b.Navigation("ContractUsers");
 
                     b.Navigation("CostNorms");
