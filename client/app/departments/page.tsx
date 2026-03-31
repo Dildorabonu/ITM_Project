@@ -23,6 +23,7 @@ const emptyForm: DeptForm = { name: "", type: DepartmentType.Bolim, employeeCoun
 const TYPE_STYLE: Partial<Record<DepartmentType, { bg: string; color: string; border: string; icon: string }>> = {
   [DepartmentType.IshlabChiqarish]:     { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa", icon: "🏭" },
   [DepartmentType.Bolim]:   { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe", icon: "🏢" },
+  [DepartmentType.Boshqaruv]: { bg: "#f5f3ff", color: "#6d28d9", border: "#ddd6fe", icon: "👔" },
 };
 
 export default function DepartmentsPage() {
@@ -44,8 +45,10 @@ export default function DepartmentsPage() {
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
+  const [toggleId, setToggleId] = useState<string | null>(null);
+  const [toggleTarget, setToggleTarget] = useState<DepartmentResponse | null>(null);
+  const [toggling, setToggling] = useState(false);
+  const [toggleError, setToggleError] = useState("");
 
 
   useDraft(
@@ -146,17 +149,19 @@ export default function DepartmentsPage() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    setDeleting(true);
+  const handleToggleActive = async () => {
+    if (!toggleTarget) return;
+    setToggling(true);
+    setToggleError("");
     try {
-      await departmentService.delete(deleteId);
-      setDepts(prev => prev.filter(d => d.id !== deleteId));
-      setDeleteId(null);
+      await departmentService.delete(toggleTarget.id);
+      setDepts(prev => prev.map(d => d.id === toggleTarget.id ? { ...d, isActive: !toggleTarget.isActive } : d));
+      setToggleId(null);
+      setToggleTarget(null);
     } catch {
-      // stay open on error
+      setToggleError("Amal bajarilmadi. Qayta urinib ko'ring.");
     } finally {
-      setDeleting(false);
+      setToggling(false);
     }
   };
 
@@ -218,7 +223,7 @@ export default function DepartmentsPage() {
                 Toifa <span style={{ color: "var(--danger)" }}>*</span>
               </label>
               <div style={{ display: "flex", gap: 12 }}>
-                {([DepartmentType.IshlabChiqarish, DepartmentType.Bolim] as const).map(t => {
+                {([DepartmentType.IshlabChiqarish, DepartmentType.Bolim, DepartmentType.Boshqaruv] as const).map(t => {
                   const s = TYPE_STYLE[t];
                   const selected = form.type === t;
                   return (
@@ -264,7 +269,7 @@ export default function DepartmentsPage() {
                 {ts.icon}
               </div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)" }}>{form.name}</div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: "#1a2332" }}>{form.name}</div>
                 <div style={{ fontSize: 12, color: ts.color, marginTop: 2, fontWeight: 600 }}>
                   {DEPARTMENT_TYPE_LABELS[form.type]} · Xodimlar: {form.employeeCount || "0"}
                 </div>
@@ -303,8 +308,9 @@ export default function DepartmentsPage() {
 
   /* ===== List view ===== */
   const counts = {
-    [DepartmentType.IshlabChiqarish]:     depts.filter(d => d.type === DepartmentType.IshlabChiqarish).length,
-    [DepartmentType.Bolim]:   depts.filter(d => d.type === DepartmentType.Bolim).length,
+    [DepartmentType.IshlabChiqarish]: depts.filter(d => d.type === DepartmentType.IshlabChiqarish).length,
+    [DepartmentType.Bolim]:           depts.filter(d => d.type === DepartmentType.Bolim).length,
+    [DepartmentType.Boshqaruv]:       depts.filter(d => d.type === DepartmentType.Boshqaruv).length,
   };
 
   return (
@@ -312,7 +318,7 @@ export default function DepartmentsPage() {
 
       {/* Stats chips */}
       <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
-        {([null, DepartmentType.IshlabChiqarish, DepartmentType.Bolim] as const).map(t => {
+        {([null, DepartmentType.IshlabChiqarish, DepartmentType.Bolim, DepartmentType.Boshqaruv] as const).map(t => {
           const active = typeFilter === t;
           const label = t === null ? "Barchasi" : DEPARTMENT_TYPE_LABELS[t];
           const count = t === null ? depts.length : (counts as Record<DepartmentType, number>)[t] ?? 0;
@@ -407,12 +413,31 @@ export default function DepartmentsPage() {
                   <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
                 ) : filtered.map((d, i) => {
                   const ts = TYPE_STYLE[d.type] ?? { bg: "var(--bg1)", color: "var(--text2)", border: "var(--border)", icon: "🏢" };
+                  const inactive = d.isActive === false;
                   return (
-                    <tr key={d.id}>
+                    <tr key={d.id} style={inactive ? { opacity: 0.55 } : undefined}>
                       <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>
                         {String(i + 1).padStart(2, "0")}
                       </td>
-                      <td style={{ textAlign: "center", fontWeight: 600 }}>{d.name}</td>
+                      <td style={{ textAlign: "center", fontWeight: 600, maxWidth: 260 }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, maxWidth: "100%" }}>
+                          <span
+                            title={d.name}
+                            style={{
+                              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                              maxWidth: inactive ? "calc(100% - 80px)" : "100%",
+                            }}
+                          >
+                            {d.name}
+                          </span>
+                          {inactive && (
+                            <span style={{
+                              fontSize: 11, fontWeight: 600, padding: "1px 8px", borderRadius: 10, flexShrink: 0,
+                              background: "#f3f4f6", color: "#9ca3af", border: "1px solid #e5e7eb",
+                            }}>Noaktiv</span>
+                          )}
+                        </span>
+                      </td>
                       <td style={{ textAlign: "center" }}>
                         <span style={{
                           display: "inline-flex", alignItems: "center", gap: 5,
@@ -427,7 +452,7 @@ export default function DepartmentsPage() {
                       <td style={{ borderLeft: "2px solid var(--border)" }}>
                         {(canUpdate || canDelete) && (
                           <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-                            {canUpdate && (
+                            {canUpdate && !inactive && (
                               <button className="btn-icon" title="Tahrirlash" onClick={() => openEdit(d)}
                                 style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -437,15 +462,27 @@ export default function DepartmentsPage() {
                               </button>
                             )}
                             {canDelete && (
-                              <button className="btn-icon btn-icon-danger" title="O'chirish"
-                                style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}
-                                onClick={() => setDeleteId(d.id)}>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <polyline points="3 6 5 6 21 6" />
-                                  <path d="M19 6l-1 14H6L5 6" />
-                                  <path d="M10 11v6M14 11v6" />
-                                  <path d="M9 6V4h6v2" />
-                                </svg>
+                              <button
+                                className="btn-icon"
+                                title={inactive ? "Faollashtirish" : "Noaktiv qilish"}
+                                style={inactive
+                                  ? { color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }
+                                  : { color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }
+                                }
+                                onClick={() => { setToggleId(d.id); setToggleTarget(d); setToggleError(""); }}
+                              >
+                                {inactive ? (
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M9 12l2 2 4-4" />
+                                    <path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z" />
+                                  </svg>
+                                ) : (
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <circle cx="12" cy="12" r="9" />
+                                    <line x1="9" y1="9" x2="15" y2="15" />
+                                    <line x1="15" y1="9" x2="9" y2="15" />
+                                  </svg>
+                                )}
                               </button>
                             )}
                           </div>
@@ -462,24 +499,45 @@ export default function DepartmentsPage() {
       </div>
 
       {/* Delete confirm */}
-      {deleteId && (
+      {toggleId && toggleTarget && (
         <div style={{
           position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000,
           display: "flex", alignItems: "center", justifyContent: "center",
         }}>
           <div style={{
             background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12,
-            padding: 28, width: 340, maxWidth: "95vw", textAlign: "center",
+            padding: 28, width: 360, maxWidth: "95vw", textAlign: "center",
           }}>
-            <div style={{ fontSize: 15, marginBottom: 8 }}>O&apos;chirishni tasdiqlang</div>
-            <div style={{ color: "var(--text2)", fontSize: 13, marginBottom: 20 }}>
-              Ushbu yozuv o&apos;chiriladi. Davom etasizmi?
+            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>
+              {toggleTarget.isActive === false ? "Faollashtirishni tasdiqlang" : "Noaktiv qilishni tasdiqlang"}
             </div>
+            <div style={{ color: "var(--text2)", fontSize: 13, marginBottom: 20 }}>
+              {toggleTarget.isActive === false
+                ? `"${toggleTarget.name}" bo'limi yana faol bo'ladi.`
+                : `"${toggleTarget.name}" bo'limi noaktiv qilinadi. Ma'lumotlar saqlanib qoladi.`}
+            </div>
+            {toggleError && (
+              <div style={{
+                color: "#e05252", fontSize: 13, marginBottom: 16,
+                background: "#fef2f2", border: "1px solid #fecaca",
+                borderRadius: 8, padding: "8px 12px",
+              }}>
+                {toggleError}
+              </div>
+            )}
             <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-              <button className="btn btn-outline" onClick={() => setDeleteId(null)} disabled={deleting}>Bekor</button>
-              <button className="btn" style={{ background: "#e05252", color: "#fff", border: "none" }}
-                onClick={handleDelete} disabled={deleting}>
-                {deleting ? "O'chirilmoqda..." : "O'chirish"}
+              <button className="btn btn-outline"
+                onClick={() => { setToggleId(null); setToggleTarget(null); setToggleError(""); }}
+                disabled={toggling}>Bekor</button>
+              <button className="btn"
+                style={{
+                  background: toggleTarget.isActive === false ? "#22c55e" : "#e05252",
+                  color: "#fff", border: "none"
+                }}
+                onClick={handleToggleActive} disabled={toggling}>
+                {toggling
+                  ? "Bajarilmoqda..."
+                  : toggleTarget.isActive === false ? "Faollashtirish" : "Noaktiv qilish"}
               </button>
             </div>
           </div>

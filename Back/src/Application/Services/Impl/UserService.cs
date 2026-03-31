@@ -88,6 +88,15 @@ public class UserService : IUserService
         if (await _context.Users.AnyAsync(u => u.Login == dto.Login))
             return ApiResult<int>.Failure([$"Login '{dto.Login}' is already taken."]);
 
+        if (dto.IsHead && dto.DepartmentId.HasValue)
+        {
+            var previousHead = await _context.Users
+                .Where(u => u.DepartmentId == dto.DepartmentId && u.IsHead)
+                .FirstOrDefaultAsync();
+            if (previousHead is not null)
+                return ApiResult<int>.Failure([$"Ushbu bo'limda allaqachon rahbar mavjud: {previousHead.FirstName} {previousHead.LastName}. Yangi rahbar belgilash uchun avval mavjud rahbarni olib tashlang."]);
+        }
+
         var user = new User
         {
             Id = Guid.NewGuid(),
@@ -97,6 +106,7 @@ public class UserService : IUserService
             PasswordHash = PasswordHelper.HashPassword(dto.Password),
             RoleId = dto.RoleId,
             DepartmentId = dto.DepartmentId,
+            IsHead = dto.IsHead,
             IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
@@ -135,6 +145,19 @@ public class UserService : IUserService
         if (dto.DepartmentId.HasValue) user.DepartmentId = dto.DepartmentId;
         if (dto.IsActive.HasValue) user.IsActive = dto.IsActive.Value;
 
+        if (dto.IsHead.HasValue)
+        {
+            if (dto.IsHead.Value && user.DepartmentId.HasValue)
+            {
+                var previousHead = await _context.Users
+                    .Where(u => u.DepartmentId == user.DepartmentId && u.IsHead && u.Id != id)
+                    .FirstOrDefaultAsync();
+                if (previousHead is not null)
+                    return ApiResult<int>.Failure([$"Ushbu bo'limda allaqachon rahbar mavjud: {previousHead.FirstName} {previousHead.LastName}. Yangi rahbar belgilash uchun avval mavjud rahbarni olib tashlang."]);
+            }
+            user.IsHead = dto.IsHead.Value;
+        }
+
         await _context.SaveChangesAsync();
         _cache.Remove(LookupCacheKey);
 
@@ -151,7 +174,8 @@ public class UserService : IUserService
         if (user is null)
             return ApiResult<int>.Failure([$"User with id '{id}' not found."]);
 
-        _context.Users.Remove(user);
+        user.IsActive = false;
+        user.IsHead = false;
         await _context.SaveChangesAsync();
         _cache.Remove(LookupCacheKey);
 
@@ -169,6 +193,7 @@ public class UserService : IUserService
         DepartmentId = user.DepartmentId,
         DepartmentName = user.Department?.Name,
         IsActive = user.IsActive,
+        IsHead = user.IsHead,
         CreatedAt = user.CreatedAt
     };
 

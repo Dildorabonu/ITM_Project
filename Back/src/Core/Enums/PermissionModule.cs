@@ -30,4 +30,7 @@ public enum PermissionModule
 
     [Display(Name = "Materiallar ombori", Description = "package")]
     MaterialInventory = 9,
+
+    [Display(Name = "Vazifalar", Description = "check-square")]
+    Tasks = 10,
 }

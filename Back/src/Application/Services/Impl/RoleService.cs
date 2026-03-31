@@ -24,6 +24,17 @@ public class RoleService : IRoleService
         return ApiResult<IEnumerable<RoleResponseDto>>.Success(roles.Select(MapToResponse));
     }
 
+    public async Task<ApiResult<IEnumerable<RoleResponseDto>>> GetLookupAsync()
+    {
+        var roles = await _context.Roles
+            .AsNoTracking()
+            .Where(r => r.IsActive)
+            .OrderBy(r => r.Name)
+            .ToListAsync();
+
+        return ApiResult<IEnumerable<RoleResponseDto>>.Success(roles.Select(MapToResponse));
+    }
+
     public async Task<ApiResult<RoleResponseDto>> GetByIdAsync(Guid id)
     {
         var role = await _context.Roles
@@ -52,7 +63,7 @@ public class RoleService : IRoleService
         _context.Roles.Add(role);
         await _context.SaveChangesAsync();
 
-        return ApiResult<object>.Success(statusCode: 201);
+        return ApiResult<object>.Success(new { id = role.Id }, statusCode: 201);
     }
 
     private static readonly Guid SuperAdminRoleId = new("00000000-0000-0000-0000-000000000001");
@@ -76,6 +87,7 @@ public class RoleService : IRoleService
         }
 
         if (dto.Description is not null) role.Description = dto.Description;
+        if (dto.IsActive.HasValue) role.IsActive = dto.IsActive.Value;
 
         await _context.SaveChangesAsync();
 
@@ -87,12 +99,17 @@ public class RoleService : IRoleService
         if (id == SuperAdminRoleId)
             return ApiResult<object>.Failure(["SuperAdmin rolini o'chirish mumkin emas."], statusCode: 403);
 
-        var role = await _context.Roles.FirstOrDefaultAsync(r => r.Id == id);
+        var role = await _context.Roles
+            .Include(r => r.Users)
+            .FirstOrDefaultAsync(r => r.Id == id);
 
         if (role is null)
             return ApiResult<object>.Failure([$"Role with id '{id}' not found."], statusCode: 404);
 
-        _context.Roles.Remove(role);
+        if (role.Users.Any())
+            return ApiResult<object>.Failure([$"Bu rolga ega foydalanuvchi bor. Avval foydalanuvchilardan ushbu rolni olib tashlang."], statusCode: 400);
+
+        role.IsActive = false;
         await _context.SaveChangesAsync();
 
         return ApiResult<object>.Success();
@@ -141,6 +158,7 @@ public class RoleService : IRoleService
         Id = role.Id,
         Name = role.Name,
         Description = role.Description,
+        IsActive = role.IsActive,
         CreatedAt = role.CreatedAt
     };
 }

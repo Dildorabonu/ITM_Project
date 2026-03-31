@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useDraft } from "@/lib/useDraft";
+import { useAuthStore } from "@/lib/store/authStore";
 import {
   contractService,
   userService,
@@ -12,6 +13,7 @@ import {
   DepartmentType,
   CONTRACT_STATUS_LABELS,
   PRIORITY_LABELS,
+  DEPARTMENT_TYPE_LABELS,
   type ContractResponse,
   type ContractCreatePayload,
   type ContractUpdatePayload,
@@ -114,9 +116,124 @@ function autoFormatDate(value: string): string {
   return `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4, 6)}`;
 }
 
+// ─── Department grouped select ────────────────────────────────────────────────
+
+const TYPE_STYLE = {
+  [DepartmentType.IshlabChiqarish]: { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa", icon: "🏭" },
+  [DepartmentType.Bolim]:           { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe", icon: "🏢" },
+  [DepartmentType.Boshqaruv]:       { bg: "#f5f3ff", color: "#6d28d9", border: "#ddd6fe", icon: "👔" },
+};
+
+function CustomGroupedSelect({
+  value, onChange, departments, placeholder, hasError,
+}: {
+  value: string; onChange: (v: string) => void;
+  departments: DepartmentResponse[];
+  placeholder: string; hasError?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = departments.find(d => d.id === value);
+  const selectedTs = selected?.type !== undefined ? TYPE_STYLE[selected.type] : null;
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const groups = ([DepartmentType.IshlabChiqarish, DepartmentType.Bolim, DepartmentType.Boshqaruv] as const)
+    .map(t => ({ type: t, items: departments.filter(d => d.type === t) }))
+    .filter(g => g.items.length > 0);
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button type="button" onClick={() => setOpen(o => !o)} style={{
+        width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+        background: "var(--bg3)",
+        border: `1.5px solid ${hasError ? "var(--danger)" : open ? "var(--accent)" : "var(--border)"}`,
+        borderRadius: "var(--radius)", padding: "9px 12px",
+        fontSize: 14, cursor: "pointer", textAlign: "left",
+        boxShadow: hasError ? "0 0 0 3px rgba(217,48,37,0.2)" : open ? "0 0 0 3px var(--accent-dim)" : "none",
+        transition: "border-color 0.14s, box-shadow 0.14s",
+        fontFamily: "var(--font-inter), Inter, sans-serif",
+      }}>
+        {selected && selectedTs ? (
+          <span style={{
+            display: "inline-flex", alignItems: "center", gap: 5,
+            padding: "2px 9px", borderRadius: 10, fontSize: 12, fontWeight: 600,
+            background: selectedTs.bg, color: selectedTs.color, border: `1px solid ${selectedTs.border}`,
+          }}>
+            {selectedTs.icon} {selected.name}
+          </span>
+        ) : (
+          <span style={{ color: "var(--text3)" }}>{placeholder}</span>
+        )}
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+          style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s", color: "var(--text3)" }}>
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0,
+          background: "var(--surface)", border: "1.5px solid var(--border2)",
+          borderRadius: "var(--radius2)", boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+          zIndex: 200, maxHeight: 260, overflowY: "auto",
+        }}>
+          {groups.map((g, gi) => {
+            const ts = TYPE_STYLE[g.type];
+            return (
+              <div key={g.type}>
+                <div style={{
+                  padding: "7px 12px 5px", fontSize: 11, fontWeight: 700,
+                  letterSpacing: "0.7px", textTransform: "uppercase",
+                  color: ts.color, background: ts.bg,
+                  display: "flex", alignItems: "center", gap: 6,
+                  borderTop: gi > 0 ? "1px solid var(--border)" : "none",
+                  position: "sticky", top: 0,
+                }}>
+                  {ts.icon} {DEPARTMENT_TYPE_LABELS[g.type]}
+                </div>
+                {g.items.map(d => (
+                  <div key={d.id}
+                    onClick={() => { onChange(d.id); setOpen(false); }}
+                    onMouseEnter={e => { if (d.id !== value) e.currentTarget.style.background = "var(--bg3)"; }}
+                    onMouseLeave={e => { if (d.id !== value) e.currentTarget.style.background = d.id === value ? ts.bg : "transparent"; }}
+                    style={{
+                      padding: "8px 16px 8px 20px", cursor: "pointer", fontSize: 13,
+                      color: d.id === value ? ts.color : "var(--text)",
+                      background: d.id === value ? ts.bg : "transparent",
+                      fontWeight: d.id === value ? 600 : 400,
+                      display: "flex", alignItems: "center", gap: 8,
+                    }}>
+                    {d.id === value ? (
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ flexShrink: 0, color: ts.color }}>
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    ) : <span style={{ width: 11 }} />}
+                    {d.name}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ContractsPage() {
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canCreate = hasPermission("Contracts.Create");
+  const canUpdate = hasPermission("Contracts.Update");
+  const canDelete = hasPermission("Contracts.Delete");
+
   const [contracts, setContracts]       = useState<ContractResponse[]>([]);
   const [filtered, setFiltered]         = useState<ContractResponse[]>([]);
   const [loading, setLoading]           = useState(true);
@@ -353,7 +470,7 @@ export default function ContractsPage() {
   const ensureDataLoaded = async () => {
     await Promise.all([
       allUsers.length === 0 ? userService.getLookup().then(items => setAllUsers(items)) : Promise.resolve(),
-      departments.length === 0 ? departmentService.getAllFull().then(d => setDepartments(d)) : Promise.resolve(),
+      departments.length === 0 ? departmentService.getAllFull().then(d => setDepartments(d.filter(dep => dep.isActive))) : Promise.resolve(),
     ]);
   };
 
@@ -391,7 +508,7 @@ export default function ContractsPage() {
     const [users, lookup, depts] = await Promise.all([
       contractService.getUsers(c.id),
       allUsers.length > 0 ? Promise.resolve(allUsers) : userService.getLookup(),
-      departments.length > 0 ? Promise.resolve(departments) : departmentService.getAllFull(),
+      departments.length > 0 ? Promise.resolve(departments) : departmentService.getAllFull().then(d => d.filter(dep => dep.isActive)),
     ]);
     if (lookup !== allUsers) setAllUsers(lookup);
     if (depts !== departments) setDepartments(depts);
@@ -680,14 +797,13 @@ export default function ContractsPage() {
               <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: deptErr ? "var(--danger)" : "var(--text2)" }}>
                 Bo&apos;lim <span style={{ color: "var(--danger)" }}>*</span>
               </label>
-              <select className="form-input" title="Bo'lim" value={form.departmentId}
-                onChange={e => setForm(f => ({ ...f, departmentId: e.target.value }))}
-                style={{ width: "100%", cursor: "pointer", borderColor: deptErr ? "var(--danger)" : undefined }}>
-                <option value="">— Bo&apos;lim tanlang —</option>
-                {departments.map(d => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </select>
+              <CustomGroupedSelect
+                value={form.departmentId}
+                onChange={v => setForm(f => ({ ...f, departmentId: v }))}
+                departments={departments}
+                placeholder="— Bo'lim tanlang —"
+                hasError={deptErr}
+              />
               {deptErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Bo&apos;limni tanlang</div>}
             </div>
 
@@ -703,44 +819,25 @@ export default function ContractsPage() {
             <div style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
 
               {([
-                { label: "Sex xodimlari",      list: formUsers,       setList: setFormUsers,       deptType: DepartmentType.Sex,     color: "#c2410c", bg: "#fff7ed", icon: "🏭" },
-                { label: "Bo\u02BClim xodimlari", list: formSupervisors, setList: setFormSupervisors, deptType: DepartmentType.Bolim,   color: "#1d4ed8", bg: "#eff6ff", icon: "🏢" },
-                { label: "Boshliqlar",          list: formObservers,   setList: setFormObservers,   deptType: DepartmentType.Boshqaruv, color: "#6d28d9", bg: "#f5f3ff", icon: "👔" },
-              ] as const).map(({ label, list, setList, deptType, color, bg, icon }, idx) => {
+                { label: "Ma'sul xodimlar",   list: formUsers,       setList: setFormUsers,       deptType: DepartmentType.IshlabChiqarish, color: "#c2410c", bg: "#fff7ed" },
+                { label: "Ma'lumot uchun",    list: formSupervisors, setList: setFormSupervisors, deptType: DepartmentType.Bolim,   color: "#1d4ed8", bg: "#eff6ff" },
+                { label: "Kuzatuvchilar",     list: formObservers,   setList: setFormObservers,   deptType: DepartmentType.Boshqaruv, color: "#6d28d9", bg: "#f5f3ff" },
+              ] as const).map(({ label, list, setList, deptType, color, bg }, idx) => {
                 const isOpen = openPickerIdx === idx;
                 const poolByType = allUsers.filter(u => u.departmentType === deptType);
                 const available = poolByType.filter(u => !list.some(x => x.id === u.id));
                 return (
                   <div key={label}>
-                    <label style={{ fontSize: 13, fontWeight: 600, color, display: "block", marginBottom: 8 }}>
-                      {icon} {label} <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text3)" }}>(ixtiyoriy)</span>
+                    <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", display: "block", marginBottom: 8 }}>
+                      {label} <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text3)" }}>(ixtiyoriy)</span>
                     </label>
-
-                    {list.length > 0 && (
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-                        {list.map(u => (
-                          <div key={u.id} style={{
-                            display: "inline-flex", alignItems: "center", gap: 6,
-                            background: bg, border: `1.5px solid ${color}44`,
-                            borderRadius: 20, padding: "4px 10px 4px 8px", fontSize: 12, color,
-                          }}>
-                            <span style={{ width: 20, height: 20, borderRadius: "50%", background: color, color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
-                              {u.firstName.charAt(0).toUpperCase()}
-                            </span>
-                            <span style={{ fontWeight: 600 }}>{u.firstName} {u.lastName}</span>
-                            <button type="button" onClick={() => setList((prev: typeof list) => prev.filter(x => x.id !== u.id))}
-                              style={{ background: "none", border: "none", cursor: "pointer", color, padding: 0, lineHeight: 1, fontSize: 14, opacity: 0.7 }}>✕</button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
 
                     <div ref={isOpen ? pickerRef : null} style={{ position: "relative" }}>
                       <button type="button"
                         onClick={() => setOpenPickerIdx(isOpen ? null : idx)}
                         style={{
                           width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-                          padding: "9px 12px", background: "var(--bg1)", border: "1.5px solid var(--border)",
+                          padding: "9px 12px", background: "var(--bg1)", border: isOpen ? "1.5px solid var(--accent)" : "1.5px solid var(--border)",
                           borderRadius: "var(--radius)", cursor: "pointer", fontSize: 13, color: available.length ? "var(--text2)" : "var(--text3)",
                         }}>
                         <span>Xodim tanlang</span>
@@ -802,6 +899,25 @@ export default function ContractsPage() {
                         </div>
                       )}
                     </div>
+
+                    {list.length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                        {list.map(u => (
+                          <div key={u.id} style={{
+                            display: "inline-flex", alignItems: "center", gap: 6,
+                            background: bg, border: `1.5px solid ${color}44`,
+                            borderRadius: 20, padding: "4px 10px 4px 8px", fontSize: 12, color,
+                          }}>
+                            <span style={{ width: 20, height: 20, borderRadius: "50%", background: color, color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
+                              {u.firstName.charAt(0).toUpperCase()}
+                            </span>
+                            <span style={{ fontWeight: 600 }}>{u.firstName} {u.lastName}</span>
+                            <button type="button" onClick={() => setList((prev: typeof list) => prev.filter(x => x.id !== u.id))}
+                              style={{ background: "none", border: "none", cursor: "pointer", color, padding: 0, lineHeight: 1, fontSize: 14, opacity: 0.7 }}>✕</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -975,14 +1091,16 @@ export default function ContractsPage() {
             style={{ background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", padding: "10px 24px", color: "var(--text2)", fontSize: 14, fontWeight: 500 }}>
             Bekor qilish
           </button>
-          <button className="btn-primary" onClick={handleSave} disabled={saving}
-            style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-              <polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
-            </svg>
-            {saving ? "Saqlanmoqda..." : editTarget ? "O'zgarishlarni saqlash" : "Shartnoma saqlash"}
-          </button>
+          {(editTarget ? canUpdate : canCreate) && (
+            <button className="btn-primary" onClick={handleSave} disabled={saving}
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                <polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
+              </svg>
+              {saving ? "Saqlanmoqda..." : editTarget ? "O'zgarishlarni saqlash" : "Shartnoma saqlash"}
+            </button>
+          )}
         </div>
       </div>
     );
@@ -1020,13 +1138,15 @@ export default function ContractsPage() {
           </svg>
         </button>
 
-        <button className="btn-primary" onClick={openCreate}
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "none", cursor: "pointer" }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          Yangi shartnoma
-        </button>
+        {canCreate && (
+          <button className="btn-primary" onClick={openCreate}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "none", cursor: "pointer" }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Yangi shartnoma
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -1067,10 +1187,14 @@ export default function ContractsPage() {
                     </td>
                     <td style={{ textAlign: "center", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><PriorityBadge priority={c.priority} /></td>
                     <td style={{ textAlign: "center", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      <button onClick={() => { setStatusTarget(c); setNewStatus(String(c.status)); }}
-                        style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}>
+                      {canUpdate ? (
+                        <button onClick={() => { setStatusTarget(c); setNewStatus(String(c.status)); }}
+                          style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}>
+                          <StatusBadge status={c.status} />
+                        </button>
+                      ) : (
                         <StatusBadge status={c.status} />
-                      </button>
+                      )}
                     </td>
                     <td style={{ borderLeft: "2px solid var(--border)" }}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
@@ -1081,21 +1205,25 @@ export default function ContractsPage() {
                             <circle cx="12" cy="12" r="3" />
                           </svg>
                         </button>
-                        <button className="btn-icon" onClick={() => openEdit(c)} title="Tahrirlash"
-                          style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                          </svg>
-                        </button>
-                        <button className="btn-icon btn-icon-danger" onClick={() => setDeleteId(c.id)} title="O'chirish"
-                          style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" />
-                            <path d="M10 11v6M14 11v6" />
-                            <path d="M9 6V4h6v2" />
-                          </svg>
-                        </button>
+                        {canUpdate && (
+                          <button className="btn-icon" onClick={() => openEdit(c)} title="Tahrirlash"
+                            style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button className="btn-icon btn-icon-danger" onClick={() => setDeleteId(c.id)} title="O'chirish"
+                            style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" />
+                              <path d="M10 11v6M14 11v6" />
+                              <path d="M9 6V4h6v2" />
+                            </svg>
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
