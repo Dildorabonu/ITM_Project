@@ -47,6 +47,16 @@ public class ContractTaskController : ControllerBase
         return StatusCode(result.StatusCode, result);
     }
 
+    // POST /api/contracttask/bulk
+    [HasPermission("Tasks.Create")]
+    [HttpPost("bulk")]
+    public async Task<IActionResult> CreateBulk([FromBody] IEnumerable<ContractTaskCreateDto> dtos)
+    {
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var result = await _service.CreateBulkAsync(dtos, userId);
+        return StatusCode(result.StatusCode, result);
+    }
+
     // PUT /api/contracttask/{id}
     [HasPermission("Tasks.Create")]
     [HttpPut("{id:guid}")]
