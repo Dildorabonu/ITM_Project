@@ -1141,7 +1141,7 @@ export default function ProductsPage() {
               <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
                 <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Yaratilgan sana</div>
                 <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text1)" }}>
-                  {new Date(viewProduct.createdAt).toLocaleDateString("uz-UZ")}
+                  {(() => { const d = viewProduct.createdAt?.slice(0, 10).split("-"); return d && d.length === 3 ? `${d[2]}-${d[1]}-${d[0].slice(-2)}` : "—"; })()}
                 </div>
               </div>
             </div>
