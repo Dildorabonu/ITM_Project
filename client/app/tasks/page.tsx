@@ -1,131 +1,157 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useAuthStore } from "@/lib/store/authStore";
+import { contractService, ContractResponse, ContractStatus, Priority, PRIORITY_LABELS } from "@/lib/userService";
 
-type Task = { id: string; name: string; dept: string; time: string; done: boolean };
+const STATUS_COLORS: Record<ContractStatus, string> = {
+  [ContractStatus.Draft]:     "s-gray",
+  [ContractStatus.Active]:    "s-blue",
+  [ContractStatus.Completed]: "s-green",
+  [ContractStatus.Cancelled]: "s-danger",
+};
 
-const initHigh: Task[] = [
-  { id: "t1", name: "SH-047 uchun bolt zakaz tasdiqlash",  dept: "Xarid bo'limi",   time: "09:00", done: false },
-  { id: "t2", name: "Metall qabul qilish (A omboridan)",   dept: "Ombor",           time: "08:00", done: true },
-  { id: "t3", name: "Yetkazib beruvchi bilan muzokaralar", dept: "Boshqaruv",       time: "14:00", done: false },
-  { id: "t4", name: "SH-043 muddati tekshiruvi",           dept: "Ishlab chiqarish",time: "11:00", done: false },
-];
-const initMid: Task[] = [
-  { id: "t5", name: "Ombor inventarizatsiyasi", dept: "", time: "09:30", done: true },
-  { id: "t6", name: "OTK — SH-045 tekshiruv",  dept: "", time: "10:30", done: true },
-  { id: "t7", name: "Iyun oyi hisoboti",        dept: "", time: "16:00", done: false },
-];
-const initLow: Task[] = [
-  { id: "t8", name: "Bug'alteriyaga hujjat topshirish", dept: "", time: "17:00", done: false },
-  { id: "t9", name: "Xona tozaligi nazorati",           dept: "", time: "17:30", done: false },
-];
+const STATUS_LABELS: Record<ContractStatus, string> = {
+  [ContractStatus.Draft]:     "Qoralama",
+  [ContractStatus.Active]:    "Faol",
+  [ContractStatus.Completed]: "Yakunlandi",
+  [ContractStatus.Cancelled]: "Bekor qilindi",
+};
 
-function TaskList({ tasks, onToggle, priority }: { tasks: Task[]; onToggle: (id: string) => void; priority: string }) {
+const PRIORITY_COLORS: Record<Priority, string> = {
+  [Priority.Low]:    "s-gray",
+  [Priority.Medium]: "s-warn",
+  [Priority.High]:   "s-danger",
+  [Priority.Urgent]: "s-danger",
+};
+
+function formatDate(dateStr: string) {
+  if (!dateStr) return "—";
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+function ContractCard({ contract }: { contract: ContractResponse }) {
   return (
-    <div>
-      {tasks.map(t => (
-        <div key={t.id} className={`task-item${t.done ? " done" : ""}`}>
-          <div className={`chk${t.done ? " checked" : ""}`} onClick={() => onToggle(t.id)} />
-          <div style={{ flex: 1 }}>
-            <div className="task-name">{t.name}</div>
-            {t.dept && <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>{t.dept} · {t.time}</div>}
-            {!t.dept && <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>{t.time}</div>}
+    <div
+      className="itm-card"
+      style={{ cursor: "pointer", transition: "box-shadow 0.15s" }}
+      onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.10)")}
+      onMouseLeave={e => (e.currentTarget.style.boxShadow = "")}
+    >
+      <div className="itm-card-header" style={{ marginBottom: 12 }}>
+        <div style={{ flex: 1 }}>
+          <div className="mono" style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4 }}>
+            #{contract.contractNo}
           </div>
-          <span className={`prio ${priority}`}><span className="prio-dot" />{priority === "p-high" ? "Yuqori" : priority === "p-mid" ? "O'rta" : "Past"}</span>
+          <div className="itm-card-title" style={{ fontSize: 15 }}>
+            {contract.contractParty}
+          </div>
         </div>
-      ))}
+        <span className={`status ${STATUS_COLORS[contract.status]}`}>
+          {STATUS_LABELS[contract.status]}
+        </span>
+      </div>
+
+      <div className="itm-card-body" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {/* Mahsulot */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 12, color: "var(--text3)" }}>Mahsulot</span>
+          <span style={{ fontSize: 13, fontWeight: 500 }}>{contract.productType}</span>
+        </div>
+
+        {/* Miqdor */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 12, color: "var(--text3)" }}>Ishlab chiqarish</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)" }}>
+            {contract.quantity.toLocaleString()} {contract.unit}
+          </span>
+        </div>
+
+        {/* Ustuvorlik */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 12, color: "var(--text3)" }}>Ustuvorlik</span>
+          <span className={`status ${PRIORITY_COLORS[contract.priority]}`} style={{ fontSize: 11 }}>
+            {PRIORITY_LABELS[contract.priority]}
+          </span>
+        </div>
+
+        <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />
+
+        {/* Sanalar */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <span style={{ fontSize: 11, color: "var(--text3)" }}>Imzolangan</span>
+            <span className="mono" style={{ fontSize: 12 }}>{formatDate(contract.startDate)}</span>
+          </div>
+          <svg width="16" height="16" fill="none" stroke="var(--text3)" strokeWidth="1.5" viewBox="0 0 24 24">
+            <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12,5 19,12 12,19"/>
+          </svg>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-end" }}>
+            <span style={{ fontSize: 11, color: "var(--text3)" }}>Tugash muddati</span>
+            <span className="mono" style={{ fontSize: 12, color: "var(--danger)" }}>{formatDate(contract.endDate)}</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
 export default function TasksPage() {
-  const [high, setHigh] = useState(initHigh);
-  const [mid,  setMid]  = useState(initMid);
-  const [low,  setLow]  = useState(initLow);
+  const hasPermission = useAuthStore(s => s.hasPermission);
+  const [contracts, setContracts] = useState<ContractResponse[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const toggle = (setter: React.Dispatch<React.SetStateAction<Task[]>>, id: string) =>
-    setter(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
+  useEffect(() => {
+    if (!hasPermission("Tasks.View")) return;
+    contractService.getMyProductionTasks().then(data => {
+      setContracts(data);
+      setLoading(false);
+    });
+  }, [hasPermission]);
 
-  const all = [...high, ...mid, ...low];
-  const done = all.filter(t => t.done).length;
-  const pct  = Math.round((done / all.length) * 100);
+  if (!hasPermission("Tasks.View")) {
+    return (
+      <div className="itm-card" style={{ textAlign: "center", padding: 48, color: "var(--text3)" }}>
+        Bu sahifaga kirish huquqingiz yo&apos;q.
+      </div>
+    );
+  }
 
   return (
     <>
       <div className="page-header">
-        <div className="ph-title">Kunlik Vazifalar</div>
-        <span className="mono" style={{ fontSize: 12, color: "var(--text3)" }}>18 Mart 2026, Chorshanba</span>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-          <select className="form-select" style={{ width: 150 }}>
-            <option>Barcha bo&apos;limlar</option>
-            <option>Ishlab chiqarish</option>
-            <option>Yig&apos;ish</option>
-            <option>Ombor</option>
-          </select>
-          <button className="btn btn-primary">
-            <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Vazifa qo&apos;shish
-          </button>
-        </div>
+        <div className="ph-title">Vazifalar</div>
+        <span style={{ fontSize: 12, color: "var(--text3)" }}>
+          Sizga biriktirilgan ishlab chiqarish shartnomalar
+        </span>
       </div>
 
-      <div className="two-col">
-        {/* High priority */}
-        <div className="itm-card">
-          <div className="itm-card-header">
-            <span className="status s-danger">Yuqori ustuvorlik</span>
-            <span className="itm-card-subtitle">{high.length} ta</span>
-          </div>
-          <TaskList tasks={high} onToggle={id => toggle(setHigh, id)} priority="p-high" />
+      {loading ? (
+        <div className="itm-card" style={{ textAlign: "center", padding: 48, color: "var(--text3)" }}>
+          Yuklanmoqda...
         </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {/* Mid */}
-          <div className="itm-card">
-            <div className="itm-card-header">
-              <span className="status s-warn">O&apos;rta ustuvorlik</span>
-              <span className="itm-card-subtitle">{mid.length} ta</span>
-            </div>
-            <TaskList tasks={mid} onToggle={id => toggle(setMid, id)} priority="p-mid" />
-          </div>
-          {/* Low */}
-          <div className="itm-card">
-            <div className="itm-card-header">
-              <span className="status s-gray">Past ustuvorlik</span>
-              <span className="itm-card-subtitle">{low.length} ta</span>
-            </div>
-            <TaskList tasks={low} onToggle={id => toggle(setLow, id)} priority="p-low" />
-          </div>
+      ) : contracts.length === 0 ? (
+        <div className="itm-card" style={{ textAlign: "center", padding: 48, color: "var(--text3)" }}>
+          <svg width="40" height="40" fill="none" stroke="var(--text3)" strokeWidth="1.5" viewBox="0 0 24 24" style={{ marginBottom: 12 }}>
+            <rect x="9" y="2" width="6" height="4" rx="1"/><path d="M5 4h2v2h10V4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/>
+            <line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/>
+          </svg>
+          <div>Sizga biriktirilgan shartnoma topilmadi.</div>
         </div>
-      </div>
-
-      {/* Progress */}
-      <div className="itm-card">
-        <div className="itm-card-header">
-          <div className="icon-bg ib-green">
-            <svg width="14" height="14" fill="none" stroke="var(--success)" strokeWidth="2" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-          </div>
-          <span className="itm-card-title">Kun Yakunlash</span>
-          <span className="itm-card-subtitle">{done}/{all.length} bajarildi</span>
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, 1fr)",
+            gap: 14,
+          }}
+        >
+          {contracts.map(c => (
+            <ContractCard key={c.id} contract={c} />
+          ))}
         </div>
-        <div className="itm-card-body" style={{ display: "flex", gap: 20, alignItems: "center" }}>
-          <div style={{ flex: 1 }}>
-            <div className="progress-wrap" style={{ marginBottom: 6 }}>
-              <div className="progress-bar" style={{ height: 8 }}>
-                <div className="progress-fill pf-blue" style={{ width: `${pct}%` }} />
-              </div>
-              <span className="progress-pct" style={{ color: "var(--accent)", fontWeight: 700 }}>{pct}%</span>
-            </div>
-            <div className="mono" style={{ fontSize: 12, color: "var(--text3)" }}>
-              {done} ta bajarildi · {all.length - done} ta qoldi
-            </div>
-          </div>
-          <button className="btn btn-primary">
-            <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>
-            Kun yakunlash
-          </button>
-        </div>
-      </div>
+      )}
     </>
   );
 }
