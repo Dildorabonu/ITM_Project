@@ -200,110 +200,186 @@ function AddTaskForm({
   onCancel,
   existingTotalImportance,
 }: {
-  onSave: (data: Omit<ContractTaskCreatePayload, "contractId">) => Promise<void>;
+  onSave: (data: Omit<ContractTaskCreatePayload, "contractId">[]) => Promise<void>;
   onCancel: () => void;
   existingTotalImportance: number;
 }) {
-  const [form, setForm] = useState<NewTaskForm>(EMPTY_FORM);
+  const [forms, setForms] = useState<NewTaskForm[]>([{ ...EMPTY_FORM }]);
   const [saving, setSaving] = useState(false);
-  const nameRef = useRef<HTMLTextAreaElement>(null);
+  const [submitted, setSubmitted] = useState(false);
+  const [importanceError, setImportanceError] = useState("");
 
-  useEffect(() => { nameRef.current?.focus(); }, []);
+  const updateRow = (i: number, k: keyof NewTaskForm, v: string) => {
+    setForms(prev => prev.map((f, idx) => idx === i ? { ...f, [k]: v } : f));
+    if (k === "importance") setImportanceError("");
+  };
 
-  const set = (k: keyof NewTaskForm, v: string) => setForm(f => ({ ...f, [k]: v }));
+  const addRow = () => { setForms(prev => [...prev, { ...EMPTY_FORM }]); setImportanceError(""); };
+  const removeRow = (i: number) => { setForms(prev => prev.filter((_, idx) => idx !== i)); setImportanceError(""); };
 
-  const newImportance = parseFloat(form.importance) || 0;
-  const projectedTotal = Math.round((existingTotalImportance + newImportance) * 100) / 100;
+  const pendingImportance = forms.reduce((s, f) => s + (parseFloat(f.importance) || 0), 0);
+  const projectedTotal = Math.round((existingTotalImportance + pendingImportance) * 100) / 100;
   const diff = Math.round((projectedTotal - 100) * 100) / 100;
-  const showImportanceHint = form.importance !== "";
 
   const handleSave = async () => {
-    if (!form.name.trim()) return;
+    setSubmitted(true);
+    if (forms.some(f => !f.name.trim() || f.totalAmount === "" || f.totalAmount === "0" || f.importance === "")) return;
+    if (diff !== 0) {
+      setImportanceError(
+        diff > 0
+          ? `Muhimlilik jami ${projectedTotal}% — ${diff}% ortiqcha. Jami 100% bo'lishi kerak.`
+          : `Muhimlilik jami ${projectedTotal}% — yana ${Math.abs(diff)}% qoldi. Jami 100% bo'lishi kerak.`
+      );
+      return;
+    }
     setSaving(true);
-    await onSave({
-      name: form.name.trim(),
+    await onSave(forms.map(f => ({
+      name: f.name.trim(),
       completedAmount: 0,
-      totalAmount: parseFloat(form.totalAmount) || 0,
-      importance: newImportance,
-    });
+      totalAmount: parseFloat(f.totalAmount) || 0,
+      importance: parseFloat(f.importance) || 0,
+    })));
     setSaving(false);
   };
 
   return (
-    <div className="add-task-form">
-      <div className="atf-title">Yangi vazifa</div>
+    <>
+      {forms.map((f, i) => (
+        <div key={i} className="itm-card" style={{ padding: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)" }}>#{i + 1} vazifa</span>
+            {forms.length > 1 && (
+              <button
+                onClick={() => removeRow(i)}
+                style={{
+                  background: "var(--danger-dim)", border: "1px solid var(--danger)33",
+                  borderRadius: 6, cursor: "pointer", padding: "3px 10px",
+                  color: "var(--danger)", fontSize: 12, fontWeight: 600,
+                  display: "inline-flex", alignItems: "center", gap: 4,
+                }}
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Olib tashlash
+              </button>
+            )}
+          </div>
 
-      <div className="atf-field">
-        <label className="atf-label">Vazifa nomi</label>
-        <textarea
-          ref={nameRef}
-          className="itm-input atf-textarea"
-          placeholder="Masalan: Tikish bo'yicha tayyorgarlik"
-          value={form.name}
-          rows={3}
-          onChange={e => set("name", e.target.value)}
-          onKeyDown={e => { if (e.key === "Escape") onCancel(); }}
-        />
-      </div>
+          <div className="atf-field">
+            <label className="atf-label">Vazifa nomi <span style={{ color: "var(--danger)" }}>*</span></label>
+            <textarea
+              className="form-textarea atf-textarea"
+              placeholder="Masalan: Tikish bo'yicha tayyorgarlik"
+              value={f.name}
+              rows={2}
+              onChange={e => updateRow(i, "name", e.target.value)}
+              style={submitted && !f.name.trim() ? { borderColor: "var(--danger)" } : undefined}
+            />
+            {submitted && !f.name.trim() && (
+              <div style={{ color: "var(--danger)", fontSize: 12 }}>Vazifa nomini kiriting</div>
+            )}
+          </div>
 
-      <div className="atf-grid2">
-        <div className="atf-field">
-          <label className="atf-label">Jami miqdor</label>
-          <input
-            className="itm-input"
-            type="number" min="0"
-            placeholder="100"
-            value={form.totalAmount}
-            onChange={e => set("totalAmount", e.target.value)}
-          />
+          <div className="atf-grid2" style={{ marginTop: 8 }}>
+            <div className="atf-field">
+              <label className="atf-label">Jami miqdor <span style={{ color: "var(--danger)" }}>*</span></label>
+              <input
+                className="form-input"
+                type="number" min="0"
+                placeholder="100"
+                value={f.totalAmount}
+                onChange={e => updateRow(i, "totalAmount", e.target.value)}
+                style={submitted && (f.totalAmount === "" || f.totalAmount === "0") ? { borderColor: "var(--danger)" } : undefined}
+              />
+              {submitted && (f.totalAmount === "" || f.totalAmount === "0") && (
+                <div style={{ color: "var(--danger)", fontSize: 12 }}>Miqdorni kiriting</div>
+              )}
+            </div>
+            <div className="atf-field">
+              <label className="atf-label">Muhimlilik (%) <span style={{ color: "var(--danger)" }}>*</span></label>
+              <input
+                className="form-input"
+                type="number" min="0" max="100"
+                placeholder="25"
+                value={f.importance}
+                onChange={e => updateRow(i, "importance", e.target.value)}
+                style={submitted && f.importance === "" ? { borderColor: "var(--danger)" } : undefined}
+              />
+              {submitted && f.importance === "" && (
+                <div style={{ color: "var(--danger)", fontSize: 12 }}>Muhimlilikni kiriting</div>
+              )}
+            </div>
+          </div>
         </div>
-        <div className="atf-field">
-          <label className="atf-label">Muhimlilik (%)</label>
-          <input
-            className="itm-input"
-            type="number" min="0" max="100"
-            placeholder="25"
-            value={form.importance}
-            onChange={e => set("importance", e.target.value)}
-          />
+      ))}
+
+      {/* Add row button */}
+      <button className="add-task-btn" onClick={addRow}>
+        <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Yana vazifa qo&apos;shish
+      </button>
+
+      {/* Importance warning modal */}
+      {importanceError && (
+        <div className="modal-overlay" onClick={() => setImportanceError("")}>
+          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 380 }}>
+            <div className="modal-header" style={{ color: "var(--warn, #f59e0b)", borderBottom: "1px solid var(--border)" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                Muhimlilik xatosi
+              </span>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize: 14, color: "var(--text)", lineHeight: 1.6 }}>{importanceError}</p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-primary" onClick={() => setImportanceError("")}>Tushundim</button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Live importance hint */}
-      {showImportanceHint && (
+      {pendingImportance > 0 && (
         <div className={`atf-importance-hint${diff === 0 ? " ok" : diff > 0 ? " over" : " under"}`}>
           {diff === 0 ? (
             <>
               <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
-              Qo'shilgandan keyin jami 100% — to'g'ri!
+              Jami {projectedTotal}% — to&apos;g&apos;ri!
             </>
           ) : diff > 0 ? (
             <>
               <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
               </svg>
-              Qo'shilgandan keyin {projectedTotal}% — +{diff}% ortiqcha bo'ladi
+              Jami {projectedTotal}% — {diff}% ortiqcha
             </>
           ) : (
             <>
               <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
               </svg>
-              Qo'shilgandan keyin {projectedTotal}% — yana {Math.abs(diff)}% qoladi
+              Jami {projectedTotal}% — yana {Math.abs(diff)}% qoldi
             </>
           )}
         </div>
       )}
 
+      {/* Actions */}
       <div className="atf-actions">
-        <button className="itm-btn s-ghost" onClick={onCancel} disabled={saving}>Bekor</button>
-        <button className="itm-btn s-primary" onClick={handleSave} disabled={saving || !form.name.trim()}>
-          {saving ? "Saqlanmoqda…" : "Saqlash"}
+        <button className="btn btn-secondary" onClick={onCancel} disabled={saving}>Bekor qilish</button>
+        <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+          {saving ? "Saqlanmoqda…" : forms.length === 1 ? "Saqlash" : `${forms.length} ta vazifa saqlash`}
         </button>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -324,10 +400,9 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
   }, [contract.id]);
 
   const totalImportance = tasks.reduce((s, t) => s + t.importance, 0);
-  const importanceDiff = Math.round((totalImportance - 100) * 100) / 100;
 
-  const handleSave = async (data: Omit<ContractTaskCreatePayload, "contractId">) => {
-    await contractTaskService.create({ contractId: contract.id, ...data });
+  const handleSave = async (dataList: Omit<ContractTaskCreatePayload, "contractId">[]) => {
+    await contractTaskService.createBulk(dataList.map(d => ({ contractId: contract.id, ...d })));
     const updated = await contractTaskService.getByContract(contract.id);
     setTasks(updated);
     setShowForm(false);
@@ -354,70 +429,44 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
         </span>
       </div>}
 
-      {/* Importance banner */}
-      {tasks.length > 0 && (
-        <div className={`tp-importance-banner${importanceDiff === 0 ? " ok" : " warn"}`}>
-          {importanceDiff === 0 ? (
-            <>
-              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-              Muhimlilik to'g'ri taqsimlangan (100%)
-            </>
-          ) : importanceDiff < 0 ? (
-            <>
-              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-              </svg>
-              Yetishmaydi — {totalImportance.toFixed(1)}% (−{Math.abs(importanceDiff)}% qoldi)
-            </>
-          ) : (
-            <>
-              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-              </svg>
-              Ortiqcha — {totalImportance.toFixed(1)}% (+{importanceDiff}% ko'p)
-            </>
-          )}
+
+      {/* Tasks list */}
+      {loading ? (
+        <div className="tp-empty">Yuklanmoqda…</div>
+      ) : tasks.length === 0 && !showForm ? (
+        <div className="tp-empty bordered">
+          <svg width="32" height="32" fill="none" stroke="var(--text3)" strokeWidth="1.5" viewBox="0 0 24 24" style={{ marginBottom: 8 }}>
+            <rect x="9" y="2" width="6" height="4" rx="1"/>
+            <path d="M5 4h2v2h10V4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/>
+            <line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/>
+          </svg>
+          <span>Hali vazifa qo&apos;shilmagan</span>
+        </div>
+      ) : (
+        <div className="tp-tasks-list" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {tasks.map(task => (
+            <TaskRow key={task.id} task={task} onDelete={handleDelete} />
+          ))}
         </div>
       )}
 
-      {/* Tasks list */}
-      <div className="tp-tasks-list">
-        {loading ? (
-          <div className="tp-empty">Yuklanmoqda…</div>
-        ) : tasks.length === 0 && !showForm ? (
-          <div className="tp-empty bordered">
-            <svg width="32" height="32" fill="none" stroke="var(--text3)" strokeWidth="1.5" viewBox="0 0 24 24" style={{ marginBottom: 8 }}>
-              <rect x="9" y="2" width="6" height="4" rx="1"/>
-              <path d="M5 4h2v2h10V4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/>
-              <line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/>
-            </svg>
-            <span>Hali vazifa qo'shilmagan</span>
-          </div>
-        ) : (
-          tasks.map(task => (
-            <TaskRow key={task.id} task={task} onDelete={handleDelete} />
-          ))
-        )}
-
-        {showForm && (
+      {/* Add form (below the grid) */}
+      {showForm ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: tasks.length > 0 ? 10 : 0 }}>
           <AddTaskForm
             onSave={handleSave}
             onCancel={() => setShowForm(false)}
             existingTotalImportance={totalImportance}
           />
-        )}
-
-        {!showForm && (
-          <button className="add-task-btn" onClick={() => setShowForm(true)}>
-            <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
-              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-            Vazifa qo'shish
-          </button>
-        )}
-      </div>
+        </div>
+      ) : (
+        <button className="add-task-btn" onClick={() => setShowForm(true)} style={{ marginTop: tasks.length > 0 ? 10 : 0 }}>
+          <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Vazifa qo&apos;shish
+        </button>
+      )}
     </div>
   );
 }
