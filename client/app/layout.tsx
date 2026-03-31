@@ -175,7 +175,7 @@ const pageTitles: Record<string, string> = {
   "/technicaldrawings": "Texnik chizmalar",
   "/warehouse":     "Ombor Zaxirasi",
   "/deficit":       "Deficit Tekshiruv",
-  "/tasks":         "Kunlik Vazifalar",
+  "/tasks":         "Vazifalar",
   "/users":         "Foydalanuvchilar",
   "/roles":         "Rollar",
   "/departments":   "Tuzilma",
