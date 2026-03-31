@@ -73,6 +73,40 @@ public class ContractTaskService : IContractTaskService
         return ApiResult<Guid>.Success(task.Id, 201);
     }
 
+    public async Task<ApiResult<int>> CreateBulkAsync(IEnumerable<ContractTaskCreateDto> dtos, Guid createdBy)
+    {
+        var dtoList = dtos.ToList();
+        if (dtoList.Count == 0)
+            return ApiResult<int>.Failure(["Kamida bitta vazifa kerak."], 400);
+
+        var contractId = dtoList[0].ContractId;
+        var contractExists = await _context.Contracts.AnyAsync(c => c.Id == contractId);
+        if (!contractExists)
+            return ApiResult<int>.Failure([$"Contract with id '{contractId}' not found."], 404);
+
+        var nextOrder = await _context.ContractTasks
+            .Where(t => t.ContractId == contractId)
+            .MaxAsync(t => (int?)t.OrderNo) ?? 0;
+
+        var tasks = dtoList.Select((dto, i) => new ContractTask
+        {
+            Id = Guid.NewGuid(),
+            ContractId = dto.ContractId,
+            OrderNo = nextOrder + i + 1,
+            Name = dto.Name,
+            CompletedAmount = dto.CompletedAmount,
+            TotalAmount = dto.TotalAmount,
+            Importance = dto.Importance,
+            CreatedBy = createdBy,
+            CreatedAt = DateTime.UtcNow,
+        }).ToList();
+
+        _context.ContractTasks.AddRange(tasks);
+        await _context.SaveChangesAsync();
+
+        return ApiResult<int>.Success(tasks.Count, 201);
+    }
+
     public async Task<ApiResult<int>> UpdateAsync(Guid id, ContractTaskUpdateDto dto)
     {
         var task = await _context.ContractTasks.FirstOrDefaultAsync(t => t.Id == id);
