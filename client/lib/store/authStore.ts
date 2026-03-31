@@ -28,6 +28,7 @@ interface AuthState {
   login: (credentials: { login: string; password: string }) => Promise<void>;
   logout: () => Promise<void>;
   hasPermission: (permission: string) => boolean;
+  hasModulePermission: (module: string) => boolean;
 }
 
 function parseJwt(token: string): Record<string, unknown> | null {
@@ -94,6 +95,11 @@ export const useAuthStore = create<AuthState>()(
       hasPermission: (permission: string) => {
         const { user } = get();
         return user?.permissions.includes(permission) ?? false;
+      },
+
+      hasModulePermission: (module: string) => {
+        const { user } = get();
+        return user?.permissions.some((p) => p.startsWith(`${module}.`)) ?? false;
       },
     }),
     {
