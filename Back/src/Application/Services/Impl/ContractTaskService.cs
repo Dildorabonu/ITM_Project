@@ -117,6 +117,7 @@ public class ContractTaskService : IContractTaskService
         if (dto.CompletedAmount.HasValue) task.CompletedAmount = dto.CompletedAmount.Value;
         if (dto.TotalAmount.HasValue) task.TotalAmount = dto.TotalAmount.Value;
         if (dto.Importance.HasValue) task.Importance = dto.Importance.Value;
+        if (dto.OrderNo.HasValue) task.OrderNo = dto.OrderNo.Value;
 
         await _context.SaveChangesAsync();
 

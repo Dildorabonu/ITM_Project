@@ -1036,6 +1036,7 @@ export interface ContractTaskUpdatePayload {
   completedAmount?: number;
   totalAmount?: number;
   importance?: number;
+  orderNo?: number;
 }
 
 export interface ContractTaskLogCreatePayload {
