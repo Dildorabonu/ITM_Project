@@ -60,7 +60,7 @@ const navGroups: NavGroup[] = [
     label: "Vazifalar",
     icon: "clipboard",
     items: [
-      { name: "Kunlik Vazifalar", href: "/tasks", icon: "check-square" },
+      { name: "Vazifalar", href: "/tasks", icon: "check-square", permission: "Tasks.View" },
     ],
   },
   {
@@ -164,7 +164,7 @@ function applyAppearanceFont(family: string, scale: number) {
 }
 
 // Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
-const readyRoutes = new Set(["/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/costnorm", "/technicaldrawings", "/appearance"]);
+const readyRoutes = new Set(["/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/costnorm", "/technicaldrawings", "/appearance", "/tasks"]);
 
 const pageTitles: Record<string, string> = {
   "/":              "Dashboard",

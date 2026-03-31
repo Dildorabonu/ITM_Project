@@ -96,6 +96,20 @@ public class ContractController : ControllerBase
         return Ok(result);
     }
 
+    // ── My Production Tasks ───────────────────────────────────────────────────
+
+    [HasPermission("Tasks.View")]
+    [HttpGet("my-tasks")]
+    public async Task<IActionResult> GetMyProductionTasks()
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        var result = await _contractService.GetMyProductionTasksAsync(userId);
+        return Ok(result);
+    }
+
     // ── Users ────────────────────────────────────────────────────────────────
 
     [HasPermission("Contracts.View")]
