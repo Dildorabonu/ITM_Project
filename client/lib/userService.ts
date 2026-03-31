@@ -963,6 +963,10 @@ export const contractTaskService = {
     return res.data?.result as string;
   },
 
+  createBulk: async (dtos: ContractTaskCreatePayload[]): Promise<void> => {
+    await api.post("/api/contracttask/bulk", dtos);
+  },
+
   update: async (id: string, dto: ContractTaskUpdatePayload): Promise<void> => {
     await api.put(`/api/contracttask/${id}`, dto);
   },
