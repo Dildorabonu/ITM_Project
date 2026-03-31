@@ -26,6 +26,13 @@ public class RoleController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("lookup")]
+    public async Task<IActionResult> GetLookup()
+    {
+        var result = await _roleService.GetLookupAsync();
+        return Ok(result);
+    }
+
     [HasPermission("Roles.View")]
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id)
@@ -43,7 +50,7 @@ public class RoleController : ControllerBase
         if (!result.Succeeded)
             return StatusCode(result.StatusCode, result);
 
-        return StatusCode(result.StatusCode);
+        return StatusCode(result.StatusCode, result);
     }
 
     [HasPermission("Roles.Update")]

@@ -19,7 +19,7 @@ const inter = Inter({
   weight: ["300", "400", "500", "600", "700", "800"],
 });
 
-type NavItem = { name: string; href: string; icon: string; badge?: number; badgeWarn?: boolean };
+type NavItem = { name: string; href: string; icon: string; badge?: number; badgeWarn?: boolean; permission?: string };
 type NavGroup = { label: string; icon: string; items: NavItem[] };
 
 const navGroups: NavGroup[] = [
@@ -35,41 +35,41 @@ const navGroups: NavGroup[] = [
     label: "Shartnomalar",
     icon: "file-text",
     items: [
-      { name: "Shartnomalar",  href: "/contracts",   icon: "file" },
-      { name: "Tex Protsess",  href: "/techprocess", icon: "activity" },
-      { name: "Me'yoriy Sarf", href: "/costnorm",    icon: "clipboard" },
+      { name: "Shartnomalar",  href: "/contracts",   icon: "file",      permission: "Contracts.View" },
+      { name: "Tex Protsess",  href: "/techprocess", icon: "activity",  permission: "TechProcess.View" },
+      { name: "Me'yoriy Sarf", href: "/costnorm",    icon: "clipboard", permission: "CostNorm.View" },
     ],
   },
   {
     label: "Texnik chizmalar",
     icon: "file-text",
     items: [
-      { name: "Texnik chizmalar", href: "/technicaldrawings", icon: "file" },
+      { name: "Texnik chizmalar", href: "/technicaldrawings", icon: "file", permission: "TechnicalDrawings.View" },
     ],
   },
   {
     label: "Omborxona",
     icon: "package",
     items: [
-      { name: "Mahsulotlar",        href: "/products",    icon: "shopping-bag" },
+      { name: "Mahsulotlar",        href: "/products",    icon: "shopping-bag", permission: "Products.View" },
       { name: "Ombor tekshiruvi",   href: "/warehouse",   icon: "package" },
-      { name: "Tuzilma",            href: "/departments", icon: "briefcase" },
-      { name: "Deficit Tekshiruv",  href: "/deficit",     icon: "alert-circle" },
+      { name: "Tuzilma",            href: "/departments", icon: "briefcase",    permission: "Departments.View" },
+      { name: "Deficit Tekshiruv",  href: "/deficit",     icon: "alert-circle", permission: "Products.View" },
     ],
   },
   {
     label: "Vazifalar",
     icon: "clipboard",
     items: [
-      { name: "Kunlik Vazifalar", href: "/tasks", icon: "check-square" },
+      { name: "Vazifalar", href: "/tasks", icon: "check-square", permission: "Tasks.View" },
     ],
   },
   {
     label: "Tizim",
     icon: "settings",
     items: [
-      { name: "Foydalanuvchilar",   href: "/users",       icon: "users" },
-      { name: "Rollar",             href: "/roles",       icon: "shield" },
+      { name: "Foydalanuvchilar",   href: "/users",       icon: "users",   permission: "Users.View" },
+      { name: "Rollar",             href: "/roles",       icon: "shield",  permission: "Roles.View" },
       { name: "Tashqi ko'rinish",   href: "/appearance",  icon: "palette" },
     ],
   },
@@ -165,7 +165,7 @@ function applyAppearanceFont(family: string, scale: number) {
 }
 
 // Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
-const readyRoutes = new Set(["/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/costnorm", "/technicaldrawings", "/appearance"]);
+const readyRoutes = new Set(["/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/costnorm", "/technicaldrawings", "/appearance", "/tasks"]);
 
 const pageTitles: Record<string, string> = {
   "/":              "Dashboard",
@@ -176,7 +176,7 @@ const pageTitles: Record<string, string> = {
   "/technicaldrawings": "Texnik chizmalar",
   "/warehouse":     "Ombor Zaxirasi",
   "/deficit":       "Deficit Tekshiruv",
-  "/tasks":         "Kunlik Vazifalar",
+  "/tasks":         "Vazifalar",
   "/users":         "Foydalanuvchilar",
   "/roles":         "Rollar",
   "/departments":   "Tuzilma",
@@ -193,6 +193,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const logoutAction = useAuthStore((s) => s.logout);
   const accessToken = useAuthStore((s) => s.accessToken);
   const hasHydrated = useAuthStore((s) => s._hasHydrated);
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const hasModulePermission = useAuthStore((s) => s.hasModulePermission);
+
+  const visibleNavGroups = navGroups.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => !item.permission || hasPermission(item.permission)),
+  })).filter((group) => group.items.length > 0);
 
   const isLoginPage = pathname === "/login";
 
@@ -443,7 +450,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
           {/* Nav */}
           <nav ref={navRef} onScroll={updateScrollState} style={{ padding: "16px 0", flex: 1, overflowY: "scroll", overflowX: "hidden", scrollbarWidth: "none" }}>
-            {navGroups.map((group) => {
+            {visibleNavGroups.map((group) => {
               const isCollapsed = !!collapsedGroups[group.label];
               return (
                 <div key={group.label} style={{ marginBottom: 10 }}>

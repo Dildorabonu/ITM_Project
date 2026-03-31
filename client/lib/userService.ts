@@ -40,6 +40,7 @@ export interface UserResponse {
   departmentId: string | null;
   departmentName: string | null;
   isActive: boolean;
+  isHead: boolean;
   createdAt: string;
 }
 
@@ -50,6 +51,7 @@ export interface UserCreatePayload {
   password: string;
   roleId: string | null;
   departmentId: string | null;
+  isHead?: boolean;
 }
 
 export interface UserUpdatePayload {
@@ -60,6 +62,7 @@ export interface UserUpdatePayload {
   roleId?: string | null;
   departmentId?: string | null;
   isActive?: boolean;
+  isHead?: boolean;
 }
 
 export interface RoleOption {
@@ -71,6 +74,7 @@ export interface DepartmentOption {
   id: string;
   name: string;
   type?: DepartmentType;
+  headUserName?: string | null;
 }
 
 export const userService = {
@@ -106,6 +110,7 @@ export interface RoleResponse {
   id: string;
   name: string;
   description: string | null;
+  isActive: boolean;
   createdAt: string;
 }
 
@@ -117,6 +122,7 @@ export interface RoleCreatePayload {
 export interface RoleUpdatePayload {
   name?: string;
   description?: string;
+  isActive?: boolean;
 }
 
 export interface PermissionActionResponse {
@@ -134,6 +140,14 @@ export interface PermissionModuleResponse {
 }
 
 export const roleService = {
+  // Returns only active roles — use in dropdowns
+  getLookup: async (): Promise<RoleOption[]> => {
+    const res = await api.get("/api/role/lookup");
+    const data = res.data?.result ?? res.data ?? [];
+    return data.map((r: { id: string; name: string }) => ({ id: r.id, name: r.name }));
+  },
+
+  // Returns all roles (active + inactive) — use in management page
   getAll: async (): Promise<RoleOption[]> => {
     const res = await api.get("/api/role");
     const data = res.data?.result ?? res.data ?? [];
@@ -145,8 +159,9 @@ export const roleService = {
     return res.data?.result ?? res.data ?? [];
   },
 
-  create: async (dto: RoleCreatePayload): Promise<void> => {
-    await api.post("/api/role", dto);
+  create: async (dto: RoleCreatePayload): Promise<string> => {
+    const res = await api.post("/api/role", dto);
+    return res.data?.result?.id ?? res.data?.id;
   },
 
   update: async (id: string, dto: RoleUpdatePayload): Promise<void> => {
@@ -181,6 +196,7 @@ export interface DepartmentResponse {
   employeeCount: number;
   createdAt: string;
   headUserName?: string | null;
+  isActive: boolean;
 }
 
 export interface DepartmentCreatePayload {
@@ -483,13 +499,24 @@ export const contractService = {
   removeUser: async (id: string, userId: string): Promise<void> => {
     await api.delete(`/api/contract/${id}/users/${userId}`);
   },
+
+  getMyProductionTasks: async (): Promise<ContractResponse[]> => {
+    try {
+      const res = await api.get("/api/contract/my-tasks");
+      return res.data?.result ?? res.data ?? [];
+    } catch {
+      return [];
+    }
+  },
 };
 
 export const departmentService = {
   getAll: async (): Promise<DepartmentOption[]> => {
     const res = await api.get("/api/department");
     const data = res.data?.result ?? res.data ?? [];
-    return data.map((d: { id: string; name: string; type: DepartmentType }) => ({ id: d.id, name: d.name, type: d.type }));
+    return data
+      .filter((d: { id: string; name: string; type: DepartmentType; isActive: boolean }) => d.isActive !== false)
+      .map((d: { id: string; name: string; type: DepartmentType; headUserName?: string | null }) => ({ id: d.id, name: d.name, type: d.type, headUserName: d.headUserName }));
   },
 
   getAllFull: async (): Promise<DepartmentResponse[]> => {
@@ -977,6 +1004,65 @@ export const costNormService = {
     a.download = fileName;
     a.click();
     URL.revokeObjectURL(url);
+  },
+};
+
+// ─── ContractTask ─────────────────────────────────────────────────────────────
+
+export interface ContractTaskResponse {
+  id: string;
+  contractId: string;
+  orderNo: number;
+  name: string;
+  completedAmount: number;
+  totalAmount: number;
+  importance: number;
+  percentComplete: number;
+  createdBy: string;
+  createdByFullName: string | null;
+  createdAt: string;
+}
+
+export interface ContractTaskCreatePayload {
+  contractId: string;
+  name: string;
+  completedAmount: number;
+  totalAmount: number;
+  importance: number;
+}
+
+export interface ContractTaskUpdatePayload {
+  name?: string;
+  completedAmount?: number;
+  totalAmount?: number;
+  importance?: number;
+}
+
+export const contractTaskService = {
+  getByContract: async (contractId: string): Promise<ContractTaskResponse[]> => {
+    try {
+      const res = await api.get(`/api/contracttask/by-contract/${contractId}`);
+      return res.data?.result ?? res.data ?? [];
+    } catch {
+      return [];
+    }
+  },
+
+  create: async (dto: ContractTaskCreatePayload): Promise<string> => {
+    const res = await api.post("/api/contracttask", dto);
+    return res.data?.result as string;
+  },
+
+  createBulk: async (dtos: ContractTaskCreatePayload[]): Promise<void> => {
+    await api.post("/api/contracttask/bulk", dtos);
+  },
+
+  update: async (id: string, dto: ContractTaskUpdatePayload): Promise<void> => {
+    await api.put(`/api/contracttask/${id}`, dto);
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/api/contracttask/${id}`);
   },
 };
 

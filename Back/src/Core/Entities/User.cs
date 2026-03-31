@@ -10,6 +10,7 @@ public class User
     public Guid? RoleId { get; set; }
     public Guid? DepartmentId { get; set; }
     public bool IsActive { get; set; } = true;
+    public bool IsHead { get; set; } = false;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation properties
