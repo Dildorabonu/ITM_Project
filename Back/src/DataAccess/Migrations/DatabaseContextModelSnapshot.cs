@@ -171,6 +171,41 @@ namespace DataAccess.Migrations
                     b.ToTable("ContractTasks");
                 });
 
+            modelBuilder.Entity("Core.Entities.ContractTaskDailyLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("TaskId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("TaskId");
+
+                    b.ToTable("ContractTaskDailyLogs");
+                });
+
             modelBuilder.Entity("Core.Entities.ContractUser", b =>
                 {
                     b.Property<Guid>("ContractId")
@@ -871,6 +906,25 @@ namespace DataAccess.Migrations
                     b.Navigation("Creator");
                 });
 
+            modelBuilder.Entity("Core.Entities.ContractTaskDailyLog", b =>
+                {
+                    b.HasOne("Core.Entities.User", "Creator")
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Core.Entities.ContractTask", "Task")
+                        .WithMany("DailyLogs")
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Creator");
+
+                    b.Navigation("Task");
+                });
+
             modelBuilder.Entity("Core.Entities.ContractUser", b =>
                 {
                     b.HasOne("Core.Entities.Contract", "Contract")
@@ -1157,6 +1211,11 @@ namespace DataAccess.Migrations
                     b.Navigation("TechProcesses");
 
                     b.Navigation("TechnicalDrawings");
+                });
+
+            modelBuilder.Entity("Core.Entities.ContractTask", b =>
+                {
+                    b.Navigation("DailyLogs");
                 });
 
             modelBuilder.Entity("Core.Entities.CostNorm", b =>
