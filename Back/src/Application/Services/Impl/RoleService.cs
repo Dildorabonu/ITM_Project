@@ -63,7 +63,7 @@ public class RoleService : IRoleService
         _context.Roles.Add(role);
         await _context.SaveChangesAsync();
 
-        return ApiResult<object>.Success(statusCode: 201);
+        return ApiResult<object>.Success(new { id = role.Id }, statusCode: 201);
     }
 
     private static readonly Guid SuperAdminRoleId = new("00000000-0000-0000-0000-000000000001");

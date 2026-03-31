@@ -50,7 +50,7 @@ public class RoleController : ControllerBase
         if (!result.Succeeded)
             return StatusCode(result.StatusCode, result);
 
-        return StatusCode(result.StatusCode);
+        return StatusCode(result.StatusCode, result);
     }
 
     [HasPermission("Roles.Update")]

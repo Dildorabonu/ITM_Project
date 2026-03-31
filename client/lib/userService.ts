@@ -159,8 +159,9 @@ export const roleService = {
     return res.data?.result ?? res.data ?? [];
   },
 
-  create: async (dto: RoleCreatePayload): Promise<void> => {
-    await api.post("/api/role", dto);
+  create: async (dto: RoleCreatePayload): Promise<string> => {
+    const res = await api.post("/api/role", dto);
+    return res.data?.result?.id ?? res.data?.id;
   },
 
   update: async (id: string, dto: RoleUpdatePayload): Promise<void> => {

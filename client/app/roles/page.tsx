@@ -158,8 +158,7 @@ export default function RolesPage() {
       if (editRole) {
         await roleService.update(editRole.id, roleForm);
       } else {
-        // create returns void; re-fetch to get new id — for now just save form
-        await roleService.create(roleForm);
+        roleId = await roleService.create(roleForm);
       }
       if (roleId) {
         await roleService.setPermissions(roleId, Array.from(selectedPerms));
