@@ -51,9 +51,10 @@ const navGroups: NavGroup[] = [
     label: "Omborxona",
     icon: "package",
     items: [
-      { name: "Mahsulotlar",       href: "/products",    icon: "shopping-bag" },
+      { name: "Mahsulotlar",        href: "/products",    icon: "shopping-bag" },
+      { name: "Ombor tekshiruvi",   href: "/warehouse",   icon: "package" },
       { name: "Tuzilma",            href: "/departments", icon: "briefcase" },
-      { name: "Deficit Tekshiruv", href: "/deficit",     icon: "alert-circle" },
+      { name: "Deficit Tekshiruv",  href: "/deficit",     icon: "alert-circle" },
     ],
   },
   {
