@@ -228,6 +228,7 @@ function UsersPageInner() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [formSubmitted, setFormSubmitted] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [confirmHead, setConfirmHead] = useState<{ headName: string } | null>(null);
@@ -295,6 +296,8 @@ function UsersPageInner() {
     if (showEdit && editTarget && initializedEditIdRef.current !== editId) {
       initializedEditIdRef.current = editId;
       setFormSubmitted(false);
+      setSaveError("");
+      departmentService.getAll().then(setDepartments).catch(() => {});
       setForm({
         firstName: editTarget.firstName,
         lastName: editTarget.lastName,
@@ -316,6 +319,8 @@ function UsersPageInner() {
     if (showCreate) {
       setForm(emptyForm);
       setFormSubmitted(false);
+      setSaveError("");
+      departmentService.getAll().then(setDepartments).catch(() => {});
     }
   }, [showCreate]);
 
@@ -343,6 +348,7 @@ function UsersPageInner() {
     setFormSubmitted(true);
     if (!form.firstName || !form.lastName || !form.login || !form.password || !form.roleId || !form.departmentId) return;
     setSaving(true);
+    setSaveError("");
     try {
       const payload: UserCreatePayload = {
         firstName: form.firstName,
@@ -357,8 +363,10 @@ function UsersPageInner() {
       sessionStorage.removeItem("draft_users");
       router.push(pathname);
       await load();
-    } catch {
-      // stay open on error
+      departmentService.getAll().then(setDepartments).catch(() => {});
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
+      setSaveError(msg || "Saqlashda xatolik yuz berdi.");
     } finally {
       setSaving(false);
     }
@@ -369,6 +377,7 @@ function UsersPageInner() {
     setFormSubmitted(true);
     if (!form.roleId || !form.departmentId) return;
     setSaving(true);
+    setSaveError("");
     try {
       const payload: UserUpdatePayload = {
         firstName: form.firstName || undefined,
@@ -384,8 +393,10 @@ function UsersPageInner() {
       sessionStorage.removeItem("draft_users");
       router.push(pathname);
       await load();
-    } catch {
-      // stay open on error
+      departmentService.getAll().then(setDepartments).catch(() => {});
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
+      setSaveError(msg || "Saqlashda xatolik yuz berdi.");
     } finally {
       setSaving(false);
     }
@@ -528,8 +539,13 @@ function UsersPageInner() {
         </div>
 
         {/* Footer actions */}
+        {saveError && (
+          <div style={{ color: "#e05252", fontSize: 13, background: "#fff0f0", border: "1px solid #fca5a5", borderRadius: "var(--radius)", padding: "10px 14px", marginBottom: 8 }}>
+            {saveError}
+          </div>
+        )}
         <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 8 }}>
-          <button className="btn-secondary" onClick={() => { sessionStorage.removeItem("draft_users"); router.push(pathname); }}>Bekor qilish</button>
+          <button className="btn-secondary" onClick={() => { setSaveError(""); sessionStorage.removeItem("draft_users"); router.push(pathname); }}>Bekor qilish</button>
           <button className="btn-primary" onClick={handleUpdate} disabled={saving}
             style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -540,6 +556,21 @@ function UsersPageInner() {
             {saving ? "Saqlanmoqda..." : "Saqlash"}
           </button>
         </div>
+        {confirmHead && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: 28, width: 360, maxWidth: "95vw", textAlign: "center" }}>
+              <div style={{ fontSize: 22, marginBottom: 10 }}>👑</div>
+              <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8, color: "var(--text1)" }}>Rahbar allaqachon belgilangan</div>
+              <div style={{ color: "var(--text2)", fontSize: 13, marginBottom: 20 }}>
+                Ushbu tuzilmaning rahbari: <strong>{confirmHead.headName}</strong>.<br />
+                Yangi rahbar belgilash uchun avval mavjud rahbarni olib tashlang.
+              </div>
+              <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+                <button className="btn" onClick={() => setConfirmHead(null)}>Tushundim</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -678,8 +709,13 @@ function UsersPageInner() {
         </div>
 
         {/* Footer actions */}
+        {saveError && (
+          <div style={{ color: "#e05252", fontSize: 13, background: "#fff0f0", border: "1px solid #fca5a5", borderRadius: "var(--radius)", padding: "10px 14px", marginBottom: 8 }}>
+            {saveError}
+          </div>
+        )}
         <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 8 }}>
-          <button className="btn-secondary" onClick={() => { sessionStorage.removeItem("draft_users"); router.push(pathname); }}>Bekor qilish</button>
+          <button className="btn-secondary" onClick={() => { setSaveError(""); sessionStorage.removeItem("draft_users"); router.push(pathname); }}>Bekor qilish</button>
           <button className="btn-primary" onClick={handleCreate} disabled={saving}
             style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -690,6 +726,21 @@ function UsersPageInner() {
             {saving ? "Saqlanmoqda..." : "Saqlash"}
           </button>
         </div>
+        {confirmHead && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: 28, width: 360, maxWidth: "95vw", textAlign: "center" }}>
+              <div style={{ fontSize: 22, marginBottom: 10 }}>👑</div>
+              <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8, color: "var(--text1)" }}>Rahbar allaqachon belgilangan</div>
+              <div style={{ color: "var(--text2)", fontSize: 13, marginBottom: 20 }}>
+                Ushbu tuzilmaning rahbari: <strong>{confirmHead.headName}</strong>.<br />
+                Yangi rahbar belgilash uchun avval mavjud rahbarni olib tashlang.
+              </div>
+              <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+                <button className="btn" onClick={() => setConfirmHead(null)}>Tushundim</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -913,14 +964,10 @@ function UsersPageInner() {
             </div>
             <div style={{ color: "var(--text2)", fontSize: 13, marginBottom: 20 }}>
               Ushbu tuzilmaning rahbari: <strong>{confirmHead.headName}</strong>.<br />
-              Almashtirishni istaysizmi?
+              Yangi rahbar belgilash uchun avval mavjud rahbarni olib tashlang.
             </div>
             <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-              <button className="btn btn-outline" onClick={() => setConfirmHead(null)}>Bekor qilish</button>
-              <button className="btn" style={{ background: "#f59e0b", color: "#fff", border: "none", fontWeight: 600 }}
-                onClick={() => { setForm(f => ({ ...f, isHead: true })); setConfirmHead(null); }}>
-                Ha, almashtirish
-              </button>
+              <button className="btn" onClick={() => setConfirmHead(null)}>Tushundim</button>
             </div>
           </div>
         </div>

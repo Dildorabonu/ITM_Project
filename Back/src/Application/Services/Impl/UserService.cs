@@ -94,7 +94,7 @@ public class UserService : IUserService
                 .Where(u => u.DepartmentId == dto.DepartmentId && u.IsHead)
                 .FirstOrDefaultAsync();
             if (previousHead is not null)
-                previousHead.IsHead = false;
+                return ApiResult<int>.Failure([$"Ushbu bo'limda allaqachon rahbar mavjud: {previousHead.FirstName} {previousHead.LastName}. Yangi rahbar belgilash uchun avval mavjud rahbarni olib tashlang."]);
         }
 
         var user = new User
@@ -153,7 +153,7 @@ public class UserService : IUserService
                     .Where(u => u.DepartmentId == user.DepartmentId && u.IsHead && u.Id != id)
                     .FirstOrDefaultAsync();
                 if (previousHead is not null)
-                    previousHead.IsHead = false;
+                    return ApiResult<int>.Failure([$"Ushbu bo'limda allaqachon rahbar mavjud: {previousHead.FirstName} {previousHead.LastName}. Yangi rahbar belgilash uchun avval mavjud rahbarni olib tashlang."]);
             }
             user.IsHead = dto.IsHead.Value;
         }
