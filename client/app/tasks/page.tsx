@@ -43,7 +43,7 @@ function formatDate(dateStr: string) {
   });
 }
 
-// ─── Contract card (left list) ────────────────────────────────────────────────
+// ─── Contract card ────────────────────────────────────────────────────────────
 
 function ContractCard({
   contract,
@@ -56,52 +56,42 @@ function ContractCard({
 }) {
   return (
     <div
-      className="itm-card"
       onClick={onClick}
-      style={{
-        cursor: "pointer",
-        transition: "box-shadow 0.15s, border-color 0.15s",
-        border: selected ? "2px solid var(--accent)" : "2px solid transparent",
-      }}
-      onMouseEnter={e => { if (!selected) e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.10)"; }}
-      onMouseLeave={e => { if (!selected) e.currentTarget.style.boxShadow = ""; }}
+      className={`tasks-contract-card${selected ? " selected" : ""}`}
     >
-      <div className="itm-card-header" style={{ marginBottom: 10 }}>
-        <div style={{ flex: 1 }}>
-          <div className="mono" style={{ fontSize: 11, color: "var(--text3)", marginBottom: 3 }}>
-            #{contract.contractNo}
-          </div>
-          <div className="itm-card-title" style={{ fontSize: 14 }}>
-            {contract.contractParty}
-          </div>
+      {/* Top row */}
+      <div className="tcc-header">
+        <div className="tcc-meta">
+          <span className="tcc-no mono">#{contract.contractNo}</span>
+          <span className="tcc-party">{contract.contractParty}</span>
         </div>
         <span className={`status ${STATUS_COLORS[contract.status]}`}>
           {STATUS_LABELS[contract.status]}
         </span>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 12, color: "var(--text3)" }}>Mahsulot</span>
-          <span style={{ fontSize: 12, fontWeight: 500 }}>{contract.productType}</span>
+      {/* Middle rows */}
+      <div className="tcc-rows">
+        <div className="tcc-row">
+          <span className="tcc-label">Mahsulot</span>
+          <span className="tcc-value">{contract.productType}</span>
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 12, color: "var(--text3)" }}>Miqdor</span>
-          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)" }}>
-            {contract.quantity.toLocaleString()} {contract.unit}
-          </span>
+        <div className="tcc-row">
+          <span className="tcc-label">Miqdor</span>
+          <span className="tcc-value accent">{contract.quantity.toLocaleString()} {contract.unit}</span>
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 12, color: "var(--text3)" }}>Ustuvorlik</span>
+        <div className="tcc-row">
+          <span className="tcc-label">Ustuvorlik</span>
           <span className={`status ${PRIORITY_COLORS[contract.priority]}`} style={{ fontSize: 11 }}>
             {PRIORITY_LABELS[contract.priority]}
           </span>
         </div>
-        <div style={{ height: 1, background: "var(--border)", margin: "2px 0" }} />
-        <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <span className="mono" style={{ fontSize: 11, color: "var(--text3)" }}>{formatDate(contract.startDate)}</span>
-          <span className="mono" style={{ fontSize: 11, color: "var(--danger)" }}>{formatDate(contract.endDate)}</span>
-        </div>
+      </div>
+
+      {/* Date footer */}
+      <div className="tcc-footer">
+        <span className="mono">{formatDate(contract.startDate)}</span>
+        <span className="mono danger">{formatDate(contract.endDate)}</span>
       </div>
     </div>
   );
@@ -117,73 +107,37 @@ function TaskRow({
   onDelete: (id: string) => void;
 }) {
   const pct = Math.min(100, Math.max(0, task.percentComplete));
+  const done = pct >= 100;
 
   return (
-    <div style={{
-      background: "var(--surface)",
-      border: "1px solid var(--border)",
-      borderRadius: 10,
-      padding: "14px 16px",
-    }}>
-      {/* Header: order no + name + percent */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-        <div style={{
-          width: 26, height: 26, borderRadius: "50%",
-          background: "var(--accent)", color: "#fff",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 11, fontWeight: 700, flexShrink: 0,
-        }}>
-          {task.orderNo}
-        </div>
-        <div style={{ flex: 1, fontWeight: 600, fontSize: 14 }}>{task.name}</div>
-        <span style={{
-          fontSize: 13, fontWeight: 700,
-          color: pct >= 100 ? "var(--success, #22c55e)" : "var(--accent)",
-        }}>
-          {pct.toFixed(1)}%
-        </span>
-        <button
-          onClick={() => onDelete(task.id)}
-          style={{
-            background: "none", border: "none", cursor: "pointer",
-            color: "var(--text3)", padding: "2px 4px", borderRadius: 4,
-            lineHeight: 1,
-          }}
-          title="O'chirish"
-        >
-          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+    <div className="task-row">
+      <div className="task-row-header">
+        <div className={`task-order-badge${done ? " done" : ""}`}>{task.orderNo}</div>
+        <div className="task-name">{task.name}</div>
+        <span className={`task-pct${done ? " done" : ""}`}>{pct.toFixed(1)}%</span>
+        <button className="task-delete-btn" onClick={() => onDelete(task.id)} title="O'chirish">
+          <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
           </svg>
         </button>
       </div>
 
       {/* Progress bar */}
-      <div style={{
-        height: 8, background: "var(--border)", borderRadius: 999,
-        overflow: "hidden", marginBottom: 8,
-      }}>
-        <div style={{
-          height: "100%",
-          width: `${pct}%`,
-          background: pct >= 100 ? "var(--success, #22c55e)" : "var(--accent)",
-          borderRadius: 999,
-          transition: "width 0.3s",
-        }} />
+      <div className="task-progress-track">
+        <div className={`task-progress-fill${done ? " done" : ""}`} style={{ width: `${pct}%` }} />
       </div>
 
-      {/* Footer: completed/total + importance */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <span style={{ fontSize: 12, color: "var(--text3)" }}>Bajarildi:</span>
-          <span style={{ fontSize: 13, fontWeight: 600 }}>
+      {/* Footer */}
+      <div className="task-row-footer">
+        <div className="task-footer-item">
+          <span className="task-footer-label">Bajarildi</span>
+          <span className="task-footer-val">
             {task.completedAmount.toLocaleString()} / {task.totalAmount.toLocaleString()}
           </span>
         </div>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <span style={{ fontSize: 12, color: "var(--text3)" }}>Muhimlilik:</span>
-          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--warn, #f59e0b)" }}>
-            {task.importance}%
-          </span>
+        <div className="task-footer-item">
+          <span className="task-footer-label">Muhimlilik</span>
+          <span className="task-footer-val warn">{task.importance}%</span>
         </div>
       </div>
     </div>
@@ -194,74 +148,66 @@ function TaskRow({
 
 interface NewTaskForm {
   name: string;
-  completedAmount: string;
   totalAmount: string;
   importance: string;
 }
 
-const EMPTY_FORM: NewTaskForm = { name: "", completedAmount: "0", totalAmount: "0", importance: "" };
+const EMPTY_FORM: NewTaskForm = { name: "", totalAmount: "0", importance: "" };
 
 function AddTaskForm({
   onSave,
   onCancel,
+  existingTotalImportance,
 }: {
   onSave: (data: Omit<ContractTaskCreatePayload, "contractId">) => Promise<void>;
   onCancel: () => void;
+  existingTotalImportance: number;
 }) {
   const [form, setForm] = useState<NewTaskForm>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
-  const nameRef = useRef<HTMLInputElement>(null);
+  const nameRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => { nameRef.current?.focus(); }, []);
 
   const set = (k: keyof NewTaskForm, v: string) => setForm(f => ({ ...f, [k]: v }));
+
+  const newImportance = parseFloat(form.importance) || 0;
+  const projectedTotal = Math.round((existingTotalImportance + newImportance) * 100) / 100;
+  const diff = Math.round((projectedTotal - 100) * 100) / 100;
+  const showImportanceHint = form.importance !== "";
 
   const handleSave = async () => {
     if (!form.name.trim()) return;
     setSaving(true);
     await onSave({
       name: form.name.trim(),
-      completedAmount: parseFloat(form.completedAmount) || 0,
+      completedAmount: 0,
       totalAmount: parseFloat(form.totalAmount) || 0,
-      importance: parseFloat(form.importance) || 0,
+      importance: newImportance,
     });
     setSaving(false);
   };
 
   return (
-    <div style={{
-      border: "1.5px dashed var(--accent)",
-      borderRadius: 10,
-      padding: "14px 16px",
-      display: "flex", flexDirection: "column", gap: 10,
-    }}>
-      <div style={{ fontWeight: 600, fontSize: 13, color: "var(--accent)" }}>Yangi vazifa</div>
+    <div className="add-task-form">
+      <div className="atf-title">Yangi vazifa</div>
 
-      <div>
-        <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4 }}>Vazifa nomi</div>
-        <input
+      <div className="atf-field">
+        <label className="atf-label">Vazifa nomi</label>
+        <textarea
           ref={nameRef}
-          className="itm-input"
+          className="itm-input atf-textarea"
           placeholder="Masalan: Tikish bo'yicha tayyorgarlik"
           value={form.name}
+          rows={3}
           onChange={e => set("name", e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") onCancel(); }}
+          onKeyDown={e => { if (e.key === "Escape") onCancel(); }}
         />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-        <div>
-          <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4 }}>Bajarilgan</div>
-          <input
-            className="itm-input"
-            type="number" min="0"
-            placeholder="0"
-            value={form.completedAmount}
-            onChange={e => set("completedAmount", e.target.value)}
-          />
-        </div>
-        <div>
-          <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4 }}>Jami miqdor</div>
+      <div className="atf-grid2">
+        <div className="atf-field">
+          <label className="atf-label">Jami miqdor</label>
           <input
             className="itm-input"
             type="number" min="0"
@@ -270,8 +216,8 @@ function AddTaskForm({
             onChange={e => set("totalAmount", e.target.value)}
           />
         </div>
-        <div>
-          <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4 }}>Muhimlilik (%)</div>
+        <div className="atf-field">
+          <label className="atf-label">Muhimlilik (%)</label>
           <input
             className="itm-input"
             type="number" min="0" max="100"
@@ -282,10 +228,36 @@ function AddTaskForm({
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-        <button className="itm-btn s-ghost" onClick={onCancel} disabled={saving}>
-          Bekor
-        </button>
+      {/* Live importance hint */}
+      {showImportanceHint && (
+        <div className={`atf-importance-hint${diff === 0 ? " ok" : diff > 0 ? " over" : " under"}`}>
+          {diff === 0 ? (
+            <>
+              <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Qo'shilgandan keyin jami 100% — to'g'ri!
+            </>
+          ) : diff > 0 ? (
+            <>
+              <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              Qo'shilgandan keyin {projectedTotal}% — +{diff}% ortiqcha bo'ladi
+            </>
+          ) : (
+            <>
+              <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              Qo'shilgandan keyin {projectedTotal}% — yana {Math.abs(diff)}% qoladi
+            </>
+          )}
+        </div>
+      )}
+
+      <div className="atf-actions">
+        <button className="itm-btn s-ghost" onClick={onCancel} disabled={saving}>Bekor</button>
         <button className="itm-btn s-primary" onClick={handleSave} disabled={saving || !form.name.trim()}>
           {saving ? "Saqlanmoqda…" : "Saqlash"}
         </button>
@@ -294,7 +266,7 @@ function AddTaskForm({
   );
 }
 
-// ─── Task panel (right side) ──────────────────────────────────────────────────
+// ─── Task panel ───────────────────────────────────────────────────────────────
 
 function TaskPanel({ contract }: { contract: ContractResponse }) {
   const [tasks, setTasks] = useState<ContractTaskResponse[]>([]);
@@ -326,41 +298,27 @@ function TaskPanel({ contract }: { contract: ContractResponse }) {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14, height: "100%" }}>
-      {/* Contract info header */}
-      <div className="itm-card" style={{ padding: "12px 16px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-          <div>
-            <div className="mono" style={{ fontSize: 11, color: "var(--text3)", marginBottom: 2 }}>
-              #{contract.contractNo}
-            </div>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>{contract.contractParty}</div>
+    <div className="task-panel">
+      {/* Contract header */}
+      <div className="tp-contract-header">
+        <div className="tp-contract-info">
+          <div className="tp-contract-no mono">#{contract.contractNo}</div>
+          <div className="tp-contract-party">{contract.contractParty}</div>
+          <div className="tp-contract-sub">
+            {contract.productType} · {contract.quantity.toLocaleString()} {contract.unit}
           </div>
-          <span className={`status ${STATUS_COLORS[contract.status]}`}>
-            {STATUS_LABELS[contract.status]}
-          </span>
         </div>
-        <div style={{ fontSize: 12, color: "var(--text3)" }}>
-          {contract.productType} · {contract.quantity.toLocaleString()} {contract.unit}
-        </div>
+        <span className={`status ${STATUS_COLORS[contract.status]}`}>
+          {STATUS_LABELS[contract.status]}
+        </span>
       </div>
 
-      {/* Importance summary */}
+      {/* Importance banner */}
       {tasks.length > 0 && (
-        <div style={{
-          borderRadius: 8,
-          padding: "8px 12px",
-          fontSize: 12,
-          display: "flex", alignItems: "center", gap: 8,
-          background: importanceDiff === 0
-            ? "rgba(34,197,94,0.08)"
-            : "rgba(239,68,68,0.08)",
-          border: `1px solid ${importanceDiff === 0 ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`,
-          color: importanceDiff === 0 ? "var(--success, #22c55e)" : "var(--danger)",
-        }}>
+        <div className={`tp-importance-banner${importanceDiff === 0 ? " ok" : " warn"}`}>
           {importanceDiff === 0 ? (
             <>
-              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
               Muhimlilik to'g'ri taqsimlangan (100%)
@@ -370,32 +328,31 @@ function TaskPanel({ contract }: { contract: ContractResponse }) {
               <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
               </svg>
-              Muhimlilik yetishmaydi — hozir {totalImportance.toFixed(1)}% (−{Math.abs(importanceDiff)}% qoldi)
+              Yetishmaydi — {totalImportance.toFixed(1)}% (−{Math.abs(importanceDiff)}% qoldi)
             </>
           ) : (
             <>
               <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
               </svg>
-              Muhimlilik ortib ketdi — hozir {totalImportance.toFixed(1)}% (+{importanceDiff}% ortiqcha)
+              Ortiqcha — {totalImportance.toFixed(1)}% (+{importanceDiff}% ko'p)
             </>
           )}
         </div>
       )}
 
       {/* Tasks list */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1, overflowY: "auto" }}>
+      <div className="tp-tasks-list">
         {loading ? (
-          <div style={{ textAlign: "center", padding: 32, color: "var(--text3)", fontSize: 13 }}>
-            Yuklanmoqda…
-          </div>
+          <div className="tp-empty">Yuklanmoqda…</div>
         ) : tasks.length === 0 && !showForm ? (
-          <div style={{
-            textAlign: "center", padding: 32, color: "var(--text3)",
-            border: "1px dashed var(--border)", borderRadius: 10,
-          }}>
-            <div style={{ fontSize: 13, marginBottom: 4 }}>Hali vazifa qo'shilmagan</div>
-            <div style={{ fontSize: 12 }}>Pastdagi + tugmasini bosing</div>
+          <div className="tp-empty bordered">
+            <svg width="32" height="32" fill="none" stroke="var(--text3)" strokeWidth="1.5" viewBox="0 0 24 24" style={{ marginBottom: 8 }}>
+              <rect x="9" y="2" width="6" height="4" rx="1"/>
+              <path d="M5 4h2v2h10V4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/>
+              <line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/>
+            </svg>
+            <span>Hali vazifa qo'shilmagan</span>
           </div>
         ) : (
           tasks.map(task => (
@@ -403,40 +360,17 @@ function TaskPanel({ contract }: { contract: ContractResponse }) {
           ))
         )}
 
-        {/* Add form */}
         {showForm && (
           <AddTaskForm
             onSave={handleSave}
             onCancel={() => setShowForm(false)}
+            existingTotalImportance={totalImportance}
           />
         )}
 
-        {/* Add button */}
         {!showForm && (
-          <button
-            onClick={() => setShowForm(true)}
-            style={{
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-              border: "1.5px dashed var(--border)",
-              borderRadius: 10,
-              background: "none",
-              color: "var(--text3)",
-              cursor: "pointer",
-              padding: "12px 0",
-              fontSize: 14,
-              fontWeight: 500,
-              transition: "border-color 0.15s, color 0.15s",
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.borderColor = "var(--accent)";
-              e.currentTarget.style.color = "var(--accent)";
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.borderColor = "var(--border)";
-              e.currentTarget.style.color = "var(--text3)";
-            }}
-          >
-            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <button className="add-task-btn" onClick={() => setShowForm(true)}>
+            <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
               <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
             Vazifa qo'shish
@@ -473,13 +407,6 @@ export default function TasksPage() {
 
   return (
     <>
-      <div className="page-header">
-        <div className="ph-title">Vazifalar</div>
-        <span style={{ fontSize: 12, color: "var(--text3)" }}>
-          Shartnomani tanlang, keyin vazifalar kiriting
-        </span>
-      </div>
-
       {loading ? (
         <div className="itm-card" style={{ textAlign: "center", padding: 48, color: "var(--text3)" }}>
           Yuklanmoqda...
@@ -494,9 +421,9 @@ export default function TasksPage() {
           <div>Sizga biriktirilgan shartnoma topilmadi.</div>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: selected ? "340px 1fr" : "1fr", gap: 16, alignItems: "start" }}>
-          {/* Left: contract list */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className={`tasks-layout${selected ? " has-panel" : ""}`}>
+          {/* Contract grid: 2 columns */}
+          <div className="tasks-contract-grid">
             {contracts.map(c => (
               <ContractCard
                 key={c.id}
@@ -509,7 +436,7 @@ export default function TasksPage() {
 
           {/* Right: task panel */}
           {selected && (
-            <div style={{ position: "sticky", top: 16 }}>
+            <div className="tasks-panel-sticky">
               <TaskPanel key={selected.id} contract={selected} />
             </div>
           )}
