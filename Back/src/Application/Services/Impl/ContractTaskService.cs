@@ -117,6 +117,7 @@ public class ContractTaskService : IContractTaskService
         if (dto.CompletedAmount.HasValue) task.CompletedAmount = dto.CompletedAmount.Value;
         if (dto.TotalAmount.HasValue) task.TotalAmount = dto.TotalAmount.Value;
         if (dto.Importance.HasValue) task.Importance = dto.Importance.Value;
+        if (dto.OrderNo.HasValue) task.OrderNo = dto.OrderNo.Value;
 
         await _context.SaveChangesAsync();
 
@@ -133,6 +134,61 @@ public class ContractTaskService : IContractTaskService
         await _context.SaveChangesAsync();
 
         return ApiResult<int>.Success(200);
+    }
+
+    public async Task<ApiResult<Guid>> LogProgressAsync(Guid taskId, ContractTaskLogCreateDto dto, Guid createdBy)
+    {
+        var task = await _context.ContractTasks.FirstOrDefaultAsync(t => t.Id == taskId);
+        if (task is null)
+            return ApiResult<Guid>.Failure([$"ContractTask with id '{taskId}' not found."], 404);
+
+        if (dto.Amount <= 0)
+            return ApiResult<Guid>.Failure(["Miqdor 0 dan katta bo'lishi kerak."], 400);
+
+        var log = new ContractTaskDailyLog
+        {
+            Id = Guid.NewGuid(),
+            TaskId = taskId,
+            Amount = dto.Amount,
+            Note = dto.Note,
+            Date = dto.Date,
+            CreatedBy = createdBy,
+            CreatedAt = DateTime.UtcNow,
+        };
+
+        task.CompletedAmount += dto.Amount;
+
+        _context.ContractTaskDailyLogs.Add(log);
+        await _context.SaveChangesAsync();
+
+        return ApiResult<Guid>.Success(log.Id, 201);
+    }
+
+    public async Task<ApiResult<IEnumerable<ContractTaskLogResponseDto>>> GetLogsAsync(Guid taskId)
+    {
+        var taskExists = await _context.ContractTasks.AnyAsync(t => t.Id == taskId);
+        if (!taskExists)
+            return ApiResult<IEnumerable<ContractTaskLogResponseDto>>.Failure([$"ContractTask with id '{taskId}' not found."], 404);
+
+        var logs = await _context.ContractTaskDailyLogs
+            .Include(l => l.Creator)
+            .AsNoTracking()
+            .Where(l => l.TaskId == taskId)
+            .OrderByDescending(l => l.Date)
+            .ThenByDescending(l => l.CreatedAt)
+            .ToListAsync();
+
+        return ApiResult<IEnumerable<ContractTaskLogResponseDto>>.Success(logs.Select(l => new ContractTaskLogResponseDto
+        {
+            Id = l.Id,
+            TaskId = l.TaskId,
+            Amount = l.Amount,
+            Note = l.Note,
+            Date = l.Date,
+            CreatedBy = l.CreatedBy,
+            CreatedByFullName = l.Creator is not null ? $"{l.Creator.FirstName} {l.Creator.LastName}" : null,
+            CreatedAt = l.CreatedAt,
+        }));
     }
 
     private static ContractTaskResponseDto MapToResponse(ContractTask t)
