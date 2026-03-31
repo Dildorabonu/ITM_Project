@@ -84,7 +84,10 @@ function PriorityBadge({ priority }: { priority: Priority }) {
 }
 
 function fmt(d: string) {
-  return d ? d.slice(0, 10).split("-").reverse().join(".") : "—";
+  if (!d) return "—";
+  const [y, m, day] = d.slice(0, 10).split("-");
+  if (!y || !m || !day) return "—";
+  return `${day}-${m}-${y.slice(-2)}`;
 }
 
 function isoToDisplayDate(iso: string) {
@@ -426,6 +429,7 @@ export default function ContractsPage() {
 
   useEffect(() => {
     load();
+    departmentService.getAllFull().then(d => setDepartments(d)).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -493,8 +497,8 @@ export default function ContractsPage() {
       quantity:      c.quantity ? String(c.quantity) : "",
       unit:          c.unit ?? "",
       departmentId:  c.departmentId ?? "",
-      startDate:     c.startDate ? c.startDate.slice(0, 10) : "",
-      endDate:       c.endDate ? c.endDate.slice(0, 10) : "",
+      startDate:     c.startDate ? isoToDisplayDate(c.startDate) : "",
+      endDate:       c.endDate ? isoToDisplayDate(c.endDate) : "",
       priority:      String(c.priority),
       contractParty: c.contractParty ?? "",
       notes:         c.notes ?? "",
@@ -517,13 +521,13 @@ export default function ContractsPage() {
 
   const isValid = () =>
     form.contractNo.trim() && form.departmentId.trim() &&
-    form.startDate && form.endDate;
+    displayToIsoDate(form.startDate) && displayToIsoDate(form.endDate);
 
   const handleSave = async () => {
     setSubmitted(true);
     if (!isValid()) return;
-    const startDateIso = form.startDate;
-    const endDateIso = form.endDate;
+    const startDateIso = displayToIsoDate(form.startDate);
+    const endDateIso = displayToIsoDate(form.endDate);
     if (!startDateIso || !endDateIso) return;
     setSaving(true);
     setFormError("");
@@ -670,8 +674,8 @@ export default function ContractsPage() {
   // ── Render: Form ──────────────────────────────────────────────────────────
 
   const fieldErr = (val: string) => submitted && !val.trim();
-  const startDateErr = submitted && !form.startDate;
-  const endDateErr = submitted && !form.endDate;
+  const startDateErr = submitted && !displayToIsoDate(form.startDate);
+  const endDateErr = submitted && !displayToIsoDate(form.endDate);
   const deptErr = submitted && !form.departmentId.trim();
 
   if (showForm) {
@@ -715,8 +719,10 @@ export default function ContractsPage() {
               <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: startDateErr ? "var(--danger)" : "var(--text2)" }}>
                 Boshlanish sanasi <span style={{ color: "var(--danger)" }}>*</span>
               </label>
-              <input className="form-input" type="date" value={form.startDate}
-                onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))}
+              <input className="form-input" type="text" inputMode="numeric" value={form.startDate}
+                onChange={e => setForm(f => ({ ...f, startDate: autoFormatDate(e.target.value) }))}
+                placeholder="dd-mm-yy"
+                maxLength={8}
                 style={startDateErr ? { borderColor: "var(--danger)" } : undefined}
               />
               {startDateErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Boshlanish sanasini tanlang</div>}
@@ -727,8 +733,10 @@ export default function ContractsPage() {
               <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: endDateErr ? "var(--danger)" : "var(--text2)" }}>
                 Tugash sanasi <span style={{ color: "var(--danger)" }}>*</span>
               </label>
-              <input className="form-input" type="date" value={form.endDate}
-                onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))}
+              <input className="form-input" type="text" inputMode="numeric" value={form.endDate}
+                onChange={e => setForm(f => ({ ...f, endDate: autoFormatDate(e.target.value) }))}
+                placeholder="dd-mm-yy"
+                maxLength={8}
                 style={endDateErr ? { borderColor: "var(--danger)" } : undefined}
               />
               {endDateErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Tugash sanasini tanlang</div>}
@@ -1191,7 +1199,7 @@ export default function ContractsPage() {
                     <td style={{ borderLeft: "2px solid var(--border)" }}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
                         <button className="btn-icon" onClick={() => openDrawer(c)} title="Ko'rish"
-                          style={{ color: "var(--accent)", borderColor: "var(--accent-mid)", background: "var(--accent-dim)" }}>
+                          style={{ color: "#0ea5e9", borderColor: "#0ea5e933", background: "#0ea5e912" }}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                             <circle cx="12" cy="12" r="3" />
@@ -1354,7 +1362,7 @@ export default function ContractsPage() {
                           </svg>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.fileName}</div>
-                            <div style={{ fontSize: 11, color: "var(--text3)" }}>{(f.fileSize / 1024).toFixed(1)} KB · {new Date(f.uploadedAt).toLocaleDateString("uz-UZ")}</div>
+                            <div style={{ fontSize: 11, color: "var(--text3)" }}>{(f.fileSize / 1024).toFixed(1)} KB · {fmt(f.uploadedAt)}</div>
                           </div>
                           <button title="Yuklab olish" onClick={() => contractService.downloadFile(viewContract.id, f.id, f.fileName)}
                             style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent)", padding: 4, flexShrink: 0 }}>
@@ -1394,7 +1402,7 @@ export default function ContractsPage() {
                           </svg>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.fileName}</div>
-                            <div style={{ fontSize: 11, color: "var(--text3)" }}>{(f.fileSize / 1024).toFixed(1)} KB · {new Date(f.uploadedAt).toLocaleDateString("uz-UZ")}</div>
+                            <div style={{ fontSize: 11, color: "var(--text3)" }}>{(f.fileSize / 1024).toFixed(1)} KB · {fmt(f.uploadedAt)}</div>
                           </div>
                           <button title="Yuklab olish" onClick={() => contractService.downloadTzFile(viewContract.id, f.id, f.fileName)}
                             style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent)", padding: 4, flexShrink: 0 }}>

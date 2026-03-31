@@ -67,7 +67,10 @@ function StatusBadge({ status }: { status: DrawingStatus }) {
 }
 
 function fmtDate(value: string) {
-  return value.slice(0, 10).split("-").reverse().join(".");
+  if (!value) return "—";
+  const [y, m, day] = value.slice(0, 10).split("-");
+  if (!y || !m || !day) return "—";
+  return `${day}-${m}-${y.slice(-2)}`;
 }
 
 export default function TechnicalDrawingsPage() {

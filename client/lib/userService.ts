@@ -586,6 +586,7 @@ export interface TechProcessResponse {
   contractId: string;
   contractNo: string;
   title: string;
+  notes: string | null;
   status: ProcessStatus;
   currentStep: number;
   approvedBy: string | null;
@@ -701,13 +702,102 @@ export interface MaterialOption {
   quantity: number;
 }
 
+export interface MaterialResponse {
+  id: string;
+  code: string;
+  name: string;
+  category: string;
+  unit: string;
+  quantity: number;
+  minQuantity: number;
+  location: string | null;
+  status: number;
+  updatedAt: string;
+}
+
+export interface MaterialCreatePayload {
+  code: string;
+  name: string;
+  category: string;
+  unit: string;
+  quantity: number;
+  minQuantity: number;
+  location?: string | null;
+}
+
+export interface MaterialUpdatePayload {
+  code?: string;
+  name?: string;
+  category?: string;
+  unit?: string;
+  quantity?: number;
+  minQuantity?: number;
+  location?: string | null;
+}
+
+export interface DeficitCheckItem {
+  costNormItemName: string;
+  costNormItemUnit: string;
+  requiredQty: number;
+  availableQty: number;
+  deficitQty: number;
+  existsInInventory: boolean;
+  materialId: string | null;
+  status: string;
+}
+
 export const materialService = {
-  getAll: async (): Promise<MaterialOption[]> => {
-    const res = await api.get("/api/material");
-    const data = res.data?.result ?? res.data ?? [];
-    return data.map((m: { id: string; name: string; unit: string; quantity: number }) => ({
-      id: m.id, name: m.name, unit: m.unit, quantity: m.quantity,
-    }));
+  getAll: async (category?: string): Promise<MaterialResponse[]> => {
+    const params: Record<string, string> = {};
+    if (category) params.category = category;
+    try {
+      const res = await api.get("/api/material", { params });
+      return res.data?.result ?? res.data ?? [];
+    } catch {
+      return [];
+    }
+  },
+
+  getOptions: async (): Promise<MaterialOption[]> => {
+    try {
+      const res = await api.get("/api/material");
+      const data = res.data?.result ?? res.data ?? [];
+      return data.map((m: MaterialResponse) => ({
+        id: m.id, name: m.name, unit: m.unit, quantity: m.quantity,
+      }));
+    } catch {
+      return [];
+    }
+  },
+
+  getById: async (id: string): Promise<MaterialResponse> => {
+    const res = await api.get(`/api/material/${id}`);
+    return res.data?.result ?? res.data;
+  },
+
+  create: async (dto: MaterialCreatePayload): Promise<void> => {
+    await api.post("/api/material", dto);
+  },
+
+  createBulk: async (dtos: MaterialCreatePayload[]): Promise<void> => {
+    await api.post("/api/material/bulk", dtos);
+  },
+
+  update: async (id: string, dto: MaterialUpdatePayload): Promise<void> => {
+    await api.put(`/api/material/${id}`, dto);
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/api/material/${id}`);
+  },
+
+  checkDeficitByCostNorm: async (costNormId: string): Promise<DeficitCheckItem[]> => {
+    try {
+      const res = await api.get(`/api/material/deficit/costnorm/${costNormId}`);
+      return res.data?.result ?? res.data ?? [];
+    } catch {
+      return [];
+    }
   },
 };
 
@@ -880,7 +970,7 @@ export const costNormService = {
     return res.data?.result as string;
   },
 
-  update: async (id: string, dto: { title?: string; notes?: string | null }): Promise<void> => {
+  update: async (id: string, dto: { title?: string; notes?: string | null; items?: CostNormItemCreatePayload[] }): Promise<void> => {
     await api.put(`/api/costnorm/${id}`, dto);
   },
 

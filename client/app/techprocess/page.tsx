@@ -40,7 +40,10 @@ function StatusBadge({ status }: { status: ProcessStatus }) {
 }
 
 function fmt(d: string) {
-  return d ? d.slice(0, 10).split("-").reverse().join(".") : "—";
+  if (!d) return "—";
+  const [y, m, day] = d.slice(0, 10).split("-");
+  if (!y || !m || !day) return "—";
+  return `${day}-${m}-${y.slice(-2)}`;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -83,6 +86,11 @@ export default function TechProcessPage() {
   const [matSubmitted, setMatSubmitted]       = useState(false);
   const [savingMat, setSavingMat]             = useState(false);
   const [deletingMatId, setDeletingMatId]     = useState<string | null>(null);
+
+  // Drawer edit
+  const [drawerEditing, setDrawerEditing] = useState(false);
+  const [drawerEditForm, setDrawerEditForm] = useState({ title: "", notes: "" });
+  const [drawerEditSaving, setDrawerEditSaving] = useState(false);
 
   // Delete confirm
   const [deleteId, setDeleteId]   = useState<string | null>(null);
@@ -145,12 +153,45 @@ export default function TechProcessPage() {
   const openDrawer = async (tp: TechProcessResponse) => {
     setDrawer(tp);
     setDrawerTab("steps");
+    setDrawerEditing(false);
     setDrawerLoading(true);
     try {
       const fresh = await techProcessService.getById(tp.id);
       setDrawer(fresh);
     } finally {
       setDrawerLoading(false);
+    }
+  };
+
+  const openDrawerEdit = async (tp: TechProcessResponse) => {
+    setDrawer(tp);
+    setDrawerTab("steps");
+    setDrawerEditing(true);
+    setDrawerEditForm({ title: tp.title, notes: tp.notes || "" });
+    setDrawerLoading(true);
+    try {
+      const fresh = await techProcessService.getById(tp.id);
+      setDrawer(fresh);
+      setDrawerEditForm({ title: fresh.title, notes: fresh.notes || "" });
+    } finally {
+      setDrawerLoading(false);
+    }
+  };
+
+  const handleDrawerEditSave = async () => {
+    if (!drawer) return;
+    setDrawerEditSaving(true);
+    try {
+      await techProcessService.update(drawer.id, {
+        title: drawerEditForm.title,
+        notes: drawerEditForm.notes || null,
+      });
+      await refreshDrawer(drawer.id);
+      setDrawerEditing(false);
+    } catch {
+      // silently fail
+    } finally {
+      setDrawerEditSaving(false);
     }
   };
 
@@ -606,6 +647,13 @@ export default function TechProcessPage() {
                             <circle cx="12" cy="12" r="3" />
                           </svg>
                         </button>
+                        <button className="btn-icon" onClick={() => openDrawerEdit(tp)} title="Tahrirlash"
+                          style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                          </svg>
+                        </button>
                         <button className="btn-icon btn-icon-danger" onClick={() => setDeleteId(tp.id)} title="O'chirish"
                           style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -640,9 +688,38 @@ export default function TechProcessPage() {
           >
             {/* Sticky header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, position: "sticky", top: 0, background: "var(--bg2)", zIndex: 1, paddingBottom: 8 }}>
-              <span style={{ fontWeight: 700, fontSize: 17, color: "var(--text1)" }}>Texnologik jarayon tafsilotlari</span>
-              <button onClick={() => setDrawer(null)}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
+              <span style={{ fontWeight: 700, fontSize: 17, color: "var(--text1)" }}>
+                {drawerEditing ? "Texnologik jarayonni tahrirlash" : "Texnologik jarayon tafsilotlari"}
+              </span>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                {drawerEditing ? (
+                  <>
+                    <button onClick={() => setDrawerEditing(false)}
+                      style={{ padding: "6px 16px", borderRadius: "var(--radius)", border: "1.5px solid var(--border)", background: "var(--bg3)", color: "var(--text2)", fontSize: 13, cursor: "pointer" }}>
+                      Bekor
+                    </button>
+                    <button className="btn-primary" onClick={handleDrawerEditSave} disabled={drawerEditSaving}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 16px", fontSize: 13, borderRadius: "var(--radius)" }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                        <polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
+                      </svg>
+                      {drawerEditSaving ? "Saqlanmoqda..." : "Saqlash"}
+                    </button>
+                  </>
+                ) : (
+                  <button onClick={() => { setDrawerEditing(true); setDrawerEditForm({ title: drawer.title, notes: drawer.notes || "" }); }}
+                    className="btn-icon" title="Tahrirlash"
+                    style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                  </button>
+                )}
+                <button onClick={() => setDrawer(null)}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
+              </div>
             </div>
 
             {/* Action buttons */}
@@ -697,13 +774,21 @@ export default function TechProcessPage() {
 
             <div style={{ marginBottom: 22 }}>
               <div style={{ fontSize: 13, color: "var(--text2)", fontWeight: 600, marginBottom: 6 }}>Sarlavha</div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text1)" }}>{drawer.title}</div>
+              {drawerEditing ? (
+                <input className="form-input" value={drawerEditForm.title} onChange={e => setDrawerEditForm(f => ({ ...f, title: e.target.value }))} placeholder="Sarlavha" />
+              ) : (
+                <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text1)" }}>{drawer.title}</div>
+              )}
             </div>
 
-            {drawer.notes && (
+            {(drawerEditing || drawer.notes) && (
               <div style={{ marginBottom: 22 }}>
                 <div style={{ fontSize: 13, color: "var(--text2)", fontWeight: 600, marginBottom: 6 }}>Izoh</div>
-                <div style={{ fontSize: 14, color: "var(--text1)", whiteSpace: "pre-wrap" }}>{drawer.notes}</div>
+                {drawerEditing ? (
+                  <input className="form-input" value={drawerEditForm.notes} onChange={e => setDrawerEditForm(f => ({ ...f, notes: e.target.value }))} placeholder="Izoh (ixtiyoriy)" />
+                ) : (
+                  <div style={{ fontSize: 14, color: "var(--text1)", whiteSpace: "pre-wrap" }}>{drawer.notes}</div>
+                )}
               </div>
             )}
 
