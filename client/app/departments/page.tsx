@@ -50,6 +50,7 @@ export default function DepartmentsPage() {
   const [toggling, setToggling] = useState(false);
   const [toggleError, setToggleError] = useState("");
 
+
   useDraft(
     "draft_departments",
     showForm,
@@ -492,6 +493,7 @@ export default function DepartmentsPage() {
                 })}
               </tbody>
             </table>
+
           </div>
         )}
       </div>

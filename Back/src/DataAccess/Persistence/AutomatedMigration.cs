@@ -16,6 +16,7 @@ public static class AutomatedMigration
         await SeedPermissionsAsync(context);
         await SeedSuperAdminUserAsync(context);
         await SeedSuperAdminPermissionsAsync(context);
+        await SeedDepartmentsAsync(context);
     }
 
     private static async System.Threading.Tasks.Task SeedPermissionsAsync(DatabaseContext context)
@@ -84,6 +85,28 @@ public static class AutomatedMigration
             context.Users.Add(superAdminUser);
             await context.SaveChangesAsync();
         }
+    }
+
+    private static async System.Threading.Tasks.Task SeedDepartmentsAsync(DatabaseContext context)
+    {
+        var seedDepartments = new[] { "Mexanika", "Optika", "Himoya", "Tikuv", "Antidron" };
+
+        foreach (var name in seedDepartments)
+        {
+            var exists = await context.Departments.AnyAsync(d => d.Name == name);
+            if (!exists)
+            {
+                context.Departments.Add(new Department
+                {
+                    Id = Guid.NewGuid(),
+                    Name = name,
+                    EmployeeCount = 0,
+                    CreatedAt = DateTime.UtcNow,
+                });
+            }
+        }
+
+        await context.SaveChangesAsync();
     }
 
     private static async System.Threading.Tasks.Task SeedSuperAdminPermissionsAsync(DatabaseContext context)
