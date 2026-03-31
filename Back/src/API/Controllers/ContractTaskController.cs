@@ -74,4 +74,23 @@ public class ContractTaskController : ControllerBase
         var result = await _service.DeleteAsync(id);
         return StatusCode(result.StatusCode, result);
     }
+
+    // POST /api/contracttask/{id}/log
+    [HasPermission("Tasks.Create")]
+    [HttpPost("{id:guid}/log")]
+    public async Task<IActionResult> LogProgress(Guid id, [FromBody] ContractTaskLogCreateDto dto)
+    {
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var result = await _service.LogProgressAsync(id, dto, userId);
+        return StatusCode(result.StatusCode, result);
+    }
+
+    // GET /api/contracttask/{id}/logs
+    [HasPermission("Tasks.View")]
+    [HttpGet("{id:guid}/logs")]
+    public async Task<IActionResult> GetLogs(Guid id)
+    {
+        var result = await _service.GetLogsAsync(id);
+        return StatusCode(result.StatusCode, result);
+    }
 }

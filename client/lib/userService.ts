@@ -948,6 +948,23 @@ export interface ContractTaskUpdatePayload {
   importance?: number;
 }
 
+export interface ContractTaskLogCreatePayload {
+  amount: number;
+  note?: string;
+  date: string; // "YYYY-MM-DD"
+}
+
+export interface ContractTaskLogResponse {
+  id: string;
+  taskId: string;
+  amount: number;
+  note: string | null;
+  date: string;
+  createdBy: string;
+  createdByFullName: string | null;
+  createdAt: string;
+}
+
 export const contractTaskService = {
   getByContract: async (contractId: string): Promise<ContractTaskResponse[]> => {
     try {
@@ -973,6 +990,19 @@ export const contractTaskService = {
 
   delete: async (id: string): Promise<void> => {
     await api.delete(`/api/contracttask/${id}`);
+  },
+
+  logProgress: async (id: string, dto: ContractTaskLogCreatePayload): Promise<void> => {
+    await api.post(`/api/contracttask/${id}/log`, dto);
+  },
+
+  getLogs: async (id: string): Promise<ContractTaskLogResponse[]> => {
+    try {
+      const res = await api.get(`/api/contracttask/${id}/logs`);
+      return res.data?.result ?? res.data ?? [];
+    } catch {
+      return [];
+    }
   },
 };
 

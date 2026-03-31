@@ -15,4 +15,5 @@ public class ContractTask
     // Navigation properties
     public Contract? Contract { get; set; }
     public User? Creator { get; set; }
+    public ICollection<ContractTaskDailyLog> DailyLogs { get; set; } = [];
 }
