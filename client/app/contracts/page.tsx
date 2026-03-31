@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useDraft } from "@/lib/useDraft";
+import { useAuthStore } from "@/lib/store/authStore";
 import {
   contractService,
   userService,
@@ -225,6 +226,11 @@ function CustomGroupedSelect({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ContractsPage() {
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canCreate = hasPermission("Contracts.Create");
+  const canUpdate = hasPermission("Contracts.Update");
+  const canDelete = hasPermission("Contracts.Delete");
+
   const [contracts, setContracts]       = useState<ContractResponse[]>([]);
   const [filtered, setFiltered]         = useState<ContractResponse[]>([]);
   const [loading, setLoading]           = useState(true);
@@ -1077,14 +1083,16 @@ export default function ContractsPage() {
             style={{ background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", padding: "10px 24px", color: "var(--text2)", fontSize: 14, fontWeight: 500 }}>
             Bekor qilish
           </button>
-          <button className="btn-primary" onClick={handleSave} disabled={saving}
-            style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-              <polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
-            </svg>
-            {saving ? "Saqlanmoqda..." : editTarget ? "O'zgarishlarni saqlash" : "Shartnoma saqlash"}
-          </button>
+          {(editTarget ? canUpdate : canCreate) && (
+            <button className="btn-primary" onClick={handleSave} disabled={saving}
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                <polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
+              </svg>
+              {saving ? "Saqlanmoqda..." : editTarget ? "O'zgarishlarni saqlash" : "Shartnoma saqlash"}
+            </button>
+          )}
         </div>
       </div>
     );
@@ -1122,13 +1130,15 @@ export default function ContractsPage() {
           </svg>
         </button>
 
-        <button className="btn-primary" onClick={openCreate}
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "none", cursor: "pointer" }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          Yangi shartnoma
-        </button>
+        {canCreate && (
+          <button className="btn-primary" onClick={openCreate}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "none", cursor: "pointer" }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Yangi shartnoma
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -1169,10 +1179,14 @@ export default function ContractsPage() {
                     </td>
                     <td style={{ textAlign: "center", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><PriorityBadge priority={c.priority} /></td>
                     <td style={{ textAlign: "center", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      <button onClick={() => { setStatusTarget(c); setNewStatus(String(c.status)); }}
-                        style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}>
+                      {canUpdate ? (
+                        <button onClick={() => { setStatusTarget(c); setNewStatus(String(c.status)); }}
+                          style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}>
+                          <StatusBadge status={c.status} />
+                        </button>
+                      ) : (
                         <StatusBadge status={c.status} />
-                      </button>
+                      )}
                     </td>
                     <td style={{ borderLeft: "2px solid var(--border)" }}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
@@ -1183,21 +1197,25 @@ export default function ContractsPage() {
                             <circle cx="12" cy="12" r="3" />
                           </svg>
                         </button>
-                        <button className="btn-icon" onClick={() => openEdit(c)} title="Tahrirlash"
-                          style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                          </svg>
-                        </button>
-                        <button className="btn-icon btn-icon-danger" onClick={() => setDeleteId(c.id)} title="O'chirish"
-                          style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" />
-                            <path d="M10 11v6M14 11v6" />
-                            <path d="M9 6V4h6v2" />
-                          </svg>
-                        </button>
+                        {canUpdate && (
+                          <button className="btn-icon" onClick={() => openEdit(c)} title="Tahrirlash"
+                            style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button className="btn-icon btn-icon-danger" onClick={() => setDeleteId(c.id)} title="O'chirish"
+                            style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" />
+                              <path d="M10 11v6M14 11v6" />
+                              <path d="M9 6V4h6v2" />
+                            </svg>
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
