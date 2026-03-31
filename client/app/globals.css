@@ -342,14 +342,68 @@ body {
 }
 
 /* ===== TASKS PAGE ===== */
-.tasks-layout { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
-.tasks-layout.has-panel { grid-template-columns: 1fr 400px; }
 .tasks-contract-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.tasks-panel-sticky { position: sticky; top: 16px; }
+
+/* Grid exit: non-selected fade up, selected card launches to top */
+.tg-exiting .tasks-contract-card:not(.launching) {
+  animation: card-fade-out 0.22s ease forwards;
+}
+.tg-exiting .tasks-contract-card.launching {
+  animation: card-launch 0.26s ease forwards;
+}
+@keyframes card-fade-out {
+  to { opacity: 0; transform: translateY(-8px) scale(0.97); }
+}
+@keyframes card-launch {
+  0%   { transform: scale(1);    border-color: var(--accent); }
+  35%  { transform: scale(1.025) translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.14); }
+  100% { transform: scaleY(0.4) translateY(-24px); opacity: 0; }
+}
+
+/* Selected state: compact bar + tasks stacked vertically */
+.tasks-selected-layout { display: flex; flex-direction: column; gap: 14px; }
+.tsl-exiting .tasks-contract-bar { animation: bar-exit 0.2s ease forwards; }
+.tsl-exiting .task-panel       { animation: panel-exit 0.18s ease forwards; }
+@keyframes bar-exit   { to { opacity: 0; transform: translateY(-8px); } }
+@keyframes panel-exit { to { opacity: 0; transform: translateY(6px); } }
+
+/* Compact contract bar */
+.tasks-contract-bar {
+  background: var(--surface); border: 1.5px solid var(--accent);
+  border-radius: var(--radius); padding: 12px 18px;
+  display: flex; align-items: center; gap: 12px;
+  cursor: pointer; box-shadow: var(--shadow);
+  transition: box-shadow 0.15s;
+  animation: tcb-appear 0.25s cubic-bezier(0.22,1,0.36,1);
+}
+.tasks-contract-bar:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+.tcb-back { color: var(--text3); display: flex; align-items: center; flex-shrink: 0; transition: color 0.12s; }
+.tasks-contract-bar:hover .tcb-back { color: var(--accent); }
+.tcb-sep { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
+.tcb-identity { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
+.tcb-no { font-size: 11px; color: var(--text3); letter-spacing: 0.4px; }
+.tcb-party { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; }
+.tcb-meta { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; flex-wrap: wrap; }
+.tcb-product { font-size: 13px; color: var(--text2); }
+.tcb-qty { font-size: 13px; color: var(--accent); font-weight: 600; }
+.tcb-dates { font-size: 12px; color: var(--text3); margin-left: auto; white-space: nowrap; }
+@keyframes tcb-appear {
+  from { opacity: 0; transform: translateY(-10px) scaleY(0.6); }
+  to   { opacity: 1; transform: translateY(0)    scaleY(1); }
+}
+
+/* Task panel enters after bar */
+.tasks-selected-layout .task-panel {
+  animation: panel-appear 0.28s cubic-bezier(0.22,1,0.36,1) 0.1s both;
+}
+@keyframes panel-appear {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
 /* Contract card */
 .tasks-contract-card {
-  background: var(--surface); border: 2px solid transparent;
+  background: var(--surface); border: 1.5px solid var(--border2); box-shadow: var(--shadow);
   border-radius: var(--radius); padding: 20px 22px;
   cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s;
   display: flex; flex-direction: column; gap: 0;
@@ -389,7 +443,7 @@ body {
 }
 .tp-importance-banner.ok { background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.3); color: #22c55e; }
 .tp-importance-banner.warn { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3); color: var(--danger); }
-.tp-tasks-list { display: flex; flex-direction: column; gap: 8px; }
+.tp-tasks-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; align-items: start; }
 .tp-empty {
   text-align: center; padding: 32px 16px; color: var(--text3);
   font-size: 13px; display: flex; flex-direction: column; align-items: center; gap: 4px;
