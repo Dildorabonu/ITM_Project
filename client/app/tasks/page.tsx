@@ -100,6 +100,28 @@ function ContractCard({
   selected: boolean;
   onClick: () => void;
 }) {
+  const [tasks, setTasks] = useState<ContractTaskResponse[]>([]);
+
+  useEffect(() => {
+    contractTaskService.getByContract(contract.id).then(setTasks);
+  }, [contract.id]);
+
+  const overallPct = tasks.length === 0
+    ? 0
+    : Math.min(100, tasks.reduce((sum, t) => sum + (t.percentComplete * t.importance / 100), 0));
+
+  const r = 34, cx = 44, cy = 44, sw = 7;
+  const circumference = 2 * Math.PI * r;
+  const filled = (overallPct / 100) * circumference;
+  const gradId = `dg-${contract.id}`;
+
+  const now = Date.now();
+  const start = new Date(contract.startDate).getTime();
+  const end = new Date(contract.endDate).getTime();
+  const timePct = Math.min(100, Math.max(0, ((now - start) / (end - start)) * 100));
+  const isOverdue = now > end;
+  const timeColor = isOverdue || timePct >= 80 ? "var(--danger)" : timePct >= 50 ? "#f59e0b" : "#22c55e";
+
   return (
     <div
       onClick={onClick}
@@ -116,28 +138,93 @@ function ContractCard({
         </span>
       </div>
 
-      {/* Middle rows */}
-      <div className="tcc-rows">
-        <div className="tcc-row">
-          <span className="tcc-label">Mahsulot</span>
-          <span className="tcc-value">{contract.productType}</span>
+      {/* Body: left info + right donut */}
+      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+        {/* Left: info rows */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="tcc-rows">
+            <div className="tcc-row">
+              <span className="tcc-label">Mahsulot</span>
+              <span className="tcc-value">{contract.productType}</span>
+            </div>
+            <div className="tcc-row">
+              <span className="tcc-label">Miqdor</span>
+              <span className="tcc-value accent">{contract.quantity.toLocaleString()} {contract.unit}</span>
+            </div>
+            <div className="tcc-row">
+              <span className="tcc-label">Ustuvorlik</span>
+              <span className={`status ${PRIORITY_COLORS[contract.priority]}`} style={{ fontSize: 11 }}>
+                {PRIORITY_LABELS[contract.priority]}
+              </span>
+            </div>
+          </div>
+
+          {/* Date footer */}
+          <div className="tcc-footer">
+            <span className="mono">{formatDate(contract.startDate)}</span>
+            <div className="tcc-time-track">
+              <div className="tcc-time-fill" style={{ width: `${timePct}%`, background: timeColor }} />
+              <div className="tcc-time-dot" style={{ left: `${timePct}%`, background: timeColor }} />
+            </div>
+            <span className={`mono${isOverdue ? " danger" : ""}`}>{formatDate(contract.endDate)}</span>
+          </div>
         </div>
-        <div className="tcc-row">
-          <span className="tcc-label">Miqdor</span>
-          <span className="tcc-value accent">{contract.quantity.toLocaleString()} {contract.unit}</span>
-        </div>
-        <div className="tcc-row">
-          <span className="tcc-label">Ustuvorlik</span>
-          <span className={`status ${PRIORITY_COLORS[contract.priority]}`} style={{ fontSize: 11 }}>
-            {PRIORITY_LABELS[contract.priority]}
+
+        {/* Right: mini donut */}
+        <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+          <svg width="88" height="88" viewBox="0 0 88 88">
+            <defs>
+              <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style={{ stopColor: "var(--accent-light, var(--accent))", stopOpacity: 1 }} />
+                <stop offset="100%" style={{ stopColor: "var(--accent)", stopOpacity: 1 }} />
+              </linearGradient>
+            </defs>
+            {/* Track */}
+            <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--border)" strokeWidth={sw} strokeLinecap="round" />
+            {/* Center subtle fill */}
+            {tasks.length > 0 && overallPct > 0 && (
+              <circle cx={cx} cy={cy} r={r - sw} fill="var(--accent)" fillOpacity="0.07" />
+            )}
+            {/* Glow arc */}
+            {tasks.length > 0 && overallPct > 0 && (
+              <circle
+                cx={cx} cy={cy} r={r}
+                fill="none"
+                stroke="var(--accent)"
+                strokeWidth={sw + 5}
+                strokeOpacity="0.18"
+                strokeLinecap="round"
+                strokeDasharray={`${filled} ${circumference}`}
+                transform={`rotate(-90 ${cx} ${cy})`}
+              />
+            )}
+            {/* Progress arc */}
+            <circle
+              cx={cx} cy={cy} r={r}
+              fill="none"
+              stroke={tasks.length === 0 ? "var(--border)" : `url(#${gradId})`}
+              strokeWidth={sw}
+              strokeLinecap="round"
+              strokeDasharray={`${filled} ${circumference}`}
+              transform={`rotate(-90 ${cx} ${cy})`}
+              style={{ transition: "stroke-dasharray 0.6s ease" }}
+            />
+            {/* Center text */}
+            <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle"
+              fontSize="15" fontWeight="800"
+              fill={tasks.length === 0 ? "var(--text3)" : "var(--accent)"}>
+              {overallPct.toFixed(0)}
+            </text>
+            <text x={cx} y={cy + 13} textAnchor="middle" dominantBaseline="middle"
+              fontSize="10" fontWeight="600"
+              fill={tasks.length === 0 ? "var(--text3)" : "var(--accent)"} fillOpacity="0.7">
+              %
+            </text>
+          </svg>
+          <span style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            Bajarildi
           </span>
         </div>
-      </div>
-
-      {/* Date footer */}
-      <div className="tcc-footer">
-        <span className="mono">{formatDate(contract.startDate)}</span>
-        <span className="mono danger">{formatDate(contract.endDate)}</span>
       </div>
     </div>
   );
