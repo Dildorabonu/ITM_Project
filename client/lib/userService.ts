@@ -347,6 +347,12 @@ export const PRIORITY_LABELS: Record<Priority, string> = {
   [Priority.Urgent]: "Shoshilinch",
 };
 
+export interface ContractDepartmentInfo {
+  id: string;
+  name: string;
+  type: DepartmentType;
+}
+
 export interface ContractResponse {
   id: string;
   contractNo: string;
@@ -355,8 +361,7 @@ export interface ContractResponse {
   unit: string;
   startDate: string;
   endDate: string;
-  departmentId: string;
-  departmentName: string | null;
+  departments: ContractDepartmentInfo[];
   priority: Priority;
   contractParty: string;
   status: ContractStatus;
@@ -373,7 +378,7 @@ export interface ContractCreatePayload {
   unit?: string;
   startDate: string;
   endDate: string;
-  departmentId?: string;
+  departmentIds?: string[];
   priority: Priority;
   contractParty?: string;
   notes?: string | null;
@@ -386,7 +391,7 @@ export interface ContractUpdatePayload {
   unit?: string;
   startDate?: string;
   endDate?: string;
-  departmentId?: string;
+  departmentIds?: string[];
   priority?: Priority;
   contractParty?: string;
   notes?: string | null;

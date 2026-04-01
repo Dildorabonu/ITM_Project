@@ -5,6 +5,7 @@ using Core.Entities;
 using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using SysTask = System.Threading.Tasks.Task;
 
 namespace Application.Services.Impl;
 
@@ -84,6 +85,23 @@ public class AttachmentService : IAttachmentService
             return ApiResult<(string, string, string)>.Failure(["File not found on disk."], 404);
 
         return ApiResult<(string, string, string)>.Success((fullPath, attachment.ContentType, attachment.FileName));
+    }
+
+    public async SysTask DeleteAllAsync(string entityType, Guid entityId)
+    {
+        var attachments = await _context.Attachments
+            .Where(a => a.EntityType == entityType && a.EntityId == entityId)
+            .ToListAsync();
+
+        foreach (var attachment in attachments)
+        {
+            var fullPath = Path.Combine(_options.UploadsPath, entityType, entityId.ToString(), attachment.StoredName);
+            if (File.Exists(fullPath))
+                File.Delete(fullPath);
+        }
+
+        _context.Attachments.RemoveRange(attachments);
+        await _context.SaveChangesAsync();
     }
 
     public async Task<ApiResult<int>> DeleteAsync(string entityType, Guid entityId, Guid fileId)

@@ -16,6 +16,7 @@ public class DatabaseContext : DbContext
     public DbSet<Department> Departments { get; set; }
     public DbSet<Contract> Contracts { get; set; }
     public DbSet<ContractUser> ContractUsers { get; set; }
+    public DbSet<ContractDepartment> ContractDepartments { get; set; }
     public DbSet<TechProcess> TechProcesses { get; set; }
     public DbSet<TechStep> TechSteps { get; set; }
     public DbSet<Material> Materials { get; set; }
