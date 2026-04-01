@@ -19,7 +19,7 @@ public class ContractService : IContractService
     public async Task<ApiResult<IEnumerable<ContractResponseDto>>> GetAllAsync(ContractStatus? status = null, Guid? departmentId = null)
     {
         var query = _context.Contracts
-            .Include(c => c.Department)
+            .Include(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
             .Include(c => c.Creator)
             .AsNoTracking()
             .AsQueryable();
@@ -28,7 +28,7 @@ public class ContractService : IContractService
             query = query.Where(c => c.Status == status.Value);
 
         if (departmentId.HasValue)
-            query = query.Where(c => c.DepartmentId == departmentId.Value);
+            query = query.Where(c => c.ContractDepartments.Any(cd => cd.DepartmentId == departmentId.Value));
 
         var contracts = await query
             .OrderByDescending(c => c.CreatedAt)
@@ -40,7 +40,7 @@ public class ContractService : IContractService
     public async Task<ApiResult<ContractResponseDto>> GetByIdAsync(Guid id)
     {
         var contract = await _context.Contracts
-            .Include(c => c.Department)
+            .Include(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
             .Include(c => c.Creator)
             .Include(c => c.ContractUsers).ThenInclude(cu => cu.User).ThenInclude(u => u.Role)
             .AsNoTracking()
@@ -57,7 +57,7 @@ public class ContractService : IContractService
         if (await _context.Contracts.AnyAsync(c => c.ContractNo == dto.ContractNo))
             return ApiResult<Guid>.Failure([$"Contract with number '{dto.ContractNo}' already exists."]);
 
-var contract = new Contract
+        var contract = new Contract
         {
             Id = Guid.NewGuid(),
             ContractNo = dto.ContractNo,
@@ -66,7 +66,6 @@ var contract = new Contract
             Unit = dto.Unit,
             StartDate = dto.StartDate,
             EndDate = dto.EndDate,
-            DepartmentId = dto.DepartmentId,
             Priority = dto.Priority,
             ContractParty = dto.ContractParty,
             Status = ContractStatus.Draft,
@@ -76,6 +75,16 @@ var contract = new Contract
         };
 
         _context.Contracts.Add(contract);
+
+        foreach (var deptId in dto.DepartmentIds.Distinct())
+        {
+            _context.ContractDepartments.Add(new ContractDepartment
+            {
+                ContractId = contract.Id,
+                DepartmentId = deptId,
+            });
+        }
+
         await _context.SaveChangesAsync();
 
         return ApiResult<Guid>.Success(contract.Id, 201);
@@ -83,7 +92,9 @@ var contract = new Contract
 
     public async Task<ApiResult<int>> UpdateAsync(Guid id, ContractUpdateDto dto)
     {
-        var contract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == id);
+        var contract = await _context.Contracts
+            .Include(c => c.ContractDepartments)
+            .FirstOrDefaultAsync(c => c.Id == id);
 
         if (contract is null)
             return ApiResult<int>.Failure([$"Contract with id '{id}' not found."], 404);
@@ -101,10 +112,22 @@ var contract = new Contract
         if (dto.Unit is not null) contract.Unit = dto.Unit;
         if (dto.StartDate.HasValue) contract.StartDate = dto.StartDate.Value;
         if (dto.EndDate.HasValue) contract.EndDate = dto.EndDate.Value;
-        if (dto.DepartmentId.HasValue) contract.DepartmentId = dto.DepartmentId.Value;
         if (dto.Priority.HasValue) contract.Priority = dto.Priority.Value;
         if (dto.ContractParty is not null) contract.ContractParty = dto.ContractParty;
         if (dto.Notes is not null) contract.Notes = dto.Notes;
+
+        if (dto.DepartmentIds is not null)
+        {
+            _context.ContractDepartments.RemoveRange(contract.ContractDepartments);
+            foreach (var deptId in dto.DepartmentIds.Distinct())
+            {
+                _context.ContractDepartments.Add(new ContractDepartment
+                {
+                    ContractId = contract.Id,
+                    DepartmentId = deptId,
+                });
+            }
+        }
 
         await _context.SaveChangesAsync();
 
@@ -207,7 +230,6 @@ var contract = new Contract
 
     public async Task<ApiResult<IEnumerable<ContractResponseDto>>> GetMyProductionTasksAsync(Guid userId)
     {
-        // Foydalanuvchining bo'limi IshlabChiqarish ekanligini tekshirish
         var user = await _context.Users
             .Include(u => u.Department)
             .AsNoTracking()
@@ -219,10 +241,9 @@ var contract = new Contract
         if (user.Department is null || user.Department.Type != Core.Enums.DepartmentType.IshlabChiqarish)
             return ApiResult<IEnumerable<ContractResponseDto>>.Success(Enumerable.Empty<ContractResponseDto>());
 
-        // Ushbu foydalanuvchi biriktirilgan shartnomalarni qaytarish
         var contracts = await _context.ContractUsers
             .Where(cu => cu.UserId == userId)
-            .Include(cu => cu.Contract).ThenInclude(c => c.Department)
+            .Include(cu => cu.Contract).ThenInclude(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
             .Include(cu => cu.Contract).ThenInclude(c => c.Creator)
             .Include(cu => cu.Contract).ThenInclude(c => c.ContractUsers).ThenInclude(cu2 => cu2.User).ThenInclude(u => u.Role)
             .AsNoTracking()
@@ -242,8 +263,14 @@ var contract = new Contract
         Unit = contract.Unit,
         StartDate = contract.StartDate,
         EndDate = contract.EndDate,
-        DepartmentId = contract.DepartmentId,
-        DepartmentName = contract.Department?.Name,
+        Departments = contract.ContractDepartments
+            .Where(cd => cd.Department is not null)
+            .Select(cd => new ContractDepartmentDto
+            {
+                Id   = cd.Department.Id,
+                Name = cd.Department.Name,
+                Type = cd.Department.Type,
+            }).ToList(),
         Priority = contract.Priority,
         ContractParty = contract.ContractParty,
         Status = contract.Status,

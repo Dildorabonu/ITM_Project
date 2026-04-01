@@ -11,7 +11,6 @@ public class Contract
     public string Unit { get; set; } = string.Empty;
     public DateOnly StartDate { get; set; }
     public DateOnly EndDate { get; set; }
-    public Guid? DepartmentId { get; set; }
     public Priority Priority { get; set; }
     public string ContractParty { get; set; } = string.Empty;
     public ContractStatus Status { get; set; }
@@ -20,8 +19,8 @@ public class Contract
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation properties
-    public Department? Department { get; set; }
     public User? Creator { get; set; }
+    public ICollection<ContractDepartment> ContractDepartments { get; set; } = [];
     public ICollection<ContractUser> ContractUsers { get; set; } = [];
     public ICollection<TechProcess> TechProcesses { get; set; } = [];
     public ICollection<StockIn> StockIns { get; set; } = [];

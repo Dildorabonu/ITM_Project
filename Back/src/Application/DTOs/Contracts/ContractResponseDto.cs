@@ -2,6 +2,13 @@ using Core.Enums;
 
 namespace Application.DTOs.Contracts;
 
+public class ContractDepartmentDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public DepartmentType Type { get; set; }
+}
+
 public class ContractResponseDto
 {
     public Guid Id { get; set; }
@@ -11,8 +18,7 @@ public class ContractResponseDto
     public string Unit { get; set; } = string.Empty;
     public DateOnly StartDate { get; set; }
     public DateOnly EndDate { get; set; }
-    public Guid? DepartmentId { get; set; }
-    public string? DepartmentName { get; set; }
+    public List<ContractDepartmentDto> Departments { get; set; } = [];
     public Priority Priority { get; set; }
     public string ContractParty { get; set; } = string.Empty;
     public ContractStatus Status { get; set; }
