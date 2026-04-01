@@ -138,17 +138,30 @@ public class MaterialService : IMaterialService
         if (costNorm is null)
             return ApiResult<IEnumerable<MaterialDeficitCheckDto>>.Failure([$"CostNorm with id '{costNormId}' not found."], 404);
 
-        var allMaterials = await _context.Materials.AsNoTracking().ToListAsync();
+        var relevantItems = costNorm.Items
+            .Where(i => !i.IsSection && !string.IsNullOrWhiteSpace(i.Name))
+            .OrderBy(i => i.SortOrder)
+            .ToList();
 
-        var results = new List<MaterialDeficitCheckDto>();
+        var itemNamesLower = relevantItems
+            .Select(i => i.Name!.Trim().ToLower())
+            .ToHashSet();
 
-        foreach (var item in costNorm.Items.Where(i => !i.IsSection).OrderBy(i => i.SortOrder))
+        // Faqat kerakli materiallarni yuklash — LOWER() orqali case-insensitive
+        var matchedMaterials = await _context.Materials
+            .AsNoTracking()
+            .Where(m => itemNamesLower.Contains(m.Name.Trim().ToLower()))
+            .ToListAsync();
+
+        // O(1) qidirish uchun dictionary
+        var materialsByName = matchedMaterials.ToDictionary(
+            m => m.Name.Trim(),
+            StringComparer.OrdinalIgnoreCase);
+
+        var results = relevantItems.Select(item =>
         {
-            var itemName = (item.Name ?? "").Trim();
-            if (string.IsNullOrEmpty(itemName)) continue;
-
-            var matched = allMaterials.FirstOrDefault(m =>
-                string.Equals(m.Name.Trim(), itemName, StringComparison.OrdinalIgnoreCase));
+            var itemName = item.Name!.Trim();
+            materialsByName.TryGetValue(itemName, out var matched);
 
             decimal requiredQty = 0;
             if (decimal.TryParse(item.TotalQty?.Replace(",", "."), System.Globalization.NumberStyles.Any,
@@ -158,17 +171,12 @@ public class MaterialService : IMaterialService
             var availableQty = matched?.Quantity ?? 0;
             var deficitQty = Math.Max(0, requiredQty - availableQty);
 
-            string status;
-            if (matched is null)
-                status = "Yo'q";
-            else if (availableQty >= requiredQty)
-                status = "Yetarli";
-            else if (availableQty > 0)
-                status = "Kam";
-            else
-                status = "Tugagan";
+            string status = matched is null ? "Yo'q"
+                : availableQty >= requiredQty ? "Yetarli"
+                : availableQty > 0 ? "Kam"
+                : "Tugagan";
 
-            results.Add(new MaterialDeficitCheckDto
+            return new MaterialDeficitCheckDto
             {
                 CostNormItemName = itemName,
                 CostNormItemUnit = item.Unit ?? "",
@@ -178,8 +186,8 @@ public class MaterialService : IMaterialService
                 ExistsInInventory = matched is not null,
                 MaterialId = matched?.Id,
                 Status = status,
-            });
-        }
+            };
+        }).ToList();
 
         return ApiResult<IEnumerable<MaterialDeficitCheckDto>>.Success(results);
     }
