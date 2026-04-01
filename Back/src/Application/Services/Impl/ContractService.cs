@@ -10,10 +10,12 @@ namespace Application.Services.Impl;
 public class ContractService : IContractService
 {
     private readonly DatabaseContext _context;
+    private readonly INotificationService _notificationService;
 
-    public ContractService(DatabaseContext context)
+    public ContractService(DatabaseContext context, INotificationService notificationService)
     {
         _context = context;
+        _notificationService = notificationService;
     }
 
     public async Task<ApiResult<IEnumerable<ContractResponseDto>>> GetAllAsync(ContractStatus? status = null, Guid? departmentId = null)
@@ -78,6 +80,11 @@ var contract = new Contract
         _context.Contracts.Add(contract);
         await _context.SaveChangesAsync();
 
+        await _notificationService.NotifyAllAsync(
+            $"Yangi shartnoma: {contract.ContractNo}",
+            $"{contract.ContractParty} bilan {contract.ProductType} uchun yangi shartnoma yaratildi. Miqdori: {contract.Quantity} {contract.Unit}.",
+            NotificationType.Info);
+
         return ApiResult<Guid>.Success(contract.Id, 201);
     }
 
@@ -120,6 +127,11 @@ var contract = new Contract
 
         contract.Status = status;
         await _context.SaveChangesAsync();
+
+        await _notificationService.NotifyAllAsync(
+            $"Shartnoma holati o'zgardi: {contract.ContractNo}",
+            $"{contract.ContractNo} shartnoma holati «{status}» ga o'zgartirildi.",
+            NotificationType.Info);
 
         return ApiResult<int>.Success(200);
     }
@@ -188,6 +200,17 @@ var contract = new Contract
         }
 
         await _context.SaveChangesAsync();
+
+        var contract = await _context.Contracts.AsNoTracking().FirstOrDefaultAsync(c => c.Id == contractId);
+        foreach (var item in users.DistinctBy(u => u.UserId))
+        {
+            await _notificationService.CreateAsync(
+                item.UserId,
+                $"Shartnomaga tayinlandingiz: {contract?.ContractNo}",
+                $"Sizga «{contract?.ContractNo}» shartnomasi bo'yicha vazifa berildi.",
+                NotificationType.Task);
+        }
+
         return ApiResult<int>.Success(200);
     }
 
