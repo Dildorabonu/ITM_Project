@@ -16,13 +16,21 @@ public class ContractService : IContractService
         _context = context;
     }
 
-    public async Task<ApiResult<IEnumerable<ContractResponseDto>>> GetAllAsync(ContractStatus? status = null, Guid? departmentId = null)
+    public async Task<ApiResult<IEnumerable<ContractResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, ContractStatus? status = null, Guid? departmentId = null)
     {
         var query = _context.Contracts
             .Include(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
             .Include(c => c.Creator)
             .AsNoTracking()
             .AsQueryable();
+
+        if (!viewAll)
+        {
+            query = query.Where(c =>
+                c.ContractUsers.Any(cu => cu.UserId == currentUserId) ||
+                c.ContractDepartments.Any(cd =>
+                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == cd.DepartmentId)));
+        }
 
         if (status.HasValue)
             query = query.Where(c => c.Status == status.Value);

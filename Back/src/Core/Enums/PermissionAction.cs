@@ -15,4 +15,7 @@ public enum PermissionAction
 
     [Display(Name = "O'chirish", Description = "trash")]
     Delete = 4,
+
+    [Display(Name = "Hammasini ko'rish", Description = "eye")]
+    ViewAll = 5,
 }

@@ -19,7 +19,7 @@ const inter = Inter({
   weight: ["300", "400", "500", "600", "700", "800"],
 });
 
-type NavItem = { name: string; href: string; icon: string; badge?: number; badgeWarn?: boolean; permission?: string };
+type NavItem = { name: string; href: string; icon: string; badge?: number; badgeWarn?: boolean; permission?: string | string[] };
 type NavGroup = { label: string; icon: string; items: NavItem[] };
 
 const navGroups: NavGroup[] = [
@@ -35,7 +35,7 @@ const navGroups: NavGroup[] = [
     label: "Shartnomalar",
     icon: "file-text",
     items: [
-      { name: "Shartnomalar",  href: "/contracts",   icon: "file",      permission: "Contracts.View" },
+      { name: "Shartnomalar",  href: "/contracts",   icon: "file",      permission: ["Contracts.View", "Contracts.ViewAll"] },
       { name: "Tex Protsess",  href: "/techprocess", icon: "activity",  permission: "TechProcess.View" },
       { name: "Me'yoriy Sarf", href: "/costnorm",    icon: "clipboard", permission: "CostNorm.View" },
     ],
@@ -194,11 +194,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const accessToken = useAuthStore((s) => s.accessToken);
   const hasHydrated = useAuthStore((s) => s._hasHydrated);
   const hasPermission = useAuthStore((s) => s.hasPermission);
-  const hasModulePermission = useAuthStore((s) => s.hasModulePermission);
 
   const visibleNavGroups = navGroups.map((group) => ({
     ...group,
-    items: group.items.filter((item) => !item.permission || hasPermission(item.permission)),
+    items: group.items.filter((item) => {
+      if (!item.permission) return true;
+      const perms = Array.isArray(item.permission) ? item.permission : [item.permission];
+      return perms.some((p) => hasPermission(p));
+    }),
   })).filter((group) => group.items.length > 0);
 
   const isLoginPage = pathname === "/login";

@@ -6,7 +6,7 @@ namespace Application.Services;
 
 public interface IContractService
 {
-    Task<ApiResult<IEnumerable<ContractResponseDto>>> GetAllAsync(ContractStatus? status = null, Guid? departmentId = null);
+    Task<ApiResult<IEnumerable<ContractResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, ContractStatus? status = null, Guid? departmentId = null);
     Task<ApiResult<ContractResponseDto>> GetByIdAsync(Guid id);
     Task<ApiResult<Guid>> CreateAsync(ContractCreateDto dto, Guid createdBy);
     Task<ApiResult<int>> UpdateAsync(Guid id, ContractUpdateDto dto);
