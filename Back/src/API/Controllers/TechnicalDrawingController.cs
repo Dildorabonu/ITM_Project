@@ -22,11 +22,17 @@ public class TechnicalDrawingController : ControllerBase
         _attachmentService = attachmentService;
     }
 
-    [HasPermission("TechnicalDrawings.View")]
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] DrawingStatus? status = null)
     {
-        var result = await _drawingService.GetAllAsync(status);
+        var canView = User.HasClaim("perm", "TechnicalDrawings.View");
+        var viewAll = User.HasClaim("perm", "TechnicalDrawings.ViewAll");
+
+        if (!canView && !viewAll)
+            return Forbid();
+
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var result = await _drawingService.GetAllAsync(userId, viewAll, status);
         return StatusCode(result.StatusCode, result);
     }
 

@@ -21,11 +21,17 @@ public class TechProcessController : ControllerBase
     }
 
     // GET /api/techprocess
-    [HasPermission("TechProcess.View")]
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] ProcessStatus? status = null)
     {
-        var result = await _techProcessService.GetAllAsync(status);
+        var canView = User.HasClaim("perm", "TechProcess.View");
+        var viewAll = User.HasClaim("perm", "TechProcess.ViewAll");
+
+        if (!canView && !viewAll)
+            return Forbid();
+
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var result = await _techProcessService.GetAllAsync(userId, viewAll, status);
         return StatusCode(result.StatusCode, result);
     }
 

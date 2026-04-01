@@ -6,7 +6,7 @@ namespace Application.Services;
 
 public interface ITechnicalDrawingService
 {
-    Task<ApiResult<IEnumerable<TechnicalDrawingResponseDto>>> GetAllAsync(DrawingStatus? status = null);
+    Task<ApiResult<IEnumerable<TechnicalDrawingResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, DrawingStatus? status = null);
     Task<ApiResult<TechnicalDrawingResponseDto>> GetByIdAsync(Guid id);
     Task<ApiResult<Guid>> CreateAsync(TechnicalDrawingCreateDto dto, Guid createdBy);
     Task<ApiResult<int>> UpdateAsync(Guid id, TechnicalDrawingUpdateDto dto);
