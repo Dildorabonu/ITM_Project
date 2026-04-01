@@ -19,7 +19,7 @@ public class CostNormService : ICostNormService
         _attachmentService = attachmentService;
     }
 
-    public async Task<ApiResult<IEnumerable<CostNormResponseDto>>> GetAllAsync(Guid? contractId = null)
+    public async Task<ApiResult<IEnumerable<CostNormResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, Guid? contractId = null)
     {
         var query = _context.CostNorms
             .Include(c => c.Contract)
@@ -27,6 +27,14 @@ public class CostNormService : ICostNormService
             .Include(c => c.Items.OrderBy(i => i.SortOrder))
             .AsNoTracking()
             .AsQueryable();
+
+        if (!viewAll && !contractId.HasValue)
+        {
+            query = query.Where(c =>
+                _context.ContractUsers.Any(cu => cu.ContractId == c.ContractId && cu.UserId == currentUserId) ||
+                _context.ContractDepartments.Any(cd => cd.ContractId == c.ContractId &&
+                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == cd.DepartmentId)));
+        }
 
         if (contractId.HasValue)
             query = query.Where(c => c.ContractId == contractId.Value);
@@ -59,7 +67,7 @@ public class CostNormService : ICostNormService
         if (!contractExists)
             return ApiResult<IEnumerable<CostNormResponseDto>>.Failure([$"Contract with id '{contractId}' not found."], 404);
 
-        return await GetAllAsync(contractId);
+        return await GetAllAsync(Guid.Empty, viewAll: true, contractId);
     }
 
     public async Task<ApiResult<Guid>> CreateAsync(CostNormCreateDto dto, Guid createdBy)
