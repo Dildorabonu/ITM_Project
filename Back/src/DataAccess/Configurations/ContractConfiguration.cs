@@ -14,10 +14,5 @@ public class ContractConfiguration : IEntityTypeConfiguration<Contract>
             .WithMany(u => u.CreatedContracts)
             .HasForeignKey(c => c.CreatedBy)
             .OnDelete(DeleteBehavior.Restrict);
-
-        builder.HasOne(c => c.Department)
-            .WithMany(d => d.Contracts)
-            .HasForeignKey(c => c.DepartmentId)
-            .OnDelete(DeleteBehavior.Restrict);
     }
 }

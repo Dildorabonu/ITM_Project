@@ -1,18 +1,22 @@
 using Application.DTOs;
 using Application.DTOs.CostNorms;
 using Core.Entities;
+using Core.Enums;
 using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
+using SysTask = System.Threading.Tasks.Task;
 
 namespace Application.Services.Impl;
 
 public class CostNormService : ICostNormService
 {
     private readonly DatabaseContext _context;
+    private readonly IAttachmentService _attachmentService;
 
-    public CostNormService(DatabaseContext context)
+    public CostNormService(DatabaseContext context, IAttachmentService attachmentService)
     {
         _context = context;
+        _attachmentService = attachmentService;
     }
 
     public async Task<ApiResult<IEnumerable<CostNormResponseDto>>> GetAllAsync(Guid? contractId = null)
@@ -93,7 +97,25 @@ public class CostNormService : ICostNormService
         _context.CostNorms.Add(costNorm);
         await _context.SaveChangesAsync();
 
+        await TryAdvanceToWarehouseCheckAsync(dto.ContractId);
+
         return ApiResult<Guid>.Success(costNorm.Id, 201);
+    }
+
+    private async SysTask TryAdvanceToWarehouseCheckAsync(Guid contractId)
+    {
+        var contract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == contractId);
+        if (contract is null || contract.Status != ContractStatus.TechProcessing)
+            return;
+
+        var hasTechProcess = await _context.TechProcesses.AnyAsync(t => t.ContractId == contractId);
+        var hasCostNorm = await _context.CostNorms.AnyAsync(c => c.ContractId == contractId);
+
+        if (hasTechProcess && hasCostNorm)
+        {
+            contract.Status = ContractStatus.WarehouseCheck;
+            await _context.SaveChangesAsync();
+        }
     }
 
     public async Task<ApiResult<int>> UpdateAsync(Guid id, CostNormUpdateDto dto)
@@ -142,6 +164,7 @@ public class CostNormService : ICostNormService
         if (costNorm is null)
             return ApiResult<int>.Failure([$"CostNorm with id '{id}' not found."], 404);
 
+        await _attachmentService.DeleteAllAsync("costnorm", id);
         _context.CostNorms.Remove(costNorm);
         await _context.SaveChangesAsync();
 

@@ -10,10 +10,12 @@ namespace Application.Services.Impl;
 public class TechnicalDrawingService : ITechnicalDrawingService
 {
     private readonly DatabaseContext _context;
+    private readonly IAttachmentService _attachmentService;
 
-    public TechnicalDrawingService(DatabaseContext context)
+    public TechnicalDrawingService(DatabaseContext context, IAttachmentService attachmentService)
     {
         _context = context;
+        _attachmentService = attachmentService;
     }
 
     public async Task<ApiResult<IEnumerable<TechnicalDrawingResponseDto>>> GetAllAsync(DrawingStatus? status = null)
@@ -98,6 +100,7 @@ public class TechnicalDrawingService : ITechnicalDrawingService
         if (drawing is null)
             return ApiResult<int>.Failure([$"Texnik chizma '{id}' topilmadi."], 404);
 
+        await _attachmentService.DeleteAllAsync("technicaldrawings", id);
         _context.TechnicalDrawings.Remove(drawing);
         await _context.SaveChangesAsync();
         return ApiResult<int>.Success(200);
