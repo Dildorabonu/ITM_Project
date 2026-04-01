@@ -31,7 +31,7 @@ interface ContractForm {
   productType: string;
   quantity: string;
   unit: string;
-  departmentId: string;
+  departmentIds: string[];
   startDate: string;
   endDate: string;
   priority: string;
@@ -41,7 +41,7 @@ interface ContractForm {
 
 const emptyForm: ContractForm = {
   contractNo: "", productType: "", quantity: "", unit: "",
-  departmentId: "", startDate: "", endDate: "",
+  departmentIds: [], startDate: "", endDate: "",
   priority: String(Priority.Medium), contractParty: "", notes: "",
 };
 
@@ -214,24 +214,6 @@ function isoToDisplayDate(iso: string) {
   return `${d}-${m}-${y.slice(-2)}`;
 }
 
-function displayToIsoDate(v: string) {
-  const m = v.trim().match(/^(\d{2})-(\d{2})-(\d{2})$/);
-  if (!m) return "";
-  const day = Number(m[1]);
-  const month = Number(m[2]);
-  const year = 2000 + Number(m[3]);
-  if (month < 1 || month > 12 || day < 1 || day > 31) return "";
-  const dt = new Date(year, month - 1, day);
-  if (dt.getFullYear() !== year || dt.getMonth() !== month - 1 || dt.getDate() !== day) return "";
-  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-}
-
-function autoFormatDate(value: string): string {
-  const digits = value.replace(/\D/g, "").slice(0, 6);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
-  return `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4, 6)}`;
-}
 
 // ─── Department grouped select ────────────────────────────────────────────────
 
@@ -241,17 +223,15 @@ const TYPE_STYLE = {
   [DepartmentType.Boshqaruv]:       { bg: "#f5f3ff", color: "#6d28d9", border: "#ddd6fe", icon: "👔" },
 };
 
-function CustomGroupedSelect({
-  value, onChange, departments, placeholder, hasError,
+function CustomGroupedMultiSelect({
+  values, onChange, departments, placeholder, hasError,
 }: {
-  value: string; onChange: (v: string) => void;
+  values: string[]; onChange: (v: string[]) => void;
   departments: DepartmentResponse[];
   placeholder: string; hasError?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const selected = departments.find(d => d.id === value);
-  const selectedTs = selected?.type !== undefined ? TYPE_STYLE[selected.type] : null;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -265,29 +245,44 @@ function CustomGroupedSelect({
     .map(t => ({ type: t, items: departments.filter(d => d.type === t) }))
     .filter(g => g.items.length > 0);
 
+  const toggle = (id: string) => {
+    onChange(values.includes(id) ? values.filter(v => v !== id) : [...values, id]);
+  };
+
+  const selectedDepts = departments.filter(d => values.includes(d.id));
+
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button type="button" onClick={() => setOpen(o => !o)} style={{
         width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
         background: "var(--bg3)",
         border: `1.5px solid ${hasError ? "var(--danger)" : open ? "var(--accent)" : "var(--border)"}`,
-        borderRadius: "var(--radius)", padding: "9px 12px",
+        borderRadius: "var(--radius)", padding: "9px 12px", minHeight: 40,
         fontSize: 14, cursor: "pointer", textAlign: "left",
         boxShadow: hasError ? "0 0 0 3px rgba(217,48,37,0.2)" : open ? "0 0 0 3px var(--accent-dim)" : "none",
         transition: "border-color 0.14s, box-shadow 0.14s",
         fontFamily: "var(--font-inter), Inter, sans-serif",
       }}>
-        {selected && selectedTs ? (
-          <span style={{
-            display: "inline-flex", alignItems: "center", gap: 5,
-            padding: "2px 9px", borderRadius: 10, fontSize: 12, fontWeight: 600,
-            background: selectedTs.bg, color: selectedTs.color, border: `1px solid ${selectedTs.border}`,
-          }}>
-            {selectedTs.icon} {selected.name}
-          </span>
-        ) : (
-          <span style={{ color: "var(--text3)" }}>{placeholder}</span>
-        )}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, flex: 1 }}>
+          {selectedDepts.length === 0 ? (
+            <span style={{ color: "var(--text3)" }}>{placeholder}</span>
+          ) : selectedDepts.map(d => {
+            const ts = TYPE_STYLE[d.type];
+            return (
+              <span key={d.id} style={{
+                display: "inline-flex", alignItems: "center", gap: 4,
+                padding: "2px 8px", borderRadius: 10, fontSize: 12, fontWeight: 600,
+                background: ts.bg, color: ts.color, border: `1px solid ${ts.border}`,
+              }}>
+                {ts.icon} {d.name}
+                <span
+                  onClick={e => { e.stopPropagation(); toggle(d.id); }}
+                  style={{ cursor: "pointer", marginLeft: 2, lineHeight: 1, opacity: 0.7 }}
+                >✕</span>
+              </span>
+            );
+          })}
+        </div>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
           style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s", color: "var(--text3)" }}>
           <polyline points="6 9 12 15 18 9" />
@@ -314,26 +309,29 @@ function CustomGroupedSelect({
                 }}>
                   {ts.icon} {DEPARTMENT_TYPE_LABELS[g.type]}
                 </div>
-                {g.items.map(d => (
-                  <div key={d.id}
-                    onClick={() => { onChange(d.id); setOpen(false); }}
-                    onMouseEnter={e => { if (d.id !== value) e.currentTarget.style.background = "var(--bg3)"; }}
-                    onMouseLeave={e => { if (d.id !== value) e.currentTarget.style.background = d.id === value ? ts.bg : "transparent"; }}
-                    style={{
-                      padding: "8px 16px 8px 20px", cursor: "pointer", fontSize: 13,
-                      color: d.id === value ? ts.color : "var(--text)",
-                      background: d.id === value ? ts.bg : "transparent",
-                      fontWeight: d.id === value ? 600 : 400,
-                      display: "flex", alignItems: "center", gap: 8,
-                    }}>
-                    {d.id === value ? (
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ flexShrink: 0, color: ts.color }}>
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    ) : <span style={{ width: 11 }} />}
-                    {d.name}
-                  </div>
-                ))}
+                {g.items.map(d => {
+                  const checked = values.includes(d.id);
+                  return (
+                    <div key={d.id}
+                      onClick={() => toggle(d.id)}
+                      onMouseEnter={e => { if (!checked) e.currentTarget.style.background = "var(--bg3)"; }}
+                      onMouseLeave={e => { if (!checked) e.currentTarget.style.background = "transparent"; }}
+                      style={{
+                        padding: "8px 16px 8px 20px", cursor: "pointer", fontSize: 13,
+                        color: checked ? ts.color : "var(--text)",
+                        background: checked ? ts.bg : "transparent",
+                        fontWeight: checked ? 600 : 400,
+                        display: "flex", alignItems: "center", gap: 8,
+                      }}>
+                      {checked ? (
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ flexShrink: 0, color: ts.color }}>
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      ) : <span style={{ width: 11 }} />}
+                      {d.name}
+                    </div>
+                  );
+                })}
               </div>
             );
           })}
@@ -613,9 +611,9 @@ export default function ContractsPage() {
       productType:   c.productType ?? "",
       quantity:      c.quantity ? String(c.quantity) : "",
       unit:          c.unit ?? "",
-      departmentId:  c.departmentId ?? "",
-      startDate:     c.startDate ? isoToDisplayDate(c.startDate) : "",
-      endDate:       c.endDate ? isoToDisplayDate(c.endDate) : "",
+      departmentIds: c.departments?.map(d => d.id) ?? [],
+      startDate:     c.startDate ? c.startDate.slice(0, 10) : "",
+      endDate:       c.endDate ? c.endDate.slice(0, 10) : "",
       priority:      String(c.priority),
       contractParty: c.contractParty ?? "",
       notes:         c.notes ?? "",
@@ -637,14 +635,14 @@ export default function ContractsPage() {
   };
 
   const isValid = () =>
-    form.contractNo.trim() && form.departmentId.trim() &&
-    displayToIsoDate(form.startDate) && displayToIsoDate(form.endDate);
+    form.contractNo.trim() && form.departmentIds.length > 0 &&
+    form.startDate && form.endDate;
 
   const handleSave = async () => {
     setSubmitted(true);
     if (!isValid()) return;
-    const startDateIso = displayToIsoDate(form.startDate);
-    const endDateIso = displayToIsoDate(form.endDate);
+    const startDateIso = form.startDate;
+    const endDateIso = form.endDate;
     if (!startDateIso || !endDateIso) return;
     setSaving(true);
     setFormError("");
@@ -655,7 +653,7 @@ export default function ContractsPage() {
           productType:   form.productType || undefined,
           quantity:      form.quantity ? Number(form.quantity) : undefined,
           unit:          form.unit || undefined,
-          departmentId:  form.departmentId || undefined,
+          departmentIds: form.departmentIds,
           startDate:     startDateIso,
           endDate:       endDateIso,
           priority:      Number(form.priority) as Priority,
@@ -682,7 +680,7 @@ export default function ContractsPage() {
           productType:   form.productType || undefined,
           quantity:      form.quantity ? Number(form.quantity) : undefined,
           unit:          form.unit || undefined,
-          departmentId:  form.departmentId || undefined,
+          departmentIds: form.departmentIds.length > 0 ? form.departmentIds : undefined,
           startDate:     startDateIso,
           endDate:       endDateIso,
           priority:      Number(form.priority) as Priority,
@@ -791,9 +789,9 @@ export default function ContractsPage() {
   // ── Render: Form ──────────────────────────────────────────────────────────
 
   const fieldErr = (val: string) => submitted && !val.trim();
-  const startDateErr = submitted && !displayToIsoDate(form.startDate);
-  const endDateErr = submitted && !displayToIsoDate(form.endDate);
-  const deptErr = submitted && !form.departmentId.trim();
+  const startDateErr = submitted && !form.startDate;
+  const endDateErr = submitted && !form.endDate;
+  const deptErr = submitted && form.departmentIds.length === 0;
 
   if (showForm) {
     return (
@@ -836,10 +834,8 @@ export default function ContractsPage() {
               <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: startDateErr ? "var(--danger)" : "var(--text2)" }}>
                 Boshlanish sanasi <span style={{ color: "var(--danger)" }}>*</span>
               </label>
-              <input className="form-input" type="text" inputMode="numeric" value={form.startDate}
-                onChange={e => setForm(f => ({ ...f, startDate: autoFormatDate(e.target.value) }))}
-                placeholder="dd-mm-yy"
-                maxLength={8}
+              <input className="form-input" type="date" value={form.startDate}
+                onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))}
                 style={startDateErr ? { borderColor: "var(--danger)" } : undefined}
               />
               {startDateErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Boshlanish sanasini tanlang</div>}
@@ -850,10 +846,8 @@ export default function ContractsPage() {
               <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: endDateErr ? "var(--danger)" : "var(--text2)" }}>
                 Tugash sanasi <span style={{ color: "var(--danger)" }}>*</span>
               </label>
-              <input className="form-input" type="text" inputMode="numeric" value={form.endDate}
-                onChange={e => setForm(f => ({ ...f, endDate: autoFormatDate(e.target.value) }))}
-                placeholder="dd-mm-yy"
-                maxLength={8}
+              <input className="form-input" type="date" value={form.endDate}
+                onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))}
                 style={endDateErr ? { borderColor: "var(--danger)" } : undefined}
               />
               {endDateErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Tugash sanasini tanlang</div>}
@@ -914,14 +908,14 @@ export default function ContractsPage() {
               <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: deptErr ? "var(--danger)" : "var(--text2)" }}>
                 Bo&apos;lim <span style={{ color: "var(--danger)" }}>*</span>
               </label>
-              <CustomGroupedSelect
-                value={form.departmentId}
-                onChange={v => setForm(f => ({ ...f, departmentId: v }))}
+              <CustomGroupedMultiSelect
+                values={form.departmentIds}
+                onChange={v => setForm(f => ({ ...f, departmentIds: v }))}
                 departments={departments}
-                placeholder="— Bo'lim tanlang —"
+                placeholder="— Bo'lim tanlang (bir nechta) —"
                 hasError={deptErr}
               />
-              {deptErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Bo&apos;limni tanlang</div>}
+              {deptErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Kamida bitta bo&apos;limni tanlang</div>}
             </div>
 
             {/* Izoh */}
@@ -1404,6 +1398,26 @@ export default function ContractsPage() {
                 <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px", gridColumn: "1 / -1" }}>
                   <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Shartnoma tuzilgan tomon</div>
                   <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)", wordBreak: "break-word" }}>{viewContract.contractParty}</div>
+                </div>
+              )}
+              {viewContract.departments?.length > 0 && (
+                <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px", gridColumn: "1 / -1" }}>
+                  <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Bo&apos;limlar</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {viewContract.departments.map(d => {
+                      const ts = TYPE_STYLE[d.type as DepartmentType];
+                      return (
+                        <span key={d.id} style={{
+                          display: "inline-flex", alignItems: "center", gap: 4,
+                          padding: "3px 10px", borderRadius: 10, fontSize: 12, fontWeight: 600,
+                          background: ts?.bg ?? "var(--bg3)", color: ts?.color ?? "var(--text1)",
+                          border: `1px solid ${ts?.border ?? "var(--border)"}`,
+                        }}>
+                          {ts?.icon} {d.name}
+                        </span>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>

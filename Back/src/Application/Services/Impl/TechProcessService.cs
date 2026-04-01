@@ -4,6 +4,7 @@ using Core.Entities;
 using Core.Enums;
 using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
+using SysTask = System.Threading.Tasks.Task;
 
 namespace Application.Services.Impl;
 
@@ -80,7 +81,26 @@ public class TechProcessService : ITechProcessService
 
         _context.TechProcesses.Add(tp);
         await _context.SaveChangesAsync();
+
+        await TryAdvanceToWarehouseCheckAsync(dto.ContractId);
+
         return ApiResult<Guid>.Success(tp.Id, 201);
+    }
+
+    private async SysTask TryAdvanceToWarehouseCheckAsync(Guid contractId)
+    {
+        var contract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == contractId);
+        if (contract is null || contract.Status != ContractStatus.TechProcessing)
+            return;
+
+        var hasTechProcess = await _context.TechProcesses.AnyAsync(t => t.ContractId == contractId);
+        var hasCostNorm = await _context.CostNorms.AnyAsync(c => c.ContractId == contractId);
+
+        if (hasTechProcess && hasCostNorm)
+        {
+            contract.Status = ContractStatus.WarehouseCheck;
+            await _context.SaveChangesAsync();
+        }
     }
 
     public async Task<ApiResult<int>> UpdateAsync(Guid id, TechProcessUpdateDto dto)

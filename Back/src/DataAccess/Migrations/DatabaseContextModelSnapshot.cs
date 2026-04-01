@@ -89,9 +89,6 @@ namespace DataAccess.Migrations
                     b.Property<Guid>("CreatedBy")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("DepartmentId")
-                        .HasColumnType("uuid");
-
                     b.Property<DateOnly>("EndDate")
                         .HasColumnType("date");
 
@@ -122,9 +119,22 @@ namespace DataAccess.Migrations
 
                     b.HasIndex("CreatedBy");
 
+                    b.ToTable("Contracts");
+                });
+
+            modelBuilder.Entity("Core.Entities.ContractDepartment", b =>
+                {
+                    b.Property<Guid>("ContractId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DepartmentId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("ContractId", "DepartmentId");
+
                     b.HasIndex("DepartmentId");
 
-                    b.ToTable("Contracts");
+                    b.ToTable("ContractDepartments");
                 });
 
             modelBuilder.Entity("Core.Entities.ContractTask", b =>
@@ -877,12 +887,24 @@ namespace DataAccess.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Core.Entities.Department", "Department")
-                        .WithMany("Contracts")
-                        .HasForeignKey("DepartmentId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.Navigation("Creator");
+                });
+
+            modelBuilder.Entity("Core.Entities.ContractDepartment", b =>
+                {
+                    b.HasOne("Core.Entities.Contract", "Contract")
+                        .WithMany("ContractDepartments")
+                        .HasForeignKey("ContractId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Core.Entities.Department", "Department")
+                        .WithMany("ContractDepartments")
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Contract");
 
                     b.Navigation("Department");
                 });
@@ -1198,6 +1220,8 @@ namespace DataAccess.Migrations
 
             modelBuilder.Entity("Core.Entities.Contract", b =>
                 {
+                    b.Navigation("ContractDepartments");
+
                     b.Navigation("ContractTasks");
 
                     b.Navigation("ContractUsers");
@@ -1225,7 +1249,7 @@ namespace DataAccess.Migrations
 
             modelBuilder.Entity("Core.Entities.Department", b =>
                 {
-                    b.Navigation("Contracts");
+                    b.Navigation("ContractDepartments");
 
                     b.Navigation("Products");
 
