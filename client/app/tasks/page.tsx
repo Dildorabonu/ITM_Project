@@ -459,7 +459,7 @@ function EditTaskModal({
               Muhimlilikni taqsimlash — jami 100% bo&apos;lishi kerak
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {allTasks.map(t => {
+              {[...allTasks].sort((a, b) => a.orderNo - b.orderNo).map(t => {
                 const isCurrent = t.id === task.id;
                 return (
                   <div key={t.id} style={{
@@ -614,12 +614,12 @@ function DailyLogModal({
             fontSize: 13,
           }}>
             <div style={{ flex: 1 }}>
-              <div style={{ color: "var(--text3)", fontSize: 11, marginBottom: 2 }}>Bajarilgan</div>
-              <div style={{ fontWeight: 600 }}>{task.completedAmount.toLocaleString()}</div>
-            </div>
-            <div style={{ flex: 1 }}>
               <div style={{ color: "var(--text3)", fontSize: 11, marginBottom: 2 }}>Jami</div>
               <div style={{ fontWeight: 600 }}>{task.totalAmount.toLocaleString()}</div>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ color: "var(--text3)", fontSize: 11, marginBottom: 2 }}>Bajarilgan</div>
+              <div style={{ fontWeight: 600 }}>{task.completedAmount.toLocaleString()}</div>
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ color: "var(--text3)", fontSize: 11, marginBottom: 2 }}>Qoldi</div>
@@ -857,7 +857,7 @@ function AddTaskForm({
             Mavjud vazifalar muhimliligini qayta taqsimlash
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {existingTasks.map(t => (
+            {[...existingTasks].sort((a, b) => a.orderNo - b.orderNo).map(t => (
               <div key={t.id} style={{
                 display: "flex", alignItems: "center", gap: 10,
                 padding: "10px 12px", borderRadius: 8,
@@ -955,9 +955,10 @@ function AddTaskForm({
 // ─── Task panel ───────────────────────────────────────────────────────────────
 
 function sortTasksWithWarehouseLast(data: ContractTaskResponse[]): ContractTaskResponse[] {
-  const regular = data.filter(t => t.name !== WAREHOUSE_TASK_NAME);
+  const regular = data.filter(t => t.name !== WAREHOUSE_TASK_NAME).sort((a, b) => a.orderNo - b.orderNo);
   const warehouse = data.filter(t => t.name === WAREHOUSE_TASK_NAME);
-  return [...regular, ...warehouse];
+  const sorted = [...regular, ...warehouse];
+  return sorted.map((t, i) => ({ ...t, orderNo: i + 1 }));
 }
 
 function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideHeader?: boolean }) {
@@ -968,6 +969,7 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
   const [loggingId, setLoggingId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -1007,7 +1009,8 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
     const taskToDelete = tasks.find(t => t.id === id);
     if (taskToDelete?.name === WAREHOUSE_TASK_NAME) return;
     await contractTaskService.delete(id);
-    setTasks(prev => sortTasksWithWarehouseLast(prev.filter(t => t.id !== id)));
+    const updated = await contractTaskService.getByContract(contract.id);
+    setTasks(sortTasksWithWarehouseLast(updated));
   };
 
   const handleUpdate = async (
@@ -1094,7 +1097,7 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
             <TaskRow
               key={task.id}
               task={task}
-              onDelete={handleDelete}
+              onDelete={(id) => setConfirmDeleteId(id)}
               onEdit={(id) => { setEditingId(id); setShowForm(false); setLoggingId(null); }}
               onLog={(id) => { setLoggingId(id); setEditingId(null); setShowForm(false); }}
               onDragStart={() => setDraggingId(task.id)}
@@ -1145,6 +1148,48 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
           onCancel={() => setLoggingId(null)}
         />
       )}
+
+      {/* Delete confirmation modal */}
+      {confirmDeleteId && (() => {
+        const taskToConfirm = tasks.find(t => t.id === confirmDeleteId);
+        return (
+          <div className="modal-overlay" onClick={() => setConfirmDeleteId(null)}>
+            <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 400 }}>
+              <div className="modal-header" style={{ color: "var(--danger)", borderBottom: "1px solid var(--border)" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6l-1 14H6L5 6"/>
+                    <path d="M10 11v6M14 11v6"/>
+                    <path d="M9 6V4h6v2"/>
+                  </svg>
+                  Vazifani o&apos;chirish
+                </span>
+              </div>
+              <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+                <p style={{ margin: 0, fontSize: 14, color: "var(--text2)", lineHeight: 1.6 }}>
+                  <strong style={{ color: "var(--text1)" }}>&ldquo;{taskToConfirm?.name}&rdquo;</strong> vazifasini o&apos;chirmoqchimisiz? Bu amalni qaytarib bo&apos;lmaydi.
+                </p>
+                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                  <button className="btn btn-outline" onClick={() => setConfirmDeleteId(null)}>
+                    Bekor qilish
+                  </button>
+                  <button
+                    className="btn btn-danger"
+                    onClick={async () => {
+                      const id = confirmDeleteId;
+                      setConfirmDeleteId(null);
+                      await handleDelete(id);
+                    }}
+                  >
+                    O&apos;chirish
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
