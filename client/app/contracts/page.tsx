@@ -48,10 +48,13 @@ const emptyForm: ContractForm = {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const STATUS_STYLE: Record<ContractStatus, { bg: string; color: string; border: string }> = {
-  [ContractStatus.Draft]:     { bg: "var(--bg3)",        color: "var(--text2)",    border: "var(--border)" },
-  [ContractStatus.Active]:    { bg: "#e6f4ea",           color: "#1e7e34",         border: "#a8d5b5" },
-  [ContractStatus.Completed]: { bg: "#e8f0fe",           color: "#1a56db",         border: "#a4c0f4" },
-  [ContractStatus.Cancelled]: { bg: "var(--danger-dim)", color: "var(--danger)",   border: "var(--danger)" },
+  [ContractStatus.Draft]:           { bg: "var(--bg3)",        color: "var(--text2)",    border: "var(--border)" },
+  [ContractStatus.DrawingPending]:  { bg: "#ede9fe",           color: "#6d28d9",         border: "#c4b5fd" },
+  [ContractStatus.TechProcessing]:  { bg: "#fff7ed",           color: "#c2410c",         border: "#fdba74" },
+  [ContractStatus.WarehouseCheck]:  { bg: "#fefce8",           color: "#a16207",         border: "#fde047" },
+  [ContractStatus.InProduction]:    { bg: "#e6f4ea",           color: "#1e7e34",         border: "#a8d5b5" },
+  [ContractStatus.Completed]:       { bg: "#e8f0fe",           color: "#1a56db",         border: "#a4c0f4" },
+  [ContractStatus.Cancelled]:       { bg: "var(--danger-dim)", color: "var(--danger)",   border: "var(--danger)" },
 };
 
 const PRIORITY_STYLE: Record<Priority, { color: string }> = {
@@ -80,6 +83,120 @@ function PriorityBadge({ priority }: { priority: Priority }) {
     <span style={{ fontSize: 13, fontWeight: 600, color: s.color }}>
       {PRIORITY_LABELS[priority]}
     </span>
+  );
+}
+
+const WORKFLOW_STEPS: { status: ContractStatus; label: string; shortLabel: string }[] = [
+  { status: ContractStatus.Draft,          label: "Shartnoma yaratilindi",              shortLabel: "Yaratildi" },
+  { status: ContractStatus.DrawingPending, label: "Chizmasi tayyorlanmoqda",             shortLabel: "Chizma" },
+  { status: ContractStatus.TechProcessing, label: "Tex jarayon va me'yoriy sarf",        shortLabel: "Tex jarayon" },
+  { status: ContractStatus.WarehouseCheck, label: "Ombor tekshiruviga uzatildi",         shortLabel: "Ombor" },
+  { status: ContractStatus.InProduction,   label: "Ishlab chiqarish jarayoni boshlangan", shortLabel: "Ishlab chiqarish" },
+  { status: ContractStatus.Completed,      label: "Yakunlandi",                          shortLabel: "Yakunlandi" },
+];
+
+const STEP_COLORS: Record<ContractStatus, { active: string; done: string; text: string }> = {
+  [ContractStatus.Draft]:          { active: "#6b7280", done: "#6b7280", text: "#fff" },
+  [ContractStatus.DrawingPending]: { active: "#7c3aed", done: "#7c3aed", text: "#fff" },
+  [ContractStatus.TechProcessing]: { active: "#c2410c", done: "#c2410c", text: "#fff" },
+  [ContractStatus.WarehouseCheck]: { active: "#a16207", done: "#a16207", text: "#fff" },
+  [ContractStatus.InProduction]:   { active: "#1e7e34", done: "#1e7e34", text: "#fff" },
+  [ContractStatus.Completed]:      { active: "#1a56db", done: "#1a56db", text: "#fff" },
+  [ContractStatus.Cancelled]:      { active: "#dc2626", done: "#dc2626", text: "#fff" },
+};
+
+function WorkflowDiagram({ status }: { status: ContractStatus }) {
+  const isCancelled = status === ContractStatus.Cancelled;
+  const currentIdx = isCancelled ? -1 : WORKFLOW_STEPS.findIndex(s => s.status === status);
+
+  if (isCancelled) {
+    return (
+      <div style={{ marginBottom: 22 }}>
+        <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 12 }}>Jarayon holati</div>
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10, padding: "12px 16px",
+          background: "var(--danger-dim)", border: "1.5px solid var(--danger)",
+          borderRadius: 10,
+        }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: "50%", background: "var(--danger)",
+            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </div>
+          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--danger)" }}>Shartnoma bekor qilindi</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginBottom: 22 }}>
+      <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 12 }}>Jarayon holati</div>
+      <div style={{ position: "relative" }}>
+        {/* connector line */}
+        <div style={{
+          position: "absolute", top: 16, left: 16, right: 16, height: 2,
+          background: "var(--border)", zIndex: 0,
+        }} />
+        {/* filled connector up to current step */}
+        {currentIdx > 0 && (
+          <div style={{
+            position: "absolute", top: 16, left: 16, height: 2,
+            width: `calc(${(currentIdx / (WORKFLOW_STEPS.length - 1)) * 100}% - 16px)`,
+            background: STEP_COLORS[status].active, zIndex: 0, transition: "width 0.4s",
+          }} />
+        )}
+        <div style={{ display: "flex", justifyContent: "space-between", position: "relative", zIndex: 1 }}>
+          {WORKFLOW_STEPS.map((step, idx) => {
+            const isDone = idx < currentIdx;
+            const isActive = idx === currentIdx;
+            const col = STEP_COLORS[step.status];
+            return (
+              <div key={step.status} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flex: 1 }}>
+                <div style={{
+                  width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
+                  background: isDone || isActive ? col.active : "var(--bg3)",
+                  border: `2px solid ${isDone || isActive ? col.active : "var(--border)"}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  boxShadow: isActive ? `0 0 0 4px ${col.active}33` : "none",
+                  transition: "all 0.3s",
+                }}>
+                  {isDone ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={col.text} strokeWidth="2.5">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  ) : (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: isActive ? col.text : "var(--text3)" }}>
+                      {idx + 1}
+                    </span>
+                  )}
+                </div>
+                <span style={{
+                  fontSize: 10, fontWeight: isActive ? 700 : 500, textAlign: "center", lineHeight: 1.3,
+                  color: isActive ? col.active : isDone ? "var(--text2)" : "var(--text3)",
+                  maxWidth: 72,
+                }}>
+                  {step.shortLabel}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+        {/* current step description */}
+        <div style={{
+          marginTop: 14, padding: "8px 14px", borderRadius: 8,
+          background: `${STEP_COLORS[status].active}14`,
+          border: `1.5px solid ${STEP_COLORS[status].active}44`,
+          fontSize: 13, fontWeight: 600, color: STEP_COLORS[status].active,
+          textAlign: "center",
+        }}>
+          {WORKFLOW_STEPS[currentIdx]?.label}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1254,6 +1371,8 @@ export default function ContractsPage() {
               <button onClick={() => { setViewContract(null); setDrawerFiles([]); setDrawerUsers([]); setDrawerTzFiles([]); setShowAssign(false); }}
                 style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
             </div>
+
+            <WorkflowDiagram status={viewContract.status} />
 
             <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 10 }}>Umumiy</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 22 }}>
