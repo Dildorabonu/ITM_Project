@@ -36,15 +36,15 @@ const navGroups: NavGroup[] = [
     icon: "file-text",
     items: [
       { name: "Shartnomalar",  href: "/contracts",   icon: "file",      permission: ["Contracts.View", "Contracts.ViewAll"] },
-      { name: "Tex Protsess",  href: "/techprocess", icon: "activity",  permission: "TechProcess.View" },
-      { name: "Me'yoriy Sarf", href: "/costnorm",    icon: "clipboard", permission: "CostNorm.View" },
+      { name: "Tex Protsess",  href: "/techprocess", icon: "activity",  permission: ["TechProcess.View", "TechProcess.ViewAll"] },
+      { name: "Me'yoriy Sarf", href: "/costnorm",    icon: "clipboard", permission: ["CostNorm.View", "CostNorm.ViewAll"] },
     ],
   },
   {
     label: "Texnik chizmalar",
     icon: "file-text",
     items: [
-      { name: "Texnik chizmalar", href: "/technicaldrawings", icon: "file", permission: "TechnicalDrawings.View" },
+      { name: "Texnik chizmalar", href: "/technicaldrawings", icon: "file", permission: ["TechnicalDrawings.View", "TechnicalDrawings.ViewAll"] },
     ],
   },
   {

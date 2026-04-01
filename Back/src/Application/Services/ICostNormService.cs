@@ -5,7 +5,7 @@ namespace Application.Services;
 
 public interface ICostNormService
 {
-    Task<ApiResult<IEnumerable<CostNormResponseDto>>> GetAllAsync(Guid? contractId = null);
+    Task<ApiResult<IEnumerable<CostNormResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, Guid? contractId = null);
     Task<ApiResult<CostNormResponseDto>> GetByIdAsync(Guid id);
     Task<ApiResult<IEnumerable<CostNormResponseDto>>> GetByContractIdAsync(Guid contractId);
     Task<ApiResult<Guid>> CreateAsync(CostNormCreateDto dto, Guid createdBy);

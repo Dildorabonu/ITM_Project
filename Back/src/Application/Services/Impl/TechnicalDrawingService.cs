@@ -18,13 +18,21 @@ public class TechnicalDrawingService : ITechnicalDrawingService
         _attachmentService = attachmentService;
     }
 
-    public async Task<ApiResult<IEnumerable<TechnicalDrawingResponseDto>>> GetAllAsync(DrawingStatus? status = null)
+    public async Task<ApiResult<IEnumerable<TechnicalDrawingResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, DrawingStatus? status = null)
     {
         var query = _context.TechnicalDrawings
             .Include(d => d.Contract)
             .Include(d => d.Creator)
             .AsNoTracking()
             .AsQueryable();
+
+        if (!viewAll)
+        {
+            query = query.Where(d =>
+                _context.ContractUsers.Any(cu => cu.ContractId == d.ContractId && cu.UserId == currentUserId) ||
+                _context.ContractDepartments.Any(cd => cd.ContractId == d.ContractId &&
+                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == cd.DepartmentId)));
+        }
 
         if (status.HasValue)
             query = query.Where(d => d.Status == status.Value);

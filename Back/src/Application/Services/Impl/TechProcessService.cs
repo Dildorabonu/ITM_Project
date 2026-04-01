@@ -17,13 +17,21 @@ public class TechProcessService : ITechProcessService
         _context = context;
     }
 
-    public async Task<ApiResult<IEnumerable<TechProcessResponseDto>>> GetAllAsync(ProcessStatus? status = null)
+    public async Task<ApiResult<IEnumerable<TechProcessResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, ProcessStatus? status = null)
     {
         var query = _context.TechProcesses
             .Include(t => t.Contract)
             .Include(t => t.Approver)
             .AsNoTracking()
             .AsQueryable();
+
+        if (!viewAll)
+        {
+            query = query.Where(t =>
+                _context.ContractUsers.Any(cu => cu.ContractId == t.ContractId && cu.UserId == currentUserId) ||
+                _context.ContractDepartments.Any(cd => cd.ContractId == t.ContractId &&
+                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == cd.DepartmentId)));
+        }
 
         if (status.HasValue)
             query = query.Where(t => t.Status == status.Value);
