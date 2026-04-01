@@ -452,11 +452,11 @@ body {
 }
 .tcc-footer .danger { color: var(--danger); }
 .tcc-time-track {
-  flex: 1; height: 6px; background: var(--border); border-radius: 999;
+  flex: 1; height: 5px; background: var(--border); border-radius: 999;
   margin: 0 10px; position: relative; overflow: visible;
 }
 .tcc-time-fill {
-  height: 100%; border-radius: 999; transition: width 0.5s ease; min-width: 6px;
+  height: 100%; border-radius: 999; transition: width 0.5s ease; min-width: 5px;
 }
 .tcc-time-dot {
   position: absolute; top: 50%; transform: translate(-50%, -50%);
