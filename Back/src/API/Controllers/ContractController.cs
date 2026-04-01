@@ -22,13 +22,22 @@ public class ContractController : ControllerBase
         _attachmentService = attachmentService;
     }
 
-    [HasPermission("Contracts.View")]
     [HttpGet]
     public async Task<IActionResult> GetAll(
         [FromQuery] ContractStatus? status = null,
         [FromQuery] Guid? departmentId = null)
     {
-        var result = await _contractService.GetAllAsync(status, departmentId);
+        var canView    = User.HasClaim("perm", "Contracts.View");
+        var viewAll    = User.HasClaim("perm", "Contracts.ViewAll");
+
+        if (!canView && !viewAll)
+            return Forbid();
+
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        var result = await _contractService.GetAllAsync(userId, viewAll, status, departmentId);
         return Ok(result);
     }
 
