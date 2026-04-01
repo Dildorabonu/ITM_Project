@@ -564,13 +564,10 @@ function DailyLogModal({
   onCancel,
 }: {
   task: ContractTaskResponse;
-  onSave: (taskId: string, amount: number, note: string, date: string) => Promise<void>;
+  onSave: (taskId: string, amount: number, note: string) => Promise<void>;
   onCancel: () => void;
 }) {
-  const today = new Date().toISOString().slice(0, 10);
   const [amount, setAmount] = useState("");
-  const [note, setNote] = useState("");
-  const [date, setDate] = useState(today);
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [logs, setLogs] = useState<ContractTaskLogResponse[]>([]);
@@ -588,7 +585,7 @@ function DailyLogModal({
     const amt = parseFloat(amount);
     if (!amount || isNaN(amt) || amt <= 0) return;
     setSaving(true);
-    await onSave(task.id, amt, note.trim(), date);
+    await onSave(task.id, amt, "");
     setSaving(false);
   };
 
@@ -613,9 +610,9 @@ function DailyLogModal({
             background: "var(--surface2, var(--card-bg))", border: "1px solid var(--border)",
             fontSize: 13,
           }}>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, borderRight: "1px solid var(--border)", paddingRight: 12, marginRight: 4 }}>
               <div style={{ color: "var(--text3)", fontSize: 11, marginBottom: 2 }}>Jami</div>
-              <div style={{ fontWeight: 600 }}>{task.totalAmount.toLocaleString()}</div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>{task.totalAmount.toLocaleString()}</div>
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ color: "var(--text3)", fontSize: 11, marginBottom: 2 }}>Bajarilgan</div>
@@ -634,36 +631,19 @@ function DailyLogModal({
           </div>
 
           {/* Input fields */}
-          <div className="atf-grid2">
-            <div className="atf-field">
-              <label className="atf-label">Sana <span style={{ color: "var(--danger)" }}>*</span></label>
-              <input className="form-input" type="date" value={date} onChange={e => setDate(e.target.value)} />
-            </div>
-            <div className="atf-field">
-              <label className="atf-label">Bugun bajarildi <span style={{ color: "var(--danger)" }}>*</span></label>
-              <input
-                className="form-input"
-                type="number" min="0.01" step="any"
-                placeholder="Miqdorni kiriting"
-                value={amount}
-                onChange={e => setAmount(e.target.value)}
-                style={submitted && (!amount || parseFloat(amount) <= 0) ? { borderColor: "var(--danger)" } : undefined}
-              />
-              {submitted && (!amount || parseFloat(amount) <= 0) && (
-                <div style={{ color: "var(--danger)", fontSize: 12 }}>Miqdorni kiriting</div>
-              )}
-            </div>
-          </div>
-
           <div className="atf-field">
-            <label className="atf-label">Izoh (ixtiyoriy)</label>
-            <textarea
-              className="form-textarea atf-textarea"
-              rows={2}
-              placeholder="Qo'shimcha izoh..."
-              value={note}
-              onChange={e => setNote(e.target.value)}
+            <label className="atf-label">Bugun bajarildi <span style={{ color: "var(--danger)" }}>*</span></label>
+            <input
+              className="form-input"
+              type="number" min="0.01" step="any"
+              placeholder="Miqdorni kiriting"
+              value={amount}
+              onChange={e => setAmount(e.target.value)}
+              style={submitted && (!amount || parseFloat(amount) <= 0) ? { borderColor: "var(--danger)" } : undefined}
             />
+            {submitted && (!amount || parseFloat(amount) <= 0) && (
+              <div style={{ color: "var(--danger)", fontSize: 12 }}>Miqdorni kiriting</div>
+            )}
           </div>
 
           {/* History */}
@@ -684,9 +664,10 @@ function DailyLogModal({
                     background: "var(--surface2, var(--card-bg))", border: "1px solid var(--border)",
                     fontSize: 13,
                   }}>
-                    <span className="mono" style={{ color: "var(--text3)", fontSize: 12, flexShrink: 0 }}>{l.date}</span>
+                    <span className="mono" style={{ color: "var(--text3)", fontSize: 12, flexShrink: 0 }}>
+                      {new Date(l.createdAt).toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </span>
                     <span style={{ fontWeight: 600, color: "var(--accent, #3b82f6)", flexShrink: 0 }}>+{l.amount.toLocaleString()}</span>
-                    {l.note && <span style={{ color: "var(--text2)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.note}</span>}
                     <span style={{ color: "var(--text3)", fontSize: 11, flexShrink: 0, marginLeft: "auto" }}>{l.createdByFullName ?? ""}</span>
                   </div>
                 ))}
@@ -1025,8 +1006,9 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
     setEditingId(null);
   };
 
-  const handleLogProgress = async (taskId: string, amount: number, note: string, date: string) => {
-    await contractTaskService.logProgress(taskId, { amount, note: note || undefined, date });
+  const handleLogProgress = async (taskId: string, amount: number, note: string) => {
+    const today = new Date().toISOString().slice(0, 10);
+    await contractTaskService.logProgress(taskId, { amount, note: note || undefined, date: today });
     const updated = await contractTaskService.getByContract(contract.id);
     setTasks(sortTasksWithWarehouseLast(updated));
     setLoggingId(null);
