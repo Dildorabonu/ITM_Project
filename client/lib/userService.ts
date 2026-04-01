@@ -315,9 +315,12 @@ export interface AttachmentResponse {
 
 export enum ContractStatus {
   Draft = 0,
-  Active = 1,
-  Completed = 2,
-  Cancelled = 3,
+  DrawingPending = 1,
+  TechProcessing = 2,
+  WarehouseCheck = 3,
+  InProduction = 4,
+  Completed = 5,
+  Cancelled = 6,
 }
 
 export enum Priority {
@@ -328,10 +331,13 @@ export enum Priority {
 }
 
 export const CONTRACT_STATUS_LABELS: Record<ContractStatus, string> = {
-  [ContractStatus.Draft]:     "Qoralama",
-  [ContractStatus.Active]:    "Faol",
-  [ContractStatus.Completed]: "Yakunlandi",
-  [ContractStatus.Cancelled]: "Bekor qilindi",
+  [ContractStatus.Draft]:           "Shartnoma yaratilindi",
+  [ContractStatus.DrawingPending]:  "Chizmasi tayyorlanmoqda",
+  [ContractStatus.TechProcessing]:  "Tex jarayon tayyorlanmoqda",
+  [ContractStatus.WarehouseCheck]:  "Ombor tekshiruvida",
+  [ContractStatus.InProduction]:    "Ishlab chiqarishda",
+  [ContractStatus.Completed]:       "Yakunlandi",
+  [ContractStatus.Cancelled]:       "Bekor qilindi",
 };
 
 export const PRIORITY_LABELS: Record<Priority, string> = {
