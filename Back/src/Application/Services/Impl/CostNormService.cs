@@ -1,6 +1,7 @@
 using Application.DTOs;
 using Application.DTOs.CostNorms;
 using Core.Entities;
+using Core.Enums;
 using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,10 +10,12 @@ namespace Application.Services.Impl;
 public class CostNormService : ICostNormService
 {
     private readonly DatabaseContext _context;
+    private readonly INotificationService _notificationService;
 
-    public CostNormService(DatabaseContext context)
+    public CostNormService(DatabaseContext context, INotificationService notificationService)
     {
         _context = context;
+        _notificationService = notificationService;
     }
 
     public async Task<ApiResult<IEnumerable<CostNormResponseDto>>> GetAllAsync(Guid? contractId = null)
@@ -92,6 +95,12 @@ public class CostNormService : ICostNormService
 
         _context.CostNorms.Add(costNorm);
         await _context.SaveChangesAsync();
+
+        var contract = await _context.Contracts.AsNoTracking().FirstOrDefaultAsync(c => c.Id == dto.ContractId);
+        await _notificationService.NotifyAllAsync(
+            $"Yangi me'yoriy sarf: {costNorm.Title}",
+            $"«{contract?.ContractNo}» shartnomasi uchun me'yoriy sarf norma tuzildi: {costNorm.Title}. Materiallar: {costNorm.Items.Count} ta.",
+            NotificationType.Info);
 
         return ApiResult<Guid>.Success(costNorm.Id, 201);
     }
