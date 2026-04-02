@@ -95,6 +95,19 @@ public class NotificationService : INotificationService
         return ApiResult<int>.Success(200);
     }
 
+    public async Task<ApiResult<int>> MarkAsReadByIdAsync(Guid id)
+    {
+        var notif = await _context.Notifications.FirstOrDefaultAsync(n => n.Id == id);
+
+        if (notif is null)
+            return ApiResult<int>.Failure(["Bildirishnoma topilmadi."], 404);
+
+        notif.IsRead = true;
+        await _context.SaveChangesAsync();
+
+        return ApiResult<int>.Success(200);
+    }
+
     public async Task<ApiResult<int>> MarkAllAsReadAsync(Guid userId)
     {
         await _context.Notifications

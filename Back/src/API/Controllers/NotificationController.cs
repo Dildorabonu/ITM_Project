@@ -56,7 +56,9 @@ public class NotificationController : ControllerBase
         var userId = GetUserId();
         if (userId is null) return Unauthorized();
 
-        var result = await _service.MarkAsReadAsync(id, userId.Value);
+        var result = IsSuperAdmin()
+            ? await _service.MarkAsReadByIdAsync(id)
+            : await _service.MarkAsReadAsync(id, userId.Value);
         if (!result.Succeeded) return NotFound(result);
         return Ok(result);
     }

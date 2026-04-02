@@ -11,6 +11,7 @@ public interface INotificationService
     Task<ApiResult<int>> GetUnreadCountAsync(Guid userId);
     Task<ApiResult<int>> GetAllUnreadCountAsync();
     Task<ApiResult<int>> MarkAsReadAsync(Guid id, Guid userId);
+    Task<ApiResult<int>> MarkAsReadByIdAsync(Guid id);
     Task<ApiResult<int>> MarkAllAsReadAsync(Guid userId);
     Task<ApiResult<int>> MarkAllReadForAllAsync();
     Task<ApiResult<int>> DeleteAsync(Guid id);
