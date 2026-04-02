@@ -219,7 +219,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     if (!accessToken) return;
     fetchUnreadNotifs();
     const interval = setInterval(fetchUnreadNotifs, 30000);
-    return () => clearInterval(interval);
+    window.addEventListener("notif-read", fetchUnreadNotifs);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("notif-read", fetchUnreadNotifs);
+    };
   }, [accessToken, fetchUnreadNotifs]);
 
   const visibleNavGroups = navGroups.map((group) => ({
