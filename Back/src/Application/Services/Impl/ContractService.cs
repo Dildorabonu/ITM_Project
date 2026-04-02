@@ -97,10 +97,11 @@ public class ContractService : IContractService
 
         await _context.SaveChangesAsync();
 
-        await _notificationService.NotifyAllAsync(
-            $"Yangi shartnoma: {contract.ContractNo}",
-            $"{contract.ContractParty} bilan {contract.ProductType} uchun yangi shartnoma yaratildi. Miqdori: {contract.Quantity} {contract.Unit}.",
-            NotificationType.Info);
+        var title = $"Yangi shartnoma: {contract.ContractNo}";
+        var body  = $"{contract.ContractParty} bilan {contract.ProductType} uchun yangi shartnoma yaratildi. Miqdori: {contract.Quantity} {contract.Unit}.";
+
+        foreach (var deptId in dto.DepartmentIds.Distinct())
+            await _notificationService.NotifyDepartmentAsync(deptId, title, body, NotificationType.Info);
 
         return ApiResult<Guid>.Success(contract.Id, 201);
     }
@@ -349,8 +350,21 @@ public class ContractService : IContractService
         return ApiResult<int>.Success(200);
     }
 
-    public async Task<ApiResult<IEnumerable<ContractResponseDto>>> GetMyProductionTasksAsync(Guid userId)
+    public async Task<ApiResult<IEnumerable<ContractResponseDto>>> GetMyProductionTasksAsync(Guid userId, bool viewAll)
     {
+        if (viewAll)
+        {
+            var allContracts = await _context.Contracts
+                .Include(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
+                .Include(c => c.Creator)
+                .Include(c => c.ContractUsers).ThenInclude(cu => cu.User).ThenInclude(u => u.Role)
+                .AsNoTracking()
+                .OrderByDescending(c => c.CreatedAt)
+                .ToListAsync();
+
+            return ApiResult<IEnumerable<ContractResponseDto>>.Success(allContracts.Select(MapToResponse));
+        }
+
         var user = await _context.Users
             .Include(u => u.Department)
             .AsNoTracking()
