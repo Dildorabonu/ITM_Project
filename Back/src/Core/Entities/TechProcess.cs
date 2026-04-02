@@ -16,6 +16,4 @@ public class TechProcess
     // Navigation properties
     public Contract? Contract { get; set; }
     public User? Approver { get; set; }
-    public ICollection<TechStep> Steps { get; set; } = [];
-    public ICollection<TechProcessMaterial> Materials { get; set; } = [];
 }

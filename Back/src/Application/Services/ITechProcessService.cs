@@ -15,12 +15,4 @@ public interface ITechProcessService
     Task<ApiResult<int>> SendToWarehouseAsync(Guid id);
     Task<ApiResult<int>> DeleteAsync(Guid id);
 
-    // Steps
-    Task<ApiResult<Guid>> AddStepAsync(Guid techProcessId, TechStepCreateDto dto);
-    Task<ApiResult<int>> UpdateStepAsync(Guid techProcessId, Guid stepId, TechStepUpdateDto dto);
-    Task<ApiResult<int>> DeleteStepAsync(Guid techProcessId, Guid stepId);
-
-    // Materials
-    Task<ApiResult<Guid>> AddMaterialAsync(Guid techProcessId, TechProcessMaterialCreateDto dto);
-    Task<ApiResult<int>> DeleteMaterialAsync(Guid techProcessId, Guid materialId);
 }

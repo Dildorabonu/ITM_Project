@@ -18,11 +18,9 @@ public class DatabaseContext : DbContext
     public DbSet<ContractUser> ContractUsers { get; set; }
     public DbSet<ContractDepartment> ContractDepartments { get; set; }
     public DbSet<TechProcess> TechProcesses { get; set; }
-    public DbSet<TechStep> TechSteps { get; set; }
     public DbSet<Material> Materials { get; set; }
     public DbSet<StockIn> StockIns { get; set; }
     public DbSet<StockOut> StockOuts { get; set; }
-    public DbSet<TechProcessMaterial> TechProcessMaterials { get; set; }
     public DbSet<Core.Entities.Task> Tasks { get; set; }
     public DbSet<Notification> Notifications { get; set; }
     public DbSet<RefreshToken> RefreshTokens { get; set; }
