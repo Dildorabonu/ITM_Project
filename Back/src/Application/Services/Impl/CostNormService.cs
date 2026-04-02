@@ -165,6 +165,20 @@ public class CostNormService : ICostNormService
         return ApiResult<int>.Success(200);
     }
 
+    public async Task<ApiResult<int>> ApproveAsync(Guid id)
+    {
+        var costNorm = await _context.CostNorms.FirstOrDefaultAsync(c => c.Id == id);
+        if (costNorm is null)
+            return ApiResult<int>.Failure([$"CostNorm with id '{id}' not found."], 404);
+
+        if (costNorm.Status == DrawingStatus.Approved)
+            return ApiResult<int>.Failure(["Me'yoriy sarf allaqachon tasdiqlangan."]);
+
+        costNorm.Status = DrawingStatus.Approved;
+        await _context.SaveChangesAsync();
+        return ApiResult<int>.Success(1);
+    }
+
     public async Task<ApiResult<int>> DeleteAsync(Guid id)
     {
         var costNorm = await _context.CostNorms.FirstOrDefaultAsync(c => c.Id == id);
@@ -186,6 +200,7 @@ public class CostNormService : ICostNormService
         ContractNo = c.Contract?.ContractNo ?? string.Empty,
         Title = c.Title,
         Notes = c.Notes,
+        Status = c.Status,
         CreatedBy = c.CreatedBy,
         CreatedByFullName = c.Creator is not null
             ? $"{c.Creator.FirstName} {c.Creator.LastName}"
