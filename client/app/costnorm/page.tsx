@@ -794,52 +794,6 @@ export default function CostNormPage() {
     }
   }
 
-  // ── Save and approve ─────────────────────────────────────────────────────
-
-  async function handleSaveAndApprove() {
-    setSubmitted(true);
-    if (!form.contractId || parsedTables.length === 0) return;
-
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const allRows = parsedTables.flatMap(t => t.rows);
-      const items = allRows.map((row, idx) => ({
-        isSection: row.isSection,
-        sectionName: row.isSection ? row.sectionName : null,
-        no: row.no || null,
-        name: row.name || null,
-        unit: row.unit || null,
-        readyQty: row.readyQty || null,
-        wasteQty: row.wasteQty || null,
-        totalQty: row.totalQty || null,
-        photoRaw: row.photoRaw || null,
-        photoSemi: row.photoSemi || null,
-        importType: row.importType || null,
-        sortOrder: idx,
-      }));
-
-      const newId = await costNormService.create({
-        contractId: form.contractId,
-        title: form.title || formFile?.name?.replace(/\.docx$/i, "") || "Me'yoriy sarf",
-        notes: form.notes || null,
-        items,
-      });
-
-      if (formFile && newId) {
-        await costNormService.uploadFile(newId, formFile);
-      }
-
-      await costNormService.approve(newId);
-      await loadList();
-      setMode("list");
-    } catch {
-      setSaveError("Saqlashda xatolik yuz berdi");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   // ── Open edit ─────────────────────────────────────────────────────────────
 
   async function openEdit(norm: CostNormResponse) {
@@ -1085,10 +1039,6 @@ export default function CostNormPage() {
               </svg>
               {saving ? "Saqlanmoqda..." : "Qoralama saqlash"}
             </button>
-            <button className="btn-primary" onClick={handleSaveAndApprove} disabled={saving} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 20px", borderRadius: "var(--radius)", fontSize: 13 }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-              {saving ? "Saqlanmoqda..." : "Tasdiqlash"}
-            </button>
           </div>
         </div>
 
@@ -1302,16 +1252,6 @@ export default function CostNormPage() {
               </svg>
               {editSaving ? "Saqlanmoqda..." : "Saqlash"}
             </button>
-            {editingNorm?.status === DrawingStatus.Draft && (
-              <button
-                onClick={() => handleApprove(editingNorm.id)}
-                disabled={approvingId === editingNorm.id}
-                style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 20px", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, border: "1px solid rgba(15,123,69,0.3)", background: "var(--success-dim)", color: "var(--success)", cursor: "pointer" }}
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                {approvingId === editingNorm.id ? "Tasdiqlanmoqda..." : "Tasdiqlash"}
-              </button>
-            )}
           </div>
         </div>
 
