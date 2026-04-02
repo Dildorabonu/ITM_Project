@@ -391,7 +391,7 @@ function CollapsibleItemsTable({ rows, showPhotos, onUpdateRow, onDeleteRow }: {
                         </>
                       ) : (
                         <>
-                          <td style={{ color: "var(--text1)", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.name ?? ""}>{row.name || "—"}</td>
+                          <td style={{ textAlign: "center", color: "var(--text1)", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.name ?? ""}>{row.name || "—"}</td>
                           <td style={{ textAlign: "center", color: "var(--text1)" }}>{row.unit || "—"}</td>
                           <td style={{ textAlign: "center", color: "var(--text1)", fontFamily: "Inter, sans-serif" }}>{row.readyQty || "—"}</td>
                           <td style={{ textAlign: "center", color: "var(--text1)", fontFamily: "Inter, sans-serif" }}>{row.wasteQty || "—"}</td>
@@ -1543,7 +1543,7 @@ export default function CostNormPage() {
                           {norm.contractNo}
                         </button>
                       </td>
-                      <td style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text1)" }}>{norm.title}</td>
+                      <td style={{ textAlign: "center", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text1)" }}>{norm.title}</td>
                       <td style={{ textAlign: "center", color: "var(--text1)", fontSize: 12 }}>{dataItems}</td>
                       <td style={{ textAlign: "center" }}>
                         <span style={{

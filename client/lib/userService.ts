@@ -573,27 +573,6 @@ export const PROCESS_STATUS_LABELS: Record<ProcessStatus, string> = {
   [ProcessStatus.Completed]:  "Yakunlangan",
 };
 
-export interface TechStepResponse {
-  id: string;
-  stepNumber: number;
-  name: string;
-  responsibleDept: string;
-  machine: string | null;
-  timeNorm: string | null;
-  status: ProcessStatus;
-  notes: string | null;
-}
-
-export interface TechProcessMaterialResponse {
-  id: string;
-  materialId: string;
-  materialName: string;
-  unit: string;
-  requiredQty: number;
-  availableQty: number;
-  status: string;
-}
-
 export interface TechProcessResponse {
   id: string;
   contractId: string;
@@ -606,8 +585,6 @@ export interface TechProcessResponse {
   approvedByFullName: string | null;
   approvedAt: string | null;
   createdAt: string;
-  steps: TechStepResponse[];
-  materials: TechProcessMaterialResponse[];
 }
 
 export interface TechProcessCreatePayload {
@@ -621,28 +598,6 @@ export interface TechProcessUpdatePayload {
   notes?: string | null;
 }
 
-export interface TechStepCreatePayload {
-  stepNumber: number;
-  name: string;
-  responsibleDept: string;
-  machine?: string | null;
-  timeNorm?: string | null;
-  notes?: string | null;
-}
-
-export interface TechStepUpdatePayload {
-  stepNumber?: number;
-  name?: string;
-  responsibleDept?: string;
-  machine?: string | null;
-  timeNorm?: string | null;
-  notes?: string | null;
-}
-
-export interface TechProcessMaterialCreatePayload {
-  materialId: string;
-  requiredQty: number;
-}
 
 export const techProcessService = {
   getAll: async (status?: ProcessStatus): Promise<TechProcessResponse[]> => {
@@ -683,27 +638,6 @@ export const techProcessService = {
     await api.delete(`/api/techprocess/${id}`);
   },
 
-  addStep: async (id: string, dto: TechStepCreatePayload): Promise<string> => {
-    const res = await api.post(`/api/techprocess/${id}/steps`, dto);
-    return res.data?.result as string;
-  },
-
-  updateStep: async (id: string, stepId: string, dto: TechStepUpdatePayload): Promise<void> => {
-    await api.put(`/api/techprocess/${id}/steps/${stepId}`, dto);
-  },
-
-  deleteStep: async (id: string, stepId: string): Promise<void> => {
-    await api.delete(`/api/techprocess/${id}/steps/${stepId}`);
-  },
-
-  addMaterial: async (id: string, dto: TechProcessMaterialCreatePayload): Promise<string> => {
-    const res = await api.post(`/api/techprocess/${id}/materials`, dto);
-    return res.data?.result as string;
-  },
-
-  deleteMaterial: async (id: string, materialId: string): Promise<void> => {
-    await api.delete(`/api/techprocess/${id}/materials/${materialId}`);
-  },
 };
 
 // ─── Material (Ombor) ─────────────────────────────────────────────────────────

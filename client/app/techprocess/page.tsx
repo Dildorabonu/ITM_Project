@@ -5,15 +5,11 @@ import { useDraft } from "@/lib/useDraft";
 import {
   techProcessService,
   contractService,
-  materialService,
   ProcessStatus,
   PROCESS_STATUS_LABELS,
   type TechProcessResponse,
   type TechProcessCreatePayload,
-  type TechStepCreatePayload,
-  type TechProcessMaterialCreatePayload,
   type ContractResponse,
-  type MaterialOption,
 } from "@/lib/userService";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -58,8 +54,6 @@ export default function TechProcessPage() {
 
   // Drawer
   const [drawer, setDrawer]       = useState<TechProcessResponse | null>(null);
-  const [drawerTab, setDrawerTab] = useState<"steps" | "materials">("steps");
-  const [drawerLoading, setDrawerLoading] = useState(false);
 
   // Create form
   const [showForm, setShowForm]   = useState(false);
@@ -71,21 +65,6 @@ export default function TechProcessPage() {
   const [finalContractFile, setFinalContractFile] = useState<File | null>(null);
   const [templateContractFile, setTemplateContractFile] = useState<File | null>(null);
   const [fileSubmitError, setFileSubmitError] = useState("");
-
-  // Add step modal
-  const [showStepModal, setShowStepModal]   = useState(false);
-  const [stepForm, setStepForm]             = useState({ stepNumber: "", name: "", responsibleDept: "", machine: "", timeNorm: "", notes: "" });
-  const [stepSubmitted, setStepSubmitted]   = useState(false);
-  const [savingStep, setSavingStep]         = useState(false);
-  const [deletingStepId, setDeletingStepId] = useState<string | null>(null);
-
-  // Add material modal
-  const [showMatModal, setShowMatModal]       = useState(false);
-  const [materials, setMaterials]             = useState<MaterialOption[]>([]);
-  const [matForm, setMatForm]                 = useState({ materialId: "", requiredQty: "" });
-  const [matSubmitted, setMatSubmitted]       = useState(false);
-  const [savingMat, setSavingMat]             = useState(false);
-  const [deletingMatId, setDeletingMatId]     = useState<string | null>(null);
 
   // Drawer edit
   const [drawerEditing, setDrawerEditing] = useState(false);
@@ -153,30 +132,18 @@ export default function TechProcessPage() {
 
   const openDrawer = async (tp: TechProcessResponse) => {
     setDrawer(tp);
-    setDrawerTab("steps");
     setDrawerEditing(false);
-    setDrawerLoading(true);
-    try {
-      const fresh = await techProcessService.getById(tp.id);
-      setDrawer(fresh);
-    } finally {
-      setDrawerLoading(false);
-    }
+    const fresh = await techProcessService.getById(tp.id);
+    setDrawer(fresh);
   };
 
   const openDrawerEdit = async (tp: TechProcessResponse) => {
     setDrawer(tp);
-    setDrawerTab("steps");
     setDrawerEditing(true);
     setDrawerEditForm({ title: tp.title, notes: tp.notes || "" });
-    setDrawerLoading(true);
-    try {
-      const fresh = await techProcessService.getById(tp.id);
-      setDrawer(fresh);
-      setDrawerEditForm({ title: fresh.title, notes: fresh.notes || "" });
-    } finally {
-      setDrawerLoading(false);
-    }
+    const fresh = await techProcessService.getById(tp.id);
+    setDrawer(fresh);
+    setDrawerEditForm({ title: fresh.title, notes: fresh.notes || "" });
   };
 
   const handleDrawerEditSave = async () => {
@@ -249,88 +216,6 @@ export default function TechProcessPage() {
       setFormError(msg ?? "Saqlashda xatolik yuz berdi.");
     } finally {
       setSaving(false);
-    }
-  };
-
-  // ── Steps ───────────────────────────────────────────────────────────────────
-
-  const openStepModal = () => {
-    setStepForm({ stepNumber: String((drawer?.steps.length ?? 0) + 1), name: "", responsibleDept: "", machine: "", timeNorm: "", notes: "" });
-    setStepSubmitted(false);
-    setShowStepModal(true);
-  };
-
-  const handleAddStep = async () => {
-    setStepSubmitted(true);
-    if (!stepForm.name.trim() || !stepForm.responsibleDept.trim() || !stepForm.stepNumber) return;
-    if (!drawer) return;
-    setSavingStep(true);
-    try {
-      const dto: TechStepCreatePayload = {
-        stepNumber: Number(stepForm.stepNumber),
-        name: stepForm.name.trim(),
-        responsibleDept: stepForm.responsibleDept.trim(),
-        machine: stepForm.machine || null,
-        timeNorm: stepForm.timeNorm || null,
-        notes: stepForm.notes || null,
-      };
-      await techProcessService.addStep(drawer.id, dto);
-      await refreshDrawer(drawer.id);
-      setShowStepModal(false);
-    } finally {
-      setSavingStep(false);
-    }
-  };
-
-  const handleDeleteStep = async (stepId: string) => {
-    if (!drawer) return;
-    setDeletingStepId(stepId);
-    try {
-      await techProcessService.deleteStep(drawer.id, stepId);
-      await refreshDrawer(drawer.id);
-    } finally {
-      setDeletingStepId(null);
-    }
-  };
-
-  // ── Materials ────────────────────────────────────────────────────────────────
-
-  const openMatModal = async () => {
-    setMatForm({ materialId: "", requiredQty: "" });
-    setMatSubmitted(false);
-    setShowMatModal(true);
-    if (materials.length === 0) {
-      const data = await materialService.getAll();
-      setMaterials(data);
-    }
-  };
-
-  const handleAddMaterial = async () => {
-    setMatSubmitted(true);
-    if (!matForm.materialId || !matForm.requiredQty || Number(matForm.requiredQty) <= 0) return;
-    if (!drawer) return;
-    setSavingMat(true);
-    try {
-      const dto: TechProcessMaterialCreatePayload = {
-        materialId: matForm.materialId,
-        requiredQty: Number(matForm.requiredQty),
-      };
-      await techProcessService.addMaterial(drawer.id, dto);
-      await refreshDrawer(drawer.id);
-      setShowMatModal(false);
-    } finally {
-      setSavingMat(false);
-    }
-  };
-
-  const handleDeleteMaterial = async (materialId: string) => {
-    if (!drawer) return;
-    setDeletingMatId(materialId);
-    try {
-      await techProcessService.deleteMaterial(drawer.id, materialId);
-      await refreshDrawer(drawer.id);
-    } finally {
-      setDeletingMatId(null);
     }
   };
 
@@ -619,9 +504,7 @@ export default function TechProcessPage() {
                 <tr>
                   <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Shartnoma</th>
-                  <th style={{ color: "var(--text1)" }}>Sarlavha</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Qadamlar</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Materiallar</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Sarlavha</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Status</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Sana</th>
                   <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>Amal</th>
@@ -629,7 +512,7 @@ export default function TechProcessPage() {
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={8} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
+                  <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
                 ) : filtered.map((tp, i) => (
                   <tr key={tp.id}>
                     <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>{String(i + 1).padStart(2, "0")}</td>
@@ -640,16 +523,6 @@ export default function TechProcessPage() {
                       </button>
                     </td>
                     <td style={{ fontWeight: 500 }}>{tp.title}</td>
-                    <td style={{ textAlign: "center" }}>
-                      <span style={{ background: "var(--accent-dim)", color: "var(--accent)", borderRadius: 20, padding: "2px 10px", fontWeight: 600, fontSize: 12 }}>
-                        {tp.steps.length}
-                      </span>
-                    </td>
-                    <td style={{ textAlign: "center" }}>
-                      <span style={{ background: "var(--warn-dim)", color: "var(--warn)", borderRadius: 20, padding: "2px 10px", fontWeight: 600, fontSize: 12 }}>
-                        {tp.materials.length}
-                      </span>
-                    </td>
                     <td style={{ textAlign: "center" }}><StatusBadge status={tp.status} /></td>
                     <td style={{ textAlign: "center", fontSize: 13, color: "var(--text2)", fontFamily: "var(--font-mono)" }}>{fmt(tp.createdAt)}</td>
                     <td style={{ borderLeft: "2px solid var(--border)" }}>
@@ -782,14 +655,6 @@ export default function TechProcessPage() {
                 <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Yaratilgan sana</div>
                 <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)" }}>{fmt(drawer.createdAt)}</div>
               </div>
-              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
-                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Qadamlar soni</div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: "var(--accent)" }}>{drawer.steps.length}</div>
-              </div>
-              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
-                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Materiallar soni</div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: "var(--warn, #d97706)" }}>{drawer.materials.length}</div>
-              </div>
             </div>
 
             <div style={{ marginBottom: 22 }}>
@@ -812,237 +677,10 @@ export default function TechProcessPage() {
               </div>
             )}
 
-            {/* Tabs */}
-            <div style={{ borderTop: "1.5px solid var(--border)", paddingTop: 20, marginTop: 4 }}>
-              <div style={{ display: "flex", borderBottom: "1.5px solid var(--border)", marginBottom: 16 }}>
-                {(["steps", "materials"] as const).map(tab => (
-                  <button key={tab} onClick={() => setDrawerTab(tab)}
-                    style={{
-                      padding: "10px 20px", fontSize: 13, fontWeight: 600, border: "none", background: "none",
-                      cursor: "pointer", borderBottom: drawerTab === tab ? "2px solid var(--accent)" : "2px solid transparent",
-                      color: drawerTab === tab ? "var(--accent)" : "var(--text2)",
-                    }}>
-                    {tab === "steps" ? `Qadamlar (${drawer.steps.length})` : `Materiallar (${drawer.materials.length})`}
-                  </button>
-                ))}
-              </div>
-
-              {drawerLoading ? (
-                <div style={{ fontSize: 13, color: "var(--text3)", textAlign: "center", padding: "16px 0" }}>Yuklanmoqda...</div>
-              ) : drawerTab === "steps" ? (
-                <>
-                  <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
-                    <button onClick={openStepModal}
-                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "1.5px solid var(--border)", cursor: "pointer", background: "var(--bg1)", color: "var(--text2)" }}>
-                      <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                      Qadam qo&apos;shish
-                    </button>
-                  </div>
-                  {drawer.steps.length === 0 ? (
-                    <div style={{ fontSize: 13, color: "var(--text3)", textAlign: "center", padding: "32px 0", border: "1.5px dashed var(--border)", borderRadius: 8 }}>
-                      Qadamlar yo&apos;q. Yangi qadam qo&apos;shing.
-                    </div>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      {drawer.steps.map(step => (
-                        <div key={step.id} style={{
-                          display: "flex", gap: 12, alignItems: "flex-start",
-                          border: "1.5px solid var(--border)", borderRadius: 8,
-                          padding: "10px 12px", background: "var(--bg2)",
-                        }}>
-                          <div style={{
-                            width: 32, height: 32, borderRadius: "50%", background: "var(--accent-dim)",
-                            color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center",
-                            fontWeight: 700, fontSize: 13, flexShrink: 0,
-                          }}>
-                            {step.stepNumber}
-                          </div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)" }}>{step.name}</div>
-                            <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 2 }}>
-                              Bo&apos;lim: {step.responsibleDept}
-                              {step.machine && ` · Mashina: ${step.machine}`}
-                              {step.timeNorm && ` · Vaqt: ${step.timeNorm}`}
-                            </div>
-                            {step.notes && (
-                              <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 4 }}>{step.notes}</div>
-                            )}
-                          </div>
-                          <button onClick={() => handleDeleteStep(step.id)} disabled={deletingStepId === step.id} title="O'chirish"
-                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", padding: 4, flexShrink: 0 }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
-                    <button onClick={openMatModal}
-                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "1.5px solid var(--border)", cursor: "pointer", background: "var(--bg1)", color: "var(--text2)" }}>
-                      <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                      Material qo&apos;shish
-                    </button>
-                  </div>
-                  {drawer.materials.length === 0 ? (
-                    <div style={{ fontSize: 13, color: "var(--text3)", textAlign: "center", padding: "32px 0", border: "1.5px dashed var(--border)", borderRadius: 8 }}>
-                      Materiallar yo&apos;q. Yangi material qo&apos;shing.
-                    </div>
-                  ) : (
-                    <table className="itm-table">
-                      <thead>
-                        <tr>
-                          <th>Material</th>
-                          <th>Birlik</th>
-                          <th style={{ textAlign: "right" }}>Kerakli</th>
-                          <th style={{ textAlign: "right" }}>Mavjud</th>
-                          <th>Holat</th>
-                          <th style={{ width: 40 }}></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {drawer.materials.map(m => (
-                          <tr key={m.id}>
-                            <td style={{ fontWeight: 600, color: "var(--text1)" }}>{m.materialName}</td>
-                            <td style={{ fontSize: 13, color: "var(--text3)" }}>{m.unit}</td>
-                            <td style={{ textAlign: "right", fontWeight: 600, fontFamily: "var(--font-mono)" }}>{m.requiredQty}</td>
-                            <td style={{ textAlign: "right", fontWeight: 600, fontFamily: "var(--font-mono)", color: m.availableQty >= m.requiredQty ? "var(--success)" : "var(--danger)" }}>
-                              {m.availableQty}
-                            </td>
-                            <td><span style={{ fontSize: 11, fontWeight: 600, color: "var(--text3)" }}>{m.status}</span></td>
-                            <td>
-                              <button onClick={() => handleDeleteMaterial(m.materialId)} disabled={deletingMatId === m.materialId} title="O'chirish"
-                                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", padding: 4 }}>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" />
-                                </svg>
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </>
-              )}
-            </div>
           </div>
         </div>
       )}
 
-      {/* ── Add Step Modal ── */}
-      {showStepModal && (
-        <div className="modal-overlay" onClick={() => setShowStepModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ width: 460 }}>
-            <div className="modal-header">
-              <span className="modal-title">Qadam qo&apos;shish</span>
-              <button className="icon-btn" onClick={() => setShowStepModal(false)}>
-                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-            <div className="modal-body">
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div className="form-group">
-                  <label className="form-label">Tartib raqami <span style={{ color: "var(--danger)" }}>*</span></label>
-                  <input type="number"
-                    className={`form-input${stepSubmitted && !stepForm.stepNumber ? " input-error" : ""}`}
-                    min={1} value={stepForm.stepNumber}
-                    onChange={e => setStepForm(f => ({ ...f, stepNumber: e.target.value }))} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Mas&apos;ul bo&apos;lim <span style={{ color: "var(--danger)" }}>*</span></label>
-                  <input
-                    className={`form-input${stepSubmitted && !stepForm.responsibleDept.trim() ? " input-error" : ""}`}
-                    placeholder="Bo'lim nomi" value={stepForm.responsibleDept}
-                    onChange={e => setStepForm(f => ({ ...f, responsibleDept: e.target.value }))} />
-                </div>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Nomi <span style={{ color: "var(--danger)" }}>*</span></label>
-                <input
-                  className={`form-input${stepSubmitted && !stepForm.name.trim() ? " input-error" : ""}`}
-                  placeholder="Qadam nomi" value={stepForm.name}
-                  onChange={e => setStepForm(f => ({ ...f, name: e.target.value }))} />
-                {stepSubmitted && !stepForm.name.trim() && <div className="field-error">Nomi kiritish shart</div>}
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div className="form-group">
-                  <label className="form-label">Mashina/Uskuna</label>
-                  <input className="form-input" placeholder="Ixtiyoriy" value={stepForm.machine}
-                    onChange={e => setStepForm(f => ({ ...f, machine: e.target.value }))} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Vaqt normasi</label>
-                  <input className="form-input" placeholder="Masalan: 4 soat" value={stepForm.timeNorm}
-                    onChange={e => setStepForm(f => ({ ...f, timeNorm: e.target.value }))} />
-                </div>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Izoh</label>
-                <textarea className="form-input" rows={2} placeholder="Qo'shimcha izoh..."
-                  value={stepForm.notes} onChange={e => setStepForm(f => ({ ...f, notes: e.target.value }))}
-                  style={{ resize: "vertical" }} />
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-outline" onClick={() => setShowStepModal(false)}>Bekor qilish</button>
-              <button className="btn btn-primary" onClick={handleAddStep} disabled={savingStep}>
-                {savingStep ? "Qo'shilmoqda..." : "Qo'shish"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Add Material Modal ── */}
-      {showMatModal && (
-        <div className="modal-overlay" onClick={() => setShowMatModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ width: 420 }}>
-            <div className="modal-header">
-              <span className="modal-title">Material qo&apos;shish</span>
-              <button className="icon-btn" onClick={() => setShowMatModal(false)}>
-                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-            <div className="modal-body">
-              <div className="form-group">
-                <label className="form-label">Material <span style={{ color: "var(--danger)" }}>*</span></label>
-                <select
-                  className={`form-input${matSubmitted && !matForm.materialId ? " input-error" : ""}`}
-                  value={matForm.materialId}
-                  onChange={e => setMatForm(f => ({ ...f, materialId: e.target.value }))}
-                >
-                  <option value="">— Materialni tanlang —</option>
-                  {materials.map(m => (
-                    <option key={m.id} value={m.id}>{m.name} ({m.unit}) — mavjud: {m.quantity}</option>
-                  ))}
-                </select>
-                {matSubmitted && !matForm.materialId && <div className="field-error">Material tanlash shart</div>}
-              </div>
-              <div className="form-group">
-                <label className="form-label">Kerakli miqdor <span style={{ color: "var(--danger)" }}>*</span></label>
-                <input type="number"
-                  className={`form-input${matSubmitted && (!matForm.requiredQty || Number(matForm.requiredQty) <= 0) ? " input-error" : ""}`}
-                  min={0.01} step={0.01} placeholder="0.00" value={matForm.requiredQty}
-                  onChange={e => setMatForm(f => ({ ...f, requiredQty: e.target.value }))} />
-                {matSubmitted && (!matForm.requiredQty || Number(matForm.requiredQty) <= 0) && (
-                  <div className="field-error">Miqdor 0 dan katta bo&apos;lishi shart</div>
-                )}
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-outline" onClick={() => setShowMatModal(false)}>Bekor qilish</button>
-              <button className="btn btn-primary" onClick={handleAddMaterial} disabled={savingMat}>
-                {savingMat ? "Qo'shilmoqda..." : "Qo'shish"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── Delete Confirm Modal ── */}
       {deleteId && (
