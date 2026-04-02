@@ -26,6 +26,18 @@ public class NotificationController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
+        var canView    = User.HasClaim("perm", "Notifications.View");
+        var canViewAll = User.HasClaim("perm", "Notifications.ViewAll");
+
+        if (!canView && !canViewAll)
+            return Forbid();
+
+        if (canViewAll)
+        {
+            var all = await _service.GetAllNotificationsAsync();
+            return Ok(all);
+        }
+
         var userId = GetUserId();
         if (userId is null) return Unauthorized();
 

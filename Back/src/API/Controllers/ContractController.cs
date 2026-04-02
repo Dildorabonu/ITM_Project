@@ -131,15 +131,21 @@ public class ContractController : ControllerBase
 
     // ── My Production Tasks ───────────────────────────────────────────────────
 
-    [HasPermission("Tasks.View")]
     [HttpGet("my-tasks")]
+    [Authorize]
     public async Task<IActionResult> GetMyProductionTasks()
     {
         var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!Guid.TryParse(userIdClaim, out var userId))
             return Unauthorized();
 
-        var result = await _contractService.GetMyProductionTasksAsync(userId);
+        var viewAll = User.HasClaim(c => c.Type == "perm" && c.Value == "Tasks.ViewAll");
+        var hasView = User.HasClaim(c => c.Type == "perm" && c.Value == "Tasks.View");
+
+        if (!viewAll && !hasView)
+            return Forbid();
+
+        var result = await _contractService.GetMyProductionTasksAsync(userId, viewAll);
         return Ok(result);
     }
 
