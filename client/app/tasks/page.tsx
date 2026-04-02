@@ -91,6 +91,15 @@ function ContractBar({
       <span className={`status ${STATUS_COLORS[contract.status]}`} style={{ marginLeft: "auto", flexShrink: 0 }}>
         {STATUS_LABELS[contract.status]}
       </span>
+      {!contract.isActive && (
+        <span style={{
+          display: "inline-flex", alignItems: "center", padding: "2px 10px",
+          borderRadius: 20, fontSize: 12, fontWeight: 600, flexShrink: 0,
+          background: "var(--danger-dim)", color: "var(--danger)", border: "1px solid var(--danger)",
+        }}>
+          Nofaol
+        </span>
+      )}
     </div>
   );
 }
@@ -139,9 +148,20 @@ function ContractCard({
           <span className="tcc-no mono">#{contract.contractNo}</span>
           <span className="tcc-party">{contract.contractParty}</span>
         </div>
-        <span className={`status ${STATUS_COLORS[contract.status]}`}>
-          {STATUS_LABELS[contract.status]}
-        </span>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <span className={`status ${STATUS_COLORS[contract.status]}`}>
+            {STATUS_LABELS[contract.status]}
+          </span>
+          {!contract.isActive && (
+            <span style={{
+              display: "inline-flex", alignItems: "center", padding: "2px 8px",
+              borderRadius: 20, fontSize: 11, fontWeight: 600,
+              background: "var(--danger-dim)", color: "var(--danger)", border: "1px solid var(--danger)",
+            }}>
+              Nofaol
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Body: left info + right donut */}

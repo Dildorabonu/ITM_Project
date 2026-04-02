@@ -460,6 +460,7 @@ export default function TechnicalDrawingsPage() {
                     <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Sarlavha</th>
                     <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Yaratuvchi</th>
                     <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Status</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Faollik</th>
                     <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Sana</th>
                     <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>Amal</th>
                   </tr>
@@ -467,7 +468,7 @@ export default function TechnicalDrawingsPage() {
                 <tbody>
                   {filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={7} style={{ textAlign: "center", padding: "32px 14px", color: "var(--text3)" }}>
+                      <td colSpan={8} style={{ textAlign: "center", padding: "32px 14px", color: "var(--text3)" }}>
                         Ma&apos;lumot topilmadi
                       </td>
                     </tr>
@@ -491,6 +492,17 @@ export default function TechnicalDrawingsPage() {
                         </td>
                         <td style={{ textAlign: "center" }}>
                           <StatusBadge status={item.status} />
+                        </td>
+                        <td style={{ textAlign: "center" }}>
+                          <span style={{
+                            display: "inline-flex", alignItems: "center", padding: "2px 10px",
+                            borderRadius: 20, fontSize: 13, fontWeight: 600,
+                            background: item.isActive ? "#dcfce7" : "var(--danger-dim)",
+                            color: item.isActive ? "#16a34a" : "var(--danger)",
+                            border: `1px solid ${item.isActive ? "#86efac" : "var(--danger)"}`,
+                          }}>
+                            {item.isActive ? "Faol" : "Nofaol"}
+                          </span>
                         </td>
                         <td style={{ textAlign: "center", fontSize: 13, color: "var(--text1)", fontFamily: "Inter, sans-serif" }}>
                           {fmtDate(item.createdAt)}

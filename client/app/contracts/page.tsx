@@ -432,6 +432,10 @@ export default function ContractsPage() {
   const [deactivateId, setDeactivateId] = useState<string | null>(null);
   const [deactivating, setDeactivating] = useState(false);
 
+  // Activate confirm
+  const [activateId, setActivateId]     = useState<string | null>(null);
+  const [activating, setActivating]     = useState(false);
+
   // Status change
   const [statusTarget, setStatusTarget] = useState<ContractResponse | null>(null);
   const [newStatus, setNewStatus]       = useState<string>("");
@@ -793,6 +797,22 @@ export default function ContractsPage() {
       // stay open
     } finally {
       setDeleting(false);
+    }
+  };
+
+  // ── Activate ──────────────────────────────────────────────────────────────
+
+  const handleActivate = async () => {
+    if (!activateId) return;
+    setActivating(true);
+    try {
+      await contractService.activate(activateId);
+      setContracts(prev => prev.map(c => c.id === activateId ? { ...c, isActive: true } : c));
+      setActivateId(null);
+    } catch {
+      // stay open
+    } finally {
+      setActivating(false);
     }
   };
 
@@ -1320,12 +1340,13 @@ export default function ContractsPage() {
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Muddat</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Muhimlik</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Holat</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Faollik</th>
                   <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>Amal</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
+                  <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
                 ) : filtered.map((c, i) => (
                   <tr key={c.id} style={{ opacity: c.isActive ? 1 : 0.5 }}>
                     <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>{String(i + 1).padStart(2, "0")}</td>
@@ -1351,6 +1372,17 @@ export default function ContractsPage() {
                         <StatusBadge status={c.status} />
                       )}
                     </td>
+                    <td style={{ textAlign: "center" }}>
+                      <span style={{
+                        display: "inline-flex", alignItems: "center", padding: "2px 10px",
+                        borderRadius: 20, fontSize: 13, fontWeight: 600,
+                        background: c.isActive ? "#dcfce7" : "var(--danger-dim)",
+                        color: c.isActive ? "#16a34a" : "var(--danger)",
+                        border: `1px solid ${c.isActive ? "#86efac" : "var(--danger)"}`,
+                      }}>
+                        {c.isActive ? "Faol" : "Nofaol"}
+                      </span>
+                    </td>
                     <td style={{ borderLeft: "2px solid var(--border)" }}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
                         <button className="btn-icon" onClick={() => openDrawer(c)} title="Ko'rish"
@@ -1374,6 +1406,14 @@ export default function ContractsPage() {
                             style={{ color: "#d97706", borderColor: "#d9770633", background: "#fef3c7" }}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                               <circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                            </svg>
+                          </button>
+                        )}
+                        {canUpdate && !c.isActive && (
+                          <button className="btn-icon" onClick={() => setActivateId(c.id)} title="Active qilish"
+                            style={{ color: "#16a34a", borderColor: "#16a34a33", background: "#f0fdf4" }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="12" cy="12" r="10" /><polyline points="8 12 11 15 16 9" />
                             </svg>
                           </button>
                         )}
@@ -1747,6 +1787,29 @@ export default function ContractsPage() {
                     Skanerlash
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Activate Confirm Modal ── */}
+      {activateId && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div onClick={() => setActivateId(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)" }} />
+          <div style={{ position: "relative", background: "var(--bg1)", borderRadius: 12, padding: 28, width: 360, boxShadow: "0 8px 32px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text1)" }}>Shartnomani active qilish</div>
+            <div style={{ fontSize: 14, color: "var(--text2)", lineHeight: 1.6 }}>
+              Bu shartnoma va unga bog&apos;liq barcha ma&apos;lumotlar qayta active holatga qaytadi.
+            </div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button onClick={() => setActivateId(null)}
+                style={{ padding: "9px 20px", background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", color: "var(--text2)", fontSize: 13, fontWeight: 500 }}>
+                Bekor
+              </button>
+              <button onClick={handleActivate} disabled={activating}
+                style={{ padding: "9px 20px", background: "#16a34a", border: "none", borderRadius: "var(--radius)", cursor: "pointer", color: "#fff", fontSize: 13, fontWeight: 600 }}>
+                {activating ? "Bajarilmoqda..." : "Active qilish"}
               </button>
             </div>
           </div>

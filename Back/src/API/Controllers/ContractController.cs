@@ -117,6 +117,18 @@ public class ContractController : ControllerBase
         return Ok(result);
     }
 
+    [HasPermission("Contracts.Update")]
+    [HttpPatch("{id:guid}/activate")]
+    public async Task<IActionResult> Activate(Guid id)
+    {
+        var result = await _contractService.ActivateAsync(id);
+
+        if (!result.Succeeded)
+            return NotFound(result);
+
+        return Ok(result);
+    }
+
     // ── My Production Tasks ───────────────────────────────────────────────────
 
     [HasPermission("Tasks.View")]
