@@ -218,6 +218,7 @@ public class CostNormService : ICostNormService
             ? $"{c.Creator.FirstName} {c.Creator.LastName}"
             : null,
         CreatedAt = c.CreatedAt,
+        IsActive = c.Contract?.IsActive ?? true,
         Items = c.Items.Select(i => new CostNormItemResponseDto
         {
             Id = i.Id,

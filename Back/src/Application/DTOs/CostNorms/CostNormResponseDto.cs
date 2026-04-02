@@ -13,5 +13,6 @@ public class CostNormResponseDto
     public Guid CreatedBy { get; set; }
     public string? CreatedByFullName { get; set; }
     public DateTime CreatedAt { get; set; }
+    public bool IsActive { get; set; }
     public List<CostNormItemResponseDto> Items { get; set; } = [];
 }
