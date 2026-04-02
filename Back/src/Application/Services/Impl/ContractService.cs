@@ -97,19 +97,6 @@ public class ContractService : IContractService
 
         await _context.SaveChangesAsync();
 
-        var title = $"Yangi shartnoma: {contract.ContractNo}";
-        var parts = new List<string>();
-        if (!string.IsNullOrWhiteSpace(contract.ContractParty))
-            parts.Add($"Mijoz: {contract.ContractParty}");
-        if (!string.IsNullOrWhiteSpace(contract.ProductType))
-            parts.Add($"Mahsulot: {contract.ProductType}");
-        if (contract.Quantity > 0)
-            parts.Add($"Miqdor: {contract.Quantity} {contract.Unit}");
-        var body = $"№{contract.ContractNo} shartnoma yaratildi. " + string.Join(", ", parts) + ".";
-
-        foreach (var deptId in dto.DepartmentIds.Distinct())
-            await _notificationService.NotifyDepartmentAsync(deptId, title, body, NotificationType.Info);
-
         return ApiResult<Guid>.Success(contract.Id, 201);
     }
 
@@ -373,6 +360,8 @@ public class ContractService : IContractService
             .Where(cu => cu.ContractId == contractId)
             .ToListAsync();
 
+        var newlyAssigned = new List<Guid>();
+
         foreach (var item in users.DistinctBy(u => u.UserId))
         {
             var ex = existing.FirstOrDefault(e => e.UserId == item.UserId);
@@ -384,6 +373,7 @@ public class ContractService : IContractService
                     UserId     = item.UserId,
                     Role       = item.Role,
                 });
+                newlyAssigned.Add(item.UserId);
             }
             else
             {
@@ -393,14 +383,17 @@ public class ContractService : IContractService
 
         await _context.SaveChangesAsync();
 
-        var contract = await _context.Contracts.AsNoTracking().FirstOrDefaultAsync(c => c.Id == contractId);
-        foreach (var item in users.DistinctBy(u => u.UserId))
+        if (newlyAssigned.Count > 0)
         {
-            await _notificationService.CreateAsync(
-                item.UserId,
-                $"Shartnomaga tayinlandingiz: {contract?.ContractNo}",
-                $"Sizga «{contract?.ContractNo}» shartnomasi bo'yicha vazifa berildi.",
-                NotificationType.Task);
+            var contract = await _context.Contracts.AsNoTracking().FirstOrDefaultAsync(c => c.Id == contractId);
+            foreach (var uid in newlyAssigned)
+            {
+                await _notificationService.CreateAsync(
+                    uid,
+                    $"Shartnomaga tayinlandingiz: {contract?.ContractNo}",
+                    $"Sizga «{contract?.ContractNo}» shartnomasi bo'yicha vazifa berildi.",
+                    NotificationType.Task);
+            }
         }
 
         return ApiResult<int>.Success(200);
