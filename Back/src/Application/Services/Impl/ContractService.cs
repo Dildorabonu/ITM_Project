@@ -234,6 +234,42 @@ public class ContractService : IContractService
         return ApiResult<int>.Success(200);
     }
 
+    public async Task<ApiResult<int>> ActivateAsync(Guid id)
+    {
+        var contract = await _context.Contracts
+            .Include(c => c.ContractDepartments)
+            .Include(c => c.ContractUsers)
+            .Include(c => c.TechProcesses)
+            .Include(c => c.TechnicalDrawings)
+            .Include(c => c.CostNorms).ThenInclude(cn => cn.Items)
+            .Include(c => c.ContractTasks).ThenInclude(ct => ct.DailyLogs)
+            .FirstOrDefaultAsync(c => c.Id == id);
+
+        if (contract is null)
+            return ApiResult<int>.Failure([$"Contract with id '{id}' not found."], 404);
+
+        contract.IsActive = true;
+
+        foreach (var cd in contract.ContractDepartments) cd.IsActive = true;
+        foreach (var cu in contract.ContractUsers) cu.IsActive = true;
+        foreach (var tp in contract.TechProcesses) tp.IsActive = true;
+        foreach (var td in contract.TechnicalDrawings) td.IsActive = true;
+        foreach (var cn in contract.CostNorms)
+        {
+            cn.IsActive = true;
+            foreach (var item in cn.Items) item.IsActive = true;
+        }
+        foreach (var ct in contract.ContractTasks)
+        {
+            ct.IsActive = true;
+            foreach (var log in ct.DailyLogs) log.IsActive = true;
+        }
+
+        await _context.SaveChangesAsync();
+
+        return ApiResult<int>.Success(200);
+    }
+
     public async Task<ApiResult<IEnumerable<ContractUserDto>>> GetUsersAsync(Guid contractId)
     {
         var exists = await _context.Contracts.AnyAsync(c => c.Id == contractId);

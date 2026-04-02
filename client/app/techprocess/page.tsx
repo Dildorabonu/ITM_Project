@@ -506,13 +506,14 @@ export default function TechProcessPage() {
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Shartnoma</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Sarlavha</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Status</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Faollik</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Sana</th>
                   <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>Amal</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
+                  <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
                 ) : filtered.map((tp, i) => (
                   <tr key={tp.id}>
                     <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>{String(i + 1).padStart(2, "0")}</td>
@@ -524,6 +525,17 @@ export default function TechProcessPage() {
                     </td>
                     <td style={{ fontSize: 13, color: "var(--text2)" }}>{tp.title}</td>
                     <td style={{ textAlign: "center" }}><StatusBadge status={tp.status} /></td>
+                    <td style={{ textAlign: "center" }}>
+                      <span style={{
+                        display: "inline-flex", alignItems: "center", padding: "2px 10px",
+                        borderRadius: 20, fontSize: 13, fontWeight: 600,
+                        background: tp.isActive ? "#dcfce7" : "var(--danger-dim)",
+                        color: tp.isActive ? "#16a34a" : "var(--danger)",
+                        border: `1px solid ${tp.isActive ? "#86efac" : "var(--danger)"}`,
+                      }}>
+                        {tp.isActive ? "Faol" : "Nofaol"}
+                      </span>
+                    </td>
                     <td style={{ textAlign: "center", fontSize: 13, color: "var(--text2)", fontFamily: "var(--font-inter)" }}>{fmt(tp.createdAt)}</td>
                     <td style={{ borderLeft: "2px solid var(--border)" }}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>

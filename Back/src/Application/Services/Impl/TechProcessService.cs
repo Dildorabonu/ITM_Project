@@ -187,5 +187,6 @@ public class TechProcessService : ITechProcessService
             : $"{tp.Approver.FirstName} {tp.Approver.LastName}",
         ApprovedAt = tp.ApprovedAt,
         CreatedAt = tp.CreatedAt,
+        IsActive = tp.Contract?.IsActive ?? true,
     };
 }

@@ -1525,6 +1525,7 @@ export default function CostNormPage() {
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Sarlavha</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Yozuvlar</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Status</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Faollik</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Sana</th>
                   <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>Amallar</th>
                 </tr>
@@ -1554,6 +1555,17 @@ export default function CostNormPage() {
                           border: `1px solid ${norm.status === DrawingStatus.Approved ? "rgba(15,123,69,0.2)" : "var(--border)"}`,
                         }}>
                           {DRAWING_STATUS_LABELS[norm.status ?? DrawingStatus.Draft]}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        <span style={{
+                          display: "inline-flex", alignItems: "center", padding: "2px 10px",
+                          borderRadius: 20, fontSize: 12, fontWeight: 600,
+                          background: norm.isActive ? "#dcfce7" : "var(--danger-dim)",
+                          color: norm.isActive ? "#16a34a" : "var(--danger)",
+                          border: `1px solid ${norm.isActive ? "#86efac" : "var(--danger)"}`,
+                        }}>
+                          {norm.isActive ? "Faol" : "Nofaol"}
                         </span>
                       </td>
                       <td style={{ textAlign: "center", color: "var(--text1)", fontSize: 12, whiteSpace: "nowrap" }}>
