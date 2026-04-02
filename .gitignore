@@ -22,3 +22,6 @@ Back/.vs/
 Back/**/*.user
 .dotnet/
 .nuget/
+
+# Uploads
+Back/src/API/uploads/

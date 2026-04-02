@@ -52,10 +52,11 @@ const emptyForm: ContractForm = {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const STATUS_STYLE: Record<ContractStatus, { bg: string; color: string; border: string }> = {
-  [ContractStatus.Draft]:           { bg: "var(--bg3)",        color: "var(--text2)",    border: "var(--border)" },
-  [ContractStatus.DrawingPending]:  { bg: "#ede9fe",           color: "#6d28d9",         border: "#c4b5fd" },
-  [ContractStatus.TechProcessing]:  { bg: "#fff7ed",           color: "#c2410c",         border: "#fdba74" },
-  [ContractStatus.WarehouseCheck]:  { bg: "#fefce8",           color: "#a16207",         border: "#fde047" },
+  [ContractStatus.Draft]:                { bg: "var(--bg3)",        color: "var(--text2)",    border: "var(--border)" },
+  [ContractStatus.DrawingPending]:       { bg: "#ede9fe",           color: "#6d28d9",         border: "#c4b5fd" },
+  [ContractStatus.TechProcessing]:       { bg: "#fff7ed",           color: "#c2410c",         border: "#fdba74" },
+  [ContractStatus.TechProcessApproved]:  { bg: "var(--success-dim)", color: "var(--success)", border: "rgba(15,123,69,0.2)" },
+  [ContractStatus.WarehouseCheck]:       { bg: "#fefce8",           color: "#a16207",         border: "#fde047" },
   [ContractStatus.InProduction]:    { bg: "#e6f4ea",           color: "#1e7e34",         border: "#a8d5b5" },
   [ContractStatus.Completed]:       { bg: "#e8f0fe",           color: "#1a56db",         border: "#a4c0f4" },
   [ContractStatus.Cancelled]:       { bg: "var(--danger-dim)", color: "var(--danger)",   border: "var(--danger)" },
@@ -91,33 +92,32 @@ function PriorityBadge({ priority }: { priority: Priority }) {
 }
 
 const WORKFLOW_STEPS: { status: ContractStatus; label: string; shortLabel: string }[] = [
-  { status: ContractStatus.Draft,          label: "Shartnoma yaratilindi",              shortLabel: "Yaratildi" },
+  { status: ContractStatus.Draft,          label: "Shartnoma yaratilindi",               shortLabel: "Yaratildi" },
   { status: ContractStatus.DrawingPending, label: "Chizmasi tayyorlandi",                shortLabel: "Chizma" },
-  { status: ContractStatus.TechProcessing, label: "Tex jarayon va me'yoriy sarf",        shortLabel: "Tex jarayon" },
+  { status: ContractStatus.TechProcessing, label: "Texnologik jarayon",                  shortLabel: "Tex jarayon" },
   { status: ContractStatus.WarehouseCheck, label: "Ombor tekshiruviga uzatildi",         shortLabel: "Ombor" },
   { status: ContractStatus.InProduction,   label: "Ishlab chiqarish jarayoni boshlangan", shortLabel: "Ishlab chiqarish" },
   { status: ContractStatus.Completed,      label: "Yakunlandi",                          shortLabel: "Yakunlandi" },
 ];
 
 const STEP_COLORS: Record<ContractStatus, { active: string; done: string; text: string }> = {
-  [ContractStatus.Draft]:          { active: "#6b7280", done: "#6b7280", text: "#fff" },
-  [ContractStatus.DrawingPending]: { active: "#7c3aed", done: "#7c3aed", text: "#fff" },
-  [ContractStatus.TechProcessing]: { active: "#c2410c", done: "#c2410c", text: "#fff" },
-  [ContractStatus.WarehouseCheck]: { active: "#a16207", done: "#a16207", text: "#fff" },
-  [ContractStatus.InProduction]:   { active: "#1e7e34", done: "#1e7e34", text: "#fff" },
-  [ContractStatus.Completed]:      { active: "#1a56db", done: "#1a56db", text: "#fff" },
-  [ContractStatus.Cancelled]:      { active: "#dc2626", done: "#dc2626", text: "#fff" },
+  [ContractStatus.Draft]:               { active: "#6b7280", done: "#6b7280", text: "#fff" },
+  [ContractStatus.DrawingPending]:      { active: "#7c3aed", done: "#7c3aed", text: "#fff" },
+  [ContractStatus.TechProcessing]:      { active: "#c2410c", done: "#c2410c", text: "#fff" },
+  [ContractStatus.TechProcessApproved]: { active: "#0f7b45", done: "#0f7b45", text: "#fff" },
+  [ContractStatus.WarehouseCheck]:      { active: "#a16207", done: "#a16207", text: "#fff" },
+  [ContractStatus.InProduction]:        { active: "#1e7e34", done: "#1e7e34", text: "#fff" },
+  [ContractStatus.Completed]:           { active: "#1a56db", done: "#1a56db", text: "#fff" },
+  [ContractStatus.Cancelled]:           { active: "#dc2626", done: "#dc2626", text: "#fff" },
 };
 
-function WorkflowDiagram({ status, techDone }: { status: ContractStatus; techDone?: boolean }) {
+function WorkflowDiagram({ status }: { status: ContractStatus }) {
   const isCancelled = status === ContractStatus.Cancelled;
   const rawIdx = isCancelled ? -1 : WORKFLOW_STEPS.findIndex(s => s.status === status);
   // When drawing is done (DrawingPending), advance the visual indicator so drawing step
   // shows as completed (checkmark) and the next step appears as current.
   const isDrawingDone = status === ContractStatus.DrawingPending;
-  // When both TechProcess and CostNorm are ready, advance the visual indicator
-  const isTechDone = techDone === true && status === ContractStatus.TechProcessing;
-  const currentIdx = isDrawingDone || isTechDone ? rawIdx + 1 : rawIdx;
+  const currentIdx = isDrawingDone ? rawIdx + 1 : rawIdx;
 
   if (isCancelled) {
     return (
@@ -205,8 +205,6 @@ function WorkflowDiagram({ status, techDone }: { status: ContractStatus; techDon
         }}>
           {isDrawingDone
             ? WORKFLOW_STEPS[rawIdx]?.label
-            : isTechDone
-            ? "Tex jarayon tayyorlandi"
             : WORKFLOW_STEPS[currentIdx]?.label}
         </div>
       </div>
@@ -1393,10 +1391,6 @@ export default function ContractsPage() {
 
             <WorkflowDiagram
               status={viewContract.status}
-              techDone={
-                drawerTechProcesses.length > 0 &&
-                drawerCostNorms.length > 0
-              }
             />
 
             <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 10 }}>Umumiy</div>
