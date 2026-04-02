@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 
 type Notif = {
@@ -163,15 +164,14 @@ export default function NotificationsPage() {
                 <div className="notif-body">{n.body}</div>
                 <div className="notif-ts">{formatTs(n.createdAt)}</div>
               </div>
-              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={(e) => { e.stopPropagation(); deleteNotif(n.id); }}
-                  style={{ opacity: 0.5 }}
-                >
-                  ✕
-                </button>
-              </div>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={(e) => { e.stopPropagation(); deleteNotif(n.id); }}
+                style={{ color: "var(--danger)", opacity: 0.7 }}
+                title="O'chirish"
+              >
+                <Trash2 size={15} />
+              </button>
             </div>
           ))}
         </div>
@@ -220,9 +220,6 @@ export default function NotificationsPage() {
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-outline btn-sm" style={{ color: "var(--danger)" }} onClick={() => { deleteNotif(selected.id); }}>
-                O&apos;chirish
-              </button>
               <button className="btn btn-primary btn-sm" onClick={() => setSelected(null)}>
                 Yopish
               </button>

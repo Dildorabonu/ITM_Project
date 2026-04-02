@@ -198,11 +198,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const hasPermission = useAuthStore((s) => s.hasPermission);
 
   const [notifCount, setNotifCount] = useState(0);
+  const [bellOpen, setBellOpen] = useState(false);
+  const [unreadNotifs, setUnreadNotifs] = useState<{ id: string; title: string; body: string; createdAt: string }[]>([]);
 
   const fetchNotifCount = useCallback(async () => {
     try {
       const res = await api.get("/api/notification/unread-count");
       setNotifCount(res.data.result ?? 0);
+    } catch { /* ignore */ }
+  }, []);
+
+  const fetchUnreadNotifs = useCallback(async () => {
+    try {
+      const res = await api.get("/api/notification");
+      const all = res.data.result || [];
+      setUnreadNotifs(
+        all.filter((n: any) => !n.isRead).map((n: any) => ({
+          id: n.id, title: n.title, body: n.body, createdAt: n.createdAt,
+        }))
+      );
     } catch { /* ignore */ }
   }, []);
 
@@ -764,6 +778,67 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 }}>
                   {darkMode ? "Kunduzgi rejimga o'tkazish" : "Tungi rejimga o'tkazish"}
                 </div>
+              </div>
+              {/* Notification bell */}
+              <div style={{ position: "relative" }}>
+                <button
+                  className={darkMode ? "theme-btn-sun" : "theme-btn-moon"}
+                  onClick={() => { setBellOpen(v => !v); if (!bellOpen) fetchUnreadNotifs(); }}
+                  style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 8, background: "none", border: "1.5px solid", flexShrink: 0, transition: "border-color 0.3s, color 0.3s", cursor: "pointer" }}
+                >
+                  <NavIcon type="bell" size={17} strokeWidth={2} color="currentColor" />
+                  {notifCount > 0 && (
+                    <span style={{
+                      position: "absolute", top: -5, right: -5,
+                      minWidth: 18, height: 18, borderRadius: 9,
+                      background: "var(--danger)", color: "#fff",
+                      fontSize: 11, fontWeight: 700,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      padding: "0 4px", lineHeight: 1,
+                      fontFamily: "var(--font-mono)",
+                      boxShadow: "0 0 0 2px var(--bg2)",
+                    }}>
+                      {notifCount > 99 ? "99+" : notifCount}
+                    </span>
+                  )}
+                </button>
+                {bellOpen && (
+                  <>
+                    <div onClick={() => setBellOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 99 }} />
+                    <div style={{
+                      position: "absolute", top: "calc(100% + 10px)", right: 0,
+                      background: "var(--bg2)", border: "1px solid var(--border)",
+                      borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+                      width: 320, zIndex: 100, overflow: "hidden",
+                    }}>
+                      <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>O&apos;qilmagan xabarlar</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, background: "var(--danger)", color: "#fff", borderRadius: 9, padding: "1px 8px", fontFamily: "var(--font-mono)" }}>
+                          {unreadNotifs.length}
+                        </span>
+                      </div>
+                      {unreadNotifs.length === 0 ? (
+                        <div style={{ padding: "24px 16px", textAlign: "center", fontSize: 13, color: "var(--text3)" }}>
+                          O&apos;qilmagan xabar yo&apos;q
+                        </div>
+                      ) : (
+                        <div style={{ maxHeight: 320, overflowY: "auto" }}>
+                          {unreadNotifs.map(n => (
+                            <div key={n.id} style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)", cursor: "default" }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{n.title}</div>
+                              <div style={{ fontSize: 12, color: "var(--text2)", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{n.body}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div style={{ padding: "10px 16px", borderTop: "1px solid var(--border)" }}>
+                        <Link href="/notifications" onClick={() => setBellOpen(false)} style={{ fontSize: 13, color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}>
+                          Barchasini ko&apos;rish →
+                        </Link>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
