@@ -723,6 +723,7 @@ export default function ContractsPage() {
       }
       await load();
       setShowForm(false);
+      window.dispatchEvent(new Event("notif-read"));
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
       setFormError(msg ?? "Saqlashda xatolik yuz berdi.");
@@ -778,6 +779,7 @@ export default function ContractsPage() {
       await contractService.delete(deleteId);
       setContracts(prev => prev.filter(c => c.id !== deleteId));
       setDeleteId(null);
+      window.dispatchEvent(new Event("notif-read"));
     } catch {
       // stay open
     } finally {
@@ -794,6 +796,7 @@ export default function ContractsPage() {
       await contractService.activate(activateId);
       setContracts(prev => prev.map(c => c.id === activateId ? { ...c, isActive: true } : c));
       setActivateId(null);
+      window.dispatchEvent(new Event("notif-read"));
     } catch {
       // stay open
     } finally {
@@ -810,6 +813,7 @@ export default function ContractsPage() {
       await contractService.deactivate(deactivateId);
       setContracts(prev => prev.map(c => c.id === deactivateId ? { ...c, isActive: false } : c));
       setDeactivateId(null);
+      window.dispatchEvent(new Event("notif-read"));
     } catch {
       // stay open
     } finally {
@@ -828,6 +832,7 @@ export default function ContractsPage() {
         prev.map(c => c.id === statusTarget.id ? { ...c, status: Number(newStatus) as ContractStatus } : c)
       );
       setStatusTarget(null);
+      window.dispatchEvent(new Event("notif-read"));
     } catch {
       // stay open
     } finally {
