@@ -283,7 +283,7 @@ export default function TechProcessPage() {
 
             {/* Shartnoma + Sarlavha */}
             <div style={{ gridColumn: "1 / 2", gridRow: "1 / 2" }}>
-              <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: submitted && !form.contractId ? "var(--danger)" : "var(--text2)" }}>
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: submitted && !form.contractId ? "var(--danger)" : "var(--text2)" }}>
                 Shartnoma <span style={{ color: "var(--danger)" }}>*</span>
               </label>
               <select className="form-input" value={form.contractId}
@@ -298,7 +298,7 @@ export default function TechProcessPage() {
               {submitted && !form.contractId && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Shartnoma tanlash shart</div>}
 
               <div style={{ marginTop: 12 }}>
-                <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: submitted && !form.title.trim() ? "var(--danger)" : "var(--text2)" }}>
+                <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: submitted && !form.title.trim() ? "var(--danger)" : "var(--text2)" }}>
                   Sarlavha <span style={{ color: "var(--danger)" }}>*</span>
                 </label>
                 <input className="form-input" value={form.title}
@@ -312,14 +312,14 @@ export default function TechProcessPage() {
 
             {/* Izoh */}
             <div style={{ gridColumn: "1 / 2" }}>
-              <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: "var(--text2)" }}>Izoh</label>
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Izoh</label>
               <textarea className="form-input" value={form.notes}
                 onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                 placeholder="Qo'shimcha izoh (ixtiyoriy)" rows={6} style={{ resize: "none" }} />
             </div>
 
             <div style={{ gridColumn: "2 / 3", gridRow: "1 / 2" }}>
-              <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: submitted && !finalContractFile ? "var(--danger)" : "var(--text2)" }}>
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: submitted && !finalContractFile ? "var(--danger)" : "var(--text2)" }}>
                 Shartnoma fayllari <span style={{ color: "var(--danger)" }}>*</span>
               </label>
               <label
@@ -368,7 +368,7 @@ export default function TechProcessPage() {
             </div>
 
             <div style={{ gridColumn: "2 / 3", gridRow: "2 / 3" }}>
-              <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: submitted && !templateContractFile ? "var(--danger)" : "var(--text2)" }}>
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: submitted && !templateContractFile ? "var(--danger)" : "var(--text2)" }}>
                 Template fayli <span style={{ color: "var(--danger)" }}>*</span>
               </label>
               <label
@@ -518,13 +518,13 @@ export default function TechProcessPage() {
                     <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>{String(i + 1).padStart(2, "0")}</td>
                     <td style={{ textAlign: "center" }}>
                       <button onClick={() => openDrawer(tp)}
-                        style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontWeight: 700, fontSize: 13, color: "var(--accent)", fontFamily: "var(--font-mono)" }}>
+                        style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 13, color: "var(--text2)", fontFamily: "var(--font-inter)" }}>
                         {tp.contractNo}
                       </button>
                     </td>
-                    <td style={{ fontWeight: 500 }}>{tp.title}</td>
+                    <td style={{ fontSize: 13, color: "var(--text2)" }}>{tp.title}</td>
                     <td style={{ textAlign: "center" }}><StatusBadge status={tp.status} /></td>
-                    <td style={{ textAlign: "center", fontSize: 13, color: "var(--text2)", fontFamily: "var(--font-mono)" }}>{fmt(tp.createdAt)}</td>
+                    <td style={{ textAlign: "center", fontSize: 13, color: "var(--text2)", fontFamily: "var(--font-inter)" }}>{fmt(tp.createdAt)}</td>
                     <td style={{ borderLeft: "2px solid var(--border)" }}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
                         <button className="btn-icon" onClick={() => openDrawer(tp)} title="Ko'rish"
@@ -645,7 +645,7 @@ export default function TechProcessPage() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 22 }}>
               <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
                 <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Shartnoma raqami</div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: "var(--accent)", fontFamily: "var(--font-mono)" }}>{drawer.contractNo}</div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: "var(--accent)", fontFamily: "var(--font-inter)" }}>{drawer.contractNo}</div>
               </div>
               <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
                 <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Status</div>
