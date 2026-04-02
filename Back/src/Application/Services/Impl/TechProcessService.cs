@@ -4,6 +4,7 @@ using Core.Entities;
 using Core.Enums;
 using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
+using DrawingStatus = Core.Enums.DrawingStatus;
 using SysTask = System.Threading.Tasks.Task;
 
 namespace Application.Services.Impl;
@@ -88,9 +89,12 @@ public class TechProcessService : ITechProcessService
         };
 
         _context.TechProcesses.Add(tp);
-        await _context.SaveChangesAsync();
 
-        await TryAdvanceToWarehouseCheckAsync(dto.ContractId);
+        var contract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == dto.ContractId);
+        if (contract is not null && contract.Status == ContractStatus.DrawingPending)
+            contract.Status = ContractStatus.TechProcessing;
+
+        await _context.SaveChangesAsync();
 
         return ApiResult<Guid>.Success(tp.Id, 201);
     }
@@ -101,10 +105,12 @@ public class TechProcessService : ITechProcessService
         if (contract is null || contract.Status != ContractStatus.TechProcessing)
             return;
 
-        var hasTechProcess = await _context.TechProcesses.AnyAsync(t => t.ContractId == contractId);
-        var hasCostNorm = await _context.CostNorms.AnyAsync(c => c.ContractId == contractId);
+        var techProcessApproved = await _context.TechProcesses
+            .AnyAsync(t => t.ContractId == contractId && t.Status == ProcessStatus.Approved);
+        var costNormApproved = await _context.CostNorms
+            .AnyAsync(c => c.ContractId == contractId && c.Status == DrawingStatus.Approved);
 
-        if (hasTechProcess && hasCostNorm)
+        if (techProcessApproved && costNormApproved)
         {
             contract.Status = ContractStatus.WarehouseCheck;
             await _context.SaveChangesAsync();
@@ -140,6 +146,7 @@ public class TechProcessService : ITechProcessService
         tp.ApprovedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+        await TryAdvanceToWarehouseCheckAsync(tp.ContractId);
         return ApiResult<int>.Success(1);
     }
 
