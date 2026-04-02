@@ -557,9 +557,10 @@ export default function ContractsPage() {
       setError("");
       const data = await contractService.getAll();
       setContracts(data);
-    } catch {
+    } catch (err) {
       setContracts([]);
-      setError("");
+      setError("Shartnomalarni yuklashda xatolik yuz berdi");
+      console.error("Contracts load error:", err);
     } finally {
       setLoading(false);
     }

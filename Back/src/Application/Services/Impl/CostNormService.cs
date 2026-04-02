@@ -12,11 +12,13 @@ namespace Application.Services.Impl;
 public class CostNormService : ICostNormService
 {
     private readonly DatabaseContext _context;
+    private readonly INotificationService _notificationService;
     private readonly IAttachmentService _attachmentService;
 
-    public CostNormService(DatabaseContext context, IAttachmentService attachmentService)
+    public CostNormService(DatabaseContext context, INotificationService notificationService, IAttachmentService attachmentService)
     {
         _context = context;
+        _notificationService = notificationService;
         _attachmentService = attachmentService;
     }
 
@@ -105,6 +107,14 @@ public class CostNormService : ICostNormService
 
         _context.CostNorms.Add(costNorm);
         await _context.SaveChangesAsync();
+
+        var contract = await _context.Contracts.AsNoTracking().FirstOrDefaultAsync(c => c.Id == dto.ContractId);
+        await _notificationService.NotifyAllAsync(
+            $"Yangi me'yoriy sarf: {costNorm.Title}",
+            $"«{contract?.ContractNo}» shartnomasi uchun me'yoriy sarf norma tuzildi: {costNorm.Title}. Materiallar: {costNorm.Items.Count} ta.",
+            NotificationType.Info);
+
+        await TryAdvanceToWarehouseCheckAsync(dto.ContractId);
 
         return ApiResult<Guid>.Success(costNorm.Id, 201);
     }
