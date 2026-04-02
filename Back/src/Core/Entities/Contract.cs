@@ -15,6 +15,7 @@ public class Contract
     public string ContractParty { get; set; } = string.Empty;
     public ContractStatus Status { get; set; }
     public string? Notes { get; set; }
+    public bool IsActive { get; set; } = true;
     public Guid CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

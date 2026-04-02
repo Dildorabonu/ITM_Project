@@ -368,6 +368,7 @@ export interface ContractResponse {
   contractParty: string;
   status: ContractStatus;
   notes: string | null;
+  isActive: boolean;
   createdBy: string;
   createdByFullName: string | null;
   createdAt: string;
@@ -442,6 +443,10 @@ export const contractService = {
 
   delete: async (id: string): Promise<void> => {
     await api.delete(`/api/contract/${id}`);
+  },
+
+  deactivate: async (id: string): Promise<void> => {
+    await api.patch(`/api/contract/${id}/deactivate`);
   },
 
   getFiles: async (id: string): Promise<AttachmentResponse[]> => {
