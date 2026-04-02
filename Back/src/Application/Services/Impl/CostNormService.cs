@@ -4,6 +4,7 @@ using Core.Entities;
 using Core.Enums;
 using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
+using ProcessStatus = Core.Enums.ProcessStatus;
 using SysTask = System.Threading.Tasks.Task;
 
 namespace Application.Services.Impl;
@@ -124,10 +125,12 @@ public class CostNormService : ICostNormService
         if (contract is null || contract.Status != ContractStatus.TechProcessing)
             return;
 
-        var hasTechProcess = await _context.TechProcesses.AnyAsync(t => t.ContractId == contractId);
-        var hasCostNorm = await _context.CostNorms.AnyAsync(c => c.ContractId == contractId);
+        var techProcessApproved = await _context.TechProcesses
+            .AnyAsync(t => t.ContractId == contractId && t.Status == ProcessStatus.Approved);
+        var costNormApproved = await _context.CostNorms
+            .AnyAsync(c => c.ContractId == contractId && c.Status == DrawingStatus.Approved);
 
-        if (hasTechProcess && hasCostNorm)
+        if (techProcessApproved && costNormApproved)
         {
             contract.Status = ContractStatus.WarehouseCheck;
             await _context.SaveChangesAsync();
@@ -184,6 +187,7 @@ public class CostNormService : ICostNormService
 
         costNorm.Status = DrawingStatus.Approved;
         await _context.SaveChangesAsync();
+        await TryAdvanceToWarehouseCheckAsync(costNorm.ContractId);
         return ApiResult<int>.Success(1);
     }
 
