@@ -2,8 +2,6 @@ namespace Core.Enums;
 
 public enum DrawingStatus
 {
-    Draft,
-    UnderReview,
-    Approved,
-    Rejected
+    Draft = 0,
+    Approved = 1,
 }

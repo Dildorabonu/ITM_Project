@@ -1,3 +1,5 @@
+using Core.Enums;
+
 namespace Application.DTOs.CostNorms;
 
 public class CostNormResponseDto
@@ -7,6 +9,7 @@ public class CostNormResponseDto
     public string ContractNo { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string? Notes { get; set; }
+    public DrawingStatus Status { get; set; }
     public Guid CreatedBy { get; set; }
     public string? CreatedByFullName { get; set; }
     public DateTime CreatedAt { get; set; }

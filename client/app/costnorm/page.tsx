@@ -6,6 +6,8 @@ import { Upload, X, Image, ImageOff, Trash2, Eye, ChevronDown, ChevronRight, Che
 import {
   contractService,
   costNormService,
+  DrawingStatus,
+  DRAWING_STATUS_LABELS,
   type ContractResponse,
   type CostNormResponse,
   type CostNormItemResponse,
@@ -614,6 +616,9 @@ export default function CostNormPage() {
   const [createTab, setCreateTab] = useState<"form" | "table">("form");
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // Approve state
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+
   // Edit state
   const [editingNorm, setEditingNorm] = useState<CostNormResponse | null>(null);
   const [editForm, setEditForm] = useState({ title: "", notes: "" });
@@ -767,6 +772,65 @@ export default function CostNormPage() {
         await costNormService.uploadFile(newId, formFile);
       }
 
+      await loadList();
+      setMode("list");
+    } catch {
+      setSaveError("Saqlashda xatolik yuz berdi");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // ── Approve ──────────────────────────────────────────────────────────────
+
+  async function handleApprove(id: string) {
+    setApprovingId(id);
+    try {
+      await costNormService.approve(id);
+      setCostNorms(prev => prev.map(n => n.id === id ? { ...n, status: DrawingStatus.Approved } : n));
+      if (selectedNorm?.id === id) setSelectedNorm(n => n ? { ...n, status: DrawingStatus.Approved } : n);
+    } finally {
+      setApprovingId(null);
+    }
+  }
+
+  // ── Save and approve ─────────────────────────────────────────────────────
+
+  async function handleSaveAndApprove() {
+    setSubmitted(true);
+    if (!form.contractId || parsedTables.length === 0) return;
+
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const allRows = parsedTables.flatMap(t => t.rows);
+      const items = allRows.map((row, idx) => ({
+        isSection: row.isSection,
+        sectionName: row.isSection ? row.sectionName : null,
+        no: row.no || null,
+        name: row.name || null,
+        unit: row.unit || null,
+        readyQty: row.readyQty || null,
+        wasteQty: row.wasteQty || null,
+        totalQty: row.totalQty || null,
+        photoRaw: row.photoRaw || null,
+        photoSemi: row.photoSemi || null,
+        importType: row.importType || null,
+        sortOrder: idx,
+      }));
+
+      const newId = await costNormService.create({
+        contractId: form.contractId,
+        title: form.title || formFile?.name?.replace(/\.docx$/i, "") || "Me'yoriy sarf",
+        notes: form.notes || null,
+        items,
+      });
+
+      if (formFile && newId) {
+        await costNormService.uploadFile(newId, formFile);
+      }
+
+      await costNormService.approve(newId);
       await loadList();
       setMode("list");
     } catch {
@@ -1014,12 +1078,16 @@ export default function CostNormPage() {
             <button onClick={() => setMode("list")} style={{ background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", padding: "7px 18px", color: "var(--text2)", fontSize: 13, fontWeight: 500 }}>
               Bekor qilish
             </button>
-            <button className="btn-primary" onClick={handleSave} disabled={saving} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 20px", borderRadius: "var(--radius)", fontSize: 13 }}>
+            <button onClick={handleSave} disabled={saving} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 20px", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, border: "1.5px solid var(--border)", background: "var(--bg3)", color: "var(--text2)", cursor: "pointer" }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
                 <polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
               </svg>
-              {saving ? "Saqlanmoqda..." : "Saqlash"}
+              {saving ? "Saqlanmoqda..." : "Qoralama saqlash"}
+            </button>
+            <button className="btn-primary" onClick={handleSaveAndApprove} disabled={saving} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 20px", borderRadius: "var(--radius)", fontSize: 13 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              {saving ? "Saqlanmoqda..." : "Tasdiqlash"}
             </button>
           </div>
         </div>
@@ -1234,6 +1302,16 @@ export default function CostNormPage() {
               </svg>
               {editSaving ? "Saqlanmoqda..." : "Saqlash"}
             </button>
+            {editingNorm?.status === DrawingStatus.Draft && (
+              <button
+                onClick={() => handleApprove(editingNorm.id)}
+                disabled={approvingId === editingNorm.id}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 20px", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, border: "1px solid rgba(15,123,69,0.3)", background: "var(--success-dim)", color: "var(--success)", cursor: "pointer" }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                {approvingId === editingNorm.id ? "Tasdiqlanmoqda..." : "Tasdiqlash"}
+              </button>
+            )}
           </div>
         </div>
 
@@ -1396,13 +1474,35 @@ export default function CostNormPage() {
           </button>
 
           <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
-            <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {norm.title}
-            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {norm.title}
+              </span>
+              <span style={{
+                display: "inline-flex", alignItems: "center", padding: "2px 10px",
+                borderRadius: 20, fontSize: 11, fontWeight: 600, whiteSpace: "nowrap",
+                background: norm.status === DrawingStatus.Approved ? "var(--success-dim)" : "var(--bg3)",
+                color: norm.status === DrawingStatus.Approved ? "var(--success)" : "var(--text2)",
+                border: `1px solid ${norm.status === DrawingStatus.Approved ? "rgba(15,123,69,0.2)" : "var(--border)"}`,
+              }}>
+                {DRAWING_STATUS_LABELS[norm.status ?? DrawingStatus.Draft]}
+              </span>
+            </div>
             <span style={{ fontSize: 12, color: "var(--text3)" }}>
               {norm.contractNo} · {(() => { const d = norm.createdAt?.slice(0, 10).split("-"); return d && d.length === 3 ? `${d[2]}-${d[1]}-${d[0].slice(-2)}` : "—"; })()}
             </span>
           </div>
+
+          {norm.status === DrawingStatus.Draft && (
+            <button
+              onClick={() => handleApprove(norm.id)}
+              disabled={approvingId === norm.id}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "0 14px", height: 36, borderRadius: "var(--radius)", border: "1px solid rgba(15,123,69,0.3)", background: "var(--success-dim)", color: "var(--success)", fontSize: 13, cursor: "pointer", whiteSpace: "nowrap", fontWeight: 600 }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              {approvingId === norm.id ? "Tasdiqlanmoqda..." : "Tasdiqlash"}
+            </button>
+          )}
 
           {detailFiles.length > 0 && (
             <button
@@ -1484,6 +1584,7 @@ export default function CostNormPage() {
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Shartnoma</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Sarlavha</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Yozuvlar</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Status</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Sana</th>
                   <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>Amallar</th>
                 </tr>
@@ -1504,6 +1605,17 @@ export default function CostNormPage() {
                       </td>
                       <td style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text1)" }}>{norm.title}</td>
                       <td style={{ textAlign: "center", color: "var(--text1)", fontSize: 12 }}>{dataItems}</td>
+                      <td style={{ textAlign: "center" }}>
+                        <span style={{
+                          display: "inline-flex", alignItems: "center", padding: "2px 10px",
+                          borderRadius: 20, fontSize: 12, fontWeight: 600,
+                          background: norm.status === DrawingStatus.Approved ? "var(--success-dim)" : "var(--bg3)",
+                          color: norm.status === DrawingStatus.Approved ? "var(--success)" : "var(--text2)",
+                          border: `1px solid ${norm.status === DrawingStatus.Approved ? "rgba(15,123,69,0.2)" : "var(--border)"}`,
+                        }}>
+                          {DRAWING_STATUS_LABELS[norm.status ?? DrawingStatus.Draft]}
+                        </span>
+                      </td>
                       <td style={{ textAlign: "center", color: "var(--text1)", fontSize: 12, whiteSpace: "nowrap" }}>
                         {(() => { const d = norm.createdAt?.slice(0, 10).split("-"); return d && d.length === 3 ? `${d[2]}-${d[1]}-${d[0].slice(-2)}` : "—"; })()}
                       </td>
@@ -1520,6 +1632,12 @@ export default function CostNormPage() {
                               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                             </svg>
                           </button>
+                          {norm.status === DrawingStatus.Draft && (
+                            <button className="btn-icon" onClick={() => handleApprove(norm.id)} disabled={approvingId === norm.id} title="Tasdiqlash"
+                              style={{ color: "var(--success)", borderColor: "rgba(15,123,69,0.2)", background: "var(--success-dim)" }}>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            </button>
+                          )}
                           <button className="btn-icon btn-icon-danger" onClick={() => handleDelete(norm.id)} title="O'chirish"
                             style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
                             <Trash2 size={14} />
