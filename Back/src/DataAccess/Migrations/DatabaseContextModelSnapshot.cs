@@ -719,75 +719,6 @@ namespace DataAccess.Migrations
                     b.ToTable("TechProcesses");
                 });
 
-            modelBuilder.Entity("Core.Entities.TechProcessMaterial", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<decimal>("AvailableQty")
-                        .HasColumnType("decimal(18,4)");
-
-                    b.Property<Guid>("MaterialId")
-                        .HasColumnType("uuid");
-
-                    b.Property<decimal>("RequiredQty")
-                        .HasColumnType("decimal(18,4)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("TechProcessId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("MaterialId");
-
-                    b.HasIndex("TechProcessId");
-
-                    b.ToTable("TechProcessMaterials");
-                });
-
-            modelBuilder.Entity("Core.Entities.TechStep", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Machine")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("text");
-
-                    b.Property<string>("ResponsibleDept")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("StepNumber")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("TechProcessId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("TimeNorm")
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TechProcessId");
-
-                    b.ToTable("TechSteps");
-                });
 
             modelBuilder.Entity("Core.Entities.TechnicalDrawing", b =>
                 {
@@ -1155,35 +1086,6 @@ namespace DataAccess.Migrations
                     b.Navigation("Contract");
                 });
 
-            modelBuilder.Entity("Core.Entities.TechProcessMaterial", b =>
-                {
-                    b.HasOne("Core.Entities.Material", "Material")
-                        .WithMany("TechProcessMaterials")
-                        .HasForeignKey("MaterialId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Core.Entities.TechProcess", "TechProcess")
-                        .WithMany("Materials")
-                        .HasForeignKey("TechProcessId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Material");
-
-                    b.Navigation("TechProcess");
-                });
-
-            modelBuilder.Entity("Core.Entities.TechStep", b =>
-                {
-                    b.HasOne("Core.Entities.TechProcess", "TechProcess")
-                        .WithMany("Steps")
-                        .HasForeignKey("TechProcessId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("TechProcess");
-                });
 
             modelBuilder.Entity("Core.Entities.TechnicalDrawing", b =>
                 {
@@ -1268,8 +1170,6 @@ namespace DataAccess.Migrations
                     b.Navigation("StockIns");
 
                     b.Navigation("StockOuts");
-
-                    b.Navigation("TechProcessMaterials");
                 });
 
             modelBuilder.Entity("Core.Entities.Permission", b =>
@@ -1284,12 +1184,6 @@ namespace DataAccess.Migrations
                     b.Navigation("Users");
                 });
 
-            modelBuilder.Entity("Core.Entities.TechProcess", b =>
-                {
-                    b.Navigation("Materials");
-
-                    b.Navigation("Steps");
-                });
 
             modelBuilder.Entity("Core.Entities.User", b =>
                 {
