@@ -11,6 +11,7 @@ public class TechProcess
     public int CurrentStep { get; set; }
     public Guid? ApprovedBy { get; set; }
     public DateTime? ApprovedAt { get; set; }
+    public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation properties
