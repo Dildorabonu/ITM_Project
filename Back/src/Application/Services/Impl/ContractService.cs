@@ -170,18 +170,21 @@ public class ContractService : IContractService
         contract.Status = status;
         await _context.SaveChangesAsync();
 
-        var title = $"Shartnoma holati o'zgardi: {contract.ContractNo}";
-        var body  = $"{contract.ContractNo} shartnoma holati «{status}» ga o'zgartirildi.";
+        if (status != ContractStatus.DrawingPending)
+        {
+            var title = $"Shartnoma holati o'zgardi: {contract.ContractNo}";
+            var body  = $"{contract.ContractNo} shartnoma holati «{status}» ga o'zgartirildi.";
 
-        var userIds = contract.ContractUsers.Select(cu => cu.UserId).ToHashSet();
+            var userIds = contract.ContractUsers.Select(cu => cu.UserId).ToHashSet();
 
-        var deptUserIds = await _context.Users
-            .Where(u => u.IsActive && contract.ContractDepartments.Select(cd => cd.DepartmentId).Contains(u.DepartmentId!.Value))
-            .Select(u => u.Id)
-            .ToListAsync();
+            var deptUserIds = await _context.Users
+                .Where(u => u.IsActive && contract.ContractDepartments.Select(cd => cd.DepartmentId).Contains(u.DepartmentId!.Value))
+                .Select(u => u.Id)
+                .ToListAsync();
 
-        foreach (var uid in userIds.Union(deptUserIds))
-            await _notificationService.CreateAsync(uid, title, body, NotificationType.Info);
+            foreach (var uid in userIds.Union(deptUserIds))
+                await _notificationService.CreateAsync(uid, title, body, NotificationType.Info);
+        }
 
         if (status == ContractStatus.TechProcessing)
             await TryAdvanceToWarehouseCheckAsync(contract);
