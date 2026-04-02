@@ -98,7 +98,14 @@ public class ContractService : IContractService
         await _context.SaveChangesAsync();
 
         var title = $"Yangi shartnoma: {contract.ContractNo}";
-        var body  = $"{contract.ContractParty} bilan {contract.ProductType} uchun yangi shartnoma yaratildi. Miqdori: {contract.Quantity} {contract.Unit}.";
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(contract.ContractParty))
+            parts.Add($"Mijoz: {contract.ContractParty}");
+        if (!string.IsNullOrWhiteSpace(contract.ProductType))
+            parts.Add($"Mahsulot: {contract.ProductType}");
+        if (contract.Quantity > 0)
+            parts.Add($"Miqdor: {contract.Quantity} {contract.Unit}");
+        var body = $"№{contract.ContractNo} shartnoma yaratildi. " + string.Join(", ", parts) + ".";
 
         foreach (var deptId in dto.DepartmentIds.Distinct())
             await _notificationService.NotifyDepartmentAsync(deptId, title, body, NotificationType.Info);
@@ -110,6 +117,7 @@ public class ContractService : IContractService
     {
         var contract = await _context.Contracts
             .Include(c => c.ContractDepartments)
+            .Include(c => c.ContractUsers)
             .FirstOrDefaultAsync(c => c.Id == id);
 
         if (contract is null)
@@ -147,12 +155,27 @@ public class ContractService : IContractService
 
         await _context.SaveChangesAsync();
 
+        var title = $"Shartnoma yangilandi: {contract.ContractNo}";
+        var body  = $"№{contract.ContractNo} shartnoma ma'lumotlari yangilandi.";
+
+        var userIds = contract.ContractUsers.Select(cu => cu.UserId).ToHashSet();
+        var deptUserIds = await _context.Users
+            .Where(u => u.IsActive && contract.ContractDepartments.Select(cd => cd.DepartmentId).Contains(u.DepartmentId!.Value))
+            .Select(u => u.Id)
+            .ToListAsync();
+
+        foreach (var uid in userIds.Union(deptUserIds))
+            await _notificationService.CreateAsync(uid, title, body, NotificationType.Info);
+
         return ApiResult<int>.Success(200);
     }
 
     public async Task<ApiResult<int>> UpdateStatusAsync(Guid id, ContractStatus status)
     {
-        var contract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == id);
+        var contract = await _context.Contracts
+            .Include(c => c.ContractDepartments)
+            .Include(c => c.ContractUsers)
+            .FirstOrDefaultAsync(c => c.Id == id);
 
         if (contract is null)
             return ApiResult<int>.Failure([$"Contract with id '{id}' not found."], 404);
@@ -160,10 +183,18 @@ public class ContractService : IContractService
         contract.Status = status;
         await _context.SaveChangesAsync();
 
-        await _notificationService.NotifyAllAsync(
-            $"Shartnoma holati o'zgardi: {contract.ContractNo}",
-            $"{contract.ContractNo} shartnoma holati «{status}» ga o'zgartirildi.",
-            NotificationType.Info);
+        var title = $"Shartnoma holati o'zgardi: {contract.ContractNo}";
+        var body  = $"{contract.ContractNo} shartnoma holati «{status}» ga o'zgartirildi.";
+
+        var userIds = contract.ContractUsers.Select(cu => cu.UserId).ToHashSet();
+
+        var deptUserIds = await _context.Users
+            .Where(u => u.IsActive && contract.ContractDepartments.Select(cd => cd.DepartmentId).Contains(u.DepartmentId!.Value))
+            .Select(u => u.Id)
+            .ToListAsync();
+
+        foreach (var uid in userIds.Union(deptUserIds))
+            await _notificationService.CreateAsync(uid, title, body, NotificationType.Info);
 
         if (status == ContractStatus.TechProcessing)
             await TryAdvanceToWarehouseCheckAsync(contract);
@@ -188,13 +219,28 @@ public class ContractService : IContractService
 
     public async Task<ApiResult<int>> DeleteAsync(Guid id)
     {
-        var contract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == id);
+        var contract = await _context.Contracts
+            .Include(c => c.ContractDepartments)
+            .Include(c => c.ContractUsers)
+            .FirstOrDefaultAsync(c => c.Id == id);
 
         if (contract is null)
             return ApiResult<int>.Failure([$"Contract with id '{id}' not found."], 404);
 
+        var title = $"Shartnoma o'chirildi: {contract.ContractNo}";
+        var body  = $"№{contract.ContractNo} shartnoma tizimdan o'chirildi.";
+
+        var userIds = contract.ContractUsers.Select(cu => cu.UserId).ToHashSet();
+        var deptUserIds = await _context.Users
+            .Where(u => u.IsActive && contract.ContractDepartments.Select(cd => cd.DepartmentId).Contains(u.DepartmentId!.Value))
+            .Select(u => u.Id)
+            .ToListAsync();
+
         _context.Contracts.Remove(contract);
         await _context.SaveChangesAsync();
+
+        foreach (var uid in userIds.Union(deptUserIds))
+            await _notificationService.CreateAsync(uid, title, body, NotificationType.Warning);
 
         return ApiResult<int>.Success(200);
     }
@@ -232,6 +278,18 @@ public class ContractService : IContractService
 
         await _context.SaveChangesAsync();
 
+        var deactivateTitle = $"Shartnoma o'chirib qo'yildi: {contract.ContractNo}";
+        var deactivateBody  = $"№{contract.ContractNo} shartnoma va unga bog'liq barcha ma'lumotlar nofaol holatga o'tkazildi.";
+
+        var deactivateUserIds = contract.ContractUsers.Select(cu => cu.UserId).ToHashSet();
+        var deactivateDeptUserIds = await _context.Users
+            .Where(u => u.IsActive && contract.ContractDepartments.Select(cd => cd.DepartmentId).Contains(u.DepartmentId!.Value))
+            .Select(u => u.Id)
+            .ToListAsync();
+
+        foreach (var uid in deactivateUserIds.Union(deactivateDeptUserIds))
+            await _notificationService.CreateAsync(uid, deactivateTitle, deactivateBody, NotificationType.Warning);
+
         return ApiResult<int>.Success(200);
     }
 
@@ -267,6 +325,18 @@ public class ContractService : IContractService
         }
 
         await _context.SaveChangesAsync();
+
+        var activateTitle = $"Shartnoma faollashtirildi: {contract.ContractNo}";
+        var activateBody  = $"№{contract.ContractNo} shartnoma qayta faol holatga o'tkazildi.";
+
+        var activateUserIds = contract.ContractUsers.Select(cu => cu.UserId).ToHashSet();
+        var activateDeptUserIds = await _context.Users
+            .Where(u => u.IsActive && contract.ContractDepartments.Select(cd => cd.DepartmentId).Contains(u.DepartmentId!.Value))
+            .Select(u => u.Id)
+            .ToListAsync();
+
+        foreach (var uid in activateUserIds.Union(activateDeptUserIds))
+            await _notificationService.CreateAsync(uid, activateTitle, activateBody, NotificationType.Info);
 
         return ApiResult<int>.Success(200);
     }

@@ -23,25 +23,18 @@ public class NotificationController : ControllerBase
         return Guid.TryParse(claim, out var id) ? id : null;
     }
 
+    private bool IsSuperAdmin() =>
+        User.FindFirstValue(ClaimTypes.Role) == "SuperAdmin";
+
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var canView    = User.HasClaim("perm", "Notifications.View");
-        var canViewAll = User.HasClaim("perm", "Notifications.ViewAll");
-
-        if (!canView && !canViewAll)
-            return Forbid();
-
-        if (canViewAll)
-        {
-            var all = await _service.GetAllNotificationsAsync();
-            return Ok(all);
-        }
-
         var userId = GetUserId();
         if (userId is null) return Unauthorized();
 
-        var result = await _service.GetByUserAsync(userId.Value);
+        var result = IsSuperAdmin()
+            ? await _service.GetAllNotificationsAsync()
+            : await _service.GetByUserAsync(userId.Value);
         return Ok(result);
     }
 
@@ -51,7 +44,9 @@ public class NotificationController : ControllerBase
         var userId = GetUserId();
         if (userId is null) return Unauthorized();
 
-        var result = await _service.GetUnreadCountAsync(userId.Value);
+        var result = IsSuperAdmin()
+            ? await _service.GetAllUnreadCountAsync()
+            : await _service.GetUnreadCountAsync(userId.Value);
         return Ok(result);
     }
 
@@ -72,7 +67,9 @@ public class NotificationController : ControllerBase
         var userId = GetUserId();
         if (userId is null) return Unauthorized();
 
-        var result = await _service.MarkAllAsReadAsync(userId.Value);
+        var result = IsSuperAdmin()
+            ? await _service.MarkAllReadForAllAsync()
+            : await _service.MarkAllAsReadAsync(userId.Value);
         return Ok(result);
     }
 
@@ -82,7 +79,9 @@ public class NotificationController : ControllerBase
         var userId = GetUserId();
         if (userId is null) return Unauthorized();
 
-        var result = await _service.DeleteAsync(id, userId.Value);
+        var result = IsSuperAdmin()
+            ? await _service.DeleteAsync(id)
+            : await _service.DeleteOwnAsync(id, userId.Value);
         if (!result.Succeeded) return NotFound(result);
         return Ok(result);
     }
