@@ -134,8 +134,9 @@ public class NotificationService : INotificationService
         if (notif is null)
             return ApiResult<int>.Failure(["Bildirishnoma topilmadi."], 404);
 
-        _context.Notifications.Remove(notif);
-        await _context.SaveChangesAsync();
+        await _context.Notifications
+            .Where(n => n.Title == notif.Title && n.Body == notif.Body)
+            .ExecuteDeleteAsync();
 
         return ApiResult<int>.Success(200);
     }
