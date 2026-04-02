@@ -449,6 +449,10 @@ export const contractService = {
     await api.patch(`/api/contract/${id}/deactivate`);
   },
 
+  activate: async (id: string): Promise<void> => {
+    await api.patch(`/api/contract/${id}/activate`);
+  },
+
   getFiles: async (id: string): Promise<AttachmentResponse[]> => {
     const res = await api.get(`/api/contract/${id}/files`);
     return res.data?.result ?? res.data ?? [];
@@ -590,6 +594,7 @@ export interface TechProcessResponse {
   approvedByFullName: string | null;
   approvedAt: string | null;
   createdAt: string;
+  isActive: boolean;
 }
 
 export interface TechProcessCreatePayload {
@@ -775,6 +780,7 @@ export interface TechnicalDrawingResponse {
   createdBy: string;
   createdByFullName: string | null;
   createdAt: string;
+  isActive: boolean;
 }
 
 export interface TechnicalDrawingCreatePayload {
@@ -872,6 +878,7 @@ export interface CostNormResponse {
   createdBy: string;
   createdByFullName: string | null;
   createdAt: string;
+  isActive: boolean;
   items: CostNormItemResponse[];
 }
 

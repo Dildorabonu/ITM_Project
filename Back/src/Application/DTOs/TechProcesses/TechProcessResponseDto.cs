@@ -14,4 +14,5 @@ public class TechProcessResponseDto
     public string? ApprovedByFullName { get; set; }
     public DateTime? ApprovedAt { get; set; }
     public DateTime CreatedAt { get; set; }
+    public bool IsActive { get; set; }
 }
