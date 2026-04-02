@@ -224,7 +224,7 @@ const TYPE_STYLE = {
 };
 
 function CustomGroupedMultiSelect({
-  values, onChange, departments, placeholder, hasError,
+  values = [], onChange, departments, placeholder, hasError,
 }: {
   values: string[]; onChange: (v: string[]) => void;
   departments: DepartmentResponse[];
@@ -903,16 +903,16 @@ export default function ContractsPage() {
               </select>
             </div>
 
-            {/* Bo'lim */}
+            {/* Bo'limlar */}
             <div style={{ gridColumn: "1 / -1" }}>
               <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: deptErr ? "var(--danger)" : "var(--text2)" }}>
-                Bo&apos;lim <span style={{ color: "var(--danger)" }}>*</span>
+                Bo&apos;limlar <span style={{ color: "var(--danger)" }}>*</span>
               </label>
               <CustomGroupedMultiSelect
                 values={form.departmentIds}
                 onChange={v => setForm(f => ({ ...f, departmentIds: v }))}
                 departments={departments}
-                placeholder="— Bo'lim tanlang (bir nechta) —"
+                placeholder="— Bo'limlar tanlang (bir nechta) —"
                 hasError={deptErr}
               />
               {deptErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Kamida bitta bo&apos;limni tanlang</div>}

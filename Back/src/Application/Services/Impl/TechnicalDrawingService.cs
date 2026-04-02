@@ -57,8 +57,8 @@ public class TechnicalDrawingService : ITechnicalDrawingService
 
     public async Task<ApiResult<Guid>> CreateAsync(TechnicalDrawingCreateDto dto, Guid createdBy)
     {
-        var contractExists = await _context.Contracts.AnyAsync(c => c.Id == dto.ContractId);
-        if (!contractExists)
+        var contract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == dto.ContractId);
+        if (contract is null)
             return ApiResult<Guid>.Failure([$"Shartnoma '{dto.ContractId}' topilmadi."]);
 
         var drawing = new TechnicalDrawing
@@ -73,6 +73,10 @@ public class TechnicalDrawingService : ITechnicalDrawingService
         };
 
         _context.TechnicalDrawings.Add(drawing);
+
+        if (contract.Status == ContractStatus.Draft)
+            contract.Status = ContractStatus.DrawingPending;
+
         await _context.SaveChangesAsync();
 
         return ApiResult<Guid>.Success(drawing.Id, 201);
