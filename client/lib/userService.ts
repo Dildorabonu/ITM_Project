@@ -315,9 +315,12 @@ export interface AttachmentResponse {
 
 export enum ContractStatus {
   Draft = 0,
-  Active = 1,
-  Completed = 2,
-  Cancelled = 3,
+  DrawingPending = 1,
+  TechProcessing = 2,
+  WarehouseCheck = 3,
+  InProduction = 4,
+  Completed = 5,
+  Cancelled = 6,
 }
 
 export enum Priority {
@@ -328,10 +331,13 @@ export enum Priority {
 }
 
 export const CONTRACT_STATUS_LABELS: Record<ContractStatus, string> = {
-  [ContractStatus.Draft]:     "Qoralama",
-  [ContractStatus.Active]:    "Faol",
-  [ContractStatus.Completed]: "Yakunlandi",
-  [ContractStatus.Cancelled]: "Bekor qilindi",
+  [ContractStatus.Draft]:           "Shartnoma yaratilindi",
+  [ContractStatus.DrawingPending]:  "Chizmasi tayyorlanmoqda",
+  [ContractStatus.TechProcessing]:  "Tex jarayon tayyorlanmoqda",
+  [ContractStatus.WarehouseCheck]:  "Ombor tekshiruvida",
+  [ContractStatus.InProduction]:    "Ishlab chiqarishda",
+  [ContractStatus.Completed]:       "Yakunlandi",
+  [ContractStatus.Cancelled]:       "Bekor qilindi",
 };
 
 export const PRIORITY_LABELS: Record<Priority, string> = {
@@ -341,6 +347,12 @@ export const PRIORITY_LABELS: Record<Priority, string> = {
   [Priority.Urgent]: "Shoshilinch",
 };
 
+export interface ContractDepartmentInfo {
+  id: string;
+  name: string;
+  type: DepartmentType;
+}
+
 export interface ContractResponse {
   id: string;
   contractNo: string;
@@ -349,8 +361,7 @@ export interface ContractResponse {
   unit: string;
   startDate: string;
   endDate: string;
-  departmentId: string;
-  departmentName: string | null;
+  departments: ContractDepartmentInfo[];
   priority: Priority;
   contractParty: string;
   status: ContractStatus;
@@ -367,7 +378,7 @@ export interface ContractCreatePayload {
   unit?: string;
   startDate: string;
   endDate: string;
-  departmentId?: string;
+  departmentIds?: string[];
   priority: Priority;
   contractParty?: string;
   notes?: string | null;
@@ -380,7 +391,7 @@ export interface ContractUpdatePayload {
   unit?: string;
   startDate?: string;
   endDate?: string;
-  departmentId?: string;
+  departmentIds?: string[];
   priority?: Priority;
   contractParty?: string;
   notes?: string | null;
@@ -1036,6 +1047,24 @@ export interface ContractTaskUpdatePayload {
   completedAmount?: number;
   totalAmount?: number;
   importance?: number;
+  orderNo?: number;
+}
+
+export interface ContractTaskLogCreatePayload {
+  amount: number;
+  note?: string;
+  date: string; // "YYYY-MM-DD"
+}
+
+export interface ContractTaskLogResponse {
+  id: string;
+  taskId: string;
+  amount: number;
+  note: string | null;
+  date: string;
+  createdBy: string;
+  createdByFullName: string | null;
+  createdAt: string;
 }
 
 export const contractTaskService = {
@@ -1063,6 +1092,19 @@ export const contractTaskService = {
 
   delete: async (id: string): Promise<void> => {
     await api.delete(`/api/contracttask/${id}`);
+  },
+
+  logProgress: async (id: string, dto: ContractTaskLogCreatePayload): Promise<void> => {
+    await api.post(`/api/contracttask/${id}/log`, dto);
+  },
+
+  getLogs: async (id: string): Promise<ContractTaskLogResponse[]> => {
+    try {
+      const res = await api.get(`/api/contracttask/${id}/logs`);
+      return res.data?.result ?? res.data ?? [];
+    } catch {
+      return [];
+    }
   },
 };
 

@@ -4,6 +4,7 @@ using Core.Entities;
 using Core.Enums;
 using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
+using SysTask = System.Threading.Tasks.Task;
 
 namespace Application.Services.Impl;
 
@@ -11,14 +12,16 @@ public class CostNormService : ICostNormService
 {
     private readonly DatabaseContext _context;
     private readonly INotificationService _notificationService;
+    private readonly IAttachmentService _attachmentService;
 
-    public CostNormService(DatabaseContext context, INotificationService notificationService)
+    public CostNormService(DatabaseContext context, INotificationService notificationService, IAttachmentService attachmentService)
     {
         _context = context;
         _notificationService = notificationService;
+        _attachmentService = attachmentService;
     }
 
-    public async Task<ApiResult<IEnumerable<CostNormResponseDto>>> GetAllAsync(Guid? contractId = null)
+    public async Task<ApiResult<IEnumerable<CostNormResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, Guid? contractId = null)
     {
         var query = _context.CostNorms
             .Include(c => c.Contract)
@@ -26,6 +29,14 @@ public class CostNormService : ICostNormService
             .Include(c => c.Items.OrderBy(i => i.SortOrder))
             .AsNoTracking()
             .AsQueryable();
+
+        if (!viewAll && !contractId.HasValue)
+        {
+            query = query.Where(c =>
+                _context.ContractUsers.Any(cu => cu.ContractId == c.ContractId && cu.UserId == currentUserId) ||
+                _context.ContractDepartments.Any(cd => cd.ContractId == c.ContractId &&
+                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == cd.DepartmentId)));
+        }
 
         if (contractId.HasValue)
             query = query.Where(c => c.ContractId == contractId.Value);
@@ -58,7 +69,7 @@ public class CostNormService : ICostNormService
         if (!contractExists)
             return ApiResult<IEnumerable<CostNormResponseDto>>.Failure([$"Contract with id '{contractId}' not found."], 404);
 
-        return await GetAllAsync(contractId);
+        return await GetAllAsync(Guid.Empty, viewAll: true, contractId);
     }
 
     public async Task<ApiResult<Guid>> CreateAsync(CostNormCreateDto dto, Guid createdBy)
@@ -102,7 +113,25 @@ public class CostNormService : ICostNormService
             $"«{contract?.ContractNo}» shartnomasi uchun me'yoriy sarf norma tuzildi: {costNorm.Title}. Materiallar: {costNorm.Items.Count} ta.",
             NotificationType.Info);
 
+        await TryAdvanceToWarehouseCheckAsync(dto.ContractId);
+
         return ApiResult<Guid>.Success(costNorm.Id, 201);
+    }
+
+    private async SysTask TryAdvanceToWarehouseCheckAsync(Guid contractId)
+    {
+        var contract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == contractId);
+        if (contract is null || contract.Status != ContractStatus.TechProcessing)
+            return;
+
+        var hasTechProcess = await _context.TechProcesses.AnyAsync(t => t.ContractId == contractId);
+        var hasCostNorm = await _context.CostNorms.AnyAsync(c => c.ContractId == contractId);
+
+        if (hasTechProcess && hasCostNorm)
+        {
+            contract.Status = ContractStatus.WarehouseCheck;
+            await _context.SaveChangesAsync();
+        }
     }
 
     public async Task<ApiResult<int>> UpdateAsync(Guid id, CostNormUpdateDto dto)
@@ -151,6 +180,7 @@ public class CostNormService : ICostNormService
         if (costNorm is null)
             return ApiResult<int>.Failure([$"CostNorm with id '{id}' not found."], 404);
 
+        await _attachmentService.DeleteAllAsync("costnorm", id);
         _context.CostNorms.Remove(costNorm);
         await _context.SaveChangesAsync();
 

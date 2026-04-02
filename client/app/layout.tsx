@@ -20,7 +20,7 @@ const inter = Inter({
   weight: ["300", "400", "500", "600", "700", "800"],
 });
 
-type NavItem = { name: string; href: string; icon: string; badge?: number; badgeWarn?: boolean; permission?: string };
+type NavItem = { name: string; href: string; icon: string; badge?: number; badgeWarn?: boolean; permission?: string | string[] };
 type NavGroup = { label: string; icon: string; items: NavItem[] };
 
 const navGroups: NavGroup[] = [
@@ -36,16 +36,16 @@ const navGroups: NavGroup[] = [
     label: "Shartnomalar",
     icon: "file-text",
     items: [
-      { name: "Shartnomalar",  href: "/contracts",   icon: "file",      permission: "Contracts.View" },
-      { name: "Tex Protsess",  href: "/techprocess", icon: "activity",  permission: "TechProcess.View" },
-      { name: "Me'yoriy Sarf", href: "/costnorm",    icon: "clipboard", permission: "CostNorm.View" },
+      { name: "Shartnomalar",  href: "/contracts",   icon: "file",      permission: ["Contracts.View", "Contracts.ViewAll"] },
+      { name: "Tex Protsess",  href: "/techprocess", icon: "activity",  permission: ["TechProcess.View", "TechProcess.ViewAll"] },
+      { name: "Me'yoriy Sarf", href: "/costnorm",    icon: "clipboard", permission: ["CostNorm.View", "CostNorm.ViewAll"] },
     ],
   },
   {
     label: "Texnik chizmalar",
     icon: "file-text",
     items: [
-      { name: "Texnik chizmalar", href: "/technicaldrawings", icon: "file", permission: "TechnicalDrawings.View" },
+      { name: "Texnik chizmalar", href: "/technicaldrawings", icon: "file", permission: ["TechnicalDrawings.View", "TechnicalDrawings.ViewAll"] },
     ],
   },
   {
@@ -196,7 +196,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const accessToken = useAuthStore((s) => s.accessToken);
   const hasHydrated = useAuthStore((s) => s._hasHydrated);
   const hasPermission = useAuthStore((s) => s.hasPermission);
-  const hasModulePermission = useAuthStore((s) => s.hasModulePermission);
 
   const [notifCount, setNotifCount] = useState(0);
 
@@ -217,7 +216,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const visibleNavGroups = navGroups.map((group) => ({
     ...group,
     items: group.items
-      .filter((item) => !item.permission || hasPermission(item.permission))
+      .filter((item) => {
+        if (!item.permission) return true;
+        const perms = Array.isArray(item.permission) ? item.permission : [item.permission];
+        return perms.some((p) => hasPermission(p));
+      })
       .map((item) => item.href === "/notifications" && notifCount > 0
         ? { ...item, badge: notifCount }
         : item),

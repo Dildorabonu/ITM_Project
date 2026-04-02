@@ -2,48 +2,21 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useDraft } from "@/lib/useDraft";
-
-type DrawingStatus = "pending" | "approved" | "in_progress" | "rejected";
-
-type DrawingItem = {
-  id: string;
-  contractNo: string;
-  title: string;
-  status: DrawingStatus;
-  createdAt: string;
-  fileName: string;
-};
-
-type ContractOption = {
-  id: string;
-  contractNo: string;
-};
-
-const STATUS_LABEL: Record<DrawingStatus, string> = {
-  pending: "Kutilmoqda",
-  approved: "Tasdiqlangan",
-  in_progress: "Jarayonda",
-  rejected: "Rad etilgan",
-};
+import {
+  technicalDrawingService,
+  contractService,
+  DrawingStatus,
+  DRAWING_STATUS_LABELS,
+  type TechnicalDrawingResponse,
+  type ContractResponse,
+} from "@/lib/userService";
 
 const STATUS_STYLE: Record<DrawingStatus, { bg: string; color: string; border: string }> = {
-  pending: { bg: "var(--bg3)", color: "var(--text2)", border: "var(--border)" },
-  approved: { bg: "var(--success-dim)", color: "var(--success)", border: "rgba(15,123,69,0.2)" },
-  in_progress: { bg: "#e8f0fe", color: "#1a56db", border: "#a4c0f4" },
-  rejected: { bg: "var(--danger-dim)", color: "var(--danger)", border: "var(--danger)" },
+  [DrawingStatus.Draft]:       { bg: "var(--bg3)",        color: "var(--text2)",  border: "var(--border)" },
+  [DrawingStatus.UnderReview]: { bg: "#ede9fe",           color: "#6d28d9",       border: "#c4b5fd" },
+  [DrawingStatus.Approved]:    { bg: "var(--success-dim)", color: "var(--success)", border: "rgba(15,123,69,0.2)" },
+  [DrawingStatus.Rejected]:    { bg: "var(--danger-dim)", color: "var(--danger)", border: "var(--danger)" },
 };
-
-const CONTRACTS: ContractOption[] = [
-  { id: "c1", contractNo: "SH-2026-011" },
-  { id: "c2", contractNo: "SH-2026-014" },
-  { id: "c3", contractNo: "SH-2026-019" },
-];
-
-const INITIAL_DRAWINGS: DrawingItem[] = [
-  { id: "TD-001", contractNo: "SH-2026-011", title: "Korpus chizmasi", status: "approved", createdAt: "2026-03-20", fileName: "korpus-v3.pdf" },
-  { id: "TD-002", contractNo: "SH-2026-014", title: "Qopqoq detali", status: "in_progress", createdAt: "2026-03-23", fileName: "qopqoq-step1.dwg" },
-  { id: "TD-003", contractNo: "SH-2026-019", title: "Yig'ma sxema", status: "pending", createdAt: "2026-03-25", fileName: "yigma-sxema.pdf" },
-];
 
 function StatusBadge({ status }: { status: DrawingStatus }) {
   const style = STATUS_STYLE[status];
@@ -61,7 +34,7 @@ function StatusBadge({ status }: { status: DrawingStatus }) {
         border: `1px solid ${style.border}`,
       }}
     >
-      {STATUS_LABEL[status]}
+      {DRAWING_STATUS_LABELS[status]}
     </span>
   );
 }
@@ -74,12 +47,16 @@ function fmtDate(value: string) {
 }
 
 export default function TechnicalDrawingsPage() {
-  const [list, setList] = useState<DrawingItem[]>(INITIAL_DRAWINGS);
+  const [list, setList] = useState<TechnicalDrawingResponse[]>([]);
+  const [contracts, setContracts] = useState<ContractResponse[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [fileError, setFileError] = useState("");
   const [form, setForm] = useState({
     contractId: "",
@@ -88,22 +65,34 @@ export default function TechnicalDrawingsPage() {
     file: null as File | null,
   });
 
+  const loadData = async () => {
+    setLoading(true);
+    const [drawings, contractList] = await Promise.all([
+      technicalDrawingService.getAll(),
+      contractService.getAll(),
+    ]);
+    setList(drawings);
+    setContracts(contractList);
+    setLoading(false);
+  };
+
+  useEffect(() => { loadData(); }, []);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const statusNum = filterStatus !== "" ? Number(filterStatus) : null;
     return list.filter((item) => {
       const matchSearch =
         q.length === 0 ||
         item.contractNo.toLowerCase().includes(q) ||
-        item.title.toLowerCase().includes(q) ||
-        item.fileName.toLowerCase().includes(q);
-      const matchStatus = filterStatus === "" || item.status === filterStatus;
+        item.title.toLowerCase().includes(q);
+      const matchStatus = statusNum === null || item.status === statusNum;
       return matchSearch && matchStatus;
     });
   }, [list, search, filterStatus]);
 
-  const selectedContract = CONTRACTS.find((c) => c.id === form.contractId);
+  const selectedContract = contracts.find((c) => c.id === form.contractId);
 
-  // File field saqlanmaydi (File ob'ektlari JSON'ga aylanmaydi)
   useDraft<{ contractId: string; title: string; notes: string }>(
     "draft_technicaldrawings",
     showForm,
@@ -126,11 +115,19 @@ export default function TechnicalDrawingsPage() {
     setShowForm(true);
   };
 
-  const refresh = () => {
-    setList((prev) => [...prev]);
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    setDeleting(true);
+    try {
+      await technicalDrawingService.delete(deleteId);
+      setList((prev) => prev.filter((t) => t.id !== deleteId));
+      setDeleteId(null);
+    } finally {
+      setDeleting(false);
+    }
   };
 
-  const save = () => {
+  const save = async () => {
     setSubmitted(true);
     setFileError("");
 
@@ -141,18 +138,22 @@ export default function TechnicalDrawingsPage() {
     }
 
     setSaving(true);
-    const newItem: DrawingItem = {
-      id: `TD-${String(list.length + 1).padStart(3, "0")}`,
-      contractNo: selectedContract?.contractNo ?? "N/A",
-      title: form.title.trim(),
-      status: "pending",
-      createdAt: new Date().toISOString().slice(0, 10),
-      fileName: form.file.name,
-    };
+    try {
+      const newId = await technicalDrawingService.create({
+        contractId: form.contractId,
+        title: form.title.trim(),
+        notes: form.notes.trim() || null,
+      });
 
-    setList((prev) => [newItem, ...prev]);
-    setSaving(false);
-    setShowForm(false);
+      if (form.file) {
+        await technicalDrawingService.uploadFile(newId, form.file);
+      }
+
+      await loadData();
+      setShowForm(false);
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (showForm) {
@@ -176,7 +177,7 @@ export default function TechnicalDrawingsPage() {
                   style={{ width: "100%", height: 52, fontSize: 15, ...(submitted && !form.contractId ? { borderColor: "var(--danger)" } : {}) }}
                 >
                   <option value="">— Shartnomani tanlang —</option>
-                  {CONTRACTS.map((c) => (
+                  {contracts.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.contractNo}
                     </option>
@@ -208,7 +209,7 @@ export default function TechnicalDrawingsPage() {
                   value={form.notes}
                   onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
                   rows={12}
-                  placeholder="Qo&apos;shimcha izoh (ixtiyoriy)"
+                  placeholder="Qo'shimcha izoh (ixtiyoriy)"
                   style={{ fontSize: 15, resize: "none", flex: 1, minHeight: 0, paddingTop: 14 }}
                 />
               </div>
@@ -280,6 +281,7 @@ export default function TechnicalDrawingsPage() {
   }
 
   return (
+    <>
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 2, padding: "10px 14px", flexWrap: "wrap" }}>
         <div className="search-wrap" style={{ maxWidth: "none", flex: 1, minWidth: 180 }}>
@@ -289,21 +291,21 @@ export default function TechnicalDrawingsPage() {
           </svg>
           <input
             className="search-input"
-            placeholder="Qidirish: sarlavha, shartnoma, fayl..."
+            placeholder="Qidirish: sarlavha, shartnoma..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
 
-        <select className="form-input" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ width: 160, height: 36, cursor: "pointer", padding: "0 10px" }}>
+        <select className="form-input" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ width: 170, height: 36, cursor: "pointer", padding: "0 10px" }}>
           <option value="">Barcha statuslar</option>
-          <option value="pending">Kutilmoqda</option>
-          <option value="in_progress">Jarayonda</option>
-          <option value="approved">Tasdiqlangan</option>
-          <option value="rejected">Rad etilgan</option>
+          <option value={String(DrawingStatus.Draft)}>Qoralama</option>
+          <option value={String(DrawingStatus.UnderReview)}>Ko&apos;rib chiqilmoqda</option>
+          <option value={String(DrawingStatus.Approved)}>Tasdiqlangan</option>
+          <option value={String(DrawingStatus.Rejected)}>Rad etilgan</option>
         </select>
 
-        <button className="btn-icon" onClick={refresh} title="Yangilash" style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}>
+        <button className="btn-icon" onClick={loadData} title="Yangilash" style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}>
           <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
             <polyline points="23,4 23,10 17,10" />
             <polyline points="1,20 1,14 7,14" />
@@ -326,16 +328,22 @@ export default function TechnicalDrawingsPage() {
             <thead>
               <tr>
                 <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
-                <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>ID</th>
                 <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Shartnoma</th>
                 <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Sarlavha</th>
-                <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Fayl</th>
+                <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Yaratuvchi</th>
                 <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Status</th>
                 <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Sana</th>
+                <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Amallar</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={7} style={{ textAlign: "center", padding: "30px 14px", color: "var(--text3)" }}>
+                    Yuklanmoqda...
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={7} style={{ textAlign: "center", padding: "30px 14px", color: "var(--text3)" }}>
                     Ma&apos;lumot topilmadi
@@ -345,14 +353,26 @@ export default function TechnicalDrawingsPage() {
                 filtered.map((item, i) => (
                   <tr key={item.id}>
                     <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>{String(i + 1).padStart(2, "0")}</td>
-                    <td style={{ textAlign: "center", color: "var(--accent)", fontWeight: 700, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.id}</td>
                     <td style={{ textAlign: "center", color: "var(--text2)", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.contractNo}</td>
                     <td style={{ textAlign: "center", fontSize: 14, fontWeight: 600, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</td>
-                    <td style={{ textAlign: "center", fontSize: 13, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.fileName}</td>
+                    <td style={{ textAlign: "center", fontSize: 13, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.createdByFullName ?? "—"}</td>
                     <td style={{ textAlign: "center" }}>
                       <StatusBadge status={item.status} />
                     </td>
                     <td style={{ textAlign: "center", fontSize: 13 }}>{fmtDate(item.createdAt)}</td>
+                    <td style={{ textAlign: "center" }}>
+                      <button
+                        className="btn-icon btn-icon-danger"
+                        onClick={() => setDeleteId(item.id)}
+                        title="O'chirish"
+                        style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" />
+                          <path d="M10 11v6M14 11v6M9 6V4h6v2" />
+                        </svg>
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -361,5 +381,25 @@ export default function TechnicalDrawingsPage() {
         </div>
       </div>
     </div>
+
+      {deleteId && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div onClick={() => setDeleteId(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)" }} />
+          <div style={{ position: "relative", background: "var(--bg1)", borderRadius: 12, padding: 28, width: 360, boxShadow: "0 8px 32px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ fontWeight: 700, fontSize: 17, color: "var(--text1)" }}>O&apos;chirishni tasdiqlang</div>
+            <div style={{ fontSize: 14, color: "var(--text2)" }}>Bu texnik chizmani o&apos;chirmoqchimisiz? Bu amalni ortga qaytarib bo&apos;lmaydi.</div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button onClick={() => setDeleteId(null)} className="btn btn-outline" style={{ fontSize: 13, padding: "9px 18px" }}>
+                Bekor qilish
+              </button>
+              <button onClick={handleDelete} disabled={deleting}
+                style={{ padding: "9px 20px", background: "var(--danger)", border: "none", borderRadius: "var(--radius)", cursor: "pointer", color: "#fff", fontSize: 13, fontWeight: 600 }}>
+                {deleting ? "O'chirilmoqda..." : "O'chirish"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
