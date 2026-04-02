@@ -428,6 +428,10 @@ export default function ContractsPage() {
   const [deleteId, setDeleteId]         = useState<string | null>(null);
   const [deleting, setDeleting]         = useState(false);
 
+  // Deactivate confirm
+  const [deactivateId, setDeactivateId] = useState<string | null>(null);
+  const [deactivating, setDeactivating] = useState(false);
+
   // Status change
   const [statusTarget, setStatusTarget] = useState<ContractResponse | null>(null);
   const [newStatus, setNewStatus]       = useState<string>("");
@@ -789,6 +793,22 @@ export default function ContractsPage() {
       // stay open
     } finally {
       setDeleting(false);
+    }
+  };
+
+  // ── Deactivate ────────────────────────────────────────────────────────────
+
+  const handleDeactivate = async () => {
+    if (!deactivateId) return;
+    setDeactivating(true);
+    try {
+      await contractService.deactivate(deactivateId);
+      setContracts(prev => prev.map(c => c.id === deactivateId ? { ...c, isActive: false } : c));
+      setDeactivateId(null);
+    } catch {
+      // stay open
+    } finally {
+      setDeactivating(false);
     }
   };
 
@@ -1307,7 +1327,7 @@ export default function ContractsPage() {
                 {filtered.length === 0 ? (
                   <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
                 ) : filtered.map((c, i) => (
-                  <tr key={c.id}>
+                  <tr key={c.id} style={{ opacity: c.isActive ? 1 : 0.5 }}>
                     <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>{String(i + 1).padStart(2, "0")}</td>
                     <td style={{ textAlign: "center", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       <button onClick={() => openDrawer(c)}
@@ -1346,6 +1366,14 @@ export default function ContractsPage() {
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
+                          </button>
+                        )}
+                        {canUpdate && c.isActive && (
+                          <button className="btn-icon" onClick={() => setDeactivateId(c.id)} title="Noactive qilish"
+                            style={{ color: "#d97706", borderColor: "#d9770633", background: "#fef3c7" }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
                             </svg>
                           </button>
                         )}
@@ -1719,6 +1747,29 @@ export default function ContractsPage() {
                     Skanerlash
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Deactivate Confirm Modal ── */}
+      {deactivateId && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div onClick={() => setDeactivateId(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)" }} />
+          <div style={{ position: "relative", background: "var(--bg1)", borderRadius: 12, padding: 28, width: 360, boxShadow: "0 8px 32px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text1)" }}>Shartnomani noactive qilish</div>
+            <div style={{ fontSize: 14, color: "var(--text2)", lineHeight: 1.6 }}>
+              Bu shartnoma va unga bog&apos;liq barcha ma&apos;lumotlar (texjarayon, xarajat normalari, vazifalar va boshqalar) noactive bo&apos;lib qoladi.
+            </div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button onClick={() => setDeactivateId(null)}
+                style={{ padding: "9px 20px", background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", color: "var(--text2)", fontSize: 13, fontWeight: 500 }}>
+                Bekor
+              </button>
+              <button onClick={handleDeactivate} disabled={deactivating}
+                style={{ padding: "9px 20px", background: "#d97706", border: "none", borderRadius: "var(--radius)", cursor: "pointer", color: "#fff", fontSize: 13, fontWeight: 600 }}>
+                {deactivating ? "Bajarilmoqda..." : "Noactive qilish"}
               </button>
             </div>
           </div>
