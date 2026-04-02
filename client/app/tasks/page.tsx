@@ -1226,15 +1226,17 @@ export default function TasksPage() {
     setTimeout(() => { setSelected(null); setPhase("grid"); }, 230);
   };
 
+  const canView = hasPermission("Tasks.View") || hasPermission("Tasks.ViewAll");
+
   useEffect(() => {
-    if (!hasPermission("Tasks.View")) return;
+    if (!canView) return;
     contractService.getMyProductionTasks().then(data => {
       setContracts(data);
       setLoading(false);
     });
-  }, [hasPermission]);
+  }, [canView]);
 
-  if (!hasPermission("Tasks.View")) {
+  if (!canView) {
     return (
       <div className="itm-card" style={{ textAlign: "center", padding: 48, color: "var(--text3)" }}>
         Bu sahifaga kirish huquqingiz yo&apos;q.

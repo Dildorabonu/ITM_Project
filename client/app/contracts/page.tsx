@@ -51,6 +51,14 @@ const emptyForm: ContractForm = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+const VISIBLE_STATUSES: ContractStatus[] = [
+  ContractStatus.DrawingPending,
+  ContractStatus.TechProcessing,
+  ContractStatus.WarehouseCheck,
+  ContractStatus.InProduction,
+  ContractStatus.Completed,
+];
+
 const STATUS_STYLE: Record<ContractStatus, { bg: string; color: string; border: string }> = {
   [ContractStatus.Draft]:                { bg: "var(--bg3)",        color: "var(--text2)",    border: "var(--border)" },
   [ContractStatus.DrawingPending]:       { bg: "#ede9fe",           color: "#6d28d9",         border: "#c4b5fd" },
@@ -76,8 +84,11 @@ function StatusBadge({ status }: { status: ContractStatus }) {
       display: "inline-flex", alignItems: "center", padding: "2px 10px",
       borderRadius: 20, fontSize: 13, fontWeight: 600,
       background: s.bg, color: s.color, border: `1px solid ${s.border}`,
+      maxWidth: "100%", overflow: "hidden",
     }}>
-      {CONTRACT_STATUS_LABELS[status]}
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {CONTRACT_STATUS_LABELS[status]}
+      </span>
     </span>
   );
 }
@@ -93,8 +104,8 @@ function PriorityBadge({ priority }: { priority: Priority }) {
 
 const WORKFLOW_STEPS: { status: ContractStatus; label: string; shortLabel: string }[] = [
   { status: ContractStatus.Draft,          label: "Shartnoma yaratilindi",               shortLabel: "Yaratildi" },
-  { status: ContractStatus.DrawingPending, label: "Chizmasi tayyorlandi",                shortLabel: "Chizma" },
-  { status: ContractStatus.TechProcessing, label: "Texnologik jarayon",                  shortLabel: "Tex jarayon" },
+  { status: ContractStatus.DrawingPending, label: "Chizmasi tayyorlanmoqda",             shortLabel: "Chizma" },
+  { status: ContractStatus.TechProcessing, label: "Texnologik jarayon tayyorlanmoqda",   shortLabel: "Tex jarayon" },
   { status: ContractStatus.WarehouseCheck, label: "Ombor tekshiruviga uzatildi",         shortLabel: "Ombor" },
   { status: ContractStatus.InProduction,   label: "Ishlab chiqarish jarayoni boshlangan", shortLabel: "Ishlab chiqarish" },
   { status: ContractStatus.Completed,      label: "Yakunlandi",                          shortLabel: "Yakunlandi" },
@@ -112,35 +123,7 @@ const STEP_COLORS: Record<ContractStatus, { active: string; done: string; text: 
 };
 
 function WorkflowDiagram({ status }: { status: ContractStatus }) {
-  const isCancelled = status === ContractStatus.Cancelled;
-  const rawIdx = isCancelled ? -1 : WORKFLOW_STEPS.findIndex(s => s.status === status);
-  // When drawing is done (DrawingPending), advance the visual indicator so drawing step
-  // shows as completed (checkmark) and the next step appears as current.
-  const isDrawingDone = status === ContractStatus.DrawingPending;
-  const currentIdx = isDrawingDone ? rawIdx + 1 : rawIdx;
-
-  if (isCancelled) {
-    return (
-      <div style={{ marginBottom: 22 }}>
-        <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 12 }}>Jarayon holati</div>
-        <div style={{
-          display: "flex", alignItems: "center", gap: 10, padding: "12px 16px",
-          background: "var(--danger-dim)", border: "1.5px solid var(--danger)",
-          borderRadius: 10,
-        }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: "50%", background: "var(--danger)",
-            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-          }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </div>
-          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--danger)" }}>Shartnoma bekor qilindi</span>
-        </div>
-      </div>
-    );
-  }
+  const currentIdx = WORKFLOW_STEPS.findIndex(s => s.status === status);
 
   return (
     <div style={{ marginBottom: 22 }}>
@@ -148,15 +131,18 @@ function WorkflowDiagram({ status }: { status: ContractStatus }) {
       <div style={{ position: "relative" }}>
         {/* connector line */}
         <div style={{
-          position: "absolute", top: 16, left: 16, right: 16, height: 2,
-          background: "var(--border)", zIndex: 0,
+          position: "absolute", top: 16,
+          left: `${50 / WORKFLOW_STEPS.length}%`,
+          right: `${50 / WORKFLOW_STEPS.length}%`,
+          height: 2, background: "var(--border)", zIndex: 0,
         }} />
         {/* filled connector up to current step */}
         {currentIdx > 0 && (
           <div style={{
-            position: "absolute", top: 16, left: 16, height: 2,
-            width: `calc(${(currentIdx / (WORKFLOW_STEPS.length - 1)) * 100}% - 16px)`,
-            background: STEP_COLORS[status].active, zIndex: 0, transition: "width 0.4s",
+            position: "absolute", top: 16,
+            left: `${50 / WORKFLOW_STEPS.length}%`,
+            width: `${currentIdx * 100 / WORKFLOW_STEPS.length}%`,
+            height: 2, background: STEP_COLORS[status].active, zIndex: 0, transition: "width 0.4s",
           }} />
         )}
         <div style={{ display: "flex", justifyContent: "space-between", position: "relative", zIndex: 1 }}>
@@ -201,11 +187,9 @@ function WorkflowDiagram({ status }: { status: ContractStatus }) {
           background: `${STEP_COLORS[status].active}14`,
           border: `1.5px solid ${STEP_COLORS[status].active}44`,
           fontSize: 13, fontWeight: 600, color: STEP_COLORS[status].active,
-          textAlign: "center",
+          textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
         }}>
-          {isDrawingDone
-            ? WORKFLOW_STEPS[rawIdx]?.label
-            : WORKFLOW_STEPS[currentIdx]?.label}
+          {WORKFLOW_STEPS[currentIdx]?.label}
         </div>
       </div>
     </div>
@@ -721,6 +705,7 @@ export default function ContractsPage() {
         };
         const newId = await contractService.create(dto);
         if (newId) {
+          await contractService.updateStatus(newId, ContractStatus.DrawingPending);
           const allNewUsers = [
             ...formUsers.map(u => ({ userId: u.id, role: 0 })),
             ...formSupervisors.map(u => ({ userId: u.id, role: 1 })),
@@ -1300,7 +1285,7 @@ export default function ContractsPage() {
           onChange={e => setFilterStatus(e.target.value)}
           style={{ width: 160, cursor: "pointer", height: 36, padding: "0 10px" }}>
           <option value="">Barcha holat</option>
-          {(Object.keys(CONTRACT_STATUS_LABELS) as unknown as ContractStatus[]).map(k => (
+          {VISIBLE_STATUSES.map(k => (
             <option key={k} value={k}>{CONTRACT_STATUS_LABELS[k]}</option>
           ))}
         </select>
@@ -1365,11 +1350,13 @@ export default function ContractsPage() {
                     <td style={{ textAlign: "center", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {canUpdate ? (
                         <button onClick={() => { setStatusTarget(c); setNewStatus(String(c.status)); }}
-                          style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}>
+                          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", maxWidth: 140, display: "block", overflow: "hidden" }}>
                           <StatusBadge status={c.status} />
                         </button>
                       ) : (
-                        <StatusBadge status={c.status} />
+                        <div style={{ maxWidth: 140, overflow: "hidden", display: "inline-block" }}>
+                          <StatusBadge status={c.status} />
+                        </div>
                       )}
                     </td>
                     <td style={{ textAlign: "center" }}>
@@ -1662,7 +1649,7 @@ export default function ContractsPage() {
             </div>
             <select className="form-input" value={newStatus} onChange={e => setNewStatus(e.target.value)}
               style={{ width: "100%", cursor: "pointer" }}>
-              {(Object.keys(CONTRACT_STATUS_LABELS) as unknown as ContractStatus[]).map(k => (
+              {VISIBLE_STATUSES.map(k => (
                 <option key={k} value={k}>{CONTRACT_STATUS_LABELS[k]}</option>
               ))}
             </select>
