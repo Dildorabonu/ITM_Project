@@ -97,6 +97,19 @@ public class ContractService : IContractService
 
         await _context.SaveChangesAsync();
 
+        var deptIds = dto.DepartmentIds.Distinct().ToList();
+        var notifyUserIds = await _context.Users
+            .Where(u => u.IsActive && deptIds.Contains(u.DepartmentId!.Value))
+            .Select(u => u.Id)
+            .ToListAsync();
+
+        foreach (var uid in notifyUserIds)
+            await _notificationService.CreateAsync(
+                uid,
+                $"Yangi shartnoma yaratildi: {contract.ContractNo}",
+                $"№{contract.ContractNo} yangi shartnoma tizimga qo'shildi.",
+                NotificationType.Info);
+
         return ApiResult<Guid>.Success(contract.Id, 201);
     }
 
