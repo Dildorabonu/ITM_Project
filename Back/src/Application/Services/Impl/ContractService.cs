@@ -164,6 +164,9 @@ public class ContractService : IContractService
             $"{contract.ContractNo} shartnoma holati «{status}» ga o'zgartirildi.",
             NotificationType.Info);
 
+        if (status == ContractStatus.TechProcessing)
+            await TryAdvanceToWarehouseCheckAsync(contract);
+
         return ApiResult<int>.Success(200);
     }
 
