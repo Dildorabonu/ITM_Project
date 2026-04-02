@@ -26,6 +26,7 @@ public static class ApplicationDependencyInjection
         services.AddScoped<ICostNormService, CostNormService>();
         services.AddScoped<IMaterialService, MaterialService>();
         services.AddScoped<IContractTaskService, ContractTaskService>();
+        services.AddScoped<INotificationService, NotificationService>();
 
         return services;
     }

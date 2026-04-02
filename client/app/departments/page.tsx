@@ -138,6 +138,7 @@ export default function DepartmentsPage() {
           type: form.type,
           employeeCount: count ?? 0,
           createdAt: new Date().toISOString(),
+          isActive: true,
         };
         setDepts(prev => [...prev, created]);
       }
@@ -224,7 +225,7 @@ export default function DepartmentsPage() {
               </label>
               <div style={{ display: "flex", gap: 12 }}>
                 {([DepartmentType.IshlabChiqarish, DepartmentType.Bolim, DepartmentType.Boshqaruv] as const).map(t => {
-                  const s = TYPE_STYLE[t];
+                  const s = TYPE_STYLE[t]!;
                   const selected = form.type === t;
                   return (
                     <button

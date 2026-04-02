@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Roboto_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { useAuthStore } from "@/lib/store/authStore";
+import { api } from "@/lib/api";
 
 const robotoMono = Roboto_Mono({
   variable: "--font-mono",
@@ -54,7 +55,7 @@ const navGroups: NavGroup[] = [
       { name: "Mahsulotlar",        href: "/products",    icon: "shopping-bag", permission: "Products.View" },
       { name: "Ombor tekshiruvi",   href: "/warehouse",   icon: "package" },
       { name: "Tuzilma",            href: "/departments", icon: "briefcase",    permission: "Departments.View" },
-      { name: "Deficit Tekshiruv",  href: "/deficit",     icon: "alert-circle", permission: "Products.View" },
+      { name: "Birja",              href: "/birja",       icon: "trending-up" },
     ],
   },
   {
@@ -126,6 +127,7 @@ function NavIcon({ type, size = 16, strokeWidth = 2, color }: { type: string; si
   if (type === "eye")          return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>;
   if (type === "settings")     return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
   if (type === "shopping-bag") return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>;
+  if (type === "trending-up") return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>;
   return null;
 }
 
@@ -165,7 +167,7 @@ function applyAppearanceFont(family: string, scale: number) {
 }
 
 // Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
-const readyRoutes = new Set(["/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/costnorm", "/technicaldrawings", "/appearance", "/tasks"]);
+const readyRoutes = new Set(["/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/costnorm", "/technicaldrawings", "/appearance", "/tasks", "/birja", "/notifications"]);
 
 const pageTitles: Record<string, string> = {
   "/":              "Dashboard",
@@ -175,13 +177,13 @@ const pageTitles: Record<string, string> = {
   "/costnorm":      "Me'yoriy Sarf",
   "/technicaldrawings": "Texnik chizmalar",
   "/warehouse":     "Ombor Zaxirasi",
-  "/deficit":       "Deficit Tekshiruv",
   "/tasks":         "Vazifalar",
   "/users":         "Foydalanuvchilar",
   "/roles":         "Rollar",
   "/departments":   "Tuzilma",
   "/products":      "Mahsulotlar",
   "/appearance":    "Tashqi ko'rinish",
+  "/birja":         "Birja",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -195,13 +197,33 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const hasHydrated = useAuthStore((s) => s._hasHydrated);
   const hasPermission = useAuthStore((s) => s.hasPermission);
 
+  const [notifCount, setNotifCount] = useState(0);
+
+  const fetchNotifCount = useCallback(async () => {
+    try {
+      const res = await api.get("/api/notification/unread-count");
+      setNotifCount(res.data.result ?? 0);
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    if (!accessToken) return;
+    fetchNotifCount();
+    const interval = setInterval(fetchNotifCount, 30000);
+    return () => clearInterval(interval);
+  }, [accessToken, fetchNotifCount]);
+
   const visibleNavGroups = navGroups.map((group) => ({
     ...group,
-    items: group.items.filter((item) => {
-      if (!item.permission) return true;
-      const perms = Array.isArray(item.permission) ? item.permission : [item.permission];
-      return perms.some((p) => hasPermission(p));
-    }),
+    items: group.items
+      .filter((item) => {
+        if (!item.permission) return true;
+        const perms = Array.isArray(item.permission) ? item.permission : [item.permission];
+        return perms.some((p) => hasPermission(p));
+      })
+      .map((item) => item.href === "/notifications" && notifCount > 0
+        ? { ...item, badge: notifCount }
+        : item),
   })).filter((group) => group.items.length > 0);
 
   const isLoginPage = pathname === "/login";
