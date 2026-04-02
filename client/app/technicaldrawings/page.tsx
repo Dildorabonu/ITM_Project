@@ -9,6 +9,7 @@ import {
   DRAWING_STATUS_LABELS,
   type TechnicalDrawingResponse,
   type ContractResponse,
+  type AttachmentResponse,
 } from "@/lib/userService";
 
 const STATUS_STYLE: Record<DrawingStatus, { bg: string; color: string; border: string }> = {
@@ -23,10 +24,10 @@ function StatusBadge({ status }: { status: DrawingStatus }) {
       style={{
         display: "inline-flex",
         alignItems: "center",
-        padding: "4px 12px",
+        padding: "2px 10px",
         borderRadius: 20,
         fontSize: 12,
-        fontWeight: 700,
+        fontWeight: 600,
         background: style.bg,
         color: style.color,
         border: `1px solid ${style.border}`,
@@ -44,18 +45,39 @@ function fmtDate(value: string) {
   return `${day}-${m}-${y.slice(-2)}`;
 }
 
+function fileIcon(contentType: string) {
+  if (contentType.includes("pdf")) return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+    </svg>
+  );
+  if (contentType.includes("image")) return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
+      <polyline points="21 15 16 10 5 21" />
+    </svg>
+  );
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+    </svg>
+  );
+}
+
 export default function TechnicalDrawingsPage() {
   const [list, setList] = useState<TechnicalDrawingResponse[]>([]);
   const [contracts, setContracts] = useState<ContractResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+
+  // Create form
   const [showForm, setShowForm] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const [approvingId, setApprovingId] = useState<string | null>(null);
   const [fileError, setFileError] = useState("");
   const [form, setForm] = useState({
     contractId: "",
@@ -63,6 +85,21 @@ export default function TechnicalDrawingsPage() {
     notes: "",
     file: null as File | null,
   });
+
+  // Drawer
+  const [drawer, setDrawer] = useState<TechnicalDrawingResponse | null>(null);
+  const [drawerFiles, setDrawerFiles] = useState<AttachmentResponse[]>([]);
+  const [drawerLoading, setDrawerLoading] = useState(false);
+  const [drawerEditing, setDrawerEditing] = useState(false);
+  const [drawerEditForm, setDrawerEditForm] = useState({ title: "", notes: "" });
+  const [drawerEditSaving, setDrawerEditSaving] = useState(false);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
+
+  // Delete confirm
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -112,15 +149,93 @@ export default function TechnicalDrawingsPage() {
     setShowForm(true);
   };
 
-  const handleApprove = async (id: string) => {
-    setApprovingId(id);
+  // ── Drawer ──────────────────────────────────────────────────────────────────
+
+  const openDrawer = async (item: TechnicalDrawingResponse, editMode = false) => {
+    setDrawer(item);
+    setDrawerEditing(editMode);
+    setDrawerEditForm({ title: item.title, notes: item.notes || "" });
+    setDrawerFiles([]);
+    setDrawerLoading(true);
     try {
-      await technicalDrawingService.updateStatus(id, DrawingStatus.Approved);
-      setList((prev) => prev.map((t) => t.id === id ? { ...t, status: DrawingStatus.Approved } : t));
+      const files = await technicalDrawingService.getFiles(item.id);
+      setDrawerFiles(files);
+    } finally {
+      setDrawerLoading(false);
+    }
+  };
+
+  const refreshDrawer = async (id: string) => {
+    const [fresh, files] = await Promise.all([
+      technicalDrawingService.getById(id),
+      technicalDrawingService.getFiles(id),
+    ]);
+    setDrawer(fresh);
+    setDrawerFiles(files);
+    setList((prev) => prev.map((t) => t.id === id ? fresh : t));
+  };
+
+  const handleDrawerEditSave = async () => {
+    if (!drawer) return;
+    setDrawerEditSaving(true);
+    try {
+      await technicalDrawingService.update(drawer.id, {
+        title: drawerEditForm.title,
+        notes: drawerEditForm.notes || null,
+      });
+      await refreshDrawer(drawer.id);
+      setDrawerEditing(false);
+    } finally {
+      setDrawerEditSaving(false);
+    }
+  };
+
+  const handleApproveDrawer = async () => {
+    if (!drawer) return;
+    setApprovingId(drawer.id);
+    try {
+      await technicalDrawingService.updateStatus(drawer.id, DrawingStatus.Approved);
+      await refreshDrawer(drawer.id);
     } finally {
       setApprovingId(null);
     }
   };
+
+  const handleApproveRow = async (id: string) => {
+    setApprovingId(id);
+    try {
+      await technicalDrawingService.updateStatus(id, DrawingStatus.Approved);
+      setList((prev) => prev.map((t) => t.id === id ? { ...t, status: DrawingStatus.Approved } : t));
+      if (drawer?.id === id) setDrawer((d) => d ? { ...d, status: DrawingStatus.Approved } : d);
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  const handleUploadDrawerFile = async (file: File) => {
+    if (!drawer) return;
+    setUploadingFile(true);
+    try {
+      await technicalDrawingService.uploadFile(drawer.id, file);
+      const files = await technicalDrawingService.getFiles(drawer.id);
+      setDrawerFiles(files);
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
+  const handleDeleteDrawerFile = async (fileId: string) => {
+    if (!drawer) return;
+    setDeletingFileId(fileId);
+    try {
+      await technicalDrawingService.deleteFile(drawer.id, fileId);
+      setDrawerFiles((prev) => prev.filter((f) => f.id !== fileId));
+    } finally {
+      setDeletingFileId(null);
+    }
+  };
+
+  // ── Delete ───────────────────────────────────────────────────────────────────
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -128,22 +243,23 @@ export default function TechnicalDrawingsPage() {
     try {
       await technicalDrawingService.delete(deleteId);
       setList((prev) => prev.filter((t) => t.id !== deleteId));
+      if (drawer?.id === deleteId) setDrawer(null);
       setDeleteId(null);
     } finally {
       setDeleting(false);
     }
   };
 
+  // ── Create form save ─────────────────────────────────────────────────────────
+
   const save = async () => {
     setSubmitted(true);
     setFileError("");
-
     if (!form.contractId || !form.title.trim()) return;
     if (!form.file) {
       setFileError("Texnik chizmalari faylini yuklash shart.");
       return;
     }
-
     setSaving(true);
     try {
       const newId = await technicalDrawingService.create({
@@ -151,11 +267,9 @@ export default function TechnicalDrawingsPage() {
         title: form.title.trim(),
         notes: form.notes.trim() || null,
       });
-
       if (form.file) {
         await technicalDrawingService.uploadFile(newId, form.file);
       }
-
       await loadData();
       setShowForm(false);
     } finally {
@@ -163,9 +277,11 @@ export default function TechnicalDrawingsPage() {
     }
   };
 
+  // ── Render: Create form ──────────────────────────────────────────────────────
+
   if (showForm) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 20, minHeight: "calc(100vh - 140px)" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 20, minHeight: "calc(100vh - 140px)", fontFamily: "Inter, sans-serif" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span style={{ fontWeight: 800, fontSize: 24, color: "var(--text1)" }}>Yangi texnik chizma</span>
         </div>
@@ -174,27 +290,25 @@ export default function TechnicalDrawingsPage() {
           <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)", gap: 24, alignItems: "stretch", minHeight: "70vh" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 18, minHeight: 0 }}>
               <div>
-                <label style={{ fontSize: 16, fontWeight: 700, display: "block", marginBottom: 8, color: submitted && !form.contractId ? "var(--danger)" : "var(--text2)" }}>
+                <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: submitted && !form.contractId ? "var(--danger)" : "var(--text2)" }}>
                   Shartnomani tanlang <span style={{ color: "var(--danger)" }}>*</span>
                 </label>
                 <select
                   className="form-input"
                   value={form.contractId}
                   onChange={(e) => setForm((p) => ({ ...p, contractId: e.target.value }))}
-                  style={{ width: "100%", height: 52, fontSize: 15, ...(submitted && !form.contractId ? { borderColor: "var(--danger)" } : {}) }}
+                  style={{ width: "100%", height: 44, fontSize: 14, cursor: "pointer", ...(submitted && !form.contractId ? { borderColor: "var(--danger)" } : {}) }}
                 >
                   <option value="">— Shartnomani tanlang —</option>
                   {contracts.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.contractNo}
-                    </option>
+                    <option key={c.id} value={c.id}>{c.contractNo}</option>
                   ))}
                 </select>
-                {submitted && !form.contractId && <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 6 }}>Shartnoma tanlash shart</div>}
+                {submitted && !form.contractId && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Shartnoma tanlash shart</div>}
               </div>
 
               <div>
-                <label style={{ fontSize: 16, fontWeight: 700, display: "block", marginBottom: 8, color: submitted && !form.title.trim() ? "var(--danger)" : "var(--text2)" }}>
+                <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: submitted && !form.title.trim() ? "var(--danger)" : "var(--text2)" }}>
                   Sarlavha <span style={{ color: "var(--danger)" }}>*</span>
                 </label>
                 <input
@@ -202,39 +316,39 @@ export default function TechnicalDrawingsPage() {
                   value={form.title}
                   onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
                   placeholder="Masalan: Texnik chizma 01"
-                  style={{ height: 52, fontSize: 15, ...(submitted && !form.title.trim() ? { borderColor: "var(--danger)" } : {}) }}
+                  style={{ height: 44, fontSize: 14, ...(submitted && !form.title.trim() ? { borderColor: "var(--danger)" } : {}) }}
                 />
-                {submitted && !form.title.trim() && <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 6 }}>Sarlavha kiritish shart</div>}
+                {submitted && !form.title.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Sarlavha kiritish shart</div>}
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-                <label style={{ fontSize: 16, fontWeight: 700, display: "block", marginBottom: 8, color: "var(--text2)" }}>
+                <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: "var(--text2)" }}>
                   Izoh
                 </label>
                 <textarea
                   className="form-input"
                   value={form.notes}
                   onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-                  rows={12}
+                  rows={10}
                   placeholder="Qo'shimcha izoh (ixtiyoriy)"
-                  style={{ fontSize: 15, resize: "none", flex: 1, minHeight: 0, paddingTop: 14 }}
+                  style={{ fontSize: 14, resize: "none", flex: 1, minHeight: 0, paddingTop: 12 }}
                 />
               </div>
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
-              <label style={{ fontSize: 16, fontWeight: 700, display: "block", marginBottom: 8, color: submitted && !form.file ? "var(--danger)" : "var(--text2)" }}>
-                Texnik chizmalari <span style={{ color: "var(--danger)" }}>*</span>
+              <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: submitted && !form.file ? "var(--danger)" : "var(--text2)" }}>
+                Texnik chizma fayli <span style={{ color: "var(--danger)" }}>*</span>
               </label>
-              <div style={{ fontSize: 13, color: "var(--text3)", marginBottom: 10 }}>
-                Texnik chizmalari faylini shu yerga yuklang
+              <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 10 }}>
+                PDF, DWG, DXF yoki boshqa texnik chizma formatidagi fayl
               </div>
               <label
                 htmlFor="technical-drawing-file"
                 style={{
                   flex: 1,
                   minHeight: 0,
-                  border: "2px dashed var(--border)",
+                  border: `2px dashed ${submitted && !form.file ? "var(--danger)" : "var(--border)"}`,
                   borderRadius: 12,
                   background: "var(--bg1)",
                   padding: 20,
@@ -245,40 +359,42 @@ export default function TechnicalDrawingsPage() {
                   textAlign: "center",
                   cursor: "pointer",
                   gap: 10,
+                  transition: "border-color 0.15s",
                 }}
               >
-                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.8">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.6">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
                 </svg>
-                <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text1)" }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text1)" }}>
                   Faylni tanlash
                 </div>
-                <div style={{ fontSize: 13, color: "var(--text3)" }}>
-                  PDF, DWG, DXF yoki boshqa texnik chizma fayli
-                </div>
-                {form.file && (
-                  <div style={{ marginTop: 4, fontSize: 13, fontWeight: 700, color: "var(--accent)", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {form.file ? (
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--accent)", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {form.file.name}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 12, color: "var(--text3)" }}>
+                    Fayl tanlanmagan
                   </div>
                 )}
                 <input
                   id="technical-drawing-file"
                   type="file"
                   hidden
-                  onChange={(e) => setForm((p) => ({ ...p, file: e.target.files?.[0] ?? null }))}
+                  onChange={(e) => { setForm((p) => ({ ...p, file: e.target.files?.[0] ?? null })); setFileError(""); }}
                 />
               </label>
-              {fileError && <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 8 }}>{fileError}</div>}
+              {fileError && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 6 }}>{fileError}</div>}
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 24 }}>
-            <button className="btn btn-outline" onClick={() => setShowForm(false)} style={{ fontSize: 14, padding: "11px 18px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 24 }}>
+            <button className="btn btn-outline" onClick={() => setShowForm(false)} style={{ fontSize: 13, padding: "10px 20px" }}>
               Bekor qilish
             </button>
-            <button className="btn btn-primary" onClick={save} disabled={saving} style={{ fontSize: 14, padding: "11px 20px" }}>
+            <button className="btn btn-primary" onClick={save} disabled={saving} style={{ fontSize: 13, padding: "10px 22px" }}>
               {saving ? "Saqlanmoqda..." : "Saqlash"}
             </button>
           </div>
@@ -287,123 +403,420 @@ export default function TechnicalDrawingsPage() {
     );
   }
 
+  // ── Render: List ─────────────────────────────────────────────────────────────
+
   return (
     <>
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 2, padding: "10px 14px", flexWrap: "wrap" }}>
-        <div className="search-wrap" style={{ maxWidth: "none", flex: 1, minWidth: 180 }}>
-          <svg width="16" height="16" fill="none" stroke="var(--text3)" strokeWidth="2" viewBox="0 0 24 24">
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input
-            className="search-input"
-            placeholder="Qidirish: sarlavha, shartnoma..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+      <div style={{ display: "flex", flexDirection: "column", gap: 16, fontFamily: "Inter, sans-serif" }}>
+        {/* Filter bar */}
+        <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 2, padding: "10px 14px", flexWrap: "wrap" }}>
+          <div className="search-wrap" style={{ maxWidth: "none", flex: 1, minWidth: 180 }}>
+            <svg width="16" height="16" fill="none" stroke="var(--text3)" strokeWidth="2" viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              className="search-input"
+              placeholder="Qidirish: sarlavha, shartnoma..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+
+          <select className="form-input" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ width: 175, height: 36, cursor: "pointer", padding: "0 10px" }}>
+            <option value="">Barcha statuslar</option>
+            <option value={String(DrawingStatus.Draft)}>Qoralama</option>
+            <option value={String(DrawingStatus.Approved)}>Tasdiqlangan</option>
+          </select>
+
+          <button className="btn-icon" onClick={loadData} title="Yangilash" style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}>
+            <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <polyline points="23,4 23,10 17,10" />
+              <polyline points="1,20 1,14 7,14" />
+              <path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10M1 14l5.36 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+          </button>
+
+          <button className="btn-primary" onClick={openCreate} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "none", cursor: "pointer" }}>
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Yangi yaratish
+          </button>
         </div>
 
-        <select className="form-input" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ width: 170, height: 36, cursor: "pointer", padding: "0 10px" }}>
-          <option value="">Barcha statuslar</option>
-          <option value={String(DrawingStatus.Draft)}>Qoralama</option>
-          <option value={String(DrawingStatus.Approved)}>Tasdiqlangan</option>
-        </select>
-
-        <button className="btn-icon" onClick={loadData} title="Yangilash" style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}>
-          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <polyline points="23,4 23,10 17,10" />
-            <polyline points="1,20 1,14 7,14" />
-            <path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10M1 14l5.36 4.36A9 9 0 0 0 20.49 15" />
-          </svg>
-        </button>
-
-        <button className="btn-primary" onClick={openCreate} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "none", cursor: "pointer" }}>
-          <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          Yangi yaratish
-        </button>
-      </div>
-
-      <div className="itm-card" style={{ flex: 1 }}>
-        <div style={{ overflowX: "auto" }}>
-          <table className="itm-table">
-            <thead>
-              <tr>
-                <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
-                <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Shartnoma</th>
-                <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Sarlavha</th>
-                <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Yaratuvchi</th>
-                <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Status</th>
-                <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Sana</th>
-                <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Amallar</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={7} style={{ textAlign: "center", padding: "30px 14px", color: "var(--text3)" }}>
-                    Yuklanmoqda...
-                  </td>
-                </tr>
-              ) : filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={7} style={{ textAlign: "center", padding: "30px 14px", color: "var(--text3)" }}>
-                    Ma&apos;lumot topilmadi
-                  </td>
-                </tr>
-              ) : (
-                filtered.map((item, i) => (
-                  <tr key={item.id}>
-                    <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>{String(i + 1).padStart(2, "0")}</td>
-                    <td style={{ textAlign: "center", color: "var(--text2)", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.contractNo}</td>
-                    <td style={{ textAlign: "center", fontSize: 14, fontWeight: 600, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</td>
-                    <td style={{ textAlign: "center", fontSize: 13, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.createdByFullName ?? "—"}</td>
-                    <td style={{ textAlign: "center" }}>
-                      <StatusBadge status={item.status} />
-                    </td>
-                    <td style={{ textAlign: "center", fontSize: 13 }}>{fmtDate(item.createdAt)}</td>
-                    <td style={{ textAlign: "center" }}>
-                      <div style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
-                        {item.status === DrawingStatus.Draft && (
-                          <button
-                            className="btn-icon"
-                            onClick={() => handleApprove(item.id)}
-                            disabled={approvingId === item.id}
-                            title="Tasdiqlash"
-                            style={{ color: "var(--success)", borderColor: "rgba(15,123,69,0.25)", background: "var(--success-dim)" }}
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                          </button>
-                        )}
-                        <button
-                          className="btn-icon btn-icon-danger"
-                          onClick={() => setDeleteId(item.id)}
-                          title="O'chirish"
-                          style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" />
-                            <path d="M10 11v6M14 11v6M9 6V4h6v2" />
-                          </svg>
-                        </button>
-                      </div>
-                    </td>
+        {/* Table */}
+        <div className="itm-card" style={{ flex: 1 }}>
+          {loading ? (
+            <div style={{ padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table className="itm-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Shartnoma</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Sarlavha</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Yaratuvchi</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Status</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Sana</th>
+                    <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>Amal</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                </thead>
+                <tbody>
+                  {filtered.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} style={{ textAlign: "center", padding: "32px 14px", color: "var(--text3)" }}>
+                        Ma&apos;lumot topilmadi
+                      </td>
+                    </tr>
+                  ) : (
+                    filtered.map((item, i) => (
+                      <tr key={item.id}>
+                        <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>
+                          {String(i + 1).padStart(2, "0")}
+                        </td>
+                        <td style={{ textAlign: "center" }}>
+                          <button
+                            onClick={() => openDrawer(item)}
+                            style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 13, color: "var(--text1)", fontFamily: "Inter, sans-serif" }}
+                          >
+                            {item.contractNo}
+                          </button>
+                        </td>
+                        <td style={{ textAlign: "center", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text1)" }}>{item.title}</td>
+                        <td style={{ textAlign: "center", fontSize: 13, color: "var(--text1)", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {item.createdByFullName ?? "—"}
+                        </td>
+                        <td style={{ textAlign: "center" }}>
+                          <StatusBadge status={item.status} />
+                        </td>
+                        <td style={{ textAlign: "center", fontSize: 13, color: "var(--text1)", fontFamily: "Inter, sans-serif" }}>
+                          {fmtDate(item.createdAt)}
+                        </td>
+                        <td style={{ borderLeft: "2px solid var(--border)" }}>
+                          <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                            {/* View */}
+                            <button
+                              className="btn-icon"
+                              onClick={() => openDrawer(item)}
+                              title="Ko'rish"
+                              style={{ color: "#0ea5e9", borderColor: "#0ea5e933", background: "#0ea5e912" }}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                <circle cx="12" cy="12" r="3" />
+                              </svg>
+                            </button>
+                            {/* Approve */}
+                            {item.status === DrawingStatus.Draft && (
+                              <button
+                                className="btn-icon"
+                                onClick={() => handleApproveRow(item.id)}
+                                disabled={approvingId === item.id}
+                                title="Tasdiqlash"
+                                style={{ color: "var(--success)", borderColor: "rgba(15,123,69,0.25)", background: "var(--success-dim)" }}
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                  <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                              </button>
+                            )}
+                            {/* Edit */}
+                            <button
+                              className="btn-icon"
+                              onClick={() => openDrawer(item, true)}
+                              title="Tahrirlash"
+                              style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                              </svg>
+                            </button>
+                            {/* Delete */}
+                            <button
+                              className="btn-icon btn-icon-danger"
+                              onClick={() => setDeleteId(item.id)}
+                              title="O'chirish"
+                              style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" />
+                                <path d="M10 11v6M14 11v6M9 6V4h6v2" />
+                              </svg>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
-    </div>
 
+      {/* ── Drawer ── */}
+      {drawer && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(4px)", zIndex: 200, display: "flex", justifyContent: "flex-end" }}
+          onClick={() => setDrawer(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 560, maxWidth: "95vw", height: "calc(100% - 32px)", margin: "16px 16px 16px 0",
+              background: "var(--bg2)", borderRadius: 14,
+              boxShadow: "-4px 0 32px rgba(0,0,0,0.18)",
+              padding: "28px 28px 32px", overflowY: "auto",
+              display: "flex", flexDirection: "column", gap: 0,
+            }}
+          >
+            {/* Sticky header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, position: "sticky", top: 0, background: "var(--bg2)", zIndex: 1, paddingBottom: 8 }}>
+              <span style={{ fontWeight: 700, fontSize: 17, color: "var(--text1)" }}>
+                {drawerEditing ? "Texnik chizmani tahrirlash" : "Texnik chizma tafsilotlari"}
+              </span>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                {drawerEditing ? (
+                  <>
+                    <button
+                      onClick={() => setDrawerEditing(false)}
+                      style={{ padding: "6px 16px", borderRadius: "var(--radius)", border: "1.5px solid var(--border)", background: "var(--bg3)", color: "var(--text2)", fontSize: 13, cursor: "pointer" }}
+                    >
+                      Bekor
+                    </button>
+                    <button
+                      className="btn-primary"
+                      onClick={handleDrawerEditSave}
+                      disabled={drawerEditSaving}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 16px", fontSize: 13, borderRadius: "var(--radius)" }}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                        <polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
+                      </svg>
+                      {drawerEditSaving ? "Saqlanmoqda..." : "Saqlash"}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="btn-icon"
+                    onClick={() => { setDrawerEditing(true); setDrawerEditForm({ title: drawer.title, notes: drawer.notes || "" }); }}
+                    title="Tahrirlash"
+                    style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                  </button>
+                )}
+                <button
+                  onClick={() => setDrawer(null)}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 18, lineHeight: 1, padding: 4 }}
+                >✕</button>
+              </div>
+            </div>
+
+            {/* Approve action */}
+            {!drawerEditing && drawer.status === DrawingStatus.Draft && (
+              <div style={{ marginBottom: 20 }}>
+                <button
+                  className="btn-primary"
+                  onClick={handleApproveDrawer}
+                  disabled={approvingId === drawer.id}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "none", cursor: "pointer" }}
+                >
+                  <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <polyline points="20,6 9,17 4,12" />
+                  </svg>
+                  {approvingId === drawer.id ? "Tasdiqlanmoqda..." : "Tasdiqlash"}
+                </button>
+              </div>
+            )}
+
+            {/* Info cards */}
+            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 10 }}>Umumiy</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 22 }}>
+              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "14px 16px" }}>
+                <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 6 }}>Shartnoma</div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: "var(--accent)", fontFamily: "Inter, sans-serif" }}>{drawer.contractNo}</div>
+              </div>
+              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "14px 16px" }}>
+                <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 6 }}>Status</div>
+                <StatusBadge status={drawer.status} />
+              </div>
+              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "14px 16px" }}>
+                <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 6 }}>Yaratilgan</div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text1)" }}>{fmtDate(drawer.createdAt)}</div>
+              </div>
+              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "14px 16px", gridColumn: "1 / -1" }}>
+                <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 6 }}>Yaratuvchi</div>
+                <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text1)" }}>{drawer.createdByFullName ?? "—"}</div>
+              </div>
+            </div>
+
+            {/* Title */}
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 13, color: "var(--text2)", fontWeight: 600, marginBottom: 6 }}>Sarlavha</div>
+              {drawerEditing ? (
+                <input
+                  className="form-input"
+                  value={drawerEditForm.title}
+                  onChange={(e) => setDrawerEditForm((f) => ({ ...f, title: e.target.value }))}
+                  placeholder="Sarlavha"
+                  style={{ fontSize: 14 }}
+                />
+              ) : (
+                <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text1)" }}>{drawer.title}</div>
+              )}
+            </div>
+
+            {/* Notes */}
+            {(drawerEditing || drawer.notes) && (
+              <div style={{ marginBottom: 22 }}>
+                <div style={{ fontSize: 13, color: "var(--text2)", fontWeight: 600, marginBottom: 6 }}>Izoh</div>
+                {drawerEditing ? (
+                  <textarea
+                    className="form-input"
+                    value={drawerEditForm.notes}
+                    onChange={(e) => setDrawerEditForm((f) => ({ ...f, notes: e.target.value }))}
+                    placeholder="Izoh (ixtiyoriy)"
+                    rows={4}
+                    style={{ resize: "none", fontSize: 14 }}
+                  />
+                ) : (
+                  <div style={{ fontSize: 14, color: "var(--text1)", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{drawer.notes}</div>
+                )}
+              </div>
+            )}
+
+            {/* Files section */}
+            <div style={{ borderTop: "1.5px solid var(--border)", paddingTop: 20, marginTop: 4 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <div style={{ fontSize: 13, color: "var(--text2)", fontWeight: 600 }}>
+                  Fayllar {drawerFiles.length > 0 ? `(${drawerFiles.length})` : ""}
+                </div>
+                <label
+                  htmlFor="drawer-upload-file"
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", fontSize: 12,
+                    fontWeight: 600, borderRadius: "var(--radius)", border: "1.5px solid var(--border)",
+                    cursor: uploadingFile ? "default" : "pointer", background: "var(--bg1)", color: "var(--text2)",
+                    opacity: uploadingFile ? 0.6 : 1,
+                  }}
+                >
+                  <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                  {uploadingFile ? "Yuklanmoqda..." : "Fayl qo'shish"}
+                  <input
+                    id="drawer-upload-file"
+                    type="file"
+                    hidden
+                    disabled={uploadingFile}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleUploadDrawerFile(f);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              </div>
+
+              {drawerLoading ? (
+                <div style={{ fontSize: 13, color: "var(--text3)", textAlign: "center", padding: "16px 0" }}>Yuklanmoqda...</div>
+              ) : drawerFiles.length === 0 ? (
+                <div style={{ fontSize: 13, color: "var(--text3)", textAlign: "center", padding: "28px 0", border: "1.5px dashed var(--border)", borderRadius: 8 }}>
+                  Fayllar yo&apos;q. Yangi fayl qo&apos;shing.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {drawerFiles.map((file) => (
+                    <div
+                      key={file.id}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 10,
+                        border: "1.5px solid var(--border)", borderRadius: 8,
+                        padding: "10px 14px", background: "var(--bg1)",
+                      }}
+                    >
+                      <div style={{ flexShrink: 0 }}>{fileIcon(file.contentType)}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {file.fileName}
+                        </div>
+                        <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>{file.contentType}</div>
+                      </div>
+                      <a
+                        href={technicalDrawingService.downloadFileUrl(drawer.id, file.id)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Yuklab olish"
+                        style={{
+                          display: "inline-flex", alignItems: "center", justifyContent: "center",
+                          width: 30, height: 30, borderRadius: 6, flexShrink: 0,
+                          color: "var(--accent)", border: "1.5px solid var(--accent)33", background: "var(--accent-dim)",
+                          textDecoration: "none",
+                        }}
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                          <polyline points="7 10 12 15 17 10" />
+                          <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                      </a>
+                      <button
+                        title="O'chirish"
+                        disabled={deletingFileId === file.id}
+                        onClick={() => handleDeleteDrawerFile(file.id)}
+                        style={{
+                          display: "inline-flex", alignItems: "center", justifyContent: "center",
+                          width: 30, height: 30, borderRadius: 6, flexShrink: 0,
+                          color: "var(--danger)", border: "1.5px solid var(--danger)33", background: "var(--danger-dim)",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Delete button at bottom */}
+            {!drawerEditing && (
+              <div style={{ marginTop: "auto", paddingTop: 24 }}>
+                <button
+                  onClick={() => { setDeleteId(drawer.id); setDrawer(null); }}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", fontSize: 13,
+                    fontWeight: 600, borderRadius: "var(--radius)", border: "1.5px solid var(--danger)33",
+                    background: "var(--danger-dim)", color: "var(--danger)", cursor: "pointer",
+                  }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" />
+                    <path d="M10 11v6M14 11v6M9 6V4h6v2" />
+                  </svg>
+                  O&apos;chirish
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete confirm modal ── */}
       {deleteId && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div onClick={() => setDeleteId(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)" }} />
           <div style={{ position: "relative", background: "var(--bg1)", borderRadius: 12, padding: 28, width: 360, boxShadow: "0 8px 32px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ fontWeight: 700, fontSize: 17, color: "var(--text1)" }}>O&apos;chirishni tasdiqlang</div>
