@@ -90,8 +90,6 @@ export default function TechnicalDrawingsPage() {
     });
   }, [list, search, filterStatus]);
 
-  const selectedContract = contracts.find((c) => c.id === form.contractId);
-
   useDraft<{ contractId: string; title: string; notes: string }>(
     "draft_technicaldrawings",
     showForm,
