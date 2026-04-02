@@ -97,13 +97,42 @@ public class TechnicalDrawingService : ITechnicalDrawingService
 
     public async Task<ApiResult<int>> UpdateStatusAsync(Guid id, DrawingStatus status)
     {
-        var drawing = await _context.TechnicalDrawings.FirstOrDefaultAsync(d => d.Id == id);
+        var drawing = await _context.TechnicalDrawings
+            .Include(d => d.Contract)
+            .FirstOrDefaultAsync(d => d.Id == id);
         if (drawing is null)
             return ApiResult<int>.Failure([$"Texnik chizma '{id}' topilmadi."], 404);
 
         drawing.Status = status;
-        await _context.SaveChangesAsync();
+
+        if (status == DrawingStatus.Approved && drawing.Contract?.Status == ContractStatus.DrawingPending)
+        {
+            drawing.Contract.Status = ContractStatus.TechProcessing;
+            await _context.SaveChangesAsync();
+            await TryAdvanceToWarehouseCheckAsync(drawing.ContractId);
+        }
+        else
+        {
+            await _context.SaveChangesAsync();
+        }
+
         return ApiResult<int>.Success(200);
+    }
+
+    private async System.Threading.Tasks.Task TryAdvanceToWarehouseCheckAsync(Guid contractId)
+    {
+        var contract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == contractId);
+        if (contract is null || contract.Status != ContractStatus.TechProcessing)
+            return;
+
+        var hasTechProcess = await _context.TechProcesses.AnyAsync(t => t.ContractId == contractId);
+        var hasCostNorm = await _context.CostNorms.AnyAsync(c => c.ContractId == contractId);
+
+        if (hasTechProcess && hasCostNorm)
+        {
+            contract.Status = ContractStatus.WarehouseCheck;
+            await _context.SaveChangesAsync();
+        }
     }
 
     public async Task<ApiResult<int>> DeleteAsync(Guid id)

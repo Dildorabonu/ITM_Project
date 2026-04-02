@@ -252,6 +252,9 @@ namespace DataAccess.Migrations
                     b.Property<string>("Notes")
                         .HasColumnType("text");
 
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("text");

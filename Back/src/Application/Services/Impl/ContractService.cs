@@ -152,7 +152,25 @@ public class ContractService : IContractService
         contract.Status = status;
         await _context.SaveChangesAsync();
 
+        if (status == ContractStatus.TechProcessing)
+            await TryAdvanceToWarehouseCheckAsync(contract);
+
         return ApiResult<int>.Success(200);
+    }
+
+    private async System.Threading.Tasks.Task TryAdvanceToWarehouseCheckAsync(Contract contract)
+    {
+        if (contract.Status != ContractStatus.TechProcessing)
+            return;
+
+        var hasTechProcess = await _context.TechProcesses.AnyAsync(t => t.ContractId == contract.Id);
+        var hasCostNorm    = await _context.CostNorms.AnyAsync(c => c.ContractId == contract.Id);
+
+        if (hasTechProcess && hasCostNorm)
+        {
+            contract.Status = ContractStatus.WarehouseCheck;
+            await _context.SaveChangesAsync();
+        }
     }
 
     public async Task<ApiResult<int>> DeleteAsync(Guid id)
