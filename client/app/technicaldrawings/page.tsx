@@ -55,6 +55,8 @@ export default function TechnicalDrawingsPage() {
   const [showForm, setShowForm] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [fileError, setFileError] = useState("");
   const [form, setForm] = useState({
     contractId: "",
@@ -111,6 +113,18 @@ export default function TechnicalDrawingsPage() {
     setFileError("");
     window.history.pushState({ showForm: true }, "");
     setShowForm(true);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    setDeleting(true);
+    try {
+      await technicalDrawingService.delete(deleteId);
+      setList((prev) => prev.filter((t) => t.id !== deleteId));
+      setDeleteId(null);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const save = async () => {
@@ -267,6 +281,7 @@ export default function TechnicalDrawingsPage() {
   }
 
   return (
+    <>
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 2, padding: "10px 14px", flexWrap: "wrap" }}>
         <div className="search-wrap" style={{ maxWidth: "none", flex: 1, minWidth: 180 }}>
@@ -318,18 +333,19 @@ export default function TechnicalDrawingsPage() {
                 <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Yaratuvchi</th>
                 <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Status</th>
                 <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Sana</th>
+                <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Amallar</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: "center", padding: "30px 14px", color: "var(--text3)" }}>
+                  <td colSpan={7} style={{ textAlign: "center", padding: "30px 14px", color: "var(--text3)" }}>
                     Yuklanmoqda...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: "center", padding: "30px 14px", color: "var(--text3)" }}>
+                  <td colSpan={7} style={{ textAlign: "center", padding: "30px 14px", color: "var(--text3)" }}>
                     Ma&apos;lumot topilmadi
                   </td>
                 </tr>
@@ -344,6 +360,19 @@ export default function TechnicalDrawingsPage() {
                       <StatusBadge status={item.status} />
                     </td>
                     <td style={{ textAlign: "center", fontSize: 13 }}>{fmtDate(item.createdAt)}</td>
+                    <td style={{ textAlign: "center" }}>
+                      <button
+                        className="btn-icon btn-icon-danger"
+                        onClick={() => setDeleteId(item.id)}
+                        title="O'chirish"
+                        style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" />
+                          <path d="M10 11v6M14 11v6M9 6V4h6v2" />
+                        </svg>
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -352,5 +381,25 @@ export default function TechnicalDrawingsPage() {
         </div>
       </div>
     </div>
+
+      {deleteId && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div onClick={() => setDeleteId(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)" }} />
+          <div style={{ position: "relative", background: "var(--bg1)", borderRadius: 12, padding: 28, width: 360, boxShadow: "0 8px 32px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ fontWeight: 700, fontSize: 17, color: "var(--text1)" }}>O&apos;chirishni tasdiqlang</div>
+            <div style={{ fontSize: 14, color: "var(--text2)" }}>Bu texnik chizmani o&apos;chirmoqchimisiz? Bu amalni ortga qaytarib bo&apos;lmaydi.</div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button onClick={() => setDeleteId(null)} className="btn btn-outline" style={{ fontSize: 13, padding: "9px 18px" }}>
+                Bekor qilish
+              </button>
+              <button onClick={handleDelete} disabled={deleting}
+                style={{ padding: "9px 20px", background: "var(--danger)", border: "none", borderRadius: "var(--radius)", cursor: "pointer", color: "#fff", fontSize: 13, fontWeight: 600 }}>
+                {deleting ? "O'chirilmoqda..." : "O'chirish"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
