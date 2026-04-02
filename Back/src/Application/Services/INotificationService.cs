@@ -7,6 +7,7 @@ namespace Application.Services;
 public interface INotificationService
 {
     Task<ApiResult<IEnumerable<NotificationResponseDto>>> GetByUserAsync(Guid userId);
+    Task<ApiResult<IEnumerable<NotificationResponseDto>>> GetAllNotificationsAsync();
     Task<ApiResult<int>> GetUnreadCountAsync(Guid userId);
     Task<ApiResult<int>> MarkAsReadAsync(Guid id, Guid userId);
     Task<ApiResult<int>> MarkAllAsReadAsync(Guid userId);

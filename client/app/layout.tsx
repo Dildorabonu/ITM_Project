@@ -62,7 +62,7 @@ const navGroups: NavGroup[] = [
     label: "Vazifalar",
     icon: "clipboard",
     items: [
-      { name: "Vazifalar", href: "/tasks", icon: "check-square", permission: "Tasks.View" },
+      { name: "Vazifalar", href: "/tasks", icon: "check-square", permission: ["Tasks.View", "Tasks.ViewAll"] },
     ],
   },
   {

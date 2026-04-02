@@ -27,6 +27,7 @@ public class NotificationService : INotificationService
             .Select(n => new NotificationResponseDto
             {
                 Id = n.Id,
+                UserId = n.UserId,
                 Title = n.Title,
                 Body = n.Body,
                 Type = n.Type,
@@ -34,6 +35,27 @@ public class NotificationService : INotificationService
                 CreatedAt = n.CreatedAt,
             })
             .Take(100)
+            .ToListAsync();
+
+        return ApiResult<IEnumerable<NotificationResponseDto>>.Success(notifs);
+    }
+
+    public async Task<ApiResult<IEnumerable<NotificationResponseDto>>> GetAllNotificationsAsync()
+    {
+        var notifs = await _context.Notifications
+            .OrderByDescending(n => n.CreatedAt)
+            .AsNoTracking()
+            .Select(n => new NotificationResponseDto
+            {
+                Id = n.Id,
+                Title = n.Title,
+                Body = n.Body,
+                Type = n.Type,
+                IsRead = n.IsRead,
+                CreatedAt = n.CreatedAt,
+                UserId = n.UserId,
+            })
+            .Take(500)
             .ToListAsync();
 
         return ApiResult<IEnumerable<NotificationResponseDto>>.Success(notifs);
