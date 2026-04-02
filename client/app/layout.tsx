@@ -201,19 +201,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const [bellOpen, setBellOpen] = useState(false);
   const [unreadNotifs, setUnreadNotifs] = useState<{ id: string; title: string; body: string; createdAt: string }[]>([]);
 
-  const fetchNotifCount = useCallback(async () => {
-    try {
-      const res = await api.get("/api/notification/unread-count");
-      setNotifCount(res.data.result ?? 0);
-    } catch { /* ignore */ }
-  }, []);
-
   const fetchUnreadNotifs = useCallback(async () => {
     try {
       const res = await api.get("/api/notification");
       const all = res.data.result || [];
+      const unread = all.filter((n: any) => !n.isRead);
+      setNotifCount(unread.length);
       setUnreadNotifs(
-        all.filter((n: any) => !n.isRead).map((n: any) => ({
+        unread.map((n: any) => ({
           id: n.id, title: n.title, body: n.body, createdAt: n.createdAt,
         }))
       );
@@ -222,10 +217,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     if (!accessToken) return;
-    fetchNotifCount();
-    const interval = setInterval(fetchNotifCount, 30000);
+    fetchUnreadNotifs();
+    const interval = setInterval(fetchUnreadNotifs, 30000);
     return () => clearInterval(interval);
-  }, [accessToken, fetchNotifCount]);
+  }, [accessToken, fetchUnreadNotifs]);
 
   const visibleNavGroups = navGroups.map((group) => ({
     ...group,
@@ -235,9 +230,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         const perms = Array.isArray(item.permission) ? item.permission : [item.permission];
         return perms.some((p) => hasPermission(p));
       })
-      .map((item) => item.href === "/notifications" && notifCount > 0
-        ? { ...item, badge: notifCount }
-        : item),
+      .map((item) => item),
   })).filter((group) => group.items.length > 0);
 
   const isLoginPage = pathname === "/login";
