@@ -98,6 +98,7 @@ export default function NotificationsPage() {
       try {
         await api.put(`/api/notification/${n.id}/read`);
         setNotifs(prev => prev.map(x => x.id === n.id ? { ...x, isRead: true } : x));
+        window.dispatchEvent(new Event("notif-read"));
       } catch { /* ignore */ }
     }
   };
@@ -106,13 +107,18 @@ export default function NotificationsPage() {
     try {
       await api.put("/api/notification/read-all");
       setNotifs(prev => prev.map(n => ({ ...n, isRead: true })));
+      window.dispatchEvent(new Event("notif-read"));
     } catch { /* ignore */ }
   };
 
   const deleteNotif = async (id: string) => {
     try {
       await api.delete(`/api/notification/${id}`);
-      setNotifs(prev => prev.filter(n => n.id !== id));
+      setNotifs(prev => {
+        const updated = prev.filter(n => n.id !== id);
+        window.dispatchEvent(new Event("notif-read"));
+        return updated;
+      });
       if (selected?.id === id) setSelected(null);
     } catch { /* ignore */ }
   };
