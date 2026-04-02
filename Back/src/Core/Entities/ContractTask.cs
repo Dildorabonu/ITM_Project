@@ -9,6 +9,7 @@ public class ContractTask
     public decimal CompletedAmount { get; set; }
     public decimal TotalAmount { get; set; }
     public decimal Importance { get; set; } // 0–100 foiz
+    public bool IsActive { get; set; } = true;
     public Guid CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
