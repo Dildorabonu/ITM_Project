@@ -12,10 +12,8 @@ import {
 } from "@/lib/userService";
 
 const STATUS_STYLE: Record<DrawingStatus, { bg: string; color: string; border: string }> = {
-  [DrawingStatus.Draft]:       { bg: "var(--bg3)",        color: "var(--text2)",  border: "var(--border)" },
-  [DrawingStatus.UnderReview]: { bg: "#ede9fe",           color: "#6d28d9",       border: "#c4b5fd" },
-  [DrawingStatus.Approved]:    { bg: "var(--success-dim)", color: "var(--success)", border: "rgba(15,123,69,0.2)" },
-  [DrawingStatus.Rejected]:    { bg: "var(--danger-dim)", color: "var(--danger)", border: "var(--danger)" },
+  [DrawingStatus.Draft]:    { bg: "var(--bg3)",          color: "var(--text2)",   border: "var(--border)" },
+  [DrawingStatus.Approved]: { bg: "var(--success-dim)",  color: "var(--success)", border: "rgba(15,123,69,0.2)" },
 };
 
 function StatusBadge({ status }: { status: DrawingStatus }) {
@@ -57,6 +55,7 @@ export default function TechnicalDrawingsPage() {
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
   const [fileError, setFileError] = useState("");
   const [form, setForm] = useState({
     contractId: "",
@@ -113,6 +112,16 @@ export default function TechnicalDrawingsPage() {
     setFileError("");
     window.history.pushState({ showForm: true }, "");
     setShowForm(true);
+  };
+
+  const handleApprove = async (id: string) => {
+    setApprovingId(id);
+    try {
+      await technicalDrawingService.updateStatus(id, DrawingStatus.Approved);
+      setList((prev) => prev.map((t) => t.id === id ? { ...t, status: DrawingStatus.Approved } : t));
+    } finally {
+      setApprovingId(null);
+    }
   };
 
   const handleDelete = async () => {
@@ -300,9 +309,7 @@ export default function TechnicalDrawingsPage() {
         <select className="form-input" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ width: 170, height: 36, cursor: "pointer", padding: "0 10px" }}>
           <option value="">Barcha statuslar</option>
           <option value={String(DrawingStatus.Draft)}>Qoralama</option>
-          <option value={String(DrawingStatus.UnderReview)}>Ko&apos;rib chiqilmoqda</option>
           <option value={String(DrawingStatus.Approved)}>Tasdiqlangan</option>
-          <option value={String(DrawingStatus.Rejected)}>Rad etilgan</option>
         </select>
 
         <button className="btn-icon" onClick={loadData} title="Yangilash" style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}>
@@ -361,17 +368,32 @@ export default function TechnicalDrawingsPage() {
                     </td>
                     <td style={{ textAlign: "center", fontSize: 13 }}>{fmtDate(item.createdAt)}</td>
                     <td style={{ textAlign: "center" }}>
-                      <button
-                        className="btn-icon btn-icon-danger"
-                        onClick={() => setDeleteId(item.id)}
-                        title="O'chirish"
-                        style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" />
-                          <path d="M10 11v6M14 11v6M9 6V4h6v2" />
-                        </svg>
-                      </button>
+                      <div style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+                        {item.status === DrawingStatus.Draft && (
+                          <button
+                            className="btn-icon"
+                            onClick={() => handleApprove(item.id)}
+                            disabled={approvingId === item.id}
+                            title="Tasdiqlash"
+                            style={{ color: "var(--success)", borderColor: "rgba(15,123,69,0.25)", background: "var(--success-dim)" }}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          </button>
+                        )}
+                        <button
+                          className="btn-icon btn-icon-danger"
+                          onClick={() => setDeleteId(item.id)}
+                          title="O'chirish"
+                          style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" />
+                            <path d="M10 11v6M14 11v6M9 6V4h6v2" />
+                          </svg>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

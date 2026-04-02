@@ -10,5 +10,6 @@ public interface ICostNormService
     Task<ApiResult<IEnumerable<CostNormResponseDto>>> GetByContractIdAsync(Guid contractId);
     Task<ApiResult<Guid>> CreateAsync(CostNormCreateDto dto, Guid createdBy);
     Task<ApiResult<int>> UpdateAsync(Guid id, CostNormUpdateDto dto);
+    Task<ApiResult<int>> ApproveAsync(Guid id);
     Task<ApiResult<int>> DeleteAsync(Guid id);
 }
