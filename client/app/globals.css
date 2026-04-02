@@ -93,6 +93,8 @@ body {
 .s-blue::before  { background: var(--accent); }
 .s-gray  { background: var(--surface2);    color: var(--text3);   border: 1px solid var(--border); }
 .s-gray::before  { background: var(--text3); }
+.s-purple{ background: #ede9fe;            color: #6d28d9;        border: 1px solid rgba(109,40,217,0.2); }
+.s-purple::before{ background: #6d28d9; }
 
 /* ===== PRIORITY ===== */
 .prio { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; text-transform: uppercase; font-family: var(--font-inter), Inter, sans-serif; }
