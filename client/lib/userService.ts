@@ -332,7 +332,7 @@ export enum Priority {
 
 export const CONTRACT_STATUS_LABELS: Record<ContractStatus, string> = {
   [ContractStatus.Draft]:           "Shartnoma yaratilindi",
-  [ContractStatus.DrawingPending]:  "Chizmasi tayyorlanmoqda",
+  [ContractStatus.DrawingPending]:  "Chizmasi tayyorlandi",
   [ContractStatus.TechProcessing]:  "Tex jarayon tayyorlanmoqda",
   [ContractStatus.WarehouseCheck]:  "Ombor tekshiruvida",
   [ContractStatus.InProduction]:    "Ishlab chiqarishda",
@@ -564,7 +564,7 @@ export enum ProcessStatus {
 }
 
 export const PROCESS_STATUS_LABELS: Record<ProcessStatus, string> = {
-  [ProcessStatus.Pending]:    "Kutilmoqda",
+  [ProcessStatus.Pending]:    "Qoralama",
   [ProcessStatus.InProgress]: "Jarayonda",
   [ProcessStatus.Approved]:   "Tasdiqlangan",
   [ProcessStatus.Rejected]:   "Rad etilgan",
@@ -815,17 +815,13 @@ export const materialService = {
 // ─── Technical Drawings ───────────────────────────────────────────────────────
 
 export enum DrawingStatus {
-  Draft       = 0,
-  UnderReview = 1,
-  Approved    = 2,
-  Rejected    = 3,
+  Draft    = 0,
+  Approved = 1,
 }
 
 export const DRAWING_STATUS_LABELS: Record<DrawingStatus, string> = {
-  [DrawingStatus.Draft]:       "Qoralama",
-  [DrawingStatus.UnderReview]: "Ko'rib chiqilmoqda",
-  [DrawingStatus.Approved]:    "Tasdiqlangan",
-  [DrawingStatus.Rejected]:    "Rad etilgan",
+  [DrawingStatus.Draft]:    "Qoralama",
+  [DrawingStatus.Approved]: "Tasdiqlangan",
 };
 
 export interface TechnicalDrawingResponse {
@@ -928,6 +924,7 @@ export interface CostNormItemResponse {
 export interface CostNormResponse {
   id: string;
   contractId: string;
+  status: DrawingStatus;
   contractNo: string;
   title: string;
   notes: string | null;
@@ -983,6 +980,10 @@ export const costNormService = {
 
   update: async (id: string, dto: { title?: string; notes?: string | null; items?: CostNormItemCreatePayload[] }): Promise<void> => {
     await api.put(`/api/costnorm/${id}`, dto);
+  },
+
+  approve: async (id: string): Promise<void> => {
+    await api.patch(`/api/costnorm/${id}/approve`);
   },
 
   delete: async (id: string): Promise<void> => {
