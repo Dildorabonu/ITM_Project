@@ -8,6 +8,8 @@ import {
   userService,
   scanService,
   departmentService,
+  techProcessService,
+  costNormService,
   ContractStatus,
   Priority,
   DepartmentType,
@@ -22,6 +24,8 @@ import {
   type UserLookup,
   type ScanSource,
   type DepartmentResponse,
+  type TechProcessResponse,
+  type CostNormResponse,
 } from "@/lib/userService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -88,7 +92,7 @@ function PriorityBadge({ priority }: { priority: Priority }) {
 
 const WORKFLOW_STEPS: { status: ContractStatus; label: string; shortLabel: string }[] = [
   { status: ContractStatus.Draft,          label: "Shartnoma yaratilindi",              shortLabel: "Yaratildi" },
-  { status: ContractStatus.DrawingPending, label: "Chizmasi tayyorlanmoqda",             shortLabel: "Chizma" },
+  { status: ContractStatus.DrawingPending, label: "Chizmasi tayyorlandi",                shortLabel: "Chizma" },
   { status: ContractStatus.TechProcessing, label: "Tex jarayon va me'yoriy sarf",        shortLabel: "Tex jarayon" },
   { status: ContractStatus.WarehouseCheck, label: "Ombor tekshiruviga uzatildi",         shortLabel: "Ombor" },
   { status: ContractStatus.InProduction,   label: "Ishlab chiqarish jarayoni boshlangan", shortLabel: "Ishlab chiqarish" },
@@ -105,9 +109,15 @@ const STEP_COLORS: Record<ContractStatus, { active: string; done: string; text: 
   [ContractStatus.Cancelled]:      { active: "#dc2626", done: "#dc2626", text: "#fff" },
 };
 
-function WorkflowDiagram({ status }: { status: ContractStatus }) {
+function WorkflowDiagram({ status, techDone }: { status: ContractStatus; techDone?: boolean }) {
   const isCancelled = status === ContractStatus.Cancelled;
-  const currentIdx = isCancelled ? -1 : WORKFLOW_STEPS.findIndex(s => s.status === status);
+  const rawIdx = isCancelled ? -1 : WORKFLOW_STEPS.findIndex(s => s.status === status);
+  // When drawing is done (DrawingPending), advance the visual indicator so drawing step
+  // shows as completed (checkmark) and the next step appears as current.
+  const isDrawingDone = status === ContractStatus.DrawingPending;
+  // When both TechProcess and CostNorm are ready, advance the visual indicator
+  const isTechDone = techDone === true && status === ContractStatus.TechProcessing;
+  const currentIdx = isDrawingDone || isTechDone ? rawIdx + 1 : rawIdx;
 
   if (isCancelled) {
     return (
@@ -193,7 +203,11 @@ function WorkflowDiagram({ status }: { status: ContractStatus }) {
           fontSize: 13, fontWeight: 600, color: STEP_COLORS[status].active,
           textAlign: "center",
         }}>
-          {WORKFLOW_STEPS[currentIdx]?.label}
+          {isDrawingDone
+            ? WORKFLOW_STEPS[rawIdx]?.label
+            : isTechDone
+            ? "Tex jarayon tayyorlandi"
+            : WORKFLOW_STEPS[currentIdx]?.label}
         </div>
       </div>
     </div>
@@ -379,6 +393,8 @@ export default function ContractsPage() {
   const [filesLoading, setFilesLoading] = useState(false);
   const [uploading, setUploading]       = useState(false);
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
+  const [drawerTechProcesses, setDrawerTechProcesses] = useState<TechProcessResponse[]>([]);
+  const [drawerCostNorms, setDrawerCostNorms]         = useState<CostNormResponse[]>([]);
 
   // Departments
   const [departments, setDepartments]   = useState<DepartmentResponse[]>([]);
@@ -433,18 +449,27 @@ export default function ContractsPage() {
     setDrawerFiles([]);
     setDrawerUsers([]);
     setDrawerTzFiles([]);
+    setDrawerTechProcesses([]);
+    setDrawerCostNorms([]);
     setFilesLoading(true);
     setUsersLoading(true);
     setTzFilesLoading(true);
     try {
-      const [files, users, tzFiles] = await Promise.all([
+      const [fresh, files, users, tzFiles, techProcesses, costNorms] = await Promise.all([
+        contractService.getById(c.id),
         contractService.getFiles(c.id),
         contractService.getUsers(c.id),
         contractService.getTzFiles(c.id),
+        techProcessService.getByContract(c.id),
+        costNormService.getAll(c.id),
       ]);
+      setViewContract(fresh);
+      setContracts(prev => prev.map(x => x.id === fresh.id ? fresh : x));
       setDrawerFiles(files);
       setDrawerUsers(users);
       setDrawerTzFiles(tzFiles);
+      setDrawerTechProcesses(techProcesses);
+      setDrawerCostNorms(costNorms);
     } finally {
       setFilesLoading(false);
       setUsersLoading(false);
@@ -466,7 +491,7 @@ export default function ContractsPage() {
     if (drawerUsers.some(u => u.userId === userId)) return;
     setAssigning(true);
     try {
-      await contractService.assignUsers(viewContract.id, [userId]);
+      await contractService.assignUsers(viewContract.id, [{ userId, role: 0 }]);
       const users = await contractService.getUsers(viewContract.id);
       setDrawerUsers(users);
     } finally {
@@ -1349,7 +1374,7 @@ export default function ContractsPage() {
       {viewContract && (
         <div
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(4px)", zIndex: 200, display: "flex", justifyContent: "flex-end" }}
-          onClick={() => { setViewContract(null); setDrawerFiles([]); setDrawerUsers([]); setDrawerTzFiles([]); setShowAssign(false); }}
+          onClick={() => { setViewContract(null); setDrawerFiles([]); setDrawerUsers([]); setDrawerTzFiles([]); setDrawerTechProcesses([]); setDrawerCostNorms([]); setShowAssign(false); }}
         >
           <div
             onClick={e => e.stopPropagation()}
@@ -1362,11 +1387,17 @@ export default function ContractsPage() {
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, position: "sticky", top: 0, background: "var(--bg2)", zIndex: 1, paddingBottom: 8 }}>
               <span style={{ fontWeight: 700, fontSize: 17, color: "var(--text1)" }}>Shartnoma tafsilotlari</span>
-              <button onClick={() => { setViewContract(null); setDrawerFiles([]); setDrawerUsers([]); setDrawerTzFiles([]); setShowAssign(false); }}
+              <button onClick={() => { setViewContract(null); setDrawerFiles([]); setDrawerUsers([]); setDrawerTzFiles([]); setDrawerTechProcesses([]); setDrawerCostNorms([]); setShowAssign(false); }}
                 style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
             </div>
 
-            <WorkflowDiagram status={viewContract.status} />
+            <WorkflowDiagram
+              status={viewContract.status}
+              techDone={
+                drawerTechProcesses.length > 0 &&
+                drawerCostNorms.length > 0
+              }
+            />
 
             <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 10 }}>Umumiy</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 22 }}>

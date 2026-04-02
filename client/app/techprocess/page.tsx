@@ -98,6 +98,7 @@ export default function TechProcessPage() {
 
   // Action buttons
   const [approving, setApproving]             = useState(false);
+  const [savingAndApproving, setSavingAndApproving] = useState(false);
   const [sendingWarehouse, setSendingWarehouse] = useState(false);
 
   useDraft(
@@ -361,6 +362,40 @@ export default function TechProcessPage() {
     }
   };
 
+  const handleSaveAndApprove = async () => {
+    setSubmitted(true);
+    setFileSubmitError("");
+    if (!form.contractId || !form.title.trim()) return;
+    if (!finalContractFile || !templateContractFile) {
+      setFileSubmitError("Asl va template shartnoma fayllarini yuklang.");
+      return;
+    }
+    setSavingAndApproving(true);
+    setFormError("");
+    try {
+      await Promise.all([
+        contractService.uploadFile(form.contractId, finalContractFile),
+        contractService.uploadFile(form.contractId, templateContractFile),
+      ]);
+
+      const dto: TechProcessCreatePayload = {
+        contractId: form.contractId,
+        title: form.title.trim(),
+        notes: form.notes || null,
+      };
+      const newId = await techProcessService.create(dto);
+      await techProcessService.approve(newId);
+      const fresh = await techProcessService.getById(newId);
+      setList(prev => [fresh, ...prev]);
+      setShowForm(false);
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
+      setFormError(msg ?? "Saqlashda xatolik yuz berdi.");
+    } finally {
+      setSavingAndApproving(false);
+    }
+  };
+
   const handleSendToWarehouse = async () => {
     if (!drawer) return;
     setSendingWarehouse(true);
@@ -538,14 +573,21 @@ export default function TechProcessPage() {
             style={{ background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", padding: "10px 24px", color: "var(--text2)", fontSize: 14, fontWeight: 500 }}>
             Bekor qilish
           </button>
-          <button className="btn-primary" onClick={handleSave} disabled={saving}
-            style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-              <polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
-            </svg>
-            {saving ? "Saqlanmoqda..." : "Saqlash"}
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={handleSave} disabled={saving || savingAndApproving}
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 24px", borderRadius: "var(--radius)", border: "1.5px solid var(--border)", background: "var(--bg3)", color: "var(--text2)", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                <polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
+              </svg>
+              {saving ? "Saqlanmoqda..." : "Qoralama saqlash"}
+            </button>
+            <button className="btn-primary" onClick={handleSaveAndApprove} disabled={saving || savingAndApproving}
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              {savingAndApproving ? "Tasdiqlanmoqda..." : "Tasdiqlash"}
+            </button>
+          </div>
         </div>
       </div>
     );

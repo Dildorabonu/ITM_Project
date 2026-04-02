@@ -73,6 +73,15 @@ public class CostNormController : ControllerBase
         return StatusCode(result.StatusCode, result);
     }
 
+    // PATCH /api/costnorm/{id}/approve
+    [HasPermission("CostNorm.Update")]
+    [HttpPatch("{id:guid}/approve")]
+    public async Task<IActionResult> Approve(Guid id)
+    {
+        var result = await _costNormService.ApproveAsync(id);
+        return StatusCode(result.StatusCode, result);
+    }
+
     // DELETE /api/costnorm/{id}
     [HasPermission("CostNorm.Delete")]
     [HttpDelete("{id:guid}")]
