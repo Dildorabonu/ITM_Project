@@ -98,7 +98,7 @@ export default function TechProcessPage() {
 
   // Action buttons
   const [approving, setApproving]             = useState(false);
-  const [savingAndApproving, setSavingAndApproving] = useState(false);
+  const [approvingId, setApprovingId]         = useState<string | null>(null);
   const [sendingWarehouse, setSendingWarehouse] = useState(false);
 
   useDraft(
@@ -362,37 +362,14 @@ export default function TechProcessPage() {
     }
   };
 
-  const handleSaveAndApprove = async () => {
-    setSubmitted(true);
-    setFileSubmitError("");
-    if (!form.contractId || !form.title.trim()) return;
-    if (!finalContractFile || !templateContractFile) {
-      setFileSubmitError("Asl va template shartnoma fayllarini yuklang.");
-      return;
-    }
-    setSavingAndApproving(true);
-    setFormError("");
+  const handleApproveRow = async (id: string) => {
+    setApprovingId(id);
     try {
-      await Promise.all([
-        contractService.uploadFile(form.contractId, finalContractFile),
-        contractService.uploadFile(form.contractId, templateContractFile),
-      ]);
-
-      const dto: TechProcessCreatePayload = {
-        contractId: form.contractId,
-        title: form.title.trim(),
-        notes: form.notes || null,
-      };
-      const newId = await techProcessService.create(dto);
-      await techProcessService.approve(newId);
-      const fresh = await techProcessService.getById(newId);
-      setList(prev => [fresh, ...prev]);
-      setShowForm(false);
-    } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
-      setFormError(msg ?? "Saqlashda xatolik yuz berdi.");
+      await techProcessService.approve(id);
+      const fresh = await techProcessService.getById(id);
+      setList(prev => prev.map(t => t.id === id ? fresh : t));
     } finally {
-      setSavingAndApproving(false);
+      setApprovingId(null);
     }
   };
 
@@ -574,18 +551,13 @@ export default function TechProcessPage() {
             Bekor qilish
           </button>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={handleSave} disabled={saving || savingAndApproving}
+            <button onClick={handleSave} disabled={saving}
               style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 24px", borderRadius: "var(--radius)", border: "1.5px solid var(--border)", background: "var(--bg3)", color: "var(--text2)", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
                 <polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
               </svg>
               {saving ? "Saqlanmoqda..." : "Qoralama saqlash"}
-            </button>
-            <button className="btn-primary" onClick={handleSaveAndApprove} disabled={saving || savingAndApproving}
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-              {savingAndApproving ? "Tasdiqlanmoqda..." : "Tasdiqlash"}
             </button>
           </div>
         </div>
@@ -689,6 +661,12 @@ export default function TechProcessPage() {
                             <circle cx="12" cy="12" r="3" />
                           </svg>
                         </button>
+                        {tp.status === ProcessStatus.Pending && (
+                          <button className="btn-icon" onClick={() => handleApproveRow(tp.id)} disabled={approvingId === tp.id} title="Tasdiqlash"
+                            style={{ color: "var(--success)", borderColor: "var(--success)33", background: "var(--success-dim)" }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                          </button>
+                        )}
                         <button className="btn-icon" onClick={() => openDrawerEdit(tp)} title="Tahrirlash"
                           style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -765,7 +743,7 @@ export default function TechProcessPage() {
             </div>
 
             {/* Action buttons */}
-            {(drawer.status === ProcessStatus.Pending || drawer.status === ProcessStatus.Approved || drawer.approvedByFullName) && (
+            {!drawerEditing && (drawer.status === ProcessStatus.Pending || drawer.status === ProcessStatus.Approved || drawer.approvedByFullName) && (
               <div style={{ display: "flex", gap: 8, marginBottom: 20, alignItems: "center" }}>
                 {drawer.status === ProcessStatus.Pending && (
                   <button className="btn-primary" onClick={handleApprove} disabled={approving}
