@@ -31,7 +31,7 @@ interface ContractForm {
   productType: string;
   quantity: string;
   unit: string;
-  departmentId: string;
+  departmentIds: string[];
   startDate: string;
   endDate: string;
   priority: string;
@@ -41,17 +41,20 @@ interface ContractForm {
 
 const emptyForm: ContractForm = {
   contractNo: "", productType: "", quantity: "", unit: "",
-  departmentId: "", startDate: "", endDate: "",
+  departmentIds: [], startDate: "", endDate: "",
   priority: String(Priority.Medium), contractParty: "", notes: "",
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const STATUS_STYLE: Record<ContractStatus, { bg: string; color: string; border: string }> = {
-  [ContractStatus.Draft]:     { bg: "var(--bg3)",        color: "var(--text2)",    border: "var(--border)" },
-  [ContractStatus.Active]:    { bg: "#e6f4ea",           color: "#1e7e34",         border: "#a8d5b5" },
-  [ContractStatus.Completed]: { bg: "#e8f0fe",           color: "#1a56db",         border: "#a4c0f4" },
-  [ContractStatus.Cancelled]: { bg: "var(--danger-dim)", color: "var(--danger)",   border: "var(--danger)" },
+  [ContractStatus.Draft]:           { bg: "var(--bg3)",        color: "var(--text2)",    border: "var(--border)" },
+  [ContractStatus.DrawingPending]:  { bg: "#ede9fe",           color: "#6d28d9",         border: "#c4b5fd" },
+  [ContractStatus.TechProcessing]:  { bg: "#fff7ed",           color: "#c2410c",         border: "#fdba74" },
+  [ContractStatus.WarehouseCheck]:  { bg: "#fefce8",           color: "#a16207",         border: "#fde047" },
+  [ContractStatus.InProduction]:    { bg: "#e6f4ea",           color: "#1e7e34",         border: "#a8d5b5" },
+  [ContractStatus.Completed]:       { bg: "#e8f0fe",           color: "#1a56db",         border: "#a4c0f4" },
+  [ContractStatus.Cancelled]:       { bg: "var(--danger-dim)", color: "var(--danger)",   border: "var(--danger)" },
 };
 
 const PRIORITY_STYLE: Record<Priority, { color: string }> = {
@@ -83,6 +86,120 @@ function PriorityBadge({ priority }: { priority: Priority }) {
   );
 }
 
+const WORKFLOW_STEPS: { status: ContractStatus; label: string; shortLabel: string }[] = [
+  { status: ContractStatus.Draft,          label: "Shartnoma yaratilindi",              shortLabel: "Yaratildi" },
+  { status: ContractStatus.DrawingPending, label: "Chizmasi tayyorlanmoqda",             shortLabel: "Chizma" },
+  { status: ContractStatus.TechProcessing, label: "Tex jarayon va me'yoriy sarf",        shortLabel: "Tex jarayon" },
+  { status: ContractStatus.WarehouseCheck, label: "Ombor tekshiruviga uzatildi",         shortLabel: "Ombor" },
+  { status: ContractStatus.InProduction,   label: "Ishlab chiqarish jarayoni boshlangan", shortLabel: "Ishlab chiqarish" },
+  { status: ContractStatus.Completed,      label: "Yakunlandi",                          shortLabel: "Yakunlandi" },
+];
+
+const STEP_COLORS: Record<ContractStatus, { active: string; done: string; text: string }> = {
+  [ContractStatus.Draft]:          { active: "#6b7280", done: "#6b7280", text: "#fff" },
+  [ContractStatus.DrawingPending]: { active: "#7c3aed", done: "#7c3aed", text: "#fff" },
+  [ContractStatus.TechProcessing]: { active: "#c2410c", done: "#c2410c", text: "#fff" },
+  [ContractStatus.WarehouseCheck]: { active: "#a16207", done: "#a16207", text: "#fff" },
+  [ContractStatus.InProduction]:   { active: "#1e7e34", done: "#1e7e34", text: "#fff" },
+  [ContractStatus.Completed]:      { active: "#1a56db", done: "#1a56db", text: "#fff" },
+  [ContractStatus.Cancelled]:      { active: "#dc2626", done: "#dc2626", text: "#fff" },
+};
+
+function WorkflowDiagram({ status }: { status: ContractStatus }) {
+  const isCancelled = status === ContractStatus.Cancelled;
+  const currentIdx = isCancelled ? -1 : WORKFLOW_STEPS.findIndex(s => s.status === status);
+
+  if (isCancelled) {
+    return (
+      <div style={{ marginBottom: 22 }}>
+        <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 12 }}>Jarayon holati</div>
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10, padding: "12px 16px",
+          background: "var(--danger-dim)", border: "1.5px solid var(--danger)",
+          borderRadius: 10,
+        }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: "50%", background: "var(--danger)",
+            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </div>
+          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--danger)" }}>Shartnoma bekor qilindi</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginBottom: 22 }}>
+      <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 12 }}>Jarayon holati</div>
+      <div style={{ position: "relative" }}>
+        {/* connector line */}
+        <div style={{
+          position: "absolute", top: 16, left: 16, right: 16, height: 2,
+          background: "var(--border)", zIndex: 0,
+        }} />
+        {/* filled connector up to current step */}
+        {currentIdx > 0 && (
+          <div style={{
+            position: "absolute", top: 16, left: 16, height: 2,
+            width: `calc(${(currentIdx / (WORKFLOW_STEPS.length - 1)) * 100}% - 16px)`,
+            background: STEP_COLORS[status].active, zIndex: 0, transition: "width 0.4s",
+          }} />
+        )}
+        <div style={{ display: "flex", justifyContent: "space-between", position: "relative", zIndex: 1 }}>
+          {WORKFLOW_STEPS.map((step, idx) => {
+            const isDone = idx < currentIdx;
+            const isActive = idx === currentIdx;
+            const col = STEP_COLORS[step.status];
+            return (
+              <div key={step.status} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flex: 1 }}>
+                <div style={{
+                  width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
+                  background: isDone || isActive ? col.active : "var(--bg3)",
+                  border: `2px solid ${isDone || isActive ? col.active : "var(--border)"}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  boxShadow: isActive ? `0 0 0 4px ${col.active}33` : "none",
+                  transition: "all 0.3s",
+                }}>
+                  {isDone ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={col.text} strokeWidth="2.5">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  ) : (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: isActive ? col.text : "var(--text3)" }}>
+                      {idx + 1}
+                    </span>
+                  )}
+                </div>
+                <span style={{
+                  fontSize: 10, fontWeight: isActive ? 700 : 500, textAlign: "center", lineHeight: 1.3,
+                  color: isActive ? col.active : isDone ? "var(--text2)" : "var(--text3)",
+                  maxWidth: 72,
+                }}>
+                  {step.shortLabel}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+        {/* current step description */}
+        <div style={{
+          marginTop: 14, padding: "8px 14px", borderRadius: 8,
+          background: `${STEP_COLORS[status].active}14`,
+          border: `1.5px solid ${STEP_COLORS[status].active}44`,
+          fontSize: 13, fontWeight: 600, color: STEP_COLORS[status].active,
+          textAlign: "center",
+        }}>
+          {WORKFLOW_STEPS[currentIdx]?.label}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function fmt(d: string) {
   if (!d) return "—";
   const [y, m, day] = d.slice(0, 10).split("-");
@@ -97,24 +214,6 @@ function isoToDisplayDate(iso: string) {
   return `${d}-${m}-${y.slice(-2)}`;
 }
 
-function displayToIsoDate(v: string) {
-  const m = v.trim().match(/^(\d{2})-(\d{2})-(\d{2})$/);
-  if (!m) return "";
-  const day = Number(m[1]);
-  const month = Number(m[2]);
-  const year = 2000 + Number(m[3]);
-  if (month < 1 || month > 12 || day < 1 || day > 31) return "";
-  const dt = new Date(year, month - 1, day);
-  if (dt.getFullYear() !== year || dt.getMonth() !== month - 1 || dt.getDate() !== day) return "";
-  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-}
-
-function autoFormatDate(value: string): string {
-  const digits = value.replace(/\D/g, "").slice(0, 6);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
-  return `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4, 6)}`;
-}
 
 // ─── Department grouped select ────────────────────────────────────────────────
 
@@ -124,17 +223,15 @@ const TYPE_STYLE = {
   [DepartmentType.Boshqaruv]:       { bg: "#f5f3ff", color: "#6d28d9", border: "#ddd6fe", icon: "👔" },
 };
 
-function CustomGroupedSelect({
-  value, onChange, departments, placeholder, hasError,
+function CustomGroupedMultiSelect({
+  values = [], onChange, departments, placeholder, hasError,
 }: {
-  value: string; onChange: (v: string) => void;
+  values: string[]; onChange: (v: string[]) => void;
   departments: DepartmentResponse[];
   placeholder: string; hasError?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const selected = departments.find(d => d.id === value);
-  const selectedTs = selected?.type !== undefined ? TYPE_STYLE[selected.type] : null;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -148,29 +245,44 @@ function CustomGroupedSelect({
     .map(t => ({ type: t, items: departments.filter(d => d.type === t) }))
     .filter(g => g.items.length > 0);
 
+  const toggle = (id: string) => {
+    onChange(values.includes(id) ? values.filter(v => v !== id) : [...values, id]);
+  };
+
+  const selectedDepts = departments.filter(d => values.includes(d.id));
+
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button type="button" onClick={() => setOpen(o => !o)} style={{
         width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
         background: "var(--bg3)",
         border: `1.5px solid ${hasError ? "var(--danger)" : open ? "var(--accent)" : "var(--border)"}`,
-        borderRadius: "var(--radius)", padding: "9px 12px",
+        borderRadius: "var(--radius)", padding: "9px 12px", minHeight: 40,
         fontSize: 14, cursor: "pointer", textAlign: "left",
         boxShadow: hasError ? "0 0 0 3px rgba(217,48,37,0.2)" : open ? "0 0 0 3px var(--accent-dim)" : "none",
         transition: "border-color 0.14s, box-shadow 0.14s",
         fontFamily: "var(--font-inter), Inter, sans-serif",
       }}>
-        {selected && selectedTs ? (
-          <span style={{
-            display: "inline-flex", alignItems: "center", gap: 5,
-            padding: "2px 9px", borderRadius: 10, fontSize: 12, fontWeight: 600,
-            background: selectedTs.bg, color: selectedTs.color, border: `1px solid ${selectedTs.border}`,
-          }}>
-            {selectedTs.icon} {selected.name}
-          </span>
-        ) : (
-          <span style={{ color: "var(--text3)" }}>{placeholder}</span>
-        )}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, flex: 1 }}>
+          {selectedDepts.length === 0 ? (
+            <span style={{ color: "var(--text3)" }}>{placeholder}</span>
+          ) : selectedDepts.map(d => {
+            const ts = TYPE_STYLE[d.type];
+            return (
+              <span key={d.id} style={{
+                display: "inline-flex", alignItems: "center", gap: 4,
+                padding: "2px 8px", borderRadius: 10, fontSize: 12, fontWeight: 600,
+                background: ts.bg, color: ts.color, border: `1px solid ${ts.border}`,
+              }}>
+                {ts.icon} {d.name}
+                <span
+                  onClick={e => { e.stopPropagation(); toggle(d.id); }}
+                  style={{ cursor: "pointer", marginLeft: 2, lineHeight: 1, opacity: 0.7 }}
+                >✕</span>
+              </span>
+            );
+          })}
+        </div>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
           style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s", color: "var(--text3)" }}>
           <polyline points="6 9 12 15 18 9" />
@@ -197,26 +309,29 @@ function CustomGroupedSelect({
                 }}>
                   {ts.icon} {DEPARTMENT_TYPE_LABELS[g.type]}
                 </div>
-                {g.items.map(d => (
-                  <div key={d.id}
-                    onClick={() => { onChange(d.id); setOpen(false); }}
-                    onMouseEnter={e => { if (d.id !== value) e.currentTarget.style.background = "var(--bg3)"; }}
-                    onMouseLeave={e => { if (d.id !== value) e.currentTarget.style.background = d.id === value ? ts.bg : "transparent"; }}
-                    style={{
-                      padding: "8px 16px 8px 20px", cursor: "pointer", fontSize: 13,
-                      color: d.id === value ? ts.color : "var(--text)",
-                      background: d.id === value ? ts.bg : "transparent",
-                      fontWeight: d.id === value ? 600 : 400,
-                      display: "flex", alignItems: "center", gap: 8,
-                    }}>
-                    {d.id === value ? (
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ flexShrink: 0, color: ts.color }}>
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    ) : <span style={{ width: 11 }} />}
-                    {d.name}
-                  </div>
-                ))}
+                {g.items.map(d => {
+                  const checked = values.includes(d.id);
+                  return (
+                    <div key={d.id}
+                      onClick={() => toggle(d.id)}
+                      onMouseEnter={e => { if (!checked) e.currentTarget.style.background = "var(--bg3)"; }}
+                      onMouseLeave={e => { if (!checked) e.currentTarget.style.background = "transparent"; }}
+                      style={{
+                        padding: "8px 16px 8px 20px", cursor: "pointer", fontSize: 13,
+                        color: checked ? ts.color : "var(--text)",
+                        background: checked ? ts.bg : "transparent",
+                        fontWeight: checked ? 600 : 400,
+                        display: "flex", alignItems: "center", gap: 8,
+                      }}>
+                      {checked ? (
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ flexShrink: 0, color: ts.color }}>
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      ) : <span style={{ width: 11 }} />}
+                      {d.name}
+                    </div>
+                  );
+                })}
               </div>
             );
           })}
@@ -496,9 +611,9 @@ export default function ContractsPage() {
       productType:   c.productType ?? "",
       quantity:      c.quantity ? String(c.quantity) : "",
       unit:          c.unit ?? "",
-      departmentId:  c.departmentId ?? "",
-      startDate:     c.startDate ? isoToDisplayDate(c.startDate) : "",
-      endDate:       c.endDate ? isoToDisplayDate(c.endDate) : "",
+      departmentIds: c.departments?.map(d => d.id) ?? [],
+      startDate:     c.startDate ? c.startDate.slice(0, 10) : "",
+      endDate:       c.endDate ? c.endDate.slice(0, 10) : "",
       priority:      String(c.priority),
       contractParty: c.contractParty ?? "",
       notes:         c.notes ?? "",
@@ -520,14 +635,14 @@ export default function ContractsPage() {
   };
 
   const isValid = () =>
-    form.contractNo.trim() && form.departmentId.trim() &&
-    displayToIsoDate(form.startDate) && displayToIsoDate(form.endDate);
+    form.contractNo.trim() && form.departmentIds.length > 0 &&
+    form.startDate && form.endDate;
 
   const handleSave = async () => {
     setSubmitted(true);
     if (!isValid()) return;
-    const startDateIso = displayToIsoDate(form.startDate);
-    const endDateIso = displayToIsoDate(form.endDate);
+    const startDateIso = form.startDate;
+    const endDateIso = form.endDate;
     if (!startDateIso || !endDateIso) return;
     setSaving(true);
     setFormError("");
@@ -538,7 +653,7 @@ export default function ContractsPage() {
           productType:   form.productType || undefined,
           quantity:      form.quantity ? Number(form.quantity) : undefined,
           unit:          form.unit || undefined,
-          departmentId:  form.departmentId || undefined,
+          departmentIds: form.departmentIds,
           startDate:     startDateIso,
           endDate:       endDateIso,
           priority:      Number(form.priority) as Priority,
@@ -565,7 +680,7 @@ export default function ContractsPage() {
           productType:   form.productType || undefined,
           quantity:      form.quantity ? Number(form.quantity) : undefined,
           unit:          form.unit || undefined,
-          departmentId:  form.departmentId || undefined,
+          departmentIds: form.departmentIds.length > 0 ? form.departmentIds : undefined,
           startDate:     startDateIso,
           endDate:       endDateIso,
           priority:      Number(form.priority) as Priority,
@@ -674,9 +789,9 @@ export default function ContractsPage() {
   // ── Render: Form ──────────────────────────────────────────────────────────
 
   const fieldErr = (val: string) => submitted && !val.trim();
-  const startDateErr = submitted && !displayToIsoDate(form.startDate);
-  const endDateErr = submitted && !displayToIsoDate(form.endDate);
-  const deptErr = submitted && !form.departmentId.trim();
+  const startDateErr = submitted && !form.startDate;
+  const endDateErr = submitted && !form.endDate;
+  const deptErr = submitted && form.departmentIds.length === 0;
 
   if (showForm) {
     return (
@@ -719,10 +834,8 @@ export default function ContractsPage() {
               <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: startDateErr ? "var(--danger)" : "var(--text2)" }}>
                 Boshlanish sanasi <span style={{ color: "var(--danger)" }}>*</span>
               </label>
-              <input className="form-input" type="text" inputMode="numeric" value={form.startDate}
-                onChange={e => setForm(f => ({ ...f, startDate: autoFormatDate(e.target.value) }))}
-                placeholder="dd-mm-yy"
-                maxLength={8}
+              <input className="form-input" type="date" value={form.startDate}
+                onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))}
                 style={startDateErr ? { borderColor: "var(--danger)" } : undefined}
               />
               {startDateErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Boshlanish sanasini tanlang</div>}
@@ -733,10 +846,8 @@ export default function ContractsPage() {
               <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: endDateErr ? "var(--danger)" : "var(--text2)" }}>
                 Tugash sanasi <span style={{ color: "var(--danger)" }}>*</span>
               </label>
-              <input className="form-input" type="text" inputMode="numeric" value={form.endDate}
-                onChange={e => setForm(f => ({ ...f, endDate: autoFormatDate(e.target.value) }))}
-                placeholder="dd-mm-yy"
-                maxLength={8}
+              <input className="form-input" type="date" value={form.endDate}
+                onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))}
                 style={endDateErr ? { borderColor: "var(--danger)" } : undefined}
               />
               {endDateErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Tugash sanasini tanlang</div>}
@@ -792,19 +903,19 @@ export default function ContractsPage() {
               </select>
             </div>
 
-            {/* Bo'lim */}
+            {/* Bo'limlar */}
             <div style={{ gridColumn: "1 / -1" }}>
               <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: deptErr ? "var(--danger)" : "var(--text2)" }}>
-                Bo&apos;lim <span style={{ color: "var(--danger)" }}>*</span>
+                Bo&apos;limlar <span style={{ color: "var(--danger)" }}>*</span>
               </label>
-              <CustomGroupedSelect
-                value={form.departmentId}
-                onChange={v => setForm(f => ({ ...f, departmentId: v }))}
+              <CustomGroupedMultiSelect
+                values={form.departmentIds}
+                onChange={v => setForm(f => ({ ...f, departmentIds: v }))}
                 departments={departments}
-                placeholder="— Bo'lim tanlang —"
+                placeholder="— Bo'limlar tanlang (bir nechta) —"
                 hasError={deptErr}
               />
-              {deptErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Bo&apos;limni tanlang</div>}
+              {deptErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Kamida bitta bo&apos;limni tanlang</div>}
             </div>
 
             {/* Izoh */}
@@ -1255,6 +1366,8 @@ export default function ContractsPage() {
                 style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
             </div>
 
+            <WorkflowDiagram status={viewContract.status} />
+
             <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 10 }}>Umumiy</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 22 }}>
               <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
@@ -1285,6 +1398,26 @@ export default function ContractsPage() {
                 <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px", gridColumn: "1 / -1" }}>
                   <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Shartnoma tuzilgan tomon</div>
                   <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)", wordBreak: "break-word" }}>{viewContract.contractParty}</div>
+                </div>
+              )}
+              {viewContract.departments?.length > 0 && (
+                <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px", gridColumn: "1 / -1" }}>
+                  <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Bo&apos;limlar</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {viewContract.departments.map(d => {
+                      const ts = TYPE_STYLE[d.type as DepartmentType];
+                      return (
+                        <span key={d.id} style={{
+                          display: "inline-flex", alignItems: "center", gap: 4,
+                          padding: "3px 10px", borderRadius: 10, fontSize: 12, fontWeight: 600,
+                          background: ts?.bg ?? "var(--bg3)", color: ts?.color ?? "var(--text1)",
+                          border: `1px solid ${ts?.border ?? "var(--border)"}`,
+                        }}>
+                          {ts?.icon} {d.name}
+                        </span>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>

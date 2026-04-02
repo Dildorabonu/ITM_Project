@@ -10,19 +10,29 @@ namespace Application.Services.Impl;
 public class TechnicalDrawingService : ITechnicalDrawingService
 {
     private readonly DatabaseContext _context;
+    private readonly IAttachmentService _attachmentService;
 
-    public TechnicalDrawingService(DatabaseContext context)
+    public TechnicalDrawingService(DatabaseContext context, IAttachmentService attachmentService)
     {
         _context = context;
+        _attachmentService = attachmentService;
     }
 
-    public async Task<ApiResult<IEnumerable<TechnicalDrawingResponseDto>>> GetAllAsync(DrawingStatus? status = null)
+    public async Task<ApiResult<IEnumerable<TechnicalDrawingResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, DrawingStatus? status = null)
     {
         var query = _context.TechnicalDrawings
             .Include(d => d.Contract)
             .Include(d => d.Creator)
             .AsNoTracking()
             .AsQueryable();
+
+        if (!viewAll)
+        {
+            query = query.Where(d =>
+                _context.ContractUsers.Any(cu => cu.ContractId == d.ContractId && cu.UserId == currentUserId) ||
+                _context.ContractDepartments.Any(cd => cd.ContractId == d.ContractId &&
+                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == cd.DepartmentId)));
+        }
 
         if (status.HasValue)
             query = query.Where(d => d.Status == status.Value);
@@ -47,8 +57,8 @@ public class TechnicalDrawingService : ITechnicalDrawingService
 
     public async Task<ApiResult<Guid>> CreateAsync(TechnicalDrawingCreateDto dto, Guid createdBy)
     {
-        var contractExists = await _context.Contracts.AnyAsync(c => c.Id == dto.ContractId);
-        if (!contractExists)
+        var contract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == dto.ContractId);
+        if (contract is null)
             return ApiResult<Guid>.Failure([$"Shartnoma '{dto.ContractId}' topilmadi."]);
 
         var drawing = new TechnicalDrawing
@@ -63,6 +73,10 @@ public class TechnicalDrawingService : ITechnicalDrawingService
         };
 
         _context.TechnicalDrawings.Add(drawing);
+
+        if (contract.Status == ContractStatus.Draft)
+            contract.Status = ContractStatus.DrawingPending;
+
         await _context.SaveChangesAsync();
 
         return ApiResult<Guid>.Success(drawing.Id, 201);
@@ -98,6 +112,7 @@ public class TechnicalDrawingService : ITechnicalDrawingService
         if (drawing is null)
             return ApiResult<int>.Failure([$"Texnik chizma '{id}' topilmadi."], 404);
 
+        await _attachmentService.DeleteAllAsync("technicaldrawings", id);
         _context.TechnicalDrawings.Remove(drawing);
         await _context.SaveChangesAsync();
         return ApiResult<int>.Success(200);

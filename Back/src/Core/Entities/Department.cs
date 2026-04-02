@@ -13,7 +13,7 @@ public class Department
 
     // Navigation properties
     public ICollection<User> Users { get; set; } = [];
-    public ICollection<Contract> Contracts { get; set; } = [];
+    public ICollection<ContractDepartment> ContractDepartments { get; set; } = [];
     public ICollection<Task> Tasks { get; set; } = [];
     public ICollection<StockOut> StockOuts { get; set; } = [];
     public ICollection<Product> Products { get; set; } = [];

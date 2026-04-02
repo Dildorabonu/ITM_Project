@@ -4,6 +4,7 @@ using Core.Entities;
 using Core.Enums;
 using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
+using SysTask = System.Threading.Tasks.Task;
 
 namespace Application.Services.Impl;
 
@@ -16,13 +17,21 @@ public class TechProcessService : ITechProcessService
         _context = context;
     }
 
-    public async Task<ApiResult<IEnumerable<TechProcessResponseDto>>> GetAllAsync(ProcessStatus? status = null)
+    public async Task<ApiResult<IEnumerable<TechProcessResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, ProcessStatus? status = null)
     {
         var query = _context.TechProcesses
             .Include(t => t.Contract)
             .Include(t => t.Approver)
             .AsNoTracking()
             .AsQueryable();
+
+        if (!viewAll)
+        {
+            query = query.Where(t =>
+                _context.ContractUsers.Any(cu => cu.ContractId == t.ContractId && cu.UserId == currentUserId) ||
+                _context.ContractDepartments.Any(cd => cd.ContractId == t.ContractId &&
+                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == cd.DepartmentId)));
+        }
 
         if (status.HasValue)
             query = query.Where(t => t.Status == status.Value);
@@ -80,7 +89,26 @@ public class TechProcessService : ITechProcessService
 
         _context.TechProcesses.Add(tp);
         await _context.SaveChangesAsync();
+
+        await TryAdvanceToWarehouseCheckAsync(dto.ContractId);
+
         return ApiResult<Guid>.Success(tp.Id, 201);
+    }
+
+    private async SysTask TryAdvanceToWarehouseCheckAsync(Guid contractId)
+    {
+        var contract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == contractId);
+        if (contract is null || contract.Status != ContractStatus.TechProcessing)
+            return;
+
+        var hasTechProcess = await _context.TechProcesses.AnyAsync(t => t.ContractId == contractId);
+        var hasCostNorm = await _context.CostNorms.AnyAsync(c => c.ContractId == contractId);
+
+        if (hasTechProcess && hasCostNorm)
+        {
+            contract.Status = ContractStatus.WarehouseCheck;
+            await _context.SaveChangesAsync();
+        }
     }
 
     public async Task<ApiResult<int>> UpdateAsync(Guid id, TechProcessUpdateDto dto)

@@ -3,6 +3,7 @@ using System;
 using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DataAccess.Migrations
 {
     [DbContext(typeof(DatabaseContext))]
-    partial class DatabaseContextModelSnapshot : ModelSnapshot
+    [Migration("20260331114148_AddContractTaskDailyLogs")]
+    partial class AddContractTaskDailyLogs
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -89,6 +92,9 @@ namespace DataAccess.Migrations
                     b.Property<Guid>("CreatedBy")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("DepartmentId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateOnly>("EndDate")
                         .HasColumnType("date");
 
@@ -119,22 +125,9 @@ namespace DataAccess.Migrations
 
                     b.HasIndex("CreatedBy");
 
-                    b.ToTable("Contracts");
-                });
-
-            modelBuilder.Entity("Core.Entities.ContractDepartment", b =>
-                {
-                    b.Property<Guid>("ContractId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("DepartmentId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("ContractId", "DepartmentId");
-
                     b.HasIndex("DepartmentId");
 
-                    b.ToTable("ContractDepartments");
+                    b.ToTable("Contracts");
                 });
 
             modelBuilder.Entity("Core.Entities.ContractTask", b =>
@@ -887,24 +880,12 @@ namespace DataAccess.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Creator");
-                });
-
-            modelBuilder.Entity("Core.Entities.ContractDepartment", b =>
-                {
-                    b.HasOne("Core.Entities.Contract", "Contract")
-                        .WithMany("ContractDepartments")
-                        .HasForeignKey("ContractId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("Core.Entities.Department", "Department")
-                        .WithMany("ContractDepartments")
+                        .WithMany("Contracts")
                         .HasForeignKey("DepartmentId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
-                    b.Navigation("Contract");
+                    b.Navigation("Creator");
 
                     b.Navigation("Department");
                 });
@@ -1220,8 +1201,6 @@ namespace DataAccess.Migrations
 
             modelBuilder.Entity("Core.Entities.Contract", b =>
                 {
-                    b.Navigation("ContractDepartments");
-
                     b.Navigation("ContractTasks");
 
                     b.Navigation("ContractUsers");
@@ -1249,7 +1228,7 @@ namespace DataAccess.Migrations
 
             modelBuilder.Entity("Core.Entities.Department", b =>
                 {
-                    b.Navigation("ContractDepartments");
+                    b.Navigation("Contracts");
 
                     b.Navigation("Products");
 
