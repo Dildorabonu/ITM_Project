@@ -70,7 +70,6 @@ const navGroups: NavGroup[] = [
     icon: "settings",
     items: [
       { name: "Foydalanuvchilar",   href: "/users",       icon: "users",   permission: "Users.View" },
-      { name: "Foydalanuvchilar boshqaruvi", href: "/users-management", icon: "users", permission: "Users.View" },
       { name: "Rollar",             href: "/roles",       icon: "shield",  permission: "Roles.View" },
       { name: "Tashqi ko'rinish",   href: "/appearance",  icon: "palette" },
     ],
@@ -168,7 +167,7 @@ function applyAppearanceFont(family: string, scale: number) {
 }
 
 // Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
-const readyRoutes = new Set(["/", "/users", "/users-management", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/costnorm", "/technicaldrawings", "/appearance", "/tasks", "/birja", "/notifications"]);
+const readyRoutes = new Set(["/", "/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/costnorm", "/technicaldrawings", "/appearance", "/tasks", "/birja", "/notifications"]);
 
 const pageTitles: Record<string, string> = {
   "/":              "Dashboard",
@@ -185,7 +184,6 @@ const pageTitles: Record<string, string> = {
   "/products":      "Mahsulotlar",
   "/appearance":    "Tashqi ko'rinish",
   "/birja":         "Birja",
-  "/users-management": "Foydalanuvchilar boshqaruvi",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

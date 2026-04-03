@@ -21,6 +21,7 @@ export default function RolesPage() {
   const [permissions, setPermissions] = useState<PermissionModuleResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
 
   // View drawer
   const [viewRole, setViewRole] = useState<RoleResponse | null>(null);
@@ -37,6 +38,10 @@ export default function RolesPage() {
   const [roleSaving, setRoleSaving] = useState(false);
   const [permsLoading, setPermsLoading] = useState(false);
   const [formSubmitted, setFormSubmitted] = useState(false);
+
+  // Pagination
+  const PAGE_SIZE = 10;
+  const [currentPage, setCurrentPage] = useState(1);
 
   const totalPermissions = permissions.reduce((sum, m) => sum + m.actions.length, 0);
 
@@ -200,10 +205,24 @@ export default function RolesPage() {
     }
   };
 
-  const filtered = roles.filter(r =>
-    r.name.toLowerCase().includes(search.toLowerCase()) ||
-    (r.description ?? "").toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = roles.filter(r => {
+    const matchSearch = r.name.toLowerCase().includes(search.toLowerCase()) ||
+      (r.description ?? "").toLowerCase().includes(search.toLowerCase());
+    const matchStatus = !statusFilter ||
+      (statusFilter === "active" && r.isActive !== false) ||
+      (statusFilter === "inactive" && r.isActive === false);
+    return matchSearch && matchStatus;
+  });
+
+  const totalFiltered = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
+  const paginatedRoles = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  // Reset page when filters change
+  useEffect(() => { setCurrentPage(1); }, [search, statusFilter]);
+
+  const activeRoles = roles.filter(r => r.isActive !== false).length;
+  const inactiveRoles = roles.filter(r => r.isActive === false).length;
 
   /* ===== Edit / Create inline view ===== */
   if (showRoleModal) {
@@ -397,19 +416,78 @@ export default function RolesPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
-      {/* Toolbar */}
-      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px" }}>
-        <div className="search-wrap" style={{ maxWidth: "none", flex: 1 }}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
+      <style>{`
+        @keyframes um-card-in {
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .um-card-anim { animation: um-card-in 0.35s ease-out both; }
+        .um-card-anim:nth-child(2) { animation-delay: 0.06s; }
+        .um-card-anim:nth-child(3) { animation-delay: 0.12s; }
+        .um-card-anim:nth-child(4) { animation-delay: 0.18s; }
+      `}</style>
+
+      {/* Summary cards */}
+      <div className="um-summary-row">
+        <div className="um-summary-card um-card-anim">
+          <div className="um-summary-icon" style={{ background: "var(--accent-dim)" }}>
+            <svg width="16" height="16" fill="none" stroke="var(--accent)" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <div className="um-summary-info">
+            <span className="um-summary-value">{roles.length}</span>
+            <span className="um-summary-label">Jami rollar</span>
+          </div>
+        </div>
+        <div className="um-summary-card um-card-anim">
+          <div className="um-summary-icon" style={{ background: "var(--success-dim)" }}>
+            <svg width="16" height="16" fill="none" stroke="var(--success)" strokeWidth="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div className="um-summary-info">
+            <span className="um-summary-value">{activeRoles}</span>
+            <span className="um-summary-label">Aktiv rollar</span>
+          </div>
+        </div>
+        <div className="um-summary-card um-card-anim">
+          <div className="um-summary-icon" style={{ background: "var(--surface2)" }}>
+            <svg width="16" height="16" fill="none" stroke="var(--text3)" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+          </div>
+          <div className="um-summary-info">
+            <span className="um-summary-value">{inactiveRoles}</span>
+            <span className="um-summary-label">Noaktiv rollar</span>
+          </div>
+        </div>
+        <div className="um-summary-card um-card-anim">
+          <div className="um-summary-icon" style={{ background: "var(--purple-dim)" }}>
+            <svg width="16" height="16" fill="none" stroke="var(--purple)" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+          <div className="um-summary-info">
+            <span className="um-summary-value">{totalPermissions}</span>
+            <span className="um-summary-label">Jami ruxsatlar</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Search + filters toolbar */}
+      <div className="um-controls">
+        <div className="um-search">
+          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input
-            className="search-input"
-            placeholder="Qidirish"
+            type="text"
+            placeholder="Rol nomi yoki tavsif bo'yicha qidirish..."
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+        <select
+          className="um-filter-select"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          aria-label="Holat filtri"
+        >
+          <option value="">Holat: Barchasi</option>
+          <option value="active">Aktiv</option>
+          <option value="inactive">Noaktiv</option>
+        </select>
         <button
           className="btn-icon"
           onClick={fetchAll}
@@ -437,80 +515,143 @@ export default function RolesPage() {
       </div>
 
       {/* Table */}
-      <div className="itm-card" style={{ flex: 1 }}>
-        <div style={{ overflowX: "auto" }}>
-        <table className="itm-table">
-          <thead>
-            <tr>
-              <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
-              <th style={{ textAlign: "center", color: "var(--text1)" }}>Nomi</th>
-              <th style={{ textAlign: "center", color: "var(--text1)" }}>Tavsif</th>
-              <th style={{ textAlign: "center", color: "var(--text1)" }}>Holat</th>
-              <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", width: 124 }}>Amallar</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Yuklanmoqda...</td></tr>
-            ) : filtered.length === 0 ? (
-              <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Rollar topilmadi</td></tr>
-            ) : filtered.map((r, i) => (
-              <tr key={r.id} style={{ opacity: r.isActive === false ? 0.6 : 1 }}>
-                <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>{String(i + 1).padStart(2, "0")}</td>
-                <td style={{ textAlign: "center" }}>{r.name}</td>
-                <td style={{ textAlign: "center", color: "var(--text1)" }}>{r.description || "—"}</td>
-                <td style={{ textAlign: "center" }}>
-                  {r.isActive === false ? (
-                    <span style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 999, fontSize: 11, fontWeight: 700, padding: "3px 10px" }}>Noaktiv</span>
-                  ) : (
-                    <span style={{ background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0", borderRadius: 999, fontSize: 11, fontWeight: 700, padding: "3px 10px" }}>Aktiv</span>
-                  )}
-                </td>
-                <td className="td-actions" style={{ borderLeft: "2px solid var(--border)" }}>
-                  <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-                    <button className="btn-icon" title="Ko'rish" onClick={() => openViewRole(r)}
-                      style={{ color: "#0ea5e9", borderColor: "#0ea5e933", background: "#0ea5e912" }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                        <circle cx="12" cy="12" r="3" />
-                      </svg>
+      <div className="itm-card">
+        {loading ? (
+          <div style={{ padding: 40, textAlign: "center", color: "var(--text2)" }}>
+            <div style={{ width: 28, height: 28, border: "3px solid var(--border)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 12px" }} />
+            Yuklanmoqda...
+          </div>
+        ) : (
+          <div className="um-table-wrap">
+            <table className="itm-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 48, textAlign: "center" }}>T/r</th>
+                  <th style={{ textAlign: "left", width: "25%" }}>Nomi</th>
+                  <th style={{ textAlign: "left", width: "35%" }}>Tavsif</th>
+                  <th style={{ width: "14%" }}>Holat</th>
+                  <th style={{ width: "14%" }}>Amallar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedRoles.length === 0 ? (
+                  <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--text3)", padding: 32 }}>Rollar topilmadi</td></tr>
+                ) : paginatedRoles.map((r, i) => (
+                  <tr key={r.id} style={{ opacity: r.isActive === false ? 0.6 : 1 }}>
+                    <td style={{ textAlign: "center", fontSize: 12, color: "var(--text3)" }}>
+                      {String((currentPage - 1) * PAGE_SIZE + i + 1).padStart(2, "0")}
+                    </td>
+                    <td style={{ textAlign: "left" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{
+                          width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                          background: r.isActive === false ? "var(--surface2)" : "linear-gradient(135deg, var(--accent-dim), var(--accent)22)",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          border: r.isActive === false ? "1.5px solid var(--border)" : "1.5px solid var(--accent)33",
+                        }}>
+                          <svg width="14" height="14" fill="none" stroke={r.isActive === false ? "var(--text3)" : "var(--accent)"} strokeWidth="2" viewBox="0 0 24 24">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                          </svg>
+                        </div>
+                        <span style={{ fontWeight: 600, fontSize: 14, color: "var(--text1)" }}>{r.name}</span>
+                      </div>
+                    </td>
+                    <td style={{ textAlign: "left", color: "var(--text2)", fontSize: 13 }}>{r.description || "—"}</td>
+                    <td style={{ textAlign: "center" }}>
+                      {r.isActive === false ? (
+                        <span className="um-badge um-badge-inactive">Noaktiv</span>
+                      ) : (
+                        <span className="um-badge um-badge-active">Aktiv</span>
+                      )}
+                    </td>
+                    <td className="td-actions">
+                      <div className="um-actions" style={{ justifyContent: "center" }}>
+                        <button className="um-action-btn" title="Ko'rish" onClick={() => openViewRole(r)}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                        </button>
+                        {r.id !== "00000000-0000-0000-0000-000000000001" && (
+                          <>
+                            {canUpdate && r.isActive !== false && (
+                              <button className="um-action-btn" title="Tahrirlash" onClick={() => openEditRole(r)}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                </svg>
+                              </button>
+                            )}
+                            {canUpdate && r.isActive === false && (
+                              <button className="um-action-btn" title="Aktivlashtirish" onClick={() => activateRole(r.id)}
+                                style={{ color: "#16a34a" }}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                              </button>
+                            )}
+                            {canDelete && r.isActive !== false && (
+                              <button className="um-action-btn danger" title="Noaktiv qilish" onClick={() => { setDeleteConfirmId(r.id); setDeleteError(null); }}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <circle cx="12" cy="12" r="7"/>
+                                  <line x1="6.7" y1="6.7" x2="17.3" y2="17.3"/>
+                                </svg>
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        <div className="um-pagination">
+          <span className="um-pagination-info">
+            Jami {totalFiltered} ta rol · Sahifa {currentPage} / {totalPages}
+          </span>
+          <div className="um-pagination-btns">
+            <button
+              className="um-page-btn"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              type="button"
+              aria-label="Oldingi sahifa"
+            >
+              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2)
+              .map((p, idx, arr) => {
+                const prev = arr[idx - 1];
+                const showEllipsis = prev !== undefined && p - prev > 1;
+                return (
+                  <span key={p} style={{ display: "contents" }}>
+                    {showEllipsis && <span style={{ padding: "0 4px", color: "var(--text3)" }}>...</span>}
+                    <button
+                      className={`um-page-btn ${p === currentPage ? "active" : ""}`}
+                      onClick={() => setCurrentPage(p)}
+                      type="button"
+                    >
+                      {p}
                     </button>
-                    {r.id !== "00000000-0000-0000-0000-000000000001" && (
-                      <>
-                        {canUpdate && r.isActive !== false && (
-                          <button className="btn-icon" title="Tahrirlash" onClick={() => openEditRole(r)}
-                            style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                            </svg>
-                          </button>
-                        )}
-                        {canUpdate && r.isActive === false && (
-                          <button className="btn-icon" title="Aktivlashtirish" onClick={() => activateRole(r.id)}
-                            style={{ color: "#16a34a", borderColor: "#16a34a33", background: "#f0fdf4" }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                          </button>
-                        )}
-                        {canDelete && r.isActive !== false && (
-                          <button className="btn-icon btn-icon-danger" title="Noaktiv qilish" onClick={() => { setDeleteConfirmId(r.id); setDeleteError(null); }}
-                            style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <circle cx="12" cy="12" r="7"/>
-                              <line x1="6.7" y1="6.7" x2="17.3" y2="17.3"/>
-                            </svg>
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  </span>
+                );
+              })}
+            <button
+              className="um-page-btn"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              type="button"
+              aria-label="Keyingi sahifa"
+            >
+              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
         </div>
       </div>
 
