@@ -1099,7 +1099,7 @@ export default function ProductsPage() {
       {/* View drawer */}
       {viewProduct && (
         <div
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(4px)", zIndex: 200, display: "flex", justifyContent: "flex-end" }}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(2px)", zIndex: 1000, display: "flex", justifyContent: "flex-end" }}
           onClick={() => setViewProduct(null)}
         >
           <div
@@ -1156,24 +1156,31 @@ export default function ProductsPage() {
 
       {/* Delete confirm */}
       {deleteId && (
-        <div style={{
-          position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000,
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
-          <div style={{
-            background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12,
-            padding: 28, width: 340, maxWidth: "95vw", textAlign: "center",
-          }}>
-            <div style={{ fontSize: 15, marginBottom: 8 }}>Mahsulotni o&apos;chirish</div>
-            <div style={{ color: "var(--text2)", fontSize: 13, marginBottom: 20 }}>
-              Ushbu mahsulot o&apos;chiriladi. Davom etasizmi?
+        <div className="modal-overlay" onClick={() => setDeleteId(null)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 400 }}>
+            <div className="modal-header" style={{ color: "var(--danger)", borderBottom: "1px solid var(--border)" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6l-1 14H6L5 6"/>
+                  <path d="M10 11v6M14 11v6"/>
+                  <path d="M9 6V4h6v2"/>
+                </svg>
+                Mahsulotni o&apos;chirish
+              </span>
             </div>
-            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-              <button className="btn btn-outline" onClick={() => setDeleteId(null)} disabled={deleting}>Bekor</button>
-              <button className="btn" style={{ background: "#e05252", color: "#fff", border: "none" }}
-                onClick={handleDelete} disabled={deleting}>
-                {deleting ? "O'chirilmoqda..." : "O'chirish"}
-              </button>
+            <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+              <p style={{ margin: 0, fontSize: 14, color: "var(--text2)", lineHeight: 1.6 }}>
+                Ushbu mahsulot o&apos;chiriladi. Davom etasizmi?
+              </p>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button className="btn btn-outline" onClick={() => setDeleteId(null)} disabled={deleting}>
+                  Bekor qilish
+                </button>
+                <button className="btn btn-danger" onClick={handleDelete} disabled={deleting}>
+                  {deleting ? "O'chirilmoqda..." : "O'chirish"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

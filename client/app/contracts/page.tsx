@@ -1577,7 +1577,7 @@ export default function ContractsPage() {
       {/* ── View Drawer ── */}
       {viewContract && (
         <div
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(4px)", zIndex: 200, display: "flex", justifyContent: "flex-end" }}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(2px)", zIndex: 1000, display: "flex", justifyContent: "flex-end" }}
           onClick={() => { setViewContract(null); setDrawerFiles([]); setDrawerUsers([]); setDrawerTzFiles([]); setDrawerTechProcesses([]); setDrawerCostNorms([]); setShowAssign(false); }}
         >
           <div
@@ -1790,28 +1790,29 @@ export default function ContractsPage() {
 
       {/* ── Status Change Modal ── */}
       {statusTarget && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div onClick={() => setStatusTarget(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)" }} />
-          <div style={{ position: "relative", background: "var(--bg1)", borderRadius: 12, padding: 28, width: 360, boxShadow: "0 8px 32px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text1)" }}>Holat o&apos;zgartirish</div>
-            <div style={{ fontSize: 13, color: "var(--text2)" }}>
-              <b>{statusTarget.contractNo}</b> — holat tanlang:
+        <div className="modal-overlay" onClick={() => setStatusTarget(null)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 400 }}>
+            <div className="modal-header" style={{ borderBottom: "1px solid var(--border)" }}>
+              <span>Holat o&apos;zgartirish</span>
             </div>
-            <select className="form-input" value={newStatus} onChange={e => setNewStatus(e.target.value)}
-              style={{ width: "100%", cursor: "pointer" }}>
-              {VISIBLE_STATUSES.map(k => (
-                <option key={k} value={k}>{CONTRACT_STATUS_LABELS[k]}</option>
-              ))}
-            </select>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button onClick={() => setStatusTarget(null)}
-                style={{ padding: "9px 20px", background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", color: "var(--text2)", fontSize: 13, fontWeight: 500 }}>
-                Bekor
-              </button>
-              <button className="btn-primary" onClick={handleStatusChange} disabled={changingStatus}
-                style={{ padding: "9px 20px", borderRadius: "var(--radius)" }}>
-                {changingStatus ? "Saqlanmoqda..." : "Saqlash"}
-              </button>
+            <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ fontSize: 13, color: "var(--text2)" }}>
+                <b>{statusTarget.contractNo}</b> — holat tanlang:
+              </div>
+              <select className="form-input" value={newStatus} onChange={e => setNewStatus(e.target.value)}
+                style={{ width: "100%", cursor: "pointer" }}>
+                {VISIBLE_STATUSES.map(k => (
+                  <option key={k} value={k}>{CONTRACT_STATUS_LABELS[k]}</option>
+                ))}
+              </select>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button className="btn btn-outline" onClick={() => setStatusTarget(null)}>
+                  Bekor qilish
+                </button>
+                <button className="btn btn-primary" onClick={handleStatusChange} disabled={changingStatus}>
+                  {changingStatus ? "Saqlanmoqda..." : "Saqlash"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1819,9 +1820,8 @@ export default function ContractsPage() {
 
       {/* ── Scan Modal ── */}
       {showScanModal && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div onClick={() => { if (!scanning) setShowScanModal(false); }} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)" }} />
-          <div style={{ position: "relative", background: "var(--bg1)", borderRadius: 14, padding: 28, width: 440, boxShadow: "0 8px 40px rgba(0,0,0,0.22)", display: "flex", flexDirection: "column", gap: 20 }}>
+        <div className="modal-overlay" onClick={() => { if (!scanning) setShowScanModal(false); }}>
+          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 440 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ width: 36, height: 36, borderRadius: 8, background: "var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1932,22 +1932,24 @@ export default function ContractsPage() {
 
       {/* ── Activate Confirm Modal ── */}
       {activateId && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div onClick={() => setActivateId(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)" }} />
-          <div style={{ position: "relative", background: "var(--bg1)", borderRadius: 12, padding: 28, width: 360, boxShadow: "0 8px 32px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text1)" }}>Shartnomani active qilish</div>
-            <div style={{ fontSize: 14, color: "var(--text2)", lineHeight: 1.6 }}>
-              Bu shartnoma va unga bog&apos;liq barcha ma&apos;lumotlar qayta active holatga qaytadi.
+        <div className="modal-overlay" onClick={() => setActivateId(null)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 400 }}>
+            <div className="modal-header" style={{ color: "#16a34a", borderBottom: "1px solid var(--border)" }}>
+              <span>Shartnomani active qilish</span>
             </div>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button onClick={() => setActivateId(null)}
-                style={{ padding: "9px 20px", background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", color: "var(--text2)", fontSize: 13, fontWeight: 500 }}>
-                Bekor
-              </button>
-              <button onClick={handleActivate} disabled={activating}
-                style={{ padding: "9px 20px", background: "#16a34a", border: "none", borderRadius: "var(--radius)", cursor: "pointer", color: "#fff", fontSize: 13, fontWeight: 600 }}>
-                {activating ? "Bajarilmoqda..." : "Active qilish"}
-              </button>
+            <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+              <p style={{ margin: 0, fontSize: 14, color: "var(--text2)", lineHeight: 1.6 }}>
+                Bu shartnoma va unga bog&apos;liq barcha ma&apos;lumotlar qayta active holatga qaytadi.
+              </p>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button className="btn btn-outline" onClick={() => setActivateId(null)}>
+                  Bekor qilish
+                </button>
+                <button className="btn" style={{ background: "#16a34a", color: "#fff", border: "none" }}
+                  onClick={handleActivate} disabled={activating}>
+                  {activating ? "Bajarilmoqda..." : "Active qilish"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1955,22 +1957,24 @@ export default function ContractsPage() {
 
       {/* ── Deactivate Confirm Modal ── */}
       {deactivateId && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div onClick={() => setDeactivateId(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)" }} />
-          <div style={{ position: "relative", background: "var(--bg1)", borderRadius: 12, padding: 28, width: 360, boxShadow: "0 8px 32px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text1)" }}>Shartnomani noactive qilish</div>
-            <div style={{ fontSize: 14, color: "var(--text2)", lineHeight: 1.6 }}>
-              Bu shartnoma va unga bog&apos;liq barcha ma&apos;lumotlar (texjarayon, xarajat normalari, vazifalar va boshqalar) noactive bo&apos;lib qoladi.
+        <div className="modal-overlay" onClick={() => setDeactivateId(null)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 400 }}>
+            <div className="modal-header" style={{ color: "#d97706", borderBottom: "1px solid var(--border)" }}>
+              <span>Shartnomani noactive qilish</span>
             </div>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button onClick={() => setDeactivateId(null)}
-                style={{ padding: "9px 20px", background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", color: "var(--text2)", fontSize: 13, fontWeight: 500 }}>
-                Bekor
-              </button>
-              <button onClick={handleDeactivate} disabled={deactivating}
-                style={{ padding: "9px 20px", background: "#d97706", border: "none", borderRadius: "var(--radius)", cursor: "pointer", color: "#fff", fontSize: 13, fontWeight: 600 }}>
-                {deactivating ? "Bajarilmoqda..." : "Noactive qilish"}
-              </button>
+            <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+              <p style={{ margin: 0, fontSize: 14, color: "var(--text2)", lineHeight: 1.6 }}>
+                Bu shartnoma va unga bog&apos;liq barcha ma&apos;lumotlar (texjarayon, xarajat normalari, vazifalar va boshqalar) noactive bo&apos;lib qoladi.
+              </p>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button className="btn btn-outline" onClick={() => setDeactivateId(null)}>
+                  Bekor qilish
+                </button>
+                <button className="btn" style={{ background: "#d97706", color: "#fff", border: "none" }}
+                  onClick={handleDeactivate} disabled={deactivating}>
+                  {deactivating ? "Bajarilmoqda..." : "Noactive qilish"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1978,22 +1982,31 @@ export default function ContractsPage() {
 
       {/* ── Delete Confirm Modal ── */}
       {deleteId && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div onClick={() => setDeleteId(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)" }} />
-          <div style={{ position: "relative", background: "var(--bg1)", borderRadius: 12, padding: 28, width: 360, boxShadow: "0 8px 32px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text1)" }}>Shartnomani o&apos;chirish</div>
-            <div style={{ fontSize: 14, color: "var(--text2)", lineHeight: 1.6 }}>
-              Bu shartnoma o&apos;chiriladi. Amalni ortga qaytarib bo&apos;lmaydi.
+        <div className="modal-overlay" onClick={() => setDeleteId(null)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 400 }}>
+            <div className="modal-header" style={{ color: "var(--danger)", borderBottom: "1px solid var(--border)" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6l-1 14H6L5 6"/>
+                  <path d="M10 11v6M14 11v6"/>
+                  <path d="M9 6V4h6v2"/>
+                </svg>
+                Shartnomani o&apos;chirish
+              </span>
             </div>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button onClick={() => setDeleteId(null)}
-                style={{ padding: "9px 20px", background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", color: "var(--text2)", fontSize: 13, fontWeight: 500 }}>
-                Bekor
-              </button>
-              <button onClick={handleDelete} disabled={deleting}
-                style={{ padding: "9px 20px", background: "var(--danger)", border: "none", borderRadius: "var(--radius)", cursor: "pointer", color: "#fff", fontSize: 13, fontWeight: 600 }}>
-                {deleting ? "O'chirilmoqda..." : "O'chirish"}
-              </button>
+            <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+              <p style={{ margin: 0, fontSize: 14, color: "var(--text2)", lineHeight: 1.6 }}>
+                Bu shartnoma o&apos;chiriladi. Bu amalni qaytarib bo&apos;lmaydi.
+              </p>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button className="btn btn-outline" onClick={() => setDeleteId(null)}>
+                  Bekor qilish
+                </button>
+                <button className="btn btn-danger" onClick={handleDelete} disabled={deleting}>
+                  {deleting ? "O'chirilmoqda..." : "O'chirish"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

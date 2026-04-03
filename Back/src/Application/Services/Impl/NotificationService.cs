@@ -33,6 +33,7 @@ public class NotificationService : INotificationService
                 Title = n.Title,
                 Body = n.Body,
                 Type = n.Type,
+                ContractId = n.ContractId,
                 IsRead = n.IsRead,
                 CreatedAt = n.CreatedAt,
             })
@@ -60,11 +61,7 @@ public class NotificationService : INotificationService
             .Take(500)
             .ToListAsync();
 
-        var deduped = notifs
-            .DistinctBy(n => new { n.Title, n.Body })
-            .ToList();
-
-        return ApiResult<IEnumerable<NotificationResponseDto>>.Success(deduped);
+        return ApiResult<IEnumerable<NotificationResponseDto>>.Success(notifs);
     }
 
     public async Task<ApiResult<int>> GetUnreadCountAsync(Guid userId)
@@ -155,7 +152,7 @@ public class NotificationService : INotificationService
         return ApiResult<int>.Success(200);
     }
 
-    public async Task CreateAsync(Guid userId, string title, string body, NotificationType type)
+    public async Task CreateAsync(Guid userId, string title, string body, NotificationType type, Guid? contractId = null)
     {
         try
         {
@@ -166,6 +163,7 @@ public class NotificationService : INotificationService
                 Title = title,
                 Body = body,
                 Type = type,
+                ContractId = contractId,
                 IsRead = false,
                 CreatedAt = DateTime.UtcNow,
             };
@@ -179,7 +177,7 @@ public class NotificationService : INotificationService
         }
     }
 
-    public async Task NotifyAllAsync(string title, string body, NotificationType type)
+    public async Task NotifyAllAsync(string title, string body, NotificationType type, Guid? contractId = null)
     {
         try
         {
@@ -195,6 +193,7 @@ public class NotificationService : INotificationService
                 Title = title,
                 Body = body,
                 Type = type,
+                ContractId = contractId,
                 IsRead = false,
                 CreatedAt = DateTime.UtcNow,
             }).ToList();
@@ -208,7 +207,7 @@ public class NotificationService : INotificationService
         }
     }
 
-    public async Task NotifyDepartmentAndUsersAsync(Guid departmentId, IEnumerable<Guid> assignedUserIds, string title, string body, NotificationType type)
+    public async Task NotifyDepartmentAndUsersAsync(Guid departmentId, IEnumerable<Guid> assignedUserIds, string title, string body, NotificationType type, Guid? contractId = null)
     {
         try
         {
@@ -231,6 +230,7 @@ public class NotificationService : INotificationService
                 Title = title,
                 Body = body,
                 Type = type,
+                ContractId = contractId,
                 IsRead = false,
                 CreatedAt = DateTime.UtcNow,
             }).ToList();
@@ -244,7 +244,7 @@ public class NotificationService : INotificationService
         }
     }
 
-    public async Task NotifyDepartmentAsync(Guid departmentId, string title, string body, NotificationType type)
+    public async Task NotifyDepartmentAsync(Guid departmentId, string title, string body, NotificationType type, Guid? contractId = null)
     {
         try
         {
@@ -262,6 +262,7 @@ public class NotificationService : INotificationService
                 Title = title,
                 Body = body,
                 Type = type,
+                ContractId = contractId,
                 IsRead = false,
                 CreatedAt = DateTime.UtcNow,
             }).ToList();

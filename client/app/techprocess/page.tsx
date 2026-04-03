@@ -579,7 +579,7 @@ export default function TechProcessPage() {
       {/* ── View Drawer ── */}
       {drawer && (
         <div
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(4px)", zIndex: 200, display: "flex", justifyContent: "flex-end" }}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(2px)", zIndex: 1000, display: "flex", justifyContent: "flex-end" }}
           onClick={() => setDrawer(null)}
         >
           <div
@@ -696,22 +696,31 @@ export default function TechProcessPage() {
 
       {/* ── Delete Confirm Modal ── */}
       {deleteId && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div onClick={() => setDeleteId(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)" }} />
-          <div style={{ position: "relative", background: "var(--bg1)", borderRadius: 12, padding: 28, width: 360, boxShadow: "0 8px 32px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text1)" }}>Jarayonni o&apos;chirish</div>
-            <div style={{ fontSize: 14, color: "var(--text2)", lineHeight: 1.6 }}>
-              Bu texnologik jarayon o&apos;chiriladi. Barcha qadamlar va materiallar ham o&apos;chiriladi. Amalni ortga qaytarib bo&apos;lmaydi.
+        <div className="modal-overlay" onClick={() => setDeleteId(null)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 400 }}>
+            <div className="modal-header" style={{ color: "var(--danger)", borderBottom: "1px solid var(--border)" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6l-1 14H6L5 6"/>
+                  <path d="M10 11v6M14 11v6"/>
+                  <path d="M9 6V4h6v2"/>
+                </svg>
+                Jarayonni o&apos;chirish
+              </span>
             </div>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button onClick={() => setDeleteId(null)}
-                style={{ padding: "9px 20px", background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", color: "var(--text2)", fontSize: 13, fontWeight: 500 }}>
-                Bekor
-              </button>
-              <button onClick={handleDelete} disabled={deleting}
-                style={{ padding: "9px 20px", background: "var(--danger)", border: "none", borderRadius: "var(--radius)", cursor: "pointer", color: "#fff", fontSize: 13, fontWeight: 600 }}>
-                {deleting ? "O'chirilmoqda..." : "O'chirish"}
-              </button>
+            <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+              <p style={{ margin: 0, fontSize: 14, color: "var(--text2)", lineHeight: 1.6 }}>
+                Bu texnologik jarayon o&apos;chiriladi. Barcha qadamlar va materiallar ham o&apos;chiriladi. Amalni ortga qaytarib bo&apos;lmaydi.
+              </p>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button className="btn btn-outline" onClick={() => setDeleteId(null)}>
+                  Bekor qilish
+                </button>
+                <button className="btn btn-danger" onClick={handleDelete} disabled={deleting}>
+                  {deleting ? "O'chirilmoqda..." : "O'chirish"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -516,34 +516,34 @@ export default function RolesPage() {
 
       {/* ===== Deactivate Confirm Modal ===== */}
       {deleteConfirmId && (
-        <div style={{
-          position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000,
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
-          <div style={{
-            background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12,
-            padding: 28, width: 380, maxWidth: "95vw", textAlign: "center",
-          }}>
-            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>Rolni noaktiv qilish</div>
-            <div style={{ color: "var(--text2)", fontSize: 13, marginBottom: deleteError ? 12 : 20 }}>
-              Ushbu rol noaktiv qilinadi va yangi foydalanuvchilarga biriktirib bo&apos;lmaydi. Davom etasizmi?
+        <div className="modal-overlay" onClick={() => { setDeleteConfirmId(null); setDeleteError(null); }}>
+          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 400 }}>
+            <div className="modal-header" style={{ color: "var(--danger)", borderBottom: "1px solid var(--border)" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                Rolni noaktiv qilish
+              </span>
             </div>
-            {deleteError && (
-              <div style={{
-                background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8,
-                color: "#dc2626", fontSize: 13, padding: "10px 14px", marginBottom: 16, textAlign: "left",
-              }}>
-                {deleteError}
-              </div>
-            )}
-            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-              <button className="btn-secondary" style={{ padding: "8px 20px" }} onClick={() => { setDeleteConfirmId(null); setDeleteError(null); }} disabled={deleting}>Bekor</button>
-              {!deleteError && (
-                <button className="btn-primary" style={{ background: "var(--danger)", borderColor: "var(--danger)", padding: "8px 20px", borderRadius: "var(--radius)" }}
-                  onClick={deleteRole} disabled={deleting}>
-                  {deleting ? "Noaktiv qilinmoqda..." : "Noaktiv qilish"}
-                </button>
+            <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+              <p style={{ margin: 0, fontSize: 14, color: "var(--text2)", lineHeight: 1.6 }}>
+                Ushbu rol noaktiv qilinadi va yangi foydalanuvchilarga biriktirib bo&apos;lmaydi. Davom etasizmi?
+              </p>
+              {deleteError && (
+                <div style={{
+                  background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8,
+                  color: "#dc2626", fontSize: 13, padding: "10px 14px", textAlign: "left",
+                }}>
+                  {deleteError}
+                </div>
               )}
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button className="btn btn-outline" onClick={() => { setDeleteConfirmId(null); setDeleteError(null); }} disabled={deleting}>Bekor qilish</button>
+                {!deleteError && (
+                  <button className="btn btn-danger"
+                    onClick={deleteRole} disabled={deleting}>
+                    {deleting ? "Noaktiv qilinmoqda..." : "Noaktiv qilish"}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -552,7 +552,7 @@ export default function RolesPage() {
       {/* ===== View Drawer ===== */}
       {viewRole && (
         <div
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(4px)", zIndex: 200, display: "flex", justifyContent: "flex-end" }}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(2px)", zIndex: 1000, display: "flex", justifyContent: "flex-end" }}
           onClick={() => setViewRole(null)}
         >
           <div
