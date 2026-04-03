@@ -97,18 +97,11 @@ public class ContractService : IContractService
 
         await _context.SaveChangesAsync();
 
-        var deptIds = dto.DepartmentIds.Distinct().ToList();
-        var notifyUserIds = await _context.Users
-            .Where(u => u.IsActive && deptIds.Contains(u.DepartmentId!.Value))
-            .Select(u => u.Id)
-            .ToListAsync();
-
-        foreach (var uid in notifyUserIds)
-            await _notificationService.CreateAsync(
-                uid,
-                $"Yangi shartnoma yaratildi: {contract.ContractNo}",
-                $"№{contract.ContractNo} yangi shartnoma tizimga qo'shildi.",
-                NotificationType.Info);
+        await _notificationService.NotifyAllAsync(
+            $"Yangi shartnoma yaratildi: {contract.ContractNo}",
+            $"№{contract.ContractNo} yangi shartnoma tizimga qo'shildi.",
+            NotificationType.Info,
+            contract.Id);
 
         return ApiResult<Guid>.Success(contract.Id, 201);
     }
@@ -165,7 +158,7 @@ public class ContractService : IContractService
             .ToListAsync();
 
         foreach (var uid in userIds.Union(deptUserIds))
-            await _notificationService.CreateAsync(uid, title, body, NotificationType.Info);
+            await _notificationService.CreateAsync(uid, title, body, NotificationType.Info, contract.Id);
 
         return ApiResult<int>.Success(200);
     }
@@ -196,7 +189,7 @@ public class ContractService : IContractService
                 .ToListAsync();
 
             foreach (var uid in userIds.Union(deptUserIds))
-                await _notificationService.CreateAsync(uid, title, body, NotificationType.Info);
+                await _notificationService.CreateAsync(uid, title, body, NotificationType.Info, contract.Id);
         }
 
         if (status == ContractStatus.TechProcessing)
@@ -223,8 +216,6 @@ public class ContractService : IContractService
     public async Task<ApiResult<int>> DeleteAsync(Guid id)
     {
         var contract = await _context.Contracts
-            .Include(c => c.ContractDepartments)
-            .Include(c => c.ContractUsers)
             .FirstOrDefaultAsync(c => c.Id == id);
 
         if (contract is null)
@@ -233,17 +224,10 @@ public class ContractService : IContractService
         var title = $"Shartnoma o'chirildi: {contract.ContractNo}";
         var body  = $"№{contract.ContractNo} shartnoma tizimdan o'chirildi.";
 
-        var userIds = contract.ContractUsers.Select(cu => cu.UserId).ToHashSet();
-        var deptUserIds = await _context.Users
-            .Where(u => u.IsActive && contract.ContractDepartments.Select(cd => cd.DepartmentId).Contains(u.DepartmentId!.Value))
-            .Select(u => u.Id)
-            .ToListAsync();
-
         _context.Contracts.Remove(contract);
         await _context.SaveChangesAsync();
 
-        foreach (var uid in userIds.Union(deptUserIds))
-            await _notificationService.CreateAsync(uid, title, body, NotificationType.Warning);
+        await _notificationService.NotifyAllAsync(title, body, NotificationType.Warning);
 
         return ApiResult<int>.Success(200);
     }
@@ -291,7 +275,7 @@ public class ContractService : IContractService
             .ToListAsync();
 
         foreach (var uid in deactivateUserIds.Union(deactivateDeptUserIds))
-            await _notificationService.CreateAsync(uid, deactivateTitle, deactivateBody, NotificationType.Warning);
+            await _notificationService.CreateAsync(uid, deactivateTitle, deactivateBody, NotificationType.Warning, contract.Id);
 
         return ApiResult<int>.Success(200);
     }
@@ -339,7 +323,7 @@ public class ContractService : IContractService
             .ToListAsync();
 
         foreach (var uid in activateUserIds.Union(activateDeptUserIds))
-            await _notificationService.CreateAsync(uid, activateTitle, activateBody, NotificationType.Info);
+            await _notificationService.CreateAsync(uid, activateTitle, activateBody, NotificationType.Info, contract.Id);
 
         return ApiResult<int>.Success(200);
     }
@@ -408,7 +392,8 @@ public class ContractService : IContractService
                     uid,
                     $"Shartnomaga tayinlandingiz: {contract?.ContractNo}",
                     $"Sizga «{contract?.ContractNo}» shartnomasi bo'yicha vazifa berildi.",
-                    NotificationType.Task);
+                    NotificationType.Task,
+                    contractId);
             }
         }
 
