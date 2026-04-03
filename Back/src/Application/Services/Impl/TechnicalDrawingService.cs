@@ -102,9 +102,9 @@ public class TechnicalDrawingService : ITechnicalDrawingService
         drawing.Status = status;
 
         if (status == DrawingStatus.Approved && drawing.Contract is not null &&
-            drawing.Contract.Status == ContractStatus.Draft)
+            drawing.Contract.Status == ContractStatus.DrawingPending)
         {
-            drawing.Contract.Status = ContractStatus.DrawingPending;
+            drawing.Contract.Status = ContractStatus.TechProcessing;
         }
 
         await _context.SaveChangesAsync();

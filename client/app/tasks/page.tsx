@@ -979,10 +979,12 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
+    let ignore = false;
     setLoading(true);
     setShowForm(false);
     setEditingId(null);
     contractTaskService.getByContract(contract.id).then(async data => {
+      if (ignore) return;
       const hasWarehouseTask = data.some(t => t.name === WAREHOUSE_TASK_NAME);
       if (!hasWarehouseTask) {
         await contractTaskService.createBulk([{
@@ -992,13 +994,16 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
           totalAmount: contract.quantity,
           importance: 100,
         }]);
+        if (ignore) return;
         const updated = await contractTaskService.getByContract(contract.id);
+        if (ignore) return;
         setTasks(sortTasksWithWarehouseLast(updated));
       } else {
         setTasks(sortTasksWithWarehouseLast(data));
       }
       setLoading(false);
     });
+    return () => { ignore = true; };
   }, [contract.id]);
 
   const handleSave = async (
