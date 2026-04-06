@@ -156,7 +156,7 @@ public class TechProcessService : ITechProcessService
         if (tp.Status != ProcessStatus.Approved)
             return ApiResult<int>.Failure(["Faqat tasdiqlangan jarayonni omborga yuborish mumkin."]);
 
-        tp.Status = ProcessStatus.InProgress;
+        tp.Status = ProcessStatus.Completed;
         await _context.SaveChangesAsync();
         return ApiResult<int>.Success(1);
     }
