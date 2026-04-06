@@ -180,6 +180,68 @@ public class NotificationService : INotificationService
         }
     }
 
+    public async Task NotifySuperAdminsAsync(string title, string body, NotificationType type, Guid? contractId = null)
+    {
+        try
+        {
+            var superAdminIds = await _context.Users
+                .Where(u => u.IsActive && u.RoleId == SuperAdminRoleId)
+                .Select(u => u.Id)
+                .ToListAsync();
+
+            var notifications = superAdminIds.Select(uid => new Core.Entities.Notification
+            {
+                Id = Guid.NewGuid(),
+                UserId = uid,
+                Title = title,
+                Body = body,
+                Type = type,
+                ContractId = contractId,
+                IsRead = false,
+                CreatedAt = DateTime.UtcNow,
+            }).ToList();
+
+            _context.Notifications.AddRange(notifications);
+            await _context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SuperAdminlarga bildirishnoma yuborishda xatolik: {Title}", title);
+        }
+    }
+
+    public async Task NotifyUsersAndSuperAdminsAsync(IEnumerable<Guid> userIds, string title, string body, NotificationType type, Guid? contractId = null)
+    {
+        try
+        {
+            var superAdminIds = await _context.Users
+                .Where(u => u.IsActive && u.RoleId == SuperAdminRoleId)
+                .Select(u => u.Id)
+                .ToListAsync();
+
+            var allIds = userIds.Union(superAdminIds).Distinct().ToList();
+
+            var notifications = allIds.Select(uid => new Core.Entities.Notification
+            {
+                Id = Guid.NewGuid(),
+                UserId = uid,
+                Title = title,
+                Body = body,
+                Type = type,
+                ContractId = contractId,
+                IsRead = false,
+                CreatedAt = DateTime.UtcNow,
+            }).ToList();
+
+            _context.Notifications.AddRange(notifications);
+            await _context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Foydalanuvchilar va superadminlarga bildirishnoma yuborishda xatolik: {Title}", title);
+        }
+    }
+
     public async Task NotifyAllAsync(string title, string body, NotificationType type, Guid? contractId = null)
     {
         try
