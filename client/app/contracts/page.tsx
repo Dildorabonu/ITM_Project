@@ -8,464 +8,30 @@ import {
   userService,
   scanService,
   departmentService,
-  techProcessService,
-  costNormService,
   ContractStatus,
   Priority,
-  DepartmentType,
-  CONTRACT_STATUS_LABELS,
-  PRIORITY_LABELS,
-  DEPARTMENT_TYPE_LABELS,
   type ContractResponse,
   type ContractCreatePayload,
   type ContractUpdatePayload,
   type AttachmentResponse,
   type ContractUserResponse,
   type UserLookup,
-  type ScanSource,
   type DepartmentResponse,
-  type TechProcessResponse,
-  type CostNormResponse,
 } from "@/lib/userService";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface ContractForm {
-  contractNo: string;
-  productType: string;
-  quantity: string;
-  unit: string;
-  departmentIds: string[];
-  startDate: string;
-  endDate: string;
-  priority: string;
-  contractParty: string;
-  notes: string;
-}
-
-const emptyForm: ContractForm = {
-  contractNo: "", productType: "", quantity: "", unit: "",
-  departmentIds: [], startDate: "", endDate: "",
-  priority: String(Priority.Medium), contractParty: "", notes: "",
-};
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const VISIBLE_STATUSES: ContractStatus[] = [
-  ContractStatus.DrawingPending,
-  ContractStatus.TechProcessing,
-  ContractStatus.WarehouseCheck,
-  ContractStatus.InProduction,
-  ContractStatus.Completed,
-];
-
-const STATUS_STYLE: Record<ContractStatus, { bg: string; color: string; border: string }> = {
-  [ContractStatus.Draft]:                { bg: "var(--bg3)",        color: "var(--text2)",    border: "var(--border)" },
-  [ContractStatus.DrawingPending]:       { bg: "#ede9fe",           color: "#6d28d9",         border: "#c4b5fd" },
-  [ContractStatus.TechProcessing]:       { bg: "#fff7ed",           color: "#c2410c",         border: "#fdba74" },
-  [ContractStatus.TechProcessApproved]:  { bg: "var(--success-dim)", color: "var(--success)", border: "rgba(15,123,69,0.2)" },
-  [ContractStatus.WarehouseCheck]:       { bg: "#fefce8",           color: "#a16207",         border: "#fde047" },
-  [ContractStatus.InProduction]:    { bg: "#e6f4ea",           color: "#1e7e34",         border: "#a8d5b5" },
-  [ContractStatus.Completed]:       { bg: "#e8f0fe",           color: "#1a56db",         border: "#a4c0f4" },
-  [ContractStatus.Cancelled]:       { bg: "var(--danger-dim)", color: "var(--danger)",   border: "var(--danger)" },
-};
-
-const PRIORITY_STYLE: Record<Priority, { color: string }> = {
-  [Priority.Low]:    { color: "var(--text2)" },
-  [Priority.Medium]: { color: "#d97706" },
-  [Priority.High]:   { color: "#dc2626" },
-  [Priority.Urgent]: { color: "#7c3aed" },
-};
-
-function StatusBadge({ status }: { status: ContractStatus }) {
-  const s = STATUS_STYLE[status];
-  return (
-    <span style={{
-      display: "inline-flex", alignItems: "center", padding: "2px 10px",
-      borderRadius: 20, fontSize: 13, fontWeight: 600,
-      background: s.bg, color: s.color, border: `1px solid ${s.border}`,
-      maxWidth: "100%", overflow: "hidden",
-    }}>
-      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {CONTRACT_STATUS_LABELS[status]}
-      </span>
-    </span>
-  );
-}
-
-function PriorityBadge({ priority }: { priority: Priority }) {
-  const s = PRIORITY_STYLE[priority];
-  return (
-    <span style={{ fontSize: 13, fontWeight: 600, color: s.color }}>
-      {PRIORITY_LABELS[priority]}
-    </span>
-  );
-}
-
-const WORKFLOW_STEPS: { status: ContractStatus; label: string; shortLabel: string }[] = [
-  { status: ContractStatus.Draft,          label: "Shartnoma yaratilindi",               shortLabel: "Yaratildi" },
-  { status: ContractStatus.DrawingPending, label: "Chizmasi tayyorlanmoqda",             shortLabel: "Chizma" },
-  { status: ContractStatus.TechProcessing, label: "Texnologik jarayon tayyorlanmoqda",   shortLabel: "Tex jarayon" },
-  { status: ContractStatus.WarehouseCheck, label: "Ombor tekshiruviga uzatildi",         shortLabel: "Ombor" },
-  { status: ContractStatus.InProduction,   label: "Ishlab chiqarish jarayoni boshlangan", shortLabel: "Ishlab chiqarish" },
-  { status: ContractStatus.Completed,      label: "Yakunlandi",                          shortLabel: "Yakunlandi" },
-];
-
-const STEP_COLORS: Record<ContractStatus, { active: string; done: string; text: string }> = {
-  [ContractStatus.Draft]:               { active: "#6b7280", done: "#6b7280", text: "#fff" },
-  [ContractStatus.DrawingPending]:      { active: "#7c3aed", done: "#7c3aed", text: "#fff" },
-  [ContractStatus.TechProcessing]:      { active: "#c2410c", done: "#c2410c", text: "#fff" },
-  [ContractStatus.TechProcessApproved]: { active: "#0f7b45", done: "#0f7b45", text: "#fff" },
-  [ContractStatus.WarehouseCheck]:      { active: "#a16207", done: "#a16207", text: "#fff" },
-  [ContractStatus.InProduction]:        { active: "#1e7e34", done: "#1e7e34", text: "#fff" },
-  [ContractStatus.Completed]:           { active: "#1a56db", done: "#1a56db", text: "#fff" },
-  [ContractStatus.Cancelled]:           { active: "#dc2626", done: "#dc2626", text: "#fff" },
-};
-
-function WorkflowDiagram({ status }: { status: ContractStatus }) {
-  const currentIdx = WORKFLOW_STEPS.findIndex(s => s.status === status);
-
-  return (
-    <div style={{ marginBottom: 22 }}>
-      <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 12 }}>Jarayon holati</div>
-      <div style={{ position: "relative" }}>
-        {/* connector line */}
-        <div style={{
-          position: "absolute", top: 16,
-          left: `${50 / WORKFLOW_STEPS.length}%`,
-          right: `${50 / WORKFLOW_STEPS.length}%`,
-          height: 2, background: "var(--border)", zIndex: 0,
-        }} />
-        {/* filled connector up to current step */}
-        {currentIdx > 0 && (
-          <div style={{
-            position: "absolute", top: 16,
-            left: `${50 / WORKFLOW_STEPS.length}%`,
-            width: `${currentIdx * 100 / WORKFLOW_STEPS.length}%`,
-            height: 2, background: STEP_COLORS[status].active, zIndex: 0, transition: "width 0.4s",
-          }} />
-        )}
-        <div style={{ display: "flex", justifyContent: "space-between", position: "relative", zIndex: 1 }}>
-          {WORKFLOW_STEPS.map((step, idx) => {
-            const isDone = idx < currentIdx;
-            const isActive = idx === currentIdx;
-            const col = STEP_COLORS[step.status];
-            return (
-              <div key={step.status} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flex: 1 }}>
-                <div style={{
-                  width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
-                  background: isDone || isActive ? col.active : "var(--bg3)",
-                  border: `2px solid ${isDone || isActive ? col.active : "var(--border)"}`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  boxShadow: isActive ? `0 0 0 4px ${col.active}33` : "none",
-                  transition: "all 0.3s",
-                }}>
-                  {isDone ? (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={col.text} strokeWidth="2.5">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  ) : (
-                    <span style={{ fontSize: 11, fontWeight: 700, color: isActive ? col.text : "var(--text3)" }}>
-                      {idx + 1}
-                    </span>
-                  )}
-                </div>
-                <span style={{
-                  fontSize: 10, fontWeight: isActive ? 700 : 500, textAlign: "center", lineHeight: 1.3,
-                  color: isActive ? col.active : isDone ? "var(--text2)" : "var(--text3)",
-                  maxWidth: 72,
-                }}>
-                  {step.shortLabel}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-        {/* current step description */}
-        <div style={{
-          marginTop: 14, padding: "8px 14px", borderRadius: 8,
-          background: `${STEP_COLORS[status].active}14`,
-          border: `1.5px solid ${STEP_COLORS[status].active}44`,
-          fontSize: 13, fontWeight: 600, color: STEP_COLORS[status].active,
-          textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-        }}>
-          {WORKFLOW_STEPS[currentIdx]?.label}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function fmt(d: string) {
-  if (!d) return "—";
-  const [y, m, day] = d.slice(0, 10).split("-");
-  if (!y || !m || !day) return "—";
-  return `${day}.${m}.${y}`;
-}
-
-function isoToDisplayDate(iso: string) {
-  if (!iso) return "";
-  const [y, m, d] = iso.slice(0, 10).split("-");
-  if (!y || !m || !d) return "";
-  return `${d}.${m}.${y}`;
-}
-
-const MONTHS_UZ = ["Yanvar","Fevral","Mart","Aprel","May","Iyun","Iyul","Avgust","Sentabr","Oktabr","Noyabr","Dekabr"];
-const DAYS_UZ   = ["Du","Se","Ch","Pa","Ju","Sh","Ya"];
-
-function DatePickerField({ value, displayValue, onDisplayChange, onDateSelect, hasError }: {
-  value: string; displayValue: string;
-  onDisplayChange: (d: string) => void;
-  onDateSelect: (iso: string) => void;
-  hasError?: boolean;
-}) {
-  const today = new Date();
-  const todayIso = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
-  const initYear  = value ? parseInt(value.slice(0,4))   : today.getFullYear();
-  const initMonth = value ? parseInt(value.slice(5,7))-1 : today.getMonth();
-  const [open, setOpen]           = useState(false);
-  const [viewYear,  setViewYear]  = useState(initYear);
-  const [viewMonth, setViewMonth] = useState(initMonth);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (value) { setViewYear(parseInt(value.slice(0,4))); setViewMonth(parseInt(value.slice(5,7))-1); }
-  }, [value]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  const prevMonth = () => viewMonth === 0  ? (setViewMonth(11), setViewYear(y=>y-1)) : setViewMonth(m=>m-1);
-  const nextMonth = () => viewMonth === 11 ? (setViewMonth(0),  setViewYear(y=>y+1)) : setViewMonth(m=>m+1);
-
-  const firstDayAdj = (new Date(viewYear, viewMonth, 1).getDay() + 6) % 7;
-  const daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate();
-  const cells: (number|null)[] = [...Array(firstDayAdj).fill(null), ...Array.from({length:daysInMonth},(_,i)=>i+1)];
-
-  const pickDay = (day: number) => {
-    const iso = `${viewYear}-${String(viewMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-    onDateSelect(iso);
-    onDisplayChange(isoToDisplayDate(iso));
-    setOpen(false);
-  };
-
-  return (
-    <div ref={ref} style={{ position:"relative" }}>
-      <div style={{ position:"relative", display:"flex", alignItems:"center" }}>
-        <input className="form-input" type="text" value={displayValue} placeholder="kun.oy.yil"
-          onChange={e => { const m = maskDate(e.target.value); onDisplayChange(m); const iso = displayToIso(m); if (iso) onDateSelect(iso); }}
-          style={{ ...(hasError ? {borderColor:"var(--danger)"} : {}), paddingRight:38, width:"100%" }}
-        />
-        <button type="button" onClick={()=>setOpen(o=>!o)} style={{
-          position:"absolute", right:8, background:"none", border:"none", cursor:"pointer",
-          padding:3, borderRadius:5, color: open ? "var(--accent)" : "var(--text3)",
-          display:"flex", alignItems:"center", transition:"color 0.15s",
-        }}>
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-          </svg>
-        </button>
-      </div>
-      {open && (
-        <div style={{
-          position:"absolute", top:"calc(100% + 6px)", left:0, zIndex:9999,
-          background:"var(--surface)", border:"1.5px solid var(--border)",
-          borderRadius:12, boxShadow:"0 12px 40px rgba(0,0,0,0.13)", width:272, padding:"14px 12px 10px",
-        }}>
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
-            <button type="button" onClick={prevMonth} style={{ background:"var(--surface2)", border:"none", cursor:"pointer", width:28, height:28, borderRadius:7, color:"var(--text2)", fontSize:17, display:"flex", alignItems:"center", justifyContent:"center" }}>‹</button>
-            <span style={{ fontWeight:700, fontSize:14, color:"var(--text)" }}>{MONTHS_UZ[viewMonth]} {viewYear}</span>
-            <button type="button" onClick={nextMonth} style={{ background:"var(--surface2)", border:"none", cursor:"pointer", width:28, height:28, borderRadius:7, color:"var(--text2)", fontSize:17, display:"flex", alignItems:"center", justifyContent:"center" }}>›</button>
-          </div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", marginBottom:6 }}>
-            {DAYS_UZ.map(d => <div key={d} style={{ textAlign:"center", fontSize:11, fontWeight:600, color:"var(--text3)", padding:"2px 0" }}>{d}</div>)}
-          </div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:3 }}>
-            {cells.map((day, i) => {
-              if (!day) return <div key={i}/>;
-              const iso = `${viewYear}-${String(viewMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-              const sel = iso === value, tdy = iso === todayIso;
-              return (
-                <button key={i} type="button" onClick={()=>pickDay(day)} style={{
-                  background: sel ? "var(--accent)" : "none",
-                  color: sel ? "#fff" : tdy ? "var(--accent)" : "var(--text)",
-                  border: tdy && !sel ? "1.5px solid var(--accent)" : "1.5px solid transparent",
-                  borderRadius:7, fontSize:13, fontWeight: sel||tdy ? 600 : 400,
-                  cursor:"pointer", padding:"5px 2px", textAlign:"center", transition:"background 0.1s",
-                }}
-                  onMouseEnter={e=>{if(!sel)(e.currentTarget as HTMLElement).style.background="var(--accent-dim)";}}
-                  onMouseLeave={e=>{if(!sel)(e.currentTarget as HTMLElement).style.background="none";}}
-                >{day}</button>
-              );
-            })}
-          </div>
-          <div style={{ borderTop:"1px solid var(--border)", marginTop:10, paddingTop:8, display:"flex", justifyContent:"space-between" }}>
-            <button type="button" onClick={()=>{onDateSelect("");onDisplayChange("");setOpen(false);}}
-              style={{ background:"none", border:"none", cursor:"pointer", fontSize:12, color:"var(--text3)", padding:"2px 6px", borderRadius:5 }}>
-              Tozalash
-            </button>
-            <button type="button" onClick={()=>{ setViewYear(today.getFullYear()); setViewMonth(today.getMonth()); pickDay(today.getDate()); }}
-              style={{ background:"var(--accent-dim)", border:"none", cursor:"pointer", fontSize:12, color:"var(--accent)", fontWeight:600, padding:"2px 10px", borderRadius:5 }}>
-              Bugun
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function maskDate(val: string): string {
-  const digits = val.replace(/\D/g, "").slice(0, 8);
-  if (digits.length === 0) return "";
-  let day = digits.slice(0, 2);
-  if (digits.length >= 2 && parseInt(day, 10) > 31) day = "31";
-  if (digits.length < 2) return day;
-  let month = digits.slice(2, 4);
-  if (digits.length >= 4 && parseInt(month, 10) > 12) month = "12";
-  if (digits.length < 4) return `${day}.${month}`;
-  return `${day}.${month}.${digits.slice(4)}`;
-}
-
-function displayToIso(disp: string): string {
-  const parts = disp.split(".");
-  if (parts.length !== 3 || parts[2].length !== 4) return "";
-  const [d, m, y] = parts;
-  return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
-}
-
-
-// ─── Department grouped select ────────────────────────────────────────────────
-
-const TYPE_STYLE = {
-  [DepartmentType.IshlabChiqarish]: { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa", icon: "🏭" },
-  [DepartmentType.Bolim]:           { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe", icon: "🏢" },
-  [DepartmentType.Boshqaruv]:       { bg: "#f5f3ff", color: "#6d28d9", border: "#ddd6fe", icon: "👔" },
-};
-
-function CustomGroupedMultiSelect({
-  values = [], onChange, departments, placeholder, hasError,
-}: {
-  values: string[]; onChange: (v: string[]) => void;
-  departments: DepartmentResponse[];
-  placeholder: string; hasError?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const groups = ([DepartmentType.IshlabChiqarish, DepartmentType.Bolim, DepartmentType.Boshqaruv] as const)
-    .map(t => ({ type: t, items: departments.filter(d => d.type === t) }))
-    .filter(g => g.items.length > 0);
-
-  const toggle = (id: string) => {
-    onChange(values.includes(id) ? values.filter(v => v !== id) : [...values, id]);
-  };
-
-  const selectedDepts = departments.filter(d => values.includes(d.id));
-
-  return (
-    <div ref={ref} style={{ position: "relative" }}>
-      <button type="button" onClick={() => setOpen(o => !o)} style={{
-        width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
-        background: "var(--bg3)",
-        border: `1.5px solid ${hasError ? "var(--danger)" : open ? "var(--accent)" : "var(--border)"}`,
-        borderRadius: "var(--radius)", padding: "9px 12px", minHeight: 40,
-        fontSize: 14, cursor: "pointer", textAlign: "left",
-        boxShadow: hasError ? "0 0 0 3px rgba(217,48,37,0.2)" : open ? "0 0 0 3px var(--accent-dim)" : "none",
-        transition: "border-color 0.14s, box-shadow 0.14s",
-        fontFamily: "var(--font-inter), Inter, sans-serif",
-      }}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, flex: 1 }}>
-          {selectedDepts.length === 0 ? (
-            <span style={{ color: "var(--text3)" }}>{placeholder}</span>
-          ) : selectedDepts.map(d => {
-            const ts = TYPE_STYLE[d.type];
-            return (
-              <span key={d.id} style={{
-                display: "inline-flex", alignItems: "center", gap: 4,
-                padding: "2px 8px", borderRadius: 10, fontSize: 12, fontWeight: 600,
-                background: ts.bg, color: ts.color, border: `1px solid ${ts.border}`,
-              }}>
-                {ts.icon} {d.name}
-                <span
-                  onClick={e => { e.stopPropagation(); toggle(d.id); }}
-                  style={{ cursor: "pointer", marginLeft: 2, lineHeight: 1, opacity: 0.7 }}
-                >✕</span>
-              </span>
-            );
-          })}
-        </div>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-          style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s", color: "var(--text3)" }}>
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
-      </button>
-      {open && (
-        <div style={{
-          position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0,
-          background: "var(--surface)", border: "1.5px solid var(--border2)",
-          borderRadius: "var(--radius2)", boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-          zIndex: 200, maxHeight: 260, overflowY: "auto",
-        }}>
-          {groups.map((g, gi) => {
-            const ts = TYPE_STYLE[g.type];
-            return (
-              <div key={g.type}>
-                <div style={{
-                  padding: "7px 12px 5px", fontSize: 11, fontWeight: 700,
-                  letterSpacing: "0.7px", textTransform: "uppercase",
-                  color: ts.color, background: ts.bg,
-                  display: "flex", alignItems: "center", gap: 6,
-                  borderTop: gi > 0 ? "1px solid var(--border)" : "none",
-                  position: "sticky", top: 0,
-                }}>
-                  {ts.icon} {DEPARTMENT_TYPE_LABELS[g.type]}
-                </div>
-                {g.items.map(d => {
-                  const checked = values.includes(d.id);
-                  return (
-                    <div key={d.id}
-                      onClick={() => toggle(d.id)}
-                      onMouseEnter={e => { if (!checked) e.currentTarget.style.background = "var(--bg3)"; }}
-                      onMouseLeave={e => { if (!checked) e.currentTarget.style.background = "transparent"; }}
-                      style={{
-                        padding: "8px 16px 8px 20px", cursor: "pointer", fontSize: 13,
-                        color: checked ? ts.color : "var(--text)",
-                        background: checked ? ts.bg : "transparent",
-                        fontWeight: checked ? 600 : 400,
-                        display: "flex", alignItems: "center", gap: 8,
-                      }}>
-                      {checked ? (
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ flexShrink: 0, color: ts.color }}>
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                      ) : <span style={{ width: 11 }} />}
-                      {d.name}
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
+import {
+  ContractForm as ContractFormType,
+  emptyForm,
+  STATUS_FILTER_OPTIONS,
+  STATUS_CHANGE_OPTIONS,
+} from "./_types";
+import { isoToDisplayDate } from "./_components/DatePickerField";
+import { StatusBadge, PriorityBadge } from "./_components/StatusBadge";
+import { CustomSelect } from "./_components/CustomSelect";
+import { ContractForm } from "./_components/ContractForm";
+import { ContractDrawer } from "./_components/ContractDrawer";
+import { ScanModal } from "./_components/ScanModal";
+import { fmt } from "./_components/DatePickerField";
 
 export default function ContractsPage() {
   const hasPermission = useAuthStore((s) => s.hasPermission);
@@ -485,12 +51,13 @@ export default function ContractsPage() {
   // Form
   const [showForm, setShowForm]         = useState(false);
   const [editTarget, setEditTarget]     = useState<ContractResponse | null>(null);
-  const [form, setForm]                 = useState<ContractForm>(emptyForm);
+  const [form, setForm]                 = useState<ContractFormType>(emptyForm);
   const [startDateDisp, setStartDateDisp] = useState("");
   const [endDateDisp,   setEndDateDisp]   = useState("");
   const [submitted, setSubmitted]       = useState(false);
   const [saving, setSaving]             = useState(false);
   const [formError, setFormError]       = useState("");
+  const [successMsg, setSuccessMsg]     = useState("");
   const [pendingContractFiles, setPendingContractFiles] = useState<File[]>([]);
   const [pendingTzFiles, setPendingTzFiles]             = useState<File[]>([]);
   const [formUsers, setFormUsers]             = useState<UserLookup[]>([]);
@@ -503,33 +70,23 @@ export default function ContractsPage() {
   const [viewContract, setViewContract] = useState<ContractResponse | null>(null);
   const [drawerFiles, setDrawerFiles]   = useState<AttachmentResponse[]>([]);
   const [filesLoading, setFilesLoading] = useState(false);
-  const [uploading, setUploading]       = useState(false);
-  const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
-  const [drawerTechProcesses, setDrawerTechProcesses] = useState<TechProcessResponse[]>([]);
-  const [drawerCostNorms, setDrawerCostNorms]         = useState<CostNormResponse[]>([]);
 
   // Departments
   const [departments, setDepartments]   = useState<DepartmentResponse[]>([]);
 
   // TZ files
-  const [drawerTzFiles, setDrawerTzFiles]     = useState<AttachmentResponse[]>([]);
-  const [tzFilesLoading, setTzFilesLoading]   = useState(false);
-  const [uploadingTz, setUploadingTz]         = useState(false);
-  const [deletingTzFileId, setDeletingTzFileId] = useState<string | null>(null);
+  const [drawerTzFiles, setDrawerTzFiles]   = useState<AttachmentResponse[]>([]);
+  const [tzFilesLoading, setTzFilesLoading] = useState(false);
 
   // Users
   const [drawerUsers, setDrawerUsers]   = useState<ContractUserResponse[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
-  const [showAssign, setShowAssign]     = useState(false);
   const [allUsers, setAllUsers]         = useState<UserLookup[]>([]);
-  const [assignSearch, setAssignSearch] = useState("");
-  const [assigning, setAssigning]       = useState(false);
-  const [removingUserId, setRemovingUserId] = useState<string | null>(null);
 
   // Scan modal
   const [showScanModal, setShowScanModal]   = useState(false);
   const [scanTarget, setScanTarget]         = useState<"contract" | "tz">("contract");
-  const [scanSources, setScanSources]       = useState<ScanSource[]>([]);
+  const [scanSources, setScanSources]       = useState<Parameters<typeof ScanModal>[0]["scanSources"]>([]);
   const [scanSourcesLoading, setScanSourcesLoading] = useState(false);
   const [scanSourcesError, setScanSourcesError]     = useState("");
   const [selectedSourceId, setSelectedSourceId]     = useState("");
@@ -562,112 +119,32 @@ export default function ContractsPage() {
     (d) => { setForm(d.form); setEditTarget(d.editTarget); ensureDataLoaded().then(() => setShowForm(true)); },
   );
 
-  // ── Load files ────────────────────────────────────────────────────────────
+  // ── Load drawer ────────────────────────────────────────────────────────────
 
   const openDrawer = async (c: ContractResponse) => {
     setViewContract(c);
     setDrawerFiles([]);
     setDrawerUsers([]);
     setDrawerTzFiles([]);
-    setDrawerTechProcesses([]);
-    setDrawerCostNorms([]);
     setFilesLoading(true);
     setUsersLoading(true);
     setTzFilesLoading(true);
     try {
-      const [fresh, files, users, tzFiles, techProcesses, costNorms] = await Promise.all([
+      const [fresh, files, users, tzFiles] = await Promise.all([
         contractService.getById(c.id),
         contractService.getFiles(c.id),
         contractService.getUsers(c.id),
         contractService.getTzFiles(c.id),
-        techProcessService.getByContract(c.id),
-        costNormService.getAll(c.id),
       ]);
       setViewContract(fresh);
       setContracts(prev => prev.map(x => x.id === fresh.id ? fresh : x));
       setDrawerFiles(files);
       setDrawerUsers(users);
       setDrawerTzFiles(tzFiles);
-      setDrawerTechProcesses(techProcesses);
-      setDrawerCostNorms(costNorms);
     } finally {
       setFilesLoading(false);
       setUsersLoading(false);
       setTzFilesLoading(false);
-    }
-  };
-
-  const openAssign = async () => {
-    setAssignSearch("");
-    setShowAssign(true);
-    if (allUsers.length === 0) {
-      const items = await userService.getLookup();
-      setAllUsers(items);
-    }
-  };
-
-  const handleAssignUser = async (userId: string) => {
-    if (!viewContract) return;
-    if (drawerUsers.some(u => u.userId === userId)) return;
-    setAssigning(true);
-    try {
-      await contractService.assignUsers(viewContract.id, [{ userId, role: 0 }]);
-      const users = await contractService.getUsers(viewContract.id);
-      setDrawerUsers(users);
-    } finally {
-      setAssigning(false);
-      setShowAssign(false);
-    }
-  };
-
-  const handleRemoveUser = async (userId: string) => {
-    if (!viewContract) return;
-    setRemovingUserId(userId);
-    try {
-      await contractService.removeUser(viewContract.id, userId);
-      setDrawerUsers(prev => prev.filter(u => u.userId !== userId));
-    } finally {
-      setRemovingUserId(null);
-    }
-  };
-
-  const handleUpload = async (contractId: string, file: File) => {
-    setUploading(true);
-    try {
-      const uploaded = await contractService.uploadFile(contractId, file);
-      setDrawerFiles(prev => [uploaded, ...prev]);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleDeleteFile = async (contractId: string, fileId: string) => {
-    setDeletingFileId(fileId);
-    try {
-      await contractService.deleteFile(contractId, fileId);
-      setDrawerFiles(prev => prev.filter(f => f.id !== fileId));
-    } finally {
-      setDeletingFileId(null);
-    }
-  };
-
-  const handleUploadTz = async (contractId: string, file: File) => {
-    setUploadingTz(true);
-    try {
-      const uploaded = await contractService.uploadTzFile(contractId, file);
-      setDrawerTzFiles(prev => [uploaded, ...prev]);
-    } finally {
-      setUploadingTz(false);
-    }
-  };
-
-  const handleDeleteTzFile = async (contractId: string, fileId: string) => {
-    setDeletingTzFileId(fileId);
-    try {
-      await contractService.deleteTzFile(contractId, fileId);
-      setDrawerTzFiles(prev => prev.filter(f => f.id !== fileId));
-    } finally {
-      setDeletingTzFileId(null);
     }
   };
 
@@ -855,9 +332,12 @@ export default function ContractsPage() {
         setPendingContractFiles([]);
         setPendingTzFiles([]);
       }
+      const wasEditing = !!editTarget;
       await load();
       setShowForm(false);
       window.dispatchEvent(new Event("notif-read"));
+      setSuccessMsg(wasEditing ? "Shartnoma muvaffaqiyatli tahrirlandi!" : "Shartnoma muvaffaqiyatli yaratildi!");
+      setTimeout(() => setSuccessMsg(""), 4000);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
       setFormError(msg ?? "Saqlashda xatolik yuz berdi.");
@@ -914,6 +394,8 @@ export default function ContractsPage() {
       setContracts(prev => prev.filter(c => c.id !== deleteId));
       setDeleteId(null);
       window.dispatchEvent(new Event("notif-read"));
+      setSuccessMsg("Shartnoma muvaffaqiyatli o'chirildi!");
+      setTimeout(() => setSuccessMsg(""), 4000);
     } catch {
       // stay open
     } finally {
@@ -931,6 +413,8 @@ export default function ContractsPage() {
       setContracts(prev => prev.map(c => c.id === activateId ? { ...c, isActive: true } : c));
       setActivateId(null);
       window.dispatchEvent(new Event("notif-read"));
+      setSuccessMsg("Shartnoma muvaffaqiyatli active qilindi!");
+      setTimeout(() => setSuccessMsg(""), 4000);
     } catch {
       // stay open
     } finally {
@@ -948,6 +432,8 @@ export default function ContractsPage() {
       setContracts(prev => prev.map(c => c.id === deactivateId ? { ...c, isActive: false } : c));
       setDeactivateId(null);
       window.dispatchEvent(new Event("notif-read"));
+      setSuccessMsg("Shartnoma muvaffaqiyatli noactive qilindi!");
+      setTimeout(() => setSuccessMsg(""), 4000);
     } catch {
       // stay open
     } finally {
@@ -976,448 +462,40 @@ export default function ContractsPage() {
 
   // ── Render: Form ──────────────────────────────────────────────────────────
 
-  const fieldErr = (val: string) => submitted && !val.trim();
-  const startDateErr = submitted && !form.startDate;
-  const endDateErr = submitted && !form.endDate;
-  const deptErr = submitted && form.departmentIds.length === 0;
-
   if (showForm) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>
-            {editTarget ? "Shartnomani tahrirlash" : "Yangi shartnoma"}
-          </span>
-        </div>
-
-        <div className="itm-card" style={{ padding: 28 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-
-            {/* Shartnoma raqami */}
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: fieldErr(form.contractNo) ? "var(--danger)" : "var(--text2)" }}>
-                Shartnoma raqami <span style={{ color: "var(--danger)" }}>*</span>
-              </label>
-              <input className="form-input" value={form.contractNo}
-                onChange={e => setForm(f => ({ ...f, contractNo: e.target.value }))}
-                placeholder="SH-2025-001"
-                style={fieldErr(form.contractNo) ? { borderColor: "var(--danger)" } : undefined}
-              />
-              {fieldErr(form.contractNo) && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Shartnoma raqamini kiriting</div>}
-            </div>
-
-            {/* Shartnoma tuzilgan tomon */}
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>
-                Shartnoma tuzilgan tomon
-              </label>
-              <input className="form-input" value={form.contractParty}
-                onChange={e => setForm(f => ({ ...f, contractParty: e.target.value }))}
-                placeholder="Masalan: Ichki ishlar vazirligi, 3-sex, Texnologiya bo'limi..."
-              />
-            </div>
-
-            {/* Boshlanish sanasi */}
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: startDateErr ? "var(--danger)" : "var(--text2)" }}>
-                Boshlanish sanasi <span style={{ color: "var(--danger)" }}>*</span>
-              </label>
-              <DatePickerField
-                value={form.startDate}
-                displayValue={startDateDisp}
-                onDisplayChange={setStartDateDisp}
-                onDateSelect={iso => setForm(f => ({ ...f, startDate: iso }))}
-                hasError={startDateErr}
-              />
-              {startDateErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Boshlanish sanasini tanlang</div>}
-            </div>
-
-            {/* Tugash sanasi */}
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: endDateErr ? "var(--danger)" : "var(--text2)" }}>
-                Tugash sanasi <span style={{ color: "var(--danger)" }}>*</span>
-              </label>
-              <DatePickerField
-                value={form.endDate}
-                displayValue={endDateDisp}
-                onDisplayChange={setEndDateDisp}
-                onDateSelect={iso => setForm(f => ({ ...f, endDate: iso }))}
-                hasError={endDateErr}
-              />
-              {endDateErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Tugash sanasini tanlang</div>}
-            </div>
-
-            {/* Mahsulot turi */}
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Mahsulot turi</label>
-              <input className="form-input" value={form.productType}
-                onChange={e => setForm(f => ({ ...f, productType: e.target.value }))}
-                placeholder="Masalan: Detal, Konstruktsiya..."
-              />
-            </div>
-
-            {/* Miqdor */}
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Miqdor</label>
-              <input className="form-input" type="number" min="0" value={form.quantity}
-                onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))}
-                placeholder="0"
-              />
-            </div>
-
-            {/* O'lchov birligi */}
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>O&apos;lchov birligi</label>
-              <select className="form-input" title="O'lchov birligi" value={form.unit}
-                onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
-                style={{ width: "100%", cursor: "pointer" }}>
-                <option value="">— Tanlang —</option>
-                <option value="Dona">Dona</option>
-                <option value="Kilogramm">Kilogramm</option>
-                <option value="Gramm">Gramm</option>
-                <option value="Litr">Litr</option>
-                <option value="Metr">Metr</option>
-                <option value="KvMetr">Kv. Metr (m²)</option>
-                <option value="KubMetr">Kub Metr (m³)</option>
-                <option value="Quti">Quti</option>
-                <option value="Paket">Paket</option>
-                <option value="Toʻplam">To'plam</option>
-              </select>
-            </div>
-
-            {/* Muhimlik */}
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Muhimlik</label>
-              <select className="form-input" title="Muhimlik" value={form.priority}
-                onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}
-                style={{ width: "100%", cursor: "pointer" }}>
-                {(Object.keys(PRIORITY_LABELS) as unknown as Priority[]).map(k => (
-                  <option key={k} value={k}>{PRIORITY_LABELS[k]}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Bo'limlar */}
-            <div style={{ gridColumn: "1 / -1" }}>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: deptErr ? "var(--danger)" : "var(--text2)" }}>
-                Bo&apos;limlar <span style={{ color: "var(--danger)" }}>*</span>
-              </label>
-              <CustomGroupedMultiSelect
-                values={form.departmentIds}
-                onChange={v => setForm(f => ({ ...f, departmentIds: v }))}
-                departments={departments}
-                placeholder="— Bo'limlar tanlang (bir nechta) —"
-                hasError={deptErr}
-              />
-              {deptErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Kamida bitta bo&apos;limni tanlang</div>}
-            </div>
-
-            {/* Izoh */}
-            <div style={{ gridColumn: "1 / -1" }}>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Izoh</label>
-              <textarea className="form-input" value={form.notes}
-                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-                placeholder="Qo'shimcha izoh (ixtiyoriy)" rows={2} style={{ resize: "none" }} />
-            </div>
-
-            {/* Xodimlar - 3 ta toifa */}
-            <div style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
-
-              {([
-                { label: "Ma'sul xodimlar",   list: formUsers,       setList: setFormUsers,       deptType: DepartmentType.IshlabChiqarish, color: "#c2410c", bg: "#fff7ed" },
-                { label: "Ma'lumot uchun",    list: formSupervisors, setList: setFormSupervisors, deptType: DepartmentType.Bolim,   color: "#1d4ed8", bg: "#eff6ff" },
-                { label: "Kuzatuvchilar",     list: formObservers,   setList: setFormObservers,   deptType: DepartmentType.Boshqaruv, color: "#6d28d9", bg: "#f5f3ff" },
-              ] as const).map(({ label, list, setList, deptType, color, bg }, idx) => {
-                const isOpen = openPickerIdx === idx;
-                const noDeptOfType = deptType !== DepartmentType.Boshqaruv &&
-                  !departments.some(d => d.type === deptType && form.departmentIds.includes(d.id));
-                const poolByType = noDeptOfType ? [] : allUsers.filter(u => {
-                  if (u.departmentType !== deptType) return false;
-                  if (deptType === DepartmentType.Boshqaruv) return true;
-                  return u.departmentId != null && form.departmentIds.includes(u.departmentId);
-                });
-                const available = poolByType.filter(u => !list.some(x => x.id === u.id));
-                return (
-                  <div key={label}>
-                    <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", display: "block", marginBottom: 8 }}>
-                      {label} <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text3)" }}>(ixtiyoriy)</span>
-                    </label>
-
-                    <div ref={isOpen ? pickerRef : null} style={{ position: "relative" }}>
-                      <button type="button"
-                        onClick={() => setOpenPickerIdx(isOpen ? null : idx)}
-                        style={{
-                          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-                          padding: "9px 12px", background: "var(--bg1)", border: isOpen ? "1.5px solid var(--accent)" : "1.5px solid var(--border)",
-                          borderRadius: "var(--radius)", cursor: "pointer", fontSize: 13, color: available.length ? "var(--text2)" : "var(--text3)",
-                        }}>
-                        <span>Xodim tanlang</span>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-                          style={{ transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s", flexShrink: 0 }}>
-                          <polyline points="6 9 12 15 18 9" />
-                        </svg>
-                      </button>
-
-                      {isOpen && (
-                        <div style={{
-                          position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 50,
-                          background: "var(--bg2)", border: "1.5px solid var(--border)", borderRadius: 10,
-                          boxShadow: "0 6px 24px rgba(0,0,0,0.13)",
-                          maxHeight: 260, overflow: "auto",
-                        }}>
-                          {allUsers.length === 0 ? (
-                            <div style={{ padding: "14px 14px", fontSize: 13, color: "var(--text3)", textAlign: "center" }}>
-                              Yuklanmoqda...
-                            </div>
-                          ) : noDeptOfType ? (
-                            <div style={{ padding: "14px 14px", fontSize: 13, color: "var(--text3)", textAlign: "center" }}>
-                              Avval ushbu tuzilmadan bo&apos;lim tanlang
-                            </div>
-                          ) : poolByType.length === 0 ? (
-                            <div style={{ padding: "14px 14px", fontSize: 13, color: "var(--text3)", textAlign: "center" }}>
-                              Bu toifada xodim yo&apos;q
-                            </div>
-                          ) : available.length === 0 ? (
-                            <div style={{ padding: "14px 14px", fontSize: 13, color: "var(--text3)", textAlign: "center" }}>
-                              Barcha xodimlar tanlangan
-                            </div>
-                          ) : available.map(u => (
-                            <button key={u.id} type="button"
-                              onClick={() => { setList((prev: typeof list) => [...prev, u]); setOpenPickerIdx(null); }}
-                              style={{
-                                width: "100%", display: "flex", alignItems: "center", gap: 10,
-                                padding: "10px 14px", border: "none", background: "transparent",
-                                cursor: "pointer", textAlign: "left", borderBottom: "1px solid var(--border)",
-                              }}
-                              onMouseEnter={e => (e.currentTarget.style.background = "var(--bg3)")}
-                              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                            >
-                              <div style={{
-                                width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
-                                background: "var(--accent-dim)", display: "flex", alignItems: "center",
-                                justifyContent: "center", fontSize: 13, fontWeight: 700, color: "var(--accent)",
-                              }}>
-                                {u.firstName.charAt(0).toUpperCase()}
-                              </div>
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                  {u.firstName} {u.lastName}
-                                </div>
-                                {u.departmentName && (
-                                  <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                    {u.departmentName}
-                                  </div>
-                                )}
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {list.length > 0 && (
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-                        {list.map(u => (
-                          <div key={u.id} style={{
-                            display: "inline-flex", alignItems: "center", gap: 6,
-                            background: bg, border: `1.5px solid ${color}44`,
-                            borderRadius: 20, padding: "4px 10px 4px 8px", fontSize: 12, color,
-                          }}>
-                            <span style={{ width: 20, height: 20, borderRadius: "50%", background: color, color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
-                              {u.firstName.charAt(0).toUpperCase()}
-                            </span>
-                            <span style={{ fontWeight: 600 }}>{u.firstName} {u.lastName}</span>
-                            <button type="button" onClick={() => setList((prev: typeof list) => prev.filter(x => x.id !== u.id))}
-                              style={{ background: "none", border: "none", cursor: "pointer", color, padding: 0, lineHeight: 1, fontSize: 14, opacity: 0.7 }}>✕</button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Shartnoma fayli */}
-            <div style={{ gridColumn: "1 / -1" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                <span style={{ width: 20, height: 20, borderRadius: "50%", background: "var(--accent)", color: "#fff", fontSize: 11, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>1</span>
-                <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)" }}>
-                  Shartnoma fayli <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text3)" }}>(ixtiyoriy)</span>
-                </label>
-              </div>
-              <div style={{ display: "flex", gap: 10 }}>
-                <label style={{
-                  flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                  gap: 8, cursor: "pointer", border: "2px dashed var(--border)", borderRadius: 10,
-                  padding: "16px", background: "var(--bg1)", transition: "border-color 0.15s",
-                }}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor = "var(--accent)")}
-                  onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border)")}
-                  onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = "var(--accent)"; }}
-                  onDragLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; }}
-                  onDrop={e => {
-                    e.preventDefault();
-                    e.currentTarget.style.borderColor = "var(--border)";
-                    const files = Array.from(e.dataTransfer.files);
-                    if (files.length) setPendingContractFiles(prev => [...prev, ...files]);
-                  }}
-                >
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.6">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
-                  </svg>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)" }}>Fayl tanlash yoki tashlash</span>
-                  <span style={{ fontSize: 11, color: "var(--text3)" }}>PDF, Word, Excel — har qanday format</span>
-                  <input type="file" multiple style={{ display: "none" }}
-                    onChange={e => {
-                      const files = Array.from(e.target.files ?? []);
-                      if (files.length) setPendingContractFiles(prev => [...prev, ...files]);
-                      e.target.value = "";
-                    }} />
-                </label>
-                <button type="button" onClick={() => openScanModal("contract")} style={{
-                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                  gap: 8, cursor: "pointer", border: "2px dashed var(--border)", borderRadius: 10,
-                  padding: "16px 20px", background: "var(--bg1)", transition: "border-color 0.15s",
-                }}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor = "var(--accent)")}
-                  onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border)")}
-                >
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.6">
-                    <rect x="2" y="7" width="20" height="10" rx="2" />
-                    <path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2" />
-                    <line x1="12" y1="12" x2="12" y2="12" strokeWidth="3" strokeLinecap="round" />
-                    <path d="M7 17v2a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2" />
-                  </svg>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)", whiteSpace: "nowrap" }}>Skaner qilish</span>
-                  <span style={{ fontSize: 11, color: "var(--text3)", whiteSpace: "nowrap" }}>Printerdan skanerlash</span>
-                </button>
-              </div>
-              {pendingContractFiles.length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-                  {pendingContractFiles.map((f, i) => (
-                    <div key={i} style={{
-                      display: "inline-flex", alignItems: "center", gap: 6,
-                      background: "var(--bg3)", border: "1.5px solid var(--border)",
-                      borderRadius: 6, padding: "5px 10px", fontSize: 12, color: "var(--text1)", maxWidth: 240,
-                    }}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
-                      </svg>
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
-                      <button type="button" onClick={() => setPendingContractFiles(prev => prev.filter((_, j) => j !== i))}
-                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", padding: 0, lineHeight: 1, fontSize: 14 }}>✕</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {editTarget && (
-                <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 6 }}>Mavjud fayllarni ko&apos;rish/boshqarish uchun shartnomani oching</div>
-              )}
-            </div>
-
-            {/* TZ fayli */}
-            <div style={{ gridColumn: "1 / -1" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                <span style={{ width: 20, height: 20, borderRadius: "50%", background: "var(--accent)", color: "#fff", fontSize: 11, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>2</span>
-                <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)" }}>
-                  TZ fayli <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text3)" }}>(texnik topshiriq, ixtiyoriy)</span>
-                </label>
-              </div>
-              <div style={{ display: "flex", gap: 10 }}>
-              <label style={{
-                flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                gap: 8, cursor: "pointer", border: "2px dashed var(--border)", borderRadius: 10,
-                padding: "16px", background: "var(--bg1)", transition: "border-color 0.15s",
-              }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = "var(--accent)")}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border)")}
-                onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = "var(--accent)"; }}
-                onDragLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; }}
-                onDrop={e => {
-                  e.preventDefault();
-                  e.currentTarget.style.borderColor = "var(--border)";
-                  const files = Array.from(e.dataTransfer.files);
-                  if (files.length) setPendingTzFiles(prev => [...prev, ...files]);
-                }}
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.6">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)" }}>TZ faylini tanlash yoki tashlash</span>
-                <span style={{ fontSize: 11, color: "var(--text3)" }}>PDF, Word, Excel — har qanday format</span>
-                <input type="file" multiple style={{ display: "none" }}
-                  onChange={e => {
-                    const files = Array.from(e.target.files ?? []);
-                    if (files.length) setPendingTzFiles(prev => [...prev, ...files]);
-                    e.target.value = "";
-                  }} />
-              </label>
-              <button type="button" onClick={() => openScanModal("tz")} style={{
-                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                gap: 8, cursor: "pointer", border: "2px dashed var(--border)", borderRadius: 10,
-                padding: "16px 20px", background: "var(--bg1)", transition: "border-color 0.15s",
-              }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = "var(--accent)")}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border)")}
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.6">
-                  <rect x="2" y="7" width="20" height="10" rx="2" />
-                  <path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2" />
-                  <line x1="12" y1="12" x2="12" y2="12" strokeWidth="3" strokeLinecap="round" />
-                  <path d="M7 17v2a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2" />
-                </svg>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)", whiteSpace: "nowrap" }}>Skaner qilish</span>
-                <span style={{ fontSize: 11, color: "var(--text3)", whiteSpace: "nowrap" }}>Printerdan skanerlash</span>
-              </button>
-              </div>
-              {pendingTzFiles.length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-                  {pendingTzFiles.map((f, i) => (
-                    <div key={i} style={{
-                      display: "inline-flex", alignItems: "center", gap: 6,
-                      background: "var(--bg3)", border: "1.5px solid var(--border)",
-                      borderRadius: 6, padding: "5px 10px", fontSize: 12, color: "var(--text1)", maxWidth: 240,
-                    }}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
-                      </svg>
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
-                      <button type="button" onClick={() => setPendingTzFiles(prev => prev.filter((_, j) => j !== i))}
-                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", padding: 0, lineHeight: 1, fontSize: 14 }}>✕</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {formError && (
-          <div style={{ padding: "10px 14px", borderRadius: 8, background: "var(--danger-dim)", border: "1px solid var(--danger)44", color: "var(--danger)", fontSize: 13 }}>
-            {formError}
-          </div>
-        )}
-
-        <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 4 }}>
-          <button onClick={() => { setShowForm(false); setPendingContractFiles([]); setPendingTzFiles([]); setFormUsers([]); }}
-            style={{ background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", padding: "10px 24px", color: "var(--text2)", fontSize: 14, fontWeight: 500 }}>
-            Bekor qilish
-          </button>
-          {(editTarget ? canUpdate : canCreate) && (
-            <button className="btn-primary" onClick={handleSave} disabled={saving}
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                <polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
-              </svg>
-              {saving ? "Saqlanmoqda..." : editTarget ? "O'zgarishlarni saqlash" : "Shartnoma saqlash"}
-            </button>
-          )}
-        </div>
-      </div>
+      <ContractForm
+        form={form}
+        setForm={setForm}
+        editTarget={editTarget}
+        startDateDisp={startDateDisp}
+        setStartDateDisp={setStartDateDisp}
+        endDateDisp={endDateDisp}
+        setEndDateDisp={setEndDateDisp}
+        submitted={submitted}
+        saving={saving}
+        formError={formError}
+        pendingContractFiles={pendingContractFiles}
+        setPendingContractFiles={setPendingContractFiles}
+        pendingTzFiles={pendingTzFiles}
+        setPendingTzFiles={setPendingTzFiles}
+        formUsers={formUsers}
+        setFormUsers={setFormUsers}
+        formSupervisors={formSupervisors}
+        setFormSupervisors={setFormSupervisors}
+        formObservers={formObservers}
+        setFormObservers={setFormObservers}
+        openPickerIdx={openPickerIdx}
+        setOpenPickerIdx={setOpenPickerIdx}
+        pickerRef={pickerRef}
+        allUsers={allUsers}
+        departments={departments}
+        handleSave={handleSave}
+        openScanModal={openScanModal}
+        onCancel={() => { setShowForm(false); setPendingContractFiles([]); setPendingTzFiles([]); setFormUsers([]); }}
+        canCreate={canCreate}
+        canUpdate={canUpdate}
+      />
     );
   }
 
@@ -1427,7 +505,7 @@ export default function ContractsPage() {
     <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
 
       {/* Filter bar */}
-      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px", flexWrap: "wrap" }}>
+      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px", flexWrap: "wrap", overflow: "visible" }}>
         <div className="search-wrap" style={{ maxWidth: "none", flex: 1, minWidth: 180 }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -1436,14 +514,14 @@ export default function ContractsPage() {
             value={search} onChange={e => setSearch(e.target.value)} />
         </div>
 
-        <select className="form-input" value={filterStatus}
-          onChange={e => setFilterStatus(e.target.value)}
-          style={{ width: 160, cursor: "pointer", height: 36, padding: "0 10px" }}>
-          <option value="">Barcha holat</option>
-          {VISIBLE_STATUSES.map(k => (
-            <option key={k} value={k}>{CONTRACT_STATUS_LABELS[k]}</option>
-          ))}
-        </select>
+        <div style={{ width: 210 }}>
+          <CustomSelect
+            value={filterStatus}
+            onChange={setFilterStatus}
+            options={STATUS_FILTER_OPTIONS}
+            placeholder="Barcha holat"
+          />
+        </div>
 
         <button className="btn-icon" onClick={load} title="Yangilash"
           style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}>
@@ -1581,216 +659,16 @@ export default function ContractsPage() {
 
       {/* ── View Drawer ── */}
       {viewContract && (
-        <div
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(2px)", zIndex: 1000, display: "flex", justifyContent: "flex-end" }}
-          onClick={() => { setViewContract(null); setDrawerFiles([]); setDrawerUsers([]); setDrawerTzFiles([]); setDrawerTechProcesses([]); setDrawerCostNorms([]); setShowAssign(false); }}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{
-              width: 800, maxWidth: "95vw", height: "calc(100% - 32px)", margin: "16px 16px 16px 0",
-              background: "var(--bg2)", borderRadius: 14,
-              boxShadow: "-4px 0 32px rgba(0,0,0,0.18)",
-              padding: "28px 28px 32px", overflowY: "auto",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, position: "sticky", top: 0, background: "var(--bg2)", zIndex: 1, paddingBottom: 8 }}>
-              <span style={{ fontWeight: 700, fontSize: 17, color: "var(--text1)" }}>Shartnoma tafsilotlari</span>
-              <button onClick={() => { setViewContract(null); setDrawerFiles([]); setDrawerUsers([]); setDrawerTzFiles([]); setDrawerTechProcesses([]); setDrawerCostNorms([]); setShowAssign(false); }}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
-            </div>
-
-            <WorkflowDiagram
-              status={viewContract.status}
-            />
-
-            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 10 }}>Umumiy</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 22 }}>
-              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
-                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Shartnoma raqami</div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: "var(--accent)", fontFamily: "var(--font-inter)", wordBreak: "break-all", overflowWrap: "break-word" }}>{viewContract.contractNo}</div>
-              </div>
-              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
-                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Holat</div>
-                <StatusBadge status={viewContract.status} />
-              </div>
-              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
-                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Muhimlik</div>
-                <PriorityBadge priority={viewContract.priority} />
-              </div>
-              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
-                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Boshlanish sanasi</div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)" }}>{fmt(viewContract.startDate)}</div>
-              </div>
-              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
-                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Tugash sanasi</div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)" }}>{fmt(viewContract.endDate)}</div>
-              </div>
-              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
-                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Yaratuvchi</div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)" }}>{viewContract.createdByFullName ?? "—"}</div>
-              </div>
-              {viewContract.contractParty && (
-                <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px", gridColumn: "1 / -1" }}>
-                  <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Shartnoma tuzilgan tomon</div>
-                  <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)", wordBreak: "break-word" }}>{viewContract.contractParty}</div>
-                </div>
-              )}
-              {viewContract.departments?.length > 0 && (
-                <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px", gridColumn: "1 / -1" }}>
-                  <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Bo&apos;limlar</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {viewContract.departments.map(d => {
-                      const ts = TYPE_STYLE[d.type as DepartmentType];
-                      return (
-                        <span key={d.id} style={{
-                          display: "inline-flex", alignItems: "center", gap: 4,
-                          padding: "3px 10px", borderRadius: 10, fontSize: 12, fontWeight: 600,
-                          background: ts?.bg ?? "var(--bg3)", color: ts?.color ?? "var(--text1)",
-                          border: `1px solid ${ts?.border ?? "var(--border)"}`,
-                        }}>
-                          {ts?.icon} {d.name}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {viewContract.notes && (
-              <div style={{ marginBottom: 22 }}>
-                <div style={{ fontSize: 13, color: "var(--text2)", fontWeight: 600, marginBottom: 6 }}>Izoh</div>
-                <div style={{ fontSize: 14, color: "var(--text1)", whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "break-word" }}>{viewContract.notes}</div>
-              </div>
-            )}
-
-            {/* ── Users ── */}
-            <div style={{ borderTop: "1.5px solid var(--border)", paddingTop: 20, marginTop: 4, marginBottom: 4 }}>
-              <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>Mas&apos;ul xodimlar</div>
-
-              {usersLoading ? (
-                <div style={{ fontSize: 13, color: "var(--text3)", textAlign: "center", padding: "12px 0" }}>Yuklanmoqda...</div>
-              ) : drawerUsers.length === 0 ? (
-                <div style={{ fontSize: 13, color: "var(--text3)", textAlign: "center", padding: "14px 0", border: "1.5px dashed var(--border)", borderRadius: 8 }}>
-                  Hali xodim biriktirilmagan
-                </div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {drawerUsers.map(u => (
-                    <div key={u.userId} style={{
-                      display: "flex", alignItems: "center", gap: 10,
-                      border: "1.5px solid var(--border)", borderRadius: 8,
-                      padding: "10px 12px", background: "var(--bg2)",
-                    }}>
-                      <div style={{
-                        width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
-                        background: "var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 13, fontWeight: 700, color: "var(--accent)",
-                      }}>
-                        {u.fullName.charAt(0).toUpperCase()}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.fullName}</div>
-                        {u.departmentName && <div style={{ fontSize: 11, color: "var(--text3)" }}>{u.departmentName}</div>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* ── Hujjatlar ── */}
-            <div style={{ borderTop: "1.5px solid var(--border)", paddingTop: 20, marginTop: 4 }}>
-              <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 16 }}>Hujjatlar</div>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-
-                {/* ① Shartnoma fayli */}
-                <div style={{ border: "1.5px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
-                  <div style={{ display: "flex", alignItems: "center", padding: "10px 14px", background: "var(--bg3)", borderBottom: drawerFiles.length > 0 ? "1.5px solid var(--border)" : "none" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ width: 22, height: 22, borderRadius: "50%", background: "var(--accent)", color: "#fff", fontSize: 11, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>1</span>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)" }}>Shartnoma fayli</span>
-                    </div>
-                  </div>
-                  {filesLoading ? (
-                    <div style={{ fontSize: 13, color: "var(--text3)", padding: "12px 14px" }}>Yuklanmoqda...</div>
-                  ) : drawerFiles.length === 0 ? (
-                    <div style={{ fontSize: 12, color: "var(--text3)", padding: "12px 14px", fontStyle: "italic" }}>Fayl yuklanmagan</div>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column" }}>
-                      {drawerFiles.map((f, i) => (
-                        <div key={f.id} style={{
-                          display: "flex", alignItems: "center", gap: 10,
-                          padding: "9px 14px", borderTop: i > 0 ? "1px solid var(--border)" : "none",
-                        }}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.8" style={{ flexShrink: 0 }}>
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                            <polyline points="14 2 14 8 20 8" />
-                          </svg>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.fileName}</div>
-                            <div style={{ fontSize: 11, color: "var(--text3)" }}>{(f.fileSize / 1024).toFixed(1)} KB · {fmt(f.uploadedAt)}</div>
-                          </div>
-                          <button title="Yuklab olish" onClick={() => contractService.downloadFile(viewContract.id, f.id, f.fileName)}
-                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent)", padding: 4, flexShrink: 0 }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                              <polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* ② Texnik topshiriq (TZ) */}
-                <div style={{ border: "1.5px solid var(--accent-mid)", borderRadius: 10, overflow: "hidden" }}>
-                  <div style={{ display: "flex", alignItems: "center", padding: "10px 14px", background: "var(--accent-dim)", borderBottom: drawerTzFiles.length > 0 ? "1.5px solid var(--accent-mid)" : "none" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ width: 22, height: 22, borderRadius: "50%", background: "var(--accent)", color: "#fff", fontSize: 11, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>2</span>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)" }}>Texnik topshiriq <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text3)" }}>(TZ)</span></span>
-                    </div>
-                  </div>
-                  {tzFilesLoading ? (
-                    <div style={{ fontSize: 13, color: "var(--text3)", padding: "12px 14px" }}>Yuklanmoqda...</div>
-                  ) : drawerTzFiles.length === 0 ? (
-                    <div style={{ fontSize: 12, color: "var(--text3)", padding: "12px 14px", fontStyle: "italic" }}>TZ yuklanmagan</div>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column" }}>
-                      {drawerTzFiles.map((f, i) => (
-                        <div key={f.id} style={{
-                          display: "flex", alignItems: "center", gap: 10,
-                          padding: "9px 14px", borderTop: i > 0 ? "1px solid var(--accent-mid)" : "none",
-                        }}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.8" style={{ flexShrink: 0 }}>
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                            <polyline points="14 2 14 8 20 8" />
-                          </svg>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.fileName}</div>
-                            <div style={{ fontSize: 11, color: "var(--text3)" }}>{(f.fileSize / 1024).toFixed(1)} KB · {fmt(f.uploadedAt)}</div>
-                          </div>
-                          <button title="Yuklab olish" onClick={() => contractService.downloadTzFile(viewContract.id, f.id, f.fileName)}
-                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent)", padding: 4, flexShrink: 0 }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                              <polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-              </div>
-            </div>
-
-          </div>
-        </div>
+        <ContractDrawer
+          viewContract={viewContract}
+          onClose={() => { setViewContract(null); setDrawerFiles([]); setDrawerUsers([]); setDrawerTzFiles([]); }}
+          drawerFiles={drawerFiles}
+          drawerTzFiles={drawerTzFiles}
+          drawerUsers={drawerUsers}
+          filesLoading={filesLoading}
+          tzFilesLoading={tzFilesLoading}
+          usersLoading={usersLoading}
+        />
       )}
 
       {/* ── Status Change Modal ── */}
@@ -1804,12 +682,12 @@ export default function ContractsPage() {
               <div style={{ fontSize: 13, color: "var(--text2)" }}>
                 <b>{statusTarget.contractNo}</b> — holat tanlang:
               </div>
-              <select className="form-input" value={newStatus} onChange={e => setNewStatus(e.target.value)}
-                style={{ width: "100%", cursor: "pointer" }}>
-                {VISIBLE_STATUSES.map(k => (
-                  <option key={k} value={k}>{CONTRACT_STATUS_LABELS[k]}</option>
-                ))}
-              </select>
+              <CustomSelect
+                value={newStatus}
+                onChange={setNewStatus}
+                options={STATUS_CHANGE_OPTIONS}
+                placeholder="— Holat tanlang —"
+              />
               <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
                 <button className="btn btn-outline" onClick={() => setStatusTarget(null)}>
                   Bekor qilish
@@ -1825,114 +703,21 @@ export default function ContractsPage() {
 
       {/* ── Scan Modal ── */}
       {showScanModal && (
-        <div className="modal-overlay" onClick={() => { if (!scanning) setShowScanModal(false); }}>
-          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 440 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 8, background: "var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.8">
-                    <rect x="2" y="7" width="20" height="10" rx="2" />
-                    <path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2" />
-                    <circle cx="12" cy="12" r="1.5" fill="var(--accent)" stroke="none" />
-                    <path d="M7 17v2a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2" />
-                  </svg>
-                </div>
-                <span style={{ fontWeight: 700, fontSize: 16, color: "var(--text1)" }}>Hujjatni skanerlash</span>
-              </div>
-              <button onClick={() => { if (!scanning) setShowScanModal(false); }}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
-            </div>
-
-            {/* Skanerlar ro'yxati */}
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", display: "block", marginBottom: 6 }}>Skaner tanlang</label>
-              {scanSourcesLoading ? (
-                <div style={{ fontSize: 13, color: "var(--text3)", padding: "10px 0" }}>Skanerlar qidirilmoqda...</div>
-              ) : scanSourcesError ? (
-                <div style={{ fontSize: 13, color: "var(--danger)", padding: "8px 12px", background: "var(--danger-dim)", borderRadius: 8, border: "1px solid var(--danger)33" }}>
-                  {scanSourcesError}
-                </div>
-              ) : scanSources.length === 0 ? (
-                <div style={{ fontSize: 13, color: "var(--text3)", padding: "10px 12px", background: "var(--bg3)", borderRadius: 8, border: "1.5px dashed var(--border)" }}>
-                  Ulangan skaner topilmadi. Printer/skaner ulangan va yoniqligini tekshiring.
-                </div>
-              ) : (
-                <select className="form-input" value={selectedSourceId}
-                  onChange={e => setSelectedSourceId(e.target.value)}
-                  style={{ width: "100%", cursor: "pointer" }}>
-                  {scanSources.map(s => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            {/* Sifat sozlamalari */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-              <div>
-                <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", display: "block", marginBottom: 6 }}>Rang rejimi</label>
-                <select className="form-input" value={scanColorMode}
-                  onChange={e => setScanColorMode(e.target.value)}
-                  style={{ width: "100%", cursor: "pointer" }}>
-                  <option value="color">Rangli</option>
-                  <option value="gray">Kulrang (grayscale)</option>
-                  <option value="bw">Qora-oq</option>
-                </select>
-              </div>
-              <div>
-                <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", display: "block", marginBottom: 6 }}>Sifat (DPI)</label>
-                <select className="form-input" value={scanDpi}
-                  onChange={e => setScanDpi(Number(e.target.value))}
-                  style={{ width: "100%", cursor: "pointer" }}>
-                  <option value={100}>100 DPI (tez)</option>
-                  <option value={150}>150 DPI</option>
-                  <option value={200}>200 DPI (standart)</option>
-                  <option value={300}>300 DPI (yuqori)</option>
-                  <option value={600}>600 DPI (maksimal)</option>
-                </select>
-              </div>
-            </div>
-
-            {scanError && (
-              <div style={{ fontSize: 13, color: "var(--danger)", padding: "8px 12px", background: "var(--danger-dim)", borderRadius: 8, border: "1px solid var(--danger)33" }}>
-                {scanError}
-              </div>
-            )}
-
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button onClick={() => setShowScanModal(false)} disabled={scanning}
-                style={{ padding: "9px 20px", background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", color: "var(--text2)", fontSize: 13, fontWeight: 500 }}>
-                Bekor
-              </button>
-              <button onClick={handleScanDocument}
-                disabled={scanning || !selectedSourceId || scanSources.length === 0}
-                style={{
-                  padding: "9px 24px", background: scanning ? "var(--bg3)" : "var(--accent)",
-                  border: "none", borderRadius: "var(--radius)", cursor: scanning || !selectedSourceId ? "not-allowed" : "pointer",
-                  color: scanning ? "var(--text3)" : "#fff", fontSize: 13, fontWeight: 600,
-                  display: "inline-flex", alignItems: "center", gap: 8,
-                }}>
-                {scanning ? (
-                  <>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation: "spin 1s linear infinite" }}>
-                      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                    </svg>
-                    Skanerlayapti...
-                  </>
-                ) : (
-                  <>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <rect x="2" y="7" width="20" height="10" rx="2" />
-                      <path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2" />
-                      <path d="M7 17v2a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2" />
-                    </svg>
-                    Skanerlash
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ScanModal
+          scanSources={scanSources}
+          scanSourcesLoading={scanSourcesLoading}
+          scanSourcesError={scanSourcesError}
+          selectedSourceId={selectedSourceId}
+          setSelectedSourceId={setSelectedSourceId}
+          scanColorMode={scanColorMode}
+          setScanColorMode={setScanColorMode}
+          scanDpi={scanDpi}
+          setScanDpi={setScanDpi}
+          scanning={scanning}
+          scanError={scanError}
+          handleScanDocument={handleScanDocument}
+          onClose={() => setShowScanModal(false)}
+        />
       )}
 
       {/* ── Activate Confirm Modal ── */}
@@ -2016,6 +801,31 @@ export default function ContractsPage() {
           </div>
         </div>
       )}
+
+      {/* ── Success Toast ── */}
+      {successMsg && (
+        <div style={{
+          position: "fixed", bottom: 28, right: 28, zIndex: 9999,
+          background: "var(--bg2)", border: "1.5px solid #10b981",
+          borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+          padding: "14px 20px", display: "flex", alignItems: "center", gap: 12,
+          minWidth: 260, maxWidth: 360,
+          animation: "slideInToast 0.25s ease",
+        }}>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: "#d1fae5", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)", marginBottom: 2 }}>Muvaffaqiyatli!</div>
+            <div style={{ fontSize: 12, color: "var(--text2)" }}>{successMsg}</div>
+          </div>
+          <button onClick={() => setSuccessMsg("")}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 16, padding: 0, lineHeight: 1, flexShrink: 0 }}>✕</button>
+        </div>
+      )}
+      <style>{`@keyframes slideInToast { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }`}</style>
     </div>
   );
 }
