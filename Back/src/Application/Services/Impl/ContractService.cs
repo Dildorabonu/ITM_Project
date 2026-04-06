@@ -95,6 +95,26 @@ public class ContractService : IContractService
             });
         }
 
+        _context.TechProcesses.Add(new TechProcess
+        {
+            Id = Guid.NewGuid(),
+            ContractId = contract.Id,
+            Title = contract.ProductType,
+            Status = ProcessStatus.Pending,
+            CurrentStep = 0,
+            CreatedAt = DateTime.UtcNow,
+        });
+
+        _context.CostNorms.Add(new CostNorm
+        {
+            Id = Guid.NewGuid(),
+            ContractId = contract.Id,
+            Title = contract.ProductType,
+            Status = DrawingStatus.Draft,
+            CreatedBy = createdBy,
+            CreatedAt = DateTime.UtcNow,
+        });
+
         await _context.SaveChangesAsync();
 
         var createDeptUserIds = await _context.Users
