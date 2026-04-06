@@ -11,5 +11,4 @@ public interface IMaterialService
     Task<ApiResult<int>> CreateBulkAsync(IEnumerable<MaterialCreateDto> dtos);
     Task<ApiResult<int>> UpdateAsync(Guid id, MaterialUpdateDto dto);
     Task<ApiResult<int>> DeleteAsync(Guid id);
-    Task<ApiResult<IEnumerable<MaterialDeficitCheckDto>>> CheckDeficitByCostNormAsync(Guid costNormId);
 }

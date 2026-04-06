@@ -86,15 +86,4 @@ public class MaterialController : ControllerBase
         return StatusCode(result.Result, result);
     }
 
-    [HasPermission("MaterialInventory.View")]
-    [HttpGet("deficit/costnorm/{costNormId:guid}")]
-    public async Task<IActionResult> CheckDeficitByCostNorm(Guid costNormId)
-    {
-        var result = await _materialService.CheckDeficitByCostNormAsync(costNormId);
-
-        if (!result.Succeeded)
-            return NotFound(result);
-
-        return Ok(result);
-    }
 }

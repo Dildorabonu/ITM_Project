@@ -692,17 +692,6 @@ export interface MaterialUpdatePayload {
   location?: string | null;
 }
 
-export interface DeficitCheckItem {
-  costNormItemName: string;
-  costNormItemUnit: string;
-  requiredQty: number;
-  availableQty: number;
-  deficitQty: number;
-  existsInInventory: boolean;
-  materialId: string | null;
-  status: string;
-}
-
 export const materialService = {
   getAll: async (category?: string): Promise<MaterialResponse[]> => {
     const params: Record<string, string> = {};
@@ -746,15 +735,6 @@ export const materialService = {
 
   delete: async (id: string): Promise<void> => {
     await api.delete(`/api/material/${id}`);
-  },
-
-  checkDeficitByCostNorm: async (costNormId: string): Promise<DeficitCheckItem[]> => {
-    try {
-      const res = await api.get(`/api/material/deficit/costnorm/${costNormId}`);
-      return res.data?.result ?? res.data ?? [];
-    } catch {
-      return [];
-    }
   },
 };
 

@@ -54,7 +54,6 @@ const navGroups: NavGroup[] = [
       { name: "Mahsulotlar",        href: "/products",    icon: "shopping-bag", permission: "Products.View" },
       { name: "Ombor tekshiruvi",   href: "/warehouse",   icon: "package" },
       { name: "Tuzilma",            href: "/departments", icon: "briefcase",    permission: "Departments.View" },
-      { name: "Birja",              href: "/birja",       icon: "trending-up" },
     ],
   },
   {
@@ -166,7 +165,7 @@ function applyAppearanceFont(family: string, scale: number) {
 }
 
 // Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
-const readyRoutes = new Set(["/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/costnorm", "/technicaldrawings", "/appearance", "/tasks", "/birja", "/notifications"]);
+const readyRoutes = new Set(["/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/costnorm", "/technicaldrawings", "/appearance", "/tasks", "/notifications"]);
 
 const pageTitles: Record<string, string> = {
   "/":              "Dashboard",
@@ -182,7 +181,6 @@ const pageTitles: Record<string, string> = {
   "/departments":   "Tuzilma",
   "/products":      "Mahsulotlar",
   "/appearance":    "Tashqi ko'rinish",
-  "/birja":         "Birja",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
