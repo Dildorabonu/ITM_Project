@@ -481,7 +481,6 @@ function ContractReadinessPanel({
             const tpOk = item.tp && (item.tp.status === ProcessStatus.Approved || item.tp.status === ProcessStatus.Completed);
             const cnOk = item.cn && item.cn.status === DrawingStatus.Approved;
             const bothReady = tpOk && cnOk;
-            const alreadySent = item.tp?.status === ProcessStatus.Completed;
 
             return (
               <div key={item.contractId} style={{
@@ -519,11 +518,7 @@ function ContractReadinessPanel({
                     Me&apos;yoriy sarf
                   </div>
                   {item.cn ? (
-                    alreadySent ? (
-                      <span style={{ display:"inline-flex",alignItems:"center",padding:"2px 10px",borderRadius:20,fontSize:12,fontWeight:600,background:"var(--purple-dim)",color:"var(--purple)",border:"1px solid rgba(109,74,173,0.2)" }}>Yakunlangan</span>
-                    ) : (
-                      <CnBadge status={item.cn.status} />
-                    )
+                    <CnBadge status={item.cn.status} />
                   ) : (
                     <span style={{ fontSize: 12, color: "var(--text3)", fontStyle: "italic" }}>Yaratilmagan</span>
                   )}
@@ -531,20 +526,11 @@ function ContractReadinessPanel({
 
                 {/* Action */}
                 <div style={{ flexShrink: 0, minWidth: 160, textAlign: "right" }}>
-                  {alreadySent ? (
-                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--success)", display: "inline-flex", alignItems: "center", gap: 5 }}>
+                  {bothReady ? (
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--purple)", display: "inline-flex", alignItems: "center", gap: 5 }}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                      Omborga yuborilgan
+                      Yakunlangan
                     </span>
-                  ) : bothReady ? (
-                    <button
-                      onClick={() => item.tp && onSendToWarehouse(item.tp.id)}
-                      disabled={sending === item.tp?.id}
-                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 7, border: "1.5px solid var(--success)", background: "var(--success)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: sending === item.tp?.id ? 0.7 : 1, transition: "opacity 0.15s" }}
-                    >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
-                      {sending === item.tp?.id ? "Yuborilmoqda…" : "Omborga yuborish"}
-                    </button>
                   ) : (
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <div style={{ width: 8, height: 8, borderRadius: "50%", background: tpOk && cnOk ? "var(--success)" : "var(--warning,#f59e0b)", flexShrink: 0 }}/>
@@ -639,6 +625,10 @@ export default function TechProductionPage() {
   const [cnFileParseReady, setCnFileParseReady] = useState(false);
   const cnPendingParseResult = useRef<{tables:ParsedTable[];error:string|null;fileName:string}|null>(null);
 
+  // ── Selected contract for inline detail panel ──────────────────────────────
+  const [selectedContractId, setSelectedContractId] = useState<string|null>(null);
+  const [tpInlineEditing, setTpInlineEditing] = useState(false);
+
   useDraft("draft_costnorm", cnMode==="create", cnForm, (d)=>{ setCnForm(d); setCnMode("create"); contractService.getAll().then(setContracts).catch(()=>{}); });
 
   // ── Contract readiness ─────────────────────────────────────────────────────
@@ -704,7 +694,6 @@ export default function TechProductionPage() {
     try {
       await techProcessService.update(tpSelected.id, { title: tpEditForm.title, notes: tpEditForm.notes||null });
       await tpRefreshSelected(tpSelected.id);
-      setTpMode("detail");
     } catch {} finally { setTpEditSaving(false); }
   };
 
@@ -728,14 +717,14 @@ export default function TechProductionPage() {
 
   const handleTpDelete = async () => {
     if(!tpDeleteId) return; setTpDeleting(true);
-    try { await techProcessService.delete(tpDeleteId); setTpList(prev=>prev.filter(t=>t.id!==tpDeleteId)); if(tpSelected?.id===tpDeleteId) { setTpSelected(null); setTpMode("list"); } setTpDeleteId(null); }
+    try { await techProcessService.delete(tpDeleteId); setTpList(prev=>prev.filter(t=>t.id!==tpDeleteId)); if(tpSelected?.id===tpDeleteId) { setTpSelected(null); } setTpInlineEditing(false); setTpDeleteId(null); }
     finally { setTpDeleting(false); }
   };
 
   // ── TP Create ──────────────────────────────────────────────────────────────
 
-  const openTpCreate = async () => {
-    setTpForm({contractId:"",title:"",notes:""}); setTpSubmitted(false); setTpFormError(""); setFinalFile(null); setTemplateFile(null); setTpFileError("");
+  const openTpCreate = async (prefilledContractId?: string) => {
+    setTpForm({contractId:prefilledContractId||"",title:"",notes:""}); setTpSubmitted(false); setTpFormError(""); setFinalFile(null); setTemplateFile(null); setTpFileError("");
     window.history.pushState({showForm:true},"");
     setTpShowForm(true);
     if(contracts.length===0) { const d=await contractService.getAll(); setContracts(d); }
@@ -778,8 +767,8 @@ export default function TechProductionPage() {
     setCnFileParseReady(true);
   }
 
-  async function openCnCreate() {
-    setCnForm({contractId:"",title:"",notes:""}); setCnFormFile(null); setCnParsedTables([]); setCnParseError(null); setCnSaveError(null); setCnSubmitted(false); setCnActiveTab(0); setCnCreateTab("form");
+  async function openCnCreate(prefilledContractId?: string) {
+    setCnForm({contractId:prefilledContractId||"",title:"",notes:""}); setCnFormFile(null); setCnParsedTables([]); setCnParseError(null); setCnSaveError(null); setCnSubmitted(false); setCnActiveTab(0); setCnCreateTab("form");
     window.history.pushState({mode:"create"},"");
     setCnMode("create");
     setCnContractsLoading(true);
@@ -1060,96 +1049,6 @@ export default function TechProductionPage() {
     );
   }
 
-  // TP: detail view
-  if (tpMode === "detail" && tpSelected) {
-    return (
-      <div style={{ display:"flex",flexDirection:"column",flex:1,minHeight:0 }}>
-        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexShrink:0,flexWrap:"wrap",gap:8 }}>
-          <button onClick={()=>{ setTpMode("list"); setTpSelected(null); }} style={{ display:"inline-flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:"pointer",color:"var(--text2)",fontSize:13,padding:"6px 10px",borderRadius:6,fontWeight:500 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
-            Orqaga
-          </button>
-          <div style={{ display:"flex",gap:8,flexWrap:"wrap" }}>
-            {tpSelected.status===ProcessStatus.Approved&&(
-              <button onClick={()=>handleSendToWarehouse(tpSelected.id)} disabled={tpSendingWarehouse===tpSelected.id}
-                style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"7px 16px",borderRadius:"var(--radius)",border:"1.5px solid var(--success)",background:"var(--success-dim)",color:"var(--success)",fontSize:13,fontWeight:600,cursor:"pointer",opacity:tpSendingWarehouse===tpSelected.id?0.7:1 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
-                {tpSendingWarehouse===tpSelected.id?"Yuborilmoqda…":"Omborga yuborish"}
-              </button>
-            )}
-            {tpSelected.status===ProcessStatus.Pending&&(
-              <button onClick={handleTpApprove} disabled={tpApproving}
-                style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"7px 16px",borderRadius:"var(--radius)",border:"1.5px solid rgba(15,123,69,0.4)",background:"var(--success-dim)",color:"var(--success)",fontSize:13,fontWeight:600,cursor:"pointer",opacity:tpApproving?0.7:1 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                {tpApproving?"Tasdiqlanmoqda...":"Tasdiqlash"}
-              </button>
-            )}
-            <button onClick={()=>openTpEdit(tpSelected)}
-              style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"7px 16px",borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",fontSize:13,fontWeight:600,cursor:"pointer" }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-              Tahrirlash
-            </button>
-          </div>
-        </div>
-        <div className="itm-card" style={{ padding:"14px 20px",marginBottom:16,display:"flex",alignItems:"center",gap:16,flexShrink:0,flexWrap:"wrap" }}>
-          <div style={{ flex:1,minWidth:0 }}>
-            <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Shartnoma</div>
-            <div style={{ fontWeight:700,fontSize:15,color:"var(--accent)" }}>{tpSelected.contractNo}</div>
-          </div>
-          <div style={{ flex:2,minWidth:0 }}>
-            <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Sarlavha</div>
-            <div style={{ fontWeight:600,fontSize:14,color:"var(--text1)" }}>{tpSelected.title}</div>
-          </div>
-          <div>
-            <div style={{ fontSize:11,color:"var(--text3)",marginBottom:4 }}>Holat</div>
-            <TpBadge status={tpSelected.status}/>
-          </div>
-          <div>
-            <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Sana</div>
-            <div style={{ fontSize:13,color:"var(--text2)" }}>{fmt(tpSelected.createdAt)}</div>
-          </div>
-        </div>
-        {tpSelected.notes&&(
-          <div className="itm-card" style={{ padding:"14px 20px",flexShrink:0 }}>
-            <div style={{ fontSize:11,color:"var(--text3)",marginBottom:6 }}>Izoh</div>
-            <div style={{ fontSize:14,color:"var(--text1)",whiteSpace:"pre-wrap",lineHeight:1.6 }}>{tpSelected.notes}</div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // TP: edit view
-  if (tpMode === "edit" && tpSelected) {
-    return (
-      <div style={{ display:"flex",flexDirection:"column",flex:1,minHeight:0 }}>
-        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexShrink:0,flexWrap:"wrap",gap:8 }}>
-          <button onClick={()=>setTpMode("detail")} style={{ display:"inline-flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:"pointer",color:"var(--text2)",fontSize:13,padding:"6px 10px",borderRadius:6,fontWeight:500 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
-            Bekor qilish
-          </button>
-          <button onClick={handleTpEditSave} disabled={tpEditSaving}
-            style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"7px 20px",borderRadius:"var(--radius)",border:"none",background:"var(--accent,#1a56db)",color:"#fff",fontSize:13,fontWeight:600,cursor:"pointer",opacity:tpEditSaving?0.7:1 }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/></svg>
-            {tpEditSaving?"Saqlanmoqda...":"Saqlash"}
-          </button>
-        </div>
-        <div className="itm-card" style={{ padding:20,flexShrink:0 }}>
-          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16 }}>
-            <div>
-              <label style={{ fontSize:12,fontWeight:600,display:"block",marginBottom:5,color:"var(--text2)" }}>Sarlavha</label>
-              <input className="form-input" value={tpEditForm.title} onChange={e=>setTpEditForm(f=>({...f,title:e.target.value}))}/>
-            </div>
-            <div>
-              <label style={{ fontSize:12,fontWeight:600,display:"block",marginBottom:5,color:"var(--text2)" }}>Izoh</label>
-              <input className="form-input" value={tpEditForm.notes} onChange={e=>setTpEditForm(f=>({...f,notes:e.target.value}))}/>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   // CN: detail view
   if (cnMode === "detail" && cnSelected) {
     return (
@@ -1277,190 +1176,334 @@ export default function TechProductionPage() {
     );
   }
 
-  // ── Main list view (both tabs) ─────────────────────────────────────────────
+  // ── Main view: contracts table + detail page ─────────────────────────────────
+
+  const selectedItem = readinessItems.find(i => i.contractId === selectedContractId) ?? null;
+  const filteredItems = !tpSearch.trim()
+    ? readinessItems
+    : readinessItems.filter(i => i.contractNo.toLowerCase().includes(tpSearch.trim().toLowerCase()));
+
+  // ── Detail full-page view ──────────────────────────────────────────────────
+
+  if (selectedItem) {
+    const closeDetail = () => { setSelectedContractId(null); setTpInlineEditing(false); };
+    const tpDone = selectedItem.tp && (selectedItem.tp.status === ProcessStatus.Approved || selectedItem.tp.status === ProcessStatus.Completed);
+    const cnDone = selectedItem.cn && selectedItem.cn.status === DrawingStatus.Approved;
+    const warehouseDone = selectedItem.tp?.status === ProcessStatus.Completed;
+    return (
+      <div style={{ display:"flex",flexDirection:"column",flex:1,gap:16 }}>
+        <div style={{ display:"flex",alignItems:"center",gap:12 }}>
+          <button onClick={closeDetail}
+            style={{ display:"inline-flex",alignItems:"center",gap:6,background:"var(--bg3)",border:"1.5px solid var(--border)",borderRadius:"var(--radius)",cursor:"pointer",padding:"7px 14px",color:"var(--text2)",fontSize:13,fontWeight:500 }}
+            onMouseEnter={e=>{ e.currentTarget.style.borderColor="var(--accent)"; e.currentTarget.style.color="var(--accent)"; }}
+            onMouseLeave={e=>{ e.currentTarget.style.borderColor="var(--border)"; e.currentTarget.style.color="var(--text2)"; }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+            Orqaga
+          </button>
+          <span style={{ fontWeight:700,fontSize:18,color:"var(--text1)" }}>Shartnoma {selectedItem.contractNo}</span>
+        </div>
+
+        {/* ── Workflow pipeline ── */}
+        <div className="itm-card" style={{ padding:"14px 20px" }}>
+          <div style={{ display:"flex",alignItems:"center",gap:0 }}>
+            {/* Step 1 */}
+            <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:6,flex:1 }}>
+              <div style={{ width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,
+                background: tpDone ? "var(--success)" : selectedItem.tp ? "#e8f0fe" : "var(--bg3)",
+                border: tpDone ? "2px solid var(--success)" : selectedItem.tp ? "2px solid #1a56db" : "2px solid var(--border)",
+              }}>
+                {tpDone
+                  ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={selectedItem.tp?"#1a56db":"var(--text3)"} strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+                }
+              </div>
+              <div style={{ textAlign:"center" }}>
+                <div style={{ fontSize:12,fontWeight:700,color: tpDone ? "var(--success)" : selectedItem.tp ? "#1a56db" : "var(--text3)" }}>Texnologik jarayon</div>
+                <div style={{ fontSize:11,color:"var(--text3)",marginTop:1 }}>
+                  {!selectedItem.tp ? "Yaratilmagan" : tpDone ? "Tasdiqlangan" : "Kutilmoqda"}
+                </div>
+              </div>
+            </div>
+
+            {/* Arrow 1→2 */}
+            <div style={{ flex:"0 0 40px",display:"flex",alignItems:"center",justifyContent:"center",paddingBottom:24 }}>
+              <svg width="24" height="12" viewBox="0 0 24 12" fill="none">
+                <line x1="0" y1="6" x2="18" y2="6" stroke={tpDone ? "var(--success)" : "var(--border)"} strokeWidth="2"/>
+                <polyline points="14,2 20,6 14,10" fill="none" stroke={tpDone ? "var(--success)" : "var(--border)"} strokeWidth="2"/>
+              </svg>
+            </div>
+
+            {/* Step 2 */}
+            <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:6,flex:1 }}>
+              <div style={{ width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,
+                background: cnDone ? "var(--success)" : selectedItem.cn ? "#e8f0fe" : "var(--bg3)",
+                border: cnDone ? "2px solid var(--success)" : selectedItem.cn ? "2px solid #1a56db" : "2px solid var(--border)",
+              }}>
+                {cnDone
+                  ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={selectedItem.cn?"#1a56db":"var(--text3)"} strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                }
+              </div>
+              <div style={{ textAlign:"center" }}>
+                <div style={{ fontSize:12,fontWeight:700,color: cnDone ? "var(--success)" : selectedItem.cn ? "#1a56db" : "var(--text3)" }}>Me&apos;yoriy sarf</div>
+                <div style={{ fontSize:11,color:"var(--text3)",marginTop:1 }}>
+                  {!selectedItem.cn ? "Yaratilmagan" : cnDone ? "Tasdiqlangan" : "Kutilmoqda"}
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16 }}>
+
+          {/* TP Panel */}
+          <div className="itm-card" style={{ overflow:"hidden" }}>
+            <div style={{ padding:"11px 16px",borderBottom:"1.5px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:6 }}>
+              <div style={{ display:"flex",alignItems:"center",gap:7 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+                <span style={{ fontWeight:700,fontSize:13,color:"var(--text1)" }}>Texnologik jarayon</span>
+              </div>
+              {selectedItem.tp&&!tpInlineEditing&&(
+                <div style={{ display:"flex",gap:4 }}>
+                  {selectedItem.tp.status===ProcessStatus.Pending&&(
+                    <button onClick={async()=>{ setTpApprovingId(selectedItem.tp!.id); try { await techProcessService.approve(selectedItem.tp!.id); await loadTp(); } finally { setTpApprovingId(null); } }} disabled={tpApprovingId===selectedItem.tp.id}
+                      style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--success-dim)",border:"1px solid rgba(15,123,69,0.2)",color:"var(--success)",cursor:"pointer",opacity:tpApprovingId===selectedItem.tp.id?0.6:1 }}>
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                      {tpApprovingId===selectedItem.tp.id?"...":"Tasdiqlash"}
+                    </button>
+                  )}
+                  <button onClick={()=>{ setTpSelected(selectedItem.tp!); setTpEditForm({title:selectedItem.tp!.title,notes:selectedItem.tp!.notes||""}); setTpInlineEditing(true); }}
+                    style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--text2)",cursor:"pointer" }}>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Tahrirlash
+                  </button>
+                  <button onClick={()=>setTpDeleteId(selectedItem.tp!.id)}
+                    style={{ display:"inline-flex",alignItems:"center",padding:"4px 8px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--danger-dim)",border:"1px solid var(--danger)44",color:"var(--danger)",cursor:"pointer" }}>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+                  </button>
+                </div>
+              )}
+            </div>
+            <div style={{ padding:"14px 16px" }}>
+              {!selectedItem.tp?(
+                <div style={{ textAlign:"center",padding:"20px 0" }}>
+                  <div style={{ fontSize:13,color:"var(--text3)",marginBottom:12 }}>Texnologik jarayon yaratilmagan</div>
+                  <button className="btn-primary" onClick={()=>openTpCreate(selectedItem.contractId)}
+                    style={{ display:"inline-flex",alignItems:"center",gap:6,fontSize:12,padding:"7px 14px",fontWeight:600,borderRadius:"var(--radius)",border:"none",cursor:"pointer" }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Yangi jarayon yaratish
+                  </button>
+                </div>
+              ):tpInlineEditing?(
+                <div style={{ display:"flex",flexDirection:"column",gap:10 }}>
+                  <div>
+                    <label style={{ fontSize:12,fontWeight:600,display:"block",marginBottom:4,color:"var(--text2)" }}>Sarlavha</label>
+                    <input className="form-input" value={tpEditForm.title} onChange={e=>setTpEditForm(f=>({...f,title:e.target.value}))}/>
+                  </div>
+                  <div>
+                    <label style={{ fontSize:12,fontWeight:600,display:"block",marginBottom:4,color:"var(--text2)" }}>Izoh</label>
+                    <textarea className="form-input" value={tpEditForm.notes} onChange={e=>setTpEditForm(f=>({...f,notes:e.target.value}))} rows={3} style={{ resize:"none" }}/>
+                  </div>
+                  <div style={{ display:"flex",gap:8,justifyContent:"flex-end" }}>
+                    <button onClick={()=>setTpInlineEditing(false)}
+                      style={{ padding:"6px 14px",borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",fontSize:12,cursor:"pointer" }}>Bekor</button>
+                    <button onClick={async()=>{ await handleTpEditSave(); setTpInlineEditing(false); }} disabled={tpEditSaving}
+                      style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"6px 16px",borderRadius:"var(--radius)",border:"none",background:"var(--accent)",color:"#fff",fontSize:12,fontWeight:600,cursor:"pointer",opacity:tpEditSaving?0.7:1 }}>
+                      {tpEditSaving?"Saqlanmoqda...":"Saqlash"}
+                    </button>
+                  </div>
+                </div>
+              ):(
+                <div style={{ display:"flex",flexWrap:"wrap",gap:16 }}>
+                  <div style={{ flex:"1 1 auto",minWidth:0 }}>
+                    <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Sarlavha</div>
+                    <div style={{ fontSize:13,fontWeight:600,color:"var(--text1)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }} title={selectedItem.tp.title}>{selectedItem.tp.title}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize:11,color:"var(--text3)",marginBottom:4 }}>Holat</div>
+                    <TpBadge status={selectedItem.tp.status}/>
+                  </div>
+                  <div>
+                    <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Sana</div>
+                    <div style={{ fontSize:13,color:"var(--text2)",whiteSpace:"nowrap" }}>{fmt(selectedItem.tp.createdAt)}</div>
+                  </div>
+                  {selectedItem.tp.notes&&(
+                    <div style={{ width:"100%",marginTop:2 }}>
+                      <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Izoh</div>
+                      <div style={{ fontSize:13,color:"var(--text1)",whiteSpace:"pre-wrap",lineHeight:1.5 }}>{selectedItem.tp.notes}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* CN Panel */}
+          <div className="itm-card" style={{ overflow:"hidden" }}>
+            <div style={{ padding:"11px 16px",borderBottom:"1.5px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:6 }}>
+              <div style={{ display:"flex",alignItems:"center",gap:7 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span style={{ fontWeight:700,fontSize:13,color:"var(--text1)" }}>Me&apos;yoriy sarf</span>
+              </div>
+              {selectedItem.cn&&(
+                <div style={{ display:"flex",gap:4 }}>
+                  {selectedItem.cn.status===DrawingStatus.Draft&&(
+                    <button onClick={()=>handleCnApprove(selectedItem.cn!.id)} disabled={cnApprovingId===selectedItem.cn.id}
+                      style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--success-dim)",border:"1px solid rgba(15,123,69,0.2)",color:"var(--success)",cursor:"pointer",opacity:cnApprovingId===selectedItem.cn.id?0.6:1 }}>
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                      {cnApprovingId===selectedItem.cn.id?"...":"Tasdiqlash"}
+                    </button>
+                  )}
+                  <button onClick={()=>openCnDetail(selectedItem.cn!)}
+                    style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"#e8f0fe",border:"1px solid #a4c0f4",color:"#1a56db",cursor:"pointer" }}>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    Ko&apos;rish
+                  </button>
+                  <button onClick={()=>openCnEdit(selectedItem.cn!)}
+                    style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--text2)",cursor:"pointer" }}>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Tahrirlash
+                  </button>
+                  <button onClick={()=>handleCnDelete(selectedItem.cn!.id)}
+                    style={{ display:"inline-flex",alignItems:"center",padding:"4px 8px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--danger-dim)",border:"1px solid var(--danger)44",color:"var(--danger)",cursor:"pointer" }}>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+                  </button>
+                </div>
+              )}
+            </div>
+            <div style={{ padding:"14px 16px" }}>
+              {!selectedItem.cn?(
+                <div style={{ textAlign:"center",padding:"20px 0" }}>
+                  <div style={{ fontSize:13,color:"var(--text3)",marginBottom:12 }}>Me&apos;yoriy sarf yaratilmagan</div>
+                  <button onClick={()=>openCnCreate(selectedItem.contractId)}
+                    style={{ display:"inline-flex",alignItems:"center",gap:6,fontSize:12,padding:"7px 14px",fontWeight:600,borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer" }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Yangi me&apos;yor yaratish
+                  </button>
+                </div>
+              ):(
+                <div style={{ display:"flex",flexWrap:"wrap",gap:16 }}>
+                  <div style={{ flex:"1 1 auto",minWidth:0 }}>
+                    <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Sarlavha</div>
+                    <div style={{ fontSize:13,fontWeight:600,color:"var(--text1)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }} title={selectedItem.cn.title}>{selectedItem.cn.title}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize:11,color:"var(--text3)",marginBottom:4 }}>Holat</div>
+                    <CnBadge status={selectedItem.cn.status}/>
+                  </div>
+                  <div>
+                    <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Materiallar</div>
+                    <span style={{ fontSize:12,fontWeight:600,color:"var(--text2)",background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:20,padding:"2px 8px",display:"inline-block" }}>
+                      {selectedItem.cn.items.filter(r=>!r.isSection).length} та
+                    </span>
+                  </div>
+                  <div>
+                    <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Sana</div>
+                    <div style={{ fontSize:13,color:"var(--text2)",whiteSpace:"nowrap" }}>{fmt(selectedItem.cn.createdAt)}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+        </div>
+
+        {/* ── TP Delete confirm ── */}
+        {tpDeleteId&&(
+          <div className="modal-overlay" onClick={()=>setTpDeleteId(null)}>
+            <div className="modal-box" onClick={e=>e.stopPropagation()} style={{ width:380 }}>
+              <div className="modal-header" style={{ borderBottom:"1px solid var(--border)" }}>O&apos;chirish tasdiqi</div>
+              <div style={{ padding:"16px 20px" }}>
+                <div style={{ fontSize:14,color:"var(--text1)",marginBottom:20 }}>Bu texnologik jarayonni o&apos;chirmoqchimisiz?</div>
+                <div style={{ display:"flex",gap:10,justifyContent:"flex-end" }}>
+                  <button onClick={()=>setTpDeleteId(null)} style={{ padding:"8px 20px",borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",fontSize:13,cursor:"pointer" }}>Bekor</button>
+                  <button onClick={handleTpDelete} disabled={tpDeleting} style={{ padding:"8px 20px",borderRadius:"var(--radius)",border:"none",background:"var(--danger)",color:"#fff",fontSize:13,fontWeight:600,cursor:"pointer" }}>
+                    {tpDeleting?"O'chirilmoqda...":"O'chirish"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
-    <div style={{ display:"flex",flexDirection:"column",flex:1 }}>
+    <div style={{ display:"flex",flexDirection:"column",flex:1,gap:16 }}>
 
-      {/* ── Contract Readiness Panel ── */}
-      <ContractReadinessPanel
-        items={readinessItems}
-        onSendToWarehouse={handleSendToWarehouse}
-        sending={tpSendingWarehouse}
-      />
-
-      {/* ── Page Tabs ── */}
-      <div className="itm-card" style={{ display:"flex",alignItems:"stretch",padding:"0 4px",marginBottom:16,gap:0 }}>
-        {([
-          { key:"tp" as const, label:"Texnologik jarayon", icon:<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>, count:tpList.length },
-          { key:"cn" as const, label:"Me'yoriy sarf",      icon:<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>, count:cnList.length },
-        ]).map(tab=>(
-          <button key={tab.key} onClick={()=>setActiveTab(tab.key)}
-            style={{ display:"inline-flex",alignItems:"center",gap:8,padding:"13px 20px",fontSize:13,fontWeight:activeTab===tab.key?700:500,color:activeTab===tab.key?"var(--accent,#1a56db)":"var(--text2)",background:"none",border:"none",borderBottom:activeTab===tab.key?"2px solid var(--accent,#1a56db)":"2px solid transparent",cursor:"pointer",marginBottom:-1,transition:"color 0.15s",whiteSpace:"nowrap" }}>
-            {tab.icon}
-            {tab.label}
-            <span style={{ fontSize:11,fontWeight:600,background:activeTab===tab.key?"var(--accent,#1a56db)":"var(--bg3)",color:activeTab===tab.key?"#fff":"var(--text3)",borderRadius:20,padding:"1px 7px",transition:"all 0.15s" }}>{tab.count}</span>
-          </button>
-        ))}
+      {/* ── Toolbar ── */}
+      <div className="itm-card" style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 14px",flexWrap:"wrap" }}>
+        <div className="search-wrap" style={{ flex:1,minWidth:180 }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input className="search-input" placeholder="Shartnoma raqami bo'yicha qidirish..." value={tpSearch} onChange={e=>setTpSearch(e.target.value)}/>
+        </div>
+        <button className="btn-icon" onClick={()=>{ loadTp(); loadCn(); }} title="Yangilash" style={{ background:"var(--accent-dim)",borderColor:"var(--accent)",color:"var(--accent)",width:36,height:36 }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
+        <button className="btn-primary" onClick={()=>openTpCreate()} style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"8px 16px",fontSize:13,fontWeight:600,borderRadius:"var(--radius)",border:"none",cursor:"pointer" }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Yangi jarayon
+        </button>
+        <button onClick={()=>openCnCreate()} style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"8px 16px",fontSize:13,fontWeight:600,borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer" }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Yangi me&apos;yor
+        </button>
       </div>
 
-      {/* ── Tech Process tab ── */}
-      {activeTab==="tp"&&(
-        <>
-          <div className="itm-card" style={{ display:"flex",alignItems:"center",gap:10,marginBottom:16,padding:"10px 14px",flexWrap:"wrap" }}>
-            <div className="search-wrap" style={{ maxWidth:"none",flex:1,minWidth:180 }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input className="search-input" placeholder="Qidirish: sarlavha, shartnoma..." value={tpSearch} onChange={e=>setTpSearch(e.target.value)}/>
-            </div>
-            <select className="form-input" value={tpFilterStatus} onChange={e=>setTpFilterStatus(e.target.value)} style={{ width:190,cursor:"pointer",height:36,padding:"0 10px" }}>
-              <option value="">Barcha statuslar</option>
-              {Object.values(ProcessStatus).filter(v=>typeof v==="number").map(v=>(
-                <option key={v} value={v}>{PROCESS_STATUS_LABELS[v as ProcessStatus]}</option>
-              ))}
-            </select>
-            <button className="btn-icon" onClick={loadTp} title="Yangilash" style={{ background:"var(--accent-dim)",borderColor:"var(--accent)",color:"var(--accent)",width:36,height:36 }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-            </button>
-            <button className="btn-primary" onClick={openTpCreate} style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"8px 18px",fontSize:13,fontWeight:600,borderRadius:"var(--radius)",border:"none",cursor:"pointer" }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Yangi jarayon
-            </button>
-          </div>
-
-          <div className="itm-card" style={{ flex:1 }}>
-            {tpLoading?(
-              <div style={{ padding:40,textAlign:"center",color:"var(--text2)" }}>Yuklanmoqda...</div>
-            ):tpError?(
-              <div style={{ padding:40,textAlign:"center",color:"var(--danger)" }}>{tpError}</div>
-            ):(
-              <div style={{ overflowX:"auto" }}>
-                <table className="itm-table">
-                  <thead>
-                    <tr>
-                      <th style={{ width:64,minWidth:64,textAlign:"center",borderRight:"2px solid var(--border)",color:"var(--text1)",textTransform:"none" }}>T/r</th>
-                      <th style={{ textAlign:"center",color:"var(--text1)" }}>Shartnoma</th>
-                      <th style={{ textAlign:"center",color:"var(--text1)" }}>Sarlavha</th>
-                      <th style={{ textAlign:"center",color:"var(--text1)" }}>Status</th>
-                      <th style={{ textAlign:"center",color:"var(--text1)" }}>Sana</th>
-                      <th style={{ textAlign:"center",borderLeft:"2px solid var(--border)",color:"var(--text1)" }}>Amal</th>
+      {/* ── Contracts table ── */}
+      <div className="itm-card" style={{ overflow:"hidden" }}>
+        {(tpLoading||cnListLoading)?(
+          <div style={{ padding:40,textAlign:"center",color:"var(--text2)" }}>Yuklanmoqda...</div>
+        ):readinessItems.length===0?(
+          <div style={{ padding:40,textAlign:"center",color:"var(--text2)" }}>Ma&apos;lumot topilmadi</div>
+        ):(
+          <div style={{ overflowX:"auto" }}>
+            <table className="itm-table">
+              <thead>
+                <tr>
+                  <th style={{ width:52,textAlign:"center",borderRight:"2px solid var(--border)",color:"var(--text1)",textTransform:"none" }}>T/r</th>
+                  <th style={{ textAlign:"center",color:"var(--text1)" }}>Shartnoma №</th>
+                  <th style={{ textAlign:"center",color:"var(--text1)" }}>Texnologik jarayon</th>
+                  <th style={{ textAlign:"center",color:"var(--text1)" }}>Me&apos;yoriy sarf</th>
+                  <th style={{ textAlign:"center",color:"var(--text1)" }}>Umumiy holat</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredItems.length===0?(
+                  <tr><td colSpan={5} style={{ textAlign:"center",color:"var(--text2)",padding:32 }}>Ma&apos;lumot topilmadi</td></tr>
+                ):filteredItems.map((item,i)=>{
+                  const tpOk=item.tp&&(item.tp.status===ProcessStatus.Approved||item.tp.status===ProcessStatus.Completed);
+                  const cnOk=item.cn&&item.cn.status===DrawingStatus.Approved;
+                  const isSelected=selectedContractId===item.contractId;
+                  return (
+                    <tr key={item.contractId}
+                      onClick={()=>{ setSelectedContractId(item.contractId); setTpInlineEditing(false); }}
+                      style={{ cursor:"pointer",transition:"background 0.12s" }}>
+                      <td style={{ textAlign:"center",borderRight:"2px solid var(--border)",padding:"0 8px",fontSize:13 }}>{String(i+1).padStart(2,"0")}</td>
+                      <td style={{ textAlign:"center",fontWeight:700,color:"var(--accent)",fontFamily:"var(--font-inter,Inter,sans-serif)" }}>{item.contractNo}</td>
+                      <td style={{ textAlign:"center" }}>
+                        {item.tp?<TpBadge status={item.tp.status}/>:<span style={{ fontSize:12,color:"var(--text3)",fontStyle:"italic" }}>Yaratilmagan</span>}
+                      </td>
+                      <td style={{ textAlign:"center" }}>
+                        {item.cn?<CnBadge status={item.cn.status}/>:<span style={{ fontSize:12,color:"var(--text3)",fontStyle:"italic" }}>Yaratilmagan</span>}
+                      </td>
+                      <td style={{ textAlign:"center" }}>
+                        {tpOk&&cnOk?(
+                          <span style={{ fontSize:11,fontWeight:600,color:"var(--purple)",background:"var(--purple-dim)",borderRadius:20,padding:"2px 10px",border:"1px solid rgba(109,74,173,0.2)",display:"inline-block" }}>Yakunlangan</span>
+                        ):(
+                          <span style={{ fontSize:11,color:"var(--text3)" }}>Jarayonda</span>
+                        )}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {tpFiltered.length===0?(
-                      <tr><td colSpan={6} style={{ textAlign:"center",color:"var(--text2)",padding:32 }}>Ma&apos;lumot topilmadi</td></tr>
-                    ):tpFiltered.map((tp,i)=>(
-                      <tr key={tp.id}>
-                        <td style={{ textAlign:"center",borderRight:"2px solid var(--border)",minWidth:64,padding:"0 8px" }}>{String(i+1).padStart(2,"0")}</td>
-                        <td style={{ textAlign:"center",fontWeight:600,color:"var(--accent)",fontFamily:"var(--font-inter,Inter,sans-serif)" }}>{tp.contractNo}</td>
-                        <td style={{ maxWidth:220,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }} title={tp.title}>{tp.title}</td>
-                        <td style={{ textAlign:"center" }}><TpBadge status={tp.status}/></td>
-                        <td style={{ textAlign:"center",fontSize:13,color:"var(--text2)",whiteSpace:"nowrap" }}>{fmt(tp.createdAt)}</td>
-                        <td style={{ textAlign:"center",borderLeft:"2px solid var(--border)" }}>
-                          <div style={{ display:"flex",gap:4,justifyContent:"center" }}>
-                            <button className="btn-icon" title="Ko'rish" onClick={()=>openTpDetail(tp)} style={{ width:30,height:30,background:"#e8f0fe",borderColor:"#a4c0f4",color:"#1a56db" }}>
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                            </button>
-                            <button className="btn-icon" title="Tahrirlash" onClick={()=>{ setTpSelected(tp); setTpEditForm({ title: tp.title, notes: tp.notes||"" }); setTpMode("edit"); }} style={{ width:30,height:30,background:"#f0f7ff",borderColor:"#93c5fd",color:"#2563eb" }}>
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                            </button>
-                            {tp.status===ProcessStatus.Pending&&(
-                              <button className="btn-icon" title="Tasdiqlash" onClick={()=>handleTpApproveRow(tp.id)} disabled={tpApprovingId===tp.id}
-                                style={{ width:30,height:30,background:"var(--success-dim)",borderColor:"rgba(15,123,69,0.2)",color:"var(--success)",opacity:tpApprovingId===tp.id?0.6:1 }}>
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                              </button>
-                            )}
-                            <button className="btn-icon" title="O'chirish" onClick={()=>setTpDeleteId(tp.id)} style={{ width:30,height:30,background:"var(--danger-dim)",borderColor:"var(--danger)44",color:"var(--danger)" }}>
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        </>
-      )}
-
-      {/* ── Cost Norm tab ── */}
-      {activeTab==="cn"&&(
-        <>
-          <div className="itm-card" style={{ display:"flex",alignItems:"center",gap:10,marginBottom:16,padding:"10px 14px",flexWrap:"wrap" }}>
-            <div className="search-wrap" style={{ maxWidth:"none",flex:1,minWidth:180 }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input className="search-input" placeholder="Qidirish: sarlavha, shartnoma..." value={cnSearch} onChange={e=>setCnSearch(e.target.value)}/>
-            </div>
-            <button className="btn-icon" onClick={loadCn} title="Yangilash" style={{ background:"var(--accent-dim)",borderColor:"var(--accent)",color:"var(--accent)",width:36,height:36 }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-            </button>
-            <button className="btn-primary" onClick={openCnCreate} style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"8px 18px",fontSize:13,fontWeight:600,borderRadius:"var(--radius)",border:"none",cursor:"pointer" }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Yangi me&apos;yor
-            </button>
-          </div>
-
-          <div className="itm-card" style={{ flex:1 }}>
-            {cnListLoading?(
-              <div style={{ padding:40,textAlign:"center",color:"var(--text2)" }}>Yuklanmoqda...</div>
-            ):cnFilteredList.length===0?(
-              <div style={{ padding:40,textAlign:"center",color:"var(--text2)" }}>Ma&apos;lumot topilmadi</div>
-            ):(
-              <div style={{ overflowX:"auto" }}>
-                <table className="itm-table">
-                  <thead>
-                    <tr>
-                      <th style={{ width:64,minWidth:64,textAlign:"center",borderRight:"2px solid var(--border)",color:"var(--text1)",textTransform:"none" }}>T/r</th>
-                      <th style={{ textAlign:"center",color:"var(--text1)" }}>Shartnoma</th>
-                      <th style={{ textAlign:"center",color:"var(--text1)" }}>Sarlavha</th>
-                      <th style={{ textAlign:"center",color:"var(--text1)" }}>Materiallar</th>
-                      <th style={{ textAlign:"center",color:"var(--text1)" }}>Status</th>
-                      <th style={{ textAlign:"center",color:"var(--text1)" }}>Sana</th>
-                      <th style={{ textAlign:"center",borderLeft:"2px solid var(--border)",color:"var(--text1)" }}>Amal</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cnFilteredList.map((n,i)=>(
-                      <tr key={n.id}>
-                        <td style={{ textAlign:"center",borderRight:"2px solid var(--border)",minWidth:64,padding:"0 8px" }}>{String(i+1).padStart(2,"0")}</td>
-                        <td style={{ textAlign:"center",fontWeight:600,color:"var(--accent)",fontFamily:"var(--font-inter,Inter,sans-serif)" }}>{n.contractNo}</td>
-                        <td style={{ maxWidth:220,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }} title={n.title}>{n.title}</td>
-                        <td style={{ textAlign:"center" }}>
-                          <span style={{ fontSize:12,fontWeight:600,color:"var(--text2)",background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:20,padding:"2px 8px" }}>
-                            {n.items.filter(r=>!r.isSection).length} та
-                          </span>
-                        </td>
-                        <td style={{ textAlign:"center" }}><CnBadge status={n.status}/></td>
-                        <td style={{ textAlign:"center",fontSize:13,color:"var(--text2)",whiteSpace:"nowrap" }}>{fmt(n.createdAt)}</td>
-                        <td style={{ textAlign:"center",borderLeft:"2px solid var(--border)" }}>
-                          <div style={{ display:"flex",gap:4,justifyContent:"center" }}>
-                            <button className="btn-icon" title="Ko'rish" onClick={()=>openCnDetail(n)} style={{ width:30,height:30,background:"#e8f0fe",borderColor:"#a4c0f4",color:"#1a56db" }}>
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                            </button>
-                            {n.status===DrawingStatus.Draft&&(
-                              <button className="btn-icon" title="Tasdiqlash" onClick={()=>handleCnApprove(n.id)} disabled={cnApprovingId===n.id}
-                                style={{ width:30,height:30,background:"var(--success-dim)",borderColor:"rgba(15,123,69,0.2)",color:"var(--success)",opacity:cnApprovingId===n.id?0.6:1 }}>
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                              </button>
-                            )}
-                            <button className="btn-icon" title="Tahrirlash" onClick={()=>openCnEdit(n)} style={{ width:30,height:30,background:"#fff7ed",borderColor:"#fdba74",color:"#c2410c" }}>
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                            </button>
-                            <button className="btn-icon" title="O'chirish" onClick={()=>handleCnDelete(n.id)} style={{ width:30,height:30,background:"var(--danger-dim)",borderColor:"var(--danger)44",color:"var(--danger)" }}>
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </>
-      )}
+        )}
+      </div>
 
       {/* ── TP Delete confirm ── */}
       {tpDeleteId&&(
