@@ -141,10 +141,13 @@ public class NotificationService : INotificationService
     public async Task<ApiResult<int>> DeleteOwnAsync(Guid id, Guid userId)
     {
         var notif = await _context.Notifications
-            .FirstOrDefaultAsync(n => n.Id == id && n.UserId == userId);
+            .FirstOrDefaultAsync(n => n.Id == id);
 
         if (notif is null)
             return ApiResult<int>.Failure(["Bildirishnoma topilmadi."], 404);
+
+        if (notif.UserId != userId)
+            return ApiResult<int>.Failure(["Bu bildirishnomani o'chirish huquqi yo'q."], 403);
 
         _context.Notifications.Remove(notif);
         await _context.SaveChangesAsync();
