@@ -108,11 +108,26 @@ public class CostNormService : ICostNormService
         _context.CostNorms.Add(costNorm);
         await _context.SaveChangesAsync();
 
-        var contract = await _context.Contracts.AsNoTracking().FirstOrDefaultAsync(c => c.Id == dto.ContractId);
-        await _notificationService.NotifyAllAsync(
+        var contract = await _context.Contracts
+            .Include(c => c.ContractUsers)
+            .Include(c => c.ContractDepartments)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == dto.ContractId);
+
+        var contractUserIds = contract?.ContractUsers.Select(cu => cu.UserId) ?? Enumerable.Empty<Guid>();
+        var deptUserIds = contract is not null
+            ? await _context.Users
+                .Where(u => u.IsActive && contract.ContractDepartments.Select(cd => cd.DepartmentId).Contains(u.DepartmentId!.Value))
+                .Select(u => u.Id)
+                .ToListAsync()
+            : new List<Guid>();
+
+        await _notificationService.NotifyUsersAndSuperAdminsAsync(
+            contractUserIds.Union(deptUserIds),
             $"Yangi me'yoriy sarf: {costNorm.Title}",
             $"«{contract?.ContractNo}» shartnomasi uchun me'yoriy sarf norma tuzildi: {costNorm.Title}. Materiallar: {costNorm.Items.Count} ta.",
-            NotificationType.Info);
+            NotificationType.Info,
+            dto.ContractId);
 
         await TryAdvanceToWarehouseCheckAsync(dto.ContractId);
 
