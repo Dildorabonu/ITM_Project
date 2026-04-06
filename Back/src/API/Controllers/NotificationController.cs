@@ -84,7 +84,7 @@ public class NotificationController : ControllerBase
         var result = IsSuperAdmin()
             ? await _service.DeleteAsync(id)
             : await _service.DeleteOwnAsync(id, userId.Value);
-        if (!result.Succeeded) return NotFound(result);
+        if (!result.Succeeded) return StatusCode(result.StatusCode, result);
         return Ok(result);
     }
 }
