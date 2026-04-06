@@ -115,6 +115,7 @@ export default function NotificationsPage() {
   const [selected, setSelected] = useState<Notif | null>(null);
   const [contractDetail, setContractDetail] = useState<ContractDetail | null>(null);
   const [contractLoading, setContractLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const fetchNotifs = useCallback(async () => {
     try {
@@ -178,6 +179,7 @@ export default function NotificationsPage() {
   };
 
   const deleteNotif = async (id: string) => {
+    setDeleteError(null);
     try {
       await api.delete(`/api/notification/${id}`);
       setNotifs(prev => {
@@ -186,7 +188,16 @@ export default function NotificationsPage() {
         return updated;
       });
       if (selected?.id === id) { setSelected(null); setContractDetail(null); }
-    } catch { /* ignore */ }
+    } catch (err: any) {
+      const status = err?.response?.status;
+      const msg = err?.response?.data?.errors?.[0] || err?.message || "O'chirishda xatolik yuz berdi";
+      setDeleteError(msg);
+      setTimeout(() => setDeleteError(null), 4000);
+      if (status === 404) {
+        // Notification allaqachon o'chirilgan bo'lishi mumkin - listni yangilaymiz
+        await fetchNotifs();
+      }
+    }
   };
 
   const visible = filter === "unread" ? notifs.filter(n => !n.isRead) : notifs;
@@ -221,6 +232,15 @@ export default function NotificationsPage() {
           Barchasini o&apos;qilgan qilish
         </button>
       </div>
+
+      {deleteError && (
+        <div style={{
+          background: "var(--danger)", color: "#fff", padding: "10px 16px",
+          borderRadius: "var(--radius)", marginBottom: 12, fontSize: 13, fontWeight: 500,
+        }}>
+          {deleteError}
+        </div>
+      )}
 
       {loading ? (
         <div style={{ textAlign: "center", padding: 40, opacity: 0.5 }}>Yuklanmoqda...</div>
