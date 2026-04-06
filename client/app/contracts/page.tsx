@@ -1129,10 +1129,11 @@ export default function ContractsPage() {
                 { label: "Kuzatuvchilar",     list: formObservers,   setList: setFormObservers,   deptType: DepartmentType.Boshqaruv, color: "#6d28d9", bg: "#f5f3ff" },
               ] as const).map(({ label, list, setList, deptType, color, bg }, idx) => {
                 const isOpen = openPickerIdx === idx;
-                const poolByType = allUsers.filter(u => {
+                const noDeptOfType = deptType !== DepartmentType.Boshqaruv &&
+                  !departments.some(d => d.type === deptType && form.departmentIds.includes(d.id));
+                const poolByType = noDeptOfType ? [] : allUsers.filter(u => {
                   if (u.departmentType !== deptType) return false;
                   if (deptType === DepartmentType.Boshqaruv) return true;
-                  if (form.departmentIds.length === 0) return true;
                   return u.departmentId != null && form.departmentIds.includes(u.departmentId);
                 });
                 const available = poolByType.filter(u => !list.some(x => x.id === u.id));
@@ -1167,6 +1168,10 @@ export default function ContractsPage() {
                           {allUsers.length === 0 ? (
                             <div style={{ padding: "14px 14px", fontSize: 13, color: "var(--text3)", textAlign: "center" }}>
                               Yuklanmoqda...
+                            </div>
+                          ) : noDeptOfType ? (
+                            <div style={{ padding: "14px 14px", fontSize: 13, color: "var(--text3)", textAlign: "center" }}>
+                              Avval ushbu tuzilmadan bo&apos;lim tanlang
                             </div>
                           ) : poolByType.length === 0 ? (
                             <div style={{ padding: "14px 14px", fontSize: 13, color: "var(--text3)", textAlign: "center" }}>
