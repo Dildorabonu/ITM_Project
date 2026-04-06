@@ -652,6 +652,34 @@ export const techProcessService = {
     await api.delete(`/api/techprocess/${id}`);
   },
 
+  getFiles: async (id: string): Promise<AttachmentResponse[]> => {
+    const res = await api.get(`/api/techprocess/${id}/files`);
+    return res.data?.result ?? res.data ?? [];
+  },
+
+  uploadFile: async (id: string, file: File): Promise<AttachmentResponse> => {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await api.post(`/api/techprocess/${id}/files`, fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data?.result ?? res.data;
+  },
+
+  deleteFile: async (id: string, fileId: string): Promise<void> => {
+    await api.delete(`/api/techprocess/${id}/files/${fileId}`);
+  },
+
+  downloadFile: async (id: string, fileId: string, fileName: string): Promise<void> => {
+    const res = await api.get(`/api/techprocess/${id}/files/${fileId}/download`, { responseType: "blob" });
+    const url = URL.createObjectURL(res.data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+
 };
 
 // ─── Material (Ombor) ─────────────────────────────────────────────────────────
