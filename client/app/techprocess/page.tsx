@@ -30,6 +30,7 @@ interface MaterialRow {
 }
 interface ParsedTable { title: string; rows: MaterialRow[]; }
 type ColField = "no"|"name"|"unit"|"readyQty"|"wasteQty"|"totalQty"|"photoRaw"|"photoSemi"|"importType";
+type TpMode = "list" | "detail" | "edit";
 type CnMode = "list" | "create" | "detail" | "edit";
 
 // ─── DOCX Column definitions ──────────────────────────────────────────────────
@@ -578,11 +579,11 @@ export default function TechProductionPage() {
   const [tpSearch, setTpSearch] = useState("");
   const [tpFilterStatus, setTpFilterStatus] = useState("");
 
-  // TP drawer
-  const [tpDrawer, setTpDrawer] = useState<TechProcessResponse | null>(null);
-  const [tpDrawerEditing, setTpDrawerEditing] = useState(false);
-  const [tpDrawerEditForm, setTpDrawerEditForm] = useState({ title:"", notes:"" });
-  const [tpDrawerEditSaving, setTpDrawerEditSaving] = useState(false);
+  // TP detail / edit
+  const [tpMode, setTpMode] = useState<TpMode>("list");
+  const [tpSelected, setTpSelected] = useState<TechProcessResponse | null>(null);
+  const [tpEditForm, setTpEditForm] = useState({ title:"", notes:"" });
+  const [tpEditSaving, setTpEditSaving] = useState(false);
 
   // TP create form
   const [tpShowForm, setTpShowForm] = useState(false);
@@ -680,28 +681,36 @@ export default function TechProductionPage() {
 
   // ── TP Drawer ──────────────────────────────────────────────────────────────
 
-  const openTpDrawer = async (tp: TechProcessResponse) => {
-    setTpDrawer(tp); setTpDrawerEditing(false);
+  const openTpDetail = async (tp: TechProcessResponse) => {
+    setTpSelected(tp); setTpMode("detail");
     const fresh = await techProcessService.getById(tp.id);
-    setTpDrawer(fresh);
+    setTpSelected(fresh);
   };
 
-  const tpRefreshDrawer = async (id: string) => {
+  const tpRefreshSelected = async (id: string) => {
     const fresh = await techProcessService.getById(id);
-    setTpDrawer(fresh);
+    setTpSelected(fresh);
     setTpList(prev=>prev.map(t=>t.id===id?fresh:t));
   };
 
-  const handleTpDrawerEditSave = async () => {
-    if(!tpDrawer) return;
-    setTpDrawerEditSaving(true);
-    try { await techProcessService.update(tpDrawer.id,{title:tpDrawerEditForm.title,notes:tpDrawerEditForm.notes||null}); await tpRefreshDrawer(tpDrawer.id); setTpDrawerEditing(false); }
-    catch {} finally { setTpDrawerEditSaving(false); }
+  const openTpEdit = (tp: TechProcessResponse) => {
+    setTpEditForm({ title: tp.title, notes: tp.notes||"" });
+    setTpMode("edit");
+  };
+
+  const handleTpEditSave = async () => {
+    if(!tpSelected) return;
+    setTpEditSaving(true);
+    try {
+      await techProcessService.update(tpSelected.id, { title: tpEditForm.title, notes: tpEditForm.notes||null });
+      await tpRefreshSelected(tpSelected.id);
+      setTpMode("detail");
+    } catch {} finally { setTpEditSaving(false); }
   };
 
   const handleTpApprove = async () => {
-    if(!tpDrawer) return; setTpApproving(true);
-    try { await techProcessService.approve(tpDrawer.id); await tpRefreshDrawer(tpDrawer.id); }
+    if(!tpSelected) return; setTpApproving(true);
+    try { await techProcessService.approve(tpSelected.id); await tpRefreshSelected(tpSelected.id); }
     finally { setTpApproving(false); }
   };
 
@@ -713,13 +722,13 @@ export default function TechProductionPage() {
 
   const handleSendToWarehouse = async (tpId: string) => {
     setTpSendingWarehouse(tpId);
-    try { await techProcessService.sendToWarehouse(tpId); await tpRefreshDrawer(tpId); await loadTp(); }
+    try { await techProcessService.sendToWarehouse(tpId); await tpRefreshSelected(tpId); await loadTp(); }
     finally { setTpSendingWarehouse(null); }
   };
 
   const handleTpDelete = async () => {
     if(!tpDeleteId) return; setTpDeleting(true);
-    try { await techProcessService.delete(tpDeleteId); setTpList(prev=>prev.filter(t=>t.id!==tpDeleteId)); if(tpDrawer?.id===tpDeleteId) setTpDrawer(null); setTpDeleteId(null); }
+    try { await techProcessService.delete(tpDeleteId); setTpList(prev=>prev.filter(t=>t.id!==tpDeleteId)); if(tpSelected?.id===tpDeleteId) { setTpSelected(null); setTpMode("list"); } setTpDeleteId(null); }
     finally { setTpDeleting(false); }
   };
 
@@ -1051,6 +1060,96 @@ export default function TechProductionPage() {
     );
   }
 
+  // TP: detail view
+  if (tpMode === "detail" && tpSelected) {
+    return (
+      <div style={{ display:"flex",flexDirection:"column",flex:1,minHeight:0 }}>
+        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexShrink:0,flexWrap:"wrap",gap:8 }}>
+          <button onClick={()=>{ setTpMode("list"); setTpSelected(null); }} style={{ display:"inline-flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:"pointer",color:"var(--text2)",fontSize:13,padding:"6px 10px",borderRadius:6,fontWeight:500 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+            Orqaga
+          </button>
+          <div style={{ display:"flex",gap:8,flexWrap:"wrap" }}>
+            {tpSelected.status===ProcessStatus.Approved&&(
+              <button onClick={()=>handleSendToWarehouse(tpSelected.id)} disabled={tpSendingWarehouse===tpSelected.id}
+                style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"7px 16px",borderRadius:"var(--radius)",border:"1.5px solid var(--success)",background:"var(--success-dim)",color:"var(--success)",fontSize:13,fontWeight:600,cursor:"pointer",opacity:tpSendingWarehouse===tpSelected.id?0.7:1 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+                {tpSendingWarehouse===tpSelected.id?"Yuborilmoqda…":"Omborga yuborish"}
+              </button>
+            )}
+            {tpSelected.status===ProcessStatus.Pending&&(
+              <button onClick={handleTpApprove} disabled={tpApproving}
+                style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"7px 16px",borderRadius:"var(--radius)",border:"1.5px solid rgba(15,123,69,0.4)",background:"var(--success-dim)",color:"var(--success)",fontSize:13,fontWeight:600,cursor:"pointer",opacity:tpApproving?0.7:1 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                {tpApproving?"Tasdiqlanmoqda...":"Tasdiqlash"}
+              </button>
+            )}
+            <button onClick={()=>openTpEdit(tpSelected)}
+              style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"7px 16px",borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",fontSize:13,fontWeight:600,cursor:"pointer" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Tahrirlash
+            </button>
+          </div>
+        </div>
+        <div className="itm-card" style={{ padding:"14px 20px",marginBottom:16,display:"flex",alignItems:"center",gap:16,flexShrink:0,flexWrap:"wrap" }}>
+          <div style={{ flex:1,minWidth:0 }}>
+            <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Shartnoma</div>
+            <div style={{ fontWeight:700,fontSize:15,color:"var(--accent)" }}>{tpSelected.contractNo}</div>
+          </div>
+          <div style={{ flex:2,minWidth:0 }}>
+            <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Sarlavha</div>
+            <div style={{ fontWeight:600,fontSize:14,color:"var(--text1)" }}>{tpSelected.title}</div>
+          </div>
+          <div>
+            <div style={{ fontSize:11,color:"var(--text3)",marginBottom:4 }}>Holat</div>
+            <TpBadge status={tpSelected.status}/>
+          </div>
+          <div>
+            <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Sana</div>
+            <div style={{ fontSize:13,color:"var(--text2)" }}>{fmt(tpSelected.createdAt)}</div>
+          </div>
+        </div>
+        {tpSelected.notes&&(
+          <div className="itm-card" style={{ padding:"14px 20px",flexShrink:0 }}>
+            <div style={{ fontSize:11,color:"var(--text3)",marginBottom:6 }}>Izoh</div>
+            <div style={{ fontSize:14,color:"var(--text1)",whiteSpace:"pre-wrap",lineHeight:1.6 }}>{tpSelected.notes}</div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // TP: edit view
+  if (tpMode === "edit" && tpSelected) {
+    return (
+      <div style={{ display:"flex",flexDirection:"column",flex:1,minHeight:0 }}>
+        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexShrink:0,flexWrap:"wrap",gap:8 }}>
+          <button onClick={()=>setTpMode("detail")} style={{ display:"inline-flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:"pointer",color:"var(--text2)",fontSize:13,padding:"6px 10px",borderRadius:6,fontWeight:500 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+            Bekor qilish
+          </button>
+          <button onClick={handleTpEditSave} disabled={tpEditSaving}
+            style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"7px 20px",borderRadius:"var(--radius)",border:"none",background:"var(--accent,#1a56db)",color:"#fff",fontSize:13,fontWeight:600,cursor:"pointer",opacity:tpEditSaving?0.7:1 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/></svg>
+            {tpEditSaving?"Saqlanmoqda...":"Saqlash"}
+          </button>
+        </div>
+        <div className="itm-card" style={{ padding:20,flexShrink:0 }}>
+          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16 }}>
+            <div>
+              <label style={{ fontSize:12,fontWeight:600,display:"block",marginBottom:5,color:"var(--text2)" }}>Sarlavha</label>
+              <input className="form-input" value={tpEditForm.title} onChange={e=>setTpEditForm(f=>({...f,title:e.target.value}))}/>
+            </div>
+            <div>
+              <label style={{ fontSize:12,fontWeight:600,display:"block",marginBottom:5,color:"var(--text2)" }}>Izoh</label>
+              <input className="form-input" value={tpEditForm.notes} onChange={e=>setTpEditForm(f=>({...f,notes:e.target.value}))}/>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // CN: detail view
   if (cnMode === "detail" && cnSelected) {
     return (
@@ -1258,8 +1357,11 @@ export default function TechProductionPage() {
                         <td style={{ textAlign:"center",fontSize:13,color:"var(--text2)",whiteSpace:"nowrap" }}>{fmt(tp.createdAt)}</td>
                         <td style={{ textAlign:"center",borderLeft:"2px solid var(--border)" }}>
                           <div style={{ display:"flex",gap:4,justifyContent:"center" }}>
-                            <button className="btn-icon" title="Ko'rish" onClick={()=>openTpDrawer(tp)} style={{ width:30,height:30,background:"#e8f0fe",borderColor:"#a4c0f4",color:"#1a56db" }}>
+                            <button className="btn-icon" title="Ko'rish" onClick={()=>openTpDetail(tp)} style={{ width:30,height:30,background:"#e8f0fe",borderColor:"#a4c0f4",color:"#1a56db" }}>
                               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                            </button>
+                            <button className="btn-icon" title="Tahrirlash" onClick={()=>{ setTpSelected(tp); setTpEditForm({ title: tp.title, notes: tp.notes||"" }); setTpMode("edit"); }} style={{ width:30,height:30,background:"#f0f7ff",borderColor:"#93c5fd",color:"#2563eb" }}>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                             </button>
                             {tp.status===ProcessStatus.Pending&&(
                               <button className="btn-icon" title="Tasdiqlash" onClick={()=>handleTpApproveRow(tp.id)} disabled={tpApprovingId===tp.id}
@@ -1356,80 +1458,6 @@ export default function TechProductionPage() {
                 </table>
               </div>
             )}
-          </div>
-        </>
-      )}
-
-      {/* ── TP Drawer ── */}
-      {tpDrawer&&(
-        <>
-          <div onClick={()=>setTpDrawer(null)} style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.25)",zIndex:100 }}/>
-          <div style={{ position:"fixed",top:0,right:0,bottom:0,width:440,maxWidth:"95vw",background:"var(--surface)",zIndex:101,display:"flex",flexDirection:"column",boxShadow:"-8px 0 32px rgba(0,0,0,0.12)",overflow:"hidden" }}>
-            <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 20px",borderBottom:"1.5px solid var(--border)",flexShrink:0 }}>
-              <div>
-                <div style={{ fontWeight:700,fontSize:15,color:"var(--text1)" }}>{tpDrawer.title}</div>
-                <div style={{ fontSize:12,color:"var(--accent)",marginTop:2,fontFamily:"var(--font-inter,Inter,sans-serif)" }}>{tpDrawer.contractNo}</div>
-              </div>
-              <button onClick={()=>setTpDrawer(null)} style={{ background:"none",border:"none",cursor:"pointer",color:"var(--text3)",padding:6,borderRadius:6,display:"flex" }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-            <div style={{ flex:1,overflowY:"auto",padding:"20px" }}>
-              {/* Status */}
-              <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:20 }}>
-                <TpBadge status={tpDrawer.status}/>
-                <span style={{ fontSize:12,color:"var(--text3)" }}>{fmt(tpDrawer.createdAt)}</span>
-              </div>
-              {/* Notes */}
-              {tpDrawer.notes&&(
-                <div style={{ marginBottom:20 }}>
-                  <div style={{ fontSize:12,color:"var(--text3)",marginBottom:6 }}>Izoh</div>
-                  <div style={{ fontSize:14,color:"var(--text1)",whiteSpace:"pre-wrap",lineHeight:1.6 }}>{tpDrawer.notes}</div>
-                </div>
-              )}
-              {/* Edit form */}
-              {tpDrawerEditing?(
-                <div style={{ display:"flex",flexDirection:"column",gap:12,marginBottom:20 }}>
-                  <div>
-                    <label style={{ fontSize:12,fontWeight:600,display:"block",marginBottom:5,color:"var(--text2)" }}>Sarlavha</label>
-                    <input className="form-input" value={tpDrawerEditForm.title} onChange={e=>setTpDrawerEditForm(f=>({...f,title:e.target.value}))}/>
-                  </div>
-                  <div>
-                    <label style={{ fontSize:12,fontWeight:600,display:"block",marginBottom:5,color:"var(--text2)" }}>Izoh</label>
-                    <textarea className="form-input" value={tpDrawerEditForm.notes} onChange={e=>setTpDrawerEditForm(f=>({...f,notes:e.target.value}))} rows={4} style={{ resize:"none" }}/>
-                  </div>
-                  <div style={{ display:"flex",gap:8 }}>
-                    <button onClick={handleTpDrawerEditSave} disabled={tpDrawerEditSaving}
-                      style={{ flex:1,padding:"9px",borderRadius:"var(--radius)",border:"none",background:"var(--accent)",color:"#fff",fontSize:13,fontWeight:600,cursor:"pointer" }}>
-                      {tpDrawerEditSaving?"Saqlanmoqda...":"Saqlash"}
-                    </button>
-                    <button onClick={()=>setTpDrawerEditing(false)} style={{ padding:"9px 16px",borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",fontSize:13,cursor:"pointer" }}>Bekor</button>
-                  </div>
-                </div>
-              ):(
-                <div style={{ display:"flex",gap:8,flexWrap:"wrap",marginBottom:20 }}>
-                  {tpDrawer.status===ProcessStatus.Approved&&(
-                    <button onClick={()=>handleSendToWarehouse(tpDrawer.id)} disabled={tpSendingWarehouse===tpDrawer.id}
-                      style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"8px 16px",borderRadius:"var(--radius)",border:"1.5px solid var(--success)",background:"var(--success-dim)",color:"var(--success)",fontSize:13,fontWeight:600,cursor:"pointer",opacity:tpSendingWarehouse===tpDrawer.id?0.7:1 }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
-                      {tpSendingWarehouse===tpDrawer.id?"Yuborilmoqda…":"Omborga yuborish"}
-                    </button>
-                  )}
-                  {tpDrawer.status===ProcessStatus.Pending&&(
-                    <button onClick={handleTpApprove} disabled={tpApproving}
-                      style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"8px 16px",borderRadius:"var(--radius)",border:"1.5px solid rgba(15,123,69,0.4)",background:"var(--success-dim)",color:"var(--success)",fontSize:13,fontWeight:600,cursor:"pointer",opacity:tpApproving?0.7:1 }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                      {tpApproving?"Tasdiqlanmoqda...":"Tasdiqlash"}
-                    </button>
-                  )}
-                  <button onClick={()=>{ setTpDrawerEditing(true); setTpDrawerEditForm({title:tpDrawer.title,notes:tpDrawer.notes||""}); }}
-                    style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"8px 14px",borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",fontSize:13,fontWeight:600,cursor:"pointer" }}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                    Tahrirlash
-                  </button>
-                </div>
-              )}
-            </div>
           </div>
         </>
       )}
