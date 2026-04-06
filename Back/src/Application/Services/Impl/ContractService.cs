@@ -97,10 +97,16 @@ public class ContractService : IContractService
 
         await _context.SaveChangesAsync();
 
-        await _notificationService.NotifyAllAsync(
-            $"Yangi shartnoma yaratildi: {contract.ContractNo}",
-            $"№{contract.ContractNo} yangi shartnoma tizimga qo'shildi.",
-            NotificationType.Info,
+        var createDeptUserIds = await _context.Users
+            .Where(u => u.IsActive && dto.DepartmentIds.Contains(u.DepartmentId!.Value))
+            .Select(u => u.Id)
+            .ToListAsync();
+
+        await _notificationService.NotifyUsersAndSuperAdminsAsync(
+            createDeptUserIds,
+            $"Shartnomaga tayinlandingiz: {contract.ContractNo}",
+            $"Siz «{contract.ContractNo}» shartnomasi bo'yicha tayinlandingiz.",
+            NotificationType.Task,
             contract.Id);
 
         return ApiResult<Guid>.Success(contract.Id, 201);
@@ -157,8 +163,8 @@ public class ContractService : IContractService
             .Select(u => u.Id)
             .ToListAsync();
 
-        foreach (var uid in userIds.Union(deptUserIds))
-            await _notificationService.CreateAsync(uid, title, body, NotificationType.Info, contract.Id);
+        await _notificationService.NotifyUsersAndSuperAdminsAsync(
+            userIds.Union(deptUserIds), title, body, NotificationType.Info, contract.Id);
 
         return ApiResult<int>.Success(200);
     }
@@ -188,8 +194,8 @@ public class ContractService : IContractService
                 .Select(u => u.Id)
                 .ToListAsync();
 
-            foreach (var uid in userIds.Union(deptUserIds))
-                await _notificationService.CreateAsync(uid, title, body, NotificationType.Info, contract.Id);
+            await _notificationService.NotifyUsersAndSuperAdminsAsync(
+                userIds.Union(deptUserIds), title, body, NotificationType.Info, contract.Id);
         }
 
         if (status == ContractStatus.TechProcessing)
@@ -216,6 +222,8 @@ public class ContractService : IContractService
     public async Task<ApiResult<int>> DeleteAsync(Guid id)
     {
         var contract = await _context.Contracts
+            .Include(c => c.ContractUsers)
+            .Include(c => c.ContractDepartments)
             .FirstOrDefaultAsync(c => c.Id == id);
 
         if (contract is null)
@@ -224,10 +232,17 @@ public class ContractService : IContractService
         var title = $"Shartnoma o'chirildi: {contract.ContractNo}";
         var body  = $"№{contract.ContractNo} shartnoma tizimdan o'chirildi.";
 
+        var deleteUserIds = contract.ContractUsers.Select(cu => cu.UserId).ToHashSet();
+        var deleteDeptUserIds = await _context.Users
+            .Where(u => u.IsActive && contract.ContractDepartments.Select(cd => cd.DepartmentId).Contains(u.DepartmentId!.Value))
+            .Select(u => u.Id)
+            .ToListAsync();
+
         _context.Contracts.Remove(contract);
         await _context.SaveChangesAsync();
 
-        await _notificationService.NotifyAllAsync(title, body, NotificationType.Warning);
+        await _notificationService.NotifyUsersAndSuperAdminsAsync(
+            deleteUserIds.Union(deleteDeptUserIds), title, body, NotificationType.Warning);
 
         return ApiResult<int>.Success(200);
     }
@@ -274,8 +289,8 @@ public class ContractService : IContractService
             .Select(u => u.Id)
             .ToListAsync();
 
-        foreach (var uid in deactivateUserIds.Union(deactivateDeptUserIds))
-            await _notificationService.CreateAsync(uid, deactivateTitle, deactivateBody, NotificationType.Warning, contract.Id);
+        await _notificationService.NotifyUsersAndSuperAdminsAsync(
+            deactivateUserIds.Union(deactivateDeptUserIds), deactivateTitle, deactivateBody, NotificationType.Warning, contract.Id);
 
         return ApiResult<int>.Success(200);
     }
@@ -322,8 +337,8 @@ public class ContractService : IContractService
             .Select(u => u.Id)
             .ToListAsync();
 
-        foreach (var uid in activateUserIds.Union(activateDeptUserIds))
-            await _notificationService.CreateAsync(uid, activateTitle, activateBody, NotificationType.Info, contract.Id);
+        await _notificationService.NotifyUsersAndSuperAdminsAsync(
+            activateUserIds.Union(activateDeptUserIds), activateTitle, activateBody, NotificationType.Info, contract.Id);
 
         return ApiResult<int>.Success(200);
     }
@@ -395,6 +410,12 @@ public class ContractService : IContractService
                     NotificationType.Task,
                     contractId);
             }
+
+            await _notificationService.NotifySuperAdminsAsync(
+                $"Shartnomaga yangi xodimlar tayinlandi: {contract?.ContractNo}",
+                $"«{contract?.ContractNo}» shartnomasi uchun {newlyAssigned.Count} ta yangi xodim tayinlandi.",
+                NotificationType.Task,
+                contractId);
         }
 
         return ApiResult<int>.Success(200);
