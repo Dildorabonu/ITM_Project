@@ -26,6 +26,7 @@ export interface UserLookup {
   id: string;
   firstName: string;
   lastName: string;
+  departmentId: string | null;
   departmentName: string | null;
   departmentType: DepartmentType | null;
 }
