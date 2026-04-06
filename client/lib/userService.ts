@@ -265,9 +265,12 @@ export interface ProductUpdatePayload {
 }
 
 export const productService = {
-  getAll: async (): Promise<ProductResponse[]> => {
-    const res = await api.get("/api/product");
-    return res.data?.result ?? res.data ?? [];
+  getAll: async (page = 1, pageSize = 50, search?: string, departmentId?: string): Promise<PagedResult<ProductResponse>> => {
+    const params: Record<string, unknown> = { page, pageSize };
+    if (search) params.search = search;
+    if (departmentId) params.departmentId = departmentId;
+    const res = await api.get("/api/product", { params });
+    return res.data?.result ?? res.data;
   },
 
   getByDepartment: async (departmentId: string): Promise<ProductResponse[]> => {

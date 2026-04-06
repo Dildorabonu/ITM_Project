@@ -45,7 +45,9 @@ export default function ProductsPage() {
   const canDelete = hasPermission("Products.Delete");
 
   const [products, setProducts] = useState<ProductResponse[]>([]);
-  const [filtered, setFiltered] = useState<ProductResponse[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [search, setSearch] = useState("");
   const [filterDept, setFilterDept] = useState("");
   const [loading, setLoading] = useState(true);
@@ -93,9 +95,10 @@ export default function ProductsPage() {
     try {
       setLoading(true);
       setError("");
-      const data = await productService.getAll();
-      setProducts(data);
-      setFiltered(data);
+      const data = await productService.getAll(page, 50, search || undefined, filterDept || undefined);
+      setProducts(data.items);
+      setTotalPages(data.totalPages);
+      setTotalCount(data.totalCount);
     } catch {
       setError("Ma'lumotlarni yuklashda xatolik yuz berdi.");
     } finally {
@@ -106,21 +109,11 @@ export default function ProductsPage() {
   useEffect(() => {
     load();
     departmentService.getAll().then(setDepartments).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    const q = search.toLowerCase();
-    setFiltered(
-      products.filter(p => {
-        const matchSearch = !q ||
-          p.name.toLowerCase().includes(q) ||
-          (p.description ?? "").toLowerCase().includes(q) ||
-          p.departmentName.toLowerCase().includes(q);
-        const matchDept = !filterDept || p.departmentId === filterDept;
-        return matchSearch && matchDept;
-      })
-    );
-  }, [search, filterDept, products]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [page, search, filterDept]);
 
   useEffect(() => {
     if (!showForm) return;
@@ -202,20 +195,8 @@ export default function ProductsPage() {
         }));
 
         await productService.createBulk(payloads);
-
-        const created: ProductResponse[] = payloads.map(p => ({
-          id: crypto.randomUUID(),
-          name: p.name,
-          description: p.description ?? null,
-          quantity: p.quantity,
-          unit: p.unit,
-          departmentId: p.departmentId,
-          departmentName: departments.find(d => d.id === p.departmentId)?.name ?? "",
-          createdAt: new Date().toISOString(),
-        }));
-
-        setProducts(prev => [...prev, ...created]);
         setShowForm(false);
+        await load();
       } catch (err: unknown) {
         const msg = (err as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
         setFormError(msg ?? "Saqlashda xatolik yuz berdi.");
@@ -230,8 +211,8 @@ export default function ProductsPage() {
     setDeleting(true);
     try {
       await productService.delete(deleteId);
-      setProducts(prev => prev.filter(p => p.id !== deleteId));
       setDeleteId(null);
+      await load();
     } catch {
       // stay open on error
     } finally {
@@ -977,7 +958,7 @@ export default function ProductsPage() {
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
           <input className="search-input" placeholder="Qidirish"
-            value={search} onChange={e => setSearch(e.target.value)} />
+            value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
         </div>
         <select
           className="form-input"
@@ -985,6 +966,7 @@ export default function ProductsPage() {
           onChange={e => {
             const value = e.target.value;
             setFilterDept(value === DEPT_PLACEHOLDER_VALUE || value === DEPT_ALL_VALUE ? "" : value);
+            setPage(1);
           }}
           style={{ width: 200, cursor: "pointer", height: 36, padding: "0 10px", fontSize: 14, fontWeight: 600 }}
         >
@@ -1040,12 +1022,12 @@ export default function ProductsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
+                {products.length === 0 ? (
                   <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
-                ) : filtered.map((p, i) => (
+                ) : products.map((p, i) => (
                   <tr key={p.id}>
                     <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>
-                      {String(i + 1).padStart(2, "0")}
+                      {String((page - 1) * 50 + i + 1).padStart(2, "0")}
                     </td>
                     <td style={{ textAlign: "center" }}>{p.name}</td>
                     <td style={{ textAlign: "center", color: "var(--text1)" }}>{p.departmentName}</td>
@@ -1092,6 +1074,49 @@ export default function ProductsPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        {!loading && !error && totalPages > 1 && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderTop: "1px solid var(--border)" }}>
+            <span style={{ fontSize: 13, color: "var(--text2)" }}>
+              {totalCount} ta mahsulot &mdash; {page}/{totalPages} sahifa
+            </span>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button
+                disabled={page <= 1}
+                onClick={() => setPage(p => p - 1)}
+                style={{ padding: "5px 12px", borderRadius: "var(--radius)", border: "1.5px solid var(--border)", background: "var(--bg3)", color: page <= 1 ? "var(--text3)" : "var(--text1)", cursor: page <= 1 ? "not-allowed" : "pointer", fontSize: 13 }}
+              >
+                ‹ Oldingi
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+                .reduce<(number | "…")[]>((acc, p, idx, arr) => {
+                  if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("…");
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, idx) =>
+                  p === "…" ? (
+                    <span key={`ellipsis-${idx}`} style={{ padding: "5px 8px", color: "var(--text3)", fontSize: 13 }}>…</span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => setPage(p as number)}
+                      style={{ padding: "5px 12px", borderRadius: "var(--radius)", border: "1.5px solid", borderColor: page === p ? "var(--accent)" : "var(--border)", background: page === p ? "var(--accent)" : "var(--bg3)", color: page === p ? "#fff" : "var(--text1)", cursor: "pointer", fontSize: 13, fontWeight: page === p ? 700 : 400 }}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+              <button
+                disabled={page >= totalPages}
+                onClick={() => setPage(p => p + 1)}
+                style={{ padding: "5px 12px", borderRadius: "var(--radius)", border: "1.5px solid var(--border)", background: "var(--bg3)", color: page >= totalPages ? "var(--text3)" : "var(--text1)", cursor: page >= totalPages ? "not-allowed" : "pointer", fontSize: 13 }}
+              >
+                Keyingi ›
+              </button>
+            </div>
           </div>
         )}
       </div>
