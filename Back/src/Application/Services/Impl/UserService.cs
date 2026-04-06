@@ -26,6 +26,7 @@ public class UserService : IUserService
                   Id             = u.Id,
                   FirstName      = u.FirstName,
                   LastName       = u.LastName,
+                  DepartmentId   = u.Department != null ? (Guid?)u.Department.Id : null,
                   DepartmentName = u.Department != null ? u.Department.Name : null,
                   DepartmentType = u.Department != null ? (Core.Enums.DepartmentType?)u.Department.Type : null,
               }));
