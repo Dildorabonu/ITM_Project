@@ -14,10 +14,12 @@ namespace API.Controllers;
 public class TechProcessController : ControllerBase
 {
     private readonly ITechProcessService _techProcessService;
+    private readonly IAttachmentService _attachmentService;
 
-    public TechProcessController(ITechProcessService techProcessService)
+    public TechProcessController(ITechProcessService techProcessService, IAttachmentService attachmentService)
     {
         _techProcessService = techProcessService;
+        _attachmentService = attachmentService;
     }
 
     // GET /api/techprocess
@@ -97,6 +99,55 @@ public class TechProcessController : ControllerBase
     public async Task<IActionResult> Delete(Guid id)
     {
         var result = await _techProcessService.DeleteAsync(id);
+        return StatusCode(result.StatusCode, result);
+    }
+
+    // ── Files ────────────────────────────────────────────────────────────────
+
+    private const string EntityType = "techprocess";
+
+    [HasPermission("TechProcess.View")]
+    [HttpGet("{id:guid}/files")]
+    public async Task<IActionResult> GetFiles(Guid id)
+    {
+        var result = await _attachmentService.GetAllAsync(EntityType, id);
+        return StatusCode(result.StatusCode, result);
+    }
+
+    [HasPermission("TechProcess.Create")]
+    [HttpPost("{id:guid}/files")]
+    [RequestSizeLimit(50 * 1024 * 1024)]
+    public async Task<IActionResult> UploadFile(Guid id, IFormFile file)
+    {
+        if (file is null || file.Length == 0)
+            return BadRequest("Fayl tanlanmagan.");
+
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        await using var stream = file.OpenReadStream();
+        var result = await _attachmentService.UploadAsync(
+            EntityType, id, stream, file.FileName, file.ContentType, file.Length, userId);
+
+        return StatusCode(result.StatusCode, result);
+    }
+
+    [HasPermission("TechProcess.View")]
+    [HttpGet("{id:guid}/files/{fileId:guid}/download")]
+    public async Task<IActionResult> DownloadFile(Guid id, Guid fileId)
+    {
+        var result = await _attachmentService.GetForDownloadAsync(EntityType, id, fileId);
+        if (!result.Succeeded)
+            return NotFound(result);
+
+        var (filePath, contentType, fileName) = result.Result;
+        var bytes = await System.IO.File.ReadAllBytesAsync(filePath);
+        return File(bytes, contentType, fileName);
+    }
+
+    [HasPermission("TechProcess.Delete")]
+    [HttpDelete("{id:guid}/files/{fileId:guid}")]
+    public async Task<IActionResult> DeleteFile(Guid id, Guid fileId)
+    {
+        var result = await _attachmentService.DeleteAsync(EntityType, id, fileId);
         return StatusCode(result.StatusCode, result);
     }
 

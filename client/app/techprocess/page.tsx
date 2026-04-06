@@ -480,6 +480,8 @@ function ContractReadinessPanel({
           {items.map(item => {
             const tpOk = item.tp && (item.tp.status === ProcessStatus.Approved || item.tp.status === ProcessStatus.Completed);
             const cnOk = item.cn && item.cn.status === DrawingStatus.Approved;
+            const tpEffective = item.tp?.status !== ProcessStatus.Pending ? item.tp : null;
+            const cnEffective = item.cn?.status !== DrawingStatus.Draft ? item.cn : null;
             const bothReady = tpOk && cnOk;
 
             return (
@@ -501,8 +503,8 @@ function ContractReadinessPanel({
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg>
                     Texnologik jarayon
                   </div>
-                  {item.tp ? (
-                    <TpBadge status={item.tp.status} />
+                  {tpEffective ? (
+                    <TpBadge status={tpEffective.status} />
                   ) : (
                     <span style={{ fontSize: 12, color: "var(--text3)", fontStyle: "italic" }}>Yaratilmagan</span>
                   )}
@@ -517,8 +519,8 @@ function ContractReadinessPanel({
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                     Me&apos;yoriy sarf
                   </div>
-                  {item.cn ? (
-                    <CnBadge status={item.cn.status} />
+                  {cnEffective ? (
+                    <CnBadge status={cnEffective.status} />
                   ) : (
                     <span style={{ fontSize: 12, color: "var(--text3)", fontStyle: "italic" }}>Yaratilmagan</span>
                   )}
@@ -535,7 +537,7 @@ function ContractReadinessPanel({
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <div style={{ width: 8, height: 8, borderRadius: "50%", background: tpOk && cnOk ? "var(--success)" : "var(--warning,#f59e0b)", flexShrink: 0 }}/>
                       <span style={{ fontSize: 11, color: "var(--text3)" }}>
-                        {!item.tp && !item.cn ? "Hujjatlar yaratilmagan" :
+                        {!tpEffective && !cnEffective ? "Hujjatlar yaratilmagan" :
                          !tpOk && !cnOk ? "Ikkalasi ham tasdiqlanmagan" :
                          !tpOk ? "Tex jarayon tasdiqlanmagan" :
                          "Me'yoriy sarf tasdiqlanmagan"}
@@ -579,8 +581,9 @@ export default function TechProductionPage() {
   const [tpSaving, setTpSaving] = useState(false);
   const [tpFormError, setTpFormError] = useState("");
   const [finalFile, setFinalFile] = useState<File|null>(null);
-  const [templateFile, setTemplateFile] = useState<File|null>(null);
   const [tpFileError, setTpFileError] = useState("");
+
+  const [tpDetailFiles, setTpDetailFiles] = useState<AttachmentResponse[]>([]);
 
   // TP actions
   const [tpApproving, setTpApproving] = useState(false);
@@ -589,7 +592,7 @@ export default function TechProductionPage() {
   const [tpDeleteId, setTpDeleteId] = useState<string|null>(null);
   const [tpDeleting, setTpDeleting] = useState(false);
 
-  useDraft("draft_techprocess", tpShowForm, tpForm, (d)=>{ setTpForm(d); setTpShowForm(true); contractService.getAll().then(setContracts).catch(()=>{}); });
+  useDraft("draft_techprocess", tpShowForm, tpForm, (d)=>{ setTpForm(d); setTpShowForm(true); });
 
   // ── Cost Norm state ────────────────────────────────────────────────────────
   const [cnMode, setCnMode] = useState<CnMode>("list");
@@ -672,9 +675,14 @@ export default function TechProductionPage() {
   // ── TP Drawer ──────────────────────────────────────────────────────────────
 
   const openTpDetail = async (tp: TechProcessResponse) => {
-    setTpSelected(tp); setTpMode("detail");
-    const fresh = await techProcessService.getById(tp.id);
+    setTpSelected(tp); setTpMode("detail"); setTpDetailFiles([]);
+    window.history.pushState({mode:"detail"},"");
+    const [fresh, files] = await Promise.all([
+      techProcessService.getById(tp.id),
+      techProcessService.getFiles(tp.id).catch(()=>[] as AttachmentResponse[]),
+    ]);
     setTpSelected(fresh);
+    setTpDetailFiles(files);
   };
 
   const tpRefreshSelected = async (id: string) => {
@@ -724,21 +732,20 @@ export default function TechProductionPage() {
   // ── TP Create ──────────────────────────────────────────────────────────────
 
   const openTpCreate = async (prefilledContractId?: string) => {
-    setTpForm({contractId:prefilledContractId||"",title:"",notes:""}); setTpSubmitted(false); setTpFormError(""); setFinalFile(null); setTemplateFile(null); setTpFileError("");
+    setTpForm({contractId:prefilledContractId||"",title:"",notes:""}); setTpSubmitted(false); setTpFormError(""); setFinalFile(null); setTpFileError("");
     window.history.pushState({showForm:true},"");
     setTpShowForm(true);
-    if(contracts.length===0) { const d=await contractService.getAll(); setContracts(d); }
   };
 
   const handleTpSave = async () => {
     setTpSubmitted(true); setTpFileError("");
     if(!tpForm.contractId||!tpForm.title.trim()) return;
-    if(!finalFile||!templateFile) { setTpFileError("Asl va template fayllarini yuklang."); return; }
+    if(!finalFile) { setTpFileError("Texnologik jarayon faylini yuklang."); return; }
     setTpSaving(true); setTpFormError("");
     try {
-      await Promise.all([contractService.uploadFile(tpForm.contractId,finalFile),contractService.uploadFile(tpForm.contractId,templateFile)]);
       const dto: TechProcessCreatePayload = { contractId:tpForm.contractId, title:tpForm.title.trim(), notes:tpForm.notes||null };
       const newId = await techProcessService.create(dto);
+      await techProcessService.uploadFile(newId,finalFile);
       const fresh = await techProcessService.getById(newId);
       setTpList(prev=>[fresh,...prev]);
       setTpShowForm(false);
@@ -859,54 +866,52 @@ export default function TechProductionPage() {
     return (
       <div style={{ display:"flex",flexDirection:"column",gap:24 }}>
         <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between" }}>
-          <span style={{ fontWeight:700,fontSize:18,color:"var(--text1)" }}>Yangi texnologik jarayon</span>
+          <div style={{ display:"flex",alignItems:"center",gap:12 }}>
+            <button onClick={()=>setTpShowForm(false)} style={{ display:"inline-flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:"pointer",color:"var(--text3)",padding:"4px 0",fontSize:13,fontWeight:500 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+              Orqaga
+            </button>
+            <span style={{ color:"var(--border)" }}>|</span>
+            <span style={{ fontWeight:700,fontSize:18,color:"var(--text1)" }}>Yangi texnologik jarayon</span>
+          </div>
           <button onClick={()=>setTpShowForm(false)} style={{ background:"none",border:"none",cursor:"pointer",color:"var(--text3)",padding:6,borderRadius:6,display:"flex",alignItems:"center" }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
         <div className="itm-card" style={{ padding:28 }}>
-          <div style={{ display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:20,alignItems:"start" }}>
+          <div style={{ display:"flex",flexDirection:"column",gap:20 }}>
+            {/* Sarlavha — full width */}
             <div>
-              <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:tpSubmitted&&!tpForm.contractId?"var(--danger)":"var(--text2)" }}>Shartnoma <span style={{ color:"var(--danger)" }}>*</span></label>
-              <select className="form-input" value={tpForm.contractId} onChange={e=>setTpForm(f=>({...f,contractId:e.target.value}))} style={{ width:"100%",cursor:"pointer",...(tpSubmitted&&!tpForm.contractId?{borderColor:"var(--danger)"}:{}) }}>
-                <option value="">— Shartnomani tanlang —</option>
-                {contracts.map(c=><option key={c.id} value={c.id}>{c.contractNo}</option>)}
-              </select>
-              {tpSubmitted&&!tpForm.contractId&&<div style={{ color:"var(--danger)",fontSize:12,marginTop:4 }}>Shartnoma tanlash shart</div>}
-              <div style={{ marginTop:12 }}>
-                <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:tpSubmitted&&!tpForm.title.trim()?"var(--danger)":"var(--text2)" }}>Sarlavha <span style={{ color:"var(--danger)" }}>*</span></label>
-                <input className="form-input" value={tpForm.title} onChange={e=>setTpForm(f=>({...f,title:e.target.value}))} placeholder="Sarlavha kiriting" style={tpSubmitted&&!tpForm.title.trim()?{borderColor:"var(--danger)"}:undefined}/>
-                {tpSubmitted&&!tpForm.title.trim()&&<div style={{ color:"var(--danger)",fontSize:12,marginTop:4 }}>Sarlavha kiritish shart</div>}
+              <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:tpSubmitted&&!tpForm.title.trim()?"var(--danger)":"var(--text2)" }}>Sarlavha <span style={{ color:"var(--danger)" }}>*</span></label>
+              <input className="form-input" value={tpForm.title} onChange={e=>setTpForm(f=>({...f,title:e.target.value}))} placeholder="Sarlavha kiriting" style={tpSubmitted&&!tpForm.title.trim()?{borderColor:"var(--danger)"}:undefined}/>
+              {tpSubmitted&&!tpForm.title.trim()&&<div style={{ color:"var(--danger)",fontSize:12,marginTop:4 }}>Sarlavha kiritish shart</div>}
+            </div>
+            {/* Izoh + Fayl — two columns */}
+            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:20,alignItems:"stretch" }}>
+              <div style={{ display:"flex",flexDirection:"column" }}>
+                <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:"var(--text2)" }}>Izoh</label>
+                <textarea className="form-input" value={tpForm.notes} onChange={e=>setTpForm(f=>({...f,notes:e.target.value}))} placeholder="Qo'shimcha izoh (ixtiyoriy)" style={{ resize:"none",flex:1,minHeight:130 }}/>
               </div>
-            </div>
-            <div>
-              <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:"var(--text2)" }}>Izoh</label>
-              <textarea className="form-input" value={tpForm.notes} onChange={e=>setTpForm(f=>({...f,notes:e.target.value}))} placeholder="Qo'shimcha izoh (ixtiyoriy)" rows={4} style={{ resize:"none" }}/>
-            </div>
-            {/* File uploads */}
-            {([{ key:"final",label:"Asl shartnoma fayli",desc:"Tayyor bo'lgan asl shartnoma",file:finalFile,set:setFinalFile }] as const).map(({key,label,desc,file,set})=>(
-              <div key={key} style={{ gridColumn:"2/3",gridRow:"1/2" }}>
-                <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:tpSubmitted&&!file?"var(--danger)":"var(--text2)" }}>{label} <span style={{ color:"var(--danger)" }}>*</span></label>
-                <label htmlFor={`tp-file-${key}`} style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,cursor:"pointer",border:`2px dashed ${tpSubmitted&&!file?"var(--danger)":"var(--border)"}`,borderRadius:10,padding:"20px 16px",background:"var(--bg1)",transition:"border-color 0.15s",textAlign:"center",minHeight:120 }}
-                  onMouseEnter={e=>e.currentTarget.style.borderColor="var(--accent)"} onMouseLeave={e=>e.currentTarget.style.borderColor=tpSubmitted&&!file?"var(--danger)":"var(--border)"}>
-                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.6"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                  <span style={{ fontSize:13,fontWeight:600,color:"var(--accent)" }}>Fayl tanlash</span>
-                  <span style={{ fontSize:11,color:"var(--text3)" }}>{file?file.name:"Fayl tanlanmagan"}</span>
-                  <span style={{ fontSize:11,color:"var(--text3)" }}>{desc}</span>
-                  <input id={`tp-file-${key}`} type="file" style={{ display:"none" }} onChange={e=>{ set(e.target.files?.[0]??null); setTpFileError(""); }}/>
+              <div style={{ display:"flex",flexDirection:"column" }}>
+                <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:tpSubmitted&&!finalFile?"var(--danger)":"var(--text2)" }}>Texnologik jarayon fayli <span style={{ color:"var(--danger)" }}>*</span></label>
+                <label htmlFor="tp-file-final" style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,cursor:"pointer",border:`2px dashed ${tpSubmitted&&!finalFile?"var(--danger)":"var(--border)"}`,borderRadius:10,padding:"20px 16px",background:"var(--bg1)",transition:"border-color 0.15s",textAlign:"center",minHeight:130 }}
+                  onMouseEnter={e=>e.currentTarget.style.borderColor="var(--accent)"} onMouseLeave={e=>e.currentTarget.style.borderColor=tpSubmitted&&!finalFile?"var(--danger)":"var(--border)"}>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.6"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  {finalFile?(
+                    <>
+                      <span style={{ fontSize:13,fontWeight:600,color:"var(--accent)" }}>{finalFile.name}</span>
+                      <span style={{ fontSize:11,color:"var(--text3)" }}>Fayl tanlandi — o'zgartirish uchun bosing</span>
+                    </>
+                  ):(
+                    <>
+                      <span style={{ fontSize:13,fontWeight:600,color:"var(--accent)" }}>Fayl tanlash</span>
+                      <span style={{ fontSize:11,color:"var(--text3)" }}>Faylni tanlash uchun bosing</span>
+                    </>
+                  )}
+                  <input id="tp-file-final" type="file" style={{ display:"none" }} onChange={e=>{ setFinalFile(e.target.files?.[0]??null); setTpFileError(""); }}/>
                 </label>
+                {tpFileError&&<div style={{ marginTop:6,fontSize:12,color:"var(--danger)" }}>{tpFileError}</div>}
               </div>
-            ))}
-            <div style={{ gridColumn:"2/3",gridRow:"2/3" }}>
-              <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:tpSubmitted&&!templateFile?"var(--danger)":"var(--text2)" }}>Template fayli <span style={{ color:"var(--danger)" }}>*</span></label>
-              <label htmlFor="tp-file-template" style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,cursor:"pointer",border:`2px dashed ${tpSubmitted&&!templateFile?"var(--danger)":"var(--border)"}`,borderRadius:10,padding:"20px 16px",background:"var(--bg1)",transition:"border-color 0.15s",textAlign:"center",minHeight:120 }}
-                onMouseEnter={e=>e.currentTarget.style.borderColor="var(--accent)"} onMouseLeave={e=>e.currentTarget.style.borderColor=tpSubmitted&&!templateFile?"var(--danger)":"var(--border)"}>
-                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.6"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                <span style={{ fontSize:13,fontWeight:600,color:"var(--accent)" }}>Template faylini tanlash</span>
-                <span style={{ fontSize:11,color:"var(--text3)" }}>{templateFile?templateFile.name:"Fayl tanlanmagan"}</span>
-                <input id="tp-file-template" type="file" style={{ display:"none" }} onChange={e=>{ setTemplateFile(e.target.files?.[0]??null); setTpFileError(""); }}/>
-              </label>
-              {tpFileError&&<div style={{ marginTop:8,fontSize:12,color:"var(--danger)" }}>{tpFileError}</div>}
             </div>
           </div>
         </div>
@@ -1050,6 +1055,62 @@ export default function TechProductionPage() {
   }
 
   // CN: detail view
+  if (tpMode === "detail" && tpSelected) {
+    return (
+      <div style={{ display:"flex",flexDirection:"column",flex:1,minHeight:0 }}>
+        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexShrink:0,flexWrap:"wrap",gap:8 }}>
+          <button onClick={()=>{ setTpMode("list"); setTpSelected(null); }} style={{ display:"inline-flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:"pointer",color:"var(--text2)",fontSize:13,padding:"6px 10px",borderRadius:6,fontWeight:500 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+            Orqaga
+          </button>
+          <div style={{ display:"flex",gap:8,flexWrap:"wrap" }}>
+            {tpSelected.status===ProcessStatus.Pending&&(
+              <button onClick={async()=>{ await techProcessService.approve(tpSelected.id); const fresh=await techProcessService.getById(tpSelected.id); setTpSelected(fresh); setTpList(prev=>prev.map(t=>t.id===tpSelected.id?fresh:t)); }}
+                style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"7px 16px",borderRadius:"var(--radius)",border:"1.5px solid var(--success)",background:"var(--success-dim)",color:"var(--success)",fontSize:13,fontWeight:600,cursor:"pointer" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                Tasdiqlash
+              </button>
+            )}
+            <button onClick={()=>{ setTpEditForm({title:tpSelected.title,notes:tpSelected.notes||""}); setTpMode("edit"); }}
+              style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"7px 16px",borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",fontSize:13,fontWeight:600,cursor:"pointer" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Tahrirlash
+            </button>
+          </div>
+        </div>
+        <div className="itm-card" style={{ padding:"14px 20px",display:"flex",alignItems:"center",gap:16,flexShrink:0,flexWrap:"wrap" }}>
+          <div style={{ flex:1,minWidth:0 }}>
+            <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Shartnoma</div>
+            <div style={{ fontWeight:700,fontSize:15,color:"var(--accent)" }}>{tpSelected.contractNo}</div>
+          </div>
+          <div style={{ flex:2,minWidth:0 }}>
+            <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Sarlavha</div>
+            <div style={{ fontWeight:600,fontSize:14,color:"var(--text1)" }}>{tpSelected.title}</div>
+          </div>
+          <div>
+            <div style={{ fontSize:11,color:"var(--text3)",marginBottom:4 }}>Holat</div>
+            <TpBadge status={tpSelected.status}/>
+          </div>
+          <div>
+            <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Sana</div>
+            <div style={{ fontSize:13,color:"var(--text2)",whiteSpace:"nowrap" }}>{fmt(tpSelected.createdAt)}</div>
+          </div>
+          {tpDetailFiles.length>0&&(
+            <div style={{ display:"flex",gap:6,flexWrap:"wrap",width:"100%" }}>
+              {tpDetailFiles.map(f=>(
+                <button key={f.id} onClick={()=>techProcessService.downloadFile(tpSelected.id,f.id,f.fileName)}
+                  style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:6,border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text1)",fontSize:12,cursor:"pointer" }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  {f.fileName}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (cnMode === "detail" && cnSelected) {
     return (
       <div style={{ display:"flex",flexDirection:"column",flex:1,minHeight:0 }}>
@@ -1187,9 +1248,11 @@ export default function TechProductionPage() {
 
   if (selectedItem) {
     const closeDetail = () => { setSelectedContractId(null); setTpInlineEditing(false); };
-    const tpDone = selectedItem.tp && (selectedItem.tp.status === ProcessStatus.Approved || selectedItem.tp.status === ProcessStatus.Completed);
-    const cnDone = selectedItem.cn && selectedItem.cn.status === DrawingStatus.Approved;
-    const warehouseDone = selectedItem.tp?.status === ProcessStatus.Completed;
+    const tpEffective = selectedItem.tp?.status !== ProcessStatus.Pending ? selectedItem.tp : null;
+    const cnEffective = selectedItem.cn?.status !== DrawingStatus.Draft ? selectedItem.cn : null;
+    const tpDone = tpEffective && (tpEffective.status === ProcessStatus.Approved || tpEffective.status === ProcessStatus.Completed);
+    const cnDone = cnEffective && cnEffective.status === DrawingStatus.Approved;
+    const warehouseDone = tpEffective?.status === ProcessStatus.Completed;
     return (
       <div style={{ display:"flex",flexDirection:"column",flex:1,gap:16 }}>
         <div style={{ display:"flex",alignItems:"center",gap:12 }}>
@@ -1209,18 +1272,18 @@ export default function TechProductionPage() {
             {/* Step 1 */}
             <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:6,flex:1 }}>
               <div style={{ width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,
-                background: tpDone ? "var(--success)" : selectedItem.tp ? "#e8f0fe" : "var(--bg3)",
-                border: tpDone ? "2px solid var(--success)" : selectedItem.tp ? "2px solid #1a56db" : "2px solid var(--border)",
+                background: tpDone ? "var(--success)" : tpEffective ? "#e8f0fe" : "var(--bg3)",
+                border: tpDone ? "2px solid var(--success)" : tpEffective ? "2px solid #1a56db" : "2px solid var(--border)",
               }}>
                 {tpDone
                   ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={selectedItem.tp?"#1a56db":"var(--text3)"} strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+                  : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={tpEffective?"#1a56db":"var(--text3)"} strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
                 }
               </div>
               <div style={{ textAlign:"center" }}>
-                <div style={{ fontSize:12,fontWeight:700,color: tpDone ? "var(--success)" : selectedItem.tp ? "#1a56db" : "var(--text3)" }}>Texnologik jarayon</div>
+                <div style={{ fontSize:12,fontWeight:700,color: tpDone ? "var(--success)" : tpEffective ? "#1a56db" : "var(--text3)" }}>Texnologik jarayon</div>
                 <div style={{ fontSize:11,color:"var(--text3)",marginTop:1 }}>
-                  {!selectedItem.tp ? "Yaratilmagan" : tpDone ? "Tasdiqlangan" : "Kutilmoqda"}
+                  {!tpEffective ? "Yaratilmagan" : tpDone ? "Tasdiqlangan" : "Kutilmoqda"}
                 </div>
               </div>
             </div>
@@ -1236,18 +1299,18 @@ export default function TechProductionPage() {
             {/* Step 2 */}
             <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:6,flex:1 }}>
               <div style={{ width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,
-                background: cnDone ? "var(--success)" : selectedItem.cn ? "#e8f0fe" : "var(--bg3)",
-                border: cnDone ? "2px solid var(--success)" : selectedItem.cn ? "2px solid #1a56db" : "2px solid var(--border)",
+                background: cnDone ? "var(--success)" : cnEffective ? "#e8f0fe" : "var(--bg3)",
+                border: cnDone ? "2px solid var(--success)" : cnEffective ? "2px solid #1a56db" : "2px solid var(--border)",
               }}>
                 {cnDone
                   ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={selectedItem.cn?"#1a56db":"var(--text3)"} strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={cnEffective?"#1a56db":"var(--text3)"} strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                 }
               </div>
               <div style={{ textAlign:"center" }}>
-                <div style={{ fontSize:12,fontWeight:700,color: cnDone ? "var(--success)" : selectedItem.cn ? "#1a56db" : "var(--text3)" }}>Me&apos;yoriy sarf</div>
+                <div style={{ fontSize:12,fontWeight:700,color: cnDone ? "var(--success)" : cnEffective ? "#1a56db" : "var(--text3)" }}>Me&apos;yoriy sarf</div>
                 <div style={{ fontSize:11,color:"var(--text3)",marginTop:1 }}>
-                  {!selectedItem.cn ? "Yaratilmagan" : cnDone ? "Tasdiqlangan" : "Kutilmoqda"}
+                  {!cnEffective ? "Yaratilmagan" : cnDone ? "Tasdiqlangan" : "Kutilmoqda"}
                 </div>
               </div>
             </div>
@@ -1264,21 +1327,26 @@ export default function TechProductionPage() {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
                 <span style={{ fontWeight:700,fontSize:13,color:"var(--text1)" }}>Texnologik jarayon</span>
               </div>
-              {selectedItem.tp&&!tpInlineEditing&&(
+              {tpEffective&&!tpInlineEditing&&(
                 <div style={{ display:"flex",gap:4 }}>
-                  {selectedItem.tp.status===ProcessStatus.Pending&&(
-                    <button onClick={async()=>{ setTpApprovingId(selectedItem.tp!.id); try { await techProcessService.approve(selectedItem.tp!.id); await loadTp(); } finally { setTpApprovingId(null); } }} disabled={tpApprovingId===selectedItem.tp.id}
-                      style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--success-dim)",border:"1px solid rgba(15,123,69,0.2)",color:"var(--success)",cursor:"pointer",opacity:tpApprovingId===selectedItem.tp.id?0.6:1 }}>
+                  {tpEffective.status===ProcessStatus.InProgress&&(
+                    <button onClick={async()=>{ setTpApprovingId(tpEffective.id); try { await techProcessService.approve(tpEffective.id); await loadTp(); } finally { setTpApprovingId(null); } }} disabled={tpApprovingId===tpEffective.id}
+                      style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--success-dim)",border:"1px solid rgba(15,123,69,0.2)",color:"var(--success)",cursor:"pointer",opacity:tpApprovingId===tpEffective.id?0.6:1 }}>
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                      {tpApprovingId===selectedItem.tp.id?"...":"Tasdiqlash"}
+                      {tpApprovingId===tpEffective.id?"...":"Tasdiqlash"}
                     </button>
                   )}
-                  <button onClick={()=>{ setTpSelected(selectedItem.tp!); setTpEditForm({title:selectedItem.tp!.title,notes:selectedItem.tp!.notes||""}); setTpInlineEditing(true); }}
+                  <button onClick={()=>openTpDetail(tpEffective)}
+                    style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"#e8f0fe",border:"1px solid #a4c0f4",color:"#1a56db",cursor:"pointer" }}>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    Ko&apos;rish
+                  </button>
+                  <button onClick={()=>{ setTpSelected(tpEffective); setTpEditForm({title:tpEffective.title,notes:tpEffective.notes||""}); setTpInlineEditing(true); }}
                     style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--text2)",cursor:"pointer" }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     Tahrirlash
                   </button>
-                  <button onClick={()=>setTpDeleteId(selectedItem.tp!.id)}
+                  <button onClick={()=>setTpDeleteId(tpEffective.id)}
                     style={{ display:"inline-flex",alignItems:"center",padding:"4px 8px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--danger-dim)",border:"1px solid var(--danger)44",color:"var(--danger)",cursor:"pointer" }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
                   </button>
@@ -1286,13 +1354,13 @@ export default function TechProductionPage() {
               )}
             </div>
             <div style={{ padding:"14px 16px" }}>
-              {!selectedItem.tp?(
+              {!tpEffective?(
                 <div style={{ textAlign:"center",padding:"20px 0" }}>
                   <div style={{ fontSize:13,color:"var(--text3)",marginBottom:12 }}>Texnologik jarayon yaratilmagan</div>
-                  <button className="btn-primary" onClick={()=>openTpCreate(selectedItem.contractId)}
-                    style={{ display:"inline-flex",alignItems:"center",gap:6,fontSize:12,padding:"7px 14px",fontWeight:600,borderRadius:"var(--radius)",border:"none",cursor:"pointer" }}>
+                  <button onClick={()=>openTpCreate(selectedItem.contractId)}
+                    style={{ display:"inline-flex",alignItems:"center",gap:6,fontSize:12,padding:"7px 14px",fontWeight:600,borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer" }}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    Yangi jarayon yaratish
+                    Jarayon yaratish
                   </button>
                 </div>
               ):tpInlineEditing?(
@@ -1318,20 +1386,20 @@ export default function TechProductionPage() {
                 <div style={{ display:"flex",flexWrap:"wrap",gap:16 }}>
                   <div style={{ flex:"1 1 auto",minWidth:0 }}>
                     <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Sarlavha</div>
-                    <div style={{ fontSize:13,fontWeight:600,color:"var(--text1)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }} title={selectedItem.tp.title}>{selectedItem.tp.title}</div>
+                    <div style={{ fontSize:13,fontWeight:600,color:"var(--text1)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }} title={tpEffective.title}>{tpEffective.title}</div>
                   </div>
                   <div>
                     <div style={{ fontSize:11,color:"var(--text3)",marginBottom:4 }}>Holat</div>
-                    <TpBadge status={selectedItem.tp.status}/>
+                    <TpBadge status={tpEffective.status}/>
                   </div>
                   <div>
                     <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Sana</div>
-                    <div style={{ fontSize:13,color:"var(--text2)",whiteSpace:"nowrap" }}>{fmt(selectedItem.tp.createdAt)}</div>
+                    <div style={{ fontSize:13,color:"var(--text2)",whiteSpace:"nowrap" }}>{fmt(tpEffective.createdAt)}</div>
                   </div>
-                  {selectedItem.tp.notes&&(
+                  {tpEffective.notes&&(
                     <div style={{ width:"100%",marginTop:2 }}>
                       <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Izoh</div>
-                      <div style={{ fontSize:13,color:"var(--text1)",whiteSpace:"pre-wrap",lineHeight:1.5 }}>{selectedItem.tp.notes}</div>
+                      <div style={{ fontSize:13,color:"var(--text1)",whiteSpace:"pre-wrap",lineHeight:1.5 }}>{tpEffective.notes}</div>
                     </div>
                   )}
                 </div>
@@ -1346,26 +1414,26 @@ export default function TechProductionPage() {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                 <span style={{ fontWeight:700,fontSize:13,color:"var(--text1)" }}>Me&apos;yoriy sarf</span>
               </div>
-              {selectedItem.cn&&(
+              {cnEffective&&(
                 <div style={{ display:"flex",gap:4 }}>
-                  {selectedItem.cn.status===DrawingStatus.Draft&&(
-                    <button onClick={()=>handleCnApprove(selectedItem.cn!.id)} disabled={cnApprovingId===selectedItem.cn.id}
-                      style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--success-dim)",border:"1px solid rgba(15,123,69,0.2)",color:"var(--success)",cursor:"pointer",opacity:cnApprovingId===selectedItem.cn.id?0.6:1 }}>
+                  {cnEffective.status===DrawingStatus.Draft&&(
+                    <button onClick={()=>handleCnApprove(cnEffective.id)} disabled={cnApprovingId===cnEffective.id}
+                      style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--success-dim)",border:"1px solid rgba(15,123,69,0.2)",color:"var(--success)",cursor:"pointer",opacity:cnApprovingId===cnEffective.id?0.6:1 }}>
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                      {cnApprovingId===selectedItem.cn.id?"...":"Tasdiqlash"}
+                      {cnApprovingId===cnEffective.id?"...":"Tasdiqlash"}
                     </button>
                   )}
-                  <button onClick={()=>openCnDetail(selectedItem.cn!)}
+                  <button onClick={()=>openCnDetail(cnEffective)}
                     style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"#e8f0fe",border:"1px solid #a4c0f4",color:"#1a56db",cursor:"pointer" }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                     Ko&apos;rish
                   </button>
-                  <button onClick={()=>openCnEdit(selectedItem.cn!)}
+                  <button onClick={()=>openCnEdit(cnEffective)}
                     style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--text2)",cursor:"pointer" }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     Tahrirlash
                   </button>
-                  <button onClick={()=>handleCnDelete(selectedItem.cn!.id)}
+                  <button onClick={()=>handleCnDelete(cnEffective.id)}
                     style={{ display:"inline-flex",alignItems:"center",padding:"4px 8px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--danger-dim)",border:"1px solid var(--danger)44",color:"var(--danger)",cursor:"pointer" }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
                   </button>
@@ -1373,13 +1441,13 @@ export default function TechProductionPage() {
               )}
             </div>
             <div style={{ padding:"14px 16px" }}>
-              {!selectedItem.cn?(
+              {!cnEffective?(
                 <div style={{ textAlign:"center",padding:"20px 0" }}>
                   <div style={{ fontSize:13,color:"var(--text3)",marginBottom:12 }}>Me&apos;yoriy sarf yaratilmagan</div>
                   <button onClick={()=>openCnCreate(selectedItem.contractId)}
                     style={{ display:"inline-flex",alignItems:"center",gap:6,fontSize:12,padding:"7px 14px",fontWeight:600,borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer" }}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    Yangi me&apos;yor yaratish
+                    Me&apos;yoriy sarf yaratish
                   </button>
                 </div>
               ):(
@@ -1441,10 +1509,6 @@ export default function TechProductionPage() {
         </div>
         <button className="btn-icon" onClick={()=>{ loadTp(); loadCn(); }} title="Yangilash" style={{ background:"var(--accent-dim)",borderColor:"var(--accent)",color:"var(--accent)",width:36,height:36 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-        </button>
-        <button className="btn-primary" onClick={()=>openTpCreate()} style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"8px 16px",fontSize:13,fontWeight:600,borderRadius:"var(--radius)",border:"none",cursor:"pointer" }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Yangi jarayon
         </button>
         <button onClick={()=>openCnCreate()} style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"8px 16px",fontSize:13,fontWeight:600,borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer" }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
