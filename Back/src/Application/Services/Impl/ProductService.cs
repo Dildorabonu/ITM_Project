@@ -1,5 +1,6 @@
 using Application.DTOs;
 using Application.DTOs.Products;
+using Application.Helpers;
 using Core.Entities;
 using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -15,14 +16,35 @@ public class ProductService : IProductService
         _context = context;
     }
 
-    public async Task<ApiResult<IEnumerable<ProductResponseDto>>> GetAllAsync()
+    public async Task<ApiResult<PagedResult<ProductResponseDto>>> GetAllAsync(int page, int pageSize, string? search, Guid? departmentId)
     {
-        var products = await _context.Products
+        var query = _context.Products
             .Include(p => p.Department)
-            .AsNoTracking()
+            .AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var lower = search.ToLower();
+            query = query.Where(p =>
+                p.Name.ToLower().Contains(lower) ||
+                (p.Description != null && p.Description.ToLower().Contains(lower)) ||
+                p.Department!.Name.ToLower().Contains(lower));
+        }
+
+        if (departmentId.HasValue)
+            query = query.Where(p => p.DepartmentId == departmentId.Value);
+
+        var totalCount = await query.CountAsync();
+
+        var pagination = new PaginationParams { Page = page, PageSize = pageSize };
+        var items = await query
+            .OrderBy(p => p.Name)
+            .Skip((pagination.Page - 1) * pagination.PageSize)
+            .Take(pagination.PageSize)
             .ToListAsync();
 
-        return ApiResult<IEnumerable<ProductResponseDto>>.Success(products.Select(MapToResponse));
+        var paged = PagedResult<ProductResponseDto>.Create(items.Select(MapToResponse), totalCount, pagination);
+        return ApiResult<PagedResult<ProductResponseDto>>.Success(paged);
     }
 
     public async Task<ApiResult<IEnumerable<ProductResponseDto>>> GetByDepartmentAsync(Guid departmentId)
