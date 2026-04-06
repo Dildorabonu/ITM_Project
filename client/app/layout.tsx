@@ -37,8 +37,7 @@ const navGroups: NavGroup[] = [
     icon: "file-text",
     items: [
       { name: "Shartnomalar",  href: "/contracts",   icon: "file",      permission: ["Contracts.View", "Contracts.ViewAll"] },
-      { name: "Tex Protsess",  href: "/techprocess", icon: "activity",  permission: ["TechProcess.View", "TechProcess.ViewAll"] },
-      { name: "Me'yoriy Sarf", href: "/costnorm",    icon: "clipboard", permission: ["CostNorm.View", "CostNorm.ViewAll"] },
+      { name: "Tex jarayon & Normalar", href: "/techprocess", icon: "activity", permission: ["TechProcess.View", "TechProcess.ViewAll", "CostNorm.View", "CostNorm.ViewAll"] },
     ],
   },
   {
@@ -173,8 +172,8 @@ const pageTitles: Record<string, string> = {
   "/":              "Dashboard",
   "/notifications": "Bildirishnomalar",
   "/contracts":     "Shartnomalar",
-  "/techprocess":   "Tex Protsess",
-  "/costnorm":      "Me'yoriy Sarf",
+  "/techprocess":   "Tex jarayon & Normalar",
+  "/costnorm":      "Tex jarayon & Normalar",
   "/technicaldrawings": "Texnik chizmalar",
   "/warehouse":     "Ombor Zaxirasi",
   "/tasks":         "Vazifalar",
