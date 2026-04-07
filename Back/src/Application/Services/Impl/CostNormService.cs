@@ -85,6 +85,7 @@ public class CostNormService : ICostNormService
             ContractId = dto.ContractId,
             Title = dto.Title,
             Notes = dto.Notes,
+            Status = DrawingStatus.InProgress,
             CreatedBy = createdBy,
             CreatedAt = DateTime.UtcNow,
             Items = dto.Items.Select((item, index) => new CostNormItem
