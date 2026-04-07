@@ -167,8 +167,9 @@ public class CostNormService : ICostNormService
 
         if (dto.Items is not null)
         {
-            _context.CostNormItems.RemoveRange(costNorm.Items);
-            costNorm.Items = dto.Items.Select((item, index) => new CostNormItem
+            var oldItems = costNorm.Items.ToList();
+            _context.CostNormItems.RemoveRange(oldItems);
+            var newItems = dto.Items.Select((item, index) => new CostNormItem
             {
                 Id = Guid.NewGuid(),
                 CostNormId = costNorm.Id,
@@ -185,6 +186,7 @@ public class CostNormService : ICostNormService
                 ImportType = item.ImportType,
                 SortOrder = item.SortOrder > 0 ? item.SortOrder : index,
             }).ToList();
+            await _context.CostNormItems.AddRangeAsync(newItems);
         }
 
         await _context.SaveChangesAsync();
