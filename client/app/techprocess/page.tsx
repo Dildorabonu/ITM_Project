@@ -148,8 +148,9 @@ function TpBadge({ status }: { status: ProcessStatus }) {
 }
 
 const CN_STATUS_STYLE: Record<DrawingStatus,{bg:string;color:string;border:string}> = {
-  [DrawingStatus.Draft]:    { bg:"var(--bg3)",         color:"var(--text2)",  border:"var(--border)" },
-  [DrawingStatus.Approved]: { bg:"var(--success-dim)", color:"var(--success)",border:"rgba(15,123,69,0.2)" },
+  [DrawingStatus.Draft]:      { bg:"var(--bg3)",         color:"var(--text2)",  border:"var(--border)" },
+  [DrawingStatus.InProgress]: { bg:"var(--accent-dim)",  color:"var(--accent)", border:"rgba(var(--accent-rgb),0.2)" },
+  [DrawingStatus.Approved]:   { bg:"var(--success-dim)", color:"var(--success)",border:"rgba(15,123,69,0.2)" },
 };
 
 function CnBadge({ status }: { status: DrawingStatus }) {
@@ -1161,7 +1162,7 @@ export default function TechProductionPage() {
             Orqaga
           </button>
           <div style={{ display:"flex",gap:8,flexWrap:"wrap" }}>
-            {cnSelected.status===DrawingStatus.Draft&&(
+            {cnSelected.status===DrawingStatus.InProgress&&(
               <button onClick={()=>handleCnApprove(cnSelected.id)} disabled={cnApprovingId===cnSelected.id}
                 style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"7px 16px",borderRadius:"var(--radius)",border:"1.5px solid var(--success)",background:"var(--success-dim)",color:"var(--success)",fontSize:13,fontWeight:600,cursor:"pointer",opacity:cnApprovingId===cnSelected.id?0.7:1 }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
@@ -1461,7 +1462,7 @@ export default function TechProductionPage() {
               </div>
               {cnEffective&&(
                 <div style={{ display:"flex",gap:4 }}>
-                  {cnEffective.status===DrawingStatus.Draft&&(
+                  {cnEffective.status===DrawingStatus.InProgress&&(
                     <button onClick={()=>handleCnApprove(cnEffective.id)} disabled={cnApprovingId===cnEffective.id}
                       style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--success-dim)",border:"1px solid rgba(15,123,69,0.2)",color:"var(--success)",cursor:"pointer",opacity:cnApprovingId===cnEffective.id?0.6:1 }}>
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
@@ -1550,7 +1551,7 @@ export default function TechProductionPage() {
 
       {/* ── Toolbar ── */}
       <div className="itm-card" style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 14px",flexWrap:"wrap" }}>
-        <div className="search-wrap" style={{ flex:1,minWidth:180 }}>
+        <div className="search-wrap" style={{ flex:1,minWidth:180,maxWidth:"none" }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input className="search-input" placeholder="Shartnoma raqami bo'yicha qidirish..." value={tpSearch} onChange={e=>setTpSearch(e.target.value)}/>
         </div>
@@ -1592,7 +1593,7 @@ export default function TechProductionPage() {
                       onClick={()=>{ setSelectedContractId(item.contractId); setTpInlineEditing(false); }}
                       style={{ cursor:"pointer",transition:"background 0.12s" }}>
                       <td style={{ textAlign:"center",borderRight:"2px solid var(--border)",padding:"0 8px",fontSize:13 }}>{String(i+1).padStart(2,"0")}</td>
-                      <td style={{ textAlign:"center",fontWeight:700,color:"var(--accent)",fontFamily:"var(--font-inter,Inter,sans-serif)" }}>{item.contractNo}</td>
+                      <td style={{ textAlign:"center",fontSize:13,color:"var(--text1)",fontFamily:"var(--font-inter,Inter,sans-serif)" }}>{item.contractNo}</td>
                       <td style={{ textAlign:"center" }}>
                         {tpEffective?<TpBadge status={tpEffective.status}/>:<span style={{ fontSize:12,color:"var(--text3)",fontStyle:"italic" }}>Yaratilmagan</span>}
                       </td>

@@ -773,13 +773,15 @@ export const materialService = {
 // ─── Technical Drawings ───────────────────────────────────────────────────────
 
 export enum DrawingStatus {
-  Draft    = 0,
-  Approved = 1,
+  Draft      = 0,
+  Approved   = 1,
+  InProgress = 2,
 }
 
 export const DRAWING_STATUS_LABELS: Record<DrawingStatus, string> = {
-  [DrawingStatus.Draft]:    "Qoralama",
-  [DrawingStatus.Approved]: "Tasdiqlangan",
+  [DrawingStatus.Draft]:      "Qoralama",
+  [DrawingStatus.Approved]:   "Tasdiqlangan",
+  [DrawingStatus.InProgress]: "Jarayonda",
 };
 
 export interface TechnicalDrawingResponse {
