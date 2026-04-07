@@ -591,7 +591,10 @@ export default function TechProductionPage() {
   const [tpDeleteId, setTpDeleteId] = useState<string|null>(null);
   const [tpDeleting, setTpDeleting] = useState(false);
 
-  useDraft("draft_techprocess", tpShowForm, tpForm, (d)=>{ setTpForm(d); setTpShowForm(true); });
+  // ── Toast ──────────────────────────────────────────────────────────────────
+  const [successMsg, setSuccessMsg] = useState("");
+
+  useDraft("draft_techprocess", tpShowForm, tpForm, (d)=>{ if(d.contractId) { setTpForm(d); setTpShowForm(true); } else { sessionStorage.removeItem("draft_techprocess"); } });
 
   // ── Cost Norm state ────────────────────────────────────────────────────────
   const [cnMode, setCnMode] = useState<CnMode>("list");
@@ -629,12 +632,17 @@ export default function TechProductionPage() {
   // ── Selected contract for inline detail panel ──────────────────────────────
   const [selectedContractId, setSelectedContractId] = useState<string|null>(null);
   const [tpInlineEditing, setTpInlineEditing] = useState(false);
+  const [contractList, setContractList] = useState<ContractResponse[]>([]);
 
-  useDraft("draft_costnorm", cnMode==="create", cnForm, (d)=>{ setCnForm(d); setCnMode("create"); });
+  useDraft("draft_costnorm", cnMode==="create", cnForm, (d)=>{ if(d.contractId) { setCnForm(d); setCnMode("create"); } else { sessionStorage.removeItem("draft_costnorm"); } });
 
   // ── Contract readiness ─────────────────────────────────────────────────────
   const readinessItems = useMemo<ContractReadinessItem[]>(()=>{
     const map = new Map<string, ContractReadinessItem>();
+    // Tegishli statusdagi barcha shartnomalarni qo'shish (TP/CN bo'lmasa ham)
+    for (const c of contractList) {
+      if (!map.has(c.id)) map.set(c.id, { contractId:c.id, contractNo:c.contractNo, tp:null, cn:null });
+    }
     for (const tp of tpList) {
       if (!map.has(tp.contractId)) map.set(tp.contractId, { contractId:tp.contractId, contractNo:tp.contractNo, tp:null, cn:null });
       const entry = map.get(tp.contractId)!;
@@ -642,12 +650,24 @@ export default function TechProductionPage() {
     }
     for (const cn of cnList) {
       if (!map.has(cn.contractId)) map.set(cn.contractId, { contractId:cn.contractId, contractNo:cn.contractNo, tp:null, cn:null });
-      map.get(cn.contractId)!.cn = cn;
+      const entry = map.get(cn.contractId)!;
+      if (!entry.cn || (entry.cn.items.length === 0 && cn.items.length > 0)) entry.cn = cn;
     }
     return Array.from(map.values()).sort((a,b)=>a.contractNo.localeCompare(b.contractNo));
-  },[tpList, cnList]);
+  },[contractList, tpList, cnList]);
 
   // ── Loaders ────────────────────────────────────────────────────────────────
+
+  const loadContracts = useCallback(async()=>{
+    try {
+      const statuses = [ContractStatus.DrawingPending, ContractStatus.TechProcessing, ContractStatus.TechProcessApproved, ContractStatus.WarehouseCheck];
+      const results = await Promise.all(statuses.map(s=>contractService.getAll(s)));
+      const all = results.flat();
+      // Dublikatlarni olib tashlash
+      const unique = Array.from(new Map(all.map(c=>[c.id,c])).values());
+      setContractList(unique);
+    } catch { setContractList([]); }
+  },[]);
 
   const loadTp = async () => {
     try { setTpLoading(true); setTpError(""); const data=await techProcessService.getAll(); setTpList(data); }
@@ -657,7 +677,7 @@ export default function TechProductionPage() {
 
   const loadCn = useCallback(async()=>{ setCnListLoading(true); const d=await costNormService.getAll(); setCnList(d); setCnListLoading(false); },[]);
 
-  useEffect(()=>{ loadTp(); loadCn(); },[loadCn]);
+  useEffect(()=>{ loadTp(); loadCn(); loadContracts(); },[loadCn, loadContracts]);
 
   useEffect(()=>{
     const q=tpSearch.toLowerCase();
@@ -700,7 +720,11 @@ export default function TechProductionPage() {
     try {
       await techProcessService.update(tpSelected.id, { title: tpEditForm.title, notes: tpEditForm.notes||null });
       await tpRefreshSelected(tpSelected.id);
-    } catch {} finally { setTpEditSaving(false); }
+      await loadTp();
+    } catch(e: unknown) {
+      const msg=(e as {response?:{data?:{errors?:string[]}}})?.response?.data?.errors?.[0];
+      alert(msg??"Saqlashda xatolik yuz berdi. Qayta urinib ko'ring.");
+    } finally { setTpEditSaving(false); }
   };
 
   const handleTpApprove = async () => {
@@ -736,10 +760,11 @@ export default function TechProductionPage() {
   };
 
   const handleTpSave = async () => {
-    setTpSubmitted(true); setTpFileError("");
-    if(!tpForm.contractId||!tpForm.title.trim()) return;
+    setTpSubmitted(true); setTpFileError(""); setTpFormError("");
+    if(!tpForm.contractId) { setTpFormError("Shartnoma tanlanmagan. Iltimos, ro'yxatdan shartnomani tanlang va qayta urinib ko'ring."); return; }
+    if(!tpForm.title.trim()) { setTpFormError("Nomi kiritish shart."); return; }
     if(!finalFile) { setTpFileError("Texnologik jarayon faylini yuklang."); return; }
-    setTpSaving(true); setTpFormError("");
+    setTpSaving(true);
     try {
       const dto: TechProcessCreatePayload = { contractId:tpForm.contractId, title:tpForm.title.trim(), notes:tpForm.notes||null };
       const newId = await techProcessService.create(dto);
@@ -747,6 +772,7 @@ export default function TechProductionPage() {
       const fresh = await techProcessService.getById(newId);
       setTpList(prev=>[fresh,...prev]);
       setTpShowForm(false);
+      setSuccessMsg("Texnologik jarayon muvaffaqiyatli yaratildi!");
     } catch(e: unknown) {
       const msg=(e as {response?:{data?:{errors?:string[]}}})?.response?.data?.errors?.[0];
       setTpFormError(msg??"Saqlashda xatolik yuz berdi.");
@@ -779,16 +805,21 @@ export default function TechProductionPage() {
   }
 
   async function handleCnSave() {
-    setCnSubmitted(true);
-    if(cnParsedTables.length===0) return;
-    setCnSaving(true); setCnSaveError(null);
+    setCnSubmitted(true); setCnSaveError(null);
+    if(!cnForm.contractId) { setCnSaveError("Shartnoma tanlanmagan. Iltimos, ro'yxatdan shartnomani tanlang va qayta urinib ko'ring."); return; }
+    if(cnParsedTables.length===0) { setCnSaveError("Me'yoriy sarf jadvali faylini yuklang va qayta urinib ko'ring."); return; }
+    setCnSaving(true);
     try {
       const allRows=cnParsedTables.flatMap(t=>t.rows);
       const items=allRows.map((row,idx)=>({ isSection:row.isSection,sectionName:row.isSection?row.sectionName:null,no:row.no||null,name:row.name||null,unit:row.unit||null,readyQty:row.readyQty||null,wasteQty:row.wasteQty||null,totalQty:row.totalQty||null,photoRaw:row.photoRaw||null,photoSemi:row.photoSemi||null,importType:row.importType||null,sortOrder:idx }));
       const newId=await costNormService.create({contractId:cnForm.contractId,title:cnForm.title||cnFormFile?.name?.replace(/\.docx$/i,"")||"Me'yoriy sarf",notes:cnForm.notes||null,items});
       if(cnFormFile&&newId) await costNormService.uploadFile(newId,cnFormFile);
       await loadCn(); setCnMode("list");
-    } catch { setCnSaveError("Saqlashda xatolik yuz berdi"); }
+      setSuccessMsg("Me'yoriy sarf muvaffaqiyatli yaratildi!");
+    } catch(e: unknown) {
+      const msg=(e as {response?:{data?:{errors?:string[]}}})?.response?.data?.errors?.[0];
+      setCnSaveError(msg??"Saqlashda xatolik yuz berdi");
+    }
     finally { setCnSaving(false); }
   }
 
@@ -1264,7 +1295,7 @@ export default function TechProductionPage() {
   if (selectedItem) {
     const closeDetail = () => { setSelectedContractId(null); setTpInlineEditing(false); };
     const tpEffective = selectedItem.tp?.status !== ProcessStatus.Pending ? selectedItem.tp : null;
-    const cnEffective = selectedItem.cn?.status !== DrawingStatus.Draft ? selectedItem.cn : null;
+    const cnEffective = selectedItem.cn && selectedItem.cn.items.length > 0 ? selectedItem.cn : null;
     const tpDone = tpEffective && (tpEffective.status === ProcessStatus.Approved || tpEffective.status === ProcessStatus.Completed);
     const cnDone = cnEffective && cnEffective.status === DrawingStatus.Approved;
     const warehouseDone = tpEffective?.status === ProcessStatus.Completed;
@@ -1512,6 +1543,19 @@ export default function TechProductionPage() {
             </div>
           </div>
         )}
+        {/* ── Success Toast ── */}
+        {successMsg&&(
+          <div style={{ position:"fixed",bottom:28,right:28,zIndex:9999,background:"var(--bg2)",border:"1.5px solid #10b981",borderRadius:12,boxShadow:"0 8px 32px rgba(0,0,0,0.18)",padding:"14px 20px",display:"flex",alignItems:"center",gap:12,minWidth:260,maxWidth:360,animation:"slideInToast 0.25s ease" }}>
+            <div style={{ width:32,height:32,borderRadius:8,background:"#d1fae5",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:13,fontWeight:600,color:"var(--text1)",marginBottom:2 }}>Muvaffaqiyatli!</div>
+              <div style={{ fontSize:12,color:"var(--text2)" }}>{successMsg}</div>
+            </div>
+            <button onClick={()=>setSuccessMsg("")} style={{ background:"none",border:"none",cursor:"pointer",color:"var(--text3)",fontSize:16,padding:0,lineHeight:1,flexShrink:0 }}>✕</button>
+          </div>
+        )}
       </div>
     );
   }
@@ -1525,7 +1569,7 @@ export default function TechProductionPage() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input className="search-input" placeholder="Shartnoma raqami bo'yicha qidirish..." value={tpSearch} onChange={e=>setTpSearch(e.target.value)}/>
         </div>
-        <button className="btn-icon" onClick={()=>{ loadTp(); loadCn(); }} title="Yangilash" style={{ background:"var(--accent-dim)",borderColor:"var(--accent)",color:"var(--accent)",width:36,height:36 }}>
+        <button className="btn-icon" onClick={()=>{ loadTp(); loadCn(); loadContracts(); }} title="Yangilash" style={{ background:"var(--accent-dim)",borderColor:"var(--accent)",color:"var(--accent)",width:36,height:36 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
         </button>
       </div>
@@ -1552,9 +1596,12 @@ export default function TechProductionPage() {
                 {filteredItems.length===0?(
                   <tr><td colSpan={5} style={{ textAlign:"center",color:"var(--text2)",padding:32 }}>Ma&apos;lumot topilmadi</td></tr>
                 ):filteredItems.map((item,i)=>{
-                  const tpOk=item.tp&&(item.tp.status===ProcessStatus.Approved||item.tp.status===ProcessStatus.Completed);
-                  const cnOk=item.cn&&item.cn.status===DrawingStatus.Approved;
+                  const tpEffective=item.tp?.status!==ProcessStatus.Pending?item.tp:null;
+                  const cnEffective=item.cn&&item.cn.items.length>0?item.cn:null;
+                  const tpOk=tpEffective&&(tpEffective.status===ProcessStatus.Approved||tpEffective.status===ProcessStatus.Completed);
+                  const cnOk=cnEffective&&cnEffective.status===DrawingStatus.Approved;
                   const isSelected=selectedContractId===item.contractId;
+                  const nothingStarted=!tpEffective&&!cnEffective;
                   return (
                     <tr key={item.contractId}
                       onClick={()=>{ setSelectedContractId(item.contractId); setTpInlineEditing(false); }}
@@ -1562,14 +1609,16 @@ export default function TechProductionPage() {
                       <td style={{ textAlign:"center",borderRight:"2px solid var(--border)",padding:"0 8px",fontSize:13 }}>{String(i+1).padStart(2,"0")}</td>
                       <td style={{ textAlign:"center",fontWeight:700,color:"var(--accent)",fontFamily:"var(--font-inter,Inter,sans-serif)" }}>{item.contractNo}</td>
                       <td style={{ textAlign:"center" }}>
-                        {item.tp?<TpBadge status={item.tp.status}/>:<span style={{ fontSize:12,color:"var(--text3)",fontStyle:"italic" }}>Yaratilmagan</span>}
+                        {tpEffective?<TpBadge status={tpEffective.status}/>:<span style={{ fontSize:12,color:"var(--text3)",fontStyle:"italic" }}>Yaratilmagan</span>}
                       </td>
                       <td style={{ textAlign:"center" }}>
-                        {item.cn?<CnBadge status={item.cn.status}/>:<span style={{ fontSize:12,color:"var(--text3)",fontStyle:"italic" }}>Yaratilmagan</span>}
+                        {cnEffective?<CnBadge status={cnEffective.status}/>:<span style={{ fontSize:12,color:"var(--text3)",fontStyle:"italic" }}>Yaratilmagan</span>}
                       </td>
                       <td style={{ textAlign:"center" }}>
                         {tpOk&&cnOk?(
                           <span style={{ fontSize:11,fontWeight:600,color:"var(--purple)",background:"var(--purple-dim)",borderRadius:20,padding:"2px 10px",border:"1px solid rgba(109,74,173,0.2)",display:"inline-block" }}>Yakunlangan</span>
+                        ):nothingStarted?(
+                          <span style={{ fontSize:11,fontWeight:600,color:"var(--text3)",background:"var(--bg3)",borderRadius:20,padding:"2px 10px",border:"1px solid var(--border)",display:"inline-block",fontStyle:"italic" }}>Boshlanmagan</span>
                         ):(
                           <span style={{ fontSize:11,fontWeight:600,color:"var(--text2)",background:"var(--bg3)",borderRadius:20,padding:"2px 10px",border:"1px solid var(--border)",display:"inline-block" }}>Jarayonda</span>
                         )}
@@ -1601,6 +1650,30 @@ export default function TechProductionPage() {
         </div>
       )}
 
+      {/* ── Success Toast ── */}
+      {successMsg && (
+        <div style={{
+          position: "fixed", bottom: 28, right: 28, zIndex: 9999,
+          background: "var(--bg2)", border: "1.5px solid #10b981",
+          borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+          padding: "14px 20px", display: "flex", alignItems: "center", gap: 12,
+          minWidth: 260, maxWidth: 360,
+          animation: "slideInToast 0.25s ease",
+        }}>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: "#d1fae5", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)", marginBottom: 2 }}>Muvaffaqiyatli!</div>
+            <div style={{ fontSize: 12, color: "var(--text2)" }}>{successMsg}</div>
+          </div>
+          <button onClick={() => setSuccessMsg("")}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 16, padding: 0, lineHeight: 1, flexShrink: 0 }}>✕</button>
+        </div>
+      )}
+      <style>{`@keyframes slideInToast { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }`}</style>
     </div>
   );
 }
