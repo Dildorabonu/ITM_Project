@@ -575,7 +575,6 @@ export default function TechProductionPage() {
 
   // TP create form
   const [tpShowForm, setTpShowForm] = useState(false);
-  const [contracts, setContracts] = useState<ContractResponse[]>([]);
   const [tpForm, setTpForm] = useState({ contractId:"", title:"", notes:"" });
   const [tpSubmitted, setTpSubmitted] = useState(false);
   const [tpSaving, setTpSaving] = useState(false);
@@ -605,7 +604,6 @@ export default function TechProductionPage() {
   const [cnDetailFiles, setCnDetailFiles] = useState<AttachmentResponse[]>([]);
   const [cnDetailItems, setCnDetailItems] = useState<CostNormItemResponse[]>([]);
   const [cnForm, setCnForm] = useState({ contractId:"", title:"", notes:"" });
-  const [cnContractsLoading, setCnContractsLoading] = useState(false);
   const [cnSubmitted, setCnSubmitted] = useState(false);
   const [cnSaving, setCnSaving] = useState(false);
   const [cnCreateTab, setCnCreateTab] = useState<"form"|"table">("form");
@@ -632,7 +630,7 @@ export default function TechProductionPage() {
   const [selectedContractId, setSelectedContractId] = useState<string|null>(null);
   const [tpInlineEditing, setTpInlineEditing] = useState(false);
 
-  useDraft("draft_costnorm", cnMode==="create", cnForm, (d)=>{ setCnForm(d); setCnMode("create"); contractService.getAll().then(setContracts).catch(()=>{}); });
+  useDraft("draft_costnorm", cnMode==="create", cnForm, (d)=>{ setCnForm(d); setCnMode("create"); });
 
   // ── Contract readiness ─────────────────────────────────────────────────────
   const readinessItems = useMemo<ContractReadinessItem[]>(()=>{
@@ -778,13 +776,11 @@ export default function TechProductionPage() {
     setCnForm({contractId:prefilledContractId||"",title:"",notes:""}); setCnFormFile(null); setCnParsedTables([]); setCnParseError(null); setCnSaveError(null); setCnSubmitted(false); setCnActiveTab(0); setCnCreateTab("form");
     window.history.pushState({mode:"create"},"");
     setCnMode("create");
-    setCnContractsLoading(true);
-    try { const l=await contractService.getAll(); setContracts(l); } catch { setContracts([]); } finally { setCnContractsLoading(false); }
   }
 
   async function handleCnSave() {
     setCnSubmitted(true);
-    if(!cnForm.contractId||cnParsedTables.length===0) return;
+    if(cnParsedTables.length===0) return;
     setCnSaving(true); setCnSaveError(null);
     try {
       const allRows=cnParsedTables.flatMap(t=>t.rows);
@@ -867,8 +863,11 @@ export default function TechProductionPage() {
       <div style={{ display:"flex",flexDirection:"column",gap:24 }}>
         <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between" }}>
           <div style={{ display:"flex",alignItems:"center",gap:12 }}>
-            <button onClick={()=>setTpShowForm(false)} style={{ display:"inline-flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:"pointer",color:"var(--text3)",padding:"4px 0",fontSize:13,fontWeight:500 }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+            <button onClick={()=>setTpShowForm(false)}
+              style={{ display:"inline-flex",alignItems:"center",gap:6,background:"var(--bg3)",border:"1.5px solid var(--border)",borderRadius:"var(--radius)",cursor:"pointer",padding:"7px 14px",color:"var(--text2)",fontSize:13,fontWeight:500 }}
+              onMouseEnter={e=>{ e.currentTarget.style.borderColor="var(--accent)"; e.currentTarget.style.color="var(--accent)"; }}
+              onMouseLeave={e=>{ e.currentTarget.style.borderColor="var(--border)"; e.currentTarget.style.color="var(--text2)"; }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
               Orqaga
             </button>
             <span style={{ color:"var(--border)" }}>|</span>
@@ -882,9 +881,9 @@ export default function TechProductionPage() {
           <div style={{ display:"flex",flexDirection:"column",gap:20 }}>
             {/* Sarlavha — full width */}
             <div>
-              <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:tpSubmitted&&!tpForm.title.trim()?"var(--danger)":"var(--text2)" }}>Sarlavha <span style={{ color:"var(--danger)" }}>*</span></label>
-              <input className="form-input" value={tpForm.title} onChange={e=>setTpForm(f=>({...f,title:e.target.value}))} placeholder="Sarlavha kiriting" style={tpSubmitted&&!tpForm.title.trim()?{borderColor:"var(--danger)"}:undefined}/>
-              {tpSubmitted&&!tpForm.title.trim()&&<div style={{ color:"var(--danger)",fontSize:12,marginTop:4 }}>Sarlavha kiritish shart</div>}
+              <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:tpSubmitted&&!tpForm.title.trim()?"var(--danger)":"var(--text2)" }}>Nomi <span style={{ color:"var(--danger)" }}>*</span></label>
+              <input className="form-input" value={tpForm.title} onChange={e=>setTpForm(f=>({...f,title:e.target.value}))} placeholder="Nomi kiriting" style={tpSubmitted&&!tpForm.title.trim()?{borderColor:"var(--danger)"}:undefined}/>
+              {tpSubmitted&&!tpForm.title.trim()&&<div style={{ color:"var(--danger)",fontSize:12,marginTop:4 }}>Nomi kiritish shart</div>}
             </div>
             {/* Izoh + Fayl — two columns */}
             <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:20,alignItems:"stretch" }}>
@@ -944,7 +943,17 @@ export default function TechProductionPage() {
         )}
         {/* Header */}
         <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexShrink:0 }}>
-          <span style={{ fontWeight:700,fontSize:18,color:"var(--text1)" }}>Yangi me&apos;yoriy sarf</span>
+          <div style={{ display:"flex",alignItems:"center",gap:12 }}>
+            <button onClick={()=>setCnMode("list")}
+              style={{ display:"inline-flex",alignItems:"center",gap:6,background:"var(--bg3)",border:"1.5px solid var(--border)",borderRadius:"var(--radius)",cursor:"pointer",padding:"7px 14px",color:"var(--text2)",fontSize:13,fontWeight:500 }}
+              onMouseEnter={e=>{ e.currentTarget.style.borderColor="var(--accent)"; e.currentTarget.style.color="var(--accent)"; }}
+              onMouseLeave={e=>{ e.currentTarget.style.borderColor="var(--border)"; e.currentTarget.style.color="var(--text2)"; }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+              Orqaga
+            </button>
+            <span style={{ color:"var(--border)" }}>|</span>
+            <span style={{ fontWeight:700,fontSize:18,color:"var(--text1)" }}>Yangi me&apos;yoriy sarf</span>
+          </div>
           <button onClick={()=>setCnMode("list")} style={{ background:"none",border:"none",cursor:"pointer",color:"var(--text3)",padding:6,borderRadius:6,display:"flex",alignItems:"center" }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
@@ -973,52 +982,49 @@ export default function TechProductionPage() {
         {cnCreateTab==="form"&&(
           <div className="itm-card" style={{ padding:28,flexShrink:0 }}>
             {cnSaveError&&<div style={{ padding:"10px 14px",borderRadius:8,background:"var(--danger-dim)",border:"1px solid var(--danger)44",color:"var(--danger)",fontSize:13,marginBottom:16 }}>{cnSaveError}</div>}
-            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:20 }}>
+            <div style={{ display:"flex",flexDirection:"column",gap:20 }}>
+              {/* Nomi — full width */}
               <div>
-                <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:cnSubmitted&&!cnForm.contractId?"var(--danger)":"var(--text2)" }}>Shartnoma <span style={{ color:"var(--danger)" }}>*</span></label>
-                <select className="form-input" value={cnForm.contractId} onChange={e=>setCnForm(f=>({...f,contractId:e.target.value}))} style={{ width:"100%",cursor:"pointer",...(cnSubmitted&&!cnForm.contractId?{borderColor:"var(--danger)"}:{}) }}>
-                  <option value="">{cnContractsLoading?"Yuklanmoqda...":"— Shartnomani tanlang —"}</option>
-                  {contracts.map(c=><option key={c.id} value={c.id}>{c.contractNo}</option>)}
-                </select>
-                {cnSubmitted&&!cnForm.contractId&&<div style={{ color:"var(--danger)",fontSize:12,marginTop:4 }}>Shartnoma tanlash shart</div>}
-              </div>
-              <div>
-                <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:"var(--text2)" }}>Sarlavha</label>
+                <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:"var(--text2)" }}>Nomi</label>
                 <input className="form-input" value={cnForm.title} onChange={e=>setCnForm(f=>({...f,title:e.target.value}))} placeholder="Avtomatik to'ldiriladi"/>
               </div>
-              <div>
-                <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:"var(--text2)" }}>Izoh</label>
-                <textarea className="form-input" value={cnForm.notes} onChange={e=>setCnForm(f=>({...f,notes:e.target.value}))} rows={3} style={{ resize:"none" }}/>
-              </div>
-              <div>
-                <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:cnSubmitted&&cnParsedTables.length===0?"var(--danger)":"var(--text2)" }}>
-                  DOCX fayl <span style={{ color:"var(--danger)" }}>*</span>
-                  <span style={{ fontWeight:400,color:"var(--text3)",marginLeft:6 }}>(me'yoriy sarf jadvali)</span>
-                </label>
-                <input ref={cnFormFileRef} type="file" accept=".docx" style={{ display:"none" }} onChange={handleCnFormFileChange}/>
-                {cnFormFile?(
-                  <div style={{ display:"flex",alignItems:"center",gap:8,padding:"10px 14px",borderRadius:"var(--radius)",border:"1.5px solid var(--success)",background:"var(--success-dim)" }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                    <span style={{ fontSize:13,color:"var(--text1)",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{cnFormFile.name}</span>
-                    <span style={{ fontSize:12,color:"var(--text3)" }}>{(cnFormFile.size/1024).toFixed(0)} KB</span>
-                    <button onClick={()=>{ setCnFormFile(null); setCnParsedTables([]); setCnCreateTab("form"); if(cnFormFileRef.current) cnFormFileRef.current.value=""; }} style={{ background:"none",border:"none",cursor:"pointer",padding:2,color:"var(--text3)",display:"flex" }}><X size={14}/></button>
-                  </div>
-                ):(
-                  <button onClick={()=>cnFormFileRef.current?.click()}
-                    style={{ width:"100%",padding:"22px 0",borderRadius:"var(--radius)",border:`1.5px dashed ${cnSubmitted&&cnParsedTables.length===0?"var(--danger)":"var(--border)"}`,background:"var(--bg2)",cursor:"pointer",color:cnSubmitted&&cnParsedTables.length===0?"var(--danger)":"var(--text2)",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",gap:8 }}
-                    onMouseEnter={e=>{ e.currentTarget.style.borderColor="var(--accent)"; e.currentTarget.style.color="var(--accent)"; }}
-                    onMouseLeave={e=>{ e.currentTarget.style.borderColor=cnSubmitted&&cnParsedTables.length===0?"var(--danger)":"var(--border)"; e.currentTarget.style.color=cnSubmitted&&cnParsedTables.length===0?"var(--danger)":"var(--text2)"; }}>
-                    <Upload size={15}/> Fayl tanlang yoki bu yerga tashlang
-                  </button>
-                )}
-                {cnSubmitted&&cnParsedTables.length===0&&!cnParseLoading&&<div style={{ color:"var(--danger)",fontSize:12,marginTop:4 }}>Fayl yuklash shart</div>}
-                {cnParseError&&<div style={{ color:"var(--danger)",fontSize:12,marginTop:6 }}>{cnParseError}</div>}
-                {cnParsedTables.length>0&&(
-                  <div style={{ marginTop:8,display:"flex",alignItems:"center",gap:8 }}>
-                    <span style={{ fontSize:12,color:"var(--text2)" }}>{cnDataCount} ta yozuv topildi</span>
-                    <button onClick={()=>setCnCreateTab("table")} style={{ fontSize:12,color:"var(--accent,#1a56db)",background:"none",border:"none",cursor:"pointer",padding:0,textDecoration:"underline" }}>Jadvalga o'tish →</button>
-                  </div>
-                )}
+              {/* Izoh + Fayl — two columns */}
+              <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:20,alignItems:"stretch" }}>
+                <div style={{ display:"flex",flexDirection:"column" }}>
+                  <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:"var(--text2)" }}>Izoh</label>
+                  <textarea className="form-input" value={cnForm.notes} onChange={e=>setCnForm(f=>({...f,notes:e.target.value}))} placeholder="Qo'shimcha izoh (ixtiyoriy)" style={{ resize:"none",flex:1,minHeight:130 }}/>
+                </div>
+                <div style={{ display:"flex",flexDirection:"column" }}>
+                  <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:cnSubmitted&&cnParsedTables.length===0?"var(--danger)":"var(--text2)" }}>
+                    DOCX fayl <span style={{ color:"var(--danger)" }}>*</span>
+                    <span style={{ fontWeight:400,color:"var(--text3)",marginLeft:6 }}>(me&apos;yoriy sarf jadvali)</span>
+                  </label>
+                  <label htmlFor="cn-file-docx" style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,cursor:"pointer",border:`2px dashed ${cnSubmitted&&cnParsedTables.length===0?"var(--danger)":"var(--border)"}`,borderRadius:10,padding:"20px 16px",background:"var(--bg1)",transition:"border-color 0.15s",textAlign:"center",minHeight:130 }}
+                    onMouseEnter={e=>e.currentTarget.style.borderColor="var(--accent)"} onMouseLeave={e=>e.currentTarget.style.borderColor=cnSubmitted&&cnParsedTables.length===0?"var(--danger)":"var(--border)"}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.6"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    {cnFormFile?(
+                      <>
+                        <span style={{ fontSize:13,fontWeight:600,color:"var(--accent)" }}>{cnFormFile.name}</span>
+                        <span style={{ fontSize:11,color:"var(--text3)" }}>{(cnFormFile.size/1024).toFixed(0)} KB — o&apos;zgartirish uchun bosing</span>
+                        <button onClick={e=>{ e.preventDefault(); setCnFormFile(null); setCnParsedTables([]); setCnCreateTab("form"); if(cnFormFileRef.current) cnFormFileRef.current.value=""; }} style={{ background:"none",border:"none",cursor:"pointer",padding:"2px 8px",color:"var(--text3)",fontSize:11,textDecoration:"underline" }}>Olib tashlash</button>
+                      </>
+                    ):(
+                      <>
+                        <span style={{ fontSize:13,fontWeight:600,color:"var(--accent)" }}>Fayl tanlash</span>
+                        <span style={{ fontSize:11,color:"var(--text3)" }}>Faylni tanlash uchun bosing</span>
+                      </>
+                    )}
+                    <input id="cn-file-docx" ref={cnFormFileRef} type="file" accept=".docx" style={{ display:"none" }} onChange={handleCnFormFileChange}/>
+                  </label>
+                  {cnSubmitted&&cnParsedTables.length===0&&!cnParseLoading&&<div style={{ color:"var(--danger)",fontSize:12,marginTop:4 }}>Fayl yuklash shart</div>}
+                  {cnParseError&&<div style={{ color:"var(--danger)",fontSize:12,marginTop:6 }}>{cnParseError}</div>}
+                  {cnParsedTables.length>0&&(
+                    <div style={{ marginTop:8,display:"flex",alignItems:"center",gap:8 }}>
+                      <span style={{ fontSize:12,color:"var(--text2)" }}>{cnDataCount} ta yozuv topildi</span>
+                      <button onClick={()=>setCnCreateTab("table")} style={{ fontSize:12,color:"var(--accent,#1a56db)",background:"none",border:"none",cursor:"pointer",padding:0,textDecoration:"underline" }}>Jadvalga o&apos;tish →</button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1059,8 +1065,11 @@ export default function TechProductionPage() {
     return (
       <div style={{ display:"flex",flexDirection:"column",flex:1,minHeight:0 }}>
         <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexShrink:0,flexWrap:"wrap",gap:8 }}>
-          <button onClick={()=>{ setTpMode("list"); setTpSelected(null); }} style={{ display:"inline-flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:"pointer",color:"var(--text2)",fontSize:13,padding:"6px 10px",borderRadius:6,fontWeight:500 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+          <button onClick={()=>{ setTpMode("list"); setTpSelected(null); }}
+            style={{ display:"inline-flex",alignItems:"center",gap:6,background:"var(--bg3)",border:"1.5px solid var(--border)",borderRadius:"var(--radius)",cursor:"pointer",padding:"7px 14px",color:"var(--text2)",fontSize:13,fontWeight:500 }}
+            onMouseEnter={e=>{ e.currentTarget.style.borderColor="var(--accent)"; e.currentTarget.style.color="var(--accent)"; }}
+            onMouseLeave={e=>{ e.currentTarget.style.borderColor="var(--border)"; e.currentTarget.style.color="var(--text2)"; }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
             Orqaga
           </button>
           <div style={{ display:"flex",gap:8,flexWrap:"wrap" }}>
@@ -1084,7 +1093,7 @@ export default function TechProductionPage() {
             <div style={{ fontWeight:700,fontSize:15,color:"var(--accent)" }}>{tpSelected.contractNo}</div>
           </div>
           <div style={{ flex:2,minWidth:0 }}>
-            <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Sarlavha</div>
+            <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Nomi</div>
             <div style={{ fontWeight:600,fontSize:14,color:"var(--text1)" }}>{tpSelected.title}</div>
           </div>
           <div>
@@ -1115,8 +1124,11 @@ export default function TechProductionPage() {
     return (
       <div style={{ display:"flex",flexDirection:"column",flex:1,minHeight:0 }}>
         <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexShrink:0,flexWrap:"wrap",gap:8 }}>
-          <button onClick={()=>{ setCnMode("list"); setCnSelected(null); }} style={{ display:"inline-flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:"pointer",color:"var(--text2)",fontSize:13,padding:"6px 10px",borderRadius:6,fontWeight:500 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+          <button onClick={()=>{ setCnMode("list"); setCnSelected(null); }}
+            style={{ display:"inline-flex",alignItems:"center",gap:6,background:"var(--bg3)",border:"1.5px solid var(--border)",borderRadius:"var(--radius)",cursor:"pointer",padding:"7px 14px",color:"var(--text2)",fontSize:13,fontWeight:500 }}
+            onMouseEnter={e=>{ e.currentTarget.style.borderColor="var(--accent)"; e.currentTarget.style.color="var(--accent)"; }}
+            onMouseLeave={e=>{ e.currentTarget.style.borderColor="var(--border)"; e.currentTarget.style.color="var(--text2)"; }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
             Orqaga
           </button>
           <div style={{ display:"flex",gap:8,flexWrap:"wrap" }}>
@@ -1140,7 +1152,7 @@ export default function TechProductionPage() {
             <div style={{ fontWeight:700,fontSize:15,color:"var(--accent)" }}>{cnSelected.contractNo}</div>
           </div>
           <div style={{ flex:2,minWidth:0 }}>
-            <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Sarlavha</div>
+            <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Nomi</div>
             <div style={{ fontWeight:600,fontSize:14,color:"var(--text1)" }}>{cnSelected.title}</div>
           </div>
           <div>
@@ -1185,9 +1197,12 @@ export default function TechProductionPage() {
           }}/>
         )}
         <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexShrink:0,flexWrap:"wrap",gap:8 }}>
-          <button onClick={()=>{ setCnMode("list"); setCnEditingNorm(null); }} style={{ display:"inline-flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:"pointer",color:"var(--text2)",fontSize:13,padding:"6px 10px",borderRadius:6,fontWeight:500 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
-            Bekor qilish
+          <button onClick={()=>{ setCnMode("list"); setCnEditingNorm(null); }}
+            style={{ display:"inline-flex",alignItems:"center",gap:6,background:"var(--bg3)",border:"1.5px solid var(--border)",borderRadius:"var(--radius)",cursor:"pointer",padding:"7px 14px",color:"var(--text2)",fontSize:13,fontWeight:500 }}
+            onMouseEnter={e=>{ e.currentTarget.style.borderColor="var(--accent)"; e.currentTarget.style.color="var(--accent)"; }}
+            onMouseLeave={e=>{ e.currentTarget.style.borderColor="var(--border)"; e.currentTarget.style.color="var(--text2)"; }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+            Orqaga
           </button>
           <button onClick={handleCnEditSave} disabled={cnEditSaving}
             style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"7px 20px",borderRadius:"var(--radius)",border:"none",background:"var(--accent,#1a56db)",color:"#fff",fontSize:13,fontWeight:600,cursor:"pointer",opacity:cnEditSaving?0.7:1 }}>
@@ -1199,7 +1214,7 @@ export default function TechProductionPage() {
           {cnEditSaveError&&<div style={{ padding:"10px 14px",borderRadius:8,background:"var(--danger-dim)",border:"1px solid var(--danger)44",color:"var(--danger)",fontSize:13,marginBottom:16 }}>{cnEditSaveError}</div>}
           <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16 }}>
             <div>
-              <label style={{ fontSize:12,fontWeight:600,display:"block",marginBottom:5,color:"var(--text2)" }}>Sarlavha</label>
+              <label style={{ fontSize:12,fontWeight:600,display:"block",marginBottom:5,color:"var(--text2)" }}>Nomi</label>
               <input className="form-input" value={cnEditForm.title} onChange={e=>setCnEditForm(f=>({...f,title:e.target.value}))}/>
             </div>
             <div>
@@ -1263,7 +1278,6 @@ export default function TechProductionPage() {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
             Orqaga
           </button>
-          <span style={{ fontWeight:700,fontSize:18,color:"var(--text1)" }}>Shartnoma {selectedItem.contractNo}</span>
         </div>
 
         {/* ── Workflow pipeline ── */}
@@ -1366,7 +1380,7 @@ export default function TechProductionPage() {
               ):tpInlineEditing?(
                 <div style={{ display:"flex",flexDirection:"column",gap:10 }}>
                   <div>
-                    <label style={{ fontSize:12,fontWeight:600,display:"block",marginBottom:4,color:"var(--text2)" }}>Sarlavha</label>
+                    <label style={{ fontSize:12,fontWeight:600,display:"block",marginBottom:4,color:"var(--text2)" }}>Nomi</label>
                     <input className="form-input" value={tpEditForm.title} onChange={e=>setTpEditForm(f=>({...f,title:e.target.value}))}/>
                   </div>
                   <div>
@@ -1385,7 +1399,7 @@ export default function TechProductionPage() {
               ):(
                 <div style={{ display:"flex",flexWrap:"wrap",gap:16 }}>
                   <div style={{ flex:"1 1 auto",minWidth:0 }}>
-                    <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Sarlavha</div>
+                    <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Nomi</div>
                     <div style={{ fontSize:13,fontWeight:600,color:"var(--text1)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }} title={tpEffective.title}>{tpEffective.title}</div>
                   </div>
                   <div>
@@ -1453,22 +1467,22 @@ export default function TechProductionPage() {
               ):(
                 <div style={{ display:"flex",flexWrap:"wrap",gap:16 }}>
                   <div style={{ flex:"1 1 auto",minWidth:0 }}>
-                    <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Sarlavha</div>
-                    <div style={{ fontSize:13,fontWeight:600,color:"var(--text1)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }} title={selectedItem.cn.title}>{selectedItem.cn.title}</div>
+                    <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Nomi</div>
+                    <div style={{ fontSize:13,fontWeight:600,color:"var(--text1)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }} title={cnEffective!.title}>{cnEffective!.title}</div>
                   </div>
                   <div>
                     <div style={{ fontSize:11,color:"var(--text3)",marginBottom:4 }}>Holat</div>
-                    <CnBadge status={selectedItem.cn.status}/>
+                    <CnBadge status={cnEffective!.status}/>
                   </div>
                   <div>
                     <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Materiallar</div>
                     <span style={{ fontSize:12,fontWeight:600,color:"var(--text2)",background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:20,padding:"2px 8px",display:"inline-block" }}>
-                      {selectedItem.cn.items.filter(r=>!r.isSection).length} та
+                      {cnEffective!.items.filter(r=>!r.isSection).length} та
                     </span>
                   </div>
                   <div>
                     <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Sana</div>
-                    <div style={{ fontSize:13,color:"var(--text2)",whiteSpace:"nowrap" }}>{fmt(selectedItem.cn.createdAt)}</div>
+                    <div style={{ fontSize:13,color:"var(--text2)",whiteSpace:"nowrap" }}>{fmt(cnEffective!.createdAt)}</div>
                   </div>
                 </div>
               )}
@@ -1509,10 +1523,6 @@ export default function TechProductionPage() {
         </div>
         <button className="btn-icon" onClick={()=>{ loadTp(); loadCn(); }} title="Yangilash" style={{ background:"var(--accent-dim)",borderColor:"var(--accent)",color:"var(--accent)",width:36,height:36 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-        </button>
-        <button onClick={()=>openCnCreate()} style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"8px 16px",fontSize:13,fontWeight:600,borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer" }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Yangi me&apos;yor
         </button>
       </div>
 
@@ -1557,7 +1567,7 @@ export default function TechProductionPage() {
                         {tpOk&&cnOk?(
                           <span style={{ fontSize:11,fontWeight:600,color:"var(--purple)",background:"var(--purple-dim)",borderRadius:20,padding:"2px 10px",border:"1px solid rgba(109,74,173,0.2)",display:"inline-block" }}>Yakunlangan</span>
                         ):(
-                          <span style={{ fontSize:11,color:"var(--text3)" }}>Jarayonda</span>
+                          <span style={{ fontSize:11,fontWeight:600,color:"var(--text2)",background:"var(--bg3)",borderRadius:20,padding:"2px 10px",border:"1px solid var(--border)",display:"inline-block" }}>Jarayonda</span>
                         )}
                       </td>
                     </tr>
