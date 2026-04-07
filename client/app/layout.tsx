@@ -7,6 +7,7 @@ import { Roboto_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { useAuthStore } from "@/lib/store/authStore";
 import { api } from "@/lib/api";
+import ToastContainer from "@/app/_components/ToastContainer";
 
 const robotoMono = Roboto_Mono({
   variable: "--font-mono",
@@ -868,6 +869,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         </div>
       </div>)}
+      <ToastContainer />
       </body>
     </html>
   );
