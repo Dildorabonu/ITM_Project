@@ -132,7 +132,7 @@ function parseMainTables(html: string): { tables: ParsedTable[]; error: string|n
 
 const TP_STATUS_STYLE: Record<ProcessStatus,{bg:string;color:string;border:string}> = {
   [ProcessStatus.Pending]:    { bg:"var(--bg3)",        color:"var(--text2)",  border:"var(--border)" },
-  [ProcessStatus.InProgress]: { bg:"#e8f0fe",           color:"#1a56db",       border:"#a4c0f4" },
+  [ProcessStatus.InProgress]: { bg:"var(--accent-dim)",  color:"var(--accent)", border:"rgba(26,110,235,0.25)" },
   [ProcessStatus.Approved]:   { bg:"var(--success-dim)",color:"var(--success)",border:"rgba(15,123,69,0.2)" },
   [ProcessStatus.Rejected]:   { bg:"var(--danger-dim)", color:"var(--danger)", border:"var(--danger)" },
   [ProcessStatus.Completed]:  { bg:"var(--purple-dim)", color:"var(--purple)", border:"rgba(109,74,173,0.2)" },
@@ -149,7 +149,7 @@ function TpBadge({ status }: { status: ProcessStatus }) {
 
 const CN_STATUS_STYLE: Record<DrawingStatus,{bg:string;color:string;border:string}> = {
   [DrawingStatus.Draft]:      { bg:"var(--bg3)",         color:"var(--text2)",  border:"var(--border)" },
-  [DrawingStatus.InProgress]: { bg:"#e8f0fe",            color:"#1a56db",       border:"#a4c0f4" },
+  [DrawingStatus.InProgress]: { bg:"var(--accent-dim)",  color:"var(--accent)", border:"rgba(26,110,235,0.25)" },
   [DrawingStatus.Approved]:   { bg:"var(--success-dim)", color:"var(--success)",border:"rgba(15,123,69,0.2)" },
 };
 
@@ -574,6 +574,8 @@ export default function TechProductionPage() {
   const [tpSelected, setTpSelected] = useState<TechProcessResponse | null>(null);
   const [tpEditForm, setTpEditForm] = useState({ title:"", notes:"" });
   const [tpEditSaving, setTpEditSaving] = useState(false);
+  const [tpEditNewFile, setTpEditNewFile] = useState<File|null>(null);
+  const tpEditFileRef = useRef<HTMLInputElement>(null);
 
   // TP create form
   const [tpShowForm, setTpShowForm] = useState(false);
@@ -713,6 +715,7 @@ export default function TechProductionPage() {
 
   const openTpEdit = (tp: TechProcessResponse) => {
     setTpEditForm({ title: tp.title, notes: tp.notes||"" });
+    setTpEditNewFile(null);
     setTpMode("edit");
   };
 
@@ -721,6 +724,7 @@ export default function TechProductionPage() {
     setTpEditSaving(true);
     try {
       await techProcessService.update(tpSelected.id, { title: tpEditForm.title, notes: tpEditForm.notes||null });
+      if(tpEditNewFile) await techProcessService.uploadFile(tpSelected.id, tpEditNewFile);
       await tpRefreshSelected(tpSelected.id);
       await loadTp();
     } catch(e: unknown) {
@@ -871,10 +875,6 @@ export default function TechProductionPage() {
     finally { setCnEditSaving(false); }
   }
 
-  async function handleCnDelete(id: string) {
-    if(!confirm("Bu yozuvni o'chirmoqchimisiz?")) return;
-    await costNormService.delete(id); await loadCn();
-  }
 
   // ── CN computed ────────────────────────────────────────────────────────────
 
@@ -1102,20 +1102,6 @@ export default function TechProductionPage() {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
             Orqaga
           </button>
-          <div style={{ display:"flex",gap:8,flexWrap:"wrap" }}>
-            {tpSelected.status===ProcessStatus.Pending&&(
-              <button onClick={async()=>{ await techProcessService.approve(tpSelected.id); const fresh=await techProcessService.getById(tpSelected.id); setTpSelected(fresh); setTpList(prev=>prev.map(t=>t.id===tpSelected.id?fresh:t)); }}
-                style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"7px 16px",borderRadius:"var(--radius)",border:"1.5px solid var(--success)",background:"var(--success-dim)",color:"var(--success)",fontSize:13,fontWeight:600,cursor:"pointer" }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                Tasdiqlash
-              </button>
-            )}
-            <button onClick={()=>{ setTpEditForm({title:tpSelected.title,notes:tpSelected.notes||""}); setTpMode("edit"); }}
-              style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"7px 16px",borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",fontSize:13,fontWeight:600,cursor:"pointer" }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-              Tahrirlash
-            </button>
-          </div>
         </div>
         <div className="itm-card" style={{ padding:"14px 20px",display:"flex",alignItems:"center",gap:16,flexShrink:0,flexWrap:"wrap" }}>
           <div style={{ flex:1,minWidth:0 }}>
@@ -1161,20 +1147,6 @@ export default function TechProductionPage() {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
             Orqaga
           </button>
-          <div style={{ display:"flex",gap:8,flexWrap:"wrap" }}>
-            {cnSelected.status===DrawingStatus.InProgress&&(
-              <button onClick={()=>handleCnApprove(cnSelected.id)} disabled={cnApprovingId===cnSelected.id}
-                style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"7px 16px",borderRadius:"var(--radius)",border:"1.5px solid var(--success)",background:"var(--success-dim)",color:"var(--success)",fontSize:13,fontWeight:600,cursor:"pointer",opacity:cnApprovingId===cnSelected.id?0.7:1 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                {cnApprovingId===cnSelected.id?"Tasdiqlanmoqda...":"Tasdiqlash"}
-              </button>
-            )}
-            <button onClick={()=>openCnEdit(cnSelected)}
-              style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"7px 16px",borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",fontSize:13,fontWeight:600,cursor:"pointer" }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-              Tahrirlash
-            </button>
-          </div>
         </div>
         <div className="itm-card" style={{ padding:"14px 20px",marginBottom:16,display:"flex",alignItems:"center",gap:16,flexShrink:0,flexWrap:"wrap" }}>
           <div style={{ flex:1,minWidth:0 }}>
@@ -1254,12 +1226,14 @@ export default function TechProductionPage() {
             <div>
               <label style={{ fontSize:12,fontWeight:600,display:"block",marginBottom:5,color:"var(--text2)" }}>Fayl almashtirish (ixtiyoriy)</label>
               <input ref={cnEditFileRef} type="file" accept=".docx" style={{ display:"none" }} onChange={handleEditCnFileChange}/>
-              <div style={{ display:"flex",alignItems:"center",gap:8 }}>
-                <button onClick={()=>cnEditFileRef.current?.click()} style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"7px 12px",borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",fontSize:12,cursor:"pointer" }}>
+              <div style={{ display:"inline-flex",alignItems:"center",gap:8,background:"var(--bg3)",border:"1.5px solid var(--border)",borderRadius:"var(--radius)",padding:"0 10px",height:40,boxSizing:"border-box" }}>
+                <button onClick={()=>cnEditFileRef.current?.click()} style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"4px 10px",borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"transparent",color:"var(--text2)",fontSize:12,cursor:"pointer",transition:"border-color 0.14s,color 0.14s",flexShrink:0 }}
+                  onMouseEnter={e=>{e.currentTarget.style.borderColor="var(--accent)";e.currentTarget.style.color="var(--accent)";}}
+                  onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--border)";e.currentTarget.style.color="var(--text2)";}}>
                   <Upload size={13}/> Fayl tanlash
                 </button>
-                {cnEditNewFile&&<span style={{ fontSize:11,color:"var(--text2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:150 }}>{cnEditNewFile.name}</span>}
-                {!cnEditNewFile&&cnEditFiles.length>0&&<span style={{ fontSize:11,color:"var(--text3)" }}>{cnEditFiles.length} ta fayl</span>}
+                {cnEditNewFile&&<span style={{ fontSize:11,color:"var(--text2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1 }}>{cnEditNewFile.name}</span>}
+                {!cnEditNewFile&&cnEditFiles.length>0&&<span style={{ fontSize:11,color:"var(--text3)",flex:1 }}>{cnEditFiles.length} ta fayl</span>}
               </div>
             </div>
           </div>
@@ -1385,14 +1359,10 @@ export default function TechProductionPage() {
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                     Ko&apos;rish
                   </button>
-                  <button onClick={()=>{ setTpSelected(tpEffective); setTpEditForm({title:tpEffective.title,notes:tpEffective.notes||""}); setTpInlineEditing(true); }}
+                  <button onClick={()=>{ setTpSelected(tpEffective); setTpEditForm({title:tpEffective.title,notes:tpEffective.notes||""}); setTpEditNewFile(null); setTpInlineEditing(true); }}
                     style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--text2)",cursor:"pointer" }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     Tahrirlash
-                  </button>
-                  <button onClick={()=>setTpDeleteId(tpEffective.id)}
-                    style={{ display:"inline-flex",alignItems:"center",padding:"4px 8px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--danger-dim)",border:"1px solid var(--danger)44",color:"var(--danger)",cursor:"pointer" }}>
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
                   </button>
                 </div>
               )}
@@ -1419,9 +1389,32 @@ export default function TechProductionPage() {
                     <label style={{ fontSize:12,fontWeight:600,display:"block",marginBottom:4,color:"var(--text2)" }}>Izoh</label>
                     <textarea className="form-input" value={tpEditForm.notes} onChange={e=>setTpEditForm(f=>({...f,notes:e.target.value}))} rows={3} style={{ resize:"none" }}/>
                   </div>
+                  <div>
+                    <label style={{ fontSize:12,fontWeight:600,display:"block",marginBottom:4,color:"var(--text2)" }}>Fayl (yangilash uchun)</label>
+                    <input ref={tpEditFileRef} type="file" style={{ display:"none" }} onChange={e=>{ const f=e.target.files?.[0]; if(f) setTpEditNewFile(f); }}/>
+                    <div style={{ display:"flex",alignItems:"center",gap:8 }}>
+                      <button type="button" onClick={()=>tpEditFileRef.current?.click()}
+                        style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"5px 12px",borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",fontSize:12,cursor:"pointer",transition:"border-color 0.14s,color 0.14s" }}
+                        onMouseEnter={e=>{e.currentTarget.style.borderColor="var(--accent)";e.currentTarget.style.color="var(--accent)";}}
+                        onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--border)";e.currentTarget.style.color="var(--text2)";}}>
+                        <Upload size={12}/> Fayl tanlash
+                      </button>
+                      {tpEditNewFile&&(
+                        <span style={{ fontSize:12,color:"var(--text1)",display:"inline-flex",alignItems:"center",gap:4 }}>
+                          {tpEditNewFile.name}
+                          <button type="button" onClick={()=>{ setTpEditNewFile(null); if(tpEditFileRef.current) tpEditFileRef.current.value=""; }}
+                            style={{ background:"none",border:"none",cursor:"pointer",color:"var(--text3)",display:"inline-flex",padding:0 }}>
+                            <X size={12}/>
+                          </button>
+                        </span>
+                      )}
+                    </div>
+                  </div>
                   <div style={{ display:"flex",gap:8,justifyContent:"flex-end" }}>
                     <button onClick={()=>setTpInlineEditing(false)}
-                      style={{ padding:"6px 14px",borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",fontSize:12,cursor:"pointer" }}>Bekor</button>
+                      onMouseEnter={e=>{ e.currentTarget.style.borderColor="var(--accent)"; e.currentTarget.style.color="var(--accent)"; }}
+                      onMouseLeave={e=>{ e.currentTarget.style.borderColor="var(--border)"; e.currentTarget.style.color="var(--text2)"; }}
+                      style={{ padding:"6px 14px",borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",fontSize:12,cursor:"pointer" }}>Bekor qilish</button>
                     <button onClick={async()=>{ await handleTpEditSave(); setTpInlineEditing(false); }} disabled={tpEditSaving}
                       style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"6px 16px",borderRadius:"var(--radius)",border:"none",background:"var(--accent)",color:"#fff",fontSize:12,fontWeight:600,cursor:"pointer",opacity:tpEditSaving?0.7:1 }}>
                       {tpEditSaving?"Saqlanmoqda...":"Saqlash"}
@@ -1478,10 +1471,6 @@ export default function TechProductionPage() {
                     style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--text2)",cursor:"pointer" }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     Tahrirlash
-                  </button>
-                  <button onClick={()=>handleCnDelete(cnEffective.id)}
-                    style={{ display:"inline-flex",alignItems:"center",padding:"4px 8px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--danger-dim)",border:"1px solid var(--danger)44",color:"var(--danger)",cursor:"pointer" }}>
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
                   </button>
                 </div>
               )}
