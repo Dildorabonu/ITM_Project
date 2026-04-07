@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useDraft } from "@/lib/useDraft";
+import { useToastStore } from "@/lib/store/toastStore";
 import { Upload, X, Image as ImageIcon, ImageOff, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import {
   techProcessService,
@@ -592,7 +593,7 @@ export default function TechProductionPage() {
   const [tpDeleting, setTpDeleting] = useState(false);
 
   // ── Toast ──────────────────────────────────────────────────────────────────
-  const [successMsg, setSuccessMsg] = useState("");
+  const showToast = useToastStore((s) => s.show);
 
   useDraft("draft_techprocess", tpShowForm, tpForm, (d)=>{ if(d.contractId) { setTpForm(d); setTpShowForm(true); } else { sessionStorage.removeItem("draft_techprocess"); } });
 
@@ -762,17 +763,17 @@ export default function TechProductionPage() {
   const handleTpSave = async () => {
     setTpSubmitted(true); setTpFileError(""); setTpFormError("");
     if(!tpForm.contractId) { setTpFormError("Shartnoma tanlanmagan. Iltimos, ro'yxatdan shartnomani tanlang va qayta urinib ko'ring."); return; }
-    if(!tpForm.title.trim()) { setTpFormError("Nomi kiritish shart."); return; }
+    if(!tpForm.title.trim()&&!finalFile) { setTpFormError("Fayl yuklanmagan bo'lsa, nomni qo'lda kiriting."); return; }
     if(!finalFile) { setTpFileError("Texnologik jarayon faylini yuklang."); return; }
     setTpSaving(true);
     try {
-      const dto: TechProcessCreatePayload = { contractId:tpForm.contractId, title:tpForm.title.trim(), notes:tpForm.notes||null };
+      const dto: TechProcessCreatePayload = { contractId:tpForm.contractId, title:tpForm.title.trim()||finalFile!.name.replace(/\.[^.]+$/,""), notes:tpForm.notes||null };
       const newId = await techProcessService.create(dto);
       await techProcessService.uploadFile(newId,finalFile);
       const fresh = await techProcessService.getById(newId);
       setTpList(prev=>[fresh,...prev]);
       setTpShowForm(false);
-      setSuccessMsg("Texnologik jarayon muvaffaqiyatli yaratildi!");
+      showToast("Texnologik jarayon muvaffaqiyatli yaratildi!");
     } catch(e: unknown) {
       const msg=(e as {response?:{data?:{errors?:string[]}}})?.response?.data?.errors?.[0];
       setTpFormError(msg??"Saqlashda xatolik yuz berdi.");
@@ -807,15 +808,16 @@ export default function TechProductionPage() {
   async function handleCnSave() {
     setCnSubmitted(true); setCnSaveError(null);
     if(!cnForm.contractId) { setCnSaveError("Shartnoma tanlanmagan. Iltimos, ro'yxatdan shartnomani tanlang va qayta urinib ko'ring."); return; }
+    if(!cnForm.title.trim()&&!cnFormFile) { setCnSaveError("Nomi kiritilmagan. Fayl yuklanmagan bo'lsa, nomni qo'lda kiriting."); return; }
     if(cnParsedTables.length===0) { setCnSaveError("Me'yoriy sarf jadvali faylini yuklang va qayta urinib ko'ring."); return; }
     setCnSaving(true);
     try {
       const allRows=cnParsedTables.flatMap(t=>t.rows);
       const items=allRows.map((row,idx)=>({ isSection:row.isSection,sectionName:row.isSection?row.sectionName:null,no:row.no||null,name:row.name||null,unit:row.unit||null,readyQty:row.readyQty||null,wasteQty:row.wasteQty||null,totalQty:row.totalQty||null,photoRaw:row.photoRaw||null,photoSemi:row.photoSemi||null,importType:row.importType||null,sortOrder:idx }));
-      const newId=await costNormService.create({contractId:cnForm.contractId,title:cnForm.title||cnFormFile?.name?.replace(/\.docx$/i,"")||"Me'yoriy sarf",notes:cnForm.notes||null,items});
+      const newId=await costNormService.create({contractId:cnForm.contractId,title:cnForm.title||cnFormFile?.name?.replace(/\.docx$/i,"")||"",notes:cnForm.notes||null,items});
       if(cnFormFile&&newId) await costNormService.uploadFile(newId,cnFormFile);
       await loadCn(); setCnMode("list");
-      setSuccessMsg("Me'yoriy sarf muvaffaqiyatli yaratildi!");
+      showToast("Me'yoriy sarf muvaffaqiyatli yaratildi!");
     } catch(e: unknown) {
       const msg=(e as {response?:{data?:{errors?:string[]}}})?.response?.data?.errors?.[0];
       setCnSaveError(msg??"Saqlashda xatolik yuz berdi");
@@ -904,17 +906,14 @@ export default function TechProductionPage() {
             <span style={{ color:"var(--border)" }}>|</span>
             <span style={{ fontWeight:700,fontSize:18,color:"var(--text1)" }}>Yangi texnologik jarayon</span>
           </div>
-          <button onClick={()=>setTpShowForm(false)} style={{ background:"none",border:"none",cursor:"pointer",color:"var(--text3)",padding:6,borderRadius:6,display:"flex",alignItems:"center" }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
         </div>
         <div className="itm-card" style={{ padding:28 }}>
           <div style={{ display:"flex",flexDirection:"column",gap:20 }}>
             {/* Sarlavha — full width */}
             <div>
-              <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:tpSubmitted&&!tpForm.title.trim()?"var(--danger)":"var(--text2)" }}>Nomi <span style={{ color:"var(--danger)" }}>*</span></label>
-              <input className="form-input" value={tpForm.title} onChange={e=>setTpForm(f=>({...f,title:e.target.value}))} placeholder="Nomi kiriting" style={tpSubmitted&&!tpForm.title.trim()?{borderColor:"var(--danger)"}:undefined}/>
-              {tpSubmitted&&!tpForm.title.trim()&&<div style={{ color:"var(--danger)",fontSize:12,marginTop:4 }}>Nomi kiritish shart</div>}
+              <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:tpSubmitted&&!tpForm.title.trim()&&!finalFile?"var(--danger)":"var(--text2)" }}>Nomi <span style={{ color:"var(--danger)" }}>*</span></label>
+              <input className="form-input" value={tpForm.title} onChange={e=>setTpForm(f=>({...f,title:e.target.value}))} placeholder="Avtomatik to'ldiriladi" style={tpSubmitted&&!tpForm.title.trim()&&!finalFile?{borderColor:"var(--danger)"}:undefined}/>
+              {tpSubmitted&&!tpForm.title.trim()&&!finalFile&&<div style={{ color:"var(--danger)",fontSize:12,marginTop:4 }}>Fayl yuklanmagan bo'lsa, nomni qo'lda kiriting</div>}
             </div>
             {/* Izoh + Fayl — two columns */}
             <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:20,alignItems:"stretch" }}>
@@ -938,7 +937,7 @@ export default function TechProductionPage() {
                       <span style={{ fontSize:11,color:"var(--text3)" }}>Faylni tanlash uchun bosing</span>
                     </>
                   )}
-                  <input id="tp-file-final" type="file" style={{ display:"none" }} onChange={e=>{ setFinalFile(e.target.files?.[0]??null); setTpFileError(""); }}/>
+                  <input id="tp-file-final" type="file" style={{ display:"none" }} onChange={e=>{ const f=e.target.files?.[0]??null; setFinalFile(f); setTpFileError(""); if(f&&!tpForm.title.trim()) setTpForm(prev=>({...prev,title:f.name.replace(/\.[^.]+$/,"")})); }}/>
                 </label>
                 {tpFileError&&<div style={{ marginTop:6,fontSize:12,color:"var(--danger)" }}>{tpFileError}</div>}
               </div>
@@ -985,9 +984,6 @@ export default function TechProductionPage() {
             <span style={{ color:"var(--border)" }}>|</span>
             <span style={{ fontWeight:700,fontSize:18,color:"var(--text1)" }}>Yangi me&apos;yoriy sarf</span>
           </div>
-          <button onClick={()=>setCnMode("list")} style={{ background:"none",border:"none",cursor:"pointer",color:"var(--text3)",padding:6,borderRadius:6,display:"flex",alignItems:"center" }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
         </div>
         {/* Tab bar */}
         <div className="itm-card" style={{ display:"flex",alignItems:"center",gap:0,marginBottom:16,padding:"0 16px",flexShrink:0 }}>
@@ -1016,8 +1012,10 @@ export default function TechProductionPage() {
             <div style={{ display:"flex",flexDirection:"column",gap:20 }}>
               {/* Nomi — full width */}
               <div>
-                <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:"var(--text2)" }}>Nomi</label>
-                <input className="form-input" value={cnForm.title} onChange={e=>setCnForm(f=>({...f,title:e.target.value}))} placeholder="Avtomatik to'ldiriladi"/>
+                <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:cnSubmitted&&!cnForm.title.trim()&&!cnFormFile?"var(--danger)":"var(--text2)" }}>
+                  Nomi <span style={{ color:"var(--danger)" }}>*</span>
+                </label>
+                <input className="form-input" value={cnForm.title} onChange={e=>setCnForm(f=>({...f,title:e.target.value}))} placeholder="Avtomatik to'ldiriladi" style={{ borderColor:cnSubmitted&&!cnForm.title.trim()&&!cnFormFile?"var(--danger)":undefined }}/>
               </div>
               {/* Izoh + Fayl — two columns */}
               <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:20,alignItems:"stretch" }}>
@@ -1543,19 +1541,6 @@ export default function TechProductionPage() {
             </div>
           </div>
         )}
-        {/* ── Success Toast ── */}
-        {successMsg&&(
-          <div style={{ position:"fixed",bottom:28,right:28,zIndex:9999,background:"var(--bg2)",border:"1.5px solid #10b981",borderRadius:12,boxShadow:"0 8px 32px rgba(0,0,0,0.18)",padding:"14px 20px",display:"flex",alignItems:"center",gap:12,minWidth:260,maxWidth:360,animation:"slideInToast 0.25s ease" }}>
-            <div style={{ width:32,height:32,borderRadius:8,background:"#d1fae5",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-            </div>
-            <div style={{ flex:1 }}>
-              <div style={{ fontSize:13,fontWeight:600,color:"var(--text1)",marginBottom:2 }}>Muvaffaqiyatli!</div>
-              <div style={{ fontSize:12,color:"var(--text2)" }}>{successMsg}</div>
-            </div>
-            <button onClick={()=>setSuccessMsg("")} style={{ background:"none",border:"none",cursor:"pointer",color:"var(--text3)",fontSize:16,padding:0,lineHeight:1,flexShrink:0 }}>✕</button>
-          </div>
-        )}
       </div>
     );
   }
@@ -1650,30 +1635,6 @@ export default function TechProductionPage() {
         </div>
       )}
 
-      {/* ── Success Toast ── */}
-      {successMsg && (
-        <div style={{
-          position: "fixed", bottom: 28, right: 28, zIndex: 9999,
-          background: "var(--bg2)", border: "1.5px solid #10b981",
-          borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
-          padding: "14px 20px", display: "flex", alignItems: "center", gap: 12,
-          minWidth: 260, maxWidth: 360,
-          animation: "slideInToast 0.25s ease",
-        }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: "#d1fae5", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)", marginBottom: 2 }}>Muvaffaqiyatli!</div>
-            <div style={{ fontSize: 12, color: "var(--text2)" }}>{successMsg}</div>
-          </div>
-          <button onClick={() => setSuccessMsg("")}
-            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 16, padding: 0, lineHeight: 1, flexShrink: 0 }}>✕</button>
-        </div>
-      )}
-      <style>{`@keyframes slideInToast { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }`}</style>
     </div>
   );
 }
