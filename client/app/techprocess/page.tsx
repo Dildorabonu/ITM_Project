@@ -1371,8 +1371,10 @@ export default function TechProductionPage() {
               {!tpEffective?(
                 <div style={{ textAlign:"center",padding:"20px 0" }}>
                   <div style={{ fontSize:13,color:"var(--text3)",marginBottom:12 }}>Texnologik jarayon yaratilmagan</div>
-                  <button onClick={()=>openTpCreate(selectedItem.contractId)}
-                    style={{ display:"inline-flex",alignItems:"center",gap:6,fontSize:12,padding:"7px 14px",fontWeight:600,borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer" }}>
+                  <button onClick={()=>openTpCreate(selectedItem.contractId)} className="btn-create-accent"
+                    style={{ display:"inline-flex",alignItems:"center",gap:6,fontSize:12,padding:"7px 14px",fontWeight:600,borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer",transition:"border-color 0.2s,box-shadow 0.2s,background 0.2s,color 0.2s" }}
+                    onMouseEnter={e=>{const b=e.currentTarget;b.style.borderColor="var(--accent)";b.style.boxShadow="0 0 0 2px var(--accent-mid),0 0 8px rgba(26,110,235,0.35)";b.style.background="var(--accent-dim)";b.style.color="var(--accent)"}}
+                    onMouseLeave={e=>{const b=e.currentTarget;b.style.borderColor="var(--border)";b.style.boxShadow="";b.style.background="var(--bg3)";b.style.color="var(--text2)"}}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                     Jarayon yaratish
                   </button>
@@ -1458,8 +1460,10 @@ export default function TechProductionPage() {
               {!cnEffective?(
                 <div style={{ textAlign:"center",padding:"20px 0" }}>
                   <div style={{ fontSize:13,color:"var(--text3)",marginBottom:12 }}>Me&apos;yoriy sarf yaratilmagan</div>
-                  <button onClick={()=>openCnCreate(selectedItem.contractId)}
-                    style={{ display:"inline-flex",alignItems:"center",gap:6,fontSize:12,padding:"7px 14px",fontWeight:600,borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer" }}>
+                  <button onClick={()=>openCnCreate(selectedItem.contractId)} className="btn-create-accent"
+                    style={{ display:"inline-flex",alignItems:"center",gap:6,fontSize:12,padding:"7px 14px",fontWeight:600,borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer",transition:"border-color 0.2s,box-shadow 0.2s,background 0.2s,color 0.2s" }}
+                    onMouseEnter={e=>{const b=e.currentTarget;b.style.borderColor="var(--accent)";b.style.boxShadow="0 0 0 2px var(--accent-mid),0 0 8px rgba(26,110,235,0.35)";b.style.background="var(--accent-dim)";b.style.color="var(--accent)"}}
+                    onMouseLeave={e=>{const b=e.currentTarget;b.style.borderColor="var(--border)";b.style.boxShadow="";b.style.background="var(--bg3)";b.style.color="var(--text2)"}}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                     Me&apos;yoriy sarf yaratish
                   </button>
