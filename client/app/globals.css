@@ -138,6 +138,22 @@ body {
 .itm-card-link:hover { text-decoration: underline; }
 .itm-card-body { padding: 16px 18px; }
 
+/* ===== CREATE BUTTON WITH ACCENT GLOW ===== */
+.btn-create-accent {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; padding: 7px 14px; font-weight: 600;
+  border-radius: var(--radius); cursor: pointer;
+  border: 1.5px solid var(--border);
+  background: var(--bg3); color: var(--text2);
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s, color 0.2s;
+}
+.btn-create-accent:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-mid), 0 0 8px rgba(26,110,235,0.35);
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
 /* ===== ICON BG ===== */
 .icon-bg   { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .ib-blue   { background: var(--accent-dim); }
