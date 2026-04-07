@@ -105,16 +105,6 @@ public class ContractService : IContractService
             CreatedAt = DateTime.UtcNow,
         });
 
-        _context.CostNorms.Add(new CostNorm
-        {
-            Id = Guid.NewGuid(),
-            ContractId = contract.Id,
-            Title = contract.ProductType,
-            Status = DrawingStatus.Draft,
-            CreatedBy = createdBy,
-            CreatedAt = DateTime.UtcNow,
-        });
-
         await _context.SaveChangesAsync();
 
         var createDeptUserIds = await _context.Users

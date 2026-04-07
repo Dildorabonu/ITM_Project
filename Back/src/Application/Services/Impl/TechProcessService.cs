@@ -80,7 +80,7 @@ public class TechProcessService : ITechProcessService
             Id = Guid.NewGuid(),
             ContractId = dto.ContractId,
             Title = dto.Title,
-            Status = ProcessStatus.Pending,
+            Status = ProcessStatus.InProgress,
             CurrentStep = 0,
             CreatedAt = DateTime.UtcNow
         };
