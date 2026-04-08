@@ -1,22 +1,23 @@
 "use client";
 
-import { useEffect, useState, useMemo, useRef } from "react";
-import { useRouter } from "next/navigation";
-import {
-  userService,
-  departmentService,
-  contractService,
-  roleService,
-  ContractStatus,
-  CONTRACT_STATUS_LABELS,
-  type ContractResponse,
-  type DepartmentResponse,
-  type UserResponse,
-  type PagedResult,
-} from "@/lib/userService";
-import { api } from "@/lib/api";
-import { useAuthStore } from "@/lib/store/authStore";
-import DonutChart from "./components/dashboard/DonutChart";
+import Link from "next/link";
+import { useState } from "react";
+
+const contracts = [
+  { id: "SH-2025-047", client: "Toshmetov Zavodi", product: "Metall konstruktsiya", status: "s-warn", statusLabel: "Tekshiruv" },
+  { id: "SH-2025-046", client: "UzTexnik LLC",    product: "Plastik qoplama",      status: "s-ok",   statusLabel: "Tasdiqlandi" },
+  { id: "SH-2025-045", client: "AlmaZavod JSC",   product: "Kimyoviy eritma",      status: "s-blue", statusLabel: "Ishlab chiqarish" },
+  { id: "SH-2025-044", client: "NovoProm OOO",    product: "Yog'och buyum",        status: "s-gray", statusLabel: "Yakunlandi" },
+];
+
+type TaskId = "dt1" | "dt2" | "dt3" | "dt4" | "dt5";
+const initialTasks: { id: TaskId; name: string; priority: string; pClass: string; time: string; done: boolean }[] = [
+  { id: "dt1", name: "Ombor inventarizatsiyasi (A sektor)",  priority: "Yuqori", pClass: "p-high", time: "09:00", done: true },
+  { id: "dt2", name: "SH-045 mahsulot tekshiruvi",           priority: "O'rta",  pClass: "p-mid",  time: "10:30", done: true },
+  { id: "dt3", name: "Yetkazib beruvchi bilan muzokaralar",  priority: "Yuqori", pClass: "p-high", time: "14:00", done: false },
+  { id: "dt4", name: "Hisobot tuzish — iyun oyi",            priority: "Past",   pClass: "p-low",  time: "16:00", done: false },
+  { id: "dt5", name: "Bug'alteriyaga hujjat topshirish",     priority: "O'rta",  pClass: "p-mid",  time: "17:00", done: false },
+];
 
 /* ───── Icons ───── */
 

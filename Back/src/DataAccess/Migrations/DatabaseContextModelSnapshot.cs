@@ -92,6 +92,9 @@ namespace DataAccess.Migrations
                     b.Property<DateOnly>("EndDate")
                         .HasColumnType("date");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Notes")
                         .HasColumnType("text");
 
@@ -130,6 +133,9 @@ namespace DataAccess.Migrations
                     b.Property<Guid>("DepartmentId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
                     b.HasKey("ContractId", "DepartmentId");
 
                     b.HasIndex("DepartmentId");
@@ -159,6 +165,9 @@ namespace DataAccess.Migrations
                     b.Property<decimal>("Importance")
                         .HasPrecision(5, 2)
                         .HasColumnType("numeric(5,2)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -200,6 +209,9 @@ namespace DataAccess.Migrations
                     b.Property<DateOnly>("Date")
                         .HasColumnType("date");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Note")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
@@ -223,6 +235,9 @@ namespace DataAccess.Migrations
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
 
                     b.Property<int>("Role")
                         .HasColumnType("integer");
@@ -248,6 +263,9 @@ namespace DataAccess.Migrations
 
                     b.Property<Guid>("CreatedBy")
                         .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Notes")
                         .HasColumnType("text");
@@ -279,6 +297,9 @@ namespace DataAccess.Migrations
 
                     b.Property<string>("ImportType")
                         .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("IsSection")
                         .HasColumnType("boolean");
@@ -399,6 +420,9 @@ namespace DataAccess.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("ContractId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -416,6 +440,8 @@ namespace DataAccess.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ContractId");
 
                     b.HasIndex("UserId");
 
@@ -703,6 +729,9 @@ namespace DataAccess.Migrations
                     b.Property<int>("CurrentStep")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
@@ -719,75 +748,6 @@ namespace DataAccess.Migrations
                     b.ToTable("TechProcesses");
                 });
 
-            modelBuilder.Entity("Core.Entities.TechProcessMaterial", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<decimal>("AvailableQty")
-                        .HasColumnType("decimal(18,4)");
-
-                    b.Property<Guid>("MaterialId")
-                        .HasColumnType("uuid");
-
-                    b.Property<decimal>("RequiredQty")
-                        .HasColumnType("decimal(18,4)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("TechProcessId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("MaterialId");
-
-                    b.HasIndex("TechProcessId");
-
-                    b.ToTable("TechProcessMaterials");
-                });
-
-            modelBuilder.Entity("Core.Entities.TechStep", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Machine")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("text");
-
-                    b.Property<string>("ResponsibleDept")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("StepNumber")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("TechProcessId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("TimeNorm")
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TechProcessId");
-
-                    b.ToTable("TechSteps");
-                });
 
             modelBuilder.Entity("Core.Entities.TechnicalDrawing", b =>
                 {
@@ -803,6 +763,9 @@ namespace DataAccess.Migrations
 
                     b.Property<Guid>("CreatedBy")
                         .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Notes")
                         .HasMaxLength(2000)
@@ -1001,11 +964,18 @@ namespace DataAccess.Migrations
 
             modelBuilder.Entity("Core.Entities.Notification", b =>
                 {
+                    b.HasOne("Core.Entities.Contract", "Contract")
+                        .WithMany()
+                        .HasForeignKey("ContractId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Core.Entities.User", "User")
                         .WithMany("Notifications")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Contract");
 
                     b.Navigation("User");
                 });
@@ -1155,35 +1125,6 @@ namespace DataAccess.Migrations
                     b.Navigation("Contract");
                 });
 
-            modelBuilder.Entity("Core.Entities.TechProcessMaterial", b =>
-                {
-                    b.HasOne("Core.Entities.Material", "Material")
-                        .WithMany("TechProcessMaterials")
-                        .HasForeignKey("MaterialId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Core.Entities.TechProcess", "TechProcess")
-                        .WithMany("Materials")
-                        .HasForeignKey("TechProcessId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Material");
-
-                    b.Navigation("TechProcess");
-                });
-
-            modelBuilder.Entity("Core.Entities.TechStep", b =>
-                {
-                    b.HasOne("Core.Entities.TechProcess", "TechProcess")
-                        .WithMany("Steps")
-                        .HasForeignKey("TechProcessId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("TechProcess");
-                });
 
             modelBuilder.Entity("Core.Entities.TechnicalDrawing", b =>
                 {
@@ -1268,8 +1209,6 @@ namespace DataAccess.Migrations
                     b.Navigation("StockIns");
 
                     b.Navigation("StockOuts");
-
-                    b.Navigation("TechProcessMaterials");
                 });
 
             modelBuilder.Entity("Core.Entities.Permission", b =>
@@ -1284,12 +1223,6 @@ namespace DataAccess.Migrations
                     b.Navigation("Users");
                 });
 
-            modelBuilder.Entity("Core.Entities.TechProcess", b =>
-                {
-                    b.Navigation("Materials");
-
-                    b.Navigation("Steps");
-                });
 
             modelBuilder.Entity("Core.Entities.User", b =>
                 {

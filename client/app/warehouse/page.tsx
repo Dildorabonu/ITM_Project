@@ -507,7 +507,7 @@ export default function WarehousePage() {
         contractService.getAll(),
       ]);
       setCostNorms(norms);
-      setProducts(prods.items ?? []);
+      setProducts(prods.items);
       setContracts(ctrs);
     } catch {
       /* ignore */
@@ -866,7 +866,7 @@ export default function WarehousePage() {
                         contractService.getAll(),
                       ]).then(([norms, prods, ctrs]) => {
                         setCostNorms(norms);
-                        setProducts(prods);
+                        setProducts(prods.items);
                         setContracts(ctrs);
                         setDetailDataReady(true);
                       }).catch(() => {

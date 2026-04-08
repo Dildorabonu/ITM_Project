@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAuthStore } from "@/lib/store/authStore";
+import { ConfirmModal } from "@/app/_components/ConfirmModal";
 import {
   contractService,
   ContractResponse,
@@ -91,6 +92,15 @@ function ContractBar({
       <span className={`status ${STATUS_COLORS[contract.status]}`} style={{ marginLeft: "auto", flexShrink: 0 }}>
         {STATUS_LABELS[contract.status]}
       </span>
+      {!contract.isActive && (
+        <span style={{
+          display: "inline-flex", alignItems: "center", padding: "2px 10px",
+          borderRadius: 20, fontSize: 12, fontWeight: 600, flexShrink: 0,
+          background: "var(--danger-dim)", color: "var(--danger)", border: "1px solid var(--danger)",
+        }}>
+          Nofaol
+        </span>
+      )}
     </div>
   );
 }
@@ -139,9 +149,20 @@ function ContractCard({
           <span className="tcc-no mono">#{contract.contractNo}</span>
           <span className="tcc-party">{contract.contractParty}</span>
         </div>
-        <span className={`status ${STATUS_COLORS[contract.status]}`}>
-          {STATUS_LABELS[contract.status]}
-        </span>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <span className={`status ${STATUS_COLORS[contract.status]}`}>
+            {STATUS_LABELS[contract.status]}
+          </span>
+          {!contract.isActive && (
+            <span style={{
+              display: "inline-flex", alignItems: "center", padding: "2px 8px",
+              borderRadius: 20, fontSize: 11, fontWeight: 600,
+              background: "var(--danger-dim)", color: "var(--danger)", border: "1px solid var(--danger)",
+            }}>
+              Nofaol
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Body: left info + right donut */}
@@ -243,23 +264,17 @@ function TaskRow({
   onDelete,
   onEdit,
   onLog,
-  onDragStart,
-  onDragOver,
-  onDrop,
-  onDragEnd,
+  onPointerDownDrag,
   isDragging,
-  isDragOver,
+  offsetY = 0,
 }: {
   task: ContractTaskResponse;
   onDelete: (id: string) => void;
   onEdit: (id: string) => void;
   onLog: (id: string) => void;
-  onDragStart?: () => void;
-  onDragOver?: (e: React.DragEvent) => void;
-  onDrop?: () => void;
-  onDragEnd?: () => void;
+  onPointerDownDrag?: (e: React.PointerEvent) => void;
   isDragging?: boolean;
-  isDragOver?: boolean;
+  offsetY?: number;
 }) {
   const isWarehouse = task.name === WAREHOUSE_TASK_NAME;
   const pct = Math.min(100, Math.max(0, task.percentComplete));
@@ -268,21 +283,22 @@ function TaskRow({
   return (
     <div
       className="task-row"
+      data-task-id={task.id}
       style={{
-        opacity: isDragging ? 0.4 : 1,
-        outline: isDragOver ? "2px solid var(--accent, #3b82f6)" : "2px solid transparent",
-        transition: "opacity 0.15s, outline 0.1s",
+        opacity: isDragging ? 0.3 : 1,
+        transform: offsetY !== 0
+          ? `translateY(${offsetY}px)`
+          : "translateY(0)",
+        transition: "transform 0.25s cubic-bezier(0.2, 0, 0, 1), opacity 0.2s",
         borderRadius: 10,
+        position: "relative",
+        zIndex: isDragging ? 0 : 1,
       }}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
     >
       <div className="task-row-header">
-        {!isWarehouse && onDragStart ? (
+        {!isWarehouse && onPointerDownDrag ? (
           <div
-            draggable
-            onDragStart={onDragStart}
-            onDragEnd={onDragEnd}
+            onPointerDown={onPointerDownDrag}
             title="Tartibni o'zgartirish"
             style={{
               cursor: "grab",
@@ -292,6 +308,7 @@ function TaskRow({
               display: "flex",
               alignItems: "center",
               userSelect: "none",
+              touchAction: "none",
             }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -878,8 +895,8 @@ function AddTaskForm({
         </div>
       )}
 
-      {/* Importance warning modal */}
-      {importanceError && (
+      {/* Importance warning modal (portal to body so blur covers entire screen) */}
+      {importanceError && createPortal(
         <div className="modal-overlay" onClick={() => setImportanceError("")}>
           <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 380 }}>
             <div className="modal-header" style={{ color: "var(--warn, #f59e0b)", borderBottom: "1px solid var(--border)" }}>
@@ -897,7 +914,8 @@ function AddTaskForm({
               <button className="btn btn-primary" onClick={() => setImportanceError("")}>Tushundim</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Live importance hint */}
@@ -955,14 +973,22 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loggingId, setLoggingId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [dragTargetIndex, setDragTargetIndex] = useState<number | null>(null);
+  const taskListRef = useRef<HTMLDivElement>(null);
+  const dragCloneRef = useRef<HTMLElement | null>(null);
+  const dragStartYRef = useRef(0);
+  const dragOrigTopRef = useRef(0);
+  const scrollContainerRef = useRef<HTMLElement | null>(null);
+  const autoScrollRef = useRef<number | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
+    let ignore = false;
     setLoading(true);
     setShowForm(false);
     setEditingId(null);
     contractTaskService.getByContract(contract.id).then(async data => {
+      if (ignore) return;
       const hasWarehouseTask = data.some(t => t.name === WAREHOUSE_TASK_NAME);
       if (!hasWarehouseTask) {
         await contractTaskService.createBulk([{
@@ -972,13 +998,16 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
           totalAmount: contract.quantity,
           importance: 100,
         }]);
+        if (ignore) return;
         const updated = await contractTaskService.getByContract(contract.id);
+        if (ignore) return;
         setTasks(sortTasksWithWarehouseLast(updated));
       } else {
         setTasks(sortTasksWithWarehouseLast(data));
       }
       setLoading(false);
     });
+    return () => { ignore = true; };
   }, [contract.id]);
 
   const handleSave = async (
@@ -1020,32 +1049,151 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
     setLoggingId(null);
   };
 
-  const handleDrop = async (targetId: string) => {
-    if (!draggingId || draggingId === targetId) {
-      setDraggingId(null);
-      setDragOverId(null);
-      return;
+  // ─── Pointer-based drag & drop with auto-scroll ───
+  const findScrollParent = (el: HTMLElement | null): HTMLElement => {
+    while (el && el !== document.documentElement) {
+      const style = getComputedStyle(el);
+      if (/(auto|scroll)/.test(style.overflow + style.overflowY)) return el;
+      el = el.parentElement;
     }
-    const draggedTask = tasks.find(t => t.id === draggingId);
-    const targetTask = tasks.find(t => t.id === targetId);
-    if (!draggedTask || !targetTask) return;
-    if (draggedTask.name === WAREHOUSE_TASK_NAME || targetTask.name === WAREHOUSE_TASK_NAME) {
-      setDraggingId(null);
-      setDragOverId(null);
-      return;
+    return document.documentElement;
+  };
+
+  const getTargetIndex = (clientY: number) => {
+    if (!taskListRef.current) return null;
+    const rows = Array.from(taskListRef.current.querySelectorAll<HTMLElement>("[data-task-id]"));
+    const warehouseIdx = tasks.findIndex(t => t.name === WAREHOUSE_TASK_NAME);
+    for (let i = 0; i < rows.length; i++) {
+      const rect = rows[i].getBoundingClientRect();
+      if (clientY < rect.top + rect.height / 2) {
+        if (warehouseIdx >= 0 && i >= warehouseIdx) return Math.max(0, warehouseIdx);
+        return i;
+      }
     }
+    const last = warehouseIdx >= 0 ? Math.max(0, warehouseIdx) : rows.length - 1;
+    return last;
+  };
+
+  const cleanupDrag = () => {
+    if (dragCloneRef.current) {
+      dragCloneRef.current.remove();
+      dragCloneRef.current = null;
+    }
+    if (autoScrollRef.current) {
+      cancelAnimationFrame(autoScrollRef.current);
+      autoScrollRef.current = null;
+    }
+    document.body.style.userSelect = "";
+    document.body.style.cursor = "";
+    setDraggingId(null);
+    setDragTargetIndex(null);
+  };
+
+  const finalizeDrop = async (fromId: string, targetIdx: number | null) => {
+    if (targetIdx === null) return;
+    const draggedTask = tasks.find(t => t.id === fromId);
+    if (!draggedTask) return;
     const fromIndex = tasks.indexOf(draggedTask);
-    const toIndex = tasks.indexOf(targetTask);
+    if (fromIndex === targetIdx) return;
     const newTasks = [...tasks];
     newTasks.splice(fromIndex, 1);
-    newTasks.splice(toIndex, 0, draggedTask);
+    newTasks.splice(targetIdx, 0, draggedTask);
     const reordered = newTasks.map((t, i) => ({ ...t, orderNo: i + 1 }));
     const prevOrder = new Map(tasks.map(t => [t.id, t.orderNo]));
     setTasks(reordered);
-    setDraggingId(null);
-    setDragOverId(null);
     const toUpdate = reordered.filter(t => t.orderNo !== prevOrder.get(t.id));
     await Promise.all(toUpdate.map(t => contractTaskService.update(t.id, { orderNo: t.orderNo })));
+  };
+
+  const handlePointerDownDrag = (e: React.PointerEvent, taskId: string, idx: number) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const row = (e.target as HTMLElement).closest<HTMLElement>("[data-task-id]");
+    if (!row) return;
+
+    const rect = row.getBoundingClientRect();
+    const startY = e.clientY;
+    const origTop = rect.top;
+
+    // Create floating clone
+    const clone = row.cloneNode(true) as HTMLElement;
+    clone.style.position = "fixed";
+    clone.style.left = `${rect.left}px`;
+    clone.style.top = `${rect.top}px`;
+    clone.style.width = `${rect.width}px`;
+    clone.style.zIndex = "9999";
+    clone.style.boxShadow = "0 8px 32px rgba(0,0,0,0.18)";
+    clone.style.opacity = "0.95";
+    clone.style.pointerEvents = "none";
+    clone.style.transition = "none";
+    clone.style.transform = "scale(1.02)";
+    clone.style.borderColor = "var(--accent, #3b82f6)";
+    document.body.appendChild(clone);
+
+    dragCloneRef.current = clone;
+    dragStartYRef.current = startY;
+    dragOrigTopRef.current = origTop;
+
+    const scroller = findScrollParent(row);
+    scrollContainerRef.current = scroller;
+
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "grabbing";
+
+    setDraggingId(taskId);
+    setDragTargetIndex(idx);
+
+    let currentTargetIdx = idx;
+    let lastClientY = startY;
+
+    // Auto-scroll loop
+    const SCROLL_ZONE = 60;
+    const SCROLL_SPEED = 12;
+    const doAutoScroll = () => {
+      const sc = scrollContainerRef.current;
+      if (!sc || !dragCloneRef.current) return;
+      const scrollRect = sc === document.documentElement
+        ? { top: 0, bottom: window.innerHeight }
+        : sc.getBoundingClientRect();
+      const y = lastClientY;
+      if (y < scrollRect.top + SCROLL_ZONE) {
+        sc.scrollTop -= SCROLL_SPEED;
+      } else if (y > scrollRect.bottom - SCROLL_ZONE) {
+        sc.scrollTop += SCROLL_SPEED;
+      }
+      // Update target index during scroll too
+      const newIdx = getTargetIndex(lastClientY);
+      if (newIdx !== null && newIdx !== currentTargetIdx) {
+        currentTargetIdx = newIdx;
+        setDragTargetIndex(newIdx);
+      }
+      autoScrollRef.current = requestAnimationFrame(doAutoScroll);
+    };
+    autoScrollRef.current = requestAnimationFrame(doAutoScroll);
+
+    const onPointerMove = (ev: PointerEvent) => {
+      lastClientY = ev.clientY;
+      const dy = ev.clientY - startY;
+      if (dragCloneRef.current) {
+        dragCloneRef.current.style.top = `${origTop + dy}px`;
+      }
+      const newIdx = getTargetIndex(ev.clientY);
+      if (newIdx !== null && newIdx !== currentTargetIdx) {
+        currentTargetIdx = newIdx;
+        setDragTargetIndex(newIdx);
+      }
+    };
+
+    const onPointerUp = () => {
+      document.removeEventListener("pointermove", onPointerMove);
+      document.removeEventListener("pointerup", onPointerUp);
+      const finalIdx = currentTargetIdx;
+      cleanupDrag();
+      finalizeDrop(taskId, finalIdx);
+    };
+
+    document.addEventListener("pointermove", onPointerMove);
+    document.addEventListener("pointerup", onPointerUp);
   };
 
   const editingTask = editingId ? tasks.find(t => t.id === editingId) ?? null : null;
@@ -1080,22 +1228,36 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
           <span>Hali vazifa qo&apos;shilmagan</span>
         </div>
       ) : (
-        <div className="tp-tasks-list" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {tasks.map(task => (
-            <TaskRow
-              key={task.id}
-              task={task}
-              onDelete={(id) => setConfirmDeleteId(id)}
-              onEdit={(id) => { setEditingId(id); setShowForm(false); setLoggingId(null); }}
-              onLog={(id) => { setLoggingId(id); setEditingId(null); setShowForm(false); }}
-              onDragStart={() => setDraggingId(task.id)}
-              onDragOver={(e) => { e.preventDefault(); setDragOverId(task.id); }}
-              onDrop={() => handleDrop(task.id)}
-              onDragEnd={() => { setDraggingId(null); setDragOverId(null); }}
-              isDragging={draggingId === task.id}
-              isDragOver={dragOverId === task.id && draggingId !== task.id}
-            />
-          ))}
+        <div
+          ref={taskListRef}
+          className="tp-tasks-list"
+          style={{ display: "flex", flexDirection: "column", gap: 10 }}
+        >
+          {tasks.map((task, idx) => {
+            const dragFromIdx = draggingId ? tasks.findIndex(t => t.id === draggingId) : -1;
+            let offsetPx = 0;
+            if (draggingId && dragTargetIndex !== null && task.id !== draggingId && dragFromIdx >= 0 && taskListRef.current) {
+              const rows = Array.from(taskListRef.current.querySelectorAll<HTMLElement>("[data-task-id]"));
+              const draggedRowHeight = rows[dragFromIdx] ? rows[dragFromIdx].offsetHeight + 10 : 0;
+              if (dragFromIdx < dragTargetIndex) {
+                if (idx > dragFromIdx && idx <= dragTargetIndex) offsetPx = -draggedRowHeight;
+              } else {
+                if (idx >= dragTargetIndex && idx < dragFromIdx) offsetPx = draggedRowHeight;
+              }
+            }
+            return (
+              <TaskRow
+                key={task.id}
+                task={task}
+                onDelete={(id) => setConfirmDeleteId(id)}
+                onEdit={(id) => { setEditingId(id); setShowForm(false); setLoggingId(null); }}
+                onLog={(id) => { setLoggingId(id); setEditingId(null); setShowForm(false); }}
+                onPointerDownDrag={(e) => handlePointerDownDrag(e, task.id, idx)}
+                isDragging={draggingId === task.id}
+                offsetY={offsetPx}
+              />
+            );
+          })}
         </div>
       )}
 
@@ -1138,46 +1300,20 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
       )}
 
       {/* Delete confirmation modal */}
-      {confirmDeleteId && (() => {
-        const taskToConfirm = tasks.find(t => t.id === confirmDeleteId);
-        return (
-          <div className="modal-overlay" onClick={() => setConfirmDeleteId(null)}>
-            <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 400 }}>
-              <div className="modal-header" style={{ color: "var(--danger)", borderBottom: "1px solid var(--border)" }}>
-                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <polyline points="3 6 5 6 21 6"/>
-                    <path d="M19 6l-1 14H6L5 6"/>
-                    <path d="M10 11v6M14 11v6"/>
-                    <path d="M9 6V4h6v2"/>
-                  </svg>
-                  Vazifani o&apos;chirish
-                </span>
-              </div>
-              <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
-                <p style={{ margin: 0, fontSize: 14, color: "var(--text2)", lineHeight: 1.6 }}>
-                  <strong style={{ color: "var(--text1)" }}>&ldquo;{taskToConfirm?.name}&rdquo;</strong> vazifasini o&apos;chirmoqchimisiz? Bu amalni qaytarib bo&apos;lmaydi.
-                </p>
-                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                  <button className="btn btn-outline" onClick={() => setConfirmDeleteId(null)}>
-                    Bekor qilish
-                  </button>
-                  <button
-                    className="btn btn-danger"
-                    onClick={async () => {
-                      const id = confirmDeleteId;
-                      setConfirmDeleteId(null);
-                      await handleDelete(id);
-                    }}
-                  >
-                    O&apos;chirish
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      <ConfirmModal
+        open={!!confirmDeleteId}
+        title="Vazifani o'chirish"
+        message={(() => {
+          const t = tasks.find(t => t.id === confirmDeleteId);
+          return <><strong style={{ color: "var(--text1)" }}>&ldquo;{t?.name}&rdquo;</strong> vazifasini o&apos;chirmoqchimisiz? Bu amalni qaytarib bo&apos;lmaydi.</>;
+        })()}
+        onConfirm={async () => {
+          const id = confirmDeleteId;
+          setConfirmDeleteId(null);
+          if (id) await handleDelete(id);
+        }}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
     </div>
   );
 }
@@ -1206,15 +1342,17 @@ export default function TasksPage() {
     setTimeout(() => { setSelected(null); setPhase("grid"); }, 230);
   };
 
+  const canView = hasPermission("Tasks.View") || hasPermission("Tasks.ViewAll");
+
   useEffect(() => {
-    if (!hasPermission("Tasks.View")) return;
+    if (!canView) return;
     contractService.getMyProductionTasks().then(data => {
       setContracts(data);
       setLoading(false);
     });
-  }, [hasPermission]);
+  }, [canView]);
 
-  if (!hasPermission("Tasks.View")) {
+  if (!canView) {
     return (
       <div className="itm-card" style={{ textAlign: "center", padding: 48, color: "var(--text3)" }}>
         Bu sahifaga kirish huquqingiz yo&apos;q.

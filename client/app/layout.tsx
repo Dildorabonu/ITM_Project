@@ -7,6 +7,7 @@ import { Roboto_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { useAuthStore } from "@/lib/store/authStore";
 import { api } from "@/lib/api";
+import ToastContainer from "@/app/_components/ToastContainer";
 
 const robotoMono = Roboto_Mono({
   variable: "--font-mono",
@@ -37,8 +38,7 @@ const navGroups: NavGroup[] = [
     icon: "file-text",
     items: [
       { name: "Shartnomalar",  href: "/contracts",   icon: "file",      permission: ["Contracts.View", "Contracts.ViewAll"] },
-      { name: "Tex Protsess",  href: "/techprocess", icon: "activity",  permission: ["TechProcess.View", "TechProcess.ViewAll"] },
-      { name: "Me'yoriy Sarf", href: "/costnorm",    icon: "clipboard", permission: ["CostNorm.View", "CostNorm.ViewAll"] },
+      { name: "Tex jarayon & Normalar", href: "/techprocess", icon: "activity", permission: ["TechProcess.View", "TechProcess.ViewAll", "CostNorm.View", "CostNorm.ViewAll"] },
     ],
   },
   {
@@ -55,14 +55,13 @@ const navGroups: NavGroup[] = [
       { name: "Mahsulotlar",        href: "/products",    icon: "shopping-bag", permission: "Products.View" },
       { name: "Ombor tekshiruvi",   href: "/warehouse",   icon: "package" },
       { name: "Tuzilma",            href: "/departments", icon: "briefcase",    permission: "Departments.View" },
-      { name: "Birja",              href: "/birja",       icon: "trending-up" },
     ],
   },
   {
     label: "Vazifalar",
     icon: "clipboard",
     items: [
-      { name: "Vazifalar", href: "/tasks", icon: "check-square", permission: "Tasks.View" },
+      { name: "Vazifalar", href: "/tasks", icon: "check-square", permission: ["Tasks.View", "Tasks.ViewAll"] },
     ],
   },
   {
@@ -113,8 +112,6 @@ function NavIcon({ type, size = 16, strokeWidth = 2, color }: { type: string; si
   if (type === "bell")         return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>;
   if (type === "file")         return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>;
   if (type === "activity")     return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>;
-  if (type === "home")         return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>;
-  if (type === "alert-circle") return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>;
   if (type === "check-square") return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><polyline points="9,11 12,14 22,4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>;
   if (type === "users")        return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
   if (type === "shield")       return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>;
@@ -124,10 +121,8 @@ function NavIcon({ type, size = 16, strokeWidth = 2, color }: { type: string; si
   if (type === "package")      return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27,6.96 12,12.01 20.73,6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>;
   if (type === "clipboard")    return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>;
   if (type === "palette")      return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12c0 5.52 4.48 10 10 10 1.1 0 2-.9 2-2 0-.54-.21-1.03-.54-1.4-.32-.36-.52-.85-.52-1.36 0-1.1.9-2 2-2h2.35C19.9 15.24 22 13.24 22 11c0-4.97-4.48-9-10-9z"/><circle cx="6.5" cy="11.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="9.5" cy="7.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="14.5" cy="7.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="17.5" cy="11.5" r="1.5" fill="currentColor" stroke="none"/></svg>;
-  if (type === "eye")          return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>;
   if (type === "settings")     return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
   if (type === "shopping-bag") return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>;
-  if (type === "trending-up") return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>;
   return null;
 }
 
@@ -167,14 +162,13 @@ function applyAppearanceFont(family: string, scale: number) {
 }
 
 // Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
-const readyRoutes = new Set(["/", "/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/costnorm", "/technicaldrawings", "/appearance", "/tasks", "/birja", "/notifications"]);
+const readyRoutes = new Set(["/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications"]);
 
 const pageTitles: Record<string, string> = {
   "/":              "Dashboard",
   "/notifications": "Bildirishnomalar",
   "/contracts":     "Shartnomalar",
-  "/techprocess":   "Tex Protsess",
-  "/costnorm":      "Me'yoriy Sarf",
+  "/techprocess":   "Tex jarayon & Normalar",
   "/technicaldrawings": "Texnik chizmalar",
   "/warehouse":     "Ombor Zaxirasi",
   "/tasks":         "Vazifalar",
@@ -183,7 +177,6 @@ const pageTitles: Record<string, string> = {
   "/departments":   "Tuzilma",
   "/products":      "Mahsulotlar",
   "/appearance":    "Tashqi ko'rinish",
-  "/birja":         "Birja",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -198,20 +191,33 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const hasPermission = useAuthStore((s) => s.hasPermission);
 
   const [notifCount, setNotifCount] = useState(0);
+  const [bellOpen, setBellOpen] = useState(false);
+  const [unreadNotifs, setUnreadNotifs] = useState<{ id: string; title: string; body: string; createdAt: string }[]>([]);
 
-  const fetchNotifCount = useCallback(async () => {
+  const fetchUnreadNotifs = useCallback(async () => {
     try {
-      const res = await api.get("/api/notification/unread-count");
-      setNotifCount(res.data.result ?? 0);
+      const res = await api.get("/api/notification");
+      const all = res.data.result || [];
+      const unread = all.filter((n: any) => !n.isRead);
+      setNotifCount(unread.length);
+      setUnreadNotifs(
+        unread.map((n: any) => ({
+          id: n.id, title: n.title, body: n.body, createdAt: n.createdAt,
+        }))
+      );
     } catch { /* ignore */ }
   }, []);
 
   useEffect(() => {
     if (!accessToken) return;
-    fetchNotifCount();
-    const interval = setInterval(fetchNotifCount, 30000);
-    return () => clearInterval(interval);
-  }, [accessToken, fetchNotifCount]);
+    fetchUnreadNotifs();
+    const interval = setInterval(fetchUnreadNotifs, 30000);
+    window.addEventListener("notif-read", fetchUnreadNotifs);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("notif-read", fetchUnreadNotifs);
+    };
+  }, [accessToken, fetchUnreadNotifs]);
 
   const visibleNavGroups = navGroups.map((group) => ({
     ...group,
@@ -221,9 +227,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         const perms = Array.isArray(item.permission) ? item.permission : [item.permission];
         return perms.some((p) => hasPermission(p));
       })
-      .map((item) => item.href === "/notifications" && notifCount > 0
-        ? { ...item, badge: notifCount }
-        : item),
   })).filter((group) => group.items.length > 0);
 
   const isLoginPage = pathname === "/login";
@@ -765,6 +768,67 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   {darkMode ? "Kunduzgi rejimga o'tkazish" : "Tungi rejimga o'tkazish"}
                 </div>
               </div>
+              {/* Notification bell */}
+              <div style={{ position: "relative" }}>
+                <button
+                  className={darkMode ? "theme-btn-sun" : "theme-btn-moon"}
+                  onClick={() => { setBellOpen(v => !v); if (!bellOpen) fetchUnreadNotifs(); }}
+                  style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 8, background: "none", border: "1.5px solid", flexShrink: 0, transition: "border-color 0.3s, color 0.3s", cursor: "pointer" }}
+                >
+                  <NavIcon type="bell" size={17} strokeWidth={2} color="currentColor" />
+                  {notifCount > 0 && (
+                    <span style={{
+                      position: "absolute", top: -5, right: -5,
+                      minWidth: 18, height: 18, borderRadius: 9,
+                      background: "var(--danger)", color: "#fff",
+                      fontSize: 11, fontWeight: 700,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      padding: "0 4px", lineHeight: 1,
+                      fontFamily: "var(--font-mono)",
+                      boxShadow: "0 0 0 2px var(--bg2)",
+                    }}>
+                      {notifCount > 99 ? "99+" : notifCount}
+                    </span>
+                  )}
+                </button>
+                {bellOpen && (
+                  <>
+                    <div onClick={() => setBellOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 99 }} />
+                    <div style={{
+                      position: "absolute", top: "calc(100% + 10px)", right: 0,
+                      background: "var(--bg2)", border: "1px solid var(--border)",
+                      borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+                      width: 320, zIndex: 100, overflow: "hidden",
+                    }}>
+                      <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>O&apos;qilmagan xabarlar</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, background: "var(--danger)", color: "#fff", borderRadius: 9, padding: "1px 8px", fontFamily: "var(--font-mono)" }}>
+                          {unreadNotifs.length}
+                        </span>
+                      </div>
+                      {unreadNotifs.length === 0 ? (
+                        <div style={{ padding: "24px 16px", textAlign: "center", fontSize: 13, color: "var(--text3)" }}>
+                          O&apos;qilmagan xabar yo&apos;q
+                        </div>
+                      ) : (
+                        <div style={{ maxHeight: 320, overflowY: "auto" }}>
+                          {unreadNotifs.map(n => (
+                            <div key={n.id} style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)", cursor: "default" }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{n.title}</div>
+                              <div style={{ fontSize: 12, color: "var(--text2)", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{n.body}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div style={{ padding: "10px 16px", borderTop: "1px solid var(--border)" }}>
+                        <Link href="/notifications" onClick={() => setBellOpen(false)} style={{ fontSize: 13, color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}>
+                          Barchasini ko&apos;rish →
+                        </Link>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
@@ -799,6 +863,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         </div>
       </div>)}
+      <ToastContainer />
       </body>
     </html>
   );

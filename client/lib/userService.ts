@@ -26,6 +26,7 @@ export interface UserLookup {
   id: string;
   firstName: string;
   lastName: string;
+  departmentId: string | null;
   departmentName: string | null;
   departmentType: DepartmentType | null;
 }
@@ -265,9 +266,12 @@ export interface ProductUpdatePayload {
 }
 
 export const productService = {
-  getAll: async (): Promise<ProductResponse[]> => {
-    const res = await api.get("/api/product");
-    return res.data?.result ?? res.data ?? [];
+  getAll: async (page = 1, pageSize = 50, search?: string, departmentId?: string): Promise<PagedResult<ProductResponse>> => {
+    const params: Record<string, unknown> = { page, pageSize };
+    if (search) params.search = search;
+    if (departmentId) params.departmentId = departmentId;
+    const res = await api.get("/api/product", { params });
+    return res.data?.result ?? res.data;
   },
 
   getByDepartment: async (departmentId: string): Promise<ProductResponse[]> => {
@@ -321,6 +325,7 @@ export enum ContractStatus {
   InProduction = 4,
   Completed = 5,
   Cancelled = 6,
+  TechProcessApproved = 7,
 }
 
 export enum Priority {
@@ -331,13 +336,14 @@ export enum Priority {
 }
 
 export const CONTRACT_STATUS_LABELS: Record<ContractStatus, string> = {
-  [ContractStatus.Draft]:           "Shartnoma yaratilindi",
-  [ContractStatus.DrawingPending]:  "Chizmasi tayyorlandi",
-  [ContractStatus.TechProcessing]:  "Tex jarayon tayyorlanmoqda",
-  [ContractStatus.WarehouseCheck]:  "Ombor tekshiruvida",
-  [ContractStatus.InProduction]:    "Ishlab chiqarishda",
-  [ContractStatus.Completed]:       "Yakunlandi",
-  [ContractStatus.Cancelled]:       "Bekor qilindi",
+  [ContractStatus.Draft]:                "Shartnoma yaratilindi",
+  [ContractStatus.DrawingPending]:       "Chizmasi tayyorlanmoqda",
+  [ContractStatus.TechProcessing]:       "Texnologik jarayon tayyorlanmoqda",
+  [ContractStatus.TechProcessApproved]:  "Texnologik jarayon tasdiqlandi",
+  [ContractStatus.WarehouseCheck]:       "Ombor tekshiruvida",
+  [ContractStatus.InProduction]:         "Ishlab chiqarishda",
+  [ContractStatus.Completed]:            "Yakunlandi",
+  [ContractStatus.Cancelled]:            "Bekor qilindi",
 };
 
 export const PRIORITY_LABELS: Record<Priority, string> = {
@@ -366,6 +372,7 @@ export interface ContractResponse {
   contractParty: string;
   status: ContractStatus;
   notes: string | null;
+  isActive: boolean;
   createdBy: string;
   createdByFullName: string | null;
   createdAt: string;
@@ -440,6 +447,14 @@ export const contractService = {
 
   delete: async (id: string): Promise<void> => {
     await api.delete(`/api/contract/${id}`);
+  },
+
+  deactivate: async (id: string): Promise<void> => {
+    await api.patch(`/api/contract/${id}/deactivate`);
+  },
+
+  activate: async (id: string): Promise<void> => {
+    await api.patch(`/api/contract/${id}/activate`);
   },
 
   getFiles: async (id: string): Promise<AttachmentResponse[]> => {
@@ -571,27 +586,6 @@ export const PROCESS_STATUS_LABELS: Record<ProcessStatus, string> = {
   [ProcessStatus.Completed]:  "Yakunlangan",
 };
 
-export interface TechStepResponse {
-  id: string;
-  stepNumber: number;
-  name: string;
-  responsibleDept: string;
-  machine: string | null;
-  timeNorm: string | null;
-  status: ProcessStatus;
-  notes: string | null;
-}
-
-export interface TechProcessMaterialResponse {
-  id: string;
-  materialId: string;
-  materialName: string;
-  unit: string;
-  requiredQty: number;
-  availableQty: number;
-  status: string;
-}
-
 export interface TechProcessResponse {
   id: string;
   contractId: string;
@@ -604,8 +598,7 @@ export interface TechProcessResponse {
   approvedByFullName: string | null;
   approvedAt: string | null;
   createdAt: string;
-  steps: TechStepResponse[];
-  materials: TechProcessMaterialResponse[];
+  isActive: boolean;
 }
 
 export interface TechProcessCreatePayload {
@@ -619,28 +612,6 @@ export interface TechProcessUpdatePayload {
   notes?: string | null;
 }
 
-export interface TechStepCreatePayload {
-  stepNumber: number;
-  name: string;
-  responsibleDept: string;
-  machine?: string | null;
-  timeNorm?: string | null;
-  notes?: string | null;
-}
-
-export interface TechStepUpdatePayload {
-  stepNumber?: number;
-  name?: string;
-  responsibleDept?: string;
-  machine?: string | null;
-  timeNorm?: string | null;
-  notes?: string | null;
-}
-
-export interface TechProcessMaterialCreatePayload {
-  materialId: string;
-  requiredQty: number;
-}
 
 export const techProcessService = {
   getAll: async (status?: ProcessStatus): Promise<TechProcessResponse[]> => {
@@ -681,27 +652,34 @@ export const techProcessService = {
     await api.delete(`/api/techprocess/${id}`);
   },
 
-  addStep: async (id: string, dto: TechStepCreatePayload): Promise<string> => {
-    const res = await api.post(`/api/techprocess/${id}/steps`, dto);
-    return res.data?.result as string;
+  getFiles: async (id: string): Promise<AttachmentResponse[]> => {
+    const res = await api.get(`/api/techprocess/${id}/files`);
+    return res.data?.result ?? res.data ?? [];
   },
 
-  updateStep: async (id: string, stepId: string, dto: TechStepUpdatePayload): Promise<void> => {
-    await api.put(`/api/techprocess/${id}/steps/${stepId}`, dto);
+  uploadFile: async (id: string, file: File): Promise<AttachmentResponse> => {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await api.post(`/api/techprocess/${id}/files`, fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data?.result ?? res.data;
   },
 
-  deleteStep: async (id: string, stepId: string): Promise<void> => {
-    await api.delete(`/api/techprocess/${id}/steps/${stepId}`);
+  deleteFile: async (id: string, fileId: string): Promise<void> => {
+    await api.delete(`/api/techprocess/${id}/files/${fileId}`);
   },
 
-  addMaterial: async (id: string, dto: TechProcessMaterialCreatePayload): Promise<string> => {
-    const res = await api.post(`/api/techprocess/${id}/materials`, dto);
-    return res.data?.result as string;
+  downloadFile: async (id: string, fileId: string, fileName: string): Promise<void> => {
+    const res = await api.get(`/api/techprocess/${id}/files/${fileId}/download`, { responseType: "blob" });
+    const url = URL.createObjectURL(res.data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
   },
 
-  deleteMaterial: async (id: string, materialId: string): Promise<void> => {
-    await api.delete(`/api/techprocess/${id}/materials/${materialId}`);
-  },
 };
 
 // ─── Material (Ombor) ─────────────────────────────────────────────────────────
@@ -744,17 +722,6 @@ export interface MaterialUpdatePayload {
   quantity?: number;
   minQuantity?: number;
   location?: string | null;
-}
-
-export interface DeficitCheckItem {
-  costNormItemName: string;
-  costNormItemUnit: string;
-  requiredQty: number;
-  availableQty: number;
-  deficitQty: number;
-  existsInInventory: boolean;
-  materialId: string | null;
-  status: string;
 }
 
 export const materialService = {
@@ -801,27 +768,20 @@ export const materialService = {
   delete: async (id: string): Promise<void> => {
     await api.delete(`/api/material/${id}`);
   },
-
-  checkDeficitByCostNorm: async (costNormId: string): Promise<DeficitCheckItem[]> => {
-    try {
-      const res = await api.get(`/api/material/deficit/costnorm/${costNormId}`);
-      return res.data?.result ?? res.data ?? [];
-    } catch {
-      return [];
-    }
-  },
 };
 
 // ─── Technical Drawings ───────────────────────────────────────────────────────
 
 export enum DrawingStatus {
-  Draft    = 0,
-  Approved = 1,
+  Draft      = 0,
+  Approved   = 1,
+  InProgress = 2,
 }
 
 export const DRAWING_STATUS_LABELS: Record<DrawingStatus, string> = {
-  [DrawingStatus.Draft]:    "Qoralama",
-  [DrawingStatus.Approved]: "Tasdiqlangan",
+  [DrawingStatus.Draft]:      "Qoralama",
+  [DrawingStatus.Approved]:   "Tasdiqlangan",
+  [DrawingStatus.InProgress]: "Jarayonda",
 };
 
 export interface TechnicalDrawingResponse {
@@ -834,6 +794,7 @@ export interface TechnicalDrawingResponse {
   createdBy: string;
   createdByFullName: string | null;
   createdAt: string;
+  isActive: boolean;
 }
 
 export interface TechnicalDrawingCreatePayload {
@@ -899,8 +860,15 @@ export const technicalDrawingService = {
     await api.delete(`/api/technicaldrawing/${id}/files/${fileId}`);
   },
 
-  downloadFileUrl: (id: string, fileId: string): string =>
-    `/api/technicaldrawing/${id}/files/${fileId}/download`,
+  downloadFile: async (id: string, fileId: string, fileName: string): Promise<void> => {
+    const res = await api.get(`/api/technicaldrawing/${id}/files/${fileId}/download`, { responseType: "blob" });
+    const url = URL.createObjectURL(res.data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
 };
 
 // ─── CostNorm ─────────────────────────────────────────────────────────────────
@@ -931,6 +899,7 @@ export interface CostNormResponse {
   createdBy: string;
   createdByFullName: string | null;
   createdAt: string;
+  isActive: boolean;
   items: CostNormItemResponse[];
 }
 
