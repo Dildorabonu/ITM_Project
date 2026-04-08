@@ -538,10 +538,6 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
             <div style={{ fontSize:11,color:"var(--text3)",marginBottom:4 }}>Holat</div>
             <TpBadge status={tpSelected.status}/>
           </div>
-          <div>
-            <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Sana</div>
-            <div style={{ fontSize:13,color:"var(--text2)",whiteSpace:"nowrap" }}>{fmt(tpSelected.createdAt)}</div>
-          </div>
           {tpDetailFiles.length>0&&(
             <div style={{ display:"flex",gap:6,flexWrap:"wrap",width:"100%" }}>
               {tpDetailFiles.map(f=>(
@@ -848,13 +844,9 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
                     <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Nomi</div>
                     <div style={{ fontSize:13,fontWeight:600,color:"var(--text1)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }} title={tpEffective.title}>{tpEffective.title}</div>
                   </div>
-                  <div>
+                  <div style={{ textAlign:"center" }}>
                     <div style={{ fontSize:11,color:"var(--text3)",marginBottom:4 }}>Holat</div>
                     <TpBadge status={tpEffective.status}/>
-                  </div>
-                  <div>
-                    <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Sana</div>
-                    <div style={{ fontSize:13,color:"var(--text2)",whiteSpace:"nowrap" }}>{fmt(tpEffective.createdAt)}</div>
                   </div>
                   {tpEffective.notes&&(
                     <div style={{ width:"100%",marginTop:2 }}>
@@ -914,19 +906,9 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
                     <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Nomi</div>
                     <div style={{ fontSize:13,fontWeight:600,color:"var(--text1)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }} title={cnEffective!.title}>{cnEffective!.title}</div>
                   </div>
-                  <div>
+                  <div style={{ textAlign:"center" }}>
                     <div style={{ fontSize:11,color:"var(--text3)",marginBottom:4 }}>Holat</div>
                     <CnBadge status={cnEffective!.status}/>
-                  </div>
-                  <div>
-                    <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Materiallar</div>
-                    <span style={{ fontSize:12,fontWeight:600,color:"var(--text2)",background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:20,padding:"2px 8px",display:"inline-block" }}>
-                      {cnEffective!.items.filter(r=>!r.isSection).length} та
-                    </span>
-                  </div>
-                  <div>
-                    <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Sana</div>
-                    <div style={{ fontSize:13,color:"var(--text2)",whiteSpace:"nowrap" }}>{fmt(cnEffective!.createdAt)}</div>
                   </div>
                 </div>
               )}
