@@ -307,8 +307,10 @@ function UsersPageInner() {
 
 export default function UsersPage() {
   return (
-    <Suspense>
-      <UsersPageInner />
-    </Suspense>
+    <div className="page-transition">
+      <Suspense>
+        <UsersPageInner />
+      </Suspense>
+    </div>
   );
 }

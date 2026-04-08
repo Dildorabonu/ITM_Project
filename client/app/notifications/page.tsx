@@ -218,8 +218,12 @@ export default function NotificationsPage() {
     </div>
   );
 
+  if (loading) {
+    return <div style={{ textAlign: "center", padding: 40, opacity: 0.5 }}>Yuklanmoqda...</div>;
+  }
+
   return (
-    <>
+    <div className="page-transition">
       <div className="page-header">
         <div className="ph-title">Bildirishnomalar</div>
         <div style={{ display: "flex", gap: 6 }}>
@@ -250,9 +254,7 @@ export default function NotificationsPage() {
         </div>
       )}
 
-      {loading ? (
-        <div style={{ textAlign: "center", padding: 40, opacity: 0.5 }}>Yuklanmoqda...</div>
-      ) : visible.length === 0 ? (
+      {visible.length === 0 ? (
         <div style={{ textAlign: "center", padding: 40, opacity: 0.5 }}>
           {filter === "unread" ? "O'qilmagan bildirishnoma yo'q" : "Bildirishnomalar yo'q"}
         </div>
@@ -392,6 +394,6 @@ export default function NotificationsPage() {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

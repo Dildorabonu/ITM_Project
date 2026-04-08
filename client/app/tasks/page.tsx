@@ -1360,13 +1360,17 @@ export default function TasksPage() {
     );
   }
 
+  if (loading) {
+    return (
+      <div className="itm-card" style={{ textAlign: "center", padding: 48, color: "var(--text3)" }}>
+        Yuklanmoqda...
+      </div>
+    );
+  }
+
   return (
-    <>
-      {loading ? (
-        <div className="itm-card" style={{ textAlign: "center", padding: 48, color: "var(--text3)" }}>
-          Yuklanmoqda...
-        </div>
-      ) : contracts.length === 0 ? (
+    <div className="page-transition">
+      {contracts.length === 0 ? (
         <div className="itm-card" style={{ textAlign: "center", padding: 48, color: "var(--text3)" }}>
           <svg width="40" height="40" fill="none" stroke="var(--text3)" strokeWidth="1.5" viewBox="0 0 24 24" style={{ marginBottom: 12 }}>
             <rect x="9" y="2" width="6" height="4" rx="1"/>
@@ -1394,6 +1398,6 @@ export default function TasksPage() {
           <TaskPanel key={selected!.id} contract={selected!} hideHeader />
         </div>
       )}
-    </>
+    </div>
   );
 }

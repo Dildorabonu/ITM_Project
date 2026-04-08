@@ -774,7 +774,7 @@ export default function WarehousePage() {
   // ── Render: Main list ────────────────────────────────────────────────────
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+    <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
       <style dangerouslySetInnerHTML={{ __html: statusKeyframes }} />
 
       {detailLoading && (

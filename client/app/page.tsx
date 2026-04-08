@@ -327,7 +327,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="nd-wrapper">
+    <div className="nd-wrapper page-transition">
       {/* ═══ Animated Background ═══ */}
       <AnimatedBg />
 
