@@ -8,7 +8,7 @@ export default function DepartmentPage() {
   const slug = params.slug;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 page-transition">
 
       <div>
         <h1 className="text-3xl font-bold capitalize">

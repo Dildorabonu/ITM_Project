@@ -251,7 +251,7 @@ export default function TechnicalDrawingsPage() {
   // ── Render: List ──────────────────────────────────────────────────────────
 
   return (
-    <>
+    <div className="page-transition">
       <div style={{ display: "flex", flexDirection: "column", flex: 1, gap: 16, fontFamily: "Inter, sans-serif" }}>
 
         {/* Filter bar */}
@@ -472,6 +472,6 @@ export default function TechnicalDrawingsPage() {
       />
 
       <ToastContainer />
-    </>
+    </div>
   );
 }
