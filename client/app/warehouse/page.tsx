@@ -503,11 +503,11 @@ export default function WarehousePage() {
     try {
       const [norms, prods, ctrs] = await Promise.all([
         costNormService.getAll(),
-        productService.getAll(),
+        productService.getAll(1, 1000),
         contractService.getAll(),
       ]);
       setCostNorms(norms);
-      setProducts(prods);
+      setProducts(prods.items ?? []);
       setContracts(ctrs);
     } catch {
       /* ignore */
