@@ -1,7 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { useAuthStore } from "@/lib/store/authStore";
+import {
+  type PagedResult,
+  type UserResponse,
+  type DepartmentResponse,
+  type ContractResponse,
+  ContractStatus,
+  CONTRACT_STATUS_LABELS,
+} from "@/lib/userService";
 
 const contracts = [
   { id: "SH-2025-047", client: "Toshmetov Zavodi", product: "Metall konstruktsiya", status: "s-warn", statusLabel: "Tekshiruv" },
