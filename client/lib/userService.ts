@@ -860,8 +860,15 @@ export const technicalDrawingService = {
     await api.delete(`/api/technicaldrawing/${id}/files/${fileId}`);
   },
 
-  downloadFileUrl: (id: string, fileId: string): string =>
-    `/api/technicaldrawing/${id}/files/${fileId}/download`,
+  downloadFile: async (id: string, fileId: string, fileName: string): Promise<void> => {
+    const res = await api.get(`/api/technicaldrawing/${id}/files/${fileId}/download`, { responseType: "blob" });
+    const url = URL.createObjectURL(res.data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
 };
 
 // ─── CostNorm ─────────────────────────────────────────────────────────────────
