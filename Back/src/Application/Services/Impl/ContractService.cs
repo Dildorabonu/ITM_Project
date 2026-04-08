@@ -421,11 +421,23 @@ public class ContractService : IContractService
                     contractId);
             }
 
-            await _notificationService.NotifySuperAdminsAsync(
-                $"Shartnomaga yangi xodimlar tayinlandi: {contract?.ContractNo}",
-                $"«{contract?.ContractNo}» shartnomasi uchun {newlyAssigned.Count} ta yangi xodim tayinlandi.",
-                NotificationType.Task,
-                contractId);
+            // SuperAdminlarga faqat allaqachon tayinlanmagan (va notification olgan)laridan tashqarisiga yuboramiz
+            var superAdminRoleId = new Guid("00000000-0000-0000-0000-000000000001");
+            var newlyAssignedSet = newlyAssigned.ToHashSet();
+            var superAdminObservers = await _context.Users
+                .Where(u => u.IsActive && u.RoleId == superAdminRoleId && !newlyAssignedSet.Contains(u.Id))
+                .Select(u => u.Id)
+                .ToListAsync();
+
+            foreach (var uid in superAdminObservers)
+            {
+                await _notificationService.CreateAsync(
+                    uid,
+                    $"Shartnomaga yangi xodimlar tayinlandi: {contract?.ContractNo}",
+                    $"«{contract?.ContractNo}» shartnomasi uchun {newlyAssigned.Count} ta yangi xodim tayinlandi.",
+                    NotificationType.Task,
+                    contractId);
+            }
         }
 
         return ApiResult<int>.Success(200);

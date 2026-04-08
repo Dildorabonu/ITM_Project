@@ -125,15 +125,12 @@ public class NotificationService : INotificationService
 
     public async Task<ApiResult<int>> DeleteAsync(Guid id)
     {
-        var notif = await _context.Notifications
-            .FirstOrDefaultAsync(n => n.Id == id);
-
-        if (notif is null)
-            return ApiResult<int>.Failure(["Bildirishnoma topilmadi."], 404);
-
-        await _context.Notifications
-            .Where(n => n.Title == notif.Title && n.Body == notif.Body)
+        var deleted = await _context.Notifications
+            .Where(n => n.Id == id)
             .ExecuteDeleteAsync();
+
+        if (deleted == 0)
+            return ApiResult<int>.Failure(["Bildirishnoma topilmadi."], 404);
 
         return ApiResult<int>.Success(200);
     }

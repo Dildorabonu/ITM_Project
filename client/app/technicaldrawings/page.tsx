@@ -352,7 +352,7 @@ export default function TechnicalDrawingsPage() {
                                   className="btn-icon"
                                   onClick={() => openCreate(c)}
                                   title="Chizma yaratish"
-                                  style={{ color: "var(--accent)", borderColor: "var(--accent)33", background: "var(--accent-dim)", width: 28, height: 28, fontSize: 18, fontWeight: 400 }}
+                                  style={{ color: "var(--accent)", borderColor: "var(--accent)33", background: "var(--accent-dim)", width: 28, height: 28, fontSize: 18, fontWeight: 400, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
                                 >
                                   +
                                 </button>
