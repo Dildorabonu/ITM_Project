@@ -952,7 +952,7 @@ export default function ProductsPage() {
 
   /* ===== List view ===== */
   return (
-    <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+    <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
       <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px" }}>
         <div className="search-wrap" style={{ maxWidth: "none", flex: 1 }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

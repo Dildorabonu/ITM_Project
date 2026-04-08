@@ -315,7 +315,7 @@ export default function DepartmentsPage() {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+    <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
 
       {/* Stats chips */}
       <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>

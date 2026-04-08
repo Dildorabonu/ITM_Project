@@ -500,7 +500,7 @@ export default function ContractsPage() {
   // ── Render: List ──────────────────────────────────────────────────────────
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+    <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
 
       {/* Filter bar */}
       <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px", flexWrap: "wrap", overflow: "visible" }}>
