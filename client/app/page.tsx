@@ -4,10 +4,10 @@ import Link from "next/link";
 import { useState } from "react";
 
 const contracts = [
-  { id: "SH-2025-047", date: "02.06.2025", client: "Toshmetov Zavodi", product: "Metall konstruktsiya", status: "s-warn", statusLabel: "Tekshiruv" },
-  { id: "SH-2025-046", date: "28.05.2025", client: "UzTexnik LLC",    product: "Plastik qoplama",      status: "s-ok",   statusLabel: "Tasdiqlandi" },
-  { id: "SH-2025-045", date: "20.05.2025", client: "AlmaZavod JSC",   product: "Kimyoviy eritma",      status: "s-blue", statusLabel: "Ishlab chiqarish" },
-  { id: "SH-2025-044", date: "10.05.2025", client: "NovoProm OOO",    product: "Yog'och buyum",        status: "s-gray", statusLabel: "Yakunlandi" },
+  { id: "SH-2025-047", client: "Toshmetov Zavodi", product: "Metall konstruktsiya", status: "s-warn", statusLabel: "Tekshiruv" },
+  { id: "SH-2025-046", client: "UzTexnik LLC",    product: "Plastik qoplama",      status: "s-ok",   statusLabel: "Tasdiqlandi" },
+  { id: "SH-2025-045", client: "AlmaZavod JSC",   product: "Kimyoviy eritma",      status: "s-blue", statusLabel: "Ishlab chiqarish" },
+  { id: "SH-2025-044", client: "NovoProm OOO",    product: "Yog'och buyum",        status: "s-gray", statusLabel: "Yakunlandi" },
 ];
 
 type TaskId = "dt1" | "dt2" | "dt3" | "dt4" | "dt5";
