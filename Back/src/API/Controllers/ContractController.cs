@@ -105,17 +105,47 @@ public class ContractController : ControllerBase
         return Ok(result);
     }
 
+    [HasPermission("Contracts.Update")]
+    [HttpPatch("{id:guid}/deactivate")]
+    public async Task<IActionResult> Deactivate(Guid id)
+    {
+        var result = await _contractService.DeactivateAsync(id);
+
+        if (!result.Succeeded)
+            return NotFound(result);
+
+        return Ok(result);
+    }
+
+    [HasPermission("Contracts.Update")]
+    [HttpPatch("{id:guid}/activate")]
+    public async Task<IActionResult> Activate(Guid id)
+    {
+        var result = await _contractService.ActivateAsync(id);
+
+        if (!result.Succeeded)
+            return NotFound(result);
+
+        return Ok(result);
+    }
+
     // ── My Production Tasks ───────────────────────────────────────────────────
 
-    [HasPermission("Tasks.View")]
     [HttpGet("my-tasks")]
+    [Authorize]
     public async Task<IActionResult> GetMyProductionTasks()
     {
         var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!Guid.TryParse(userIdClaim, out var userId))
             return Unauthorized();
 
-        var result = await _contractService.GetMyProductionTasksAsync(userId);
+        var viewAll = User.HasClaim(c => c.Type == "perm" && c.Value == "Tasks.ViewAll");
+        var hasView = User.HasClaim(c => c.Type == "perm" && c.Value == "Tasks.View");
+
+        if (!viewAll && !hasView)
+            return Forbid();
+
+        var result = await _contractService.GetMyProductionTasksAsync(userId, viewAll);
         return Ok(result);
     }
 

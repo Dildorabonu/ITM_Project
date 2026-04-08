@@ -9,6 +9,7 @@ public class CostNorm
     public string Title { get; set; } = string.Empty;
     public string? Notes { get; set; }
     public DrawingStatus Status { get; set; } = DrawingStatus.Draft;
+    public bool IsActive { get; set; } = true;
     public Guid CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

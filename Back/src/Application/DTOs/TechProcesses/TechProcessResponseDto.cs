@@ -14,6 +14,5 @@ public class TechProcessResponseDto
     public string? ApprovedByFullName { get; set; }
     public DateTime? ApprovedAt { get; set; }
     public DateTime CreatedAt { get; set; }
-    public List<TechStepResponseDto> Steps { get; set; } = [];
-    public List<TechProcessMaterialResponseDto> Materials { get; set; } = [];
+    public bool IsActive { get; set; }
 }

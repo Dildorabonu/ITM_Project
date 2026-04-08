@@ -73,10 +73,6 @@ public class TechnicalDrawingService : ITechnicalDrawingService
         };
 
         _context.TechnicalDrawings.Add(drawing);
-
-        if (contract.Status == ContractStatus.Draft)
-            contract.Status = ContractStatus.DrawingPending;
-
         await _context.SaveChangesAsync();
 
         return ApiResult<Guid>.Success(drawing.Id, 201);
@@ -105,34 +101,15 @@ public class TechnicalDrawingService : ITechnicalDrawingService
 
         drawing.Status = status;
 
-        if (status == DrawingStatus.Approved && drawing.Contract?.Status == ContractStatus.DrawingPending)
+        if (status == DrawingStatus.Approved && drawing.Contract is not null &&
+            drawing.Contract.Status == ContractStatus.DrawingPending)
         {
             drawing.Contract.Status = ContractStatus.TechProcessing;
-            await _context.SaveChangesAsync();
-            await TryAdvanceToWarehouseCheckAsync(drawing.ContractId);
         }
-        else
-        {
-            await _context.SaveChangesAsync();
-        }
+
+        await _context.SaveChangesAsync();
 
         return ApiResult<int>.Success(200);
-    }
-
-    private async System.Threading.Tasks.Task TryAdvanceToWarehouseCheckAsync(Guid contractId)
-    {
-        var contract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == contractId);
-        if (contract is null || contract.Status != ContractStatus.TechProcessing)
-            return;
-
-        var hasTechProcess = await _context.TechProcesses.AnyAsync(t => t.ContractId == contractId);
-        var hasCostNorm = await _context.CostNorms.AnyAsync(c => c.ContractId == contractId);
-
-        if (hasTechProcess && hasCostNorm)
-        {
-            contract.Status = ContractStatus.WarehouseCheck;
-            await _context.SaveChangesAsync();
-        }
     }
 
     public async Task<ApiResult<int>> DeleteAsync(Guid id)
@@ -158,5 +135,6 @@ public class TechnicalDrawingService : ITechnicalDrawingService
         CreatedBy = d.CreatedBy,
         CreatedByFullName = d.Creator is not null ? $"{d.Creator.FirstName} {d.Creator.LastName}" : null,
         CreatedAt = d.CreatedAt,
+        IsActive = d.Contract?.IsActive ?? true,
     };
 }

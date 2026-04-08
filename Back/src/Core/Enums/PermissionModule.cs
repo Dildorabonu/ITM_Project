@@ -33,4 +33,7 @@ public enum PermissionModule
 
     [Display(Name = "Vazifalar", Description = "check-square")]
     Tasks = 10,
+
+    [Display(Name = "Bildirishnomalar", Description = "bell")]
+    Notifications = 11,
 }

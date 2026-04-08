@@ -4,6 +4,7 @@ using Core.Entities;
 using Core.Enums;
 using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
+using ProcessStatus = Core.Enums.ProcessStatus;
 using SysTask = System.Threading.Tasks.Task;
 
 namespace Application.Services.Impl;
@@ -84,6 +85,7 @@ public class CostNormService : ICostNormService
             ContractId = dto.ContractId,
             Title = dto.Title,
             Notes = dto.Notes,
+            Status = DrawingStatus.InProgress,
             CreatedBy = createdBy,
             CreatedAt = DateTime.UtcNow,
             Items = dto.Items.Select((item, index) => new CostNormItem
@@ -107,11 +109,26 @@ public class CostNormService : ICostNormService
         _context.CostNorms.Add(costNorm);
         await _context.SaveChangesAsync();
 
-        var contract = await _context.Contracts.AsNoTracking().FirstOrDefaultAsync(c => c.Id == dto.ContractId);
-        await _notificationService.NotifyAllAsync(
+        var contract = await _context.Contracts
+            .Include(c => c.ContractUsers)
+            .Include(c => c.ContractDepartments)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == dto.ContractId);
+
+        var contractUserIds = contract?.ContractUsers.Select(cu => cu.UserId) ?? Enumerable.Empty<Guid>();
+        var deptUserIds = contract is not null
+            ? await _context.Users
+                .Where(u => u.IsActive && contract.ContractDepartments.Select(cd => cd.DepartmentId).Contains(u.DepartmentId!.Value))
+                .Select(u => u.Id)
+                .ToListAsync()
+            : new List<Guid>();
+
+        await _notificationService.NotifyUsersAndSuperAdminsAsync(
+            contractUserIds.Union(deptUserIds),
             $"Yangi me'yoriy sarf: {costNorm.Title}",
             $"«{contract?.ContractNo}» shartnomasi uchun me'yoriy sarf norma tuzildi: {costNorm.Title}. Materiallar: {costNorm.Items.Count} ta.",
-            NotificationType.Info);
+            NotificationType.Info,
+            dto.ContractId);
 
         await TryAdvanceToWarehouseCheckAsync(dto.ContractId);
 
@@ -124,10 +141,12 @@ public class CostNormService : ICostNormService
         if (contract is null || contract.Status != ContractStatus.TechProcessing)
             return;
 
-        var hasTechProcess = await _context.TechProcesses.AnyAsync(t => t.ContractId == contractId);
-        var hasCostNorm = await _context.CostNorms.AnyAsync(c => c.ContractId == contractId);
+        var techProcessApproved = await _context.TechProcesses
+            .AnyAsync(t => t.ContractId == contractId && t.Status == ProcessStatus.Approved);
+        var costNormApproved = await _context.CostNorms
+            .AnyAsync(c => c.ContractId == contractId && c.Status == DrawingStatus.Approved);
 
-        if (hasTechProcess && hasCostNorm)
+        if (techProcessApproved && costNormApproved)
         {
             contract.Status = ContractStatus.WarehouseCheck;
             await _context.SaveChangesAsync();
@@ -148,8 +167,9 @@ public class CostNormService : ICostNormService
 
         if (dto.Items is not null)
         {
-            _context.CostNormItems.RemoveRange(costNorm.Items);
-            costNorm.Items = dto.Items.Select((item, index) => new CostNormItem
+            var oldItems = costNorm.Items.ToList();
+            _context.CostNormItems.RemoveRange(oldItems);
+            var newItems = dto.Items.Select((item, index) => new CostNormItem
             {
                 Id = Guid.NewGuid(),
                 CostNormId = costNorm.Id,
@@ -166,6 +186,7 @@ public class CostNormService : ICostNormService
                 ImportType = item.ImportType,
                 SortOrder = item.SortOrder > 0 ? item.SortOrder : index,
             }).ToList();
+            await _context.CostNormItems.AddRangeAsync(newItems);
         }
 
         await _context.SaveChangesAsync();
@@ -184,6 +205,7 @@ public class CostNormService : ICostNormService
 
         costNorm.Status = DrawingStatus.Approved;
         await _context.SaveChangesAsync();
+        await TryAdvanceToWarehouseCheckAsync(costNorm.ContractId);
         return ApiResult<int>.Success(1);
     }
 
@@ -214,6 +236,7 @@ public class CostNormService : ICostNormService
             ? $"{c.Creator.FirstName} {c.Creator.LastName}"
             : null,
         CreatedAt = c.CreatedAt,
+        IsActive = c.Contract?.IsActive ?? true,
         Items = c.Items.Select(i => new CostNormItemResponseDto
         {
             Id = i.Id,

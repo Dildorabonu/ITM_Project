@@ -18,5 +18,4 @@ public class Material
     // Navigation properties
     public ICollection<StockIn> StockIns { get; set; } = [];
     public ICollection<StockOut> StockOuts { get; set; } = [];
-    public ICollection<TechProcessMaterial> TechProcessMaterials { get; set; } = [];
 }

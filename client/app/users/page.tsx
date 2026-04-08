@@ -16,6 +16,7 @@ import {
   type UserUpdatePayload,
 } from "@/lib/userService";
 import { useAuthStore } from "@/lib/store/authStore";
+import { ConfirmModal } from "@/app/_components/ConfirmModal";
 
 
 const emptyForm = { firstName: "", lastName: "", login: "", password: "", roleId: "", departmentId: "", isActive: true, isHead: false };
@@ -1110,29 +1111,14 @@ function UsersPageInner() {
         </div>
       )}
 
-      {deleteId && (
-        <div style={{
-          position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000,
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
-          <div style={{
-            background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12,
-            padding: 28, width: 340, maxWidth: "95vw", textAlign: "center",
-          }}>
-            <div style={{ fontSize: 15, marginBottom: 8 }}>Foydalanuvchini o&apos;chirish</div>
-            <div style={{ color: "var(--text2)", fontSize: 13, marginBottom: 20 }}>
-              Ushbu foydalanuvchi o&apos;chiriladi. Davom etasizmi?
-            </div>
-            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-              <button className="btn btn-outline" onClick={() => setDeleteId(null)} disabled={deleting}>Bekor</button>
-              <button className="btn" style={{ background: "#e05252", color: "#fff", border: "none" }}
-                onClick={handleDelete} disabled={deleting}>
-                {deleting ? "O'chirilmoqda..." : "O'chirish"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        open={!!deleteId}
+        title="Foydalanuvchini o'chirish"
+        message="Ushbu foydalanuvchi o'chiriladi. Davom etasizmi?"
+        loading={deleting}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteId(null)}
+      />
     </div>
   );
 }

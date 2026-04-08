@@ -16,6 +16,7 @@ public class CostNormItem
     public string? PhotoSemi { get; set; }
     public string? ImportType { get; set; }
     public int SortOrder { get; set; }
+    public bool IsActive { get; set; } = true;
 
     // Navigation properties
     public CostNorm? CostNorm { get; set; }
