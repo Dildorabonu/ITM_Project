@@ -83,19 +83,6 @@ export default function TechnicalDrawingsPage() {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
 
-  // Create form
-  const [showForm, setShowForm] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [fileError, setFileError] = useState("");
-  const [form, setForm] = useState({
-    contractId: "",
-    title: "",
-    notes: "",
-    file: null as File | null,
-  });
-  const [titleEdited, setTitleEdited] = useState(false);
-
   // Drawer
   const [drawer, setDrawer] = useState<TechnicalDrawingResponse | null>(null);
   const [drawerFiles, setDrawerFiles] = useState<AttachmentResponse[]>([]);
@@ -103,13 +90,24 @@ export default function TechnicalDrawingsPage() {
   const [drawerEditing, setDrawerEditing] = useState(false);
   const [drawerEditForm, setDrawerEditForm] = useState({ title: "", notes: "" });
   const [drawerEditSaving, setDrawerEditSaving] = useState(false);
-  const [approvingId, setApprovingId] = useState<string | null>(null);
-  const [uploadingFile, setUploadingFile] = useState(false);
-  const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
 
-  // Delete confirm
+  // Delete
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Create form
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [createContract, setCreateContract] = useState<ContractResponse | null>(null);
+  const [createForm, setCreateForm] = useState({ title: "", notes: "" });
+  const [createSubmitted, setCreateSubmitted] = useState(false);
+  const [createSaving, setCreateSaving] = useState(false);
+
+  // Edit form
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editTarget, setEditTarget] = useState<TechnicalDrawingResponse | null>(null);
+  const [editForm, setEditForm] = useState({ title: "", notes: "" });
+  const [editSubmitted, setEditSubmitted] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -165,35 +163,8 @@ export default function TechnicalDrawingsPage() {
     });
   }, [mergedRows, search, filterStatus]);
 
-  useDraft<{ contractId: string; title: string; notes: string }>(
-    "draft_technicaldrawings",
-    showForm,
-    { contractId: form.contractId, title: form.title, notes: form.notes },
-    (d) => { setForm({ contractId: d.contractId, title: d.title, notes: d.notes, file: null }); setShowForm(true); },
-  );
-
-  useEffect(() => {
-    if (!showForm) return;
-    const handlePopState = () => setShowForm(false);
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, [showForm]);
-
-  const openCreate = async (preselectedContractId = "") => {
-    setForm({ contractId: preselectedContractId, title: "", notes: "", file: null }); setTitleEdited(false);
-    setSubmitted(false);
-    setFileError("");
-    window.history.pushState({ showForm: true }, "");
-    setShowForm(true);
-    contractService.getAll().then((l) => setContracts(l)).catch(() => {});
-  };
-
-  // ── Drawer ──────────────────────────────────────────────────────────────────
-
-  const openDrawer = async (item: TechnicalDrawingResponse, editMode = false) => {
+  const openDrawer = async (item: TechnicalDrawingResponse) => {
     setDrawer(item);
-    setDrawerEditing(editMode);
-    setDrawerEditForm({ title: item.title, notes: item.notes || "" });
     setDrawerFiles([]);
     setDrawerLoading(true);
     try {
@@ -204,126 +175,86 @@ export default function TechnicalDrawingsPage() {
     }
   };
 
-  const refreshDrawer = async (id: string) => {
-    const [fresh, files] = await Promise.all([
-      technicalDrawingService.getById(id),
-      technicalDrawingService.getFiles(id),
-    ]);
-    setDrawer(fresh);
-    setDrawerFiles(files);
-    setList((prev) => prev.map((t) => t.id === id ? fresh : t));
-  };
-
-  const handleDrawerEditSave = async () => {
-    if (!drawer) return;
-    setDrawerEditSaving(true);
-    try {
-      await technicalDrawingService.update(drawer.id, {
-        title: drawerEditForm.title,
-        notes: drawerEditForm.notes || null,
-      });
-      await refreshDrawer(drawer.id);
-      setDrawerEditing(false);
-      showToast("Texnik chizma muvaffaqiyatli yangilandi!");
-    } finally {
-      setDrawerEditSaving(false);
-    }
-  };
-
-  const handleApproveDrawer = async () => {
-    if (!drawer) return;
-    setApprovingId(drawer.id);
-    try {
-      await technicalDrawingService.updateStatus(drawer.id, DrawingStatus.Approved);
-      await refreshDrawer(drawer.id);
-      showToast("Texnik chizma tasdiqlandi!");
-    } finally {
-      setApprovingId(null);
-    }
-  };
-
-  const handleApproveRow = async (id: string) => {
-    setApprovingId(id);
-    try {
-      await technicalDrawingService.updateStatus(id, DrawingStatus.Approved);
-      setList((prev) => prev.map((t) => t.id === id ? { ...t, status: DrawingStatus.Approved } : t));
-      if (drawer?.id === id) setDrawer((d) => d ? { ...d, status: DrawingStatus.Approved } : d);
-      showToast("Texnik chizma tasdiqlandi!");
-    } finally {
-      setApprovingId(null);
-    }
-  };
-
-  const handleUploadDrawerFile = async (file: File) => {
-    if (!drawer) return;
-    setUploadingFile(true);
-    try {
-      await technicalDrawingService.uploadFile(drawer.id, file);
-      const files = await technicalDrawingService.getFiles(drawer.id);
-      setDrawerFiles(files);
-    } finally {
-      setUploadingFile(false);
-    }
-  };
-
-  const handleDeleteDrawerFile = async (fileId: string) => {
-    if (!drawer) return;
-    setDeletingFileId(fileId);
-    try {
-      await technicalDrawingService.deleteFile(drawer.id, fileId);
-      setDrawerFiles((prev) => prev.filter((f) => f.id !== fileId));
-    } finally {
-      setDeletingFileId(null);
-    }
-  };
-
-  // ── Delete ───────────────────────────────────────────────────────────────────
-
   const handleDelete = async () => {
     if (!deleteId) return;
     setDeleting(true);
     try {
       await technicalDrawingService.delete(deleteId);
-      setList((prev) => prev.filter((t) => t.id !== deleteId));
-      if (drawer?.id === deleteId) setDrawer(null);
-      setDeleteId(null);
-      showToast("Texnik chizma o'chirildi!");
+      await loadData();
+      showToast("Texnik chizma o'chirildi.");
     } finally {
       setDeleting(false);
+      setDeleteId(null);
     }
   };
 
-  // ── Create form save ─────────────────────────────────────────────────────────
+  const openCreate = (contract: ContractResponse) => {
+    setCreateContract(contract);
+    setCreateForm({ title: "", notes: "" });
+    setCreateSubmitted(false);
+    window.history.pushState({ showCreateForm: true }, "");
+    setShowCreateForm(true);
+  };
 
-  const save = async () => {
-    setSubmitted(true);
-    setFileError("");
-    if (!form.contractId || (!form.title.trim() && !form.file)) return;
-    if (!form.file) {
-      setFileError("Texnik chizmalari faylini yuklash shart.");
-      return;
-    }
-    setSaving(true);
+  const handleCreateSave = async () => {
+    setCreateSubmitted(true);
+    if (!createForm.title.trim()) return;
+    setCreateSaving(true);
     try {
-      const newId = await technicalDrawingService.create({
-        contractId: form.contractId,
-        title: form.title.trim() || form.file!.name.replace(/\.[^.]+$/, ""),
-        notes: form.notes.trim() || null,
+      await technicalDrawingService.create({
+        contractId: createContract!.id,
+        title: createForm.title.trim(),
+        notes: createForm.notes.trim() || null,
       });
-      if (form.file) {
-        await technicalDrawingService.uploadFile(newId, form.file);
-      }
       await loadData();
-      setShowForm(false);
+      setShowCreateForm(false);
       showToast("Texnik chizma muvaffaqiyatli yaratildi!");
     } finally {
-      setSaving(false);
+      setCreateSaving(false);
     }
   };
 
-  // ── Render: Create form ──────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!showCreateForm) return;
+    const handlePopState = () => setShowCreateForm(false);
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [showCreateForm]);
 
-  if (showForm) {
+  useEffect(() => {
+    if (!showEditForm) return;
+    const handlePopState = () => setShowEditForm(false);
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [showEditForm]);
+
+  const openEdit = (item: TechnicalDrawingResponse) => {
+    setEditTarget(item);
+    setEditForm({ title: item.title, notes: item.notes || "" });
+    setEditSubmitted(false);
+    setDrawer(null);
+    window.history.pushState({ showEditForm: true }, "");
+    setShowEditForm(true);
+  };
+
+  const handleEditSave = async () => {
+    setEditSubmitted(true);
+    if (!editForm.title.trim()) return;
+    setEditSaving(true);
+    try {
+      await technicalDrawingService.update(editTarget!.id, {
+        title: editForm.title.trim(),
+        notes: editForm.notes.trim() || null,
+      });
+      await loadData();
+      setShowEditForm(false);
+      showToast("Texnik chizma muvaffaqiyatli yangilandi!");
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  if (showCreateForm && createContract) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 20, minHeight: "calc(100vh - 140px)", fontFamily: "Inter, sans-serif" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -331,127 +262,48 @@ export default function TechnicalDrawingsPage() {
         </div>
 
         <div className="itm-card" style={{ padding: 32, flex: 1 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)", gap: 24, alignItems: "stretch", minHeight: "70vh" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 18, minHeight: 0 }}>
-              <div>
-                <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: "var(--text2)" }}>
-                  Shartnoma <span style={{ color: "var(--danger)" }}>*</span>
-                </label>
-                {form.contractId ? (
-                  <div style={{
-                    height: 44, display: "flex", alignItems: "center", padding: "0 14px",
-                    background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "var(--radius)",
-                    fontSize: 14, color: "var(--text1)", fontWeight: 600,
-                  }}>
-                    {contracts.find((c) => c.id === form.contractId)?.contractNo ?? form.contractId}
-                  </div>
-                ) : (
-                  <>
-                    <select
-                      className="form-input"
-                      value={form.contractId}
-                      onChange={(e) => setForm((p) => ({ ...p, contractId: e.target.value }))}
-                      style={{ width: "100%", height: 44, fontSize: 14, cursor: "pointer", ...(submitted && !form.contractId ? { borderColor: "var(--danger)" } : {}) }}
-                    >
-                      <option value="">— Shartnomani tanlang —</option>
-                      {contracts.map((c) => (
-                        <option key={c.id} value={c.id}>{c.contractNo}</option>
-                      ))}
-                    </select>
-                    {submitted && !form.contractId && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Shartnoma tanlash shart</div>}
-                  </>
-                )}
-              </div>
-
-              <div>
-                <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: submitted && !form.title.trim() ? "var(--danger)" : "var(--text2)" }}>
-                  Nomi <span style={{ color: "var(--danger)" }}>*</span>
-                </label>
-                <input
-                  className="form-input"
-                  value={form.title}
-                  onChange={(e) => { setTitleEdited(true); setForm((p) => ({ ...p, title: e.target.value })); }}
-                  placeholder="Avtomatik to'ldiriladi"
-                  style={{ height: 44, fontSize: 14, ...(submitted && !form.title.trim() ? { borderColor: "var(--danger)" } : {}) }}
-                />
-                {submitted && !form.title.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Nomi kiritish shart</div>}
-              </div>
-
-              <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-                <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: "var(--text2)" }}>
-                  Izoh
-                </label>
-                <textarea
-                  className="form-input"
-                  value={form.notes}
-                  onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-                  rows={10}
-                  placeholder="Qo'shimcha izoh (ixtiyoriy)"
-                  style={{ fontSize: 14, resize: "none", flex: 1, minHeight: 0, paddingTop: 12 }}
-                />
+          <div style={{ display: "flex", flexDirection: "column", gap: 18, maxWidth: 600 }}>
+            <div>
+              <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: "var(--text2)" }}>Shartnoma</label>
+              <div style={{ height: 44, display: "flex", alignItems: "center", padding: "0 14px", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, color: "var(--text1)", fontWeight: 600 }}>
+                {createContract.contractNo}
               </div>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
-              <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: submitted && !form.file ? "var(--danger)" : "var(--text2)" }}>
-                Texnik chizma fayli <span style={{ color: "var(--danger)" }}>*</span>
+            <div>
+              <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: createSubmitted && !createForm.title.trim() ? "var(--danger)" : "var(--text2)" }}>
+                Nomi <span style={{ color: "var(--danger)" }}>*</span>
               </label>
-              <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 10 }}>
-                PDF, DWG, DXF yoki boshqa texnik chizma formatidagi fayl
-              </div>
-              <label
-                htmlFor="technical-drawing-file"
-                style={{
-                  flex: 1,
-                  minHeight: 0,
-                  border: `2px dashed ${submitted && !form.file ? "var(--danger)" : "var(--border)"}`,
-                  borderRadius: 12,
-                  background: "var(--bg1)",
-                  padding: 20,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  textAlign: "center",
-                  cursor: "pointer",
-                  gap: 10,
-                  transition: "border-color 0.15s",
-                }}
-              >
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.6">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" />
-                  <line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text1)" }}>
-                  {form.file ? "Faylni almashtirish" : "Faylni tanlash"}
-                </div>
-                {form.file ? (
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--accent)", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {form.file.name}
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 12, color: "var(--text3)" }}>
-                    Fayl tanlanmagan
-                  </div>
-                )}
-                <input
-                  id="technical-drawing-file"
-                  type="file"
-                  hidden
-                  onChange={(e) => { const f = e.target.files?.[0] ?? null; setForm((p) => ({ ...p, file: f, title: f && !titleEdited ? f.name.replace(/\.[^.]+$/, "") : p.title })); setFileError(""); }}
-                />
-              </label>
-              {fileError && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 6 }}>{fileError}</div>}
+              <input
+                className="form-input"
+                value={createForm.title}
+                onChange={(e) => setCreateForm((f) => ({ ...f, title: e.target.value }))}
+                placeholder="Texnik chizma nomi"
+                autoFocus
+                style={{ height: 44, fontSize: 14, ...(createSubmitted && !createForm.title.trim() ? { borderColor: "var(--danger)" } : {}) }}
+              />
+              {createSubmitted && !createForm.title.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Nomi kiritish shart</div>}
+            </div>
+
+            <div>
+              <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: "var(--text2)" }}>Izoh</label>
+              <textarea
+                className="form-input"
+                value={createForm.notes}
+                onChange={(e) => setCreateForm((f) => ({ ...f, notes: e.target.value }))}
+                rows={6}
+                placeholder="Qo'shimcha izoh (ixtiyoriy)"
+                style={{ fontSize: 14, resize: "none" }}
+              />
             </div>
           </div>
 
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 24 }}>
-            <button className="btn btn-outline" onClick={() => setShowForm(false)} style={{ fontSize: 13, padding: "10px 20px" }}>
+            <button className="btn btn-outline" onClick={() => setShowCreateForm(false)} style={{ fontSize: 13, padding: "10px 20px" }}>
               Bekor qilish
             </button>
-            <button className="btn btn-primary" onClick={save} disabled={saving} style={{ fontSize: 13, padding: "10px 22px" }}>
-              {saving ? "Saqlanmoqda..." : "Saqlash"}
+            <button className="btn btn-primary" onClick={handleCreateSave} disabled={createSaving} style={{ fontSize: 13, padding: "10px 22px" }}>
+              {createSaving ? "Saqlanmoqda..." : "Saqlash"}
             </button>
           </div>
         </div>
@@ -459,7 +311,61 @@ export default function TechnicalDrawingsPage() {
     );
   }
 
-  // ── Render: List ─────────────────────────────────────────────────────────────
+  if (showEditForm && editTarget) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 20, minHeight: "calc(100vh - 140px)", fontFamily: "Inter, sans-serif" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontWeight: 800, fontSize: 24, color: "var(--text1)" }}>Texnik chizmani tahrirlash</span>
+        </div>
+
+        <div className="itm-card" style={{ padding: 32, flex: 1 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 18, maxWidth: 600 }}>
+            <div>
+              <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: "var(--text2)" }}>Shartnoma</label>
+              <div style={{ height: 44, display: "flex", alignItems: "center", padding: "0 14px", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, color: "var(--text1)", fontWeight: 600 }}>
+                {editTarget.contractNo}
+              </div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: editSubmitted && !editForm.title.trim() ? "var(--danger)" : "var(--text2)" }}>
+                Nomi <span style={{ color: "var(--danger)" }}>*</span>
+              </label>
+              <input
+                className="form-input"
+                value={editForm.title}
+                onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+                placeholder="Texnik chizma nomi"
+                style={{ height: 44, fontSize: 14, ...(editSubmitted && !editForm.title.trim() ? { borderColor: "var(--danger)" } : {}) }}
+              />
+              {editSubmitted && !editForm.title.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Nomi kiritish shart</div>}
+            </div>
+
+            <div>
+              <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: "var(--text2)" }}>Izoh</label>
+              <textarea
+                className="form-input"
+                value={editForm.notes}
+                onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
+                rows={6}
+                placeholder="Qo'shimcha izoh (ixtiyoriy)"
+                style={{ fontSize: 14, resize: "none" }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 24 }}>
+            <button className="btn btn-outline" onClick={() => setShowEditForm(false)} style={{ fontSize: 13, padding: "10px 20px" }}>
+              Bekor qilish
+            </button>
+            <button className="btn btn-primary" onClick={handleEditSave} disabled={editSaving} style={{ fontSize: 13, padding: "10px 22px" }}>
+              {editSaving ? "Saqlanmoqda..." : "Saqlash"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -493,14 +399,6 @@ export default function TechnicalDrawingsPage() {
               <polyline points="1,20 1,14 7,14" />
               <path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10M1 14l5.36 4.36A9 9 0 0 0 20.49 15" />
             </svg>
-          </button>
-
-          <button className="btn-primary" onClick={() => openCreate()} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "none", cursor: "pointer" }}>
-            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            Yangi yaratish
           </button>
         </div>
 
@@ -558,13 +456,11 @@ export default function TechnicalDrawingsPage() {
                               <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
                                 <button
                                   className="btn-icon"
-                                  onClick={() => openCreate(c.id)}
+                                  onClick={() => openCreate(c)}
                                   title="Chizma yaratish"
-                                  style={{ color: "var(--accent)", borderColor: "var(--accent)33", background: "var(--accent-dim)" }}
+                                  style={{ color: "var(--accent)", borderColor: "var(--accent)33", background: "var(--accent-dim)", width: 28, height: 28, fontSize: 18, fontWeight: 700 }}
                                 >
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                    <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-                                  </svg>
+                                  +
                                 </button>
                               </div>
                             </td>
@@ -620,22 +516,9 @@ export default function TechnicalDrawingsPage() {
                                   <circle cx="12" cy="12" r="3" />
                                 </svg>
                               </button>
-                              {item.status === DrawingStatus.Draft && (
-                                <button
-                                  className="btn-icon"
-                                  onClick={() => handleApproveRow(item.id)}
-                                  disabled={approvingId === item.id}
-                                  title="Tasdiqlash"
-                                  style={{ color: "var(--success)", borderColor: "rgba(15,123,69,0.25)", background: "var(--success-dim)" }}
-                                >
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                    <polyline points="20 6 9 17 4 12" />
-                                  </svg>
-                                </button>
-                              )}
                               <button
                                 className="btn-icon"
-                                onClick={() => openDrawer(item, true)}
+                                onClick={() => openEdit(item)}
                                 title="Tahrirlash"
                                 style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}
                               >
@@ -645,14 +528,16 @@ export default function TechnicalDrawingsPage() {
                                 </svg>
                               </button>
                               <button
-                                className="btn-icon btn-icon-danger"
+                                className="btn-icon"
                                 onClick={() => setDeleteId(item.id)}
                                 title="O'chirish"
                                 style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}
                               >
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" />
-                                  <path d="M10 11v6M14 11v6M9 6V4h6v2" />
+                                  <polyline points="3 6 5 6 21 6" />
+                                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                                  <path d="M10 11v6M14 11v6" />
+                                  <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
                                 </svg>
                               </button>
                             </div>
@@ -687,66 +572,26 @@ export default function TechnicalDrawingsPage() {
             {/* Sticky header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, position: "sticky", top: 0, background: "var(--bg2)", zIndex: 1, paddingBottom: 8 }}>
               <span style={{ fontWeight: 700, fontSize: 17, color: "var(--text1)" }}>
-                {drawerEditing ? "Texnik chizmani tahrirlash" : "Texnik chizma tafsilotlari"}
+                Texnik chizma tafsilotlari
               </span>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                {drawerEditing ? (
-                  <>
-                    <button
-                      onClick={() => setDrawerEditing(false)}
-                      style={{ padding: "6px 16px", borderRadius: "var(--radius)", border: "1.5px solid var(--border)", background: "var(--bg3)", color: "var(--text2)", fontSize: 13, cursor: "pointer" }}
-                    >
-                      Bekor
-                    </button>
-                    <button
-                      className="btn-primary"
-                      onClick={handleDrawerEditSave}
-                      disabled={drawerEditSaving}
-                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 16px", fontSize: 13, borderRadius: "var(--radius)" }}
-                    >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                        <polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
-                      </svg>
-                      {drawerEditSaving ? "Saqlanmoqda..." : "Saqlash"}
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    className="btn-icon"
-                    onClick={() => { setDrawerEditing(true); setDrawerEditForm({ title: drawer.title, notes: drawer.notes || "" }); }}
-                    title="Tahrirlash"
-                    style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                    </svg>
-                  </button>
-                )}
+                <button
+                  className="btn-icon"
+                  onClick={() => openEdit(drawer)}
+                  title="Tahrirlash"
+                  style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                  </svg>
+                </button>
                 <button
                   onClick={() => setDrawer(null)}
                   style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 18, lineHeight: 1, padding: 4 }}
                 >✕</button>
               </div>
             </div>
-
-            {/* Approve action */}
-            {!drawerEditing && drawer.status === DrawingStatus.Draft && (
-              <div style={{ marginBottom: 20 }}>
-                <button
-                  className="btn-primary"
-                  onClick={handleApproveDrawer}
-                  disabled={approvingId === drawer.id}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "none", cursor: "pointer" }}
-                >
-                  <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                    <polyline points="20,6 9,17 4,12" />
-                  </svg>
-                  {approvingId === drawer.id ? "Tasdiqlanmoqda..." : "Tasdiqlash"}
-                </button>
-              </div>
-            )}
 
             {/* Info cards */}
             <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 10 }}>Umumiy</div>
@@ -772,76 +617,28 @@ export default function TechnicalDrawingsPage() {
             {/* Title */}
             <div style={{ marginBottom: 18 }}>
               <div style={{ fontSize: 13, color: "var(--text2)", fontWeight: 600, marginBottom: 6 }}>Nomi</div>
-              {drawerEditing ? (
-                <input
-                  className="form-input"
-                  value={drawerEditForm.title}
-                  onChange={(e) => setDrawerEditForm((f) => ({ ...f, title: e.target.value }))}
-                  placeholder="Nomi"
-                  style={{ fontSize: 14 }}
-                />
-              ) : (
-                <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text1)" }}>{drawer.title}</div>
-              )}
+              <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text1)" }}>{drawer.title}</div>
             </div>
 
             {/* Notes */}
-            {(drawerEditing || drawer.notes) && (
+            {drawer.notes && (
               <div style={{ marginBottom: 22 }}>
                 <div style={{ fontSize: 13, color: "var(--text2)", fontWeight: 600, marginBottom: 6 }}>Izoh</div>
-                {drawerEditing ? (
-                  <textarea
-                    className="form-input"
-                    value={drawerEditForm.notes}
-                    onChange={(e) => setDrawerEditForm((f) => ({ ...f, notes: e.target.value }))}
-                    placeholder="Izoh (ixtiyoriy)"
-                    rows={4}
-                    style={{ resize: "none", fontSize: 14 }}
-                  />
-                ) : (
-                  <div style={{ fontSize: 14, color: "var(--text1)", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{drawer.notes}</div>
-                )}
+                <div style={{ fontSize: 14, color: "var(--text1)", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{drawer.notes}</div>
               </div>
             )}
 
             {/* Files section */}
             <div style={{ borderTop: "1.5px solid var(--border)", paddingTop: 20, marginTop: 4 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <div style={{ fontSize: 13, color: "var(--text2)", fontWeight: 600 }}>
-                  Fayllar {drawerFiles.length > 0 ? `(${drawerFiles.length})` : ""}
-                </div>
-                <label
-                  htmlFor="drawer-upload-file"
-                  style={{
-                    display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", fontSize: 12,
-                    fontWeight: 600, borderRadius: "var(--radius)", border: "1.5px solid var(--border)",
-                    cursor: uploadingFile ? "default" : "pointer", background: "var(--bg1)", color: "var(--text2)",
-                    opacity: uploadingFile ? 0.6 : 1,
-                  }}
-                >
-                  <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                    <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-                  </svg>
-                  {uploadingFile ? "Yuklanmoqda..." : "Fayl qo'shish"}
-                  <input
-                    id="drawer-upload-file"
-                    type="file"
-                    hidden
-                    disabled={uploadingFile}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) handleUploadDrawerFile(f);
-                      e.target.value = "";
-                    }}
-                  />
-                </label>
+              <div style={{ fontSize: 13, color: "var(--text2)", fontWeight: 600, marginBottom: 14 }}>
+                Fayllar {drawerFiles.length > 0 ? `(${drawerFiles.length})` : ""}
               </div>
 
               {drawerLoading ? (
                 <div style={{ fontSize: 13, color: "var(--text3)", textAlign: "center", padding: "16px 0" }}>Yuklanmoqda...</div>
               ) : drawerFiles.length === 0 ? (
                 <div style={{ fontSize: 13, color: "var(--text3)", textAlign: "center", padding: "28px 0", border: "1.5px dashed var(--border)", borderRadius: 8 }}>
-                  Fayllar yo&apos;q. Yangi fayl qo&apos;shing.
+                  Fayllar yo&apos;q
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -879,61 +676,27 @@ export default function TechnicalDrawingsPage() {
                           <line x1="12" y1="15" x2="12" y2="3" />
                         </svg>
                       </a>
-                      <button
-                        title="O'chirish"
-                        disabled={deletingFileId === file.id}
-                        onClick={() => handleDeleteDrawerFile(file.id)}
-                        style={{
-                          display: "inline-flex", alignItems: "center", justifyContent: "center",
-                          width: 30, height: 30, borderRadius: 6, flexShrink: 0,
-                          color: "var(--danger)", border: "1.5px solid var(--danger)33", background: "var(--danger-dim)",
-                          cursor: "pointer",
-                        }}
-                      >
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" />
-                        </svg>
-                      </button>
                     </div>
                   ))}
                 </div>
               )}
             </div>
-
-            {/* Delete button at bottom */}
-            {!drawerEditing && (
-              <div style={{ marginTop: "auto", paddingTop: 24 }}>
-                <button
-                  onClick={() => { setDeleteId(drawer.id); setDrawer(null); }}
-                  style={{
-                    display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", fontSize: 13,
-                    fontWeight: 600, borderRadius: "var(--radius)", border: "1.5px solid var(--danger)33",
-                    background: "var(--danger-dim)", color: "var(--danger)", cursor: "pointer",
-                  }}
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" />
-                    <path d="M10 11v6M14 11v6M9 6V4h6v2" />
-                  </svg>
-                  O&apos;chirish
-                </button>
-              </div>
-            )}
           </div>
         </div>
       )}
 
-      {/* ── Delete confirm modal ── */}
-      <ToastContainer />
-
       <ConfirmModal
         open={!!deleteId}
-        title="Texnik chizmani o'chirish"
-        message="Bu texnik chizmani o'chirmoqchimisiz? Bu amalni ortga qaytarib bo'lmaydi."
+        title="O'chirishni tasdiqlang"
+        message="Texnik chizmani o'chirmoqchimisiz? Bu amalni qaytarib bo'lmaydi."
+        confirmLabel="O'chirish"
+        cancelLabel="Bekor qilish"
         loading={deleting}
         onConfirm={handleDelete}
         onCancel={() => setDeleteId(null)}
       />
+
+      <ToastContainer />
     </>
   );
 }
