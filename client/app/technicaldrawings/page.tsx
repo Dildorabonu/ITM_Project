@@ -442,7 +442,7 @@ export default function TechnicalDrawingsPage() {
 
   return (
     <>
-      <div style={{ display: "flex", flexDirection: "column", gap: 16, fontFamily: "Inter, sans-serif" }}>
+      <div style={{ display: "flex", flexDirection: "column", flex: 1, gap: 16, fontFamily: "Inter, sans-serif" }}>
         {/* Filter bar */}
         <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 2, padding: "10px 14px", flexWrap: "wrap" }}>
           <div className="search-wrap" style={{ maxWidth: "none", flex: 1, minWidth: 180 }}>
@@ -514,7 +514,7 @@ export default function TechnicalDrawingsPage() {
                       if (row.kind === "empty") {
                         const c = row.contract;
                         return (
-                          <tr key={`empty-${c.id}`} style={{ background: "var(--bg3)" }}>
+                          <tr key={`empty-${c.id}`}>
                             <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>
                               {String(i + 1).padStart(2, "0")}
                             </td>
