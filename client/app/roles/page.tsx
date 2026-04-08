@@ -213,28 +213,30 @@ export default function RolesPage() {
 
   if (showRoleModal) {
     return (
-      <RoleFormView
-        editRole={editRole}
-        roleForm={roleForm}
-        setRoleForm={setRoleForm}
-        selectedPerms={selectedPerms}
-        expandedEditModules={expandedEditModules}
-        permissions={permissions}
-        permsLoading={permsLoading}
-        totalPermissions={totalPermissions}
-        formSubmitted={formSubmitted}
-        roleSaving={roleSaving}
-        togglePerm={togglePerm}
-        toggleAllModule={toggleAllModule}
-        toggleEditModule={toggleEditModule}
-        saveRole={saveRole}
-        onClose={() => setShowRoleModal(false)}
-      />
+      <div className="page-transition">
+        <RoleFormView
+          editRole={editRole}
+          roleForm={roleForm}
+          setRoleForm={setRoleForm}
+          selectedPerms={selectedPerms}
+          expandedEditModules={expandedEditModules}
+          permissions={permissions}
+          permsLoading={permsLoading}
+          totalPermissions={totalPermissions}
+          formSubmitted={formSubmitted}
+          roleSaving={roleSaving}
+          togglePerm={togglePerm}
+          toggleAllModule={toggleAllModule}
+          toggleEditModule={toggleEditModule}
+          saveRole={saveRole}
+          onClose={() => setShowRoleModal(false)}
+        />
+      </div>
     );
   }
 
   return (
-    <>
+    <div className="page-transition">
       <RoleTable
         loading={loading}
         filtered={filtered}
@@ -272,6 +274,6 @@ export default function RolesPage() {
           onClose={() => setViewRole(null)}
         />
       )}
-    </>
+    </div>
   );
 }

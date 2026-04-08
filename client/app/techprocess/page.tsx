@@ -922,7 +922,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
   }
 
   return (
-    <div style={{ display:"flex",flexDirection:"column",flex:1,gap:16 }}>
+    <div className="page-transition" style={{ display:"flex",flexDirection:"column",flex:1,gap:16 }}>
 
       {/* ── Toolbar ── */}
       <div className="itm-card" style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 14px",flexWrap:"wrap" }}>

@@ -168,7 +168,7 @@ const cardStyle: React.CSSProperties = {
   };
 
   return (
-    <div style={{ padding: "28px 32px", marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0 }}>
+    <div className="page-transition" style={{ padding: "28px 32px", marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0 }}>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: 15, rowGap: 15 }}>
 
