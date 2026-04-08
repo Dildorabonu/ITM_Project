@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useDraft } from "@/lib/useDraft";
 import {
   technicalDrawingService,
   contractService,
@@ -11,6 +10,7 @@ import {
   type ContractResponse,
   type AttachmentResponse,
 } from "@/lib/userService";
+
 import { ConfirmModal } from "@/app/_components/ConfirmModal";
 import ToastContainer from "@/app/_components/ToastContainer";
 import { useToastStore } from "@/lib/store/toastStore";
@@ -87,9 +87,6 @@ export default function TechnicalDrawingsPage() {
   const [drawer, setDrawer] = useState<TechnicalDrawingResponse | null>(null);
   const [drawerFiles, setDrawerFiles] = useState<AttachmentResponse[]>([]);
   const [drawerLoading, setDrawerLoading] = useState(false);
-  const [drawerEditing, setDrawerEditing] = useState(false);
-  const [drawerEditForm, setDrawerEditForm] = useState({ title: "", notes: "" });
-  const [drawerEditSaving, setDrawerEditSaving] = useState(false);
 
   // Delete
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -458,7 +455,7 @@ export default function TechnicalDrawingsPage() {
                                   className="btn-icon"
                                   onClick={() => openCreate(c)}
                                   title="Chizma yaratish"
-                                  style={{ color: "var(--accent)", borderColor: "var(--accent)33", background: "var(--accent-dim)", width: 28, height: 28, fontSize: 18, fontWeight: 700 }}
+                                  style={{ color: "var(--accent)", borderColor: "var(--accent)33", background: "var(--accent-dim)", width: 28, height: 28, fontSize: 18, fontWeight: 400 }}
                                 >
                                   +
                                 </button>
@@ -656,18 +653,15 @@ export default function TechnicalDrawingsPage() {
                         <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {file.fileName}
                         </div>
-                        <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>{file.contentType}</div>
                       </div>
-                      <a
-                        href={technicalDrawingService.downloadFileUrl(drawer.id, file.id)}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        onClick={() => technicalDrawingService.downloadFile(drawer.id, file.id, file.fileName)}
                         title="Yuklab olish"
                         style={{
                           display: "inline-flex", alignItems: "center", justifyContent: "center",
                           width: 30, height: 30, borderRadius: 6, flexShrink: 0,
                           color: "var(--accent)", border: "1.5px solid var(--accent)33", background: "var(--accent-dim)",
-                          textDecoration: "none",
+                          cursor: "pointer",
                         }}
                       >
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -675,7 +669,7 @@ export default function TechnicalDrawingsPage() {
                           <polyline points="7 10 12 15 17 10" />
                           <line x1="12" y1="15" x2="12" y2="3" />
                         </svg>
-                      </a>
+                      </button>
                     </div>
                   ))}
                 </div>
