@@ -936,7 +936,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
       </div>
 
       {/* ── Contracts table ── */}
-      <div className="itm-card" style={{ overflow:"hidden" }}>
+      <div className="itm-card" style={{ flex:1, overflow:"hidden" }}>
         {(tpLoading||cnListLoading)?(
           <div style={{ padding:40,textAlign:"center",color:"var(--text2)" }}>Yuklanmoqda...</div>
         ):readinessItems.length===0?(
