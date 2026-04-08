@@ -12,6 +12,8 @@ import {
   type AttachmentResponse,
 } from "@/lib/userService";
 import { ConfirmModal } from "@/app/_components/ConfirmModal";
+import ToastContainer from "@/app/_components/ToastContainer";
+import { useToastStore } from "@/lib/store/toastStore";
 
 const STATUS_STYLE: Record<DrawingStatus, { bg: string; color: string; border: string }> = {
   [DrawingStatus.Draft]:      { bg: "var(--bg3)",          color: "var(--text2)",   border: "var(--border)" },
@@ -74,6 +76,7 @@ type MergedRow =
   | { kind: "empty"; contract: ContractResponse };
 
 export default function TechnicalDrawingsPage() {
+  const showToast = useToastStore((s) => s.show);
   const [list, setList] = useState<TechnicalDrawingResponse[]>([]);
   const [contracts, setContracts] = useState<ContractResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,6 +94,7 @@ export default function TechnicalDrawingsPage() {
     notes: "",
     file: null as File | null,
   });
+  const [titleEdited, setTitleEdited] = useState(false);
 
   // Drawer
   const [drawer, setDrawer] = useState<TechnicalDrawingResponse | null>(null);
@@ -176,7 +180,7 @@ export default function TechnicalDrawingsPage() {
   }, [showForm]);
 
   const openCreate = async (preselectedContractId = "") => {
-    setForm({ contractId: preselectedContractId, title: "", notes: "", file: null });
+    setForm({ contractId: preselectedContractId, title: "", notes: "", file: null }); setTitleEdited(false);
     setSubmitted(false);
     setFileError("");
     window.history.pushState({ showForm: true }, "");
@@ -220,6 +224,7 @@ export default function TechnicalDrawingsPage() {
       });
       await refreshDrawer(drawer.id);
       setDrawerEditing(false);
+      showToast("Texnik chizma muvaffaqiyatli yangilandi!");
     } finally {
       setDrawerEditSaving(false);
     }
@@ -231,6 +236,7 @@ export default function TechnicalDrawingsPage() {
     try {
       await technicalDrawingService.updateStatus(drawer.id, DrawingStatus.Approved);
       await refreshDrawer(drawer.id);
+      showToast("Texnik chizma tasdiqlandi!");
     } finally {
       setApprovingId(null);
     }
@@ -242,6 +248,7 @@ export default function TechnicalDrawingsPage() {
       await technicalDrawingService.updateStatus(id, DrawingStatus.Approved);
       setList((prev) => prev.map((t) => t.id === id ? { ...t, status: DrawingStatus.Approved } : t));
       if (drawer?.id === id) setDrawer((d) => d ? { ...d, status: DrawingStatus.Approved } : d);
+      showToast("Texnik chizma tasdiqlandi!");
     } finally {
       setApprovingId(null);
     }
@@ -280,6 +287,7 @@ export default function TechnicalDrawingsPage() {
       setList((prev) => prev.filter((t) => t.id !== deleteId));
       if (drawer?.id === deleteId) setDrawer(null);
       setDeleteId(null);
+      showToast("Texnik chizma o'chirildi!");
     } finally {
       setDeleting(false);
     }
@@ -290,7 +298,7 @@ export default function TechnicalDrawingsPage() {
   const save = async () => {
     setSubmitted(true);
     setFileError("");
-    if (!form.contractId || !form.title.trim()) return;
+    if (!form.contractId || (!form.title.trim() && !form.file)) return;
     if (!form.file) {
       setFileError("Texnik chizmalari faylini yuklash shart.");
       return;
@@ -299,7 +307,7 @@ export default function TechnicalDrawingsPage() {
     try {
       const newId = await technicalDrawingService.create({
         contractId: form.contractId,
-        title: form.title.trim(),
+        title: form.title.trim() || form.file!.name.replace(/\.[^.]+$/, ""),
         notes: form.notes.trim() || null,
       });
       if (form.file) {
@@ -307,6 +315,7 @@ export default function TechnicalDrawingsPage() {
       }
       await loadData();
       setShowForm(false);
+      showToast("Texnik chizma muvaffaqiyatli yaratildi!");
     } finally {
       setSaving(false);
     }
@@ -325,35 +334,47 @@ export default function TechnicalDrawingsPage() {
           <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)", gap: 24, alignItems: "stretch", minHeight: "70vh" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 18, minHeight: 0 }}>
               <div>
-                <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: submitted && !form.contractId ? "var(--danger)" : "var(--text2)" }}>
-                  Shartnomani tanlang <span style={{ color: "var(--danger)" }}>*</span>
+                <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: "var(--text2)" }}>
+                  Shartnoma <span style={{ color: "var(--danger)" }}>*</span>
                 </label>
-                <select
-                  className="form-input"
-                  value={form.contractId}
-                  onChange={(e) => setForm((p) => ({ ...p, contractId: e.target.value }))}
-                  style={{ width: "100%", height: 44, fontSize: 14, cursor: "pointer", ...(submitted && !form.contractId ? { borderColor: "var(--danger)" } : {}) }}
-                >
-                  <option value="">— Shartnomani tanlang —</option>
-                  {contracts.map((c) => (
-                    <option key={c.id} value={c.id}>{c.contractNo}</option>
-                  ))}
-                </select>
-                {submitted && !form.contractId && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Shartnoma tanlash shart</div>}
+                {form.contractId ? (
+                  <div style={{
+                    height: 44, display: "flex", alignItems: "center", padding: "0 14px",
+                    background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "var(--radius)",
+                    fontSize: 14, color: "var(--text1)", fontWeight: 600,
+                  }}>
+                    {contracts.find((c) => c.id === form.contractId)?.contractNo ?? form.contractId}
+                  </div>
+                ) : (
+                  <>
+                    <select
+                      className="form-input"
+                      value={form.contractId}
+                      onChange={(e) => setForm((p) => ({ ...p, contractId: e.target.value }))}
+                      style={{ width: "100%", height: 44, fontSize: 14, cursor: "pointer", ...(submitted && !form.contractId ? { borderColor: "var(--danger)" } : {}) }}
+                    >
+                      <option value="">— Shartnomani tanlang —</option>
+                      {contracts.map((c) => (
+                        <option key={c.id} value={c.id}>{c.contractNo}</option>
+                      ))}
+                    </select>
+                    {submitted && !form.contractId && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Shartnoma tanlash shart</div>}
+                  </>
+                )}
               </div>
 
               <div>
                 <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: submitted && !form.title.trim() ? "var(--danger)" : "var(--text2)" }}>
-                  Sarlavha <span style={{ color: "var(--danger)" }}>*</span>
+                  Nomi <span style={{ color: "var(--danger)" }}>*</span>
                 </label>
                 <input
                   className="form-input"
                   value={form.title}
-                  onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
-                  placeholder="Masalan: Texnik chizma 01"
+                  onChange={(e) => { setTitleEdited(true); setForm((p) => ({ ...p, title: e.target.value })); }}
+                  placeholder="Avtomatik to'ldiriladi"
                   style={{ height: 44, fontSize: 14, ...(submitted && !form.title.trim() ? { borderColor: "var(--danger)" } : {}) }}
                 />
-                {submitted && !form.title.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Sarlavha kiritish shart</div>}
+                {submitted && !form.title.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Nomi kiritish shart</div>}
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
@@ -403,7 +424,7 @@ export default function TechnicalDrawingsPage() {
                   <line x1="12" y1="3" x2="12" y2="15" />
                 </svg>
                 <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text1)" }}>
-                  Faylni tanlash
+                  {form.file ? "Faylni almashtirish" : "Faylni tanlash"}
                 </div>
                 {form.file ? (
                   <div style={{ fontSize: 13, fontWeight: 700, color: "var(--accent)", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -418,7 +439,7 @@ export default function TechnicalDrawingsPage() {
                   id="technical-drawing-file"
                   type="file"
                   hidden
-                  onChange={(e) => { setForm((p) => ({ ...p, file: e.target.files?.[0] ?? null })); setFileError(""); }}
+                  onChange={(e) => { const f = e.target.files?.[0] ?? null; setForm((p) => ({ ...p, file: f, title: f && !titleEdited ? f.name.replace(/\.[^.]+$/, "") : p.title })); setFileError(""); }}
                 />
               </label>
               {fileError && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 6 }}>{fileError}</div>}
@@ -452,7 +473,7 @@ export default function TechnicalDrawingsPage() {
             </svg>
             <input
               className="search-input"
-              placeholder="Qidirish: sarlavha, shartnoma..."
+              placeholder="Qidirish: nomi, shartnoma..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -494,7 +515,7 @@ export default function TechnicalDrawingsPage() {
                   <tr>
                     <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
                     <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Shartnoma</th>
-                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Sarlavha</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Nomi</th>
                     <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Yaratuvchi</th>
                     <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Status</th>
                     <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Faollik</th>
@@ -750,13 +771,13 @@ export default function TechnicalDrawingsPage() {
 
             {/* Title */}
             <div style={{ marginBottom: 18 }}>
-              <div style={{ fontSize: 13, color: "var(--text2)", fontWeight: 600, marginBottom: 6 }}>Sarlavha</div>
+              <div style={{ fontSize: 13, color: "var(--text2)", fontWeight: 600, marginBottom: 6 }}>Nomi</div>
               {drawerEditing ? (
                 <input
                   className="form-input"
                   value={drawerEditForm.title}
                   onChange={(e) => setDrawerEditForm((f) => ({ ...f, title: e.target.value }))}
-                  placeholder="Sarlavha"
+                  placeholder="Nomi"
                   style={{ fontSize: 14 }}
                 />
               ) : (
@@ -903,6 +924,8 @@ export default function TechnicalDrawingsPage() {
       )}
 
       {/* ── Delete confirm modal ── */}
+      <ToastContainer />
+
       <ConfirmModal
         open={!!deleteId}
         title="Texnik chizmani o'chirish"
