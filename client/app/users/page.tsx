@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useDraft } from "@/lib/useDraft";
 import {
@@ -215,8 +215,9 @@ function UsersPageInner() {
   const animOffset = useRef(-(Date.now() % 1500) / 1000);
 
   const [users, setUsers] = useState<UserResponse[]>([]);
-  const [filtered, setFiltered] = useState<UserResponse[]>([]);
   const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState<DepartmentType | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -258,7 +259,6 @@ function UsersPageInner() {
       setError("");
       const data = await userService.getAll(p);
       setUsers(data.items);
-      setFiltered(data.items);
       setTotalPages(data.totalPages);
       setTotalCount(data.totalCount);
     } catch {
@@ -274,22 +274,30 @@ function UsersPageInner() {
     departmentService.getAll().then(setDepartments).catch(() => {});
   }, [page]);
 
-  useEffect(() => {
+  const filtered = useMemo(() => {
     const q = search.toLowerCase();
     const deptIdsByType = typeFilter !== null
       ? new Set(departments.filter(d => d.type === typeFilter).map(d => d.id))
       : null;
 
-    let list = users;
-    if (deptIdsByType !== null) list = list.filter(u => u.departmentId !== null && deptIdsByType.has(u.departmentId));
-    if (q) list = list.filter(u =>
-      `${u.firstName} ${u.lastName}`.toLowerCase().includes(q) ||
-      u.login.toLowerCase().includes(q) ||
-      (u.roleName ?? "").toLowerCase().includes(q) ||
-      (u.departmentName ?? "").toLowerCase().includes(q)
-    );
-    setFiltered(list);
-  }, [search, typeFilter, users, departments]);
+    return users.filter(u => {
+      if (deptIdsByType !== null && (!u.departmentId || !deptIdsByType.has(u.departmentId))) return false;
+      if (roleFilter && u.roleId !== roleFilter) return false;
+      if (statusFilter === "active" && !u.isActive) return false;
+      if (statusFilter === "inactive" && u.isActive) return false;
+      if (q && !(
+        `${u.firstName} ${u.lastName}`.toLowerCase().includes(q) ||
+        u.login.toLowerCase().includes(q) ||
+        (u.roleName ?? "").toLowerCase().includes(q) ||
+        (u.departmentName ?? "").toLowerCase().includes(q)
+      )) return false;
+      return true;
+    });
+  }, [search, typeFilter, roleFilter, statusFilter, users, departments]);
+
+  const activeCount = users.filter(u => u.isActive).length;
+  const inactiveCount = users.filter(u => !u.isActive).length;
+  const headCount = users.filter(u => u.isHead).length;
 
   // Initialize form when entering edit mode or when editTarget becomes available
   const initializedEditIdRef = useRef<string | null>(null);
@@ -417,16 +425,28 @@ function UsersPageInner() {
     }
   };
 
+  function getRoleBadgeClass(roleName: string | null): string {
+    if (!roleName) return "um-badge";
+    const lower = roleName.toLowerCase();
+    if (lower.includes("admin")) return "um-badge um-badge-admin";
+    if (lower.includes("boshli") || lower.includes("director") || lower.includes("manager")) return "um-badge um-badge-manager";
+    return "um-badge um-badge-worker";
+  }
+
+  function formatDate(dateStr: string): string {
+    if (!dateStr) return "—";
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" });
+  }
+
   /* ===== Edit inline view ===== */
   if (showEdit) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-        {/* Header */}
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>Foydalanuvchini tahrirlash</span>
         </div>
 
-        {/* Form fields */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <div>
             <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", marginBottom: 6, display: "block" }}>
@@ -539,7 +559,6 @@ function UsersPageInner() {
           </div>
         </div>
 
-        {/* Footer actions */}
         {saveError && (
           <div style={{ color: "#e05252", fontSize: 13, background: "#fff0f0", border: "1px solid #fca5a5", borderRadius: "var(--radius)", padding: "10px 14px", marginBottom: 8 }}>
             {saveError}
@@ -580,12 +599,10 @@ function UsersPageInner() {
   if (showCreate) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-        {/* Header */}
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>Yangi foydalanuvchi</span>
         </div>
 
-        {/* Form fields */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <div>
             <label style={{ fontSize: 13, fontWeight: 600, color: formSubmitted && !form.firstName.trim() ? "var(--danger)" : "var(--text2)", marginBottom: 6, display: "block" }}>
@@ -709,7 +726,6 @@ function UsersPageInner() {
           </div>
         </div>
 
-        {/* Footer actions */}
         {saveError && (
           <div style={{ color: "#e05252", fontSize: 13, background: "#fff0f0", border: "1px solid #fca5a5", borderRadius: "var(--radius)", padding: "10px 14px", marginBottom: 8 }}>
             {saveError}
@@ -746,6 +762,7 @@ function UsersPageInner() {
     );
   }
 
+  /* ===== Main list view ===== */
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
       <style>{`
@@ -761,9 +778,57 @@ function UsersPageInner() {
         }
         .sdot-on  { background: #22c55e; animation: sdot-ping 1.5s ease-out ${animOffset.current}s infinite; }
         .sdot-off { background: #94a3b8; }
+        @keyframes um-card-in {
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .um-card-anim { animation: um-card-in 0.35s ease-out both; }
+        .um-card-anim:nth-child(2) { animation-delay: 0.06s; }
+        .um-card-anim:nth-child(3) { animation-delay: 0.12s; }
+        .um-card-anim:nth-child(4) { animation-delay: 0.18s; }
       `}</style>
 
-      {/* Toifa filter chips */}
+      {/* Summary cards */}
+      <div className="um-summary-row">
+        <div className="um-summary-card um-card-anim">
+          <div className="um-summary-icon" style={{ background: "var(--accent-dim)" }}>
+            <svg width="16" height="16" fill="none" stroke="var(--accent)" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <div className="um-summary-info">
+            <span className="um-summary-value">{totalCount}</span>
+            <span className="um-summary-label">Jami foydalanuvchilar</span>
+          </div>
+        </div>
+        <div className="um-summary-card um-card-anim">
+          <div className="um-summary-icon" style={{ background: "var(--success-dim)" }}>
+            <svg width="16" height="16" fill="none" stroke="var(--success)" strokeWidth="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div className="um-summary-info">
+            <span className="um-summary-value">{activeCount}</span>
+            <span className="um-summary-label">Faol</span>
+          </div>
+        </div>
+        <div className="um-summary-card um-card-anim">
+          <div className="um-summary-icon" style={{ background: "var(--surface2)" }}>
+            <svg width="16" height="16" fill="none" stroke="var(--text3)" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+          </div>
+          <div className="um-summary-info">
+            <span className="um-summary-value">{inactiveCount}</span>
+            <span className="um-summary-label">Nofaol</span>
+          </div>
+        </div>
+        <div className="um-summary-card um-card-anim">
+          <div className="um-summary-icon" style={{ background: "#fffbeb" }}>
+            <svg width="16" height="16" fill="none" stroke="#f59e0b" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 2L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26z"/></svg>
+          </div>
+          <div className="um-summary-info">
+            <span className="um-summary-value">{headCount}</span>
+            <span className="um-summary-label">Boshliqlar</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Department type filter chips */}
       <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
         {([null, DepartmentType.IshlabChiqarish, DepartmentType.Bolim, DepartmentType.Boshqaruv] as const).map(t => {
           const active = typeFilter === t;
@@ -797,14 +862,38 @@ function UsersPageInner() {
         })}
       </div>
 
-      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px" }}>
-        <div className="search-wrap" style={{ maxWidth: "none", flex: 1 }}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input className="search-input" placeholder="Qidirish"
-            value={search} onChange={e => setSearch(e.target.value)} />
+      {/* Search + filters toolbar */}
+      <div className="um-controls">
+        <div className="um-search">
+          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input
+            type="text"
+            placeholder="Ism, login yoki rol bo'yicha qidirish..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
+        <select
+          className="um-filter-select"
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value)}
+          aria-label="Rol filtri"
+        >
+          <option value="">Rol: Barchasi</option>
+          {roles.map((r) => (
+            <option key={r.id} value={r.id}>{r.name}</option>
+          ))}
+        </select>
+        <select
+          className="um-filter-select"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          aria-label="Holat filtri"
+        >
+          <option value="">Holat: Barchasi</option>
+          <option value="active">Faol</option>
+          <option value="inactive">Nofaol</option>
+        </select>
         <button
           className="btn-icon"
           onClick={() => load()}
@@ -831,124 +920,172 @@ function UsersPageInner() {
         )}
       </div>
 
-      <div className="itm-card" style={{ flex: 1 }}>
-
+      {/* Table */}
+      <div className="itm-card">
         {loading ? (
-          <div style={{ padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
+          <div style={{ padding: 40, textAlign: "center", color: "var(--text2)" }}>
+            <div style={{ width: 28, height: 28, border: "3px solid var(--border)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 12px" }} />
+            Yuklanmoqda...
+          </div>
         ) : error ? (
           <div style={{ padding: 40, textAlign: "center", color: "#e05252" }}>{error}</div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div className="um-table-wrap">
             <table className="itm-table">
               <thead>
                 <tr>
-                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Ism</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Familiya</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Login</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", maxWidth: 180 }}>Tuzilma nomi</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Holat</th>
-                  <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>Amallar</th>
+                  <th style={{ width: 48, textAlign: "center" }}>T/r</th>
+                  <th style={{ textAlign: "left", width: "18%" }}>F.I.SH</th>
+                  <th style={{ textAlign: "left", width: "12%" }}>Login</th>
+                  <th style={{ width: "14%" }}>Rol</th>
+                  <th style={{ width: "16%" }}>Tuzilma</th>
+                  <th style={{ width: "8%" }}>Holat</th>
+                  <th style={{ width: "10%" }}>Yaratilgan</th>
+                  <th style={{ width: "12%" }}>Amallar</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
-                  <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
-                ) : filtered.map((u, i) => {
-                  const dept = u.departmentId ? departments.find(d => d.id === u.departmentId) : null;
+                {filtered.map((user, i) => {
+                  const dept = user.departmentId ? departments.find(d => d.id === user.departmentId) : null;
                   const ts = dept?.type !== undefined ? TYPE_STYLE[dept.type] : null;
                   return (
-                  <tr key={u.id}>
-                    <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>{String((page - 1) * 20 + i + 1).padStart(2, "0")}</td>
-                    <td style={{ textAlign: "center" }}>{u.firstName}</td>
-                    <td style={{ textAlign: "center", color: "var(--text1)" }}>{u.lastName}</td>
-                    <td style={{ textAlign: "center" }}>{u.login}</td>
-                    <td style={{ textAlign: "center", maxWidth: 180, overflow: "hidden" }}>
-                      {u.departmentName && ts ? (
-                        <span style={{
-                          display: "inline-flex", alignItems: "center", gap: 4,
-                          padding: "2px 8px", borderRadius: 12, fontSize: 12, fontWeight: 600,
-                          background: ts.bg, color: ts.color, border: `1px solid ${ts.border}`,
-                          maxWidth: "100%", overflow: "hidden",
-                        }} title={u.departmentName}>
-                          <span style={{ flexShrink: 0 }}>{ts.icon}</span>
-                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{u.departmentName}</span>
+                    <tr key={user.id} style={{ opacity: user.isActive ? 1 : 0.65 }}>
+                      <td style={{ textAlign: "center", fontSize: 12, color: "var(--text3)" }}>
+                        {String((page - 1) * 20 + i + 1).padStart(2, "0")}
+                      </td>
+                      <td style={{ textAlign: "left", fontWeight: 500 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{
+                            width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
+                            background: "linear-gradient(135deg, var(--accent-dim), var(--accent)22)",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            fontSize: 12, fontWeight: 700, color: "var(--accent)",
+                            border: "1.5px solid var(--accent)33",
+                          }}>
+                            {user.firstName[0]}{user.lastName[0]}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)" }}>
+                              {user.firstName} {user.lastName}
+                            </div>
+                            {user.isHead && (
+                              <span style={{ fontSize: 10, color: "#f59e0b", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, display: "inline-flex", alignItems: "center", gap: 2 }}>
+                                👑 Boshliq
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ textAlign: "left", color: "var(--text2)", fontSize: 13 }}>
+                        {user.login}
+                      </td>
+                      <td>
+                        <span className={getRoleBadgeClass(user.roleName)}>
+                          {user.roleName || "—"}
                         </span>
-                      ) : (
-                        <span style={{ color: "var(--text3)", fontSize: 12 }}>—</span>
-                      )}
-                    </td>
-                    <td style={{ textAlign: "center" }}>
-                      <span
-                        className={`sdot ${u.isActive ? "sdot-on" : "sdot-off"}`}
-                        title={u.isActive ? "Aktiv" : "Nofaol"}
-                      />
-                    </td>
-                    <td style={{ borderLeft: "2px solid var(--border)" }}>
-                      <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-                        {u.id !== "00000000-0000-0000-0000-000000000001" && (
-                          <>
-                            {canUpdate && (
-                              <button className="btn-icon" title="Tahrirlash" onClick={() => openEdit(u)}
-                                style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                </svg>
-                              </button>
-                            )}
-                            {canDelete && (
-                              <button className="btn-icon btn-icon-danger" title="O'chirish" onClick={() => setDeleteId(u.id)}
-                                style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <polyline points="3 6 5 6 21 6" />
-                                  <path d="M19 6l-1 14H6L5 6" />
-                                  <path d="M10 11v6M14 11v6" />
-                                  <path d="M9 6V4h6v2" />
-                                </svg>
-                              </button>
-                            )}
-                          </>
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        {user.departmentName && ts ? (
+                          <span style={{
+                            display: "inline-flex", alignItems: "center", gap: 4,
+                            padding: "2px 8px", borderRadius: 12, fontSize: 12, fontWeight: 600,
+                            background: ts.bg, color: ts.color, border: `1px solid ${ts.border}`,
+                            maxWidth: "100%", overflow: "hidden",
+                          }} title={user.departmentName}>
+                            <span style={{ flexShrink: 0 }}>{ts.icon}</span>
+                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{user.departmentName}</span>
+                          </span>
+                        ) : (
+                          <span style={{ color: "var(--text3)", fontSize: 12 }}>—</span>
                         )}
-                      </div>
-                    </td>
-                  </tr>
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        <span
+                          className={`sdot ${user.isActive ? "sdot-on" : "sdot-off"}`}
+                          title={user.isActive ? "Faol" : "Nofaol"}
+                        />
+                      </td>
+                      <td style={{ fontSize: 12, color: "var(--text3)", textAlign: "center" }}>
+                        {formatDate(user.createdAt)}
+                      </td>
+                      <td className="td-actions">
+                        <div className="um-actions" style={{ justifyContent: "center" }}>
+                          {user.id !== "00000000-0000-0000-0000-000000000001" && (
+                            <>
+                              {canUpdate && (
+                                <button className="um-action-btn" title="Tahrirlash" type="button" onClick={() => openEdit(user)}>
+                                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                </button>
+                              )}
+                              {canDelete && (
+                                <button className="um-action-btn danger" title="O'chirish" type="button" onClick={() => setDeleteId(user.id)}>
+                                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
                   );
                 })}
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={8} style={{ textAlign: "center", padding: 32, color: "var(--text3)" }}>
+                      Foydalanuvchilar topilmadi
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
         )}
-      </div>
 
-      {totalPages > 1 && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12, padding: "0 4px" }}>
-          <span style={{ fontSize: 13, color: "var(--text2)" }}>
-            Jami: {totalCount} ta
+        {/* Pagination */}
+        <div className="um-pagination">
+          <span className="um-pagination-info">
+            Jami {totalCount} ta foydalanuvchi · Sahifa {page} / {totalPages}
           </span>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div className="um-pagination-btns">
             <button
-              className="btn-secondary"
+              className="um-page-btn"
               disabled={page <= 1}
-              onClick={() => setPage(p => p - 1)}
-              style={{ padding: "6px 14px", fontSize: 13 }}
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              type="button"
+              aria-label="Oldingi sahifa"
             >
-              ← Oldingi
+              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
             </button>
-            <span style={{ fontSize: 13, color: "var(--text1)", fontWeight: 600 }}>
-              {page} / {totalPages}
-            </span>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+              .map((p, idx, arr) => {
+                const prev = arr[idx - 1];
+                const showEllipsis = prev !== undefined && p - prev > 1;
+                return (
+                  <span key={p} style={{ display: "contents" }}>
+                    {showEllipsis && <span style={{ padding: "0 4px", color: "var(--text3)" }}>...</span>}
+                    <button
+                      className={`um-page-btn ${p === page ? "active" : ""}`}
+                      onClick={() => setPage(p)}
+                      type="button"
+                    >
+                      {p}
+                    </button>
+                  </span>
+                );
+              })}
             <button
-              className="btn-secondary"
+              className="um-page-btn"
               disabled={page >= totalPages}
-              onClick={() => setPage(p => p + 1)}
-              style={{ padding: "6px 14px", fontSize: 13 }}
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              type="button"
+              aria-label="Keyingi sahifa"
             >
-              Keyingi →
+              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
             </button>
           </div>
         </div>
-      )}
+      </div>
 
       {confirmHead && (
         <div style={{

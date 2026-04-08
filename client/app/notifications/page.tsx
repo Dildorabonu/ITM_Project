@@ -96,12 +96,20 @@ function formatTs(iso: string): string {
   return `${d.toLocaleDateString("uz-UZ")} · ${time}`;
 }
 
+const UZ_MONTHS = [
+  "yanvar", "fevral", "mart", "aprel", "may", "iyun",
+  "iyul", "avgust", "sentyabr", "oktyabr", "noyabr", "dekabr",
+];
+
 function formatFullDate(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleString("uz-UZ", {
-    year: "numeric", month: "long", day: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
+  if (isNaN(d.getTime())) return "—";
+  const day = d.getDate();
+  const month = UZ_MONTHS[d.getMonth()];
+  const year = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${day}-${month} ${year}-yil, ${hh}:${mm}`;
 }
 
 function formatDate(iso: string): string {
