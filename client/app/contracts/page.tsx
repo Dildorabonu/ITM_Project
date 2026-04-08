@@ -32,9 +32,11 @@ import { ContractForm } from "./_components/ContractForm";
 import { ContractDrawer } from "./_components/ContractDrawer";
 import { ScanModal } from "./_components/ScanModal";
 import { fmt } from "./_components/DatePickerField";
+import { useToastStore } from "@/lib/store/toastStore";
 
 export default function ContractsPage() {
   const hasPermission = useAuthStore((s) => s.hasPermission);
+  const showToast = useToastStore((s) => s.show);
   const canCreate = hasPermission("Contracts.Create");
   const canUpdate = hasPermission("Contracts.Update");
   const canDelete = hasPermission("Contracts.Delete");
@@ -57,7 +59,6 @@ export default function ContractsPage() {
   const [submitted, setSubmitted]       = useState(false);
   const [saving, setSaving]             = useState(false);
   const [formError, setFormError]       = useState("");
-  const [successMsg, setSuccessMsg]     = useState("");
   const [pendingContractFiles, setPendingContractFiles] = useState<File[]>([]);
   const [pendingTzFiles, setPendingTzFiles]             = useState<File[]>([]);
   const [formUsers, setFormUsers]             = useState<UserLookup[]>([]);
@@ -336,8 +337,7 @@ export default function ContractsPage() {
       await load();
       setShowForm(false);
       window.dispatchEvent(new Event("notif-read"));
-      setSuccessMsg(wasEditing ? "Shartnoma muvaffaqiyatli tahrirlandi!" : "Shartnoma muvaffaqiyatli yaratildi!");
-      setTimeout(() => setSuccessMsg(""), 4000);
+      showToast(wasEditing ? "Shartnoma muvaffaqiyatli tahrirlandi!" : "Shartnoma muvaffaqiyatli yaratildi!");
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
       setFormError(msg ?? "Saqlashda xatolik yuz berdi.");
@@ -394,8 +394,7 @@ export default function ContractsPage() {
       setContracts(prev => prev.filter(c => c.id !== deleteId));
       setDeleteId(null);
       window.dispatchEvent(new Event("notif-read"));
-      setSuccessMsg("Shartnoma muvaffaqiyatli o'chirildi!");
-      setTimeout(() => setSuccessMsg(""), 4000);
+      showToast("Shartnoma muvaffaqiyatli o'chirildi!");
     } catch {
       // stay open
     } finally {
@@ -413,8 +412,7 @@ export default function ContractsPage() {
       setContracts(prev => prev.map(c => c.id === activateId ? { ...c, isActive: true } : c));
       setActivateId(null);
       window.dispatchEvent(new Event("notif-read"));
-      setSuccessMsg("Shartnoma muvaffaqiyatli active qilindi!");
-      setTimeout(() => setSuccessMsg(""), 4000);
+      showToast("Shartnoma muvaffaqiyatli active qilindi!");
     } catch {
       // stay open
     } finally {
@@ -432,8 +430,7 @@ export default function ContractsPage() {
       setContracts(prev => prev.map(c => c.id === deactivateId ? { ...c, isActive: false } : c));
       setDeactivateId(null);
       window.dispatchEvent(new Event("notif-read"));
-      setSuccessMsg("Shartnoma muvaffaqiyatli noactive qilindi!");
-      setTimeout(() => setSuccessMsg(""), 4000);
+      showToast("Shartnoma muvaffaqiyatli noactive qilindi!");
     } catch {
       // stay open
     } finally {
@@ -802,30 +799,6 @@ export default function ContractsPage() {
         </div>
       )}
 
-      {/* ── Success Toast ── */}
-      {successMsg && (
-        <div style={{
-          position: "fixed", bottom: 28, right: 28, zIndex: 9999,
-          background: "var(--bg2)", border: "1.5px solid #10b981",
-          borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
-          padding: "14px 20px", display: "flex", alignItems: "center", gap: 12,
-          minWidth: 260, maxWidth: 360,
-          animation: "slideInToast 0.25s ease",
-        }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: "#d1fae5", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)", marginBottom: 2 }}>Muvaffaqiyatli!</div>
-            <div style={{ fontSize: 12, color: "var(--text2)" }}>{successMsg}</div>
-          </div>
-          <button onClick={() => setSuccessMsg("")}
-            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 16, padding: 0, lineHeight: 1, flexShrink: 0 }}>✕</button>
-        </div>
-      )}
-      <style>{`@keyframes slideInToast { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }`}</style>
     </div>
   );
 }
