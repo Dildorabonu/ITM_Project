@@ -536,6 +536,7 @@ body {
 }
 .add-task-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
 
+
 /* ===== DASHBOARD V2 ===== */
 .dash-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
 .dash-header-left { display: flex; flex-direction: column; gap: 4px; }
