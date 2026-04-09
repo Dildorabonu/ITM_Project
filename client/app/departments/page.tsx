@@ -214,6 +214,7 @@ export default function DepartmentsPage() {
                 min="0"
                 value={form.employeeCount}
                 onChange={e => setForm(f => ({ ...f, employeeCount: e.target.value }))}
+                onWheel={e => (e.target as HTMLInputElement).blur()}
                 placeholder="0"
               />
             </div>
