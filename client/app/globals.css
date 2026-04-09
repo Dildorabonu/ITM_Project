@@ -262,8 +262,11 @@ body {
 }
 .form-input[type="number"]::-webkit-outer-spin-button,
 .form-input[type="number"]::-webkit-inner-spin-button {
-  opacity: 1;
-  cursor: pointer;
+  -webkit-appearance: none;
+  margin: 0;
+}
+.form-input[type="number"] {
+  -moz-appearance: textfield;
 }
 
 /* ===== PAGE HEADER ===== */
