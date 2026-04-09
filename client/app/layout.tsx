@@ -164,6 +164,7 @@ function applyAppearanceFont(family: string, scale: number) {
 
 // Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
 const readyRoutes = new Set(["/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions"]);
+const readyPrefixes = ["/requisitions/", "/contracts/", "/techprocess/", "/technicaldrawings/", "/requisitions/print"];
 
 const pageTitles: Record<string, string> = {
   "/":              "Dashboard",
@@ -838,7 +839,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main style={{ flex: 1, overflowY: "auto", background: "var(--surface)", border: "1px solid var(--border)" }}>
             <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20, position: "relative", minHeight: "100%" }}>
               {children}
-              {!readyRoutes.has(pathname) && (
+              {!readyRoutes.has(pathname) && !readyPrefixes.some(p => pathname.startsWith(p)) && (
                 <div style={{
                   position: "absolute", inset: 0,
                   backdropFilter: "blur(6px)",

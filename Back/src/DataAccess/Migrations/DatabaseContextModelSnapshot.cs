@@ -602,7 +602,16 @@ namespace DataAccess.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("MaterialId")
+                    b.Property<string>("FreeTextName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("FreeTextSpec")
+                        .HasColumnType("text");
+
+                    b.Property<string>("FreeTextUnit")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("MaterialId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Notes")
@@ -1131,8 +1140,7 @@ namespace DataAccess.Migrations
                     b.HasOne("Core.Entities.Material", "Material")
                         .WithMany()
                         .HasForeignKey("MaterialId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Core.Entities.Requisition", "Requisition")
                         .WithMany("Items")

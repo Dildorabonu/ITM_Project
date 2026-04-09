@@ -1,0 +1,317 @@
+"use client";
+
+import { useEffect, useMemo, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useAuthStore } from "@/lib/store/authStore";
+import { useToastStore } from "@/lib/store/toastStore";
+import {
+  requisitionService,
+  materialService,
+  contractService,
+  departmentService,
+  RequisitionType,
+  type MaterialResponse,
+  type ContractResponse,
+  type DepartmentResponse,
+} from "@/lib/userService";
+import {
+  emptyForm,
+  REQUISITION_TYPE_LABELS,
+  type RequisitionForm,
+  type RequisitionFormItem,
+} from "../_types";
+
+function NewRequisitionContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const showToast = useToastStore((s) => s.show);
+
+  const canCreate = hasPermission("Requisitions.Create");
+
+  const [form, setForm] = useState<RequisitionForm>(emptyForm);
+  const [submitted, setSubmitted] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+
+  const [materials, setMaterials] = useState<MaterialResponse[]>([]);
+  const [contracts, setContracts] = useState<ContractResponse[]>([]);
+  const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
+  const [matSearch, setMatSearch] = useState("");
+  const [matPickerIdx, setMatPickerIdx] = useState<number | null>(null);
+
+  useEffect(() => {
+    const contractId = searchParams.get("contractId");
+    if (contractId) {
+      setForm({ ...emptyForm, type: RequisitionType.Contract, contractId });
+    }
+    materialService.getAll().then(setMaterials);
+    contractService.getAll().then(setContracts);
+    departmentService.getAllFull().then(setDepartments);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const addItem = () => {
+    setForm(f => ({ ...f, items: [...f.items, { materialId: "", materialName: "", materialCode: "", unit: "", quantity: "", notes: "" }] }));
+  };
+
+  const removeItem = (i: number) => {
+    setForm(f => ({ ...f, items: f.items.filter((_, idx) => idx !== i) }));
+  };
+
+  const updateItem = (i: number, patch: Partial<RequisitionFormItem>) => {
+    setForm(f => ({ ...f, items: f.items.map((it, idx) => idx === i ? { ...it, ...patch } : it) }));
+  };
+
+  const selectMaterial = (i: number, mat: MaterialResponse) => {
+    updateItem(i, { materialId: mat.id, materialName: mat.name, materialCode: mat.code, unit: mat.unit });
+    setMatPickerIdx(null);
+    setMatSearch("");
+  };
+
+  const filteredMats = useMemo(() => {
+    if (!matSearch.trim()) return materials.slice(0, 30);
+    const q = matSearch.toLowerCase();
+    return materials.filter(m => m.name.toLowerCase().includes(q) || m.code.toLowerCase().includes(q)).slice(0, 30);
+  }, [materials, matSearch]);
+
+  const handleCreate = async () => {
+    setSubmitted(true);
+    setFormError("");
+
+    if (!form.type && form.type !== 0) return;
+    if (form.type === RequisitionType.Contract && !form.contractId) return;
+    if (form.type === RequisitionType.Individual && !form.departmentId) return;
+    if (!form.purpose.trim()) return;
+    if (form.items.length === 0) { setFormError("Kamida bitta material qo'shing."); return; }
+    if (form.items.some(i => !i.materialId || !i.quantity || Number(i.quantity) <= 0)) {
+      setFormError("Barcha materiallar to'ldirilishi shart.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await requisitionService.create({
+        type: form.type as RequisitionType,
+        contractId: form.contractId || undefined,
+        departmentId: form.departmentId || undefined,
+        purpose: form.purpose,
+        notes: form.notes || undefined,
+        items: form.items.map(i => ({ materialId: i.materialId, quantity: Number(i.quantity), notes: i.notes || undefined })),
+      });
+      showToast("Talabnoma yaratildi", "success");
+      router.push("/requisitions");
+    } catch {
+      setFormError("Xatolik yuz berdi. Qayta urinib ko'ring.");
+      setSaving(false);
+    }
+  };
+
+  if (!canCreate) {
+    return (
+      <div style={{ textAlign: "center", padding: 80, color: "var(--text3)" }}>
+        Ruxsat yo'q
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+        <button
+          onClick={() => router.push("/requisitions")}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 14px", background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, fontSize: 13, color: "var(--text2)" }}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          Orqaga
+        </button>
+        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "var(--text1)" }}>Yangi talabnoma</h1>
+      </div>
+
+      <div className="itm-card" style={{ padding: 28 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+
+          {/* Type */}
+          <div>
+            <label style={lbl}>Turi *</label>
+            <div style={{ display: "flex", gap: 8 }}>
+              {([RequisitionType.Contract, RequisitionType.Individual] as const).map(t => (
+                <button
+                  key={t}
+                  onClick={() => setForm(f => ({ ...f, type: t, contractId: "", departmentId: "" }))}
+                  style={{
+                    flex: 1, padding: "10px", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, cursor: "pointer",
+                    border: form.type === t ? "2px solid var(--accent)" : "1.5px solid var(--border)",
+                    background: form.type === t ? "var(--accent-dim)" : "var(--bg3)",
+                    color: form.type === t ? "var(--accent)" : "var(--text2)",
+                  }}
+                >{REQUISITION_TYPE_LABELS[t]}</button>
+              ))}
+            </div>
+            {submitted && form.type === "" && <div style={errStyle}>Tur tanlanishi shart</div>}
+          </div>
+
+          {/* Contract */}
+          {form.type === RequisitionType.Contract && (
+            <div>
+              <label style={lbl}>Shartnoma *</label>
+              <select value={form.contractId} onChange={e => setForm(f => ({ ...f, contractId: e.target.value }))} style={sel}>
+                <option value="">— Tanlang —</option>
+                {contracts.map(c => <option key={c.id} value={c.id}>{c.contractNo} — {c.contractParty}</option>)}
+              </select>
+              {submitted && form.type === RequisitionType.Contract && !form.contractId && <div style={errStyle}>Shartnoma tanlanishi shart</div>}
+            </div>
+          )}
+
+          {/* Department */}
+          {form.type === RequisitionType.Individual && (
+            <div>
+              <label style={lbl}>Bo'lim *</label>
+              <select value={form.departmentId} onChange={e => setForm(f => ({ ...f, departmentId: e.target.value }))} style={sel}>
+                <option value="">— Tanlang —</option>
+                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+              {submitted && form.type === RequisitionType.Individual && !form.departmentId && <div style={errStyle}>Bo'lim tanlanishi shart</div>}
+            </div>
+          )}
+
+          {/* Purpose */}
+          <div>
+            <label style={lbl}>Maqsad *</label>
+            <textarea
+              value={form.purpose}
+              onChange={e => setForm(f => ({ ...f, purpose: e.target.value }))}
+              rows={3}
+              placeholder="Talabnoma maqsadi…"
+              style={{ ...inp, resize: "vertical" }}
+            />
+            {submitted && !form.purpose.trim() && <div style={errStyle}>Maqsad kiritilishi shart</div>}
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label style={lbl}>Izoh</label>
+            <textarea
+              value={form.notes}
+              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+              rows={2}
+              placeholder="Qo'shimcha izoh (ixtiyoriy)…"
+              style={{ ...inp, resize: "vertical" }}
+            />
+          </div>
+
+          {/* Materials */}
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <label style={{ ...lbl, marginBottom: 0 }}>Materiallar *</label>
+              <button onClick={addItem} style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)", background: "none", border: "none", cursor: "pointer" }}>+ Qo'shish</button>
+            </div>
+
+            {form.items.length === 0 ? (
+              <div style={{ border: "1.5px dashed var(--border)", borderRadius: "var(--radius)", padding: "28px", textAlign: "center", color: "var(--text3)", fontSize: 13 }}>
+                Material qo'shilmagan
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {form.items.map((item, i) => (
+                  <div key={i} style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: 14, position: "relative" }}>
+                    <button onClick={() => removeItem(i)} style={{ position: "absolute", top: 10, right: 10, background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 15 }}>✕</button>
+
+                    <div style={{ marginBottom: 10, position: "relative" }}>
+                      <label style={lbl}>Material *</label>
+                      <input
+                        readOnly
+                        value={item.materialName || ""}
+                        onClick={() => setMatPickerIdx(matPickerIdx === i ? null : i)}
+                        placeholder="Material tanlang…"
+                        style={{ ...inp, cursor: "pointer", background: item.materialName ? "var(--bg3)" : "var(--bg2)" }}
+                      />
+                      {matPickerIdx === i && (
+                        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, background: "var(--bg2)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow2)", maxHeight: 220, overflowY: "auto" }}>
+                          <div style={{ padding: "8px" }}>
+                            <input
+                              autoFocus
+                              value={matSearch}
+                              onChange={e => setMatSearch(e.target.value)}
+                              placeholder="Qidirish…"
+                              style={{ ...inp, marginBottom: 0 }}
+                              onClick={e => e.stopPropagation()}
+                            />
+                          </div>
+                          {filteredMats.map(m => (
+                            <div
+                              key={m.id}
+                              onClick={() => selectMaterial(i, m)}
+                              style={{ padding: "8px 12px", cursor: "pointer", fontSize: 13, borderTop: "1px solid var(--border)" }}
+                              onMouseEnter={e => (e.currentTarget.style.background = "var(--bg3)")}
+                              onMouseLeave={e => (e.currentTarget.style.background = "")}
+                            >
+                              <span style={{ fontWeight: 600, color: "var(--text1)" }}>{m.name}</span>
+                              <span style={{ color: "var(--text3)", fontSize: 11, marginLeft: 8 }}>{m.code} · {m.unit}</span>
+                            </div>
+                          ))}
+                          {filteredMats.length === 0 && <div style={{ padding: "12px", textAlign: "center", color: "var(--text3)", fontSize: 12 }}>Topilmadi</div>}
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <div>
+                        <label style={lbl}>Miqdor *</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={item.quantity}
+                          onChange={e => updateItem(i, { quantity: e.target.value })}
+                          placeholder="0"
+                          style={inp}
+                        />
+                      </div>
+                      <div>
+                        <label style={lbl}>O'lchov</label>
+                        <input readOnly value={item.unit} style={{ ...inp, background: "var(--bg3)", color: "var(--text3)" }} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {formError && <div style={{ ...errStyle, marginTop: 8 }}>{formError}</div>}
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, marginTop: 28 }}>
+          <button
+            onClick={() => router.push("/requisitions")}
+            style={{ flex: 1, padding: "11px", background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, color: "var(--text2)" }}
+          >
+            Bekor
+          </button>
+          <button
+            disabled={saving}
+            onClick={handleCreate}
+            style={{ flex: 2, padding: "11px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: saving ? "not-allowed" : "pointer", fontWeight: 600, opacity: saving ? 0.7 : 1 }}
+          >
+            {saving ? "Saqlanmoqda…" : "Yaratish"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function NewRequisitionPage() {
+  return (
+    <Suspense>
+      <NewRequisitionContent />
+    </Suspense>
+  );
+}
+
+const lbl: React.CSSProperties = { display: "block", fontSize: 12, fontWeight: 600, color: "var(--text2)", marginBottom: 5 };
+const errStyle: React.CSSProperties = { fontSize: 11, color: "var(--danger)", marginTop: 4 };
+const inp: React.CSSProperties = { width: "100%", padding: "9px 11px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg2)", color: "var(--text1)", boxSizing: "border-box" };
+const sel: React.CSSProperties = { ...inp, cursor: "pointer" };

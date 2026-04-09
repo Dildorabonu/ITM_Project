@@ -1133,7 +1133,10 @@ export const REQUISITION_TYPE_LABELS: Record<RequisitionType, string> = {
 };
 
 export interface RequisitionItemCreate {
-  materialId: string;
+  materialId?: string;
+  freeTextName?: string;
+  freeTextUnit?: string;
+  freeTextSpec?: string;
   quantity: number;
   notes?: string;
 }
@@ -1149,10 +1152,11 @@ export interface RequisitionCreate {
 
 export interface RequisitionItemResponse {
   id: string;
-  materialId: string;
+  materialId?: string;
   materialName: string;
   materialCode: string;
   unit: string;
+  freeTextSpec?: string;
   quantity: number;
   notes?: string;
 }
