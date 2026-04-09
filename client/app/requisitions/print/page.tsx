@@ -32,7 +32,7 @@ export default function RequisitionPrintPage() {
   const [rows, setRows] = useState<TableRow[]>([emptyRow(1), emptyRow(2), emptyRow(3)]);
   const [signerName, setSignerName] = useState("");
   const [signerTitle, setSignerTitle] = useState("");
-  const [signDate, setSignDate] = useState(new Date().toISOString().slice(0, 10));
+  const [signDate, setSignDate] = useState(new Date().toLocaleDateString("ru-RU").replace(/\//g, "."));
 
   const [type, setType] = useState<RequisitionType>(RequisitionType.Contract);
   const [contractId, setContractId] = useState("");
@@ -129,7 +129,7 @@ export default function RequisitionPrintPage() {
           }
           .print-page table { font-size: 10px !important; }
           body { background: white !important; margin: 0 !important; padding: 0 !important; }
-          input, textarea { border: none !important; background: transparent !important; resize: none !important; }
+          input, textarea { border: none !important; background: transparent !important; resize: none !important; overflow: hidden !important; }
           .add-row-btn { display: none !important; }
           .remove-row-btn { display: none !important; }
         }
@@ -310,17 +310,19 @@ export default function RequisitionPrintPage() {
                   />
                 </td>
                 <td style={td}>
-                  <input
+                  <textarea
                     value={row.unit}
                     onChange={e => updateRow(row.id, "unit", e.target.value)}
+                    rows={2}
                     style={cellInput}
                     placeholder="дона"
                   />
                 </td>
                 <td style={td}>
-                  <input
+                  <textarea
                     value={row.quantity}
                     onChange={e => updateRow(row.id, "quantity", e.target.value)}
+                    rows={2}
                     style={cellInput}
                     placeholder="0"
                   />
@@ -370,30 +372,35 @@ export default function RequisitionPrintPage() {
         {/* Signature */}
         <div style={{ display: "flex", gap: 40, alignItems: "flex-start", marginTop: 16 }}>
           <div style={{ flex: 1 }}>
-            <input
+            <textarea
               value={signerTitle}
               onChange={e => setSignerTitle(e.target.value)}
               placeholder="Lavozim (masalan: ТИКУВ ЦЕХИ БОШЛИҒИ)"
-              style={{ ...sigInput, width: "100%", textTransform: "uppercase", fontWeight: 700, fontSize: 12 }}
+              rows={2}
+              style={{ ...sigInput, width: "100%", textTransform: "uppercase", fontWeight: 700, fontSize: 12, resize: "none", display: "block", overflow: "hidden", wordBreak: "break-word" }}
             />
           </div>
           <div style={{ flex: 1 }}>
-            <input
+            <textarea
               value={signerName}
               onChange={e => setSignerName(e.target.value)}
               placeholder="F.I.O."
-              style={{ ...sigInput, width: "100%" }}
+              rows={2}
+              style={{ ...sigInput, width: "100%", resize: "none", display: "block", overflow: "hidden", wordBreak: "break-word" }}
             />
           </div>
         </div>
-        <div style={{ marginTop: 10 }}>
+        <div style={{ marginTop: 10, display: "flex", alignItems: "baseline", gap: 4 }}>
+          <span style={{ display: "inline-block", borderBottom: "1px solid #999", minWidth: 110, maxWidth: 110, fontSize: 12, fontFamily: "Times New Roman, serif", paddingBottom: 2, paddingLeft: 2 }}>
+            {signDate}
+          </span>
+          <span style={{ fontSize: 12, whiteSpace: "nowrap" }}>йил</span>
           <input
             type="date"
-            value={signDate}
-            onChange={e => setSignDate(e.target.value)}
-            style={{ ...sigInput, fontSize: 12 }}
+            onChange={e => setSignDate(e.target.value.replace(/-/g, "."))}
+            className="no-print"
+            style={{ marginLeft: 8, fontSize: 11, border: "1px solid #ccc", borderRadius: 3, padding: "2px 4px", background: "#f9f9f9", cursor: "pointer" }}
           />
-          <span style={{ marginLeft: 4, fontSize: 12 }}>йил</span>
         </div>
       </div>
     </>
@@ -415,6 +422,8 @@ const td: React.CSSProperties = {
   padding: "6px 8px",
   border: "1px solid #ccc",
   verticalAlign: "top",
+  overflow: "hidden",
+  wordBreak: "break-word",
 };
 
 const cellInput: React.CSSProperties = {
@@ -429,6 +438,8 @@ const cellInput: React.CSSProperties = {
   color: "#000",
   boxSizing: "border-box",
   lineHeight: 1.5,
+  overflow: "hidden",
+  wordBreak: "break-word",
 };
 
 const sigInput: React.CSSProperties = {
