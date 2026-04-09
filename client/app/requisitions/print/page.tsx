@@ -128,6 +128,8 @@ export default function RequisitionPrintPage() {
             font-size: 11px !important;
           }
           .print-page table { font-size: 10px !important; }
+          .print-page table th { padding: 4px 5px !important; font-size: 10px !important; line-height: 1.3 !important; }
+          .print-page table td { padding: 4px 5px !important; }
           body { background: white !important; margin: 0 !important; padding: 0 !important; }
           input, textarea { border: none !important; background: transparent !important; resize: none !important; overflow: hidden !important; }
           .add-row-btn { display: none !important; }
@@ -277,9 +279,9 @@ export default function RequisitionPrintPage() {
           <colgroup>
             <col style={{ width: "4%" }} />
             <col style={{ width: "22%" }} />
+            <col style={{ width: "10%" }} />
             <col style={{ width: "8%" }} />
-            <col style={{ width: "8%" }} />
-            <col style={{ width: "32%" }} />
+            <col style={{ width: "30%" }} />
             <col style={{ width: "10%" }} />
             <col style={{ width: "16%" }} />
             <col className="no-print" style={{ width: 36 }} />
@@ -287,10 +289,10 @@ export default function RequisitionPrintPage() {
           <thead>
             <tr style={{ background: "#b8860b", color: "#fff" }}>
               <th style={th}>№</th>
-              <th style={th}>Махсулот номи<br /><span style={{ fontWeight: 400, fontSize: 11 }}>(рус тилида кўрсатилган)</span></th>
+              <th style={th}>Махсулот номи<br /><span style={{ fontWeight: 400, fontSize: 10 }}>(рус тилида кўрсатилган)</span></th>
               <th style={th}>Ўлчов<br />бирлиги</th>
               <th style={th}>Миқдори</th>
-              <th style={th}>Техник кўрсаткичи<br /><span style={{ fontWeight: 400, fontSize: 11 }}>(рус тилида кўрсатилди)</span></th>
+              <th style={th}>Техник кўрсаткичи<br /><span style={{ fontWeight: 400, fontSize: 10 }}>(рус тилида кўрсатилди)</span></th>
               <th style={th}>Фотосурати</th>
               <th style={th}>Изох</th>
               <th className="no-print" style={{ ...th, background: "#9a6f00" }}></th>
@@ -410,16 +412,16 @@ export default function RequisitionPrintPage() {
 // ─── Styles ────────────────────────────────────────────────────────────────────
 
 const th: React.CSSProperties = {
-  padding: "8px 10px",
+  padding: "5px 6px",
   border: "1px solid #a0720a",
   fontWeight: 700,
-  fontSize: 12,
+  fontSize: 11,
   textAlign: "center",
-  lineHeight: 1.4,
+  lineHeight: 1.3,
 };
 
 const td: React.CSSProperties = {
-  padding: "6px 8px",
+  padding: "5px 7px",
   border: "1px solid #ccc",
   verticalAlign: "top",
   overflow: "hidden",
