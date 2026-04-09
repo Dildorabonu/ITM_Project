@@ -850,9 +850,7 @@ export const technicalDrawingService = {
   uploadFile: async (id: string, file: File): Promise<AttachmentResponse> => {
     const fd = new FormData();
     fd.append("file", file);
-    const res = await api.post(`/api/technicaldrawing/${id}/files`, fd, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const res = await api.post(`/api/technicaldrawing/${id}/files`, fd);
     return res.data?.result ?? res.data;
   },
 
@@ -892,6 +890,7 @@ export interface CostNormItemResponse {
 export interface CostNormResponse {
   id: string;
   contractId: string;
+  contractQuantity: number;
   status: DrawingStatus;
   contractNo: string;
   title: string;
