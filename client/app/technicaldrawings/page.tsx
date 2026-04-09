@@ -50,6 +50,9 @@ export default function TechnicalDrawingsPage() {
   const [createSubmitted, setCreateSubmitted] = useState(false);
   const [createSaving, setCreateSaving] = useState(false);
 
+  // Approve
+  const [approving, setApproving] = useState(false);
+
   // Edit form
   const [showEditForm, setShowEditForm] = useState(false);
   const [editTarget, setEditTarget] = useState<TechnicalDrawingResponse | null>(null);
@@ -81,9 +84,7 @@ export default function TechnicalDrawingsPage() {
       if (drawings.length === 0) {
         rows.push({ kind: "empty", contract });
       } else {
-        for (const d of drawings) {
-          rows.push({ kind: "drawing", drawing: d });
-        }
+        rows.push({ kind: "drawing", drawing: drawings[0] });
       }
     }
     for (const d of list) {
@@ -147,6 +148,8 @@ export default function TechnicalDrawingsPage() {
   // ── Create ────────────────────────────────────────────────────────────────
 
   const openCreate = (contract: ContractResponse) => {
+    const alreadyExists = list.some((d) => d.contractId === contract.id);
+    if (alreadyExists) return;
     setCreateContract(contract);
     setCreateForm(emptyDrawingForm);
     setCreateSubmitted(false);
@@ -159,11 +162,14 @@ export default function TechnicalDrawingsPage() {
     if (!createForm.title.trim()) return;
     setCreateSaving(true);
     try {
-      await technicalDrawingService.create({
+      const newId = await technicalDrawingService.create({
         contractId: createContract!.id,
         title: createForm.title.trim(),
         notes: createForm.notes.trim() || null,
       });
+      if (createForm.files.length > 0) {
+        await Promise.all(createForm.files.map((f) => technicalDrawingService.uploadFile(newId, f)));
+      }
       await loadData();
       setShowCreateForm(false);
       showToast("Texnik chizma muvaffaqiyatli yaratildi!");
@@ -179,11 +185,25 @@ export default function TechnicalDrawingsPage() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, [showCreateForm]);
 
+  // ── Approve ───────────────────────────────────────────────────────────────
+
+  const handleApprove = async (item: TechnicalDrawingResponse) => {
+    setApproving(true);
+    try {
+      await technicalDrawingService.updateStatus(item.id, DrawingStatus.Approved);
+      await loadData();
+      setDrawer(null);
+      showToast("Texnik chizma tasdiqlandi!");
+    } finally {
+      setApproving(false);
+    }
+  };
+
   // ── Edit ──────────────────────────────────────────────────────────────────
 
   const openEdit = (item: TechnicalDrawingResponse) => {
     setEditTarget(item);
-    setEditForm({ title: item.title, notes: item.notes || "" });
+    setEditForm({ title: item.title, notes: item.notes || "", files: [] });
     setEditSubmitted(false);
     setDrawer(null);
     window.history.pushState(null, "");
@@ -199,6 +219,9 @@ export default function TechnicalDrawingsPage() {
         title: editForm.title.trim(),
         notes: editForm.notes.trim() || null,
       });
+      if (editForm.files.length > 0) {
+        await Promise.all(editForm.files.map((f) => technicalDrawingService.uploadFile(editTarget!.id, f)));
+      }
       await loadData();
       setShowEditForm(false);
       showToast("Texnik chizma muvaffaqiyatli yangilandi!");
@@ -457,6 +480,8 @@ export default function TechnicalDrawingsPage() {
           drawerLoading={drawerLoading}
           onClose={() => setDrawer(null)}
           onEdit={openEdit}
+          onApprove={handleApprove}
+          approving={approving}
         />
       )}
 

@@ -4,12 +4,10 @@ import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import {
   costNormService,
   productService,
-  contractService,
   techProcessService,
   DrawingStatus,
   ProcessStatus,
   type CostNormResponse,
-  type ContractResponse,
   type ProductResponse,
 } from "@/lib/userService";
 
@@ -489,7 +487,6 @@ function DetailLoadingOverlay({ dataReady, onComplete }: { dataReady: boolean; o
 export default function WarehousePage() {
   const [costNorms, setCostNorms] = useState<CostNormResponse[]>([]);
   const [products, setProducts] = useState<ProductResponse[]>([]);
-  const [contracts, setContracts] = useState<ContractResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedNormId, setSelectedNormId] = useState<string | null>(null);
@@ -502,10 +499,9 @@ export default function WarehousePage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [norms, prods, ctrs, tpList] = await Promise.all([
+      const [norms, prods, tpList] = await Promise.all([
         costNormService.getAll(),
         productService.getAll(1, 1000),
-        contractService.getAll(),
         techProcessService.getAll(),
       ]);
       // Faqat texprotsess tasdiqlangan shartnomalar to'plami
@@ -520,7 +516,6 @@ export default function WarehousePage() {
       );
       setCostNorms(filteredNorms);
       setProducts(prods.items);
-      setContracts(ctrs);
     } catch {
       /* ignore */
     } finally {
@@ -538,25 +533,18 @@ export default function WarehousePage() {
     return map;
   }, [products]);
 
-  // ── Contract lookup map (by id → quantity) ──────────────────────────────
-
-  const contractQtyMap = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const c of contracts) map.set(c.id, c.quantity);
-    return map;
-  }, [contracts]);
-
   // ── Build norm rows ──────────────────────────────────────────────────────
 
   const normRows = useMemo<NormCheckRow[]>(() => {
     return costNorms.map(norm => {
-      const contractQty = contractQtyMap.get(norm.contractId) ?? 1;
+      const contractQty = norm.contractQuantity || 1;
       const materialItems = (norm.items ?? []).filter(it => !it.isSection && it.name);
       const totalItems = materialItems.length;
+      const parseQty = (s: string | null | undefined) => parseFloat((s ?? "0").replace(",", ".")) || 0;
       const foundItems = materialItems.filter(it => {
         const match = prodMap.get(normalize(it.name!));
         if (!match) return false;
-        const perUnit = parseFloat((it.totalQty ?? "0").replace(",", ".")) || 0;
+        const perUnit = parseQty(it.totalQty) || (parseQty(it.readyQty) + parseQty(it.wasteQty));
         const jamiMiqdori = contractQty * perUnit;
         return match.quantity >= jamiMiqdori;
       }).length;
@@ -573,7 +561,7 @@ export default function WarehousePage() {
         checked: totalItems > 0 && missingItems === 0,
       };
     });
-  }, [costNorms, prodMap, contractQtyMap]);
+  }, [costNorms, prodMap]);
 
   // ── Filter ───────────────────────────────────────────────────────────────
 
@@ -610,12 +598,13 @@ export default function WarehousePage() {
 
   const materialCheckItems = useMemo<MaterialCheckItem[]>(() => {
     if (!selectedNorm) return [];
-    const contractQty = contractQtyMap.get(selectedNorm.contractId) ?? 1;
+    const contractQty = selectedNorm.contractQuantity || 1;
     return (selectedNorm.items ?? [])
       .filter(it => !it.isSection && it.name)
       .map(it => {
         const match = prodMap.get(normalize(it.name!));
-        const perUnit = parseFloat((it.totalQty ?? "0").replace(",", ".")) || 0;
+        const parseQty = (s: string | null | undefined) => parseFloat((s ?? "0").replace(",", ".")) || 0;
+        const perUnit = parseQty(it.totalQty) || (parseQty(it.readyQty) + parseQty(it.wasteQty));
         const jamiMiqdori = contractQty * perUnit;
         const available = match?.quantity ?? 0;
         const deficit = Math.max(0, jamiMiqdori - available);
@@ -629,7 +618,7 @@ export default function WarehousePage() {
           deficit,
         };
       });
-  }, [selectedNorm, prodMap, contractQtyMap]);
+  }, [selectedNorm, prodMap]);
 
   // ── Browser back ─────────────────────────────────────────────────────────
 
@@ -876,11 +865,9 @@ export default function WarehousePage() {
                       Promise.all([
                         costNormService.getAll(),
                         productService.getAll(1, 1000),
-                        contractService.getAll(),
-                      ]).then(([norms, prods, ctrs]) => {
+                      ]).then(([norms, prods]) => {
                         setCostNorms(norms);
                         setProducts(prods.items);
-                        setContracts(ctrs);
                         setDetailDataReady(true);
                       }).catch(() => {
                         setDetailDataReady(true);
