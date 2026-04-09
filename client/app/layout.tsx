@@ -52,9 +52,10 @@ const navGroups: NavGroup[] = [
     label: "Omborxona",
     icon: "package",
     items: [
-      { name: "Mahsulotlar",        href: "/products",    icon: "shopping-bag", permission: "Products.View" },
-      { name: "Ombor tekshiruvi",   href: "/warehouse",   icon: "package" },
-      { name: "Tuzilma",            href: "/departments", icon: "briefcase",    permission: "Departments.View" },
+      { name: "Mahsulotlar",        href: "/products",      icon: "shopping-bag", permission: "Products.View" },
+      { name: "Talabnomalar",       href: "/requisitions",  icon: "clipboard",    permission: ["Requisitions.View", "Requisitions.ViewAll"] },
+      { name: "Ombor tekshiruvi",   href: "/warehouse",     icon: "package" },
+      { name: "Tuzilma",            href: "/departments",   icon: "briefcase",    permission: "Departments.View" },
     ],
   },
   {
@@ -162,7 +163,7 @@ function applyAppearanceFont(family: string, scale: number) {
 }
 
 // Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
-const readyRoutes = new Set(["/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications"]);
+const readyRoutes = new Set(["/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions"]);
 
 const pageTitles: Record<string, string> = {
   "/":              "Dashboard",

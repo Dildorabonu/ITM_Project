@@ -27,6 +27,7 @@ public static class ApplicationDependencyInjection
         services.AddScoped<IMaterialService, MaterialService>();
         services.AddScoped<IContractTaskService, ContractTaskService>();
         services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<IRequisitionService, RequisitionService>();
 
         return services;
     }
