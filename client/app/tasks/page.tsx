@@ -15,6 +15,10 @@ import {
   ContractTaskCreatePayload,
   ContractTaskUpdatePayload,
   ContractTaskLogResponse,
+  techProcessService,
+  ProcessStatus,
+  costNormService,
+  DrawingStatus,
 } from "@/lib/userService";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -22,23 +26,25 @@ import {
 const WAREHOUSE_TASK_NAME = "Tayyor mahsulotni omborga topshirish";
 
 const STATUS_COLORS: Record<ContractStatus, string> = {
-  [ContractStatus.Draft]:          "s-gray",
-  [ContractStatus.DrawingPending]: "s-purple",
-  [ContractStatus.TechProcessing]: "s-warn",
-  [ContractStatus.WarehouseCheck]: "s-warn",
-  [ContractStatus.InProduction]:   "s-blue",
-  [ContractStatus.Completed]:      "s-green",
-  [ContractStatus.Cancelled]:      "s-danger",
+  [ContractStatus.Draft]:                "s-gray",
+  [ContractStatus.DrawingPending]:       "s-purple",
+  [ContractStatus.TechProcessing]:       "s-warn",
+  [ContractStatus.TechProcessApproved]:  "s-warn",
+  [ContractStatus.WarehouseCheck]:       "s-warn",
+  [ContractStatus.InProduction]:         "s-blue",
+  [ContractStatus.Completed]:            "s-green",
+  [ContractStatus.Cancelled]:            "s-danger",
 };
 
 const STATUS_LABELS: Record<ContractStatus, string> = {
-  [ContractStatus.Draft]:          "Qoralama",
-  [ContractStatus.DrawingPending]: "Chizma tayyorlanmoqda",
-  [ContractStatus.TechProcessing]: "Tex jarayon",
-  [ContractStatus.WarehouseCheck]: "Ombor tekshiruvi",
-  [ContractStatus.InProduction]:   "Ishlab chiqarishda",
-  [ContractStatus.Completed]:      "Yakunlandi",
-  [ContractStatus.Cancelled]:      "Bekor qilindi",
+  [ContractStatus.Draft]:                "Qoralama",
+  [ContractStatus.DrawingPending]:       "Chizma tayyorlanmoqda",
+  [ContractStatus.TechProcessing]:       "Tex jarayon",
+  [ContractStatus.TechProcessApproved]:  "Tex jarayon tasdiqlandi",
+  [ContractStatus.WarehouseCheck]:       "Ombor tekshiruvi",
+  [ContractStatus.InProduction]:         "Ishlab chiqarishda",
+  [ContractStatus.Completed]:            "Yakunlandi",
+  [ContractStatus.Cancelled]:            "Bekor qilindi",
 };
 
 const PRIORITY_COLORS: Record<Priority, string> = {
@@ -1277,7 +1283,11 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
           />
         </div>
       ) : (
-        <button className="add-task-btn" onClick={() => { setShowForm(true); setEditingId(null); }} style={{ marginTop: tasks.length > 0 ? 10 : 0 }}>
+        <button
+          className="add-task-btn"
+          onClick={() => { setShowForm(true); setEditingId(null); }}
+          style={{ marginTop: tasks.length > 0 ? 10 : 0 }}
+        >
           <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
@@ -1333,9 +1343,22 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ContractResponse | null>(null);
   const [phase, setPhase] = useState<Phase>("grid");
+  const [blockModal, setBlockModal] = useState<ContractResponse | null>(null);
 
-  const handleSelect = (c: ContractResponse) => {
+  const handleSelect = async (c: ContractResponse) => {
     if (phase !== "grid") return;
+    const [tpList, cnList] = await Promise.all([
+      techProcessService.getByContract(c.id).catch(() => []),
+      costNormService.getAll(c.id).catch(() => []),
+    ]);
+    const tpEffective = tpList.find(tp => tp.status !== ProcessStatus.Pending) ?? null;
+    const tpOk = !!tpEffective && (tpEffective.status === ProcessStatus.Approved || tpEffective.status === ProcessStatus.Completed);
+    const cnEffective = cnList.find(cn => cn.items && cn.items.length > 0) ?? cnList[0] ?? null;
+    const cnOk = !!cnEffective && cnEffective.status === DrawingStatus.Approved;
+    if (!tpOk || !cnOk) {
+      setBlockModal(c);
+      return;
+    }
     setSelected(c);
     setPhase("grid-exit");
     setTimeout(() => setPhase("panel"), 280);
@@ -1402,6 +1425,34 @@ export default function TasksPage() {
           <ContractBar contract={selected!} onClick={handleBack} />
           <TaskPanel key={selected!.id} contract={selected!} hideHeader />
         </div>
+      )}
+
+      {/* Techprocess not approved — block entry modal */}
+      {blockModal !== null && createPortal(
+        <div className="modal-overlay" onClick={() => setBlockModal(null)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 420 }}>
+            <div className="modal-header" style={{ color: "var(--warn, #f59e0b)", borderBottom: "1px solid var(--border)" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                Kirib bo&apos;lmaydi
+              </span>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize: 14, color: "var(--text2)", marginBottom: 8 }}>
+                <strong style={{ color: "var(--text1)" }}>#{blockModal.contractNo} — {blockModal.contractParty}</strong>
+              </p>
+              <p style={{ fontSize: 14, color: "var(--text)", lineHeight: 1.65 }}>
+                Bu shartnoma bo&apos;yicha tex jarayon bo&apos;limidagi umumiy holat hali yakunlanmagan. Vazifalar bo&apos;limiga kirish uchun umumiy holat &ldquo;Yakunlangan&rdquo; bo&apos;lishi kerak.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-primary" onClick={() => setBlockModal(null)}>Tushundim</button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );
