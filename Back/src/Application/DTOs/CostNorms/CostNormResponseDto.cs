@@ -7,6 +7,7 @@ public class CostNormResponseDto
     public Guid Id { get; set; }
     public Guid ContractId { get; set; }
     public string ContractNo { get; set; } = string.Empty;
+    public int ContractQuantity { get; set; }
     public string Title { get; set; } = string.Empty;
     public string? Notes { get; set; }
     public DrawingStatus Status { get; set; }
