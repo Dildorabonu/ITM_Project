@@ -473,6 +473,7 @@ function EditTaskModal({
               type="number" min="0"
               value={completedAmount}
               onChange={e => setCompletedAmount(e.target.value)}
+              onWheel={e => (e.target as HTMLInputElement).blur()}
             />
           </div>
 
@@ -508,6 +509,7 @@ function EditTaskModal({
                         type="number" min="0" max="100"
                         value={importanceMap[t.id]}
                         onChange={e => setImp(t.id, e.target.value)}
+                        onWheel={e => (e.target as HTMLInputElement).blur()}
                         style={{ width: 72, textAlign: "right", padding: "4px 8px", fontSize: 13 }}
                       />
                       <span style={{ fontSize: 12, color: "var(--text3)", width: 14 }}>%</span>
@@ -662,6 +664,7 @@ function DailyLogModal({
               placeholder="Miqdorni kiriting"
               value={amount}
               onChange={e => setAmount(e.target.value)}
+              onWheel={e => (e.target as HTMLInputElement).blur()}
               style={submitted && (!amount || parseFloat(amount) <= 0) ? { borderColor: "var(--danger)" } : undefined}
             />
             {submitted && (!amount || parseFloat(amount) <= 0) && (
@@ -837,6 +840,7 @@ function AddTaskForm({
               placeholder="25"
               value={f.importance}
               onChange={e => updateRow(i, "importance", e.target.value)}
+              onWheel={e => (e.target as HTMLInputElement).blur()}
               style={submitted && f.importance === "" ? { borderColor: "var(--danger)" } : undefined}
             />
             {submitted && f.importance === "" && (
@@ -885,6 +889,7 @@ function AddTaskForm({
                     type="number" min="0" max="100"
                     value={existingImportanceMap[t.id]}
                     onChange={e => setExistingImp(t.id, e.target.value)}
+                    onWheel={e => (e.target as HTMLInputElement).blur()}
                     style={{ width: 72, textAlign: "right", padding: "4px 8px", fontSize: 13 }}
                   />
                   <span style={{ fontSize: 12, color: "var(--text3)", width: 14 }}>%</span>
