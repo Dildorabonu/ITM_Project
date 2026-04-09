@@ -162,6 +162,7 @@ export function ContractForm({
             <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Miqdor</label>
             <input className="form-input" type="number" min="0" value={form.quantity}
               onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))}
+              onWheel={e => (e.target as HTMLInputElement).blur()}
               placeholder="0"
             />
           </div>
