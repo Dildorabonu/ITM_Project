@@ -5,7 +5,7 @@ function fmtDate(value: string) {
   if (!value) return "—";
   const [y, m, day] = value.slice(0, 10).split("-");
   if (!y || !m || !day) return "—";
-  return `${day}-${m}-${y.slice(-2)}`;
+  return `${day}.${m}.${y.slice(-2)}`;
 }
 
 interface DrawingDrawerProps {
@@ -13,13 +13,12 @@ interface DrawingDrawerProps {
   drawerFiles: AttachmentResponse[];
   drawerLoading: boolean;
   onClose: () => void;
-  onEdit: (item: TechnicalDrawingResponse) => void;
   onApprove: (item: TechnicalDrawingResponse) => void;
   approving: boolean;
 }
 
 export function DrawingDrawer({
-  drawer, drawerFiles, drawerLoading, onClose, onEdit, onApprove, approving,
+  drawer, drawerFiles, drawerLoading, onClose, onApprove, approving,
 }: DrawingDrawerProps) {
   return (
     <div
@@ -103,15 +102,8 @@ export function DrawingDrawer({
         </div>
 
         {/* Action buttons */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
-          <button
-            className="btn btn-outline"
-            onClick={() => onEdit(drawer)}
-            style={{ fontSize: 13, padding: "8px 18px" }}
-          >
-            Tahrirlash
-          </button>
-          {drawer.status !== DrawingStatus.Approved && (
+        {drawer.status !== DrawingStatus.Approved && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
             <button
               className="btn btn-primary"
               onClick={() => onApprove(drawer)}
@@ -120,8 +112,8 @@ export function DrawingDrawer({
             >
               {approving ? "Tasdiqlanmoqda..." : "Tasdiqlash"}
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Files */}
         <div style={{ borderTop: "1.5px solid var(--border)", paddingTop: 20, marginTop: 4 }}>

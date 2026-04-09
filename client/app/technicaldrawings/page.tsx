@@ -10,7 +10,6 @@ import {
   type AttachmentResponse,
 } from "@/lib/userService";
 
-import { ConfirmModal } from "@/app/_components/ConfirmModal";
 import { useToastStore } from "@/lib/store/toastStore";
 
 import { type MergedRow, type DrawingFormValues, emptyDrawingForm } from "./_types";
@@ -22,7 +21,7 @@ function fmtDate(value: string) {
   if (!value) return "—";
   const [y, m, day] = value.slice(0, 10).split("-");
   if (!y || !m || !day) return "—";
-  return `${day}-${m}-${y.slice(-2)}`;
+  return `${day}.${m}.${y.slice(-2)}`;
 }
 
 export default function TechnicalDrawingsPage() {
@@ -37,10 +36,6 @@ export default function TechnicalDrawingsPage() {
   const [drawer, setDrawer] = useState<TechnicalDrawingResponse | null>(null);
   const [drawerFiles, setDrawerFiles] = useState<AttachmentResponse[]>([]);
   const [drawerLoading, setDrawerLoading] = useState(false);
-
-  // Delete
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
   // Create form
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -126,21 +121,6 @@ export default function TechnicalDrawingsPage() {
       setDrawerFiles(files);
     } finally {
       setDrawerLoading(false);
-    }
-  };
-
-  // ── Delete ────────────────────────────────────────────────────────────────
-
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    setDeleting(true);
-    try {
-      await technicalDrawingService.delete(deleteId);
-      await loadData();
-      showToast("Texnik chizma o'chirildi.");
-    } finally {
-      setDeleting(false);
-      setDeleteId(null);
     }
   };
 
@@ -458,19 +438,6 @@ export default function TechnicalDrawingsPage() {
                                   </svg>
                                 </button>
                               )}
-                              <button
-                                className="btn-icon"
-                                onClick={() => setDeleteId(item.id)}
-                                title="O'chirish"
-                                style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}
-                              >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <polyline points="3 6 5 6 21 6" />
-                                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                                  <path d="M10 11v6M14 11v6" />
-                                  <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                                </svg>
-                              </button>
                             </div>
                           </td>
                         </tr>
@@ -491,22 +458,10 @@ export default function TechnicalDrawingsPage() {
           drawerFiles={drawerFiles}
           drawerLoading={drawerLoading}
           onClose={() => setDrawer(null)}
-          onEdit={openEdit}
           onApprove={handleApprove}
           approving={approving}
         />
       )}
-
-      <ConfirmModal
-        open={!!deleteId}
-        title="O'chirishni tasdiqlang"
-        message="Texnik chizmani o'chirmoqchimisiz? Bu amalni qaytarib bo'lmaydi."
-        confirmLabel="O'chirish"
-        cancelLabel="Bekor qilish"
-        loading={deleting}
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteId(null)}
-      />
 
     </div>
   );
