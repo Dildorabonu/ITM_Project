@@ -1103,3 +1103,122 @@ export const scanService = {
     return new File([blob], fileName, { type: "image/jpeg" });
   },
 };
+
+// ─── Requisition Service ──────────────────────────────────────────────────────
+
+export enum RequisitionType {
+  Contract   = 0,
+  Individual = 1,
+}
+
+export enum RequisitionStatus {
+  Draft           = 0,
+  Pending         = 1,
+  Approved        = 2,
+  Rejected        = 3,
+  SentToWarehouse = 4,
+}
+
+export const REQUISITION_STATUS_LABELS: Record<RequisitionStatus, string> = {
+  [RequisitionStatus.Draft]:           "Qoralama",
+  [RequisitionStatus.Pending]:         "Kutilmoqda",
+  [RequisitionStatus.Approved]:        "Tasdiqlangan",
+  [RequisitionStatus.Rejected]:        "Rad etilgan",
+  [RequisitionStatus.SentToWarehouse]: "Omborga yuborilgan",
+};
+
+export const REQUISITION_TYPE_LABELS: Record<RequisitionType, string> = {
+  [RequisitionType.Contract]:   "Shartnoma bo'yicha",
+  [RequisitionType.Individual]: "Individual",
+};
+
+export interface RequisitionItemCreate {
+  materialId: string;
+  quantity: number;
+  notes?: string;
+}
+
+export interface RequisitionCreate {
+  type: RequisitionType;
+  contractId?: string;
+  departmentId?: string;
+  purpose: string;
+  notes?: string;
+  items: RequisitionItemCreate[];
+}
+
+export interface RequisitionItemResponse {
+  id: string;
+  materialId: string;
+  materialName: string;
+  materialCode: string;
+  unit: string;
+  quantity: number;
+  notes?: string;
+}
+
+export interface RequisitionResponse {
+  id: string;
+  requisitionNo: string;
+  type: RequisitionType;
+  typeLabel: string;
+  status: RequisitionStatus;
+  statusLabel: string;
+  contractId?: string;
+  contractNo?: string;
+  departmentId?: string;
+  departmentName?: string;
+  purpose: string;
+  notes?: string;
+  rejectionReason?: string;
+  approvedBy?: string;
+  approvedByName?: string;
+  approvedAt?: string;
+  qrCodeData?: string;
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+  items: RequisitionItemResponse[];
+}
+
+export const requisitionService = {
+  getAll: async (status?: RequisitionStatus): Promise<RequisitionResponse[]> => {
+    try {
+      const params = status !== undefined ? { status } : {};
+      const res = await api.get("/api/requisition", { params });
+      return res.data?.result ?? res.data ?? [];
+    } catch {
+      return [];
+    }
+  },
+
+  getById: async (id: string): Promise<RequisitionResponse | null> => {
+    try {
+      const res = await api.get(`/api/requisition/${id}`);
+      return res.data?.result ?? res.data ?? null;
+    } catch {
+      return null;
+    }
+  },
+
+  create: async (dto: RequisitionCreate): Promise<string> => {
+    const res = await api.post("/api/requisition", dto);
+    return res.data?.result as string;
+  },
+
+  submit: async (id: string): Promise<void> => {
+    await api.post(`/api/requisition/${id}/submit`);
+  },
+
+  approve: async (id: string): Promise<void> => {
+    await api.post(`/api/requisition/${id}/approve`);
+  },
+
+  reject: async (id: string, rejectionReason: string): Promise<void> => {
+    await api.post(`/api/requisition/${id}/reject`, { rejectionReason });
+  },
+
+  sendToWarehouse: async (id: string): Promise<void> => {
+    await api.post(`/api/requisition/${id}/send-to-warehouse`);
+  },
+};
