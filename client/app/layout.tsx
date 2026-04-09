@@ -178,6 +178,7 @@ const pageTitles: Record<string, string> = {
   "/departments":   "Tuzilma",
   "/products":      "Mahsulotlar",
   "/appearance":    "Tashqi ko'rinish",
+  "/requisitions":  "Talabnomalar",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

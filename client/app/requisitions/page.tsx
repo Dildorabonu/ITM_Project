@@ -229,45 +229,46 @@ export default function RequisitionsPage() {
 
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
-    <div style={{ padding: "28px 32px", maxWidth: 1100, margin: "0 auto" }}>
-      {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--text1)", margin: 0 }}>Talabnomalar</h1>
-          <p style={{ fontSize: 13, color: "var(--text3)", margin: "4px 0 0" }}>Material so'rovlari va tasdiqlash</p>
+    <div>
+      {/* Toolbar */}
+      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px", flexWrap: "wrap" }}>
+        <div className="search-wrap" style={{ maxWidth: "none", flex: 1 }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            className="search-input"
+            placeholder="Qidirish"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
         </div>
-        {canCreate && (
-          <button
-            onClick={() => { setShowForm(true); setForm(emptyForm); setSubmitted(false); setFormError(""); }}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 18px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius)", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
-          >
-            + Yangi talabnoma
-          </button>
-        )}
-      </div>
-
-      {/* Filters */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Qidirish…"
-          style={{ flex: 1, minWidth: 180, padding: "8px 12px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg2)", color: "var(--text1)" }}
-        />
-        <div style={{ display: "flex", gap: 6 }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {STATUS_FILTER.map(opt => (
             <button
               key={opt.value}
               onClick={() => setFilterStatus(opt.value)}
               style={{
-                padding: "7px 14px", borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: "pointer",
+                padding: "6px 14px", borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: "pointer",
                 border: filterStatus === opt.value ? "1.5px solid var(--accent)" : "1.5px solid var(--border)",
-                background: filterStatus === opt.value ? "var(--accent-dim)" : "var(--bg2)",
+                background: filterStatus === opt.value ? "var(--accent-dim)" : "transparent",
                 color: filterStatus === opt.value ? "var(--accent)" : "var(--text2)",
               }}
             >{opt.label}</button>
           ))}
         </div>
+        {canCreate && (
+          <button
+            className="btn-primary"
+            onClick={() => { setShowForm(true); setForm(emptyForm); setSubmitted(false); setFormError(""); }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "none", cursor: "pointer" }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Yangi talabnoma
+          </button>
+        )}
       </div>
 
       {/* Table */}
