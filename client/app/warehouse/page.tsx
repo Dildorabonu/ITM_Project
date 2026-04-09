@@ -748,13 +748,13 @@ export default function WarehousePage() {
               <table className="itm-table">
                 <thead>
                   <tr>
-                    <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)" }}>T/r</th>
-                    <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Material nomi</th>
-                    <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>O&apos;lchov</th>
-                    <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Kerakli miqdor</th>
-                    <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Ombordagi miqdor</th>
-                    <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Yetishmayotgan miqdor</th>
-                    <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Holati</th>
+                    <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
+                    <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Material nomi</th>
+                    <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none" }}>O&apos;lchov</th>
+                    <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Kerakli miqdor</th>
+                    <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Ombordagi miqdor</th>
+                    <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Yetishmayotgan miqdor</th>
+                    <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Holati</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -825,14 +825,16 @@ export default function WarehousePage() {
         </div>
 
         <button
+          className="btn-icon"
           onClick={load}
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "0 14px", height: 36, borderRadius: "var(--radius)", border: "1px solid var(--border)", background: "var(--bg2)", color: "var(--text2)", fontSize: 13, cursor: "pointer", whiteSpace: "nowrap" }}
+          title="Yangilash"
+          style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polyline points="23 4 23 10 17 10" />
-            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+            <polyline points="1 20 1 14 7 14" />
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
           </svg>
-          Yangilash
         </button>
       </div>
 
@@ -873,7 +875,7 @@ export default function WarehousePage() {
                       // Re-fetch real data from backend
                       Promise.all([
                         costNormService.getAll(),
-                        productService.getAll(),
+                        productService.getAll(1, 1000),
                         contractService.getAll(),
                       ]).then(([norms, prods, ctrs]) => {
                         setCostNorms(norms);
