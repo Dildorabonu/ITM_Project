@@ -157,7 +157,7 @@ body {
 .itm-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
 .itm-table thead tr { border-bottom: 2px solid var(--border); background: var(--bg3); }
 .itm-table th { font-size: 14px; font-weight: 600; letter-spacing: 0; color: var(--text3); text-transform: capitalize; text-align: left; padding: 14px 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; font-family: var(--font-inter), Inter, sans-serif; }
-.itm-table td { padding: 12px 14px; border-bottom: 0.5px solid var(--border); color: var(--text); vertical-align: middle; font-weight: 300; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
+.itm-table td { padding: 12px 14px; border-bottom: 0.5px solid var(--border); color: var(--text1); vertical-align: middle; font-weight: 400; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font-family: var(--font-inter), Inter, sans-serif; }
 .itm-table tbody tr { transition: background 0.1s; cursor: pointer; }
 .itm-table tbody tr:hover { background: var(--accent-dim); }
 .itm-table tbody tr:last-child td { border-bottom: 0.5px solid var(--border); }
