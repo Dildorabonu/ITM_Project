@@ -64,6 +64,13 @@ public class RequisitionService : IRequisitionService
         if (dto.Items.Count == 0)
             return ApiResult<Guid>.Failure(["Kamida bitta material kerak."]);
 
+        // Har bir item: yoki MaterialId, yoki FreeTextName bo'lishi shart
+        foreach (var item in dto.Items)
+        {
+            if (item.MaterialId is null && string.IsNullOrWhiteSpace(item.FreeTextName))
+                return ApiResult<Guid>.Failure(["Har bir materialda MaterialId yoki nomi ko'rsatilishi shart."]);
+        }
+
         var no = await GenerateRequisitionNo();
 
         var requisition = new Requisition
@@ -81,6 +88,9 @@ public class RequisitionService : IRequisitionService
             {
                 Id = Guid.NewGuid(),
                 MaterialId = i.MaterialId,
+                FreeTextName = i.FreeTextName,
+                FreeTextUnit = i.FreeTextUnit,
+                FreeTextSpec = i.FreeTextSpec,
                 Quantity = i.Quantity,
                 Notes = i.Notes
             }).ToList()
@@ -240,7 +250,12 @@ public class RequisitionService : IRequisitionService
         Id = r.Id,
         RequisitionNo = r.RequisitionNo,
         Type = r.Type,
-        TypeLabel = r.Type == RequisitionType.Contract ? "Shartnoma bo'yicha" : "Individual",
+        TypeLabel = r.Type switch
+        {
+            RequisitionType.Contract   => "Shartnoma bo'yicha",
+            RequisitionType.Individual => "Individual",
+            _                          => r.Type.ToString()
+        },
         Status = r.Status,
         StatusLabel = r.Status switch
         {
@@ -269,9 +284,10 @@ public class RequisitionService : IRequisitionService
         {
             Id = i.Id,
             MaterialId = i.MaterialId,
-            MaterialName = i.Material?.Name ?? string.Empty,
+            MaterialName = i.Material?.Name ?? i.FreeTextName ?? string.Empty,
             MaterialCode = i.Material?.Code ?? string.Empty,
-            Unit = i.Material?.Unit ?? string.Empty,
+            Unit = i.Material?.Unit ?? i.FreeTextUnit ?? string.Empty,
+            FreeTextSpec = i.FreeTextSpec,
             Quantity = i.Quantity,
             Notes = i.Notes
         }).ToList()
