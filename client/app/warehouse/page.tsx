@@ -540,7 +540,7 @@ export default function WarehousePage() {
       const contractQty = norm.contractQuantity || 1;
       const materialItems = (norm.items ?? []).filter(it => !it.isSection && it.name);
       const totalItems = materialItems.length;
-      const parseQty = (s: string | null | undefined) => parseFloat((s ?? "0").replace(",", ".")) || 0;
+      const parseQty = (s: string | null | undefined) => parseFloat((s ?? "0").replace(/\s/g, "").replace(",", ".")) || 0;
       const foundItems = materialItems.filter(it => {
         const match = prodMap.get(normalize(it.name!));
         if (!match) return false;
@@ -603,7 +603,7 @@ export default function WarehousePage() {
       .filter(it => !it.isSection && it.name)
       .map(it => {
         const match = prodMap.get(normalize(it.name!));
-        const parseQty = (s: string | null | undefined) => parseFloat((s ?? "0").replace(",", ".")) || 0;
+        const parseQty = (s: string | null | undefined) => parseFloat((s ?? "0").replace(/\s/g, "").replace(",", ".")) || 0;
         const perUnit = parseQty(it.totalQty) || (parseQty(it.readyQty) + parseQty(it.wasteQty));
         const jamiMiqdori = contractQty * perUnit;
         const available = match?.quantity ?? 0;
