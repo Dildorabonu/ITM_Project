@@ -154,14 +154,14 @@ export default function RequisitionPrintPage() {
           </svg>
           Orqaga
         </button>
-        <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--text1)", flex: 1 }}>Talabnoma blanki</h1>
+        <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--text)", flex: 1 }}>Talabnoma blanki</h1>
 
         {/* Type + contract/dept selector */}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <select
             value={type}
             onChange={e => setType(Number(e.target.value) as RequisitionType)}
-            style={{ padding: "7px 10px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg2)", color: "var(--text1)", cursor: "pointer" }}
+            style={{ padding: "7px 10px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg2)", color: "var(--text)", cursor: "pointer" }}
           >
             <option value={RequisitionType.Contract}>Shartnoma bo&apos;yicha</option>
             <option value={RequisitionType.Individual}>Individual</option>
@@ -170,7 +170,7 @@ export default function RequisitionPrintPage() {
             <select
               value={contractId}
               onChange={e => setContractId(e.target.value)}
-              style={{ padding: "7px 10px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg2)", color: "var(--text1)", cursor: "pointer", maxWidth: 220 }}
+              style={{ padding: "7px 10px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg2)", color: "var(--text)", cursor: "pointer", maxWidth: 220 }}
             >
               <option value="">— Shartnoma —</option>
               {contracts.map(c => <option key={c.id} value={c.id}>{c.contractNo} — {c.contractParty}</option>)}
@@ -179,7 +179,7 @@ export default function RequisitionPrintPage() {
             <select
               value={departmentId}
               onChange={e => setDepartmentId(e.target.value)}
-              style={{ padding: "7px 10px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg2)", color: "var(--text1)", cursor: "pointer", maxWidth: 220 }}
+              style={{ padding: "7px 10px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg2)", color: "var(--text)", cursor: "pointer", maxWidth: 220 }}
             >
               <option value="">— Bo&apos;lim —</option>
               {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -203,7 +203,7 @@ export default function RequisitionPrintPage() {
         <button
           onClick={handleSavePdf}
           disabled={saving}
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", background: "var(--bg3)", color: "var(--text1)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: saving ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, opacity: saving ? 0.7 : 1 }}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", background: "var(--bg3)", color: "var(--text)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: saving ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, opacity: saving ? 0.7 : 1 }}
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -233,9 +233,9 @@ export default function RequisitionPrintPage() {
         fontFamily: "Times New Roman, serif",
         fontSize: 13,
         padding: "28px 36px",
-        boxShadow: "0 2px 24px rgba(0,0,0,0.10)",
+        boxShadow: "var(--shadow2)",
         borderRadius: 6,
-        border: "1px solid #ddd",
+        border: "1px solid var(--border)",
         width: 794,
         maxWidth: "100%",
         boxSizing: "border-box",
@@ -406,7 +406,7 @@ export default function RequisitionPrintPage() {
             type="date"
             onChange={e => setSignDate(e.target.value.replace(/-/g, "."))}
             className="no-print"
-            style={{ marginLeft: 8, fontSize: 11, border: "1px solid #ccc", borderRadius: 3, padding: "2px 4px", background: "#f9f9f9", cursor: "pointer" }}
+            style={{ marginLeft: 8, fontSize: 11, border: "1.5px solid var(--border)", borderRadius: 3, padding: "2px 4px", background: "var(--bg3)", color: "var(--text)", cursor: "pointer" }}
           />
         </div>
       </div>
