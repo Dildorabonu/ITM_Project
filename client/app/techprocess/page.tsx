@@ -8,6 +8,7 @@ import {
   techProcessService,
   contractService,
   costNormService,
+  technicalDrawingService,
   ContractStatus,
   ProcessStatus,
   DrawingStatus,
@@ -24,8 +25,8 @@ import {
   type TechProcessResponse,
   type CostNormResponse,
   type CostNormItemResponse,
+  type TechnicalDrawingResponse,
   parseMainTables,
-  fmt,
 } from "./_types";
 import { TpBadge } from "./_components/TpBadge";
 import { CnBadge } from "./_components/CnBadge";
@@ -102,29 +103,36 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
   // ── Selected contract for inline detail panel ──────────────────────────────
   const [selectedContractId, setSelectedContractId] = useState<string|null>(null);
   const [tpInlineEditing, setTpInlineEditing] = useState(false);
+  const [drawingWarningNo, setDrawingWarningNo] = useState<string|null>(null);
   const [contractList, setContractList] = useState<ContractResponse[]>([]);
+  const [drawingList, setDrawingList] = useState<TechnicalDrawingResponse[]>([]);
 
   useDraft("draft_costnorm", cnMode==="create", cnForm, (d)=>{ if(d.contractId) { setCnForm(d); setCnMode("create"); } else { sessionStorage.removeItem("draft_costnorm"); } });
 
   // ── Contract readiness ─────────────────────────────────────────────────────
   const readinessItems = useMemo<ContractReadinessItem[]>(()=>{
     const map = new Map<string, ContractReadinessItem>();
-    // Tegishli statusdagi barcha shartnomalarni qo'shish (TP/CN bo'lmasa ham)
     for (const c of contractList) {
-      if (!map.has(c.id)) map.set(c.id, { contractId:c.id, contractNo:c.contractNo, tp:null, cn:null });
+      if (!map.has(c.id)) map.set(c.id, { contractId:c.id, contractNo:c.contractNo, drawing:null, tp:null, cn:null });
     }
     for (const tp of tpList) {
-      if (!map.has(tp.contractId)) map.set(tp.contractId, { contractId:tp.contractId, contractNo:tp.contractNo, tp:null, cn:null });
+      if (!map.has(tp.contractId)) map.set(tp.contractId, { contractId:tp.contractId, contractNo:tp.contractNo, drawing:null, tp:null, cn:null });
       const entry = map.get(tp.contractId)!;
       if (!entry.tp || tp.status > entry.tp.status) entry.tp = tp;
     }
     for (const cn of cnList) {
-      if (!map.has(cn.contractId)) map.set(cn.contractId, { contractId:cn.contractId, contractNo:cn.contractNo, tp:null, cn:null });
+      if (!map.has(cn.contractId)) map.set(cn.contractId, { contractId:cn.contractId, contractNo:cn.contractNo, drawing:null, tp:null, cn:null });
       const entry = map.get(cn.contractId)!;
       if (!entry.cn || (entry.cn.items.length === 0 && cn.items.length > 0)) entry.cn = cn;
     }
+    for (const d of drawingList) {
+      if (!map.has(d.contractId)) continue;
+      const entry = map.get(d.contractId)!;
+      // Tasdiqlangan chizmani ustun ko'r, bo'lmasa eng so'nggi
+      if (!entry.drawing || d.status > entry.drawing.status) entry.drawing = d;
+    }
     return Array.from(map.values()).sort((a,b)=>a.contractNo.localeCompare(b.contractNo));
-  },[contractList, tpList, cnList]);
+  },[contractList, tpList, cnList, drawingList]);
 
   // ── Loaders ────────────────────────────────────────────────────────────────
 
@@ -147,7 +155,9 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
 
   const loadCn = useCallback(async()=>{ setCnListLoading(true); const d=await costNormService.getAll(); setCnList(d); setCnListLoading(false); },[]);
 
-  useEffect(()=>{ loadTp(); loadCn(); loadContracts(); },[loadCn, loadContracts]);
+  const loadDrawings = useCallback(async()=>{ try { const d=await technicalDrawingService.getAll(); setDrawingList(d); } catch { setDrawingList([]); } },[]);
+
+  useEffect(()=>{ loadTp(); loadCn(); loadContracts(); loadDrawings(); },[loadCn, loadContracts, loadDrawings]);
 
   useEffect(()=>{ if(!tpShowForm) return; const h=()=>setTpShowForm(false); window.addEventListener("popstate",h); return ()=>window.removeEventListener("popstate",h); },[tpShowForm]);
 
@@ -685,8 +695,10 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
 
   if (selectedItem) {
     const closeDetail = () => { setSelectedContractId(null); setTpInlineEditing(false); };
+    const drawingApproved = selectedItem.drawing?.status === DrawingStatus.Approved;
     const tpEffective = selectedItem.tp?.status !== ProcessStatus.Pending ? selectedItem.tp : null;
     const cnEffective = selectedItem.cn && selectedItem.cn.items.length > 0 ? selectedItem.cn : null;
+    const drawingDone = drawingApproved;
     const tpDone = tpEffective && (tpEffective.status === ProcessStatus.Approved || tpEffective.status === ProcessStatus.Completed);
     const cnDone = cnEffective && cnEffective.status === DrawingStatus.Approved;
     return (
@@ -701,10 +713,38 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
           </button>
         </div>
 
-        {/* ── Workflow pipeline ── */}
+        {/* ── Workflow pipeline: 3 qadam ── */}
         <div className="itm-card" style={{ padding:"14px 20px" }}>
           <div style={{ display:"flex",alignItems:"center",gap:0 }}>
-            {/* Step 1 */}
+
+            {/* Step 1: Texnik chizma */}
+            <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:6,flex:1 }}>
+              <div style={{ width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,
+                background: drawingDone ? "var(--success)" : selectedItem.drawing ? "#e8f0fe" : "var(--bg3)",
+                border: drawingDone ? "2px solid var(--success)" : selectedItem.drawing ? "2px solid #1a56db" : "2px solid var(--border)",
+              }}>
+                {drawingDone
+                  ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={selectedItem.drawing?"#1a56db":"var(--text3)"} strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                }
+              </div>
+              <div style={{ textAlign:"center" }}>
+                <div style={{ fontSize:12,fontWeight:700,color: drawingDone ? "var(--success)" : selectedItem.drawing ? "#1a56db" : "var(--text3)" }}>Texnik chizma</div>
+                <div style={{ fontSize:11,color:"var(--text3)",marginTop:1 }}>
+                  {!selectedItem.drawing ? "Yaratilmagan" : drawingDone ? "Tasdiqlangan" : "Tasdiqlanmagan"}
+                </div>
+              </div>
+            </div>
+
+            {/* Arrow 1→2 */}
+            <div style={{ flex:"0 0 40px",display:"flex",alignItems:"center",justifyContent:"center",paddingBottom:24 }}>
+              <svg width="24" height="12" viewBox="0 0 24 12" fill="none">
+                <line x1="0" y1="6" x2="18" y2="6" stroke={drawingDone ? "var(--success)" : "var(--border)"} strokeWidth="2"/>
+                <polyline points="14,2 20,6 14,10" fill="none" stroke={drawingDone ? "var(--success)" : "var(--border)"} strokeWidth="2"/>
+              </svg>
+            </div>
+
+            {/* Step 2: Texnologik jarayon */}
             <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:6,flex:1 }}>
               <div style={{ width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,
                 background: tpDone ? "var(--success)" : tpEffective ? "#e8f0fe" : "var(--bg3)",
@@ -723,7 +763,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
               </div>
             </div>
 
-            {/* Arrow 1→2 */}
+            {/* Arrow 2→3 */}
             <div style={{ flex:"0 0 40px",display:"flex",alignItems:"center",justifyContent:"center",paddingBottom:24 }}>
               <svg width="24" height="12" viewBox="0 0 24 12" fill="none">
                 <line x1="0" y1="6" x2="18" y2="6" stroke={tpDone ? "var(--success)" : "var(--border)"} strokeWidth="2"/>
@@ -731,7 +771,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
               </svg>
             </div>
 
-            {/* Step 2 */}
+            {/* Step 3: Me'yoriy sarf */}
             <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:6,flex:1 }}>
               <div style={{ width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,
                 background: cnDone ? "var(--success)" : cnEffective ? "#e8f0fe" : "var(--bg3)",
@@ -762,7 +802,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
                 <span style={{ fontWeight:700,fontSize:13,color:"var(--text1)" }}>Texnologik jarayon</span>
               </div>
-              {tpEffective&&!tpInlineEditing&&(
+              {tpEffective&&!tpInlineEditing&&drawingApproved&&(
                 <div style={{ display:"flex",gap:4 }}>
                   {tpEffective.status===ProcessStatus.InProgress&&(
                     <button onClick={async()=>{ setTpApprovingId(tpEffective.id); try { await techProcessService.approve(tpEffective.id); await loadTp(); } finally { setTpApprovingId(null); } }} disabled={tpApprovingId===tpEffective.id}
@@ -785,9 +825,22 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
               )}
             </div>
             <div style={{ padding:"14px 16px" }}>
+              {/* Bloklash banneri */}
+              {!drawingApproved&&(
+                <div style={{ display:"flex",alignItems:"flex-start",gap:10,padding:"10px 14px",borderRadius:8,background:"#fef9c3",border:"1px solid #fde047",marginBottom:tpEffective?12:0 }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ca8a04" strokeWidth="2" style={{ flexShrink:0,marginTop:1 }}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  <div>
+                    <div style={{ fontSize:12,fontWeight:700,color:"#854d0e",marginBottom:2 }}>Texnik chizma tasdiqlanmagan</div>
+                    <div style={{ fontSize:12,color:"#92400e",lineHeight:1.5 }}>
+                      Texnologik jarayon bilan ishlash uchun <strong>texnik chizma tasdiqlanishi</strong>{" "}kerak. Texnik chizmalar bo&apos;limiga o&apos;ting va chizmaning tasdiqlanishini kuting.
+                    </div>
+                  </div>
+                </div>
+              )}
               {!tpEffective?(
                 <div style={{ textAlign:"center",padding:"20px 0" }}>
                   <div style={{ fontSize:13,color:"var(--text3)",marginBottom:12 }}>Texnologik jarayon yaratilmagan</div>
+                  {drawingApproved&&(
                   <button onClick={()=>openTpCreate(selectedItem.contractId)} className="btn-create-accent"
                     style={{ display:"inline-flex",alignItems:"center",gap:6,fontSize:12,padding:"7px 14px",fontWeight:600,borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer",transition:"border-color 0.2s,box-shadow 0.2s,background 0.2s,color 0.2s" }}
                     onMouseEnter={e=>{const b=e.currentTarget;b.style.borderColor="var(--accent)";b.style.boxShadow="0 0 0 2px var(--accent-mid),0 0 8px rgba(26,110,235,0.35)";b.style.background="var(--accent-dim)";b.style.color="var(--accent)"}}
@@ -795,6 +848,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                     Jarayon yaratish
                   </button>
+                  )}
                 </div>
               ):tpInlineEditing?(
                 <div style={{ display:"flex",flexDirection:"column",gap:10 }}>
@@ -930,7 +984,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input className="search-input" placeholder="Shartnoma raqami bo'yicha qidirish..." value={tpSearch} onChange={e=>setTpSearch(e.target.value)}/>
         </div>
-        <button className="btn-icon" onClick={()=>{ loadTp(); loadCn(); loadContracts(); }} title="Yangilash" style={{ background:"var(--accent-dim)",borderColor:"var(--accent)",color:"var(--accent)",width:36,height:36 }}>
+        <button className="btn-icon" onClick={()=>{ loadTp(); loadCn(); loadContracts(); loadDrawings(); }} title="Yangilash" style={{ background:"var(--accent-dim)",borderColor:"var(--accent)",color:"var(--accent)",width:36,height:36 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
         </button>
       </div>
@@ -948,6 +1002,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
                 <tr>
                   <th style={{ width:52,textAlign:"center",borderRight:"2px solid var(--border)",color:"var(--text1)",textTransform:"none" }}>T/r</th>
                   <th style={{ textAlign:"center",color:"var(--text1)" }}>Shartnoma №</th>
+                  <th style={{ textAlign:"center",color:"var(--text1)" }}>Texnik chizma</th>
                   <th style={{ textAlign:"center",color:"var(--text1)" }}>Texnologik jarayon</th>
                   <th style={{ textAlign:"center",color:"var(--text1)" }}>Me&apos;yoriy sarf</th>
                   <th style={{ textAlign:"center",color:"var(--text1)" }}>Umumiy holat</th>
@@ -955,19 +1010,32 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
               </thead>
               <tbody>
                 {filteredItems.length===0?(
-                  <tr><td colSpan={5} style={{ textAlign:"center",color:"var(--text2)",padding:32 }}>Ma&apos;lumot topilmadi</td></tr>
+                  <tr><td colSpan={6} style={{ textAlign:"center",color:"var(--text2)",padding:32 }}>Ma&apos;lumot topilmadi</td></tr>
                 ):filteredItems.map((item,i)=>{
+                  const drawingOk=item.drawing?.status===DrawingStatus.Approved;
                   const tpEffective=item.tp?.status!==ProcessStatus.Pending?item.tp:null;
                   const cnEffective=item.cn&&item.cn.items.length>0?item.cn:null;
                   const tpOk=tpEffective&&(tpEffective.status===ProcessStatus.Approved||tpEffective.status===ProcessStatus.Completed);
                   const cnOk=cnEffective&&cnEffective.status===DrawingStatus.Approved;
-                  const nothingStarted=!tpEffective&&!cnEffective;
+                  const nothingStarted=!item.drawing&&!tpEffective&&!cnEffective;
                   return (
                     <tr key={item.contractId}
-                      onClick={()=>{ setSelectedContractId(item.contractId); setTpInlineEditing(false); }}
+                      onClick={()=>{ if(!drawingOk){ setDrawingWarningNo(item.contractNo); } else { setSelectedContractId(item.contractId); setTpInlineEditing(false); } }}
                       style={{ cursor:"pointer",transition:"background 0.12s" }}>
                       <td style={{ textAlign:"center",borderRight:"2px solid var(--border)",padding:"0 8px",fontSize:13 }}>{String(i+1).padStart(2,"0")}</td>
                       <td style={{ textAlign:"center",fontSize:13,color:"var(--text1)",fontFamily:"var(--font-inter,Inter,sans-serif)" }}>{item.contractNo}</td>
+                      <td style={{ textAlign:"center" }}>
+                        {!item.drawing?(
+                          <span style={{ fontSize:12,color:"var(--text3)",fontStyle:"italic" }}>Yaratilmagan</span>
+                        ):drawingOk?(
+                          <span style={{ display:"inline-flex",alignItems:"center",gap:4,fontSize:11,fontWeight:600,color:"var(--success)",background:"var(--success-dim)",borderRadius:20,padding:"2px 10px",border:"1px solid rgba(15,123,69,0.2)" }}>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            Tasdiqlangan
+                          </span>
+                        ):(
+                          <span style={{ fontSize:11,fontWeight:600,color:"#ca8a04",background:"#fef9c3",borderRadius:20,padding:"2px 10px",border:"1px solid #fde047",display:"inline-block" }}>Tasdiqlanmagan</span>
+                        )}
+                      </td>
                       <td style={{ textAlign:"center" }}>
                         {tpEffective?<TpBadge status={tpEffective.status}/>:<span style={{ fontSize:12,color:"var(--text3)",fontStyle:"italic" }}>Yaratilmagan</span>}
                       </td>
@@ -992,6 +1060,32 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
         )}
       </div>
 
+      {/* Drawing not approved — blur overlay warning */}
+      {drawingWarningNo && (
+        <div
+          onClick={()=>setDrawingWarningNo(null)}
+          style={{ position:"fixed",inset:0,zIndex:200,backdropFilter:"blur(4px)",WebkitBackdropFilter:"blur(4px)",background:"rgba(0,0,0,0.25)",display:"flex",alignItems:"center",justifyContent:"center" }}
+        >
+          <div
+            onClick={e=>e.stopPropagation()}
+            style={{ background:"#fef9c3",border:"1px solid #fde047",borderRadius:12,padding:"24px 28px",maxWidth:420,width:"90%",boxShadow:"0 8px 32px rgba(0,0,0,0.18)",display:"flex",alignItems:"flex-start",gap:14 }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ca8a04" strokeWidth="2" style={{ flexShrink:0,marginTop:2 }}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <div>
+              <div style={{ fontSize:14,fontWeight:700,color:"#854d0e",marginBottom:6 }}>Texnik chizma tasdiqlanmagan</div>
+              <div style={{ fontSize:13,color:"#92400e",lineHeight:1.6 }}>
+                Texnologik jarayon bilan ishlash uchun <strong>texnik chizma tasdiqlanishi</strong>{" "}kerak. Texnik chizmalar bo&apos;limiga o&apos;ting va chizmaning tasdiqlanishini kuting.
+              </div>
+              <button
+                onClick={()=>setDrawingWarningNo(null)}
+                style={{ marginTop:16,padding:"6px 18px",background:"#ca8a04",color:"#fff",border:"none",borderRadius:6,fontSize:13,fontWeight:600,cursor:"pointer" }}
+              >
+                Yopish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
