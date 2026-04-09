@@ -11,7 +11,6 @@ import {
 } from "@/lib/userService";
 
 import { ConfirmModal } from "@/app/_components/ConfirmModal";
-import ToastContainer from "@/app/_components/ToastContainer";
 import { useToastStore } from "@/lib/store/toastStore";
 
 import { type MergedRow, type DrawingFormValues, emptyDrawingForm } from "./_types";
@@ -274,7 +273,7 @@ export default function TechnicalDrawingsPage() {
   // ── Render: List ──────────────────────────────────────────────────────────
 
   return (
-    <div className="page-transition">
+    <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
       <div style={{ display: "flex", flexDirection: "column", flex: 1, gap: 16, fontFamily: "Inter, sans-serif" }}>
 
         {/* Filter bar */}
@@ -446,6 +445,19 @@ export default function TechnicalDrawingsPage() {
                                   <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                                 </svg>
                               </button>
+                              {item.status !== DrawingStatus.Approved && (
+                                <button
+                                  className="btn-icon"
+                                  onClick={() => handleApprove(item)}
+                                  title="Tasdiqlash"
+                                  disabled={approving}
+                                  style={{ color: "#f59e0b", borderColor: "#f59e0b33", background: "#f59e0b12" }}
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <polyline points="20 6 9 17 4 12" />
+                                  </svg>
+                                </button>
+                              )}
                               <button
                                 className="btn-icon"
                                 onClick={() => setDeleteId(item.id)}
@@ -496,7 +508,6 @@ export default function TechnicalDrawingsPage() {
         onCancel={() => setDeleteId(null)}
       />
 
-      <ToastContainer />
     </div>
   );
 }
