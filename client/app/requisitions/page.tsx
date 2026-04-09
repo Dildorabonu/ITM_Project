@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useToastStore } from "@/lib/store/toastStore";
 import {
@@ -39,9 +40,10 @@ const STATUS_FILTER = [
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
-export default function RequisitionsPage() {
+function RequisitionsContent() {
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const showToast = useToastStore((s) => s.show);
+  const searchParams = useSearchParams();
 
   const canCreate = hasPermission("Requisitions.Create");
 
@@ -83,6 +85,18 @@ export default function RequisitionsPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Auto-open form if redirected from tasks page with contractId
+  useEffect(() => {
+    const contractId = searchParams.get("contractId");
+    if (contractId) {
+      setForm({ ...emptyForm, type: RequisitionType.Contract, contractId });
+      setShowForm(true);
+      setSubmitted(false);
+      setFormError("");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (showForm) {
@@ -523,6 +537,14 @@ export default function RequisitionsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function RequisitionsPage() {
+  return (
+    <Suspense>
+      <RequisitionsContent />
+    </Suspense>
   );
 }
 

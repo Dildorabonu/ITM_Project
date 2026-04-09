@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store/authStore";
 import { ConfirmModal } from "@/app/_components/ConfirmModal";
 import {
@@ -978,6 +979,7 @@ function sortTasksWithWarehouseLast(data: ContractTaskResponse[]): ContractTaskR
 }
 
 function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideHeader?: boolean }) {
+  const router = useRouter();
   const [tasks, setTasks] = useState<ContractTaskResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -1225,6 +1227,35 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
           {STATUS_LABELS[contract.status]}
         </span>
       </div>}
+
+      {/* Requisition reminder banner */}
+      {(contract.status === ContractStatus.TechProcessApproved || contract.status === ContractStatus.WarehouseCheck) && (
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          gap: 12, padding: "10px 14px", marginBottom: 12,
+          background: "var(--warn-dim, #fef3c7)", border: "1.5px solid #f59e0b",
+          borderRadius: "var(--radius)", flexWrap: "wrap",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <svg width="16" height="16" fill="none" stroke="#f59e0b" strokeWidth="2" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span style={{ fontSize: 13, color: "#92400e", fontWeight: 600 }}>
+              Ishlab chiqarish materiallari uchun talabnoma yozilmagan
+            </span>
+          </div>
+          <button
+            onClick={() => router.push(`/requisitions?contractId=${contract.id}&contractNo=${encodeURIComponent(contract.contractNo)}`)}
+            style={{
+              padding: "6px 14px", borderRadius: "var(--radius)", fontSize: 12, fontWeight: 700,
+              background: "#f59e0b", color: "#fff", border: "none", cursor: "pointer",
+              flexShrink: 0,
+            }}
+          >
+            Talabnoma yozish →
+          </button>
+        </div>
+      )}
 
       {/* Tasks list */}
       {loading ? (
