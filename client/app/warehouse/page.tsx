@@ -5,10 +5,12 @@ import {
   costNormService,
   productService,
   contractService,
+  techProcessService,
+  DrawingStatus,
+  ProcessStatus,
   type CostNormResponse,
   type ContractResponse,
   type ProductResponse,
-  PRODUCT_UNIT_LABELS,
 } from "@/lib/userService";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -46,7 +48,6 @@ interface MaterialCheckItem {
   jamiMiqdori: number;
   status: MaterialStatus;
   productQty?: number;
-  productUnit?: string;
   deficit: number;
 }
 
@@ -501,12 +502,23 @@ export default function WarehousePage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [norms, prods, ctrs] = await Promise.all([
+      const [norms, prods, ctrs, tpList] = await Promise.all([
         costNormService.getAll(),
         productService.getAll(1, 1000),
         contractService.getAll(),
+        techProcessService.getAll(),
       ]);
-      setCostNorms(norms);
+      // Faqat texprotsess tasdiqlangan shartnomalar to'plami
+      const approvedTpContractIds = new Set(
+        tpList
+          .filter(tp => tp.status === ProcessStatus.Approved)
+          .map(tp => tp.contractId)
+      );
+      // Faqat me'yoriy sarfi ham tasdiqlangan va texprotsessi ham tasdiqlangan normalar
+      const filteredNorms = norms.filter(
+        n => n.status === DrawingStatus.Approved && approvedTpContractIds.has(n.contractId)
+      );
+      setCostNorms(filteredNorms);
       setProducts(prods.items);
       setContracts(ctrs);
     } catch {
@@ -614,7 +626,6 @@ export default function WarehousePage() {
           jamiMiqdori,
           status: !match ? "topilmadi" as MaterialStatus : available >= jamiMiqdori ? "yetarli" as MaterialStatus : "yetishmadi" as MaterialStatus,
           productQty: match?.quantity,
-          productUnit: match ? PRODUCT_UNIT_LABELS[match.unit] ?? "" : undefined,
           deficit,
         };
       });
