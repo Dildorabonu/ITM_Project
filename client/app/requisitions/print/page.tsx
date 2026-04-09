@@ -58,6 +58,8 @@ export default function RequisitionPrintPage() {
   const handleSavePdf = async () => {
     if (!docRef.current) return;
     setSaving(true);
+    const noPrint = docRef.current.querySelectorAll<HTMLElement>(".no-print");
+    noPrint.forEach(el => (el.style.display = "none"));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const html2pdf = (await import("html2pdf.js" as any)).default;
     html2pdf()
@@ -70,7 +72,10 @@ export default function RequisitionPrintPage() {
       })
       .from(docRef.current)
       .save()
-      .finally(() => setSaving(false));
+      .finally(() => {
+        noPrint.forEach(el => el.style.removeProperty("display"));
+        setSaving(false);
+      });
   };
 
   const handleSaveSystem = async () => {
