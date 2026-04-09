@@ -852,14 +852,14 @@ export default function WarehousePage() {
             <table className="itm-table">
               <thead>
                 <tr>
-                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)" }}>T/r</th>
-                  <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Norma-rasxod nomi</th>
-                  <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Shartnoma</th>
-                  <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Jami materiallar</th>
-                  <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Topilgan</th>
-                  <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Topilmagan</th>
-                  <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Sana</th>
-                  <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Holati</th>
+                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
+                  <th style={{ width: 200, textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Me&apos;yoriy sarf nomi</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Shartnoma</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Jami materiallar</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Topilgan</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Topilmagan</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Sana</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Holati</th>
                 </tr>
               </thead>
               <tbody>
@@ -886,17 +886,17 @@ export default function WarehousePage() {
                     }}
                     style={{ cursor: "pointer" }}
                   >
-                    <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "14px 14px" }}>{String(i + 1).padStart(2, "0")}</td>
-                    <td style={{ textAlign: "center", color: "var(--text1)", fontWeight: 500, padding: "14px 14px" }}>{row.title}</td>
-                    <td style={{ textAlign: "center", fontSize: 13, color: "var(--text2)", padding: "14px 14px" }}>{row.contractNo || "—"}</td>
-                    <td style={{ textAlign: "center", fontFamily: "Inter, sans-serif", padding: "14px 14px" }}>{row.totalItems}</td>
-                    <td style={{ textAlign: "center", fontFamily: "Inter, sans-serif", color: "#1e7e34", fontWeight: 600, padding: "14px 14px" }}>
+                    <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64 }}>{String(i + 1).padStart(2, "0")}</td>
+                    <td title={row.title} style={{ textAlign: "center", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.title}</td>
+                    <td style={{ textAlign: "center" }}>{row.contractNo || "—"}</td>
+                    <td style={{ textAlign: "center" }}>{row.totalItems}</td>
+                    <td style={{ textAlign: "center", color: "#1e7e34", fontWeight: 600 }}>
                       {row.checked ? row.foundItems : "—"}
                     </td>
-                    <td style={{ textAlign: "center", fontFamily: "Inter, sans-serif", color: row.missingItems > 0 ? "var(--danger)" : "var(--text3)", fontWeight: row.checked ? 600 : 400, padding: "14px 14px" }}>
+                    <td style={{ textAlign: "center", color: row.missingItems > 0 ? "var(--danger)" : undefined, fontWeight: row.missingItems > 0 ? 600 : undefined }}>
                       {row.checked ? row.missingItems : "—"}
                     </td>
-                    <td style={{ textAlign: "center", fontSize: 12, color: "var(--text3)", padding: "14px 14px" }}>{fmt(row.createdAt)}</td>
+                    <td style={{ textAlign: "center" }}>{fmt(row.createdAt)}</td>
                     <td style={{ padding: "14px 14px" }}>
                       <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
                         <StatusIcon checked={row.checked} size={22} />
