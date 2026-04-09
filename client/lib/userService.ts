@@ -850,7 +850,9 @@ export const technicalDrawingService = {
   uploadFile: async (id: string, file: File): Promise<AttachmentResponse> => {
     const fd = new FormData();
     fd.append("file", file);
-    const res = await api.post(`/api/technicaldrawing/${id}/files`, fd);
+    const res = await api.post(`/api/technicaldrawing/${id}/files`, fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     return res.data?.result ?? res.data;
   },
 
