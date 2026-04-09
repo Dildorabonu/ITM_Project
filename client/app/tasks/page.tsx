@@ -21,24 +21,60 @@ import {
 
 const WAREHOUSE_TASK_NAME = "Tayyor mahsulotni omborga topshirish";
 
+// ─── Shipments (local storage) ────────────────────────────────────────────────
+// Backend yo'q — partiyalar localStorage'da saqlanadi (contract bo'yicha).
+
+interface ShipmentBatch {
+  id: string;
+  batchNo: number;
+  amount: number;
+  createdAt: string; // ISO
+}
+
+const SHIPMENTS_KEY = "itm.shipments.v1";
+
+function readAllShipments(): Record<string, ShipmentBatch[]> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(SHIPMENTS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function getShipments(contractId: string): ShipmentBatch[] {
+  const all = readAllShipments();
+  return all[contractId] ?? [];
+}
+
+function saveShipments(contractId: string, batches: ShipmentBatch[]) {
+  if (typeof window === "undefined") return;
+  const all = readAllShipments();
+  all[contractId] = batches;
+  window.localStorage.setItem(SHIPMENTS_KEY, JSON.stringify(all));
+}
+
 const STATUS_COLORS: Record<ContractStatus, string> = {
-  [ContractStatus.Draft]:          "s-gray",
-  [ContractStatus.DrawingPending]: "s-purple",
-  [ContractStatus.TechProcessing]: "s-warn",
-  [ContractStatus.WarehouseCheck]: "s-warn",
-  [ContractStatus.InProduction]:   "s-blue",
-  [ContractStatus.Completed]:      "s-green",
-  [ContractStatus.Cancelled]:      "s-danger",
+  [ContractStatus.Draft]:               "s-gray",
+  [ContractStatus.DrawingPending]:      "s-purple",
+  [ContractStatus.TechProcessing]:      "s-warn",
+  [ContractStatus.TechProcessApproved]: "s-ok",
+  [ContractStatus.WarehouseCheck]:      "s-warn",
+  [ContractStatus.InProduction]:        "s-blue",
+  [ContractStatus.Completed]:           "s-green",
+  [ContractStatus.Cancelled]:           "s-danger",
 };
 
 const STATUS_LABELS: Record<ContractStatus, string> = {
-  [ContractStatus.Draft]:          "Qoralama",
-  [ContractStatus.DrawingPending]: "Chizma tayyorlanmoqda",
-  [ContractStatus.TechProcessing]: "Tex jarayon",
-  [ContractStatus.WarehouseCheck]: "Ombor tekshiruvi",
-  [ContractStatus.InProduction]:   "Ishlab chiqarishda",
-  [ContractStatus.Completed]:      "Yakunlandi",
-  [ContractStatus.Cancelled]:      "Bekor qilindi",
+  [ContractStatus.Draft]:               "Qoralama",
+  [ContractStatus.DrawingPending]:      "Chizma tayyorlanmoqda",
+  [ContractStatus.TechProcessing]:      "Tex jarayon",
+  [ContractStatus.TechProcessApproved]: "Tex jarayon tasdiqlandi",
+  [ContractStatus.WarehouseCheck]:      "Ombor tekshiruvi",
+  [ContractStatus.InProduction]:        "Ishlab chiqarishda",
+  [ContractStatus.Completed]:           "Yakunlandi",
+  [ContractStatus.Cancelled]:           "Bekor qilindi",
 };
 
 const PRIORITY_COLORS: Record<Priority, string> = {
@@ -50,9 +86,11 @@ const PRIORITY_COLORS: Record<Priority, string> = {
 
 function formatDate(dateStr: string) {
   if (!dateStr) return "—";
-  return new Date(dateStr).toLocaleDateString("uz-UZ", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-  });
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "—";
+  const day = String(d.getDate()).padStart(2, "0");
+  const mon = String(d.getMonth() + 1).padStart(2, "0");
+  return `${day}.${mon}.${d.getFullYear()}`;
 }
 
 // ─── Contract bar (compact, shown when selected) ──────────────────────────────
@@ -264,6 +302,8 @@ function TaskRow({
   onDelete,
   onEdit,
   onLog,
+  onShipments,
+  shipmentCount = 0,
   onPointerDownDrag,
   isDragging,
   offsetY = 0,
@@ -272,6 +312,8 @@ function TaskRow({
   onDelete: (id: string) => void;
   onEdit: (id: string) => void;
   onLog: (id: string) => void;
+  onShipments?: (id: string) => void;
+  shipmentCount?: number;
   onPointerDownDrag?: (e: React.PointerEvent) => void;
   isDragging?: boolean;
   offsetY?: number;
@@ -285,14 +327,16 @@ function TaskRow({
       className="task-row"
       data-task-id={task.id}
       style={{
-        opacity: isDragging ? 0.3 : 1,
-        transform: offsetY !== 0
-          ? `translateY(${offsetY}px)`
-          : "translateY(0)",
-        transition: "transform 0.25s cubic-bezier(0.2, 0, 0, 1), opacity 0.2s",
+        transform: `translate3d(0, ${offsetY}px, 0)`,
+        transition: isDragging
+          ? "none"
+          : "transform 320ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms ease",
+        opacity: isDragging ? 0.25 : 1,
+        visibility: isDragging ? "hidden" : "visible",
         borderRadius: 10,
         position: "relative",
         zIndex: isDragging ? 0 : 1,
+        pointerEvents: isDragging ? "none" : "auto",
       }}
     >
       <div className="task-row-header">
@@ -337,6 +381,12 @@ function TaskRow({
             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
           </svg>
         </button>
+        {isWarehouse && onShipments && (
+          <button className="btn-icon" onClick={() => onShipments(task.id)} title="Jo'natmalar"
+            style={{ color: "var(--accent)", borderColor: "var(--accent-mid)", background: "var(--accent-dim)", fontWeight: 800, fontSize: 12 }}>
+            {shipmentCount}
+          </button>
+        )}
         {!isWarehouse && (
           <button className="btn-icon btn-icon-danger" onClick={() => onDelete(task.id)} title="O'chirish"
             style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
@@ -711,6 +761,296 @@ function DailyLogModal({
   );
 }
 
+// ─── Shipments modal (warehouse only) ────────────────────────────────────────
+
+const PURPLE = "var(--accent)";
+const PURPLE_DIM = "var(--accent-dim)";
+const PURPLE_BORDER = "var(--accent-mid)";
+
+function ShipmentsModal({
+  task,
+  unit,
+  initialBatches,
+  onChange,
+  onCancel,
+}: {
+  task: ContractTaskResponse;
+  unit: string;
+  initialBatches: ShipmentBatch[];
+  onChange: (next: ShipmentBatch[]) => void;
+  onCancel: () => void;
+}) {
+  const [batches, setBatches] = useState<ShipmentBatch[]>(initialBatches);
+  const [amount, setAmount] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  const [confirmAmount, setConfirmAmount] = useState<number | null>(null);
+
+  const ready = task.completedAmount;
+  const shipped = batches.reduce((s, b) => s + b.amount, 0);
+  const available = Math.max(0, ready - shipped);
+  const nextBatchNo = batches.length + 1;
+
+  const parsed = parseFloat(amount);
+  const amountValid = !isNaN(parsed) && parsed > 0 && parsed <= available;
+  const tooMuch = !isNaN(parsed) && parsed > available;
+
+  const handleAskSend = () => {
+    setSubmitted(true);
+    if (!amountValid) return;
+    setConfirmAmount(parsed);
+  };
+
+  const handleConfirmSend = () => {
+    if (confirmAmount === null) return;
+    const newBatch: ShipmentBatch = {
+      id: `b_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      batchNo: nextBatchNo,
+      amount: confirmAmount,
+      createdAt: new Date().toISOString(),
+    };
+    const next = [...batches, newBatch];
+    setBatches(next);
+    onChange(next);
+    setAmount("");
+    setSubmitted(false);
+    setConfirmAmount(null);
+  };
+
+  return createPortal(
+    <div className="modal-overlay" onClick={onCancel}>
+      <div
+        className="modal-box"
+        onClick={e => e.stopPropagation()}
+        style={{ width: 520, maxHeight: "90vh", overflowY: "auto" }}
+      >
+        <div className="modal-header" style={{ borderBottom: `1px solid ${PURPLE_BORDER}` }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <span style={{
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              width: 24, height: 24, borderRadius: 6,
+              background: PURPLE, color: "#fff",
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M16 3h5v5"/>
+                <path d="M21 3l-9 9"/>
+                <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/>
+              </svg>
+            </span>
+            Jo&apos;natmalar
+          </span>
+          <button className="modal-close" onClick={onCancel}>
+            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {/* Summary card */}
+          <div style={{
+            display: "flex", gap: 12, padding: "12px 14px", borderRadius: 10,
+            background: PURPLE_DIM, border: `1px solid ${PURPLE_BORDER}`,
+            fontSize: 13,
+          }}>
+            <div style={{ flex: 1, borderRight: `1px solid ${PURPLE_BORDER}`, paddingRight: 12 }}>
+              <div style={{ color: "var(--text3)", fontSize: 11, marginBottom: 2, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Tayyor</div>
+              <div style={{ fontWeight: 800, fontSize: 16, color: "var(--text1)" }}>
+                {ready.toLocaleString()} <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600 }}>{unit}</span>
+              </div>
+            </div>
+            <div style={{ flex: 1, borderRight: `1px solid ${PURPLE_BORDER}`, paddingRight: 12 }}>
+              <div style={{ color: "var(--text3)", fontSize: 11, marginBottom: 2, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Jo&apos;natilgan</div>
+              <div style={{ fontWeight: 800, fontSize: 16, color: PURPLE }}>
+                {shipped.toLocaleString()}
+              </div>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ color: "var(--text3)", fontSize: 11, marginBottom: 2, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Mavjud</div>
+              <div style={{ fontWeight: 800, fontSize: 16, color: available > 0 ? "var(--success, #22c55e)" : "var(--text3)" }}>
+                {available.toLocaleString()}
+              </div>
+            </div>
+          </div>
+
+          {/* New shipment form */}
+          <div style={{
+            padding: 14, borderRadius: 10,
+            background: "var(--surface2, var(--card-bg))", border: "1px solid var(--border)",
+          }}>
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              marginBottom: 10,
+            }}>
+              <div style={{ fontSize: 12, color: "var(--text3)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Yangi jo&apos;natma
+              </div>
+              <span style={{
+                display: "inline-flex", alignItems: "center",
+                padding: "2px 9px", borderRadius: 6,
+                background: PURPLE_DIM, color: PURPLE,
+                border: `1px solid ${PURPLE_BORDER}`,
+                fontSize: 11, fontWeight: 800,
+              }}>
+                Partiya #{nextBatchNo}
+              </span>
+            </div>
+
+            <div className="atf-field">
+              <label className="atf-label">
+                Miqdor <span style={{ color: "var(--danger)" }}>*</span>
+                <span style={{ color: "var(--text3)", fontWeight: 500, marginLeft: 6 }}>
+                  ({available.toLocaleString()} {unit} dan ko&apos;p emas)
+                </span>
+              </label>
+              <input
+                className="form-input"
+                type="number" min="0.01" step="any"
+                placeholder="Jo'natiladigan miqdor"
+                value={amount}
+                onChange={e => setAmount(e.target.value)}
+                disabled={available <= 0}
+                style={submitted && !amountValid ? { borderColor: "var(--danger)" } : undefined}
+              />
+              {submitted && !amount && (
+                <div style={{ color: "var(--danger)", fontSize: 12 }}>Miqdorni kiriting</div>
+              )}
+              {submitted && amount && tooMuch && (
+                <div style={{ color: "var(--danger)", fontSize: 12 }}>
+                  Mavjud miqdordan oshib ketdi
+                </div>
+              )}
+              {submitted && amount && !tooMuch && parsed <= 0 && (
+                <div style={{ color: "var(--danger)", fontSize: 12 }}>Miqdor 0 dan katta bo&apos;lsin</div>
+              )}
+            </div>
+
+            <button
+              onClick={handleAskSend}
+              disabled={available <= 0}
+              style={{
+                marginTop: 10, width: "100%",
+                padding: "10px 14px", borderRadius: 8,
+                background: available <= 0 ? "var(--surface2, var(--card-bg))" : PURPLE,
+                border: `1px solid ${available <= 0 ? "var(--border)" : PURPLE}`,
+                color: available <= 0 ? "var(--text3)" : "#fff",
+                fontSize: 13, fontWeight: 700,
+                cursor: available <= 0 ? "not-allowed" : "pointer",
+                display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+              Jo&apos;natma
+            </button>
+          </div>
+
+          {/* History */}
+          <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+            <div style={{ fontSize: 12, color: "var(--text3)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+              Partiyalar tarixi
+            </div>
+            {batches.length === 0 ? (
+              <div style={{ fontSize: 13, color: "var(--text3)" }}>Hali jo&apos;natma yo&apos;q</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflowY: "auto" }}>
+                {[...batches].sort((a, b) => b.batchNo - a.batchNo).map(b => (
+                  <div key={b.id} style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    padding: "9px 12px", borderRadius: 8,
+                    background: "var(--surface2, var(--card-bg))",
+                    border: `1px solid ${PURPLE_BORDER}`,
+                    fontSize: 13,
+                  }}>
+                    <span style={{
+                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      minWidth: 30, height: 22, padding: "0 8px",
+                      borderRadius: 6, background: PURPLE, color: "#fff",
+                      fontSize: 11, fontWeight: 800, flexShrink: 0,
+                    }}>
+                      #{b.batchNo}
+                    </span>
+                    <span style={{ fontWeight: 700, color: PURPLE, flexShrink: 0 }}>
+                      {b.amount.toLocaleString()} <span style={{ color: "var(--text3)", fontWeight: 500, fontSize: 11 }}>{unit}</span>
+                    </span>
+                    <span className="mono" style={{ marginLeft: "auto", color: "var(--text3)", fontSize: 12 }}>
+                      {new Date(b.createdAt).toLocaleString("uz-UZ", {
+                        day: "2-digit", month: "2-digit", year: "numeric",
+                        hour: "2-digit", minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onCancel}>Yopish</button>
+        </div>
+
+        {/* Confirm dialog */}
+        {confirmAmount !== null && (
+          <div className="modal-overlay" onClick={() => setConfirmAmount(null)}>
+            <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 380 }}>
+              <div className="modal-header" style={{ borderBottom: `1px solid ${PURPLE_BORDER}` }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8, color: PURPLE }}>
+                  <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  Tasdiqlash
+                </span>
+              </div>
+              <div className="modal-body">
+                <p style={{ fontSize: 14, color: "var(--text)", lineHeight: 1.6, margin: 0 }}>
+                  Siz haqiqatdan ham{" "}
+                  <strong style={{ color: PURPLE }}>
+                    {confirmAmount.toLocaleString()} {unit}
+                  </strong>{" "}
+                  mahsulotni{" "}
+                  <strong style={{ color: PURPLE }}>#{nextBatchNo}-jo&apos;natma</strong>{" "}
+                  sifatida yubormoqchimisiz?
+                </p>
+              </div>
+              <div className="modal-footer" style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <button
+                  onClick={() => setConfirmAmount(null)}
+                  style={{
+                    padding: "8px 16px", borderRadius: 7,
+                    background: "var(--danger-dim)",
+                    border: "1px solid var(--danger)55",
+                    color: "var(--danger)",
+                    fontSize: 13, fontWeight: 700, cursor: "pointer",
+                  }}
+                >
+                  Yo&apos;q
+                </button>
+                <button
+                  onClick={handleConfirmSend}
+                  style={{
+                    padding: "8px 16px", borderRadius: 7,
+                    background: "#15803d",
+                    border: "1px solid #15803d",
+                    color: "#fff",
+                    fontSize: 13, fontWeight: 700, cursor: "pointer",
+                  }}
+                >
+                  Ha
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 // ─── Add task form ────────────────────────────────────────────────────────────
 
 interface NewTaskForm {
@@ -974,6 +1314,8 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
   const [loggingId, setLoggingId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragTargetIndex, setDragTargetIndex] = useState<number | null>(null);
+  const [shipmentsId, setShipmentsId] = useState<string | null>(null);
+  const [shipments, setShipments] = useState<ShipmentBatch[]>([]);
   const taskListRef = useRef<HTMLDivElement>(null);
   const dragCloneRef = useRef<HTMLElement | null>(null);
   const dragStartYRef = useRef(0);
@@ -1009,6 +1351,16 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
     });
     return () => { ignore = true; };
   }, [contract.id]);
+
+  // Load shipments for this contract from localStorage
+  useEffect(() => {
+    setShipments(getShipments(contract.id));
+  }, [contract.id]);
+
+  const handleShipmentsChange = (next: ShipmentBatch[]) => {
+    setShipments(next);
+    saveShipments(contract.id, next);
+  };
 
   const handleSave = async (
     dataList: Omit<ContractTaskCreatePayload, "contractId">[],
@@ -1060,18 +1412,27 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
   };
 
   const getTargetIndex = (clientY: number) => {
-    if (!taskListRef.current) return null;
-    const rows = Array.from(taskListRef.current.querySelectorAll<HTMLElement>("[data-task-id]"));
+    const list = taskListRef.current;
+    if (!list) return null;
+    const rows = Array.from(list.querySelectorAll<HTMLElement>("[data-task-id]"));
     const warehouseIdx = tasks.findIndex(t => t.name === WAREHOUSE_TASK_NAME);
-    for (let i = 0; i < rows.length; i++) {
-      const rect = rows[i].getBoundingClientRect();
-      if (clientY < rect.top + rect.height / 2) {
-        if (warehouseIdx >= 0 && i >= warehouseIdx) return Math.max(0, warehouseIdx);
-        return i;
-      }
+    // Warehouse must stay last and never be a drop target
+    const maxIdx = warehouseIdx >= 0 ? warehouseIdx - 1 : rows.length - 1;
+    if (maxIdx < 0) return 0;
+
+    // The list element itself is NOT transformed, so its viewport rect is stable.
+    // Row offsetTop is NOT affected by CSS transforms, so it gives the natural
+    // (pre-shift) position — this is what we need so each row triggers
+    // independently as the cursor crosses its true center.
+    const listRect = list.getBoundingClientRect();
+    const relY = clientY - listRect.top;
+
+    for (let i = 0; i <= maxIdx; i++) {
+      const naturalTop = rows[i].offsetTop - list.offsetTop;
+      const h = rows[i].offsetHeight;
+      if (relY < naturalTop + h / 2) return i;
     }
-    const last = warehouseIdx >= 0 ? Math.max(0, warehouseIdx) : rows.length - 1;
-    return last;
+    return maxIdx;
   };
 
   const cleanupDrag = () => {
@@ -1198,6 +1559,7 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
 
   const editingTask = editingId ? tasks.find(t => t.id === editingId) ?? null : null;
   const loggingTask = loggingId ? tasks.find(t => t.id === loggingId) ?? null : null;
+  const shipmentsTask = shipmentsId ? tasks.find(t => t.id === shipmentsId) ?? null : null;
 
   return (
     <div className="task-panel">
@@ -1231,14 +1593,15 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
         <div
           ref={taskListRef}
           className="tp-tasks-list"
-          style={{ display: "flex", flexDirection: "column", gap: 10 }}
+          style={{ display: "flex", flexDirection: "column", gap: 12 }}
         >
           {tasks.map((task, idx) => {
             const dragFromIdx = draggingId ? tasks.findIndex(t => t.id === draggingId) : -1;
             let offsetPx = 0;
-            if (draggingId && dragTargetIndex !== null && task.id !== draggingId && dragFromIdx >= 0 && taskListRef.current) {
+            // Warehouse row must never move, regardless of drag state
+            if (task.name !== WAREHOUSE_TASK_NAME && draggingId && dragTargetIndex !== null && task.id !== draggingId && dragFromIdx >= 0 && taskListRef.current) {
               const rows = Array.from(taskListRef.current.querySelectorAll<HTMLElement>("[data-task-id]"));
-              const draggedRowHeight = rows[dragFromIdx] ? rows[dragFromIdx].offsetHeight + 10 : 0;
+              const draggedRowHeight = rows[dragFromIdx] ? rows[dragFromIdx].offsetHeight + 12 : 0;
               if (dragFromIdx < dragTargetIndex) {
                 if (idx > dragFromIdx && idx <= dragTargetIndex) offsetPx = -draggedRowHeight;
               } else {
@@ -1252,6 +1615,8 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
                 onDelete={(id) => setConfirmDeleteId(id)}
                 onEdit={(id) => { setEditingId(id); setShowForm(false); setLoggingId(null); }}
                 onLog={(id) => { setLoggingId(id); setEditingId(null); setShowForm(false); }}
+                onShipments={(id) => { setShipmentsId(id); setLoggingId(null); setEditingId(null); setShowForm(false); }}
+                shipmentCount={task.name === WAREHOUSE_TASK_NAME ? shipments.length : 0}
                 onPointerDownDrag={(e) => handlePointerDownDrag(e, task.id, idx)}
                 isDragging={draggingId === task.id}
                 offsetY={offsetPx}
@@ -1296,6 +1661,17 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
           task={loggingTask}
           onSave={handleLogProgress}
           onCancel={() => setLoggingId(null)}
+        />
+      )}
+
+      {/* Shipments modal (warehouse only) */}
+      {shipmentsTask && (
+        <ShipmentsModal
+          task={shipmentsTask}
+          unit={contract.unit}
+          initialBatches={shipments}
+          onChange={handleShipmentsChange}
+          onCancel={() => setShipmentsId(null)}
         />
       )}
 
