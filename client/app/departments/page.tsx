@@ -214,6 +214,7 @@ export default function DepartmentsPage() {
                 min="0"
                 value={form.employeeCount}
                 onChange={e => setForm(f => ({ ...f, employeeCount: e.target.value }))}
+                onWheel={e => (e.target as HTMLInputElement).blur()}
                 placeholder="0"
               />
             </div>
@@ -315,7 +316,7 @@ export default function DepartmentsPage() {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+    <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
 
       {/* Stats chips */}
       <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>

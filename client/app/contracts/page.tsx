@@ -116,9 +116,9 @@ export default function ContractsPage() {
 
   useDraft(
     "draft_contracts",
-    showForm,
+    showForm && !editTarget,
     { form, editTarget },
-    (d) => { setForm(d.form); setEditTarget(d.editTarget); ensureDataLoaded().then(() => setShowForm(true)); },
+    (d) => { if (!d.editTarget) { setForm(d.form); ensureDataLoaded().then(() => setShowForm(true)); } },
   );
 
   // ── Load drawer ────────────────────────────────────────────────────────────
@@ -232,11 +232,12 @@ export default function ContractsPage() {
   };
 
   const openEdit = async (c: ContractResponse) => {
+    sessionStorage.removeItem("draft_contracts");
     setEditTarget(c);
     setForm({
       contractNo:    c.contractNo,
       productType:   c.productType ?? "",
-      quantity:      c.quantity ? String(c.quantity) : "",
+      quantity:      c.quantity != null ? String(c.quantity) : "",
       unit:          c.unit ?? "",
       departmentIds: c.departments?.map(d => d.id) ?? [],
       startDate:     c.startDate ? c.startDate.slice(0, 10) : "",
@@ -500,7 +501,7 @@ export default function ContractsPage() {
   // ── Render: List ──────────────────────────────────────────────────────────
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+    <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
 
       {/* Filter bar */}
       <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px", flexWrap: "wrap", overflow: "visible" }}>

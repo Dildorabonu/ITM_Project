@@ -31,6 +31,8 @@ public class DatabaseContext : DbContext
     public DbSet<ContractTask> ContractTasks { get; set; }
     public DbSet<ContractTaskDailyLog> ContractTaskDailyLogs { get; set; }
     public DbSet<CostNormItem> CostNormItems { get; set; }
+    public DbSet<Requisition> Requisitions { get; set; }
+    public DbSet<RequisitionItem> RequisitionItems { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

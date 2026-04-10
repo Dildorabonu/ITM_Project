@@ -10,8 +10,6 @@ import {
   type AttachmentResponse,
 } from "@/lib/userService";
 
-import { ConfirmModal } from "@/app/_components/ConfirmModal";
-import ToastContainer from "@/app/_components/ToastContainer";
 import { useToastStore } from "@/lib/store/toastStore";
 
 import { type MergedRow, type DrawingFormValues, emptyDrawingForm } from "./_types";
@@ -23,7 +21,7 @@ function fmtDate(value: string) {
   if (!value) return "—";
   const [y, m, day] = value.slice(0, 10).split("-");
   if (!y || !m || !day) return "—";
-  return `${day}-${m}-${y.slice(-2)}`;
+  return `${day}.${m}.${y.slice(-2)}`;
 }
 
 export default function TechnicalDrawingsPage() {
@@ -39,16 +37,15 @@ export default function TechnicalDrawingsPage() {
   const [drawerFiles, setDrawerFiles] = useState<AttachmentResponse[]>([]);
   const [drawerLoading, setDrawerLoading] = useState(false);
 
-  // Delete
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
-
   // Create form
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createContract, setCreateContract] = useState<ContractResponse | null>(null);
   const [createForm, setCreateForm] = useState<DrawingFormValues>(emptyDrawingForm);
   const [createSubmitted, setCreateSubmitted] = useState(false);
   const [createSaving, setCreateSaving] = useState(false);
+
+  // Approve
+  const [approving, setApproving] = useState(false);
 
   // Edit form
   const [showEditForm, setShowEditForm] = useState(false);
@@ -81,9 +78,7 @@ export default function TechnicalDrawingsPage() {
       if (drawings.length === 0) {
         rows.push({ kind: "empty", contract });
       } else {
-        for (const d of drawings) {
-          rows.push({ kind: "drawing", drawing: d });
-        }
+        rows.push({ kind: "drawing", drawing: drawings[0] });
       }
     }
     for (const d of list) {
@@ -129,24 +124,11 @@ export default function TechnicalDrawingsPage() {
     }
   };
 
-  // ── Delete ────────────────────────────────────────────────────────────────
-
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    setDeleting(true);
-    try {
-      await technicalDrawingService.delete(deleteId);
-      await loadData();
-      showToast("Texnik chizma o'chirildi.");
-    } finally {
-      setDeleting(false);
-      setDeleteId(null);
-    }
-  };
-
   // ── Create ────────────────────────────────────────────────────────────────
 
   const openCreate = (contract: ContractResponse) => {
+    const alreadyExists = list.some((d) => d.contractId === contract.id);
+    if (alreadyExists) return;
     setCreateContract(contract);
     setCreateForm(emptyDrawingForm);
     setCreateSubmitted(false);
@@ -159,11 +141,14 @@ export default function TechnicalDrawingsPage() {
     if (!createForm.title.trim()) return;
     setCreateSaving(true);
     try {
-      await technicalDrawingService.create({
+      const newId = await technicalDrawingService.create({
         contractId: createContract!.id,
         title: createForm.title.trim(),
         notes: createForm.notes.trim() || null,
       });
+      if (createForm.files.length > 0) {
+        await Promise.all(createForm.files.map((f) => technicalDrawingService.uploadFile(newId, f)));
+      }
       await loadData();
       setShowCreateForm(false);
       showToast("Texnik chizma muvaffaqiyatli yaratildi!");
@@ -179,11 +164,25 @@ export default function TechnicalDrawingsPage() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, [showCreateForm]);
 
+  // ── Approve ───────────────────────────────────────────────────────────────
+
+  const handleApprove = async (item: TechnicalDrawingResponse) => {
+    setApproving(true);
+    try {
+      await technicalDrawingService.updateStatus(item.id, DrawingStatus.Approved);
+      await loadData();
+      setDrawer(null);
+      showToast("Texnik chizma tasdiqlandi!");
+    } finally {
+      setApproving(false);
+    }
+  };
+
   // ── Edit ──────────────────────────────────────────────────────────────────
 
   const openEdit = (item: TechnicalDrawingResponse) => {
     setEditTarget(item);
-    setEditForm({ title: item.title, notes: item.notes || "" });
+    setEditForm({ title: item.title, notes: item.notes || "", files: [] });
     setEditSubmitted(false);
     setDrawer(null);
     window.history.pushState(null, "");
@@ -199,6 +198,9 @@ export default function TechnicalDrawingsPage() {
         title: editForm.title.trim(),
         notes: editForm.notes.trim() || null,
       });
+      if (editForm.files.length > 0) {
+        await Promise.all(editForm.files.map((f) => technicalDrawingService.uploadFile(editTarget!.id, f)));
+      }
       await loadData();
       setShowEditForm(false);
       showToast("Texnik chizma muvaffaqiyatli yangilandi!");
@@ -251,7 +253,7 @@ export default function TechnicalDrawingsPage() {
   // ── Render: List ──────────────────────────────────────────────────────────
 
   return (
-    <>
+    <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
       <div style={{ display: "flex", flexDirection: "column", flex: 1, gap: 16, fontFamily: "Inter, sans-serif" }}>
 
         {/* Filter bar */}
@@ -352,7 +354,7 @@ export default function TechnicalDrawingsPage() {
                                   className="btn-icon"
                                   onClick={() => openCreate(c)}
                                   title="Chizma yaratish"
-                                  style={{ color: "var(--accent)", borderColor: "var(--accent)33", background: "var(--accent-dim)", width: 28, height: 28, fontSize: 18, fontWeight: 400 }}
+                                  style={{ color: "var(--accent)", borderColor: "var(--accent)33", background: "var(--accent-dim)", width: 28, height: 28, fontSize: 18, fontWeight: 400, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
                                 >
                                   +
                                 </button>
@@ -423,19 +425,19 @@ export default function TechnicalDrawingsPage() {
                                   <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                                 </svg>
                               </button>
-                              <button
-                                className="btn-icon"
-                                onClick={() => setDeleteId(item.id)}
-                                title="O'chirish"
-                                style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}
-                              >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <polyline points="3 6 5 6 21 6" />
-                                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                                  <path d="M10 11v6M14 11v6" />
-                                  <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                                </svg>
-                              </button>
+                              {item.status !== DrawingStatus.Approved && (
+                                <button
+                                  className="btn-icon"
+                                  onClick={() => handleApprove(item)}
+                                  title="Tasdiqlash"
+                                  disabled={approving}
+                                  style={{ color: "#f59e0b", borderColor: "#f59e0b33", background: "#f59e0b12" }}
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <polyline points="20 6 9 17 4 12" />
+                                  </svg>
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -456,22 +458,11 @@ export default function TechnicalDrawingsPage() {
           drawerFiles={drawerFiles}
           drawerLoading={drawerLoading}
           onClose={() => setDrawer(null)}
-          onEdit={openEdit}
+          onApprove={handleApprove}
+          approving={approving}
         />
       )}
 
-      <ConfirmModal
-        open={!!deleteId}
-        title="O'chirishni tasdiqlang"
-        message="Texnik chizmani o'chirmoqchimisiz? Bu amalni qaytarib bo'lmaydi."
-        confirmLabel="O'chirish"
-        cancelLabel="Bekor qilish"
-        loading={deleting}
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteId(null)}
-      />
-
-      <ToastContainer />
-    </>
+    </div>
   );
 }

@@ -18,4 +18,10 @@ public enum PermissionAction
 
     [Display(Name = "Hammasini ko'rish", Description = "eye")]
     ViewAll = 5,
+
+    [Display(Name = "Tasdiqlash", Description = "check-circle")]
+    Approve = 6,
+
+    [Display(Name = "Omborga yuborish", Description = "package")]
+    SendToWarehouse = 7,
 }

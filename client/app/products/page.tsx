@@ -448,7 +448,8 @@ export default function ProductsPage() {
               <div>
                 <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Soni</label>
                 <input className="form-input" type="number" min="0" step="any" value={form.quantity}
-                  onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} placeholder="0" />
+                  onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))}
+                  onWheel={e => (e.target as HTMLInputElement).blur()} placeholder="0" />
               </div>
               <div>
                 <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>O&apos;lchov birligi</label>
@@ -666,6 +667,7 @@ export default function ProductsPage() {
                                   placeholder="0"
                                   value={editingImportRowData.quantity}
                                   onChange={e => setEditingImportRowData(d => d && { ...d, quantity: e.target.value })}
+                                  onWheel={e => (e.target as HTMLInputElement).blur()}
                                   style={{ width: 80, padding: "4px 8px", fontSize: 13 }}
                                 />
                               </td>
@@ -876,7 +878,8 @@ export default function ProductsPage() {
               <div>
                 <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Soni</label>
                 <input className="form-input" type="number" min="0" step="any" value={f.quantity}
-                  onChange={e => updateFormRow(index, "quantity", e.target.value)} placeholder="0" />
+                  onChange={e => updateFormRow(index, "quantity", e.target.value)}
+                  onWheel={e => (e.target as HTMLInputElement).blur()} placeholder="0" />
               </div>
               <div>
                 <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>O&apos;lchov birligi</label>
@@ -952,7 +955,7 @@ export default function ProductsPage() {
 
   /* ===== List view ===== */
   return (
-    <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+    <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
       <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px" }}>
         <div className="search-wrap" style={{ maxWidth: "none", flex: 1 }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
