@@ -60,6 +60,8 @@ export default function RequisitionPrintPage() {
     setSaving(true);
     const noPrint = docRef.current.querySelectorAll<HTMLElement>(".no-print");
     noPrint.forEach(el => (el.style.display = "none"));
+    const inlineEditables = docRef.current.querySelectorAll<HTMLElement>(".inline-editable");
+    inlineEditables.forEach(el => (el.style.borderBottom = "none"));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const html2pdf = (await import("html2pdf.js" as any)).default;
     html2pdf()
@@ -74,6 +76,7 @@ export default function RequisitionPrintPage() {
       .save()
       .finally(() => {
         noPrint.forEach(el => el.style.removeProperty("display"));
+        inlineEditables.forEach(el => el.style.removeProperty("border-bottom"));
         setSaving(false);
       });
   };
@@ -81,15 +84,15 @@ export default function RequisitionPrintPage() {
   const handleSaveSystem = async () => {
     const filledRows = rows.filter(r => r.name.trim());
     if (!filledRows.length) {
-      showToast("Kamida bitta material kiriting", "error");
+      showToast("Kamida bitta material kiriting", "Xatolik");
       return;
     }
     if (type === RequisitionType.Contract && !contractId) {
-      showToast("Shartnomani tanlang", "error");
+      showToast("Shartnomani tanlang", "Xatolik");
       return;
     }
     if (type === RequisitionType.Individual && !departmentId) {
-      showToast("Bo'limni tanlang", "error");
+      showToast("Bo'limni tanlang", "Xatolik");
       return;
     }
 
@@ -111,7 +114,7 @@ export default function RequisitionPrintPage() {
       showToast("Talabnoma tizimda saqlandi", "success");
       router.push("/requisitions");
     } catch {
-      showToast("Xatolik yuz berdi", "error");
+      showToast("Xatolik yuz berdi", "Xatolik");
     } finally {
       setSavingSystem(false);
     }
@@ -137,10 +140,16 @@ export default function RequisitionPrintPage() {
           .print-page table td { padding: 4px 5px !important; }
           body { background: white !important; margin: 0 !important; padding: 0 !important; }
           input, textarea { border: none !important; background: transparent !important; resize: none !important; overflow: hidden !important; }
+          .inline-editable { border: none !important; }
           .add-row-btn { display: none !important; }
           .remove-row-btn { display: none !important; }
         }
         @page { margin: 0; size: A4 portrait; }
+        .inline-editable[data-placeholder]:empty::before {
+          content: attr(data-placeholder);
+          color: #aaa;
+          pointer-events: none;
+        }
       `}</style>
 
       {/* Toolbar */}
@@ -255,28 +264,26 @@ export default function RequisitionPrintPage() {
 
         {/* Intro text with editable box */}
         <div style={{ fontSize: 13, lineHeight: 1.8, marginBottom: 20 }}>
-          <div>Ушбу оркали Сиздан,</div>
-          <textarea
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            placeholder="Bu yerga matn kiriting..."
-            rows={3}
+          Ушбу оркали Сиздан,{" "}
+          <span
+            className="inline-editable"
+            contentEditable
+            suppressContentEditableWarning
+            data-placeholder="matn kiriting..."
+            onInput={e => setDescription(e.currentTarget.textContent || "")}
             style={{
-              width: "100%",
-              border: "none",
               borderBottom: "1px solid #999",
-              background: "transparent",
+              minWidth: 120,
+              display: "inline-block",
+              outline: "none",
               fontFamily: "Times New Roman, serif",
               fontSize: 13,
-              lineHeight: 1.8,
-              resize: "vertical",
-              outline: "none",
-              padding: "2px 4px",
               color: "#000",
-              boxSizing: "border-box",
+              cursor: "text",
+              verticalAlign: "baseline",
             }}
-          />
-          <div>омбордан берилиши учун рухсат беришингизни сўрайман.</div>
+          />{" "}
+          омбордан берилиши учун рухсат беришингизни сўрайман.
         </div>
 
         {/* Table */}
