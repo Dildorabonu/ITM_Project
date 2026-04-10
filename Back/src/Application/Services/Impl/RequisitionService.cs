@@ -78,7 +78,9 @@ public class RequisitionService : IRequisitionService
             Id = Guid.NewGuid(),
             RequisitionNo = no,
             Type = dto.Type,
-            Status = RequisitionStatus.Pending,
+            Status = dto.Type == RequisitionType.Contract
+                ? RequisitionStatus.SentToWarehouse
+                : RequisitionStatus.Pending,
             ContractId = dto.ContractId,
             DepartmentId = dto.DepartmentId,
             Purpose = dto.Purpose,
