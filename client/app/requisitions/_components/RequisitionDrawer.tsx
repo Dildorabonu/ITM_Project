@@ -121,19 +121,8 @@ export function RequisitionDrawer({ req, onClose, onApprove, onReject, onSendToW
 
         {/* Amallar */}
         <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
-          {/* Contract + Pending → to'g'ridan-to'g'ri omborga */}
-          {req.status === RequisitionStatus.Pending && req.type === RequisitionType.Contract && canSendToWarehouse && (
-            <button
-              disabled={acting}
-              onClick={() => onSendToWarehouse(req.id)}
-              style={{ padding: "10px 20px", borderRadius: "var(--radius)", background: "var(--accent-dim)", color: "var(--accent)", border: "1px solid rgba(26,110,235,0.25)", fontWeight: 600, fontSize: 13, cursor: acting ? "not-allowed" : "pointer", opacity: acting ? 0.7 : 1 }}
-            >
-              {acting ? "…" : "Omborga yuborish"}
-            </button>
-          )}
-
-          {/* Pending → approve / reject (Individual) */}
-          {req.status === RequisitionStatus.Pending && canApprove && (
+          {/* Pending → approve / reject (Individual only) */}
+          {req.status === RequisitionStatus.Pending && req.type === RequisitionType.Individual && canApprove && (
             <div style={{ display: "flex", gap: 8 }}>
               <button
                 disabled={acting}
@@ -152,8 +141,8 @@ export function RequisitionDrawer({ req, onClose, onApprove, onReject, onSendToW
             </div>
           )}
 
-          {/* Approved → send to warehouse */}
-          {req.status === RequisitionStatus.Approved && canSendToWarehouse && (
+          {/* Approved → send to warehouse (Individual only) */}
+          {req.status === RequisitionStatus.Approved && req.type === RequisitionType.Individual && canSendToWarehouse && (
             <button
               disabled={acting}
               onClick={() => onSendToWarehouse(req.id)}

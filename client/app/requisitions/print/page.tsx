@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useToastStore } from "@/lib/store/toastStore";
 import {
@@ -50,6 +51,7 @@ export default function RequisitionPrintPage() {
   const [saving, setSaving] = useState(false);
   const [savingSystem, setSavingSystem] = useState(false);
   const [normLoading, setNormLoading] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const fillFromNorm = async () => {
     if (!contractId) return;
@@ -160,21 +162,26 @@ export default function RequisitionPrintPage() {
       });
   };
 
-  const handleSaveSystem = async () => {
+  const validateSystem = () => {
     const filledRows = rows.filter(r => r.name.trim());
-    if (!filledRows.length) {
-      showToast("Kamida bitta material kiriting", "Xatolik");
-      return;
-    }
-    if (type === RequisitionType.Contract && !contractId) {
-      showToast("Shartnomani tanlang", "Xatolik");
-      return;
-    }
-    if (type === RequisitionType.Individual && !departmentId) {
-      showToast("Bo'limni tanlang", "Xatolik");
-      return;
-    }
+    if (!filledRows.length) { showToast("Kamida bitta material kiriting", "Xatolik"); return false; }
+    if (type === RequisitionType.Contract && !contractId) { showToast("Shartnomani tanlang", "Xatolik"); return false; }
+    if (type === RequisitionType.Individual && !departmentId) { showToast("Bo'limni tanlang", "Xatolik"); return false; }
+    return true;
+  };
 
+  const handleSaveSystem = () => {
+    if (!validateSystem()) return;
+    if (type === RequisitionType.Contract) {
+      setConfirmOpen(true);
+      return;
+    }
+    doSaveSystem();
+  };
+
+  const doSaveSystem = async () => {
+    setConfirmOpen(false);
+    const filledRows = rows.filter(r => r.name.trim());
     setSavingSystem(true);
     try {
       await requisitionService.create({
@@ -348,7 +355,7 @@ export default function RequisitionPrintPage() {
 
           <button
             onClick={handleSaveSystem}
-            disabled={savingSystem}
+            disabled={savingSystem || confirmOpen}
             onMouseEnter={e => { if (!savingSystem) e.currentTarget.style.opacity = "0.85"; }}
             onMouseLeave={e => { e.currentTarget.style.opacity = savingSystem ? "0.7" : "1"; }}
             style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: savingSystem ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, opacity: savingSystem ? 0.7 : 1, transition: "opacity 0.15s" }}
@@ -650,6 +657,32 @@ export default function RequisitionPrintPage() {
           />
         </div>
       </div>
+      {confirmOpen && createPortal(
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 99999 }}>
+          <div style={{ background: "var(--bg2)", borderRadius: 14, padding: 28, width: 420, maxWidth: "90vw", boxShadow: "var(--shadow2)" }}>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 10, color: "var(--text1)" }}>Omborga yuborish</div>
+            <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 20, lineHeight: 1.6 }}>
+              Bu talabnoma <strong>bevosita ombor tekshiruviga</strong> yuboriladi.<br />
+              Davom etishni tasdiqlaysizmi?
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={() => setConfirmOpen(false)}
+                style={{ flex: 1, padding: "9px", background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, color: "var(--text2)" }}
+              >
+                Bekor
+              </button>
+              <button
+                onClick={doSaveSystem}
+                style={{ flex: 1, padding: "9px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600 }}
+              >
+                Omborga yuborish
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </>
   );
 }
