@@ -183,18 +183,7 @@ export default function RequisitionDetailPage() {
 
         {/* Actions */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {/* Contract + Pending → to'g'ridan-to'g'ri omborga */}
-          {req.status === RequisitionStatus.Pending && req.type === RequisitionType.Contract && canSendToWarehouse && (
-            <button
-              disabled={acting}
-              onClick={handleSendToWarehouse}
-              style={{ padding: "12px 24px", borderRadius: "var(--radius)", background: "var(--accent-dim)", color: "var(--accent)", border: "1px solid rgba(26,110,235,0.25)", fontWeight: 600, fontSize: 14, cursor: acting ? "not-allowed" : "pointer", opacity: acting ? 0.7 : 1 }}
-            >
-              {acting ? "…" : "Omborga yuborish"}
-            </button>
-          )}
-
-          {req.status === RequisitionStatus.Pending && canApprove && (
+          {req.status === RequisitionStatus.Pending && req.type === RequisitionType.Individual && canApprove && (
             <div style={{ display: "flex", gap: 10 }}>
               <button
                 disabled={acting}
@@ -213,7 +202,17 @@ export default function RequisitionDetailPage() {
             </div>
           )}
 
-          {req.status === RequisitionStatus.Approved && canSendToWarehouse && (
+          {req.status === RequisitionStatus.Pending && req.type === RequisitionType.Contract && canSendToWarehouse && (
+            <button
+              disabled={acting}
+              onClick={handleSendToWarehouse}
+              style={{ padding: "12px 24px", borderRadius: "var(--radius)", background: "var(--accent-dim)", color: "var(--accent)", border: "1px solid rgba(26,110,235,0.25)", fontWeight: 600, fontSize: 14, cursor: acting ? "not-allowed" : "pointer", opacity: acting ? 0.7 : 1 }}
+            >
+              {acting ? "…" : "Omborga yuborish"}
+            </button>
+          )}
+
+          {req.status === RequisitionStatus.Approved && req.type === RequisitionType.Individual && canSendToWarehouse && (
             <button
               disabled={acting}
               onClick={handleSendToWarehouse}
