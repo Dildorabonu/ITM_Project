@@ -1234,4 +1234,8 @@ export const requisitionService = {
   sendToWarehouse: async (id: string): Promise<void> => {
     await api.post(`/api/requisition/${id}/send-to-warehouse`);
   },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/api/requisition/${id}`);
+  },
 };

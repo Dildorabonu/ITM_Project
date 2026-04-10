@@ -12,4 +12,5 @@ public interface IRequisitionService
     Task<ApiResult<bool>> ApproveAsync(Guid id, Guid directorId);            // Pending → Approved + QR (Individual)
     Task<ApiResult<bool>> RejectAsync(Guid id, Guid directorId, RequisitionRejectDto dto); // Pending → Rejected
     Task<ApiResult<bool>> SendToWarehouseAsync(Guid id, Guid currentUserId); // Contract: Pending→SentToWarehouse; Individual: Approved→SentToWarehouse
+    Task<ApiResult<bool>> DeleteAsync(Guid id, Guid currentUserId);
 }
