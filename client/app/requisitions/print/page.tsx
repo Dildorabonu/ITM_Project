@@ -7,6 +7,8 @@ import {
   requisitionService,
   contractService,
   departmentService,
+  costNormService,
+  DrawingStatus,
   RequisitionType,
   ProductUnit,
   PRODUCT_UNIT_LABELS_CYR,
@@ -21,9 +23,10 @@ interface TableRow {
   quantity: string;
   spec: string;
   notes: string;
+  image: string; // base64 data URL
 }
 
-const emptyRow = (id: number): TableRow => ({ id, name: "", unit: "", quantity: "", spec: "", notes: "" });
+const emptyRow = (id: number): TableRow => ({ id, name: "", unit: "", quantity: "", spec: "", notes: "", image: "" });
 
 export default function RequisitionPrintPage() {
   const router = useRouter();
@@ -45,6 +48,38 @@ export default function RequisitionPrintPage() {
 
   const [saving, setSaving] = useState(false);
   const [savingSystem, setSavingSystem] = useState(false);
+  const [normLoading, setNormLoading] = useState(false);
+
+  const fillFromNorm = async () => {
+    if (!contractId) return;
+    setNormLoading(true);
+    try {
+      const norms = await costNormService.getAll(contractId);
+      const norm =
+        norms.find(n => n.isActive && n.status === DrawingStatus.Approved) ??
+        norms.find(n => n.isActive) ??
+        norms[0];
+      if (!norm) { showToast("Bu shartnoma uchun me'yoriy sarf topilmadi", "Xatolik"); return; }
+      const qty = norm.contractQuantity;
+      const lines = norm.items.filter(i => !i.isSection && i.totalQty);
+      if (!lines.length) { showToast("Me'yoriy sarfda material qatorlari topilmadi", "Xatolik"); return; }
+      const newRows = lines.map((ni, idx) => ({
+        id: Date.now() + idx,
+        name: ni.name ?? ni.no ?? "",
+        unit: ni.unit ?? "",
+        quantity: String(parseFloat((ni.totalQty ?? "0").replace(",", ".")) * qty),
+        spec: "",
+        notes: "",
+        image: ni.photoRaw ?? ni.photoSemi ?? "",
+      }));
+      setRows(newRows);
+      showToast(`Me'yoriy sarfdan ${newRows.length} ta qator to'ldirildi`, "success");
+    } catch {
+      showToast("Me'yoriy sarf yuklanmadi", "Xatolik");
+    } finally {
+      setNormLoading(false);
+    }
+  };
 
   useEffect(() => {
     contractService.getAll().then(setContracts);
@@ -67,6 +102,15 @@ export default function RequisitionPrintPage() {
   const updateRow = (id: number, field: keyof TableRow, value: string) =>
     setRows(r => r.map(row => row.id === id ? { ...row, [field]: value } : row));
 
+  const handleImageUpload = (id: number, file: File) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const result = e.target?.result as string;
+      updateRow(id, "image", result);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handlePrint = () => window.print();
 
   const handleSavePdf = async () => {
@@ -74,6 +118,8 @@ export default function RequisitionPrintPage() {
     setSaving(true);
     const noPrint = docRef.current.querySelectorAll<HTMLElement>(".no-print");
     noPrint.forEach(el => (el.style.display = "none"));
+    const printImages = docRef.current.querySelectorAll<HTMLElement>(".print-image");
+    printImages.forEach(el => (el.style.display = "block"));
     const inlineEditables = docRef.current.querySelectorAll<HTMLElement>(".inline-editable");
     inlineEditables.forEach(el => (el.style.borderBottom = "none"));
 
@@ -103,6 +149,7 @@ export default function RequisitionPrintPage() {
       .save()
       .finally(() => {
         noPrint.forEach(el => el.style.removeProperty("display"));
+        printImages.forEach(el => el.style.removeProperty("display"));
         inlineEditables.forEach(el => el.style.removeProperty("border-bottom"));
         selectReplacements.forEach(({ select, span }) => {
           select.style.removeProperty("display");
@@ -174,6 +221,8 @@ export default function RequisitionPrintPage() {
           .inline-editable { border: none !important; }
           .add-row-btn { display: none !important; }
           .remove-row-btn { display: none !important; }
+          .no-print { display: none !important; }
+          .print-image { display: block !important; }
         }
         @page { margin: 0; size: A4 portrait; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -190,69 +239,102 @@ export default function RequisitionPrintPage() {
         background: "var(--bg2)",
         border: "1px solid var(--border)",
         borderRadius: "var(--radius)",
-        padding: "10px 16px",
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        flexWrap: "wrap",
         boxShadow: "var(--shadow)",
+        overflow: "hidden",
       }}>
-        {/* Left: back + title */}
-        <button
-          onClick={() => router.push("/requisitions")}
-          style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, fontSize: 13, color: "var(--text2)", flexShrink: 0 }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-          Orqaga
-        </button>
-
-        <div style={{ width: 1, height: 24, background: "var(--border)", flexShrink: 0 }} />
-
-        <h1 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text)", whiteSpace: "nowrap" }}>Talabnoma blanki</h1>
-
-        <div style={{ flex: 1 }} />
-
-        {/* Middle: type + contract/dept selectors */}
-        <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
-          <select
-            value={type}
-            onChange={e => setType(Number(e.target.value) as RequisitionType)}
-            style={{ padding: "6px 10px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg3)", color: "var(--text)", cursor: "pointer" }}
+        {/* Top row: navigation + title */}
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "10px 16px",
+          borderBottom: "1px solid var(--border)",
+          background: "var(--bg3)",
+        }}>
+          <button
+            onClick={() => router.push("/requisitions")}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text2)"; }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 11px", background: "var(--bg2)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, fontSize: 13, color: "var(--text2)", flexShrink: 0, transition: "border-color 0.15s, color 0.15s" }}
           >
-            <option value={RequisitionType.Contract}>Shartnoma bo&apos;yicha</option>
-            <option value={RequisitionType.Individual}>Individual</option>
-          </select>
-          {type === RequisitionType.Contract ? (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+            Orqaga
+          </button>
+
+          <div style={{ width: 1, height: 20, background: "var(--border)", flexShrink: 0 }} />
+
+          <h1 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "var(--text)", whiteSpace: "nowrap" }}>Talabnoma blanki</h1>
+
+          <div style={{ flex: 1 }} />
+
+          {/* Type + contract/dept selectors */}
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
             <select
-              value={contractId}
-              onChange={e => setContractId(e.target.value)}
-              style={{ padding: "6px 10px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg3)", color: "var(--text)", cursor: "pointer", maxWidth: 200 }}
+              value={type}
+              onChange={e => setType(Number(e.target.value) as RequisitionType)}
+              style={{ padding: "5px 10px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg2)", color: "var(--text)", cursor: "pointer" }}
             >
-              <option value="">— Shartnoma —</option>
-              {contracts.map(c => <option key={c.id} value={c.id}>{c.contractNo} — {c.contractParty}</option>)}
+              <option value={RequisitionType.Contract}>Shartnoma bo&apos;yicha</option>
+              <option value={RequisitionType.Individual}>Individual</option>
             </select>
-          ) : (
-            <select
-              value={departmentId}
-              onChange={e => setDepartmentId(e.target.value)}
-              style={{ padding: "6px 10px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg3)", color: "var(--text)", cursor: "pointer", maxWidth: 200 }}
-            >
-              <option value="">— Bo&apos;lim —</option>
-              {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
-          )}
+
+            {type === RequisitionType.Contract ? (
+              <select
+                value={contractId}
+                onChange={e => setContractId(e.target.value)}
+                style={{ padding: "5px 10px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg2)", color: "var(--text)", cursor: "pointer", maxWidth: 220 }}
+              >
+                <option value="">— Shartnoma —</option>
+                {contracts.map(c => <option key={c.id} value={c.id}>{c.contractNo} — {c.contractParty}</option>)}
+              </select>
+            ) : (
+              <select
+                value={departmentId}
+                onChange={e => setDepartmentId(e.target.value)}
+                style={{ padding: "5px 10px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg2)", color: "var(--text)", cursor: "pointer", maxWidth: 220 }}
+              >
+                <option value="">— Bo&apos;lim —</option>
+                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            )}
+
+            {type === RequisitionType.Contract && (
+              <button
+                type="button"
+                disabled={!contractId || normLoading}
+                onClick={fillFromNorm}
+                style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 12px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "none", background: "#2563eb", color: "#fff", cursor: (!contractId || normLoading) ? "not-allowed" : "pointer", opacity: (!contractId || normLoading) ? 0.45 : 1, whiteSpace: "nowrap", transition: "opacity 0.15s" }}
+              >
+                {normLoading ? (
+                  <span style={{ display: "inline-block", width: 13, height: 13, border: "2px solid currentColor", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                )}
+                Me&apos;yoriy sarfdan to&apos;ldirish
+              </button>
+            )}
+          </div>
         </div>
 
-        <div style={{ width: 1, height: 24, background: "var(--border)", flexShrink: 0 }} />
-
-        {/* Right: action buttons */}
-        <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
+        {/* Bottom row: action buttons */}
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "8px 16px",
+        }}>
           <button
             onClick={handleClear}
             title="Blankni tozalash"
-            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", background: "var(--bg3)", border: "1.5px solid #c00", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, fontSize: 13, color: "#c00" }}
+            onMouseEnter={e => { e.currentTarget.style.background = "#fff0f0"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "var(--bg3)"; }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 13px", background: "var(--bg3)", border: "1.5px solid #e53e3e", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, fontSize: 13, color: "#e53e3e", transition: "background 0.15s" }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
               <polyline points="3 6 5 6 21 6" />
@@ -263,10 +345,14 @@ export default function RequisitionPrintPage() {
             Tozalash
           </button>
 
+          <div style={{ width: 1, height: 20, background: "var(--border)" }} />
+
           <button
             onClick={handleSaveSystem}
             disabled={savingSystem}
-            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", background: "var(--success)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: savingSystem ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, opacity: savingSystem ? 0.7 : 1 }}
+            onMouseEnter={e => { if (!savingSystem) e.currentTarget.style.opacity = "0.85"; }}
+            onMouseLeave={e => { e.currentTarget.style.opacity = savingSystem ? "0.7" : "1"; }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: savingSystem ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, opacity: savingSystem ? 0.7 : 1, transition: "opacity 0.15s" }}
           >
             {savingSystem ? (
               <span style={{ display: "inline-block", width: 14, height: 14, border: "2px solid currentColor", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
@@ -283,7 +369,9 @@ export default function RequisitionPrintPage() {
           <button
             onClick={handleSavePdf}
             disabled={saving}
-            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", background: "var(--bg3)", color: "var(--text)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: saving ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, opacity: saving ? 0.7 : 1 }}
+            onMouseEnter={e => { if (!saving) { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; } }}
+            onMouseLeave={e => { if (!saving) { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text)"; } }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", background: "var(--bg3)", color: "var(--text)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: saving ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, opacity: saving ? 0.7 : 1, transition: "border-color 0.15s, color 0.15s" }}
           >
             {saving ? (
               <span style={{ display: "inline-block", width: 14, height: 14, border: "2px solid currentColor", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
@@ -299,7 +387,9 @@ export default function RequisitionPrintPage() {
 
           <button
             onClick={handlePrint}
-            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, fontSize: 13 }}
+            onMouseEnter={e => { e.currentTarget.style.opacity = "0.85"; }}
+            onMouseLeave={e => { e.currentTarget.style.opacity = "1"; }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, fontSize: 13, transition: "opacity 0.15s" }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
               <polyline points="6,9 6,2 18,2 18,9" />
@@ -430,7 +520,47 @@ export default function RequisitionPrintPage() {
                     placeholder="Texnik ko'rsatkich..."
                   />
                 </td>
-                <td style={{ ...td, textAlign: "center", color: "#999", fontSize: 11 }}>[расм]</td>
+                <td style={{ ...td, textAlign: "center", padding: 6, verticalAlign: "middle" }}>
+                  {row.image ? (
+                    <>
+                      {/* Preview + action buttons */}
+                      <div className="no-print" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                        <img src={row.image} alt="расм" style={{ maxWidth: "100%", maxHeight: 72, objectFit: "contain", borderRadius: 3, border: "1px solid #e0c060" }} />
+                        <div style={{ display: "flex", gap: 4 }}>
+                          <label title="Rasmni almashtirish" style={{
+                            display: "inline-flex", alignItems: "center", gap: 2,
+                            fontSize: 10, color: "#b8860b", cursor: "pointer",
+                            background: "#fffbea", border: "1px solid #d4a900",
+                            borderRadius: 3, padding: "2px 6px", fontFamily: "Arial, sans-serif",
+                          }}>
+                            <input type="file" accept="image/*" style={{ display: "none" }}
+                              onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(row.id, f); }} />
+                            ✎
+                          </label>
+                          <button onClick={() => updateRow(row.id, "image", "")} title="Rasmni o'chirish" style={{
+                            display: "inline-flex", alignItems: "center", gap: 2,
+                            fontSize: 10, color: "#c00", cursor: "pointer",
+                            background: "#fff0f0", border: "1px solid #f99",
+                            borderRadius: 3, padding: "2px 6px", fontFamily: "Arial, sans-serif",
+                          }}>✕</button>
+                        </div>
+                      </div>
+                      {/* Print-only image */}
+                      <img src={row.image} alt="расм" className="print-image" style={{ maxWidth: "100%", maxHeight: 72, objectFit: "contain", display: "none" }} />
+                    </>
+                  ) : (
+                    <label className="no-print" title="Rasm yuklash" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, height: 72, border: "1.5px dashed #c9a020", borderRadius: 5, cursor: "pointer", color: "#b8860b", background: "#fffdf0", transition: "background 0.15s" }}>
+                      <input type="file" accept="image/*" style={{ display: "none" }}
+                        onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(row.id, f); }} />
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c9a020" strokeWidth="1.5">
+                        <rect x="3" y="3" width="18" height="18" rx="2" />
+                        <circle cx="8.5" cy="8.5" r="1.5" />
+                        <polyline points="21 15 16 10 5 21" />
+                      </svg>
+                      <span style={{ fontSize: 9, fontFamily: "Arial, sans-serif", color: "#b8860b" }}>Rasm yuklash</span>
+                    </label>
+                  )}
+                </td>
                 <td style={td}>
                   <textarea
                     value={row.notes}
