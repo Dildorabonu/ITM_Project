@@ -7,6 +7,7 @@ import { useToastStore } from "@/lib/store/toastStore";
 import {
   requisitionService,
   RequisitionStatus,
+  RequisitionType,
 } from "@/lib/userService";
 import { RequisitionStatusBadge } from "../_components/StatusBadge";
 import { fmtDateTime, type RequisitionResponse } from "../_types";
@@ -35,17 +36,6 @@ export default function RequisitionDetailPage() {
     });
   }, [id]);
 
-  const handleSubmit = async () => {
-    if (!req) return;
-    setActing(true);
-    try {
-      await requisitionService.submit(req.id);
-      showToast("Talabnoma direktorga yuborildi", "success");
-      setReq(prev => prev ? { ...prev, status: RequisitionStatus.Pending } : prev);
-    } catch {
-      showToast("Xatolik yuz berdi", "error");
-    } finally { setActing(false); }
-  };
 
   const handleApprove = async () => {
     if (!req) return;
@@ -191,13 +181,14 @@ export default function RequisitionDetailPage() {
 
         {/* Actions */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {req.status === RequisitionStatus.Draft && (
+          {/* Contract + Pending → to'g'ridan-to'g'ri omborga */}
+          {req.status === RequisitionStatus.Pending && req.type === RequisitionType.Contract && canSendToWarehouse && (
             <button
               disabled={acting}
-              onClick={handleSubmit}
-              style={{ padding: "12px 24px", borderRadius: "var(--radius)", background: "var(--accent)", color: "#fff", border: "none", fontWeight: 600, fontSize: 14, cursor: acting ? "not-allowed" : "pointer", opacity: acting ? 0.7 : 1 }}
+              onClick={handleSendToWarehouse}
+              style={{ padding: "12px 24px", borderRadius: "var(--radius)", background: "var(--accent-dim)", color: "var(--accent)", border: "1px solid rgba(26,110,235,0.25)", fontWeight: 600, fontSize: 14, cursor: acting ? "not-allowed" : "pointer", opacity: acting ? 0.7 : 1 }}
             >
-              {acting ? "Yuborilmoqda…" : "Direktorga yuborish"}
+              {acting ? "…" : "Omborga yuborish"}
             </button>
           )}
 

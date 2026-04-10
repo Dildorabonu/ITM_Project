@@ -2,12 +2,12 @@
 
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import {
-  costNormService,
+  requisitionService,
   productService,
-  techProcessService,
-  DrawingStatus,
-  ProcessStatus,
-  type CostNormResponse,
+  RequisitionStatus,
+  RequisitionType,
+  REQUISITION_TYPE_LABELS,
+  type RequisitionResponse,
   type ProductResponse,
 } from "@/lib/userService";
 
@@ -25,11 +25,14 @@ function fmt(d: string) {
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-interface NormCheckRow {
+interface ReqCheckRow {
   id: string;
-  title: string;
-  contractNo: string;
-  createdByFullName: string;
+  requisitionNo: string;
+  type: RequisitionType;
+  purpose: string;
+  contractNo?: string;
+  departmentName?: string;
+  createdByName: string;
   createdAt: string;
   totalItems: number;
   foundItems: number;
@@ -42,8 +45,7 @@ type MaterialStatus = "topilmadi" | "yetishmadi" | "yetarli";
 interface MaterialCheckItem {
   name: string;
   unit: string;
-  totalQty: string;
-  jamiMiqdori: number;
+  required: number;
   status: MaterialStatus;
   productQty?: number;
   deficit: number;
@@ -150,7 +152,6 @@ function StatusIcon({ checked, size = 20 }: { checked: boolean; size?: number })
   }
   return (
     <div style={{ position: "relative", width: size, height: size }}>
-      {/* Pulse ring behind */}
       <div style={{
         position: "absolute", inset: 0,
         borderRadius: "50%", border: "2px solid #ef4444",
@@ -339,12 +340,10 @@ function DetailLoadingOverlay({ dataReady, onComplete }: { dataReady: boolean; o
   useEffect(() => {
     const interval = setInterval(() => {
       const elapsed = Date.now() - startRef.current;
-      // Progress goes to 85% over 5s, then stalls until data is ready
       let pct: number;
       if (elapsed < minDuration) {
         pct = Math.min(85, (elapsed / minDuration) * 85);
       } else if (!dataReady) {
-        // Data still loading — crawl slowly from 85 to 95
         pct = Math.min(95, 85 + ((elapsed - minDuration) / 5000) * 10);
       } else {
         pct = 100;
@@ -353,7 +352,6 @@ function DetailLoadingOverlay({ dataReady, onComplete }: { dataReady: boolean; o
       if (elapsed > 1500) setPhase(1);
       if (elapsed > 3500) setPhase(2);
 
-      // Complete when both min time passed AND data ready
       if (elapsed >= minDuration && dataReady && !completedRef.current) {
         completedRef.current = true;
         setProgress(100);
@@ -383,7 +381,6 @@ function DetailLoadingOverlay({ dataReady, onComplete }: { dataReady: boolean; o
     }}>
       <style dangerouslySetInnerHTML={{ __html: statusKeyframes }} />
 
-      {/* Outer orbiting dots */}
       <div style={{ position: "relative", width: 130, height: 130, marginBottom: 32 }}>
         <div style={{
           position: "absolute", inset: 12, borderRadius: "50%",
@@ -404,16 +401,12 @@ function DetailLoadingOverlay({ dataReady, onComplete }: { dataReady: boolean; o
           borderRadius: "50%", background: "#a78bfa",
           animation: "orbitDot3 3.5s linear infinite",
         }} />
-
-        {/* Center spinning ring */}
         <div style={{
           position: "absolute", top: "50%", left: "50%", width: 60, height: 60,
           marginLeft: -30, marginTop: -30, borderRadius: "50%",
           border: "3px solid transparent", borderTopColor: "#3b82f6", borderRightColor: "#6366f1",
           animation: "spinRing 1.2s linear infinite",
         }} />
-
-        {/* Core pulsing circle with database icon */}
         <div style={{
           position: "absolute", top: "50%", left: "50%", width: 40, height: 40,
           marginLeft: -20, marginTop: -20, borderRadius: "50%",
@@ -429,7 +422,6 @@ function DetailLoadingOverlay({ dataReady, onComplete }: { dataReady: boolean; o
         </div>
       </div>
 
-      {/* Data stream lines */}
       <div style={{
         width: 200, height: 3, marginBottom: 20, position: "relative", overflow: "hidden",
         borderRadius: 2, background: "rgba(99, 152, 255, 0.1)",
@@ -441,7 +433,6 @@ function DetailLoadingOverlay({ dataReady, onComplete }: { dataReady: boolean; o
         }} />
       </div>
 
-      {/* Phase text */}
       <div key={phase} style={{
         fontSize: 15, fontWeight: 500, color: "#e2e8f0", letterSpacing: 0.3,
         animation: "textFadeUp 0.4s ease-out",
@@ -457,7 +448,6 @@ function DetailLoadingOverlay({ dataReady, onComplete }: { dataReady: boolean; o
         Ma&apos;lumotlar yuklanmoqda, biroz kutib turing
       </div>
 
-      {/* Progress bar */}
       <div style={{
         width: 260, height: 4, borderRadius: 2,
         background: "rgba(51, 65, 85, 0.6)", overflow: "hidden",
@@ -471,7 +461,6 @@ function DetailLoadingOverlay({ dataReady, onComplete }: { dataReady: boolean; o
         }} />
       </div>
 
-      {/* Percentage */}
       <div style={{
         fontSize: 11, color: "rgba(148, 163, 184, 0.6)", marginTop: 10,
         fontFamily: "Inter, monospace", letterSpacing: 1,
@@ -485,36 +474,25 @@ function DetailLoadingOverlay({ dataReady, onComplete }: { dataReady: boolean; o
 // ─── Page ───────────────────────────────────────────────────────────────────
 
 export default function WarehousePage() {
-  const [costNorms, setCostNorms] = useState<CostNormResponse[]>([]);
+  const [requisitions, setRequisitions] = useState<RequisitionResponse[]>([]);
   const [products, setProducts] = useState<ProductResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [selectedNormId, setSelectedNormId] = useState<string | null>(null);
+  const [selectedReqId, setSelectedReqId] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailDataReady, setDetailDataReady] = useState(false);
-  const pendingNormId = useRef<string | null>(null);
+  const pendingReqId = useRef<string | null>(null);
 
   // ── Load ─────────────────────────────────────────────────────────────────
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [norms, prods, tpList] = await Promise.all([
-        costNormService.getAll(),
+      const [reqs, prods] = await Promise.all([
+        requisitionService.getAll(RequisitionStatus.SentToWarehouse),
         productService.getAll(1, 1000),
-        techProcessService.getAll(),
       ]);
-      // Faqat texprotsess tasdiqlangan shartnomalar to'plami
-      const approvedTpContractIds = new Set(
-        tpList
-          .filter(tp => tp.status === ProcessStatus.Approved)
-          .map(tp => tp.contractId)
-      );
-      // Faqat me'yoriy sarfi ham tasdiqlangan va texprotsessi ham tasdiqlangan normalar
-      const filteredNorms = norms.filter(
-        n => n.status === DrawingStatus.Approved && approvedTpContractIds.has(n.contractId)
-      );
-      setCostNorms(filteredNorms);
+      setRequisitions(reqs);
       setProducts(prods.items);
     } catch {
       /* ignore */
@@ -533,97 +511,90 @@ export default function WarehousePage() {
     return map;
   }, [products]);
 
-  // ── Build norm rows ──────────────────────────────────────────────────────
+  // ── Build requisition rows ───────────────────────────────────────────────
 
-  const normRows = useMemo<NormCheckRow[]>(() => {
-    return costNorms.map(norm => {
-      const contractQty = norm.contractQuantity || 1;
-      const materialItems = (norm.items ?? []).filter(it => !it.isSection && it.name);
-      const totalItems = materialItems.length;
-      const parseQty = (s: string | null | undefined) => parseFloat((s ?? "0").replace(/\s/g, "").replace(",", ".")) || 0;
-      const foundItems = materialItems.filter(it => {
-        const match = prodMap.get(normalize(it.name!));
+  const reqRows = useMemo<ReqCheckRow[]>(() => {
+    return requisitions.map(req => {
+      const totalItems = req.items.length;
+      const foundItems = req.items.filter(it => {
+        const match = prodMap.get(normalize(it.materialName));
         if (!match) return false;
-        const perUnit = parseQty(it.totalQty) || (parseQty(it.readyQty) + parseQty(it.wasteQty));
-        const jamiMiqdori = contractQty * perUnit;
-        return match.quantity >= jamiMiqdori;
+        return match.quantity >= it.quantity;
       }).length;
       const missingItems = totalItems - foundItems;
       return {
-        id: norm.id,
-        title: norm.title,
-        contractNo: norm.contractNo ?? "",
-        createdByFullName: norm.createdByFullName ?? "",
-        createdAt: norm.createdAt ?? "",
+        id: req.id,
+        requisitionNo: req.requisitionNo,
+        type: req.type,
+        purpose: req.purpose,
+        contractNo: req.contractNo,
+        departmentName: req.departmentName,
+        createdByName: req.createdByName,
+        createdAt: req.createdAt,
         totalItems,
         foundItems,
         missingItems,
         checked: totalItems > 0 && missingItems === 0,
       };
     });
-  }, [costNorms, prodMap]);
+  }, [requisitions, prodMap]);
 
   // ── Filter ───────────────────────────────────────────────────────────────
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return normRows;
+    if (!search.trim()) return reqRows;
     const q = search.toLowerCase();
-    return normRows.filter(r =>
-      r.title.toLowerCase().includes(q) ||
-      r.contractNo.toLowerCase().includes(q) ||
-      r.createdByFullName.toLowerCase().includes(q)
+    return reqRows.filter(r =>
+      r.requisitionNo.toLowerCase().includes(q) ||
+      r.purpose.toLowerCase().includes(q) ||
+      (r.contractNo ?? "").toLowerCase().includes(q) ||
+      (r.departmentName ?? "").toLowerCase().includes(q) ||
+      r.createdByName.toLowerCase().includes(q)
     );
-  }, [normRows, search]);
+  }, [reqRows, search]);
 
   // ── Stats ────────────────────────────────────────────────────────────────
 
   const stats = useMemo(() => {
-    const total = normRows.length;
-    const checked = normRows.filter(r => r.checked).length;
+    const total = reqRows.length;
+    const checked = reqRows.filter(r => r.checked).length;
     const unchecked = total - checked;
     return { total, checked, unchecked };
-  }, [normRows]);
+  }, [reqRows]);
 
-  // ── Selected norm detail ─────────────────────────────────────────────────
+  // ── Selected requisition detail ──────────────────────────────────────────
 
-  const selectedNorm = useMemo(() => {
-    if (!selectedNormId) return null;
-    return costNorms.find(n => n.id === selectedNormId) ?? null;
-  }, [costNorms, selectedNormId]);
+  const selectedReq = useMemo(() => {
+    if (!selectedReqId) return null;
+    return requisitions.find(r => r.id === selectedReqId) ?? null;
+  }, [requisitions, selectedReqId]);
 
   const selectedRow = useMemo(() => {
-    if (!selectedNormId) return null;
-    return normRows.find(r => r.id === selectedNormId) ?? null;
-  }, [normRows, selectedNormId]);
+    if (!selectedReqId) return null;
+    return reqRows.find(r => r.id === selectedReqId) ?? null;
+  }, [reqRows, selectedReqId]);
 
   const materialCheckItems = useMemo<MaterialCheckItem[]>(() => {
-    if (!selectedNorm) return [];
-    const contractQty = selectedNorm.contractQuantity || 1;
-    return (selectedNorm.items ?? [])
-      .filter(it => !it.isSection && it.name)
-      .map(it => {
-        const match = prodMap.get(normalize(it.name!));
-        const parseQty = (s: string | null | undefined) => parseFloat((s ?? "0").replace(/\s/g, "").replace(",", ".")) || 0;
-        const perUnit = parseQty(it.totalQty) || (parseQty(it.readyQty) + parseQty(it.wasteQty));
-        const jamiMiqdori = contractQty * perUnit;
-        const available = match?.quantity ?? 0;
-        const deficit = Math.max(0, jamiMiqdori - available);
-        return {
-          name: it.name!,
-          unit: it.unit ?? "",
-          totalQty: it.totalQty ?? "",
-          jamiMiqdori,
-          status: !match ? "topilmadi" as MaterialStatus : available >= jamiMiqdori ? "yetarli" as MaterialStatus : "yetishmadi" as MaterialStatus,
-          productQty: match?.quantity,
-          deficit,
-        };
-      });
-  }, [selectedNorm, prodMap]);
+    if (!selectedReq) return [];
+    return selectedReq.items.map(it => {
+      const match = prodMap.get(normalize(it.materialName));
+      const available = match?.quantity ?? 0;
+      const deficit = Math.max(0, it.quantity - available);
+      return {
+        name: it.materialName,
+        unit: it.unit,
+        required: it.quantity,
+        status: !match ? "topilmadi" as MaterialStatus : available >= it.quantity ? "yetarli" as MaterialStatus : "yetishmadi" as MaterialStatus,
+        productQty: match?.quantity,
+        deficit,
+      };
+    });
+  }, [selectedReq, prodMap]);
 
   // ── Browser back ─────────────────────────────────────────────────────────
 
   useEffect(() => {
-    const h = () => { setSelectedNormId(null); };
+    const h = () => { setSelectedReqId(null); };
     window.addEventListener("popstate", h);
     return () => window.removeEventListener("popstate", h);
   }, []);
@@ -645,7 +616,7 @@ export default function WarehousePage() {
 
   // ── Render: Detail view ──────────────────────────────────────────────────
 
-  if (selectedNormId && selectedNorm && selectedRow) {
+  if (selectedReqId && selectedReq && selectedRow) {
     const detailStats = {
       total: materialCheckItems.length,
       yetarli: materialCheckItems.filter(i => i.status === "yetarli").length,
@@ -659,16 +630,20 @@ export default function WarehousePage() {
         <style dangerouslySetInnerHTML={{ __html: statusKeyframes }} />
         {/* Header */}
         <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "12px 16px" }}>
-          <button onClick={() => { setSelectedNormId(null); setDetailSearch(""); setDetailFilter("all"); window.history.back(); }}
+          <button onClick={() => { setSelectedReqId(null); setDetailSearch(""); setDetailFilter("all"); window.history.back(); }}
             style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "0 12px", height: 36, borderRadius: "var(--radius)", border: "1px solid var(--border)", background: "var(--bg2)", color: "var(--text2)", fontSize: 13, cursor: "pointer" }}>
             ← Orqaga
           </button>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedNorm.title}</div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {selectedRow.requisitionNo} — {selectedReq.purpose}
+            </div>
             <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 2 }}>
-              {selectedRow.contractNo && <span>Shartnoma: {selectedRow.contractNo}</span>}
+              <span>{REQUISITION_TYPE_LABELS[selectedRow.type]}</span>
+              {selectedRow.contractNo && <span style={{ marginLeft: 8 }}>Shartnoma: {selectedRow.contractNo}</span>}
+              {selectedRow.departmentName && <span style={{ marginLeft: 8 }}>{selectedRow.departmentName}</span>}
               {selectedRow.createdAt && <span style={{ marginLeft: 8 }}>{fmt(selectedRow.createdAt)}</span>}
-              {selectedRow.createdByFullName && <span style={{ marginLeft: 8 }}>{selectedRow.createdByFullName}</span>}
+              {selectedRow.createdByName && <span style={{ marginLeft: 8 }}>{selectedRow.createdByName}</span>}
             </div>
           </div>
           <HeaderStatusBadge checked={selectedRow.checked} />
@@ -752,13 +727,13 @@ export default function WarehousePage() {
                       <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "14px 14px" }}>{String(i + 1).padStart(2, "0")}</td>
                       <td style={{ textAlign: "center", color: "var(--text1)", fontWeight: 500, padding: "14px 14px" }}>{item.name}</td>
                       <td style={{ textAlign: "center", padding: "14px 14px" }}>{item.unit || "—"}</td>
-                      <td style={{ textAlign: "center", fontFamily: "Inter, sans-serif", fontWeight: 600, padding: "14px 14px" }}>{item.jamiMiqdori > 0 ? item.jamiMiqdori : "—"}</td>
+                      <td style={{ textAlign: "center", fontFamily: "Inter, sans-serif", fontWeight: 600, padding: "14px 14px" }}>{item.required > 0 ? item.required : "—"}</td>
                       <td style={{ textAlign: "center", fontFamily: "Inter, sans-serif", padding: "14px 14px", color: item.productQty != null ? "var(--text1)" : "var(--text3)" }}>{item.productQty != null ? item.productQty : "—"}</td>
                       <td style={{ textAlign: "center", fontFamily: "Inter, sans-serif", fontWeight: item.deficit > 0 ? 600 : 400, color: item.deficit > 0 ? "var(--danger)" : "var(--text3)", padding: "14px 14px" }}>
                         {item.deficit > 0 ? item.deficit : "—"}
                       </td>
                       <td style={{ padding: "14px 14px" }}>
-                        <StatusBadge status={item.status} available={item.productQty ?? 0} required={item.jamiMiqdori} />
+                        <StatusBadge status={item.status} available={item.productQty ?? 0} required={item.required} />
                       </td>
                     </tr>
                   ))}
@@ -780,10 +755,10 @@ export default function WarehousePage() {
       {detailLoading && (
         <DetailLoadingOverlay dataReady={detailDataReady} onComplete={() => {
           setDetailLoading(false);
-          if (pendingNormId.current) {
-            window.history.pushState({ detail: pendingNormId.current }, "");
-            setSelectedNormId(pendingNormId.current);
-            pendingNormId.current = null;
+          if (pendingReqId.current) {
+            window.history.pushState({ detail: pendingReqId.current }, "");
+            setSelectedReqId(pendingReqId.current);
+            pendingReqId.current = null;
           }
         }} />
       )}
@@ -791,15 +766,15 @@ export default function WarehousePage() {
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 16 }}>
         <div className="itm-card" style={{ padding: "16px 20px" }}>
-          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 4 }}>Jami norma-rasxodlar</div>
+          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 4 }}>Jami talabnomalar</div>
           <div style={{ fontSize: 22, fontWeight: 700, color: "var(--accent)" }}>{stats.total}</div>
         </div>
         <div className="itm-card" style={{ padding: "16px 20px" }}>
-          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 4 }}>Tekshirilgan norma-rasxodlar</div>
+          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 4 }}>To&apos;liq ta&apos;minlangan</div>
           <div style={{ fontSize: 22, fontWeight: 700, color: "#1e7e34" }}>{stats.checked}</div>
         </div>
         <div className="itm-card" style={{ padding: "16px 20px" }}>
-          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 4 }}>Tekshirilmagan norma-rasxodlar</div>
+          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 4 }}>Kamchiligi bor</div>
           <div style={{ fontSize: 22, fontWeight: 700, color: "var(--danger)" }}>{stats.unchecked}</div>
         </div>
       </div>
@@ -810,7 +785,7 @@ export default function WarehousePage() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          <input className="search-input" placeholder="Qidirish: norma-rasxod nomi, shartnoma..." value={search} onChange={e => setSearch(e.target.value)} />
+          <input className="search-input" placeholder="Qidirish: talabnoma raqami, maqsad, shartnoma..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
 
         <button
@@ -836,7 +811,7 @@ export default function WarehousePage() {
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" strokeWidth="1.5">
               <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
             </svg>
-            <div>{search ? "Natija topilmadi" : "Norma-rasxodlar kiritilmagan"}</div>
+            <div>{search ? "Natija topilmadi" : "Omborga yuborilgan talabnomalar yo'q"}</div>
           </div>
         ) : (
           <div style={{ overflowX: "auto" }}>
@@ -844,8 +819,10 @@ export default function WarehousePage() {
               <thead>
                 <tr>
                   <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
-                  <th style={{ width: 200, textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Me&apos;yoriy sarf nomi</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Shartnoma</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Raqam</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Turi</th>
+                  <th style={{ width: 220, textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Maqsad</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Shartnoma / Bo&apos;lim</th>
                   <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Jami materiallar</th>
                   <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Topilgan</th>
                   <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Topilmagan</th>
@@ -858,15 +835,14 @@ export default function WarehousePage() {
                   <tr
                     key={row.id}
                     onClick={() => {
-                      pendingNormId.current = row.id;
+                      pendingReqId.current = row.id;
                       setDetailDataReady(false);
                       setDetailLoading(true);
-                      // Re-fetch real data from backend
                       Promise.all([
-                        costNormService.getAll(),
+                        requisitionService.getAll(RequisitionStatus.SentToWarehouse),
                         productService.getAll(1, 1000),
-                      ]).then(([norms, prods]) => {
-                        setCostNorms(norms);
+                      ]).then(([reqs, prods]) => {
+                        setRequisitions(reqs);
                         setProducts(prods.items);
                         setDetailDataReady(true);
                       }).catch(() => {
@@ -876,14 +852,16 @@ export default function WarehousePage() {
                     style={{ cursor: "pointer" }}
                   >
                     <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64 }}>{String(i + 1).padStart(2, "0")}</td>
-                    <td title={row.title} style={{ textAlign: "center", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.title}</td>
-                    <td style={{ textAlign: "center" }}>{row.contractNo || "—"}</td>
+                    <td style={{ textAlign: "center", fontWeight: 600 }}>{row.requisitionNo}</td>
+                    <td style={{ textAlign: "center" }}>{REQUISITION_TYPE_LABELS[row.type]}</td>
+                    <td title={row.purpose} style={{ textAlign: "center", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.purpose}</td>
+                    <td style={{ textAlign: "center" }}>{row.contractNo || row.departmentName || "—"}</td>
                     <td style={{ textAlign: "center" }}>{row.totalItems}</td>
                     <td style={{ textAlign: "center", color: "#1e7e34", fontWeight: 600 }}>
                       {row.checked ? row.foundItems : "—"}
                     </td>
                     <td style={{ textAlign: "center", color: row.missingItems > 0 ? "var(--danger)" : undefined, fontWeight: row.missingItems > 0 ? 600 : undefined }}>
-                      {row.checked ? row.missingItems : "—"}
+                      {row.missingItems > 0 ? row.missingItems : "—"}
                     </td>
                     <td style={{ textAlign: "center" }}>{fmt(row.createdAt)}</td>
                     <td style={{ padding: "14px 14px" }}>

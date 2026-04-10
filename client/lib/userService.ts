@@ -1223,10 +1223,6 @@ export const requisitionService = {
     return res.data?.result as string;
   },
 
-  submit: async (id: string): Promise<void> => {
-    await api.post(`/api/requisition/${id}/submit`);
-  },
-
   approve: async (id: string): Promise<void> => {
     await api.post(`/api/requisition/${id}/approve`);
   },
