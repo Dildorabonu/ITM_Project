@@ -53,20 +53,7 @@ public class RequisitionController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Draft → Pending (direktorga yuborish)</summary>
-    [HasPermission("Requisitions.Create")]
-    [HttpPost("{id:guid}/submit")]
-    public async Task<IActionResult> Submit(Guid id)
-    {
-        var userId = GetUserId();
-        if (userId is null) return Unauthorized();
-
-        var result = await _requisitionService.SubmitAsync(id, userId.Value);
-        if (!result.Succeeded) return BadRequest(result);
-        return Ok(result);
-    }
-
-    /// <summary>Pending → Approved + QR kod generatsiya</summary>
+    /// <summary>Pending → Approved + QR kod generatsiya (Individual)</summary>
     [HasPermission("Requisitions.Approve")]
     [HttpPost("{id:guid}/approve")]
     public async Task<IActionResult> Approve(Guid id)
@@ -92,7 +79,7 @@ public class RequisitionController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Approved → SentToWarehouse</summary>
+    /// <summary>Contract: Pending → SentToWarehouse | Individual: Approved → SentToWarehouse</summary>
     [HasPermission("Requisitions.SendToWarehouse")]
     [HttpPost("{id:guid}/send-to-warehouse")]
     public async Task<IActionResult> SendToWarehouse(Guid id)

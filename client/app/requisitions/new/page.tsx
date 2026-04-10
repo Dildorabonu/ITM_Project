@@ -144,7 +144,7 @@ function NewRequisitionContent() {
 
     setSaving(true);
     try {
-      await requisitionService.create({
+      const id = await requisitionService.create({
         type: form.type as RequisitionType,
         contractId: form.contractId || undefined,
         departmentId: form.departmentId || undefined,
@@ -152,7 +152,9 @@ function NewRequisitionContent() {
         notes: form.notes || undefined,
         items: form.items.map(i => ({ materialId: i.materialId, quantity: Number(i.quantity), notes: i.notes || undefined })),
       });
-      showToast("Talabnoma yaratildi", "success");
+      await requisitionService.submit(id);
+      await requisitionService.sendToWarehouse(id);
+      showToast("Talabnoma ombor tekshiruviga yuborildi", "success");
       router.push("/requisitions");
     } catch {
       setFormError("Xatolik yuz berdi. Qayta urinib ko'ring.");

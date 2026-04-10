@@ -2,6 +2,7 @@
 
 import { useAuthStore } from "@/lib/store/authStore";
 import { RequisitionStatus, RequisitionType } from "@/lib/userService";
+
 import { RequisitionStatusBadge } from "./StatusBadge";
 import { fmtDateTime, type RequisitionResponse } from "../_types";
 
@@ -10,12 +11,11 @@ interface Props {
   onClose: () => void;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
-  onSubmit: (id: string) => void;
   onSendToWarehouse: (id: string) => void;
   acting: boolean;
 }
 
-export function RequisitionDrawer({ req, onClose, onApprove, onReject, onSubmit, onSendToWarehouse, acting }: Props) {
+export function RequisitionDrawer({ req, onClose, onApprove, onReject, onSendToWarehouse, acting }: Props) {
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const canApprove = hasPermission("Requisitions.Approve");
   const canSendToWarehouse = hasPermission("Requisitions.SendToWarehouse");
@@ -121,18 +121,18 @@ export function RequisitionDrawer({ req, onClose, onApprove, onReject, onSubmit,
 
         {/* Amallar */}
         <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
-          {/* Draft → submit */}
-          {req.status === RequisitionStatus.Draft && (
+          {/* Contract + Pending → to'g'ridan-to'g'ri omborga */}
+          {req.status === RequisitionStatus.Pending && req.type === RequisitionType.Contract && canSendToWarehouse && (
             <button
               disabled={acting}
-              onClick={() => onSubmit(req.id)}
-              style={{ padding: "10px 20px", borderRadius: "var(--radius)", background: "var(--accent)", color: "#fff", border: "none", fontWeight: 600, fontSize: 13, cursor: acting ? "not-allowed" : "pointer", opacity: acting ? 0.7 : 1 }}
+              onClick={() => onSendToWarehouse(req.id)}
+              style={{ padding: "10px 20px", borderRadius: "var(--radius)", background: "var(--accent-dim)", color: "var(--accent)", border: "1px solid rgba(26,110,235,0.25)", fontWeight: 600, fontSize: 13, cursor: acting ? "not-allowed" : "pointer", opacity: acting ? 0.7 : 1 }}
             >
-              {acting ? "Yuborilmoqda…" : "Direktorga yuborish"}
+              {acting ? "…" : "Omborga yuborish"}
             </button>
           )}
 
-          {/* Pending → approve / reject */}
+          {/* Pending → approve / reject (Individual) */}
           {req.status === RequisitionStatus.Pending && canApprove && (
             <div style={{ display: "flex", gap: 8 }}>
               <button
