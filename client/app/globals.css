@@ -699,7 +699,9 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  position: relative;
+  position: sticky;
+  top: 0;
+  z-index: 10;
   overflow: hidden;
   min-height: 140px;
 }
@@ -1499,7 +1501,7 @@ body {
 .pm-row-fadein-5 { animation: pmFadeUp 0.4s ease both 0.30s; }
 
 /* ── Contract info cell ── */
-.pm-td { padding: 14px 8px; vertical-align: middle; }
+.pm-td { padding: 28px 8px; vertical-align: middle; }
 .pm-td-contract { padding-left: 18px; }
 .pm-contract-info {
   display: flex; flex-direction: column; gap: 1px;
@@ -1521,7 +1523,7 @@ body {
 .pm-td-cell {
   text-align: center;
   position: relative;
-  padding: 14px 4px;
+  padding: 28px 4px;
 }
 .pm-cell-current {
   background: var(--stg-dim, rgba(26,110,235,0.04));
@@ -1529,7 +1531,7 @@ body {
 
 /* ── Dots ── */
 .pm-dot {
-  width: 24px; height: 24px;
+  width: 32px; height: 32px;
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   margin: 0 auto;
@@ -1540,13 +1542,13 @@ body {
   background: var(--stg);
   color: #fff;
 }
-.pm-dot-done svg { width: 11px; height: 11px; }
+.pm-dot-done svg { width: 15px; height: 15px; }
 
 .pm-dot-active {
-  width: 28px; height: 28px;
+  width: 38px; height: 38px;
 }
 .pm-dot-core {
-  width: 14px; height: 14px;
+  width: 18px; height: 18px;
   border-radius: 50%;
   background: var(--stg);
   position: relative; z-index: 2;
@@ -1562,7 +1564,7 @@ body {
 }
 
 .pm-dot-pending {
-  width: 10px; height: 10px;
+  width: 14px; height: 14px;
   background: var(--border2);
   opacity: 0.5;
 }
