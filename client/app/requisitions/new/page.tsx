@@ -22,6 +22,7 @@ import {
   type RequisitionForm,
   type RequisitionFormItem,
 } from "../_types";
+import { CheckSelect } from "../_components/CheckSelect";
 
 function NewRequisitionContent() {
   const router = useRouter();
@@ -210,10 +211,12 @@ function NewRequisitionContent() {
           {form.type === RequisitionType.Contract && (
             <div>
               <label style={lbl}>Shartnoma *</label>
-              <select value={form.contractId} onChange={e => { setNormMsg(null); setForm(f => ({ ...f, contractId: e.target.value, items: [] })); }} style={sel}>
-                <option value="">— Tanlang —</option>
-                {contracts.map(c => <option key={c.id} value={c.id}>{c.contractNo} — {c.contractParty}</option>)}
-              </select>
+              <CheckSelect
+                value={form.contractId}
+                onChange={v => { setNormMsg(null); setForm(f => ({ ...f, contractId: v, items: [] })); }}
+                options={contracts.map(c => ({ id: c.id, name: c.contractParty ? `${c.contractNo} — ${c.contractParty}` : c.contractNo }))}
+                placeholder="— Tanlang —"
+              />
               {submitted && form.type === RequisitionType.Contract && !form.contractId && <div style={errStyle}>Shartnoma tanlanishi shart</div>}
             </div>
           )}
@@ -222,10 +225,12 @@ function NewRequisitionContent() {
           {form.type === RequisitionType.Individual && (
             <div>
               <label style={lbl}>Bo'lim *</label>
-              <select value={form.departmentId} onChange={e => setForm(f => ({ ...f, departmentId: e.target.value }))} style={sel}>
-                <option value="">— Tanlang —</option>
-                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
+              <CheckSelect
+                value={form.departmentId}
+                onChange={v => setForm(f => ({ ...f, departmentId: v }))}
+                options={departments.map(d => ({ id: d.id, name: d.name }))}
+                placeholder="— Tanlang —"
+              />
               {submitted && form.type === RequisitionType.Individual && !form.departmentId && <div style={errStyle}>Bo'lim tanlanishi shart</div>}
             </div>
           )}
@@ -394,4 +399,3 @@ export default function NewRequisitionPage() {
 const lbl: React.CSSProperties = { display: "block", fontSize: 12, fontWeight: 600, color: "var(--text2)", marginBottom: 5 };
 const errStyle: React.CSSProperties = { fontSize: 11, color: "var(--danger)", marginTop: 4 };
 const inp: React.CSSProperties = { width: "100%", padding: "9px 11px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg2)", color: "var(--text1)", boxSizing: "border-box" };
-const sel: React.CSSProperties = { ...inp, cursor: "pointer" };
