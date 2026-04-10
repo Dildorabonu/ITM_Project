@@ -29,6 +29,7 @@ export default function RequisitionDetailPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [rejectSaving, setRejectSaving] = useState(false);
 
+
   useEffect(() => {
     requisitionService.getById(id).then(data => {
       setReq(data ?? null);
@@ -62,6 +63,7 @@ export default function RequisitionDetailPage() {
       setRejectSaving(false);
     }
   };
+
 
   const handleSendToWarehouse = async () => {
     if (!req) return;
@@ -220,6 +222,7 @@ export default function RequisitionDetailPage() {
               {acting ? "…" : "Omborga yuborish"}
             </button>
           )}
+
         </div>
       </div>
 
