@@ -78,7 +78,7 @@ public class RequisitionService : IRequisitionService
             Id = Guid.NewGuid(),
             RequisitionNo = no,
             Type = dto.Type,
-            Status = RequisitionStatus.Draft,
+            Status = RequisitionStatus.Pending,
             ContractId = dto.ContractId,
             DepartmentId = dto.DepartmentId,
             Purpose = dto.Purpose,
@@ -99,39 +99,24 @@ public class RequisitionService : IRequisitionService
         _context.Requisitions.Add(requisition);
         await _context.SaveChangesAsync();
 
-        return ApiResult<Guid>.Success(requisition.Id);
-    }
-
-    public async Task<ApiResult<bool>> SubmitAsync(Guid id, Guid currentUserId)
-    {
-        var r = await _context.Requisitions.FindAsync(id);
-        if (r is null)
-            return ApiResult<bool>.Failure([$"Requisition '{id}' topilmadi."], 404);
-
-        if (r.CreatedBy != currentUserId)
-            return ApiResult<bool>.Failure(["Faqat o'zingiz yaratgan talabnomani yuborishingiz mumkin."], 403);
-
-        if (r.Status != RequisitionStatus.Draft)
-            return ApiResult<bool>.Failure([$"Status '{r.Status}' — faqat Draft holatdagi talabnomani yuborish mumkin."]);
-
-        r.Status = RequisitionStatus.Pending;
-        await _context.SaveChangesAsync();
-
-        // Direktorlarga bildirishnoma yuborish
-        var directors = await _context.Users
-            .Include(u => u.Role)
-            .Where(u => u.Role != null && u.Role.Name == "Director" && u.IsActive)
-            .ToListAsync();
-
-        foreach (var director in directors)
+        // Individual talabnomada direktorlarga bildirishnoma
+        if (dto.Type == RequisitionType.Individual)
         {
-            await _notificationService.CreateAsync(director.Id,
-                $"Yangi talabnoma: {r.RequisitionNo}",
-                "Talabnoma tasdiqlash kutilmoqda.",
-                NotificationType.Info);
+            var directors = await _context.Users
+                .Include(u => u.Role)
+                .Where(u => u.Role != null && u.Role.Name == "Director" && u.IsActive)
+                .ToListAsync();
+
+            foreach (var director in directors)
+            {
+                await _notificationService.CreateAsync(director.Id,
+                    $"Yangi talabnoma: {requisition.RequisitionNo}",
+                    "Talabnoma tasdiqlash kutilmoqda.",
+                    NotificationType.Info);
+            }
         }
 
-        return ApiResult<bool>.Success(true);
+        return ApiResult<Guid>.Success(requisition.Id);
     }
 
     public async Task<ApiResult<bool>> ApproveAsync(Guid id, Guid directorId)
@@ -191,8 +176,8 @@ public class RequisitionService : IRequisitionService
         if (r is null)
             return ApiResult<bool>.Failure([$"Requisition '{id}' topilmadi."], 404);
 
-        if (r.Status != RequisitionStatus.Approved)
-            return ApiResult<bool>.Failure(["Faqat Approved holatdagi talabnomani omborga yuborish mumkin."]);
+        if (r.Status != RequisitionStatus.Approved && r.Status != RequisitionStatus.Pending)
+            return ApiResult<bool>.Failure(["Faqat Approved yoki Pending holatdagi talabnomani omborga yuborish mumkin."]);
 
         r.Status = RequisitionStatus.SentToWarehouse;
         await _context.SaveChangesAsync();
