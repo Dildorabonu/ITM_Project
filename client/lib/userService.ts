@@ -238,6 +238,19 @@ export const PRODUCT_UNIT_LABELS: Record<ProductUnit, string> = {
   [ProductUnit.Toplam]: "To'plam",
 };
 
+export const PRODUCT_UNIT_LABELS_CYR: Record<ProductUnit, string> = {
+  [ProductUnit.Dona]: "дона",
+  [ProductUnit.Kilogramm]: "кг",
+  [ProductUnit.Gramm]: "г",
+  [ProductUnit.Litr]: "л",
+  [ProductUnit.Metr]: "м",
+  [ProductUnit.KvMetr]: "кв.м",
+  [ProductUnit.KubMetr]: "куб.м",
+  [ProductUnit.Quti]: "қути",
+  [ProductUnit.Paket]: "пакет",
+  [ProductUnit.Toplam]: "тўплам",
+};
+
 export interface ProductResponse {
   id: string;
   name: string;
