@@ -15,6 +15,7 @@ import {
   type ContractResponse,
   type DepartmentResponse,
 } from "@/lib/userService";
+import { CheckSelect } from "../_components/CheckSelect";
 
 interface TableRow {
   id: number;
@@ -301,23 +302,21 @@ export default function RequisitionPrintPage() {
             </div>
 
             {type === RequisitionType.Contract ? (
-              <select
+              <CheckSelect
                 value={contractId}
-                onChange={e => setContractId(e.target.value)}
-                style={{ padding: "5px 10px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg2)", color: "var(--text)", cursor: "pointer", width: 220 }}
-              >
-                <option value="">— Shartnoma —</option>
-                {contracts.map(c => <option key={c.id} value={c.id}>{c.contractNo} — {c.contractParty}</option>)}
-              </select>
+                onChange={setContractId}
+                options={contracts.map(c => ({ id: c.id, name: c.contractParty ? `${c.contractNo} — ${c.contractParty}` : c.contractNo }))}
+                placeholder="— Shartnoma —"
+                style={{ width: 220 }}
+              />
             ) : (
-              <select
+              <CheckSelect
                 value={departmentId}
-                onChange={e => setDepartmentId(e.target.value)}
-                style={{ padding: "5px 10px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg2)", color: "var(--text)", cursor: "pointer", width: 220 }}
-              >
-                <option value="">— Bo&apos;lim —</option>
-                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
+                onChange={setDepartmentId}
+                options={departments.map(d => ({ id: d.id, name: d.name }))}
+                placeholder="— Bo'lim —"
+                style={{ width: 220 }}
+              />
             )}
           </div>
         </div>
