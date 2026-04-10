@@ -8,6 +8,8 @@ import {
   contractService,
   departmentService,
   RequisitionType,
+  ProductUnit,
+  PRODUCT_UNIT_LABELS_CYR,
   type ContractResponse,
   type DepartmentResponse,
 } from "@/lib/userService";
@@ -26,6 +28,7 @@ const emptyRow = (id: number): TableRow => ({ id, name: "", unit: "", quantity: 
 export default function RequisitionPrintPage() {
   const router = useRouter();
   const docRef = useRef<HTMLDivElement>(null);
+  const descRef = useRef<HTMLSpanElement>(null);
   const showToast = useToastStore((s) => s.show);
 
   const [description, setDescription] = useState("");
@@ -47,6 +50,17 @@ export default function RequisitionPrintPage() {
     contractService.getAll().then(setContracts);
     departmentService.getAllFull().then(setDepartments);
   }, []);
+
+  const handleClear = () => {
+    setDescription("");
+    setRows([emptyRow(1), emptyRow(2), emptyRow(3)]);
+    setSignerName("");
+    setSignerTitle("");
+    setSignDate(new Date().toLocaleDateString("ru-RU").replace(/\//g, "."));
+    setContractId("");
+    setDepartmentId("");
+    if (descRef.current) descRef.current.textContent = "";
+  };
 
   const addRow = () => setRows(r => [...r, emptyRow(Date.now())]);
   const removeRow = (id: number) => setRows(r => r.filter(row => row.id !== id));
@@ -153,24 +167,41 @@ export default function RequisitionPrintPage() {
       `}</style>
 
       {/* Toolbar */}
-      <div className="no-print" style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
+      <div className="no-print" style={{
+        marginBottom: 24,
+        background: "var(--bg2)",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--radius)",
+        padding: "10px 16px",
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        flexWrap: "wrap",
+        boxShadow: "var(--shadow)",
+      }}>
+        {/* Left: back + title */}
         <button
           onClick={() => router.push("/requisitions")}
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 14px", background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, fontSize: 13, color: "var(--text2)" }}
+          style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, fontSize: 13, color: "var(--text2)", flexShrink: 0 }}
         >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <polyline points="15 18 9 12 15 6" />
           </svg>
           Orqaga
         </button>
-        <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--text)", flex: 1 }}>Talabnoma blanki</h1>
 
-        {/* Type + contract/dept selector */}
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div style={{ width: 1, height: 24, background: "var(--border)", flexShrink: 0 }} />
+
+        <h1 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text)", whiteSpace: "nowrap" }}>Talabnoma blanki</h1>
+
+        <div style={{ flex: 1 }} />
+
+        {/* Middle: type + contract/dept selectors */}
+        <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
           <select
             value={type}
             onChange={e => setType(Number(e.target.value) as RequisitionType)}
-            style={{ padding: "7px 10px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg2)", color: "var(--text)", cursor: "pointer" }}
+            style={{ padding: "6px 10px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg3)", color: "var(--text)", cursor: "pointer" }}
           >
             <option value={RequisitionType.Contract}>Shartnoma bo&apos;yicha</option>
             <option value={RequisitionType.Individual}>Individual</option>
@@ -179,7 +210,7 @@ export default function RequisitionPrintPage() {
             <select
               value={contractId}
               onChange={e => setContractId(e.target.value)}
-              style={{ padding: "7px 10px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg2)", color: "var(--text)", cursor: "pointer", maxWidth: 220 }}
+              style={{ padding: "6px 10px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg3)", color: "var(--text)", cursor: "pointer", maxWidth: 200 }}
             >
               <option value="">— Shartnoma —</option>
               {contracts.map(c => <option key={c.id} value={c.id}>{c.contractNo} — {c.contractParty}</option>)}
@@ -188,7 +219,7 @@ export default function RequisitionPrintPage() {
             <select
               value={departmentId}
               onChange={e => setDepartmentId(e.target.value)}
-              style={{ padding: "7px 10px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg2)", color: "var(--text)", cursor: "pointer", maxWidth: 220 }}
+              style={{ padding: "6px 10px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg3)", color: "var(--text)", cursor: "pointer", maxWidth: 200 }}
             >
               <option value="">— Bo&apos;lim —</option>
               {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -196,43 +227,62 @@ export default function RequisitionPrintPage() {
           )}
         </div>
 
-        <button
-          onClick={handleSaveSystem}
-          disabled={savingSystem}
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", background: "var(--success)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: savingSystem ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, opacity: savingSystem ? 0.7 : 1 }}
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-            <polyline points="17 21 17 13 7 13 7 21" />
-            <polyline points="7 3 7 8 15 8" />
-          </svg>
-          {savingSystem ? "Saqlanmoqda…" : "Tizimda saqlash"}
-        </button>
+        <div style={{ width: 1, height: 24, background: "var(--border)", flexShrink: 0 }} />
 
-        <button
-          onClick={handleSavePdf}
-          disabled={saving}
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", background: "var(--bg3)", color: "var(--text)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: saving ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, opacity: saving ? 0.7 : 1 }}
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
-          {saving ? "Saqlanmoqda…" : "PDF saqlash"}
-        </button>
+        {/* Right: action buttons */}
+        <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
+          <button
+            onClick={handleClear}
+            title="Blankni tozalash"
+            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", background: "var(--bg3)", border: "1.5px solid #c00", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, fontSize: 13, color: "#c00" }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+              <path d="M10 11v6M14 11v6" />
+              <path d="M9 6V4h6v2" />
+            </svg>
+            Tozalash
+          </button>
 
-        <button
-          onClick={handlePrint}
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, fontSize: 13 }}
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-            <polyline points="6,9 6,2 18,2 18,9" />
-            <path d="M6,18H4a2,2,0,0,1-2-2V11a2,2,0,0,1,2-2H20a2,2,0,0,1,2,2v5a2,2,0,0,1-2,2H18" />
-            <rect x="6" y="14" width="12" height="8" />
-          </svg>
-          Chop etish
-        </button>
+          <button
+            onClick={handleSaveSystem}
+            disabled={savingSystem}
+            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", background: "var(--success)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: savingSystem ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, opacity: savingSystem ? 0.7 : 1 }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+              <polyline points="17 21 17 13 7 13 7 21" />
+              <polyline points="7 3 7 8 15 8" />
+            </svg>
+            {savingSystem ? "Saqlanmoqda…" : "Tizimda saqlash"}
+          </button>
+
+          <button
+            onClick={handleSavePdf}
+            disabled={saving}
+            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", background: "var(--bg3)", color: "var(--text)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: saving ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, opacity: saving ? 0.7 : 1 }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            {saving ? "Saqlanmoqda…" : "PDF saqlash"}
+          </button>
+
+          <button
+            onClick={handlePrint}
+            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, fontSize: 13 }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <polyline points="6,9 6,2 18,2 18,9" />
+              <path d="M6,18H4a2,2,0,0,1-2-2V11a2,2,0,0,1,2-2H20a2,2,0,0,1,2,2v5a2,2,0,0,1-2,2H18" />
+              <rect x="6" y="14" width="12" height="8" />
+            </svg>
+            Chop etish
+          </button>
+        </div>
       </div>
 
       {/* Document */}
@@ -266,6 +316,7 @@ export default function RequisitionPrintPage() {
         <div style={{ fontSize: 13, lineHeight: 1.8, marginBottom: 20 }}>
           Ушбу оркали Сиздан,{" "}
           <span
+            ref={descRef}
             className="inline-editable"
             contentEditable
             suppressContentEditableWarning
@@ -324,13 +375,16 @@ export default function RequisitionPrintPage() {
                   />
                 </td>
                 <td style={td}>
-                  <textarea
+                  <select
                     value={row.unit}
                     onChange={e => updateRow(row.id, "unit", e.target.value)}
-                    rows={2}
-                    style={cellInput}
-                    placeholder="дона"
-                  />
+                    style={{ ...cellInput, cursor: "pointer", appearance: "auto" }}
+                  >
+                    <option value="">—</option>
+                    {(Object.values(ProductUnit).filter(v => typeof v === "number") as ProductUnit[]).map(u => (
+                      <option key={u} value={PRODUCT_UNIT_LABELS_CYR[u]}>{PRODUCT_UNIT_LABELS_CYR[u]}</option>
+                    ))}
+                  </select>
                 </td>
                 <td style={td}>
                   <textarea
