@@ -6,9 +6,11 @@ import {
   type TechProcessResponse,
   type CostNormResponse,
   type CostNormItemResponse,
+  type TechnicalDrawingResponse,
 } from "@/lib/userService";
 
-export type { TechProcessResponse, CostNormResponse, CostNormItemResponse };
+
+export type { TechProcessResponse, CostNormResponse, CostNormItemResponse, TechnicalDrawingResponse };
 export { ProcessStatus, DrawingStatus, PROCESS_STATUS_LABELS, DRAWING_STATUS_LABELS };
 
 // ─── Modes ────────────────────────────────────────────────────────────────────
@@ -32,6 +34,7 @@ export type ColField = "no"|"name"|"unit"|"readyQty"|"wasteQty"|"totalQty"|"phot
 export interface ContractReadinessItem {
   contractId: string;
   contractNo: string;
+  drawing: TechnicalDrawingResponse | null;
   tp: TechProcessResponse | null;
   cn: CostNormResponse | null;
 }

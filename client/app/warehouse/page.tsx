@@ -4,11 +4,11 @@ import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import {
   costNormService,
   productService,
-  contractService,
+  techProcessService,
+  DrawingStatus,
+  ProcessStatus,
   type CostNormResponse,
-  type ContractResponse,
   type ProductResponse,
-  PRODUCT_UNIT_LABELS,
 } from "@/lib/userService";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -46,7 +46,6 @@ interface MaterialCheckItem {
   jamiMiqdori: number;
   status: MaterialStatus;
   productQty?: number;
-  productUnit?: string;
   deficit: number;
 }
 
@@ -488,7 +487,6 @@ function DetailLoadingOverlay({ dataReady, onComplete }: { dataReady: boolean; o
 export default function WarehousePage() {
   const [costNorms, setCostNorms] = useState<CostNormResponse[]>([]);
   const [products, setProducts] = useState<ProductResponse[]>([]);
-  const [contracts, setContracts] = useState<ContractResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedNormId, setSelectedNormId] = useState<string | null>(null);
@@ -501,14 +499,23 @@ export default function WarehousePage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [norms, prods, ctrs] = await Promise.all([
+      const [norms, prods, tpList] = await Promise.all([
         costNormService.getAll(),
         productService.getAll(1, 1000),
-        contractService.getAll(),
+        techProcessService.getAll(),
       ]);
-      setCostNorms(norms);
+      // Faqat texprotsess tasdiqlangan shartnomalar to'plami
+      const approvedTpContractIds = new Set(
+        tpList
+          .filter(tp => tp.status === ProcessStatus.Approved)
+          .map(tp => tp.contractId)
+      );
+      // Faqat me'yoriy sarfi ham tasdiqlangan va texprotsessi ham tasdiqlangan normalar
+      const filteredNorms = norms.filter(
+        n => n.status === DrawingStatus.Approved && approvedTpContractIds.has(n.contractId)
+      );
+      setCostNorms(filteredNorms);
       setProducts(prods.items);
-      setContracts(ctrs);
     } catch {
       /* ignore */
     } finally {
@@ -526,25 +533,18 @@ export default function WarehousePage() {
     return map;
   }, [products]);
 
-  // ── Contract lookup map (by id → quantity) ──────────────────────────────
-
-  const contractQtyMap = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const c of contracts) map.set(c.id, c.quantity);
-    return map;
-  }, [contracts]);
-
   // ── Build norm rows ──────────────────────────────────────────────────────
 
   const normRows = useMemo<NormCheckRow[]>(() => {
     return costNorms.map(norm => {
-      const contractQty = contractQtyMap.get(norm.contractId) ?? 1;
+      const contractQty = norm.contractQuantity || 1;
       const materialItems = (norm.items ?? []).filter(it => !it.isSection && it.name);
       const totalItems = materialItems.length;
+      const parseQty = (s: string | null | undefined) => parseFloat((s ?? "0").replace(/\s/g, "").replace(",", ".")) || 0;
       const foundItems = materialItems.filter(it => {
         const match = prodMap.get(normalize(it.name!));
         if (!match) return false;
-        const perUnit = parseFloat((it.totalQty ?? "0").replace(",", ".")) || 0;
+        const perUnit = parseQty(it.totalQty) || (parseQty(it.readyQty) + parseQty(it.wasteQty));
         const jamiMiqdori = contractQty * perUnit;
         return match.quantity >= jamiMiqdori;
       }).length;
@@ -561,7 +561,7 @@ export default function WarehousePage() {
         checked: totalItems > 0 && missingItems === 0,
       };
     });
-  }, [costNorms, prodMap, contractQtyMap]);
+  }, [costNorms, prodMap]);
 
   // ── Filter ───────────────────────────────────────────────────────────────
 
@@ -598,12 +598,13 @@ export default function WarehousePage() {
 
   const materialCheckItems = useMemo<MaterialCheckItem[]>(() => {
     if (!selectedNorm) return [];
-    const contractQty = contractQtyMap.get(selectedNorm.contractId) ?? 1;
+    const contractQty = selectedNorm.contractQuantity || 1;
     return (selectedNorm.items ?? [])
       .filter(it => !it.isSection && it.name)
       .map(it => {
         const match = prodMap.get(normalize(it.name!));
-        const perUnit = parseFloat((it.totalQty ?? "0").replace(",", ".")) || 0;
+        const parseQty = (s: string | null | undefined) => parseFloat((s ?? "0").replace(/\s/g, "").replace(",", ".")) || 0;
+        const perUnit = parseQty(it.totalQty) || (parseQty(it.readyQty) + parseQty(it.wasteQty));
         const jamiMiqdori = contractQty * perUnit;
         const available = match?.quantity ?? 0;
         const deficit = Math.max(0, jamiMiqdori - available);
@@ -614,11 +615,10 @@ export default function WarehousePage() {
           jamiMiqdori,
           status: !match ? "topilmadi" as MaterialStatus : available >= jamiMiqdori ? "yetarli" as MaterialStatus : "yetishmadi" as MaterialStatus,
           productQty: match?.quantity,
-          productUnit: match ? PRODUCT_UNIT_LABELS[match.unit] ?? "" : undefined,
           deficit,
         };
       });
-  }, [selectedNorm, prodMap, contractQtyMap]);
+  }, [selectedNorm, prodMap]);
 
   // ── Browser back ─────────────────────────────────────────────────────────
 
@@ -737,13 +737,13 @@ export default function WarehousePage() {
               <table className="itm-table">
                 <thead>
                   <tr>
-                    <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)" }}>T/r</th>
-                    <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Material nomi</th>
-                    <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>O&apos;lchov</th>
-                    <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Kerakli miqdor</th>
-                    <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Ombordagi miqdor</th>
-                    <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Yetishmayotgan miqdor</th>
-                    <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Holati</th>
+                    <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
+                    <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Material nomi</th>
+                    <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none" }}>O&apos;lchov</th>
+                    <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Kerakli miqdor</th>
+                    <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Ombordagi miqdor</th>
+                    <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Yetishmayotgan miqdor</th>
+                    <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Holati</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -774,7 +774,7 @@ export default function WarehousePage() {
   // ── Render: Main list ────────────────────────────────────────────────────
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+    <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
       <style dangerouslySetInnerHTML={{ __html: statusKeyframes }} />
 
       {detailLoading && (
@@ -814,14 +814,16 @@ export default function WarehousePage() {
         </div>
 
         <button
+          className="btn-icon"
           onClick={load}
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "0 14px", height: 36, borderRadius: "var(--radius)", border: "1px solid var(--border)", background: "var(--bg2)", color: "var(--text2)", fontSize: 13, cursor: "pointer", whiteSpace: "nowrap" }}
+          title="Yangilash"
+          style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polyline points="23 4 23 10 17 10" />
-            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+            <polyline points="1 20 1 14 7 14" />
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
           </svg>
-          Yangilash
         </button>
       </div>
 
@@ -841,14 +843,14 @@ export default function WarehousePage() {
             <table className="itm-table">
               <thead>
                 <tr>
-                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)" }}>T/r</th>
-                  <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Norma-rasxod nomi</th>
-                  <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Shartnoma</th>
-                  <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Jami materiallar</th>
-                  <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Topilgan</th>
-                  <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Topilmagan</th>
-                  <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Sana</th>
-                  <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Holati</th>
+                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
+                  <th style={{ width: 200, textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Me&apos;yoriy sarf nomi</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Shartnoma</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Jami materiallar</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Topilgan</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Topilmagan</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Sana</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Holati</th>
                 </tr>
               </thead>
               <tbody>
@@ -862,12 +864,10 @@ export default function WarehousePage() {
                       // Re-fetch real data from backend
                       Promise.all([
                         costNormService.getAll(),
-                        productService.getAll(),
-                        contractService.getAll(),
-                      ]).then(([norms, prods, ctrs]) => {
+                        productService.getAll(1, 1000),
+                      ]).then(([norms, prods]) => {
                         setCostNorms(norms);
                         setProducts(prods.items);
-                        setContracts(ctrs);
                         setDetailDataReady(true);
                       }).catch(() => {
                         setDetailDataReady(true);
@@ -875,17 +875,17 @@ export default function WarehousePage() {
                     }}
                     style={{ cursor: "pointer" }}
                   >
-                    <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "14px 14px" }}>{String(i + 1).padStart(2, "0")}</td>
-                    <td style={{ textAlign: "center", color: "var(--text1)", fontWeight: 500, padding: "14px 14px" }}>{row.title}</td>
-                    <td style={{ textAlign: "center", fontSize: 13, color: "var(--text2)", padding: "14px 14px" }}>{row.contractNo || "—"}</td>
-                    <td style={{ textAlign: "center", fontFamily: "Inter, sans-serif", padding: "14px 14px" }}>{row.totalItems}</td>
-                    <td style={{ textAlign: "center", fontFamily: "Inter, sans-serif", color: "#1e7e34", fontWeight: 600, padding: "14px 14px" }}>
+                    <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64 }}>{String(i + 1).padStart(2, "0")}</td>
+                    <td title={row.title} style={{ textAlign: "center", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.title}</td>
+                    <td style={{ textAlign: "center" }}>{row.contractNo || "—"}</td>
+                    <td style={{ textAlign: "center" }}>{row.totalItems}</td>
+                    <td style={{ textAlign: "center", color: "#1e7e34", fontWeight: 600 }}>
                       {row.checked ? row.foundItems : "—"}
                     </td>
-                    <td style={{ textAlign: "center", fontFamily: "Inter, sans-serif", color: row.missingItems > 0 ? "var(--danger)" : "var(--text3)", fontWeight: row.checked ? 600 : 400, padding: "14px 14px" }}>
+                    <td style={{ textAlign: "center", color: row.missingItems > 0 ? "var(--danger)" : undefined, fontWeight: row.missingItems > 0 ? 600 : undefined }}>
                       {row.checked ? row.missingItems : "—"}
                     </td>
-                    <td style={{ textAlign: "center", fontSize: 12, color: "var(--text3)", padding: "14px 14px" }}>{fmt(row.createdAt)}</td>
+                    <td style={{ textAlign: "center" }}>{fmt(row.createdAt)}</td>
                     <td style={{ padding: "14px 14px" }}>
                       <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
                         <StatusIcon checked={row.checked} size={22} />

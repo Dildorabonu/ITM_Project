@@ -52,9 +52,10 @@ const navGroups: NavGroup[] = [
     label: "Omborxona",
     icon: "package",
     items: [
-      { name: "Mahsulotlar",        href: "/products",    icon: "shopping-bag", permission: "Products.View" },
-      { name: "Ombor tekshiruvi",   href: "/warehouse",   icon: "package" },
-      { name: "Tuzilma",            href: "/departments", icon: "briefcase",    permission: "Departments.View" },
+      { name: "Mahsulotlar",        href: "/products",      icon: "shopping-bag", permission: "Products.View" },
+      { name: "Talabnomalar",       href: "/requisitions",  icon: "clipboard",    permission: ["Requisitions.View", "Requisitions.ViewAll"] },
+      { name: "Ombor tekshiruvi",   href: "/warehouse",     icon: "package" },
+      { name: "Tuzilma",            href: "/departments",   icon: "briefcase",    permission: "Departments.View" },
     ],
   },
   {
@@ -162,7 +163,8 @@ function applyAppearanceFont(family: string, scale: number) {
 }
 
 // Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
-const readyRoutes = new Set(["/", "/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications"]);
+const readyRoutes = new Set(["/", "/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions"]);
+const readyPrefixes = ["/requisitions/", "/contracts/", "/techprocess/", "/technicaldrawings/", "/requisitions/print"];
 
 const pageTitles: Record<string, string> = {
   "/":              "Dashboard",
@@ -177,6 +179,7 @@ const pageTitles: Record<string, string> = {
   "/departments":   "Tuzilma",
   "/products":      "Mahsulotlar",
   "/appearance":    "Tashqi ko'rinish",
+  "/requisitions":  "Talabnomalar",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -836,7 +839,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main style={{ flex: 1, overflowY: "auto", background: "var(--surface)", border: "1px solid var(--border)" }}>
             <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20, position: "relative", minHeight: "100%" }}>
               {children}
-              {!readyRoutes.has(pathname) && (
+              {!readyRoutes.has(pathname) && !readyPrefixes.some(p => pathname.startsWith(p)) && (
                 <div style={{
                   position: "absolute", inset: 0,
                   backdropFilter: "blur(6px)",

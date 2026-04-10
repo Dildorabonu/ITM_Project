@@ -60,7 +60,7 @@ export default function InventoryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
+    <div className="min-h-screen bg-slate-50 p-6 page-transition">
       <div className="max-w-4xl mx-auto space-y-4">
         <div className="bg-white p-4 rounded-xl border"><h1 className="text-2xl font-bold">Bo'limlar</h1></div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

@@ -532,6 +532,108 @@ namespace DataAccess.Migrations
                     b.ToTable("RefreshTokens");
                 });
 
+            modelBuilder.Entity("Core.Entities.Requisition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ApprovedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ContractId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DepartmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("QrCodeData")
+                        .HasColumnType("text");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("RequisitionNo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovedBy");
+
+                    b.HasIndex("ContractId");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.ToTable("Requisitions");
+                });
+
+            modelBuilder.Entity("Core.Entities.RequisitionItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FreeTextName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("FreeTextSpec")
+                        .HasColumnType("text");
+
+                    b.Property<string>("FreeTextUnit")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("MaterialId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<Guid>("RequisitionId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MaterialId");
+
+                    b.HasIndex("RequisitionId");
+
+                    b.ToTable("RequisitionItems");
+                });
+
             modelBuilder.Entity("Core.Entities.Role", b =>
                 {
                     b.Property<Guid>("Id")
@@ -747,7 +849,6 @@ namespace DataAccess.Migrations
 
                     b.ToTable("TechProcesses");
                 });
-
 
             modelBuilder.Entity("Core.Entities.TechnicalDrawing", b =>
                 {
@@ -1002,6 +1103,56 @@ namespace DataAccess.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Core.Entities.Requisition", b =>
+                {
+                    b.HasOne("Core.Entities.User", "Approver")
+                        .WithMany("ApprovedRequisitions")
+                        .HasForeignKey("ApprovedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Core.Entities.Contract", "Contract")
+                        .WithMany()
+                        .HasForeignKey("ContractId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Core.Entities.User", "Creator")
+                        .WithMany("CreatedRequisitions")
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Core.Entities.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Approver");
+
+                    b.Navigation("Contract");
+
+                    b.Navigation("Creator");
+
+                    b.Navigation("Department");
+                });
+
+            modelBuilder.Entity("Core.Entities.RequisitionItem", b =>
+                {
+                    b.HasOne("Core.Entities.Material", "Material")
+                        .WithMany()
+                        .HasForeignKey("MaterialId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Core.Entities.Requisition", "Requisition")
+                        .WithMany("Items")
+                        .HasForeignKey("RequisitionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Material");
+
+                    b.Navigation("Requisition");
+                });
+
             modelBuilder.Entity("Core.Entities.RolePermission", b =>
                 {
                     b.HasOne("Core.Entities.Permission", "Permission")
@@ -1125,7 +1276,6 @@ namespace DataAccess.Migrations
                     b.Navigation("Contract");
                 });
 
-
             modelBuilder.Entity("Core.Entities.TechnicalDrawing", b =>
                 {
                     b.HasOne("Core.Entities.Contract", "Contract")
@@ -1216,6 +1366,11 @@ namespace DataAccess.Migrations
                     b.Navigation("RolePermissions");
                 });
 
+            modelBuilder.Entity("Core.Entities.Requisition", b =>
+                {
+                    b.Navigation("Items");
+                });
+
             modelBuilder.Entity("Core.Entities.Role", b =>
                 {
                     b.Navigation("RolePermissions");
@@ -1223,16 +1378,19 @@ namespace DataAccess.Migrations
                     b.Navigation("Users");
                 });
 
-
             modelBuilder.Entity("Core.Entities.User", b =>
                 {
                     b.Navigation("ApprovedProcesses");
+
+                    b.Navigation("ApprovedRequisitions");
 
                     b.Navigation("AssignedTasks");
 
                     b.Navigation("ContractUsers");
 
                     b.Navigation("CreatedContracts");
+
+                    b.Navigation("CreatedRequisitions");
 
                     b.Navigation("CreatedTasks");
 

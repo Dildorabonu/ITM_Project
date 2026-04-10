@@ -19,6 +19,7 @@ export type MergedRow =
 export interface DrawingFormValues {
   title: string;
   notes: string;
+  files: File[];
 }
 
-export const emptyDrawingForm: DrawingFormValues = { title: "", notes: "" };
+export const emptyDrawingForm: DrawingFormValues = { title: "", notes: "", files: [] };

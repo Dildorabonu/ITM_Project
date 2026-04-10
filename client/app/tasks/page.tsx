@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store/authStore";
 import { ConfirmModal } from "@/app/_components/ConfirmModal";
 import {
@@ -15,6 +16,10 @@ import {
   ContractTaskCreatePayload,
   ContractTaskUpdatePayload,
   ContractTaskLogResponse,
+  techProcessService,
+  ProcessStatus,
+  costNormService,
+  DrawingStatus,
 } from "@/lib/userService";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -523,6 +528,7 @@ function EditTaskModal({
               type="number" min="0"
               value={completedAmount}
               onChange={e => setCompletedAmount(e.target.value)}
+              onWheel={e => (e.target as HTMLInputElement).blur()}
             />
           </div>
 
@@ -558,6 +564,7 @@ function EditTaskModal({
                         type="number" min="0" max="100"
                         value={importanceMap[t.id]}
                         onChange={e => setImp(t.id, e.target.value)}
+                        onWheel={e => (e.target as HTMLInputElement).blur()}
                         style={{ width: 72, textAlign: "right", padding: "4px 8px", fontSize: 13 }}
                       />
                       <span style={{ fontSize: 12, color: "var(--text3)", width: 14 }}>%</span>
@@ -712,6 +719,7 @@ function DailyLogModal({
               placeholder="Miqdorni kiriting"
               value={amount}
               onChange={e => setAmount(e.target.value)}
+              onWheel={e => (e.target as HTMLInputElement).blur()}
               style={submitted && (!amount || parseFloat(amount) <= 0) ? { borderColor: "var(--danger)" } : undefined}
             />
             {submitted && (!amount || parseFloat(amount) <= 0) && (
@@ -1177,6 +1185,7 @@ function AddTaskForm({
               placeholder="25"
               value={f.importance}
               onChange={e => updateRow(i, "importance", e.target.value)}
+              onWheel={e => (e.target as HTMLInputElement).blur()}
               style={submitted && f.importance === "" ? { borderColor: "var(--danger)" } : undefined}
             />
             {submitted && f.importance === "" && (
@@ -1225,6 +1234,7 @@ function AddTaskForm({
                     type="number" min="0" max="100"
                     value={existingImportanceMap[t.id]}
                     onChange={e => setExistingImp(t.id, e.target.value)}
+                    onWheel={e => (e.target as HTMLInputElement).blur()}
                     style={{ width: 72, textAlign: "right", padding: "4px 8px", fontSize: 13 }}
                   />
                   <span style={{ fontSize: 12, color: "var(--text3)", width: 14 }}>%</span>
@@ -1307,6 +1317,7 @@ function sortTasksWithWarehouseLast(data: ContractTaskResponse[]): ContractTaskR
 }
 
 function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideHeader?: boolean }) {
+  const router = useRouter();
   const [tasks, setTasks] = useState<ContractTaskResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -1577,6 +1588,35 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
         </span>
       </div>}
 
+      {/* Requisition reminder banner */}
+      {(contract.status === ContractStatus.TechProcessApproved || contract.status === ContractStatus.WarehouseCheck) && (
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          gap: 12, padding: "10px 14px", marginBottom: 12,
+          background: "var(--warn-dim, #fef3c7)", border: "1.5px solid #f59e0b",
+          borderRadius: "var(--radius)", flexWrap: "wrap",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <svg width="16" height="16" fill="none" stroke="#f59e0b" strokeWidth="2" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span style={{ fontSize: 13, color: "#92400e", fontWeight: 600 }}>
+              Ishlab chiqarish materiallari uchun talabnoma yozilmagan
+            </span>
+          </div>
+          <button
+            onClick={() => router.push(`/requisitions?contractId=${contract.id}&contractNo=${encodeURIComponent(contract.contractNo)}`)}
+            style={{
+              padding: "6px 14px", borderRadius: "var(--radius)", fontSize: 12, fontWeight: 700,
+              background: "#f59e0b", color: "#fff", border: "none", cursor: "pointer",
+              flexShrink: 0,
+            }}
+          >
+            Talabnoma yozish →
+          </button>
+        </div>
+      )}
+
       {/* Tasks list */}
       {loading ? (
         <div className="tp-empty">Yuklanmoqda…</div>
@@ -1637,7 +1677,11 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
           />
         </div>
       ) : (
-        <button className="add-task-btn" onClick={() => { setShowForm(true); setEditingId(null); }} style={{ marginTop: tasks.length > 0 ? 10 : 0 }}>
+        <button
+          className="add-task-btn"
+          onClick={() => { setShowForm(true); setEditingId(null); }}
+          style={{ marginTop: tasks.length > 0 ? 10 : 0 }}
+        >
           <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
@@ -1704,9 +1748,22 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ContractResponse | null>(null);
   const [phase, setPhase] = useState<Phase>("grid");
+  const [blockModal, setBlockModal] = useState<ContractResponse | null>(null);
 
-  const handleSelect = (c: ContractResponse) => {
+  const handleSelect = async (c: ContractResponse) => {
     if (phase !== "grid") return;
+    const [tpList, cnList] = await Promise.all([
+      techProcessService.getByContract(c.id).catch(() => []),
+      costNormService.getAll(c.id).catch(() => []),
+    ]);
+    const tpEffective = tpList.find(tp => tp.status !== ProcessStatus.Pending) ?? null;
+    const tpOk = !!tpEffective && (tpEffective.status === ProcessStatus.Approved || tpEffective.status === ProcessStatus.Completed);
+    const cnEffective = cnList.find(cn => cn.items && cn.items.length > 0) ?? cnList[0] ?? null;
+    const cnOk = !!cnEffective && cnEffective.status === DrawingStatus.Approved;
+    if (!tpOk || !cnOk) {
+      setBlockModal(c);
+      return;
+    }
     setSelected(c);
     setPhase("grid-exit");
     setTimeout(() => setPhase("panel"), 280);
@@ -1736,13 +1793,17 @@ export default function TasksPage() {
     );
   }
 
+  if (loading) {
+    return (
+      <div className="itm-card" style={{ textAlign: "center", padding: 48, color: "var(--text3)" }}>
+        Yuklanmoqda...
+      </div>
+    );
+  }
+
   return (
-    <>
-      {loading ? (
-        <div className="itm-card" style={{ textAlign: "center", padding: 48, color: "var(--text3)" }}>
-          Yuklanmoqda...
-        </div>
-      ) : contracts.length === 0 ? (
+    <div className="page-transition">
+      {contracts.length === 0 ? (
         <div className="itm-card" style={{ textAlign: "center", padding: 48, color: "var(--text3)" }}>
           <svg width="40" height="40" fill="none" stroke="var(--text3)" strokeWidth="1.5" viewBox="0 0 24 24" style={{ marginBottom: 12 }}>
             <rect x="9" y="2" width="6" height="4" rx="1"/>
@@ -1770,6 +1831,34 @@ export default function TasksPage() {
           <TaskPanel key={selected!.id} contract={selected!} hideHeader />
         </div>
       )}
-    </>
+
+      {/* Techprocess not approved — block entry modal */}
+      {blockModal !== null && createPortal(
+        <div className="modal-overlay" onClick={() => setBlockModal(null)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 420 }}>
+            <div className="modal-header" style={{ color: "var(--warn, #f59e0b)", borderBottom: "1px solid var(--border)" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                Kirib bo&apos;lmaydi
+              </span>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize: 14, color: "var(--text2)", marginBottom: 8 }}>
+                <strong style={{ color: "var(--text1)" }}>#{blockModal.contractNo} — {blockModal.contractParty}</strong>
+              </p>
+              <p style={{ fontSize: 14, color: "var(--text)", lineHeight: 1.65 }}>
+                Bu shartnoma bo&apos;yicha tex jarayon bo&apos;limidagi umumiy holat hali yakunlanmagan. Vazifalar bo&apos;limiga kirish uchun umumiy holat &ldquo;Yakunlangan&rdquo; bo&apos;lishi kerak.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-primary" onClick={() => setBlockModal(null)}>Tushundim</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
   );
 }
