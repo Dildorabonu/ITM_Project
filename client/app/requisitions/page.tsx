@@ -12,6 +12,9 @@ import {
   REQUISITION_STATUS_LABELS,
 } from "./_types";
 import { RequisitionStatusBadge } from "./_components/StatusBadge";
+import { useAuthStore } from "@/lib/store/authStore";
+import { useToastStore } from "@/lib/store/toastStore";
+import { ConfirmModal } from "@/app/_components/ConfirmModal";
 
 // ─── Status filter options ─────────────────────────────────────────────────────
 
@@ -28,10 +31,16 @@ const STATUS_FILTER = [
 
 function RequisitionsContent() {
   const router = useRouter();
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const showToast = useToastStore((s) => s.show);
+  const canDelete = hasPermission("Requisitions.Delete");
+
   const [list, setList] = useState<RequisitionResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -41,6 +50,21 @@ function RequisitionsContent() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    setDeleting(true);
+    try {
+      await requisitionService.delete(deleteId);
+      showToast("Talabnoma o'chirildi", "success");
+      setDeleteId(null);
+      await load();
+    } catch {
+      showToast("Xatolik yuz berdi", "error");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     let res = list;
@@ -118,6 +142,9 @@ function RequisitionsContent() {
                 {["Raqam", "Turi", "Maqsad", "Shartnoma / Bo'lim", "Materiallar", "Yaratuvchi", "Sana", "Holat"].map(h => (
                   <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>{h}</th>
                 ))}
+                {canDelete && (
+                  <th style={{ padding: "10px 14px", textAlign: "center", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", borderLeft: "2px solid var(--border)", whiteSpace: "nowrap" }}>Amal</th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -139,12 +166,42 @@ function RequisitionsContent() {
                   <td style={{ padding: "10px 14px", color: "var(--text2)" }}>{r.createdByName}</td>
                   <td style={{ padding: "10px 14px", color: "var(--text3)", whiteSpace: "nowrap" }}>{fmtDate(r.createdAt)}</td>
                   <td style={{ padding: "10px 14px" }}><RequisitionStatusBadge status={r.status} small /></td>
+                  {canDelete && (
+                    <td style={{ padding: "6px 10px", borderLeft: "2px solid var(--border)", textAlign: "center" }}
+                      onClick={e => e.stopPropagation()}
+                    >
+                      {r.status !== RequisitionStatus.Approved && r.status !== RequisitionStatus.SentToWarehouse && (
+                        <button
+                          className="btn-icon btn-icon-danger"
+                          title="O'chirish"
+                          style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}
+                          onClick={() => setDeleteId(r.id)}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6l-1 14H6L5 6" />
+                            <path d="M10 11v6M14 11v6" />
+                            <path d="M9 6V4h6v2" />
+                          </svg>
+                        </button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+
+      <ConfirmModal
+        open={!!deleteId}
+        title="Talabnomani o'chirish"
+        message="Ushbu talabnoma o'chiriladi. Davom etasizmi?"
+        loading={deleting}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteId(null)}
+      />
     </div>
   );
 }
