@@ -76,6 +76,19 @@ export default function RequisitionPrintPage() {
     noPrint.forEach(el => (el.style.display = "none"));
     const inlineEditables = docRef.current.querySelectorAll<HTMLElement>(".inline-editable");
     inlineEditables.forEach(el => (el.style.borderBottom = "none"));
+
+    // Replace <select> elements with <span> showing selected text (html2pdf doesn't render select values)
+    const selects = docRef.current.querySelectorAll<HTMLSelectElement>("select");
+    const selectReplacements: { select: HTMLSelectElement; span: HTMLSpanElement }[] = [];
+    selects.forEach(sel => {
+      const span = document.createElement("span");
+      span.textContent = sel.options[sel.selectedIndex]?.text ?? "";
+      span.style.cssText = "font-family:Times New Roman,serif;font-size:12px;color:#000;";
+      sel.parentNode?.insertBefore(span, sel);
+      sel.style.display = "none";
+      selectReplacements.push({ select: sel, span });
+    });
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const html2pdf = (await import("html2pdf.js" as any)).default;
     html2pdf()
@@ -91,6 +104,10 @@ export default function RequisitionPrintPage() {
       .finally(() => {
         noPrint.forEach(el => el.style.removeProperty("display"));
         inlineEditables.forEach(el => el.style.removeProperty("border-bottom"));
+        selectReplacements.forEach(({ select, span }) => {
+          select.style.removeProperty("display");
+          span.parentNode?.removeChild(span);
+        });
         setSaving(false);
       });
   };
@@ -159,6 +176,7 @@ export default function RequisitionPrintPage() {
           .remove-row-btn { display: none !important; }
         }
         @page { margin: 0; size: A4 portrait; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .inline-editable[data-placeholder]:empty::before {
           content: attr(data-placeholder);
           color: #aaa;
@@ -250,12 +268,16 @@ export default function RequisitionPrintPage() {
             disabled={savingSystem}
             style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", background: "var(--success)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: savingSystem ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, opacity: savingSystem ? 0.7 : 1 }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-              <polyline points="17 21 17 13 7 13 7 21" />
-              <polyline points="7 3 7 8 15 8" />
-            </svg>
-            {savingSystem ? "Saqlanmoqda…" : "Tizimda saqlash"}
+            {savingSystem ? (
+              <span style={{ display: "inline-block", width: 14, height: 14, border: "2px solid currentColor", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                <polyline points="17 21 17 13 7 13 7 21" />
+                <polyline points="7 3 7 8 15 8" />
+              </svg>
+            )}
+            Tizimda saqlash
           </button>
 
           <button
@@ -263,12 +285,16 @@ export default function RequisitionPrintPage() {
             disabled={saving}
             style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", background: "var(--bg3)", color: "var(--text)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: saving ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, opacity: saving ? 0.7 : 1 }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            {saving ? "Saqlanmoqda…" : "PDF saqlash"}
+            {saving ? (
+              <span style={{ display: "inline-block", width: 14, height: 14, border: "2px solid currentColor", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+            )}
+            PDF saqlash
           </button>
 
           <button
