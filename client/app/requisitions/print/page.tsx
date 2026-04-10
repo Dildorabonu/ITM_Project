@@ -362,7 +362,7 @@ export default function RequisitionPrintPage() {
                 <polyline points="7 3 7 8 15 8" />
               </svg>
             )}
-            Tizimda saqlash
+            Talabnomani yuborish
           </button>
 
           <button

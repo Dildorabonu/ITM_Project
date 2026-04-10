@@ -380,7 +380,7 @@ function NewRequisitionContent() {
             onClick={handleCreate}
             style={{ flex: 2, padding: "11px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: saving ? "not-allowed" : "pointer", fontWeight: 600, opacity: saving ? 0.7 : 1 }}
           >
-            {saving ? "Saqlanmoqda…" : "Yaratish"}
+            {saving ? "Yuborilmoqda…" : "Yuborish"}
           </button>
         </div>
       </div>
