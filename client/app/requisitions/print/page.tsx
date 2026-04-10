@@ -271,20 +271,40 @@ export default function RequisitionPrintPage() {
 
           {/* Type + contract/dept selectors */}
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            <select
-              value={type}
-              onChange={e => setType(Number(e.target.value) as RequisitionType)}
-              style={{ padding: "5px 10px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg2)", color: "var(--text)", cursor: "pointer" }}
-            >
-              <option value={RequisitionType.Contract}>Shartnoma bo&apos;yicha</option>
-              <option value={RequisitionType.Individual}>Individual</option>
-            </select>
+            <div style={{ display: "inline-flex", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", overflow: "hidden" }}>
+              {([
+                { value: RequisitionType.Contract, label: "Shartnoma bo'yicha" },
+                { value: RequisitionType.Individual, label: "Individual" },
+              ] as const).map((opt, i) => {
+                const active = type === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setType(opt.value)}
+                    style={{
+                      padding: "5px 12px",
+                      border: "none",
+                      borderLeft: i > 0 ? "1.5px solid var(--border)" : "none",
+                      background: active ? "var(--accent)" : "var(--bg2)",
+                      color: active ? "#fff" : "var(--text)",
+                      fontSize: 13,
+                      fontWeight: active ? 600 : 400,
+                      cursor: "pointer",
+                      transition: "background 0.15s, color 0.15s",
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
 
             {type === RequisitionType.Contract ? (
               <select
                 value={contractId}
                 onChange={e => setContractId(e.target.value)}
-                style={{ padding: "5px 10px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg2)", color: "var(--text)", cursor: "pointer", maxWidth: 220 }}
+                style={{ padding: "5px 10px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg2)", color: "var(--text)", cursor: "pointer", width: 220 }}
               >
                 <option value="">— Shartnoma —</option>
                 {contracts.map(c => <option key={c.id} value={c.id}>{c.contractNo} — {c.contractParty}</option>)}
@@ -293,31 +313,11 @@ export default function RequisitionPrintPage() {
               <select
                 value={departmentId}
                 onChange={e => setDepartmentId(e.target.value)}
-                style={{ padding: "5px 10px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg2)", color: "var(--text)", cursor: "pointer", maxWidth: 220 }}
+                style={{ padding: "5px 10px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg2)", color: "var(--text)", cursor: "pointer", width: 220 }}
               >
                 <option value="">— Bo&apos;lim —</option>
                 {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
-            )}
-
-            {type === RequisitionType.Contract && (
-              <button
-                type="button"
-                disabled={!contractId || normLoading}
-                onClick={fillFromNorm}
-                style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 12px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "none", background: "#2563eb", color: "#fff", cursor: (!contractId || normLoading) ? "not-allowed" : "pointer", opacity: (!contractId || normLoading) ? 0.45 : 1, whiteSpace: "nowrap", transition: "opacity 0.15s" }}
-              >
-                {normLoading ? (
-                  <span style={{ display: "inline-block", width: 13, height: 13, border: "2px solid currentColor", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
-                ) : (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="17 8 12 3 7 8" />
-                    <line x1="12" y1="3" x2="12" y2="15" />
-                  </svg>
-                )}
-                Me&apos;yoriy sarfdan to&apos;ldirish
-              </button>
             )}
           </div>
         </div>
@@ -398,6 +398,30 @@ export default function RequisitionPrintPage() {
             </svg>
             Chop etish
           </button>
+
+          {type === RequisitionType.Contract && (
+            <>
+              <div style={{ flex: 1 }} />
+              <div style={{ width: 1, height: 20, background: "var(--border)" }} />
+              <button
+                type="button"
+                disabled={!contractId || normLoading}
+                onClick={fillFromNorm}
+                style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "none", background: "#2563eb", color: "#fff", cursor: (!contractId || normLoading) ? "not-allowed" : "pointer", opacity: (!contractId || normLoading) ? 0.45 : 1, whiteSpace: "nowrap", transition: "opacity 0.15s" }}
+              >
+                {normLoading ? (
+                  <span style={{ display: "inline-block", width: 13, height: 13, border: "2px solid currentColor", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                )}
+                Me&apos;yoriy sarfdan to&apos;ldirish
+              </button>
+            </>
+          )}
         </div>
       </div>
 
