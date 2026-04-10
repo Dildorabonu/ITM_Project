@@ -9,6 +9,8 @@ import {
   materialService,
   contractService,
   departmentService,
+  costNormService,
+  DrawingStatus,
   RequisitionType,
   type MaterialResponse,
   type ContractResponse,
@@ -39,6 +41,8 @@ function NewRequisitionContent() {
   const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
   const [matSearch, setMatSearch] = useState("");
   const [matPickerIdx, setMatPickerIdx] = useState<number | null>(null);
+  const [normLoading, setNormLoading] = useState(false);
+  const [normMsg, setNormMsg] = useState<{ type: "ok" | "warn" | "none"; text: string } | null>(null);
 
   useEffect(() => {
     const contractId = searchParams.get("contractId");
@@ -50,6 +54,54 @@ function NewRequisitionContent() {
     departmentService.getAllFull().then(setDepartments);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const fillFromNorm = async () => {
+    if (!form.contractId) return;
+    setNormLoading(true);
+    setNormMsg(null);
+    try {
+      const norms = await costNormService.getAll(form.contractId);
+      const norm =
+        norms.find(n => n.isActive && n.status === DrawingStatus.Approved) ??
+        norms.find(n => n.isActive) ??
+        norms[0];
+
+      if (!norm) {
+        setNormMsg({ type: "warn", text: "Bu shartnoma uchun me'yoriy sarf topilmadi." });
+        return;
+      }
+
+      const qty = norm.contractQuantity;
+      const lines = norm.items.filter(i => !i.isSection && i.totalQty);
+      if (lines.length === 0) {
+        setNormMsg({ type: "warn", text: "Me'yoriy sarfda material qatorlari topilmadi." });
+        return;
+      }
+
+      const newItems = lines.map(ni => {
+        const total = parseFloat((ni.totalQty ?? "0").replace(",", ".")) * qty;
+        const mat = materials.find(m =>
+          (ni.no  && m.code.toLowerCase() === ni.no.trim().toLowerCase()) ||
+          (ni.name && m.name.toLowerCase() === ni.name.trim().toLowerCase())
+        );
+        return {
+          materialId:   mat?.id   ?? "",
+          materialName: mat?.name ?? ni.name ?? "",
+          materialCode: mat?.code ?? ni.no   ?? "",
+          unit:         mat?.unit ?? ni.unit ?? "",
+          quantity:     total > 0 ? String(total) : "",
+          notes:        "",
+        };
+      });
+
+      setForm(f => ({ ...f, items: newItems }));
+      setNormMsg({ type: "ok", text: `Me'yoriy sarfdan ${newItems.length} ta material to'ldirildi` });
+    } catch {
+      setNormMsg({ type: "warn", text: "Me'yoriy sarf yuklanmadi." });
+    } finally {
+      setNormLoading(false);
+    }
+  };
 
   const addItem = () => {
     setForm(f => ({ ...f, items: [...f.items, { materialId: "", materialName: "", materialCode: "", unit: "", quantity: "", notes: "" }] }));
@@ -141,7 +193,7 @@ function NewRequisitionContent() {
               {([RequisitionType.Contract, RequisitionType.Individual] as const).map(t => (
                 <button
                   key={t}
-                  onClick={() => setForm(f => ({ ...f, type: t, contractId: "", departmentId: "" }))}
+                  onClick={() => { setNormMsg(null); setForm(f => ({ ...f, type: t, contractId: "", departmentId: "", items: [] })); }}
                   style={{
                     flex: 1, padding: "10px", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, cursor: "pointer",
                     border: form.type === t ? "2px solid var(--accent)" : "1.5px solid var(--border)",
@@ -158,7 +210,7 @@ function NewRequisitionContent() {
           {form.type === RequisitionType.Contract && (
             <div>
               <label style={lbl}>Shartnoma *</label>
-              <select value={form.contractId} onChange={e => setForm(f => ({ ...f, contractId: e.target.value }))} style={sel}>
+              <select value={form.contractId} onChange={e => { setNormMsg(null); setForm(f => ({ ...f, contractId: e.target.value, items: [] })); }} style={sel}>
                 <option value="">— Tanlang —</option>
                 {contracts.map(c => <option key={c.id} value={c.id}>{c.contractNo} — {c.contractParty}</option>)}
               </select>
@@ -207,8 +259,31 @@ function NewRequisitionContent() {
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <label style={{ ...lbl, marginBottom: 0 }}>Materiallar *</label>
-              <button onClick={addItem} style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)", background: "none", border: "none", cursor: "pointer" }}>+ Qo'shish</button>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                {form.type === RequisitionType.Contract && (
+                  <button
+                    type="button"
+                    disabled={!form.contractId || normLoading}
+                    onClick={fillFromNorm}
+                    style={{ fontSize: 12, fontWeight: 700, padding: "5px 12px", borderRadius: "var(--radius)", border: "2px solid #2563eb", background: "#2563eb", color: "#fff", cursor: (!form.contractId || normLoading) ? "not-allowed" : "pointer", opacity: (!form.contractId || normLoading) ? 0.45 : 1 }}
+                  >
+                    {normLoading ? "Yuklanmoqda…" : "Me'yoriy sarfdan to'ldirish"}
+                  </button>
+                )}
+                <button onClick={addItem} style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)", background: "none", border: "none", cursor: "pointer" }}>+ Qo'shish</button>
+              </div>
             </div>
+
+            {normMsg && !normLoading && (
+              <div style={{
+                marginBottom: 10, padding: "9px 13px", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600,
+                background: normMsg.type === "ok" ? "#f0fdf4" : "#fffbeb",
+                border: `1px solid ${normMsg.type === "ok" ? "#86efac" : "#fcd34d"}`,
+                color: normMsg.type === "ok" ? "#15803d" : "#92400e",
+              }}>
+                {normMsg.type === "ok" ? "✓ " : "⚠ "}{normMsg.text}
+              </div>
+            )}
 
             {form.items.length === 0 ? (
               <div style={{ border: "1.5px dashed var(--border)", borderRadius: "var(--radius)", padding: "28px", textAlign: "center", color: "var(--text3)", fontSize: 13 }}>
@@ -217,11 +292,16 @@ function NewRequisitionContent() {
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {form.items.map((item, i) => (
-                  <div key={i} style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: 14, position: "relative" }}>
+                  <div key={i} style={{ border: `1.5px solid ${item.materialName && !item.materialId ? "var(--warning, #d97706)" : "var(--border)"}`, borderRadius: "var(--radius)", padding: 14, position: "relative" }}>
                     <button onClick={() => removeItem(i)} style={{ position: "absolute", top: 10, right: 10, background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 15 }}>✕</button>
 
                     <div style={{ marginBottom: 10, position: "relative" }}>
                       <label style={lbl}>Material *</label>
+                      {item.materialName && !item.materialId && (
+                        <div style={{ fontSize: 11, color: "var(--warning, #d97706)", marginBottom: 4 }}>
+                          ⚠ "{item.materialName}" materiallar ro'yxatida topilmadi — qo'lda tanlang
+                        </div>
+                      )}
                       <input
                         readOnly
                         value={item.materialName || ""}

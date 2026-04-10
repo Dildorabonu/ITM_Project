@@ -78,18 +78,23 @@ function RequisitionsContent() {
             <button
               key={opt.value}
               onClick={() => setFilterStatus(opt.value)}
+              onMouseEnter={e => { if (filterStatus !== opt.value) { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; } }}
+              onMouseLeave={e => { if (filterStatus !== opt.value) { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text2)"; } }}
               style={{
                 padding: "6px 14px", borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: "pointer",
                 border: filterStatus === opt.value ? "1.5px solid var(--accent)" : "1.5px solid var(--border)",
                 background: filterStatus === opt.value ? "var(--accent-dim)" : "transparent",
                 color: filterStatus === opt.value ? "var(--accent)" : "var(--text2)",
+                transition: "border-color 0.15s",
               }}
             >{opt.label}</button>
           ))}
         </div>
         <button
           onClick={() => router.push("/requisitions/print")}
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "1.5px solid var(--border)", background: "var(--bg3)", color: "var(--text2)", cursor: "pointer" }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text2)"; }}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "1.5px solid var(--border)", background: "var(--bg3)", color: "var(--text2)", cursor: "pointer", transition: "border-color 0.15s, color 0.15s" }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
             <polyline points="6,9 6,2 18,2 18,9" />
