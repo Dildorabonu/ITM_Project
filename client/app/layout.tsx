@@ -412,10 +412,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <LogoEmblem size={24} />
                 </div>
                 <div>
-                  <div className="font-head-itm ombor-text" style={{ fontSize: 20, fontWeight: 800, letterSpacing: 2, lineHeight: 1 }}>OMBORPRO</div>
+                  <div className="font-head-itm ombor-text" style={{ fontSize: 20, fontWeight: 800, letterSpacing: 2, lineHeight: 1 }}>FACTORY</div>
                   <div className="font-body-itm" style={{ fontSize: 12, color: "var(--sidebar-text2)", letterSpacing: 1.5, marginTop: 3, display: "flex", alignItems: "center", gap: 5 }}>
                     <span className="live-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--accent-light)", display: "inline-block", flexShrink: 0 }} />
-                    KORXONA TIZIMI
+                    SYSTEM
                   </div>
                 </div>
               </div>

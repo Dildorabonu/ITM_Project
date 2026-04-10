@@ -257,13 +257,13 @@ export default function LoginPage() {
               fontSize: 28, fontWeight: 800, letterSpacing: 3.5, color: "#fff",
               lineHeight: 1, textShadow: "0 2px 8px rgba(0,0,0,0.2)",
             }}>
-              OMBORPRO
+              FACTORY
             </div>
             <div style={{
               fontSize: 10, color: "rgba(255,255,255,0.55)",
               letterSpacing: 3, marginTop: 6, fontWeight: 500,
             }}>
-              KORXONA TIZIMI
+              SYSTEM
             </div>
           </div>
 
