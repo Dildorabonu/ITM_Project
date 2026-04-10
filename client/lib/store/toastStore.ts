@@ -14,7 +14,8 @@ type ToastStore = {
 
 export const useToastStore = create<ToastStore>((set) => ({
   toasts: [],
-  show: (message, title = "Muvaffaqiyatli!") => {
+  show: (message, title = "Muvaffaqiyatli") => {
+    if (title === "success") title = "Muvaffaqiyatli";
     const id = Math.random().toString(36).slice(2);
     set((s) => ({ toasts: [...s.toasts, { id, message, title }] }));
   },
