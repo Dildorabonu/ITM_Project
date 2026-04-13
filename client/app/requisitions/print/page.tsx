@@ -190,15 +190,17 @@ export default function RequisitionPrintPage() {
     const inlineEditables = el.querySelectorAll<HTMLElement>(".inline-editable");
     inlineEditables.forEach(e => (e.style.borderBottom = "none"));
 
-    const selects = el.querySelectorAll<HTMLSelectElement>("select");
-    const selectReplacements: { select: HTMLSelectElement; span: HTMLSpanElement }[] = [];
-    selects.forEach(sel => {
+    const cellSelects = el.querySelectorAll<HTMLElement>("[data-cell-select='true']");
+    const cellSelectReplacements: { el: HTMLElement; span: HTMLSpanElement }[] = [];
+    cellSelects.forEach(wrap => {
+      const btn = wrap.querySelector("button");
+      const textSpan = btn?.querySelector("span");
       const span = document.createElement("span");
-      span.textContent = sel.options[sel.selectedIndex]?.text ?? "";
+      span.textContent = textSpan?.textContent?.trim() ?? wrap.getAttribute("data-value") ?? "";
       span.style.cssText = "font-family:Times New Roman,serif;font-size:12px;color:#000;";
-      sel.parentNode?.insertBefore(span, sel);
-      sel.style.display = "none";
-      selectReplacements.push({ select: sel, span });
+      wrap.parentNode?.insertBefore(span, wrap);
+      wrap.style.display = "none";
+      cellSelectReplacements.push({ el: wrap, span });
     });
 
     try {
@@ -219,8 +221,8 @@ export default function RequisitionPrintPage() {
       noPrint.forEach(e => e.style.removeProperty("display"));
       printImages.forEach(e => e.style.removeProperty("display"));
       inlineEditables.forEach(e => e.style.removeProperty("border-bottom"));
-      selectReplacements.forEach(({ select, span }) => {
-        select.style.removeProperty("display");
+      cellSelectReplacements.forEach(({ el, span }) => {
+        el.style.removeProperty("display");
         span.parentNode?.removeChild(span);
       });
     }
@@ -290,6 +292,8 @@ export default function RequisitionPrintPage() {
           body { background: white !important; margin: 0 !important; padding: 0 !important; }
           input, textarea { border: none !important; background: transparent !important; resize: none !important; overflow: hidden !important; }
           .inline-editable { border: none !important; }
+          [data-cell-select] button { border: none !important; background: transparent !important; padding: 0 !important; font-family: Times New Roman, serif !important; font-size: 12px !important; color: #000 !important; height: auto !important; }
+          [data-cell-select] svg { display: none !important; }
           .add-row-btn { display: none !important; }
           .remove-row-btn { display: none !important; }
           .no-print { display: none !important; }
@@ -587,16 +591,17 @@ export default function RequisitionPrintPage() {
                   />
                 </td>
                 <td style={td}>
-                  <select
-                    value={row.unit}
-                    onChange={e => updateRow(row.id, "unit", e.target.value)}
-                    style={{ ...cellInput, cursor: "pointer", appearance: "auto" }}
-                  >
-                    <option value="">—</option>
-                    {(Object.values(ProductUnit).filter(v => typeof v === "number") as ProductUnit[]).map(u => (
-                      <option key={u} value={PRODUCT_UNIT_LABELS_CYR[u]}>{PRODUCT_UNIT_LABELS_CYR[u]}</option>
-                    ))}
-                  </select>
+                  <div data-cell-select="true" data-value={row.unit}>
+                    <CheckSelect
+                      value={row.unit}
+                      onChange={v => updateRow(row.id, "unit", v)}
+                      options={[
+                        { id: "", name: "—" },
+                        ...(Object.values(ProductUnit).filter(v => typeof v === "number") as ProductUnit[]).map(u => ({ id: PRODUCT_UNIT_LABELS_CYR[u], name: PRODUCT_UNIT_LABELS_CYR[u] })),
+                      ]}
+                      placeholder="—"
+                    />
+                  </div>
                 </td>
                 <td style={td}>
                   <textarea

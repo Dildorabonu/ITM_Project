@@ -8,7 +8,7 @@ import {
   type DepartmentResponse,
 } from "@/lib/userService";
 import { ContractForm as ContractFormType, UNIT_OPTIONS, PRIORITY_OPTIONS } from "../_types";
-import { CustomSelect } from "./CustomSelect";
+import { CheckSelect } from "@/app/_components/CheckSelect";
 import { DatePickerField, isoToDisplayDate } from "./DatePickerField";
 import { CustomGroupedMultiSelect } from "./CustomGroupedMultiSelect";
 
@@ -170,20 +170,22 @@ export function ContractForm({
           {/* O'lchov birligi */}
           <div>
             <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>O&apos;lchov birligi</label>
-            <CustomSelect
+            <CheckSelect
               value={form.unit}
               onChange={v => setForm(f => ({ ...f, unit: v }))}
-              options={UNIT_OPTIONS}
+              options={UNIT_OPTIONS.filter(o => o.value !== "").map(o => ({ id: o.value, name: o.label, icon: o.icon }))}
+              placeholder="— Tanlang —"
             />
           </div>
 
           {/* Muhimlik */}
           <div>
             <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Muhimlik</label>
-            <CustomSelect
+            <CheckSelect
               value={form.priority}
               onChange={v => setForm(f => ({ ...f, priority: v }))}
-              options={PRIORITY_OPTIONS}
+              options={PRIORITY_OPTIONS.map(o => ({ id: o.value, name: o.label, color: o.color }))}
+              placeholder="— Tanlang —"
             />
           </div>
 
