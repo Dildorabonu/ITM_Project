@@ -16,6 +16,7 @@ import { type MergedRow, type DrawingFormValues, emptyDrawingForm } from "./_typ
 import { StatusBadge } from "./_components/StatusBadge";
 import { DrawingForm } from "./_components/DrawingForm";
 import { DrawingDrawer } from "./_components/DrawingDrawer";
+import { CheckSelect } from "@/app/_components/CheckSelect";
 
 function fmtDate(value: string) {
   if (!value) return "—";
@@ -271,18 +272,18 @@ export default function TechnicalDrawingsPage() {
             />
           </div>
 
-          <select
-            className="form-input"
+          <CheckSelect
             value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            style={{ width: 175, height: 36, cursor: "pointer", padding: "0 10px" }}
-          >
-            <option value="">Barcha statuslar</option>
-            <option value="no_drawing">Chizma yo&apos;q</option>
-            <option value={String(DrawingStatus.Draft)}>Qoralama</option>
-            <option value={String(DrawingStatus.InProgress)}>Jarayonda</option>
-            <option value={String(DrawingStatus.Approved)}>Tasdiqlangan</option>
-          </select>
+            onChange={setFilterStatus}
+            options={[
+              { id: "no_drawing", name: "Chizma yo'q" },
+              { id: String(DrawingStatus.Draft), name: "Qoralama" },
+              { id: String(DrawingStatus.InProgress), name: "Jarayonda" },
+              { id: String(DrawingStatus.Approved), name: "Tasdiqlangan" },
+            ]}
+            placeholder="Barcha statuslar"
+            style={{ width: 175 }}
+          />
 
           <button
             className="btn-icon"
