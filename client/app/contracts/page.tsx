@@ -623,10 +623,11 @@ export default function ContractsPage() {
                           </button>
                         )}
                         {canUpdate && c.isActive && (
-                          <button className="btn-icon" onClick={() => setDeactivateId(c.id)} title="Noactive qilish"
-                            style={{ color: "#d97706", borderColor: "#d9770633", background: "#fef3c7" }}>
+                          <button className="btn-icon btn-icon-danger" onClick={() => setDeactivateId(c.id)} title="Noaktiv qilish"
+                            style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                              <circle cx="12" cy="12" r="7" />
+                              <line x1="6.7" y1="6.7" x2="17.3" y2="17.3" />
                             </svg>
                           </button>
                         )}
@@ -750,20 +751,19 @@ export default function ContractsPage() {
       {deactivateId && (
         <div className="modal-overlay" onClick={() => setDeactivateId(null)}>
           <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 400 }}>
-            <div className="modal-header" style={{ color: "#d97706", borderBottom: "1px solid var(--border)" }}>
-              <span>Shartnomani noactive qilish</span>
+            <div className="modal-header" style={{ color: "var(--danger)", borderBottom: "1px solid var(--border)" }}>
+              <span>Shartnomani noaktiv qilish</span>
             </div>
             <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
               <p style={{ margin: 0, fontSize: 14, color: "var(--text2)", lineHeight: 1.6 }}>
-                Bu shartnoma va unga bog&apos;liq barcha ma&apos;lumotlar (texjarayon, xarajat normalari, vazifalar va boshqalar) noactive bo&apos;lib qoladi.
+                Bu shartnoma va unga bog&apos;liq barcha ma&apos;lumotlar (texjarayon, xarajat normalari, vazifalar va boshqalar) noaktiv bo&apos;lib qoladi. Davom etasizmi?
               </p>
               <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
                 <button className="btn btn-outline" onClick={() => setDeactivateId(null)}>
                   Bekor qilish
                 </button>
-                <button className="btn" style={{ background: "#d97706", color: "#fff", border: "none" }}
-                  onClick={handleDeactivate} disabled={deactivating}>
-                  {deactivating ? "Bajarilmoqda..." : "Noactive qilish"}
+                <button className="btn btn-danger" onClick={handleDeactivate} disabled={deactivating}>
+                  {deactivating ? "Noaktiv qilinmoqda..." : "Noaktiv qilish"}
                 </button>
               </div>
             </div>
