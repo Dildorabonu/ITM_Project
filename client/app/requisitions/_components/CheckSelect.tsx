@@ -99,7 +99,7 @@ export function CheckSelect({ value, onChange, options, placeholder = "— Tanla
           borderRadius: 3,
           display: "inline-flex",
         }} />
-        {placeholder}
+        Tanlanmagan
       </div>
 
       {options.map(opt => {
