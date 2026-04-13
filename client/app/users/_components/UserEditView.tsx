@@ -1,5 +1,6 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import { type RoleOption, type DepartmentOption } from "@/lib/userService";
 import { CustomSelect } from "./CustomSelect";
 import { CustomGroupedSelect } from "./CustomGroupedSelect";
@@ -161,7 +162,7 @@ export function UserEditView({
         </button>
       </div>
 
-      {confirmHead && (
+      {confirmHead && createPortal(
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: 28, width: 360, maxWidth: "95vw", textAlign: "center" }}>
             <div style={{ fontSize: 22, marginBottom: 10 }}>👑</div>
@@ -174,7 +175,8 @@ export function UserEditView({
               <button className="btn" onClick={() => setConfirmHead(null)}>Tushundim</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
