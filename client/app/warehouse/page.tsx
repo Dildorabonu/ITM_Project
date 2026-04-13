@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   requisitionService,
   productService,
@@ -371,7 +372,7 @@ function DetailLoadingOverlay({ dataReady, onComplete }: { dataReady: boolean; o
     "Natijalar tayyorlanmoqda...",
   ];
 
-  return (
+  return createPortal(
     <div style={{
       position: "fixed", inset: 0, zIndex: 9999,
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
@@ -468,7 +469,7 @@ function DetailLoadingOverlay({ dataReady, onComplete }: { dataReady: boolean; o
         {Math.round(progress)}%
       </div>
     </div>
-  );
+  , document.body);
 }
 
 // ─── Page ───────────────────────────────────────────────────────────────────

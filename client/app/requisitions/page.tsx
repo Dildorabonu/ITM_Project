@@ -12,6 +12,7 @@ import {
   REQUISITION_STATUS_LABELS,
 } from "./_types";
 import { RequisitionStatusBadge } from "./_components/StatusBadge";
+import { RequisitionDrawer } from "./_components/RequisitionDrawer";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useToastStore } from "@/lib/store/toastStore";
 import { ConfirmModal } from "@/app/_components/ConfirmModal";
@@ -41,6 +42,7 @@ function RequisitionsContent() {
   const [filterStatus, setFilterStatus] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [drawerReq, setDrawerReq] = useState<RequisitionResponse | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -142,9 +144,7 @@ function RequisitionsContent() {
                 {["Raqam", "Turi", "Maqsad", "Shartnoma / Bo'lim", "Materiallar", "Yaratuvchi", "Sana", "Holat"].map(h => (
                   <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>{h}</th>
                 ))}
-                {canDelete && (
-                  <th style={{ padding: "10px 14px", textAlign: "center", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", borderLeft: "2px solid var(--border)", whiteSpace: "nowrap" }}>Amal</th>
-                )}
+                <th style={{ padding: "10px 14px", textAlign: "center", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", borderLeft: "2px solid var(--border)", whiteSpace: "nowrap" }}>Amal</th>
               </tr>
             </thead>
             <tbody>
@@ -166,11 +166,21 @@ function RequisitionsContent() {
                   <td style={{ padding: "10px 14px", color: "var(--text2)" }}>{r.createdByName}</td>
                   <td style={{ padding: "10px 14px", color: "var(--text3)", whiteSpace: "nowrap" }}>{fmtDate(r.createdAt)}</td>
                   <td style={{ padding: "10px 14px" }}><RequisitionStatusBadge status={r.status} small /></td>
-                  {canDelete && (
-                    <td style={{ padding: "6px 10px", borderLeft: "2px solid var(--border)", textAlign: "center" }}
-                      onClick={e => e.stopPropagation()}
-                    >
-                      {r.status !== RequisitionStatus.Approved && r.status !== RequisitionStatus.SentToWarehouse && (
+                  <td style={{ padding: "6px 10px", borderLeft: "2px solid var(--border)", textAlign: "center" }}
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+                      <button
+                        className="btn-icon"
+                        title="Ko'rish"
+                        onClick={() => setDrawerReq(r)}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                      </button>
+                      {canDelete && r.status !== RequisitionStatus.Approved && r.status !== RequisitionStatus.SentToWarehouse && (
                         <button
                           className="btn-icon btn-icon-danger"
                           title="O'chirish"
@@ -185,8 +195,8 @@ function RequisitionsContent() {
                           </svg>
                         </button>
                       )}
-                    </td>
-                  )}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -202,6 +212,17 @@ function RequisitionsContent() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteId(null)}
       />
+
+      {drawerReq && (
+        <RequisitionDrawer
+          req={drawerReq}
+          onClose={() => setDrawerReq(null)}
+          onUpdate={updated => {
+            setDrawerReq(updated);
+            setList(prev => prev.map(r => r.id === updated.id ? updated : r));
+          }}
+        />
+      )}
     </div>
   );
 }
