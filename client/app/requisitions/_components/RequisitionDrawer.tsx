@@ -38,10 +38,10 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
 
   useEffect(() => {
     setFilesLoading(true);
-    requisitionService.getFiles(req.id).then(data => {
-      setFiles(data);
-      setFilesLoading(false);
-    });
+    requisitionService.getFiles(req.id)
+      .then(data => { setFiles(data); })
+      .catch(() => {})
+      .finally(() => setFilesLoading(false));
   }, [req.id]);
 
   // Close on Escape
