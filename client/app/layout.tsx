@@ -34,43 +34,31 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: "Shartnomalar",
-    icon: "file-text",
+    label: "Ishlab chiqarish",
+    icon: "layers",
     items: [
-      { name: "Shartnomalar",  href: "/contracts",   icon: "file",      permission: ["Contracts.View", "Contracts.ViewAll"] },
-      { name: "Tex jarayon & Normalar", href: "/techprocess", icon: "activity", permission: ["TechProcess.View", "TechProcess.ViewAll", "CostNorm.View", "CostNorm.ViewAll"] },
-    ],
-  },
-  {
-    label: "Texnik chizmalar",
-    icon: "file-text",
-    items: [
-      { name: "Texnik chizmalar", href: "/technicaldrawings", icon: "file", permission: ["TechnicalDrawings.View", "TechnicalDrawings.ViewAll"] },
+      { name: "Shartnomalar",           href: "/contracts",        icon: "file",         permission: ["Contracts.View", "Contracts.ViewAll"] },
+      { name: "Texnik chizmalar",       href: "/technicaldrawings",icon: "file",         permission: ["TechnicalDrawings.View", "TechnicalDrawings.ViewAll"] },
+      { name: "Tex jarayon & Normalar", href: "/techprocess",      icon: "activity",     permission: ["TechProcess.View", "TechProcess.ViewAll", "CostNorm.View", "CostNorm.ViewAll"] },
+      { name: "Vazifalar",              href: "/tasks",            icon: "check-square", permission: ["Tasks.View", "Tasks.ViewAll"] },
     ],
   },
   {
     label: "Omborxona",
     icon: "package",
     items: [
-      { name: "Mahsulotlar",        href: "/products",      icon: "shopping-bag", permission: "Products.View" },
-      { name: "Talabnomalar",       href: "/requisitions",  icon: "clipboard",    permission: ["Requisitions.View", "Requisitions.ViewAll"] },
-      { name: "Ombor tekshiruvi",   href: "/warehouse",     icon: "package" },
-      { name: "Tuzilma",            href: "/departments",   icon: "briefcase",    permission: "Departments.View" },
-    ],
-  },
-  {
-    label: "Vazifalar",
-    icon: "clipboard",
-    items: [
-      { name: "Vazifalar", href: "/tasks", icon: "check-square", permission: ["Tasks.View", "Tasks.ViewAll"] },
+      { name: "Mahsulotlar",      href: "/products",     icon: "shopping-bag", permission: "Products.View" },
+      { name: "Talabnomalar",     href: "/requisitions", icon: "clipboard",    permission: ["Requisitions.View", "Requisitions.ViewAll"] },
+      { name: "Ombor tekshiruvi", href: "/warehouse",    icon: "package" },
     ],
   },
   {
     label: "Tizim",
     icon: "settings",
     items: [
-      { name: "Foydalanuvchilar",   href: "/users",       icon: "users",   permission: "Users.View" },
-      { name: "Rollar",             href: "/roles",       icon: "shield",  permission: "Roles.View" },
+      { name: "Tuzilma",            href: "/departments", icon: "briefcase", permission: "Departments.View" },
+      { name: "Foydalanuvchilar",   href: "/users",       icon: "users",     permission: "Users.View" },
+      { name: "Rollar",             href: "/roles",       icon: "shield",    permission: "Roles.View" },
       { name: "Tashqi ko'rinish",   href: "/appearance",  icon: "palette" },
     ],
   },
@@ -124,6 +112,7 @@ function NavIcon({ type, size = 16, strokeWidth = 2, color }: { type: string; si
   if (type === "palette")      return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12c0 5.52 4.48 10 10 10 1.1 0 2-.9 2-2 0-.54-.21-1.03-.54-1.4-.32-.36-.52-.85-.52-1.36 0-1.1.9-2 2-2h2.35C19.9 15.24 22 13.24 22 11c0-4.97-4.48-9-10-9z"/><circle cx="6.5" cy="11.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="9.5" cy="7.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="14.5" cy="7.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="17.5" cy="11.5" r="1.5" fill="currentColor" stroke="none"/></svg>;
   if (type === "settings")     return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
   if (type === "shopping-bag") return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>;
+  if (type === "layers")      return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><polygon points="12,2 2,7 12,12 22,7"/><polyline points="2,17 12,22 22,17"/><polyline points="2,12 12,17 22,12"/></svg>;
   return null;
 }
 
