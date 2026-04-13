@@ -12,6 +12,7 @@ public class RequisitionItem
     public string? FreeTextName { get; set; }
     public string? FreeTextUnit { get; set; }
     public string? FreeTextSpec { get; set; }
+    public string? FreeTextPhoto { get; set; }  // Base64 data URL
 
     public decimal Quantity { get; set; }
     public string? Notes { get; set; }

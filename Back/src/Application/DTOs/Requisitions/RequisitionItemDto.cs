@@ -9,6 +9,7 @@ public class RequisitionItemCreateDto
     public string? FreeTextName { get; set; }
     public string? FreeTextUnit { get; set; }
     public string? FreeTextSpec { get; set; }
+    public string? FreeTextPhoto { get; set; }
 
     public decimal Quantity { get; set; }
     public string? Notes { get; set; }
@@ -22,6 +23,7 @@ public class RequisitionItemResponseDto
     public string MaterialCode { get; set; } = string.Empty;
     public string Unit { get; set; } = string.Empty;
     public string? FreeTextSpec { get; set; }
+    public string? FreeTextPhoto { get; set; }
     public decimal Quantity { get; set; }
     public string? Notes { get; set; }
 }

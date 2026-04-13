@@ -577,6 +577,15 @@ namespace DataAccess.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<string>("SignDate")
+                        .HasColumnType("text");
+
+                    b.Property<string>("SignerName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("SignerTitle")
+                        .HasColumnType("text");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
@@ -603,6 +612,9 @@ namespace DataAccess.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("FreeTextName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("FreeTextPhoto")
                         .HasColumnType("text");
 
                     b.Property<string>("FreeTextSpec")

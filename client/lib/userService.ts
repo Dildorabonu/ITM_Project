@@ -1150,6 +1150,7 @@ export interface RequisitionItemCreate {
   freeTextName?: string;
   freeTextUnit?: string;
   freeTextSpec?: string;
+  freeTextPhoto?: string;
   quantity: number;
   notes?: string;
 }
@@ -1160,6 +1161,9 @@ export interface RequisitionCreate {
   departmentId?: string;
   purpose: string;
   notes?: string;
+  signerName?: string;
+  signerTitle?: string;
+  signDate?: string;
   items: RequisitionItemCreate[];
 }
 
@@ -1170,6 +1174,7 @@ export interface RequisitionItemResponse {
   materialCode: string;
   unit: string;
   freeTextSpec?: string;
+  freeTextPhoto?: string;
   quantity: number;
   notes?: string;
 }
@@ -1188,6 +1193,9 @@ export interface RequisitionResponse {
   purpose: string;
   notes?: string;
   rejectionReason?: string;
+  signerName?: string;
+  signerTitle?: string;
+  signDate?: string;
   approvedBy?: string;
   approvedByName?: string;
   approvedAt?: string;
@@ -1221,6 +1229,15 @@ export const requisitionService = {
   create: async (dto: RequisitionCreate): Promise<string> => {
     const res = await api.post("/api/requisition", dto);
     return res.data?.result as string;
+  },
+
+  uploadPhoto: async (file: File): Promise<string> => {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await api.post("/api/uploads/req-item-photo", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data?.url as string;
   },
 
   approve: async (id: string): Promise<void> => {

@@ -25,10 +25,11 @@ interface TableRow {
   quantity: string;
   spec: string;
   notes: string;
-  image: string; // base64 data URL
+  image: string;      // preview URL (objectURL yoki server URL)
+  imageFile: File | null; // yuklanadigan fayl (yangi tanlangan bo'lsa)
 }
 
-const emptyRow = (id: number): TableRow => ({ id, name: "", unit: "", quantity: "", spec: "", notes: "", image: "" });
+const emptyRow = (id: number): TableRow => ({ id, name: "", unit: "", quantity: "", spec: "", notes: "", image: "", imageFile: null });
 
 export default function RequisitionPrintPage() {
   const router = useRouter();
@@ -74,6 +75,7 @@ export default function RequisitionPrintPage() {
         spec: "",
         notes: "",
         image: ni.photoRaw ?? ni.photoSemi ?? "",
+        imageFile: null,
       }));
       setRows(newRows);
       showToast(`Me'yoriy sarfdan ${newRows.length} ta qator to'ldirildi`, "success");
@@ -90,8 +92,11 @@ export default function RequisitionPrintPage() {
   }, []);
 
   const handleClear = () => {
+    setRows(prev => {
+      prev.forEach(r => { if (r.image.startsWith("blob:")) URL.revokeObjectURL(r.image); });
+      return [emptyRow(1), emptyRow(2), emptyRow(3)];
+    });
     setDescription("");
-    setRows([emptyRow(1), emptyRow(2), emptyRow(3)]);
     setSignerName("");
     setSignerTitle("");
     setSignDate(new Date().toLocaleDateString("ru-RU").replace(/\//g, "."));
@@ -106,12 +111,16 @@ export default function RequisitionPrintPage() {
     setRows(r => r.map(row => row.id === id ? { ...row, [field]: value } : row));
 
   const handleImageUpload = (id: number, file: File) => {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const result = e.target?.result as string;
-      updateRow(id, "image", result);
-    };
-    reader.readAsDataURL(file);
+    const previewUrl = URL.createObjectURL(file);
+    setRows(r => r.map(row => row.id === id ? { ...row, image: previewUrl, imageFile: file } : row));
+  };
+
+  const handleImageRemove = (id: number) => {
+    setRows(r => r.map(row => {
+      if (row.id !== id) return row;
+      if (row.image.startsWith("blob:")) URL.revokeObjectURL(row.image);
+      return { ...row, image: "", imageFile: null };
+    }));
   };
 
   const handlePrint = () => window.print();
@@ -179,20 +188,45 @@ export default function RequisitionPrintPage() {
     doSaveSystem();
   };
 
+  const resolvePhotoUrl = async (row: TableRow): Promise<string | undefined> => {
+    if (!row.image) return undefined;
+    // Yangi tanlangan fayl — serverga yuklash
+    if (row.imageFile) {
+      return await requisitionService.uploadPhoto(row.imageFile);
+    }
+    // Me'yoriy sarfdan kelgan base64 — serverga yuklash
+    if (row.image.startsWith("data:")) {
+      const res = await fetch(row.image);
+      const blob = await res.blob();
+      const ext = blob.type.split("/")[1] ?? "jpg";
+      const file = new File([blob], `norm-photo.${ext}`, { type: blob.type });
+      return await requisitionService.uploadPhoto(file);
+    }
+    // Allaqachon URL (masalan, qayta saqlash)
+    return row.image;
+  };
+
   const doSaveSystem = async () => {
     setConfirmOpen(false);
     const filledRows = rows.filter(r => r.name.trim());
     setSavingSystem(true);
     try {
+      // Avval barcha rasmlarni serverga yuklab, URLlarini olamiz
+      const photoUrls = await Promise.all(filledRows.map(resolvePhotoUrl));
+
       await requisitionService.create({
         type,
         contractId: type === RequisitionType.Contract ? contractId : undefined,
         departmentId: type === RequisitionType.Individual ? departmentId : undefined,
         purpose: description || "Blank talabnoma",
-        items: filledRows.map(r => ({
+        signerName: signerName || undefined,
+        signerTitle: signerTitle || undefined,
+        signDate: signDate || undefined,
+        items: filledRows.map((r, i) => ({
           freeTextName: r.name,
           freeTextUnit: r.unit,
           freeTextSpec: r.spec,
+          freeTextPhoto: photoUrls[i] || undefined,
           quantity: Number(r.quantity) || 1,
           notes: r.notes || undefined,
         })),
@@ -567,7 +601,7 @@ export default function RequisitionPrintPage() {
                               onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(row.id, f); }} />
                             ✎
                           </label>
-                          <button onClick={() => updateRow(row.id, "image", "")} title="Rasmni o'chirish" style={{
+                          <button onClick={() => handleImageRemove(row.id)} title="Rasmni o'chirish" style={{
                             display: "inline-flex", alignItems: "center", gap: 2,
                             fontSize: 10, color: "#c00", cursor: "pointer",
                             background: "#fff0f0", border: "1px solid #f99",
