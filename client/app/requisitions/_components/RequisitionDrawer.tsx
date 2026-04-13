@@ -56,6 +56,9 @@ export function RequisitionDrawer({ req, onClose, onApprove, onReject, onSendToW
             <InfoCard label="Yaratuvchi" value={req.createdByName} />
             <InfoCard label="Yaratilgan" value={fmtDateTime(req.createdAt)} />
             {req.notes && <InfoCard label="Izoh" value={req.notes} full />}
+            {req.signerTitle && <InfoCard label="Lavozim" value={req.signerTitle} />}
+            {req.signerName && <InfoCard label="F.I.O." value={req.signerName} />}
+            {req.signDate && <InfoCard label="Imzo sanasi" value={req.signDate} />}
           </div>
         </section>
 

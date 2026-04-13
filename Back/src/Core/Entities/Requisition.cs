@@ -19,6 +19,11 @@ public class Requisition
     public string? Notes { get; set; }
     public string? RejectionReason { get; set; }
 
+    // Imzolash ma'lumotlari (blank forma uchun)
+    public string? SignerName { get; set; }
+    public string? SignerTitle { get; set; }
+    public string? SignDate { get; set; }
+
     // Tasdiqlash
     public Guid? ApprovedBy { get; set; }
     public DateTime? ApprovedAt { get; set; }

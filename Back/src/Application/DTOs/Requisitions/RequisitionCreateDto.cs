@@ -15,5 +15,10 @@ public class RequisitionCreateDto
     public string Purpose { get; set; } = string.Empty;
     public string? Notes { get; set; }
 
+    // Imzolash ma'lumotlari (blank forma uchun)
+    public string? SignerName { get; set; }
+    public string? SignerTitle { get; set; }
+    public string? SignDate { get; set; }
+
     public List<RequisitionItemCreateDto> Items { get; set; } = [];
 }

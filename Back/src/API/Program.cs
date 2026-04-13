@@ -126,6 +126,14 @@ namespace API
 
             app.UseCors();
 
+            // Yuklangan fayllarni (rasmlarni) statik fayl sifatida serve qilish
+            var uploadsPath = app.Services.GetRequiredService<IOptions<FileStorageOptions>>().Value.UploadsPath;
+            app.UseStaticFiles(new StaticFileOptions
+            {
+                FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadsPath),
+                RequestPath = "/uploads"
+            });
+
             app.UseAuthentication();
             app.UseAuthorization();
 
