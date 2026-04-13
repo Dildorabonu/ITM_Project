@@ -29,11 +29,14 @@ export function CheckSelect({ value, onChange, options, placeholder = "— Tanla
   useLayoutEffect(() => {
     if (!open || !triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
+    const minW = 160;
+    const dropW = Math.max(rect.width, minW);
+    const leftPos = rect.left + dropW > window.innerWidth ? window.innerWidth - dropW - 4 : rect.left;
     setDropdownStyle({
       position: "fixed",
       top: rect.bottom + 4,
-      left: rect.left,
-      width: rect.width,
+      left: leftPos,
+      width: dropW,
       zIndex: 9999,
     });
   }, [open]);
