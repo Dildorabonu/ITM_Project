@@ -541,6 +541,9 @@ export default function RequisitionPrintPage() {
               color: "#000",
               cursor: "text",
               verticalAlign: "baseline",
+              wordBreak: "break-word",
+              overflowWrap: "break-word",
+              whiteSpace: "pre-wrap",
             }}
           />{" "}
           омбордан берилиши учун рухсат беришингизни сўрайман.
