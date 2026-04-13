@@ -137,40 +137,36 @@ function RequisitionsContent() {
       ) : filtered.length === 0 ? (
         <div style={{ textAlign: "center", padding: 60, color: "var(--text3)" }}>Talabnomalar topilmadi</div>
       ) : (
-        <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius2)", overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <div className="itm-card" style={{ padding: 0, overflow: "hidden" }}>
+          <div style={{ overflowX: "auto" }}>
+          <table className="itm-table" style={{ tableLayout: "auto" }}>
             <thead>
-              <tr style={{ background: "var(--bg3)" }}>
-                {["Raqam", "Turi", "Maqsad", "Shartnoma / Bo'lim", "Materiallar", "Yaratuvchi", "Sana", "Holat"].map(h => (
-                  <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>{h}</th>
+              <tr>
+                {["Raqam", "Turi", "Shartnoma / Bo'lim", "Yaratuvchi", "Sana"].map(h => (
+                  <th key={h}>{h}</th>
                 ))}
-                <th style={{ padding: "10px 14px", textAlign: "center", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", borderLeft: "2px solid var(--border)", whiteSpace: "nowrap" }}>Amal</th>
+                <th style={{ minWidth: 160 }}>Holat</th>
+                <th style={{ borderLeft: "2px solid var(--border)", textAlign: "center" }}>Amal</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map(r => (
-                <tr
-                  key={r.id}
-                  style={{ borderBottom: "1px solid var(--border)", transition: "background 0.12s" }}
-                >
-                  <td style={{ padding: "10px 14px", fontWeight: 700, color: "var(--accent)", fontFamily: "var(--font-mono)", fontSize: 12 }}>{r.requisitionNo}</td>
-                  <td style={{ padding: "10px 14px", color: "var(--text2)" }}>{r.typeLabel}</td>
-                  <td style={{ padding: "10px 14px", color: "var(--text1)", maxWidth: 200 }}>
-                    <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.purpose}</div>
-                  </td>
-                  <td style={{ padding: "10px 14px", color: "var(--text2)" }}>{r.contractNo ?? r.departmentName ?? "—"}</td>
-                  <td style={{ padding: "10px 14px", color: "var(--text2)", textAlign: "center" }}>{r.items.length}</td>
-                  <td style={{ padding: "10px 14px", color: "var(--text2)" }}>{r.createdByName}</td>
-                  <td style={{ padding: "10px 14px", color: "var(--text3)", whiteSpace: "nowrap" }}>{fmtDate(r.createdAt)}</td>
-                  <td style={{ padding: "10px 14px" }}><RequisitionStatusBadge status={r.status} small /></td>
-                  <td style={{ padding: "6px 10px", borderLeft: "2px solid var(--border)", textAlign: "center" }}
+                <tr key={r.id}>
+                  <td style={{ fontWeight: 700, color: "var(--accent)", fontFamily: "var(--font-mono)", fontSize: 12, textAlign: "left" }}>{r.requisitionNo}</td>
+                  <td style={{ textAlign: "left" }}>{r.typeLabel}</td>
+                  <td style={{ textAlign: "left" }}>{r.contractNo ?? r.departmentName ?? "—"}</td>
+                  <td style={{ textAlign: "left" }}>{r.createdByName}</td>
+                  <td style={{ color: "var(--text3)" }}>{fmtDate(r.createdAt)}</td>
+                  <td><RequisitionStatusBadge status={r.status} small /></td>
+                  <td className="td-actions" style={{ borderLeft: "2px solid var(--border)" }}
                     onClick={e => e.stopPropagation()}
                   >
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
                       <button
                         className="btn-icon"
                         title="Ko'rish"
                         onClick={() => setDrawerReq(r)}
+                        style={{ color: "#0ea5e9", borderColor: "#0ea5e933", background: "#0ea5e912" }}
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
@@ -198,6 +194,7 @@ function RequisitionsContent() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
