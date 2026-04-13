@@ -28,6 +28,7 @@ import {
   type CostNormItemResponse,
   type TechnicalDrawingResponse,
   parseMainTables,
+  fmt,
 } from "./_types";
 import { TpBadge } from "./_components/TpBadge";
 import { CnBadge } from "./_components/CnBadge";
@@ -523,44 +524,106 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
     );
   }
 
-  // CN: detail view
+  // TP: detail view
   if (tpMode === "detail" && tpSelected) {
+    const canApprove = tpSelected.status === ProcessStatus.InProgress;
     return (
-      <div style={{ display:"flex",flexDirection:"column",flex:1,minHeight:0 }}>
-        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexShrink:0,flexWrap:"wrap",gap:8 }}>
-          <button onClick={()=>{ setTpMode("list"); setTpSelected(null); }}
-            style={{ display:"inline-flex",alignItems:"center",gap:6,background:"var(--bg3)",border:"1.5px solid var(--border)",borderRadius:"var(--radius)",cursor:"pointer",padding:"7px 14px",color:"var(--text2)",fontSize:13,fontWeight:500 }}
-            onMouseEnter={e=>{ e.currentTarget.style.borderColor="var(--accent)"; e.currentTarget.style.color="var(--accent)"; }}
-            onMouseLeave={e=>{ e.currentTarget.style.borderColor="var(--border)"; e.currentTarget.style.color="var(--text2)"; }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-            Orqaga
-          </button>
-        </div>
-        <div className="itm-card" style={{ padding:"14px 20px",display:"flex",alignItems:"center",gap:16,flexShrink:0,flexWrap:"wrap" }}>
-          <div style={{ flex:1,minWidth:0 }}>
-            <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Shartnoma</div>
-            <div style={{ fontWeight:700,fontSize:15,color:"var(--accent)" }}>{tpSelected.contractNo}</div>
-          </div>
-          <div style={{ flex:2,minWidth:0 }}>
-            <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Nomi</div>
-            <div style={{ fontWeight:600,fontSize:14,color:"var(--text1)" }}>{tpSelected.title}</div>
-          </div>
-          <div>
-            <div style={{ fontSize:11,color:"var(--text3)",marginBottom:4 }}>Holat</div>
+      <div style={{ display:"flex",flexDirection:"column",flex:1,gap:16 }}>
+
+        {/* Header */}
+        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10 }}>
+          <div style={{ display:"flex",alignItems:"center",gap:10 }}>
+            <button onClick={()=>{ setTpMode("list"); setTpSelected(null); }}
+              style={{ display:"inline-flex",alignItems:"center",gap:6,background:"var(--bg3)",border:"1.5px solid var(--border)",borderRadius:"var(--radius)",cursor:"pointer",padding:"7px 14px",color:"var(--text2)",fontSize:13,fontWeight:500 }}
+              onMouseEnter={e=>{ e.currentTarget.style.borderColor="var(--accent)"; e.currentTarget.style.color="var(--accent)"; }}
+              onMouseLeave={e=>{ e.currentTarget.style.borderColor="var(--border)"; e.currentTarget.style.color="var(--text2)"; }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+              Orqaga
+            </button>
+            <span style={{ color:"var(--border)" }}>|</span>
+            <span style={{ fontWeight:700,fontSize:17,color:"var(--text1)" }}>Texnologik jarayon</span>
             <TpBadge status={tpSelected.status}/>
           </div>
-          {tpDetailFiles.length>0&&(
-            <div style={{ display:"flex",gap:6,flexWrap:"wrap",width:"100%" }}>
+          {canApprove&&(
+            <button onClick={async()=>{ setTpApprovingId(tpSelected.id); try { await techProcessService.approve(tpSelected.id); await tpRefreshSelected(tpSelected.id); } finally { setTpApprovingId(null); } }} disabled={tpApprovingId===tpSelected.id}
+              style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"7px 16px",borderRadius:"var(--radius)",border:"1px solid rgba(15,123,69,0.3)",background:"var(--success-dim)",color:"var(--success)",fontSize:13,fontWeight:600,cursor:"pointer",opacity:tpApprovingId===tpSelected.id?0.6:1 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              {tpApprovingId===tpSelected.id?"Tasdiqlanmoqda...":"Tasdiqlash"}
+            </button>
+          )}
+        </div>
+
+        {/* Main info card */}
+        <div className="itm-card" style={{ overflow:"hidden" }}>
+          <div style={{ padding:"11px 20px",borderBottom:"1.5px solid var(--border)",display:"flex",alignItems:"center",gap:7 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+            <span style={{ fontWeight:600,fontSize:13,color:"var(--text1)" }}>Asosiy ma&apos;lumotlar</span>
+          </div>
+          <div style={{ padding:"18px 20px",display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"16px 24px" }}>
+            <div>
+              <div style={{ fontSize:11,color:"var(--text3)",marginBottom:4,fontWeight:500 }}>Shartnoma</div>
+              <div style={{ fontSize:14,fontWeight:700,color:"var(--accent)" }}>{tpSelected.contractNo}</div>
+            </div>
+            <div style={{ gridColumn:"span 2" }}>
+              <div style={{ fontSize:11,color:"var(--text3)",marginBottom:4,fontWeight:500 }}>Nomi</div>
+              <div style={{ fontSize:14,fontWeight:600,color:"var(--text1)" }}>{tpSelected.title}</div>
+            </div>
+            <div>
+              <div style={{ fontSize:11,color:"var(--text3)",marginBottom:6,fontWeight:500 }}>Holat</div>
+              <TpBadge status={tpSelected.status}/>
+            </div>
+            <div>
+              <div style={{ fontSize:11,color:"var(--text3)",marginBottom:4,fontWeight:500 }}>Yaratilgan sana</div>
+              <div style={{ fontSize:13,color:"var(--text1)" }}>{fmt(tpSelected.createdAt)}</div>
+            </div>
+            {tpSelected.approvedByFullName&&(
+              <div>
+                <div style={{ fontSize:11,color:"var(--text3)",marginBottom:4,fontWeight:500 }}>Tasdiqlagan</div>
+                <div style={{ fontSize:13,color:"var(--text1)" }}>{tpSelected.approvedByFullName}</div>
+              </div>
+            )}
+            {tpSelected.approvedAt&&(
+              <div>
+                <div style={{ fontSize:11,color:"var(--text3)",marginBottom:4,fontWeight:500 }}>Tasdiqlangan sana</div>
+                <div style={{ fontSize:13,color:"var(--text1)" }}>{fmt(tpSelected.approvedAt)}</div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Notes card */}
+        {tpSelected.notes&&(
+          <div className="itm-card" style={{ overflow:"hidden" }}>
+            <div style={{ padding:"11px 20px",borderBottom:"1.5px solid var(--border)",display:"flex",alignItems:"center",gap:7 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              <span style={{ fontWeight:600,fontSize:13,color:"var(--text1)" }}>Izoh</span>
+            </div>
+            <div style={{ padding:"14px 20px",fontSize:13,color:"var(--text1)",lineHeight:1.7,whiteSpace:"pre-wrap" }}>{tpSelected.notes}</div>
+          </div>
+        )}
+
+        {/* Files card */}
+        {tpDetailFiles.length>0&&(
+          <div className="itm-card" style={{ overflow:"hidden" }}>
+            <div style={{ padding:"11px 20px",borderBottom:"1.5px solid var(--border)",display:"flex",alignItems:"center",gap:7 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span style={{ fontWeight:600,fontSize:13,color:"var(--text1)" }}>Fayllar</span>
+              <span style={{ fontSize:11,fontWeight:600,background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:20,padding:"1px 8px",color:"var(--text3)" }}>{tpDetailFiles.length} ta</span>
+            </div>
+            <div style={{ padding:"14px 20px",display:"flex",gap:8,flexWrap:"wrap" }}>
               {tpDetailFiles.map(f=>(
                 <button key={f.id} onClick={()=>techProcessService.downloadFile(tpSelected.id,f.id,f.fileName)}
-                  style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:6,border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text1)",fontSize:12,cursor:"pointer" }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"7px 14px",borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg2)",color:"var(--text1)",fontSize:13,cursor:"pointer",transition:"border-color 0.14s,background 0.14s" }}
+                  onMouseEnter={e=>{ e.currentTarget.style.borderColor="var(--accent)"; e.currentTarget.style.background="var(--accent-dim)"; }}
+                  onMouseLeave={e=>{ e.currentTarget.style.borderColor="var(--border)"; e.currentTarget.style.background="var(--bg2)"; }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                   {f.fileName}
                 </button>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
       </div>
     );
   }
@@ -577,21 +640,10 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
             Orqaga
           </button>
         </div>
-        <div className="itm-card" style={{ padding:"14px 20px",marginBottom:16,display:"flex",alignItems:"center",gap:16,flexShrink:0,flexWrap:"wrap" }}>
-          <div style={{ flex:1,minWidth:0 }}>
-            <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Shartnoma</div>
-            <div style={{ fontWeight:700,fontSize:15,color:"var(--accent)" }}>{cnSelected.contractNo}</div>
-          </div>
-          <div style={{ flex:2,minWidth:0 }}>
-            <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Nomi</div>
-            <div style={{ fontWeight:600,fontSize:14,color:"var(--text1)" }}>{cnSelected.title}</div>
-          </div>
-          <div>
-            <div style={{ fontSize:11,color:"var(--text3)",marginBottom:4 }}>Holat</div>
-            <CnBadge status={cnSelected.status}/>
-          </div>
-          {cnDetailFiles.length>0&&(
-            <div style={{ display:"flex",gap:6,flexWrap:"wrap" }}>
+        <div className="itm-card" style={{ marginBottom:16,flexShrink:0,overflow:"hidden" }}>
+          <div style={{ padding:"11px 20px",borderBottom:"1.5px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8 }}>
+            <span style={{ fontWeight:600,fontSize:13,color:"var(--text1)" }}>Asosiy ma&apos;lumotlar</span>
+            <div style={{ display:"flex",gap:6,flexWrap:"wrap",alignItems:"center" }}>
               {cnDetailFiles.map(f=>(
                 <a key={f.id} href={`/api/costnorms/${cnSelected.id}/files/${f.id}`} download={f.fileName}
                   style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:6,border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text1)",fontSize:12,textDecoration:"none",cursor:"pointer" }}>
@@ -599,11 +651,25 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
                   {f.fileName}
                 </a>
               ))}
+              <button onClick={()=>setCnShowPhotos(p=>!p)} style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:6,border:"1px solid var(--border)",background:cnShowPhotos?"var(--accent-dim)":"var(--bg2)",color:cnShowPhotos?"var(--accent)":"var(--text2)",fontSize:12,cursor:"pointer" }}>
+                {cnShowPhotos?<ImageIcon size={12}/>:<ImageOff size={12}/>} {cnShowPhotos?"Fotolarni yashirish":"Fotolarni ko'rsatish"}
+              </button>
             </div>
-          )}
-          <button onClick={()=>setCnShowPhotos(p=>!p)} style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"6px 12px",borderRadius:"var(--radius)",border:"1px solid var(--border)",background:cnShowPhotos?"var(--accent-dim)":"var(--bg2)",color:cnShowPhotos?"var(--accent)":"var(--text2)",fontSize:12,cursor:"pointer" }}>
-            {cnShowPhotos?<ImageIcon size={12}/>:<ImageOff size={12}/>} {cnShowPhotos?"Fotolarni yashirish":"Fotolarni ko'rsatish"}
-          </button>
+          </div>
+          <div style={{ padding:"14px 20px",display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"12px 24px" }}>
+            <div>
+              <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Shartnoma</div>
+              <div style={{ fontWeight:700,fontSize:15,color:"var(--accent)" }}>{cnSelected.contractNo}</div>
+            </div>
+            <div style={{ gridColumn:"span 2" }}>
+              <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Nomi</div>
+              <div style={{ fontWeight:600,fontSize:14,color:"var(--text1)" }}>{cnSelected.title}</div>
+            </div>
+            <div>
+              <div style={{ fontSize:11,color:"var(--text3)",marginBottom:4 }}>Holat</div>
+              <CnBadge status={cnSelected.status}/>
+            </div>
+          </div>
         </div>
         <div className="itm-card" style={{ flex:1,display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden" }}>
           <div style={{ flex:1,overflowX:"auto",overflowY:"auto" }}>
