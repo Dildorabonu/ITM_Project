@@ -22,6 +22,7 @@ public class ContractService : IContractService
     {
         var query = _context.Contracts
             .Include(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
+            .Include(c => c.ContractUsers).ThenInclude(cu => cu.User).ThenInclude(u => u.Department)
             .Include(c => c.Creator)
             .AsNoTracking()
             .AsQueryable();
@@ -523,7 +524,8 @@ public class ContractService : IContractService
             ? $"{contract.Creator.FirstName} {contract.Creator.LastName}"
             : null,
         CreatedAt = contract.CreatedAt,
-        AssignedUsers = contract.ContractUsers
+        AssignedUsers = (contract.ContractUsers ?? [])
+            .Where(cu => cu.User is not null)
             .Select(cu => new ContractUserDto
             {
                 UserId         = cu.UserId,

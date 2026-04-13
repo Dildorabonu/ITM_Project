@@ -29,15 +29,18 @@ public class ContractController : ControllerBase
     {
         var canView    = User.HasClaim("perm", "Contracts.View");
         var viewAll    = User.HasClaim("perm", "Contracts.ViewAll");
+        var roleName = User.FindFirstValue(ClaimTypes.Role) ?? "";
+        var isDirector = roleName.Equals("director", StringComparison.OrdinalIgnoreCase)
+                      || roleName.Equals("bosh direktor", StringComparison.OrdinalIgnoreCase);
 
-        if (!canView && !viewAll)
+        if (!canView && !viewAll && !isDirector)
             return Forbid();
 
         var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!Guid.TryParse(userIdClaim, out var userId))
             return Unauthorized();
 
-        var result = await _contractService.GetAllAsync(userId, viewAll, status, departmentId);
+        var result = await _contractService.GetAllAsync(userId, viewAll || isDirector, status, departmentId);
         return Ok(result);
     }
 

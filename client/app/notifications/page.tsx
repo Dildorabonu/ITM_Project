@@ -338,7 +338,7 @@ export default function NotificationsPage() {
                       {infoRow("Holati", statusLabels[contractDetail.status] || String(contractDetail.status))}
                       {infoRow("Muhimlik darajasi", priorityLabels[contractDetail.priority] || String(contractDetail.priority), priorityColors[contractDetail.priority])}
                       {infoRow("Boshlanish sanasi", formatDate(contractDetail.startDate))}
-                      {infoRow("Tugash sanasi (Deadline)", formatDate(contractDetail.endDate))}
+                      {infoRow("Tugash sanasi", formatDate(contractDetail.endDate))}
                       {infoRow("Yaratgan", contractDetail.createdByFullName || "—")}
                       {infoRow("Yaratilgan sana", formatFullDate(contractDetail.createdAt))}
                       {contractDetail.departments.length > 0 && infoRow("Bo'limlar", contractDetail.departments.map(d => d.name).join(", "))}

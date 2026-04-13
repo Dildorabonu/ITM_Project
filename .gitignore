@@ -12,6 +12,7 @@ server/alembic/versions/__pycache__/
 *.pyo
 
 # Node
+node_modules/
 client/node_modules/
 server/node_modules/
 

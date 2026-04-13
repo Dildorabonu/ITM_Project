@@ -29,6 +29,7 @@ interface AuthState {
   logout: () => Promise<void>;
   hasPermission: (permission: string) => boolean;
   hasModulePermission: (module: string) => boolean;
+  isDirector: () => boolean;
 }
 
 function parseJwt(token: string): Record<string, unknown> | null {
@@ -100,6 +101,12 @@ export const useAuthStore = create<AuthState>()(
       hasModulePermission: (module: string) => {
         const { user } = get();
         return user?.permissions.some((p) => p.startsWith(`${module}.`)) ?? false;
+      },
+
+      isDirector: () => {
+        const { user } = get();
+        const r = (user?.role ?? "").toLowerCase();
+        return r === "director" || r === "bosh direktor";
       },
     }),
     {

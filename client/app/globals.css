@@ -759,8 +759,8 @@ body {
 .nd-hero-role {
   background: rgba(255,255,255,0.2); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
   border-radius: 3px; padding: 3px 10px;
-  font-size: 11px; font-weight: 600; letter-spacing: 0.5px;
-  text-transform: uppercase;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.2px;
+  text-transform: none;
 }
 
 /* Hero decorative shapes */
@@ -801,8 +801,8 @@ body {
 
 .nd-stat-info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
 .nd-stat-label {
-  font-size: 11px; color: var(--text3); letter-spacing: 0.8px;
-  text-transform: uppercase; font-weight: 500;
+  font-size: 11px; color: var(--text3); letter-spacing: 0.3px;
+  text-transform: none; font-weight: 500;
 }
 .nd-stat-value {
   font-size: 26px; font-weight: 800; color: var(--text);
@@ -846,8 +846,8 @@ body {
   display: flex; align-items: center; gap: 8px;
   font-size: 12px; font-weight: 700;
   color: var(--text2);
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
+  text-transform: none;
+  letter-spacing: 0.2px;
   margin-bottom: 10px;
 }
 .nd-dept-compact-title svg {
@@ -875,7 +875,7 @@ body {
   display: flex; align-items: center; gap: 8px;
   padding: 14px 18px; border-bottom: 1.5px solid var(--border);
   font-size: 14px; font-weight: 700; color: var(--text);
-  text-transform: uppercase; letter-spacing: 0.3px;
+  text-transform: none; letter-spacing: 0.1px;
   background: var(--bg3);
 }
 .nd-section-link {
@@ -964,7 +964,7 @@ body {
 }
 .nd-ring-label {
   font-size: 11px; color: var(--text3); font-weight: 500;
-  text-transform: uppercase; letter-spacing: 0.5px;
+  text-transform: none; letter-spacing: 0.2px;
 }
 
 /* ── Department Bars ── */
@@ -973,8 +973,8 @@ body {
   border-top: 1px solid var(--border);
 }
 .nd-dept-bars-title {
-  font-size: 11px; color: var(--text3); text-transform: uppercase;
-  letter-spacing: 0.8px; font-weight: 600; margin-bottom: 12px;
+  font-size: 11px; color: var(--text3); text-transform: none;
+  letter-spacing: 0.3px; font-weight: 600; margin-bottom: 12px;
 }
 .nd-dept-bar-row {
   display: flex; align-items: center; gap: 10px;
@@ -1215,11 +1215,26 @@ body {
 
 .nd-deadline-date { font-size: 11px; color: var(--text3); }
 
+/* ── Deadlines Toggle ── */
+.nd-deadlines-toggle {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; padding: 10px 0;
+  background: none; border: none; border-top: 1px solid var(--border);
+  color: var(--text3); font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: color 0.2s, background 0.2s;
+}
+.nd-deadlines-toggle:hover {
+  color: var(--accent); background: var(--accent-dim);
+}
+.nd-deadlines-toggle svg {
+  transition: transform 0.3s ease;
+}
+
 /* ── Department Activity ── */
 .nd-dept-activity { padding: 16px 18px; }
 .nd-dept-activity-subtitle {
-  font-size: 11px; color: var(--text3); text-transform: uppercase;
-  letter-spacing: 0.8px; font-weight: 600; margin-bottom: 14px;
+  font-size: 11px; color: var(--text3); text-transform: none;
+  letter-spacing: 0.3px; font-weight: 600; margin-bottom: 14px;
 }
 
 .nd-activity-row {
@@ -1256,8 +1271,8 @@ body {
 
 .nd-activity-type-badge {
   font-size: 10px; font-weight: 600; padding: 2px 6px;
-  border-radius: 3px; text-transform: uppercase;
-  letter-spacing: 0.3px; white-space: nowrap;
+  border-radius: 3px; text-transform: none;
+  letter-spacing: 0.1px; white-space: nowrap;
 }
 .nd-activity-type-badge.at-production { background: var(--accent-dim); color: var(--accent); }
 .nd-activity-type-badge.at-management { background: var(--purple-dim); color: var(--purple); }
@@ -1465,8 +1480,8 @@ body {
   padding: 12px 8px;
   font-size: 11px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  text-transform: none;
+  letter-spacing: 0.2px;
   color: var(--text3);
   text-align: center;
   background: var(--surface);
@@ -1543,6 +1558,7 @@ body {
   text-align: center;
   position: relative;
   padding: 28px 4px;
+  cursor: pointer;
 }
 .pm-cell-current {
   background: var(--stg-dim, rgba(26,110,235,0.04));

@@ -286,10 +286,14 @@ export default function DashboardPage() {
   const accessToken = useAuthStore((s) => s.accessToken);
   const hasPermission = useAuthStore((s) => s.hasPermission);
 
-  const canViewUsers = hasPermission("Users.View");
-  const canViewDepts = hasPermission("Departments.View");
-  const canViewContracts = hasPermission("Contracts.View") || hasPermission("Contracts.ViewAll");
-  const canViewRoles = hasPermission("Roles.View");
+  const isDirector = useAuthStore((s) => s.isDirector);
+  const directorMode = isDirector();
+
+  // Direktor dashboardda faqat bo'limlar va shartnomalarni ko'radi
+  const canViewUsers = !directorMode && hasPermission("Users.View");
+  const canViewDepts = directorMode || hasPermission("Departments.View");
+  const canViewContracts = directorMode || hasPermission("Contracts.View") || hasPermission("Contracts.ViewAll");
+  const canViewRoles = !directorMode && hasPermission("Roles.View");
 
   const [loading, setLoading] = useState(true);
   const [usersData, setUsersData] = useState<PagedResult<UserResponse> | null>(null);
@@ -340,14 +344,16 @@ export default function DashboardPage() {
   const animContracts = useCountUp(activeContracts);
   const animRoles = useCountUp(totalRoles);
 
-  // Upcoming deadlines - active contracts sorted by endDate
-  const upcomingDeadlines = useMemo(() =>
+  // Barcha shartnomalar tugash muddatiga qarab tartiblangan
+  const allContractsByDeadline = useMemo(() =>
     contracts
       .filter(c => c.status !== ContractStatus.Completed && c.status !== ContractStatus.Cancelled)
-      .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime())
-      .slice(0, 6),
+      .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime()),
     [contracts]
   );
+
+  const [deadlinesExpanded, setDeadlinesExpanded] = useState(false);
+  const [pipeExpanded, setPipeExpanded] = useState(false);
 
   // Department activity - count active contracts per department
   const deptActivity = useMemo(() => {
@@ -420,7 +426,7 @@ export default function DashboardPage() {
       {/* ═══ Stats Row ═══ */}
       <div className="nd-stats-row">
         {canViewUsers && (
-          <div className="nd-stat-card nd-glow-hover nd-stagger-0" onClick={() => router.push("/users")}>
+          <div className="nd-stat-card nd-glow-hover nd-stagger-0" onClick={directorMode ? undefined : () => router.push("/users")} style={directorMode ? { cursor: "default" } : undefined}>
             <div className="nd-stat-icon ic-accent"><UsersSmIcon /></div>
             <div className="nd-stat-info">
               <span className="nd-stat-label">Foydalanuvchilar</span>
@@ -431,7 +437,7 @@ export default function DashboardPage() {
           </div>
         )}
         {canViewDepts && (
-          <div className="nd-stat-card nd-glow-hover nd-stagger-1" onClick={() => router.push("/departments")}>
+          <div className="nd-stat-card nd-glow-hover nd-stagger-1" onClick={directorMode ? undefined : () => router.push("/departments")} style={directorMode ? { cursor: "default" } : undefined}>
             <div className="nd-stat-icon ic-warn"><DeptSmIcon /></div>
             <div className="nd-stat-info">
               <span className="nd-stat-label">Faol bo&apos;limlar</span>
@@ -442,7 +448,7 @@ export default function DashboardPage() {
           </div>
         )}
         {canViewContracts && (
-          <div className="nd-stat-card nd-glow-hover nd-stagger-2" onClick={() => router.push("/contracts")}>
+          <div className="nd-stat-card nd-glow-hover nd-stagger-2" onClick={directorMode ? undefined : () => router.push("/contracts")} style={directorMode ? { cursor: "default" } : undefined}>
             <div className="nd-stat-icon ic-success"><ContractSmIcon /></div>
             <div className="nd-stat-info">
               <span className="nd-stat-label">Faol shartnomalar</span>
@@ -455,7 +461,7 @@ export default function DashboardPage() {
           </div>
         )}
         {canViewRoles && (
-          <div className="nd-stat-card nd-glow-hover nd-stagger-3" onClick={() => router.push("/roles")}>
+          <div className="nd-stat-card nd-glow-hover nd-stagger-3" onClick={directorMode ? undefined : () => router.push("/roles")} style={directorMode ? { cursor: "default" } : undefined}>
             <div className="nd-stat-icon ic-purple"><RoleSmIcon /></div>
             <div className="nd-stat-info">
               <span className="nd-stat-label">Rollar</span>
@@ -474,52 +480,72 @@ export default function DashboardPage() {
           <div className="nd-section nd-glow-hover">
             <div className="nd-section-header">
               <ClockIcon />
-              <span>Yaqinlashayotgan deadlinelar</span>
-              <button type="button" className="nd-section-link" onClick={() => router.push("/contracts")}>
-                Barchasini ko&apos;rish <ArrowRightIcon />
-              </button>
+              <span>Faol shartnomalar</span>
+              {!directorMode && (
+                <button type="button" className="nd-section-link" onClick={() => router.push("/contracts")}>
+                  Barchasini ko&apos;rish <ArrowRightIcon />
+                </button>
+              )}
             </div>
             <div className="nd-deadline-list">
-              {upcomingDeadlines.length === 0 ? (
+              {allContractsByDeadline.length === 0 ? (
                 <div className="nd-empty">
                   <CheckCircleIcon />
-                  <span>Yaqin deadline topilmadi</span>
+                  <span>Faol shartnoma topilmadi</span>
                 </div>
               ) : (
-                upcomingDeadlines.map((c, i) => {
-                  const days = daysUntil(c.endDate);
-                  const urgency = deadlineUrgency(days);
-                  const endDate = new Date(c.endDate);
-                  return (
-                    <div
-                      key={c.id}
-                      className={`nd-deadline-item nd-fadein-${Math.min(i, 4)} dl-${urgency}`}
-                      onClick={() => router.push(`/contracts`)}
+                <>
+                  {(deadlinesExpanded ? allContractsByDeadline : allContractsByDeadline.slice(0, 3)).map((c, i) => {
+                    const days = daysUntil(c.endDate);
+                    const urgency = deadlineUrgency(days);
+                    const endDate = new Date(c.endDate);
+                    return (
+                      <div
+                        key={c.id}
+                        className={`nd-deadline-item nd-fadein-${Math.min(i, 4)} dl-${urgency}`}
+                        onClick={directorMode ? undefined : () => router.push(`/contracts`)}
+                        style={directorMode ? { cursor: "default" } : undefined}
+                      >
+                        <div className="nd-deadline-left">
+                          <div className={`nd-deadline-urgency-dot dl-dot-${urgency}`} />
+                          <div className="nd-deadline-info">
+                            <div className="nd-deadline-contract">{c.contractNo}</div>
+                            <div className="nd-deadline-product">{c.productType} — {c.contractParty}</div>
+                          </div>
+                        </div>
+                        <div className="nd-deadline-right">
+                          <div className={`nd-deadline-days dl-days-${urgency}`}>
+                            {urgency === "passed" ? (
+                              <><AlertTriangleIcon /> {Math.abs(days)} kun o&apos;tgan</>
+                            ) : days === 0 ? (
+                              <><AlertTriangleIcon /> Bugun</>
+                            ) : (
+                              <>{days} kun qoldi</>
+                            )}
+                          </div>
+                          <div className="nd-deadline-date">
+                            {formatUzDate(endDate, "short")}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {allContractsByDeadline.length > 3 && (
+                    <button
+                      type="button"
+                      className="nd-deadlines-toggle"
+                      onClick={() => setDeadlinesExpanded(prev => !prev)}
                     >
-                      <div className="nd-deadline-left">
-                        <div className={`nd-deadline-urgency-dot dl-dot-${urgency}`} />
-                        <div className="nd-deadline-info">
-                          <div className="nd-deadline-contract">{c.contractNo}</div>
-                          <div className="nd-deadline-product">{c.productType} — {c.contractParty}</div>
-                        </div>
-                      </div>
-                      <div className="nd-deadline-right">
-                        <div className={`nd-deadline-days dl-days-${urgency}`}>
-                          {urgency === "passed" ? (
-                            <><AlertTriangleIcon /> {Math.abs(days)} kun o&apos;tgan</>
-                          ) : days === 0 ? (
-                            <><AlertTriangleIcon /> Bugun</>
-                          ) : (
-                            <>{days} kun qoldi</>
-                          )}
-                        </div>
-                        <div className="nd-deadline-date">
-                          {formatUzDate(endDate, "short")}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
+                      <svg
+                        width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
+                        style={{ transition: "transform 0.3s ease", transform: deadlinesExpanded ? "rotate(180deg)" : "rotate(0deg)" }}
+                      >
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                      <span>{deadlinesExpanded ? "Yopish" : `Yana ${allContractsByDeadline.length - 3} ta shartnoma`}</span>
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -598,18 +624,18 @@ export default function DashboardPage() {
       {/* ═══ Production Pipeline Board ═══ */}
       {canViewContracts && (() => {
         const STAGES = [
-          { status: ContractStatus.Draft, label: "Shartnoma", color: "stg-blue" },
-          { status: ContractStatus.DrawingPending, label: "Chizma", color: "stg-indigo" },
-          { status: ContractStatus.TechProcessing, label: "Tex. jarayon", color: "stg-violet" },
-          { status: ContractStatus.TechProcessApproved, label: "Tasdiqlash", color: "stg-purple" },
-          { status: ContractStatus.WarehouseCheck, label: "Ombor", color: "stg-amber" },
-          { status: ContractStatus.InProduction, label: "Ishlab chiq.", color: "stg-emerald" },
-          { status: ContractStatus.Completed, label: "Yakunlandi", color: "stg-green" },
+          { status: ContractStatus.Draft, label: "Shartnoma", color: "stg-blue", route: "/contracts" },
+          { status: ContractStatus.DrawingPending, label: "Chizma", color: "stg-indigo", route: "/technicaldrawings" },
+          { status: ContractStatus.TechProcessing, label: "Tex. jarayon", color: "stg-violet", route: "/techprocess" },
+          { status: ContractStatus.TechProcessApproved, label: "Tasdiqlash", color: "stg-purple", route: "/techprocess" },
+          { status: ContractStatus.WarehouseCheck, label: "Ombor", color: "stg-amber", route: "/warehouse" },
+          { status: ContractStatus.InProduction, label: "Ishlab chiq.", color: "stg-emerald", route: "/tasks" },
+          { status: ContractStatus.Completed, label: "Yakunlandi", color: "stg-green", route: "/contracts" },
         ];
         const statusOrder = STAGES.map(s => s.status);
-        const pipeContracts = contracts
-          .filter(c => c.status !== ContractStatus.Cancelled && c.status !== ContractStatus.Completed)
-          .slice(0, 8);
+        const allPipeContracts = contracts
+          .filter(c => c.status !== ContractStatus.Cancelled && c.status !== ContractStatus.Completed);
+        const pipeContracts = pipeExpanded ? allPipeContracts : allPipeContracts.slice(0, 3);
 
         if (pipeContracts.length === 0) return null;
 
@@ -631,12 +657,14 @@ export default function DashboardPage() {
                 <div className="pm-header-icon"><LayersIcon /></div>
                 <div>
                   <h2 className="pm-title">Ishlab chiqarish jarayoni</h2>
-                  <p className="pm-subtitle">{pipeContracts.length} ta faol shartnoma</p>
+                  <p className="pm-subtitle">{allPipeContracts.length} ta faol shartnoma</p>
                 </div>
               </div>
-              <button type="button" className="pm-view-all" onClick={() => router.push("/contracts")}>
-                Barchasini ko&apos;rish <ArrowRightIcon />
-              </button>
+              {!directorMode && (
+                <button type="button" className="pm-view-all" onClick={() => router.push("/contracts")}>
+                  Barchasini ko&apos;rish <ArrowRightIcon />
+                </button>
+              )}
             </div>
 
             {/* Stage summary chips */}
@@ -668,7 +696,7 @@ export default function DashboardPage() {
                     const currentIdx = statusOrder.indexOf(contract.status);
                     const progressPct = Math.round((currentIdx / (STAGES.length - 1)) * 100);
                     return (
-                      <tr key={contract.id} className={`pm-row pm-row-fadein-${Math.min(ci, 5)}`} onClick={() => router.push("/contracts")}>
+                      <tr key={contract.id} className={`pm-row pm-row-fadein-${Math.min(ci, 5)}`}>
                         <td className="pm-td pm-td-contract">
                           <div className="pm-contract-info">
                             <span className="pm-contract-no">{contract.contractNo}</span>
@@ -680,7 +708,12 @@ export default function DashboardPage() {
                           const isDone = si < currentIdx;
                           const isCurrent = si === currentIdx;
                           return (
-                            <td key={si} className={`pm-td pm-td-cell ${isCurrent ? "pm-cell-current" : ""}`}>
+                            <td
+                            key={si}
+                            className={`pm-td pm-td-cell ${isCurrent ? "pm-cell-current" : ""}`}
+                            onClick={directorMode ? undefined : (e) => { e.stopPropagation(); router.push(stage.route); }}
+                            style={directorMode ? { cursor: "default" } : undefined}
+                          >
                               {isDone && (
                                 <div className={`pm-dot pm-dot-done ${stage.color}`}>
                                   <CheckSmIcon />
@@ -716,6 +749,21 @@ export default function DashboardPage() {
                 </tbody>
               </table>
             </div>
+            {allPipeContracts.length > 3 && (
+              <button
+                type="button"
+                className="nd-deadlines-toggle"
+                onClick={() => setPipeExpanded(prev => !prev)}
+              >
+                <svg
+                  width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
+                  style={{ transition: "transform 0.3s ease", transform: pipeExpanded ? "rotate(180deg)" : "rotate(0deg)" }}
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+                <span>{pipeExpanded ? "Yopish" : `Yana ${allPipeContracts.length - 3} ta shartnoma`}</span>
+              </button>
+            )}
           </div>
         );
       })()}
