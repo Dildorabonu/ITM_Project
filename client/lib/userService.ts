@@ -490,8 +490,10 @@ export const contractService = {
     const a = document.createElement("a");
     a.href = url;
     a.download = fileName;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   },
 
   deleteFile: async (id: string, fileId: string): Promise<void> => {
@@ -518,8 +520,10 @@ export const contractService = {
     const a = document.createElement("a");
     a.href = url;
     a.download = fileName;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   },
 
   deleteTzFile: async (id: string, fileId: string): Promise<void> => {
@@ -689,8 +693,10 @@ export const techProcessService = {
     const a = document.createElement("a");
     a.href = url;
     a.download = fileName;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   },
 
 };
@@ -879,8 +885,10 @@ export const technicalDrawingService = {
     const a = document.createElement("a");
     a.href = url;
     a.download = fileName;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   },
 };
 
@@ -997,8 +1005,10 @@ export const costNormService = {
     const a = document.createElement("a");
     a.href = url;
     a.download = fileName;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   },
 };
 
@@ -1257,8 +1267,12 @@ export const requisitionService = {
   },
 
   getFiles: async (id: string): Promise<AttachmentResponse[]> => {
-    const res = await api.get(`/api/requisition/${id}/files`);
-    return res.data?.result ?? res.data ?? [];
+    try {
+      const res = await api.get(`/api/requisition/${id}/files`);
+      return res.data?.result ?? res.data ?? [];
+    } catch {
+      return [];
+    }
   },
 
   uploadFile: async (id: string, file: File): Promise<AttachmentResponse> => {
@@ -1276,8 +1290,10 @@ export const requisitionService = {
     const a = document.createElement("a");
     a.href = url;
     a.download = fileName;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   },
 
   deleteFile: async (id: string, fileId: string): Promise<void> => {
