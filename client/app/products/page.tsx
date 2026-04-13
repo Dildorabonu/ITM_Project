@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useDraft } from "@/lib/useDraft";
 import * as XLSX from "xlsx";
 import {
@@ -91,6 +92,15 @@ export default function ProductsPage() {
     { form, editTarget },
     (d) => { setForm(d.form); setEditTarget(d.editTarget); setShowForm(true); },
   );
+
+  useEffect(() => {
+    if (viewProduct) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [viewProduct]);
 
   const load = async () => {
     try {
@@ -1126,7 +1136,7 @@ export default function ProductsPage() {
       </div>
 
       {/* View drawer */}
-      {viewProduct && (
+      {viewProduct && createPortal(
         <div
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(2px)", zIndex: 1000, display: "flex", justifyContent: "flex-end" }}
           onClick={() => setViewProduct(null)}
@@ -1134,7 +1144,7 @@ export default function ProductsPage() {
           <div
             onClick={e => e.stopPropagation()}
             style={{
-              width: 720, maxWidth: "95vw", height: "calc(100% - 32px)", margin: "16px 16px 16px 0",
+              width: 720, maxWidth: "95vw", height: "calc(100vh - 32px)", margin: "16px 16px 16px 0",
               background: "var(--bg2)", borderRadius: 14,
               boxShadow: "-4px 0 32px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column",
               padding: "28px 28px 32px", overflowY: "auto",
@@ -1180,7 +1190,8 @@ export default function ProductsPage() {
               <div style={{ fontSize: 14, color: "var(--text1)", lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "break-word" }}>{viewProduct.description || "—"}</div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Delete confirm */}

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useToastStore } from "@/lib/store/toastStore";
@@ -8,6 +9,7 @@ import {
   requisitionService,
   RequisitionStatus,
   RequisitionType,
+  type AttachmentResponse,
 } from "@/lib/userService";
 import { RequisitionStatusBadge } from "../_components/StatusBadge";
 import { fmtDateTime, type RequisitionResponse } from "../_types";
@@ -29,13 +31,60 @@ export default function RequisitionDetailPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [rejectSaving, setRejectSaving] = useState(false);
 
+  const [files, setFiles] = useState<AttachmentResponse[]>([]);
+  const [filesLoading, setFilesLoading] = useState(false);
+  const [fileUploading, setFileUploading] = useState(false);
+  const [fileDeleting, setFileDeleting] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     requisitionService.getById(id).then(data => {
       setReq(data ?? null);
       setLoading(false);
     });
+    setFilesLoading(true);
+    requisitionService.getFiles(id).then(data => {
+      setFiles(data);
+      setFilesLoading(false);
+    });
   }, [id]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setFileUploading(true);
+    try {
+      const uploaded = await requisitionService.uploadFile(id, file);
+      setFiles(prev => [...prev, uploaded]);
+      showToast("Fayl yuklandi", "success");
+    } catch {
+      showToast("Fayl yuklashda xatolik", "error");
+    } finally {
+      setFileUploading(false);
+    }
+  };
+
+  const handleFileDelete = async (fileId: string) => {
+    setFileDeleting(fileId);
+    try {
+      await requisitionService.deleteFile(id, fileId);
+      setFiles(prev => prev.filter(f => f.id !== fileId));
+      showToast("Fayl o'chirildi", "success");
+    } catch {
+      showToast("O'chirishda xatolik", "error");
+    } finally {
+      setFileDeleting(null);
+    }
+  };
+
+  const handleFileDownload = async (file: AttachmentResponse) => {
+    try {
+      await requisitionService.downloadFile(id, file.id, file.fileName);
+    } catch {
+      showToast("Yuklab olishda xatolik", "error");
+    }
+  };
 
 
   const handleApprove = async () => {
@@ -184,6 +233,60 @@ export default function RequisitionDetailPage() {
           </div>
         )}
 
+        {/* Files */}
+        <div className="itm-card" style={{ padding: 22 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600 }}>
+              Fayllar {files.length > 0 ? `(${files.length})` : ""}
+            </div>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={fileUploading}
+              style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 12px", background: "var(--accent-dim)", color: "var(--accent)", border: "1px solid rgba(26,110,235,0.25)", borderRadius: "var(--radius)", fontSize: 12, fontWeight: 600, cursor: fileUploading ? "not-allowed" : "pointer", opacity: fileUploading ? 0.7 : 1 }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              {fileUploading ? "Yuklanmoqda…" : "Fayl qo'shish"}
+            </button>
+            <input ref={fileInputRef} type="file" style={{ display: "none" }} onChange={handleFileUpload} />
+          </div>
+
+          {filesLoading ? (
+            <div style={{ color: "var(--text3)", fontSize: 13, textAlign: "center", padding: "16px 0" }}>Yuklanmoqda…</div>
+          ) : files.length === 0 ? (
+            <div style={{ color: "var(--text3)", fontSize: 13, textAlign: "center", padding: "16px 0" }}>Fayllar yo'q</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {files.map(file => (
+                <div key={file.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", background: "var(--bg3)" }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" strokeWidth="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.fileName}</div>
+                    <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>
+                      {(file.fileSize / 1024).toFixed(1)} KB • {fmtDateTime(file.uploadedAt)}
+                      {file.uploadedByFullName && ` • ${file.uploadedByFullName}`}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleFileDownload(file)}
+                    title="Yuklab olish"
+                    style={{ padding: "5px 8px", background: "none", border: "none", cursor: "pointer", color: "var(--accent)", borderRadius: "var(--radius)" }}
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  </button>
+                  <button
+                    onClick={() => handleFileDelete(file.id)}
+                    disabled={fileDeleting === file.id}
+                    title="O'chirish"
+                    style={{ padding: "5px 8px", background: "none", border: "none", cursor: fileDeleting === file.id ? "not-allowed" : "pointer", color: "var(--danger)", borderRadius: "var(--radius)", opacity: fileDeleting === file.id ? 0.5 : 1 }}
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Actions */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {req.status === RequisitionStatus.Pending && req.type === RequisitionType.Individual && canApprove && (
@@ -229,7 +332,7 @@ export default function RequisitionDetailPage() {
       </div>
 
       {/* Reject modal */}
-      {rejectOpen && (
+      {rejectOpen && createPortal(
         <div
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000 }}
           onClick={() => setRejectOpen(false)}
@@ -260,7 +363,7 @@ export default function RequisitionDetailPage() {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   );
 }

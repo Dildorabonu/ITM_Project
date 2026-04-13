@@ -1255,4 +1255,32 @@ export const requisitionService = {
   delete: async (id: string): Promise<void> => {
     await api.delete(`/api/requisition/${id}`);
   },
+
+  getFiles: async (id: string): Promise<AttachmentResponse[]> => {
+    const res = await api.get(`/api/requisition/${id}/files`);
+    return res.data?.result ?? res.data ?? [];
+  },
+
+  uploadFile: async (id: string, file: File): Promise<AttachmentResponse> => {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await api.post(`/api/requisition/${id}/files`, form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data?.result ?? res.data;
+  },
+
+  downloadFile: async (id: string, fileId: string, fileName: string): Promise<void> => {
+    const res = await api.get(`/api/requisition/${id}/files/${fileId}/download`, { responseType: "blob" });
+    const url = URL.createObjectURL(res.data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+
+  deleteFile: async (id: string, fileId: string): Promise<void> => {
+    await api.delete(`/api/requisition/${id}/files/${fileId}`);
+  },
 };
