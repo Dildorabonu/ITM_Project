@@ -28,6 +28,7 @@ public static class ApplicationDependencyInjection
         services.AddScoped<IContractTaskService, ContractTaskService>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IRequisitionService, RequisitionService>();
+        services.AddScoped<IFileStorageService, FileStorageService>();
 
         return services;
     }

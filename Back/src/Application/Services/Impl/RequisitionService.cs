@@ -85,6 +85,9 @@ public class RequisitionService : IRequisitionService
             DepartmentId = dto.DepartmentId,
             Purpose = dto.Purpose,
             Notes = dto.Notes,
+            SignerName = dto.SignerName,
+            SignerTitle = dto.SignerTitle,
+            SignDate = dto.SignDate,
             CreatedBy = createdBy,
             Items = dto.Items.Select(i => new RequisitionItem
             {
@@ -93,6 +96,7 @@ public class RequisitionService : IRequisitionService
                 FreeTextName = i.FreeTextName,
                 FreeTextUnit = i.FreeTextUnit,
                 FreeTextSpec = i.FreeTextSpec,
+                FreeTextPhoto = i.FreeTextPhoto,
                 Quantity = i.Quantity,
                 Notes = i.Notes
             }).ToList()
@@ -276,6 +280,9 @@ public class RequisitionService : IRequisitionService
         Purpose = r.Purpose,
         Notes = r.Notes,
         RejectionReason = r.RejectionReason,
+        SignerName = r.SignerName,
+        SignerTitle = r.SignerTitle,
+        SignDate = r.SignDate,
         ApprovedBy = r.ApprovedBy,
         ApprovedByName = r.Approver is null ? null : $"{r.Approver.FirstName} {r.Approver.LastName}",
         ApprovedAt = r.ApprovedAt,
@@ -291,6 +298,7 @@ public class RequisitionService : IRequisitionService
             MaterialCode = i.Material?.Code ?? string.Empty,
             Unit = i.Material?.Unit ?? i.FreeTextUnit ?? string.Empty,
             FreeTextSpec = i.FreeTextSpec,
+            FreeTextPhoto = i.FreeTextPhoto,
             Quantity = i.Quantity,
             Notes = i.Notes
         }).ToList()
