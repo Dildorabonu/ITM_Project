@@ -151,10 +151,7 @@ function RequisitionsContent() {
               {filtered.map(r => (
                 <tr
                   key={r.id}
-                  onClick={() => router.push(`/requisitions/${r.id}`)}
-                  style={{ borderBottom: "1px solid var(--border)", cursor: "pointer", transition: "background 0.12s" }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "var(--bg3)")}
-                  onMouseLeave={e => (e.currentTarget.style.background = "")}
+                  style={{ borderBottom: "1px solid var(--border)", transition: "background 0.12s" }}
                 >
                   <td style={{ padding: "10px 14px", fontWeight: 700, color: "var(--accent)", fontFamily: "var(--font-mono)", fontSize: 12 }}>{r.requisitionNo}</td>
                   <td style={{ padding: "10px 14px", color: "var(--text2)" }}>{r.typeLabel}</td>
