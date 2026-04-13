@@ -28,7 +28,7 @@ export function fmtDate(d?: string) {
   if (!d) return "—";
   const [y, m, day] = d.slice(0, 10).split("-");
   if (!y || !m || !day) return "—";
-  return `${day}-${m}-${y.slice(-2)}`;
+  return `${day}.${m}.${y.slice(-2)}`;
 }
 
 export function fmtDateTime(d?: string) {
