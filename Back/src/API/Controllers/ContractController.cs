@@ -100,7 +100,7 @@ public class ContractController : ControllerBase
         var result = await _contractService.DeleteAsync(id);
 
         if (!result.Succeeded)
-            return NotFound(result);
+            return StatusCode(result.StatusCode, result);
 
         return Ok(result);
     }
