@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useDraft } from "@/lib/useDraft";
 import { useToastStore } from "@/lib/store/toastStore";
 import { Upload, X, Image as ImageIcon, ImageOff } from "lucide-react";
@@ -1061,7 +1062,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
       </div>
 
       {/* Drawing not approved — blur overlay warning */}
-      {drawingWarningNo && (
+      {drawingWarningNo && createPortal(
         <div
           onClick={()=>setDrawingWarningNo(null)}
           style={{ position:"fixed",inset:0,zIndex:200,backdropFilter:"blur(4px)",WebkitBackdropFilter:"blur(4px)",background:"rgba(0,0,0,0.25)",display:"flex",alignItems:"center",justifyContent:"center" }}
@@ -1085,7 +1086,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
     </div>
   );

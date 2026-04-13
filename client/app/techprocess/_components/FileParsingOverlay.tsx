@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 const kf = `
 @keyframes overlayFadeIn{0%{opacity:0}100%{opacity:1}}
@@ -38,7 +39,7 @@ export function FileParsingOverlay({ dataReady,onComplete }: { dataReady:boolean
     return ()=>clearTimeout(t);
   },[dataReady,onComplete]);
 
-  return (
+  return createPortal(
     <div style={{ position:"fixed",inset:0,zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(15,20,35,0.85)",backdropFilter:"blur(8px)",animation:fadeOut?"overlayFadeOut 0.35s ease forwards":"overlayFadeIn 0.3s ease" }}>
       <style>{kf}</style>
       <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:0 }}>
@@ -61,5 +62,5 @@ export function FileParsingOverlay({ dataReady,onComplete }: { dataReady:boolean
         <div style={{ fontSize:11,color:"rgba(148,163,184,0.6)",marginTop:10,fontFamily:"Inter,monospace",letterSpacing:1 }}>{Math.round(progress)}%</div>
       </div>
     </div>
-  );
+  , document.body);
 }

@@ -1,3 +1,6 @@
+"use client";
+
+import { createPortal } from "react-dom";
 import { technicalDrawingService, DrawingStatus, type TechnicalDrawingResponse, type AttachmentResponse } from "@/lib/userService";
 import { StatusBadge } from "./StatusBadge";
 
@@ -20,7 +23,7 @@ interface DrawingDrawerProps {
 export function DrawingDrawer({
   drawer, drawerFiles, drawerLoading, onClose, onApprove, approving,
 }: DrawingDrawerProps) {
-  return (
+  return createPortal(
     <div
       style={{
         position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)",
@@ -32,7 +35,7 @@ export function DrawingDrawer({
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: 700, maxWidth: "95vw", height: "calc(100% - 32px)",
+          width: 700, maxWidth: "95vw", height: "calc(100vh - 32px)",
           margin: "16px 16px 16px 0",
           background: "var(--bg2)", borderRadius: 14,
           boxShadow: "-4px 0 32px rgba(0,0,0,0.18)",
@@ -179,5 +182,5 @@ export function DrawingDrawer({
         </div>
       </div>
     </div>
-  );
+  , document.body);
 }

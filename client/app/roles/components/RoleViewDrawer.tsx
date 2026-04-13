@@ -1,5 +1,6 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import { type PermissionModuleResponse, type RoleResponse } from "@/lib/userService";
 
 interface Props {
@@ -16,7 +17,7 @@ export default function RoleViewDrawer({
   viewRole, viewPerms, viewPermsLoading, permissions,
   expandedViewModules, toggleViewModule, onClose,
 }: Props) {
-  return (
+  return createPortal(
     <div
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(2px)", zIndex: 1000, display: "flex", justifyContent: "flex-end" }}
       onClick={onClose}
@@ -24,7 +25,7 @@ export default function RoleViewDrawer({
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          width: 720, maxWidth: "95vw", height: "calc(100% - 32px)", margin: "16px 16px 16px 0",
+          width: 720, maxWidth: "95vw", height: "calc(100vh - 32px)", margin: "16px 16px 16px 0",
           background: "var(--bg2)", borderRadius: 14,
           boxShadow: "-4px 0 32px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column",
           padding: "28px 28px 32px", overflowY: "auto",
@@ -118,5 +119,5 @@ export default function RoleViewDrawer({
         )}
       </div>
     </div>
-  );
+  , document.body);
 }
