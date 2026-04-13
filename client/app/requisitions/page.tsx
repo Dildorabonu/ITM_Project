@@ -143,21 +143,21 @@ function RequisitionsContent() {
             <thead>
               <tr>
                 {["Raqam", "Turi", "Shartnoma / Bo'lim", "Yaratuvchi", "Sana"].map(h => (
-                  <th key={h}>{h}</th>
+                  <th key={h} style={{ textAlign: "center", color: "var(--text1)" }}>{h}</th>
                 ))}
-                <th style={{ minWidth: 160 }}>Holat</th>
-                <th style={{ borderLeft: "2px solid var(--border)", textAlign: "center" }}>Amal</th>
+                <th style={{ minWidth: 160, textAlign: "center", color: "var(--text1)" }}>Holat</th>
+                <th style={{ borderLeft: "2px solid var(--border)", textAlign: "center", color: "var(--text1)" }}>Amal</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map(r => (
                 <tr key={r.id}>
-                  <td style={{ fontWeight: 700, color: "var(--accent)", fontFamily: "var(--font-mono)", fontSize: 12, textAlign: "left" }}>{r.requisitionNo}</td>
-                  <td style={{ textAlign: "left" }}>{r.typeLabel}</td>
-                  <td style={{ textAlign: "left" }}>{r.contractNo ?? r.departmentName ?? "—"}</td>
-                  <td style={{ textAlign: "left" }}>{r.createdByName}</td>
-                  <td style={{ color: "var(--text3)" }}>{fmtDate(r.createdAt)}</td>
-                  <td><RequisitionStatusBadge status={r.status} small /></td>
+                  <td style={{ fontWeight: 700, color: "var(--accent)", fontFamily: "var(--font-mono)", fontSize: 12, textAlign: "center" }}>{r.requisitionNo}</td>
+                  <td style={{ textAlign: "center" }}>{r.typeLabel}</td>
+                  <td style={{ textAlign: "center" }}>{r.contractNo ?? r.departmentName ?? "—"}</td>
+                  <td style={{ textAlign: "center" }}>{r.createdByName}</td>
+                  <td style={{ textAlign: "center" }}>{fmtDate(r.createdAt)}</td>
+                  <td style={{ textAlign: "center" }}><RequisitionStatusBadge status={r.status} small /></td>
                   <td className="td-actions" style={{ borderLeft: "2px solid var(--border)" }}
                     onClick={e => e.stopPropagation()}
                   >
