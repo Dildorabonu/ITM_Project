@@ -1029,8 +1029,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
                         {!item.drawing?(
                           <span style={{ fontSize:12,color:"var(--text3)",fontStyle:"italic" }}>Yaratilmagan</span>
                         ):drawingOk?(
-                          <span style={{ display:"inline-flex",alignItems:"center",gap:4,fontSize:11,fontWeight:600,color:"var(--success)",background:"var(--success-dim)",borderRadius:20,padding:"2px 10px",border:"1px solid rgba(15,123,69,0.2)" }}>
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                          <span style={{ display:"inline-flex",alignItems:"center",fontSize:12,fontWeight:600,color:"var(--success)",background:"var(--success-dim)",borderRadius:20,padding:"2px 10px",border:"1px solid rgba(15,123,69,0.2)" }}>
                             Tasdiqlangan
                           </span>
                         ):(
