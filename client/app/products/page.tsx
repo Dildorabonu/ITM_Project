@@ -16,6 +16,7 @@ import {
 } from "@/lib/userService";
 import { useAuthStore } from "@/lib/store/authStore";
 import { ConfirmModal } from "@/app/_components/ConfirmModal";
+import { CheckSelect } from "@/app/_components/CheckSelect";
 
 interface ParsedImportRow {
   rowNum: number;
@@ -37,8 +38,10 @@ interface ProductForm {
 }
 
 const emptyForm: ProductForm = { name: "", description: "", quantity: "", unit: "", departmentId: "" };
-const DEPT_PLACEHOLDER_VALUE = "__dept_placeholder__";
-const DEPT_ALL_VALUE = "__dept_all__";
+const UNIT_OPTIONS = (Object.keys(PRODUCT_UNIT_LABELS) as unknown as ProductUnit[]).map(key => ({
+  id: String(key),
+  name: PRODUCT_UNIT_LABELS[key],
+}));
 
 export default function ProductsPage() {
   const hasPermission = useAuthStore(s => s.hasPermission);
@@ -447,12 +450,13 @@ export default function ProductsPage() {
                 <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !form.departmentId ? "var(--danger)" : "var(--text2)" }}>
                   Bo&apos;lim <span style={{ color: "var(--danger)" }}>*</span>
                 </label>
-                <select className="form-input" value={form.departmentId}
-                  onChange={e => setForm(f => ({ ...f, departmentId: e.target.value }))}
-                  style={{ width: "100%", cursor: "pointer", ...(formSubmitted && !form.departmentId ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : {}) }}>
-                  <option value="">— Bo&apos;lim tanlang —</option>
-                  {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                </select>
+                <CheckSelect
+                  value={form.departmentId}
+                  onChange={v => setForm(f => ({ ...f, departmentId: v }))}
+                  options={departments.map(d => ({ id: d.id, name: d.name }))}
+                  placeholder="— Bo'lim tanlang —"
+                  error={formSubmitted && !form.departmentId}
+                />
                 {formSubmitted && !form.departmentId && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Bo&apos;limni tanlang</div>}
               </div>
               <div>
@@ -463,14 +467,12 @@ export default function ProductsPage() {
               </div>
               <div>
                 <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>O&apos;lchov birligi</label>
-                <select className="form-input" value={form.unit}
-                  onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
-                  style={{ width: "100%", cursor: "pointer" }}>
-                  <option value="">— Tanlang —</option>
-                  {(Object.keys(PRODUCT_UNIT_LABELS) as unknown as ProductUnit[]).map(key => (
-                    <option key={key} value={key}>{PRODUCT_UNIT_LABELS[key]}</option>
-                  ))}
-                </select>
+                <CheckSelect
+                  value={form.unit}
+                  onChange={v => setForm(f => ({ ...f, unit: v }))}
+                  options={UNIT_OPTIONS}
+                  placeholder="— Tanlang —"
+                />
               </div>
               <div style={{ gridColumn: "1 / -1" }}>
                 <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Tavsif</label>
@@ -658,16 +660,13 @@ export default function ProductsPage() {
                                 />
                               </td>
                               <td>
-                                <select
-                                  className="form-input"
-                                  title="Bo'lim"
+                                <CheckSelect
                                   value={editingImportRowData.departmentId}
-                                  onChange={e => setEditingImportRowData(d => d && { ...d, departmentId: e.target.value })}
-                                  style={{ minWidth: 130, padding: "4px 8px", fontSize: 13, cursor: "pointer" }}
-                                >
-                                  <option value="">— Tanlang —</option>
-                                  {departments.map(dep => <option key={dep.id} value={dep.id}>{dep.name}</option>)}
-                                </select>
+                                  onChange={v => setEditingImportRowData(d => d && { ...d, departmentId: v })}
+                                  options={departments.map(dep => ({ id: dep.id, name: dep.name }))}
+                                  placeholder="— Tanlang —"
+                                  style={{ minWidth: 130 }}
+                                />
                               </td>
                               <td>
                                 <input
@@ -682,17 +681,13 @@ export default function ProductsPage() {
                                 />
                               </td>
                               <td>
-                                <select
-                                  className="form-input"
-                                  title="O'lchov birligi"
-                                  value={editingImportRowData.unit}
-                                  onChange={e => setEditingImportRowData(d => d && { ...d, unit: Number(e.target.value) as ProductUnit })}
-                                  style={{ minWidth: 90, padding: "4px 8px", fontSize: 13, cursor: "pointer" }}
-                                >
-                                  {(Object.keys(PRODUCT_UNIT_LABELS) as unknown as ProductUnit[]).map(key => (
-                                    <option key={key} value={key}>{PRODUCT_UNIT_LABELS[key]}</option>
-                                  ))}
-                                </select>
+                                <CheckSelect
+                                  value={String(editingImportRowData.unit)}
+                                  onChange={v => setEditingImportRowData(d => d && { ...d, unit: Number(v) as ProductUnit })}
+                                  options={UNIT_OPTIONS}
+                                  placeholder="— Tanlang —"
+                                  style={{ minWidth: 90 }}
+                                />
                               </td>
                               <td>
                                 <input
@@ -877,12 +872,13 @@ export default function ProductsPage() {
                 <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !f.departmentId ? "var(--danger)" : "var(--text2)" }}>
                   Bo&apos;lim <span style={{ color: "var(--danger)" }}>*</span>
                 </label>
-                <select className="form-input" value={f.departmentId}
-                  onChange={e => updateFormRow(index, "departmentId", e.target.value)}
-                  style={{ width: "100%", cursor: "pointer", ...(formSubmitted && !f.departmentId ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : {}) }}>
-                  <option value="">— Bo&apos;lim tanlang —</option>
-                  {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                </select>
+                <CheckSelect
+                  value={f.departmentId}
+                  onChange={v => updateFormRow(index, "departmentId", v)}
+                  options={departments.map(d => ({ id: d.id, name: d.name }))}
+                  placeholder="— Bo'lim tanlang —"
+                  error={formSubmitted && !f.departmentId}
+                />
                 {formSubmitted && !f.departmentId && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Bo&apos;limni tanlang</div>}
               </div>
               <div>
@@ -893,14 +889,12 @@ export default function ProductsPage() {
               </div>
               <div>
                 <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>O&apos;lchov birligi</label>
-                <select className="form-input" value={f.unit}
-                  onChange={e => updateFormRow(index, "unit", e.target.value)}
-                  style={{ width: "100%", cursor: "pointer" }}>
-                  <option value="">— Tanlang —</option>
-                  {(Object.keys(PRODUCT_UNIT_LABELS) as unknown as ProductUnit[]).map(key => (
-                    <option key={key} value={key}>{PRODUCT_UNIT_LABELS[key]}</option>
-                  ))}
-                </select>
+                <CheckSelect
+                  value={f.unit}
+                  onChange={v => updateFormRow(index, "unit", v)}
+                  options={UNIT_OPTIONS}
+                  placeholder="— Tanlang —"
+                />
               </div>
               <div style={{ gridColumn: "1 / -1" }}>
                 <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Tavsif</label>
@@ -974,22 +968,13 @@ export default function ProductsPage() {
           <input className="search-input" placeholder="Qidirish"
             value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
         </div>
-        <select
-          className="form-input"
-          value={DEPT_PLACEHOLDER_VALUE}
-          onChange={e => {
-            const value = e.target.value;
-            setFilterDept(value === DEPT_PLACEHOLDER_VALUE || value === DEPT_ALL_VALUE ? "" : value);
-            setPage(1);
-          }}
-          style={{ width: 200, cursor: "pointer", height: 36, padding: "0 10px", fontSize: 14, fontWeight: 600 }}
-        >
-          <option value={DEPT_PLACEHOLDER_VALUE} hidden>Bo&apos;limlar</option>
-          <option value={DEPT_ALL_VALUE}>Barcha bo&apos;limlar</option>
-          {departments.map(d => (
-            <option key={d.id} value={d.id}>{d.name}</option>
-          ))}
-        </select>
+        <CheckSelect
+          value={filterDept}
+          onChange={v => { setFilterDept(v); setPage(1); }}
+          options={departments.map(d => ({ id: d.id, name: d.name }))}
+          placeholder="Bo'limlar"
+          style={{ width: 200 }}
+        />
         <button
           className="btn-icon"
           onClick={load}

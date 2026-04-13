@@ -27,7 +27,7 @@ import {
 } from "./_types";
 import { isoToDisplayDate } from "./_components/DatePickerField";
 import { StatusBadge, PriorityBadge } from "./_components/StatusBadge";
-import { CustomSelect } from "./_components/CustomSelect";
+import { CheckSelect } from "@/app/_components/CheckSelect";
 import { ContractForm } from "./_components/ContractForm";
 import { ContractDrawer } from "./_components/ContractDrawer";
 import { ScanModal } from "./_components/ScanModal";
@@ -516,10 +516,10 @@ export default function ContractsPage() {
         </div>
 
         <div style={{ width: 210 }}>
-          <CustomSelect
+          <CheckSelect
             value={filterStatus}
             onChange={setFilterStatus}
-            options={STATUS_FILTER_OPTIONS}
+            options={STATUS_FILTER_OPTIONS.filter(o => o.value !== "").map(o => ({ id: o.value, name: o.label, color: o.color }))}
             placeholder="Barcha holat"
           />
         </div>
@@ -683,10 +683,10 @@ export default function ContractsPage() {
               <div style={{ fontSize: 13, color: "var(--text2)" }}>
                 <b>{statusTarget.contractNo}</b> — holat tanlang:
               </div>
-              <CustomSelect
+              <CheckSelect
                 value={newStatus}
                 onChange={setNewStatus}
-                options={STATUS_CHANGE_OPTIONS}
+                options={STATUS_CHANGE_OPTIONS.map(o => ({ id: o.value, name: o.label, color: o.color }))}
                 placeholder="— Holat tanlang —"
               />
               <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
