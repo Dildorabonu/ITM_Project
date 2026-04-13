@@ -126,49 +126,22 @@ export default function RequisitionPrintPage() {
   const handlePrint = () => window.print();
 
   const handleSavePdf = async () => {
-    if (!docRef.current) return;
     setSaving(true);
-    const noPrint = docRef.current.querySelectorAll<HTMLElement>(".no-print");
-    noPrint.forEach(el => (el.style.display = "none"));
-    const printImages = docRef.current.querySelectorAll<HTMLElement>(".print-image");
-    printImages.forEach(el => (el.style.display = "block"));
-    const inlineEditables = docRef.current.querySelectorAll<HTMLElement>(".inline-editable");
-    inlineEditables.forEach(el => (el.style.borderBottom = "none"));
-
-    // Replace <select> elements with <span> showing selected text (html2pdf doesn't render select values)
-    const selects = docRef.current.querySelectorAll<HTMLSelectElement>("select");
-    const selectReplacements: { select: HTMLSelectElement; span: HTMLSpanElement }[] = [];
-    selects.forEach(sel => {
-      const span = document.createElement("span");
-      span.textContent = sel.options[sel.selectedIndex]?.text ?? "";
-      span.style.cssText = "font-family:Times New Roman,serif;font-size:12px;color:#000;";
-      sel.parentNode?.insertBefore(span, sel);
-      sel.style.display = "none";
-      selectReplacements.push({ select: sel, span });
-    });
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const html2pdf = (await import("html2pdf.js" as any)).default;
-    html2pdf()
-      .set({
-        margin: 0,
-        filename: `talabnoma_${new Date().toISOString().slice(0, 10)}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, width: 794 },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      })
-      .from(docRef.current)
-      .save()
-      .finally(() => {
-        noPrint.forEach(el => el.style.removeProperty("display"));
-        printImages.forEach(el => el.style.removeProperty("display"));
-        inlineEditables.forEach(el => el.style.removeProperty("border-bottom"));
-        selectReplacements.forEach(({ select, span }) => {
-          select.style.removeProperty("display");
-          span.parentNode?.removeChild(span);
-        });
-        setSaving(false);
-      });
+    try {
+      const blob = await generatePdfBlob();
+      if (!blob) return;
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `talabnoma_${dateStr}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const validateSystem = () => {
@@ -206,6 +179,53 @@ export default function RequisitionPrintPage() {
     return row.image;
   };
 
+  const generatePdfBlob = async (): Promise<Blob | null> => {
+    if (!docRef.current) return null;
+    const el = docRef.current;
+
+    const noPrint = el.querySelectorAll<HTMLElement>(".no-print");
+    noPrint.forEach(e => (e.style.display = "none"));
+    const printImages = el.querySelectorAll<HTMLElement>(".print-image");
+    printImages.forEach(e => (e.style.display = "block"));
+    const inlineEditables = el.querySelectorAll<HTMLElement>(".inline-editable");
+    inlineEditables.forEach(e => (e.style.borderBottom = "none"));
+
+    const selects = el.querySelectorAll<HTMLSelectElement>("select");
+    const selectReplacements: { select: HTMLSelectElement; span: HTMLSpanElement }[] = [];
+    selects.forEach(sel => {
+      const span = document.createElement("span");
+      span.textContent = sel.options[sel.selectedIndex]?.text ?? "";
+      span.style.cssText = "font-family:Times New Roman,serif;font-size:12px;color:#000;";
+      sel.parentNode?.insertBefore(span, sel);
+      sel.style.display = "none";
+      selectReplacements.push({ select: sel, span });
+    });
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const html2pdf = (await import("html2pdf.js" as any)).default;
+      const blob: Blob = await html2pdf()
+        .set({
+          margin: 0,
+          image: { type: "jpeg", quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, width: 794 },
+          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        })
+        .from(el)
+        .toPdf()
+        .output("blob");
+      return blob;
+    } finally {
+      noPrint.forEach(e => e.style.removeProperty("display"));
+      printImages.forEach(e => e.style.removeProperty("display"));
+      inlineEditables.forEach(e => e.style.removeProperty("border-bottom"));
+      selectReplacements.forEach(({ select, span }) => {
+        select.style.removeProperty("display");
+        span.parentNode?.removeChild(span);
+      });
+    }
+  };
+
   const doSaveSystem = async () => {
     setConfirmOpen(false);
     const filledRows = rows.filter(r => r.name.trim());
@@ -214,7 +234,7 @@ export default function RequisitionPrintPage() {
       // Avval barcha rasmlarni serverga yuklab, URLlarini olamiz
       const photoUrls = await Promise.all(filledRows.map(resolvePhotoUrl));
 
-      await requisitionService.create({
+      const reqId = await requisitionService.create({
         type,
         contractId: type === RequisitionType.Contract ? contractId : undefined,
         departmentId: type === RequisitionType.Individual ? departmentId : undefined,
@@ -231,6 +251,15 @@ export default function RequisitionPrintPage() {
           notes: r.notes || undefined,
         })),
       });
+
+      // PDF generatsiya qilib serverga yuklash
+      const pdfBlob = await generatePdfBlob();
+      if (pdfBlob) {
+        const dateStr = new Date().toISOString().slice(0, 10);
+        const pdfFile = new File([pdfBlob], `talabnoma_${dateStr}.pdf`, { type: "application/pdf" });
+        await requisitionService.uploadFile(reqId, pdfFile);
+      }
+
       showToast("Talabnoma tizimda saqlandi", "success");
       router.push("/requisitions");
     } catch {

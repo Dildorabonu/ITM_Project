@@ -40,10 +40,10 @@ export default function RequisitionDetailPage() {
       setLoading(false);
     });
     setFilesLoading(true);
-    requisitionService.getFiles(id).then(data => {
-      setFiles(data);
-      setFilesLoading(false);
-    });
+    requisitionService.getFiles(id)
+      .then(data => { setFiles(data); })
+      .catch(() => {})
+      .finally(() => setFilesLoading(false));
   }, [id]);
 
   const handleFileDownload = async (file: AttachmentResponse) => {
