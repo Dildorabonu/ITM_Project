@@ -494,7 +494,9 @@ export function ContractForm({
 
       <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 4 }}>
         <button onClick={onCancel}
-          style={{ background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", padding: "10px 24px", color: "var(--text2)", fontSize: 14, fontWeight: 500 }}>
+          style={{ background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", padding: "10px 24px", color: "var(--text2)", fontSize: 14, fontWeight: 500, transition: "border-color 0.15s, color 0.15s" }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text2)"; }}>
           Bekor qilish
         </button>
         {(editTarget ? canUpdate : canCreate) && (
