@@ -13,6 +13,7 @@ import {
 } from "./_types";
 import { RequisitionStatusBadge } from "./_components/StatusBadge";
 import { RequisitionDrawer } from "./_components/RequisitionDrawer";
+import { CheckSelect } from "./_components/CheckSelect";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useToastStore } from "@/lib/store/toastStore";
 import { ConfirmModal } from "@/app/_components/ConfirmModal";
@@ -87,7 +88,7 @@ function RequisitionsContent() {
   return (
     <div>
       {/* Toolbar */}
-      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px", flexWrap: "wrap" }}>
+      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px", flexWrap: "wrap", overflow: "visible" }}>
         <div className="search-wrap" style={{ maxWidth: "none", flex: 1 }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -99,23 +100,13 @@ function RequisitionsContent() {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {STATUS_FILTER.map(opt => (
-            <button
-              key={opt.value}
-              onClick={() => setFilterStatus(opt.value)}
-              onMouseEnter={e => { if (filterStatus !== opt.value) { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; } }}
-              onMouseLeave={e => { if (filterStatus !== opt.value) { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text2)"; } }}
-              style={{
-                padding: "6px 14px", borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: "pointer",
-                border: filterStatus === opt.value ? "1.5px solid var(--accent)" : "1.5px solid var(--border)",
-                background: filterStatus === opt.value ? "var(--accent-dim)" : "transparent",
-                color: filterStatus === opt.value ? "var(--accent)" : "var(--text2)",
-                transition: "border-color 0.15s",
-              }}
-            >{opt.label}</button>
-          ))}
-        </div>
+        <CheckSelect
+          value={filterStatus}
+          onChange={setFilterStatus}
+          options={STATUS_FILTER.filter(o => o.value !== "").map(o => ({ id: o.value, name: o.label }))}
+          placeholder="Holat bo'yicha"
+          style={{ width: 200 }}
+        />
         <button
           onClick={() => router.push("/requisitions/print")}
           onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; }}
