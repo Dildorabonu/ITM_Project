@@ -397,8 +397,10 @@ export default function ContractsPage() {
       setDeleteId(null);
       window.dispatchEvent(new Event("notif-read"));
       showToast("Shartnoma muvaffaqiyatli o'chirildi!");
-    } catch {
-      // stay open
+    } catch (err: unknown) {
+      const errors: string[] | undefined = (err as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors;
+      const msg = errors?.length ? errors[0] : "Shartnomani o'chirishda xatolik yuz berdi.";
+      showToast(msg, "Xatolik");
     } finally {
       setDeleting(false);
     }

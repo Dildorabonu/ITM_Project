@@ -179,7 +179,8 @@ const pageTitles: Record<string, string> = {
   "/departments":   "Tuzilma",
   "/products":      "Mahsulotlar",
   "/appearance":    "Tashqi ko'rinish",
-  "/requisitions":  "Talabnomalar",
+  "/requisitions":        "Talabnomalar",
+  "/requisitions/print":  "Talabnoma",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -413,9 +414,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </div>
                 <div>
                   <div className="font-head-itm ombor-text" style={{ fontSize: 20, fontWeight: 800, letterSpacing: 2, lineHeight: 1 }}>FACTORY</div>
-                  <div className="font-body-itm" style={{ fontSize: 12, color: "var(--sidebar-text2)", letterSpacing: 1.5, marginTop: 3, display: "flex", alignItems: "center", gap: 5 }}>
-                    <span className="live-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--accent-light)", display: "inline-block", flexShrink: 0 }} />
-                    SYSTEM
+                  <div className="font-body-itm" style={{ fontSize: 10, color: "var(--sidebar-text2)", letterSpacing: 4, marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span className="live-dot" style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--accent-light)", display: "inline-block", flexShrink: 0 }} />
+                    <span style={{ fontWeight: 600 }}>SYSTEM</span>
                   </div>
                 </div>
               </div>
@@ -435,8 +436,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               100% { background-position: 200% center; }
             }
             @keyframes dotPulse {
-              0%,100% { opacity: 1; transform: scale(1); }
-              50% { opacity: 0.5; transform: scale(0.7); }
+              0%,100% { opacity: 1; }
+              50% { opacity: 0.35; }
             }
             .logo-icon-box { animation: logoPulse 2.8s ease-in-out infinite; }
             .ombor-text {

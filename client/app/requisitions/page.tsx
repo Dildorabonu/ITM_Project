@@ -143,7 +143,7 @@ function RequisitionsContent() {
             <tbody>
               {filtered.map(r => (
                 <tr key={r.id}>
-                  <td style={{ fontWeight: 700, color: "var(--accent)", fontFamily: "var(--font-mono)", fontSize: 12, textAlign: "center" }}>{r.requisitionNo}</td>
+                  <td style={{ fontFamily: "var(--font-inter)", textAlign: "center" }}>{r.requisitionNo}</td>
                   <td style={{ textAlign: "center" }}>{r.typeLabel}</td>
                   <td style={{ textAlign: "center" }}>{r.contractNo ?? r.departmentName ?? "—"}</td>
                   <td style={{ textAlign: "center" }}>{r.createdByName}</td>

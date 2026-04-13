@@ -1125,7 +1125,7 @@ namespace DataAccess.Migrations
                     b.HasOne("Core.Entities.Contract", "Contract")
                         .WithMany()
                         .HasForeignKey("ContractId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("Core.Entities.User", "Creator")
                         .WithMany("CreatedRequisitions")

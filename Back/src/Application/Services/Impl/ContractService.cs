@@ -249,7 +249,16 @@ public class ContractService : IContractService
             .ToListAsync();
 
         _context.Contracts.Remove(contract);
-        await _context.SaveChangesAsync();
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+        {
+            return ApiResult<int>.Failure(
+                ["Bu shartnomani o'chirib bo'lmaydi: unga bog'liq yozuvlar mavjud (buyurtmalar, jarayonlar yoki boshqa ma'lumotlar)."],
+                409);
+        }
 
         await _notificationService.NotifyUsersAndSuperAdminsAsync(
             deleteUserIds.Union(deleteDeptUserIds), title, body, NotificationType.Warning);

@@ -29,7 +29,7 @@ public class RequisitionConfiguration : IEntityTypeConfiguration<Requisition>
         builder.HasOne(r => r.Contract)
             .WithMany()
             .HasForeignKey(r => r.ContractId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .OnDelete(DeleteBehavior.SetNull);
 
         builder.HasOne(r => r.Department)
             .WithMany()
