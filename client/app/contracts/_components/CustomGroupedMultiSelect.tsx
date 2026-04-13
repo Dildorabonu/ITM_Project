@@ -43,12 +43,12 @@ export function CustomGroupedMultiSelect({
     <div ref={ref} style={{ position: "relative" }}>
       <button type="button" onClick={() => setOpen(o => !o)} style={{
         width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
-        background: "var(--bg3)",
+        background: "var(--bg2)",
         border: `1.5px solid ${hasError ? "var(--danger)" : open ? "var(--accent)" : "var(--border)"}`,
-        borderRadius: "var(--radius)", padding: "9px 12px", minHeight: 40,
-        fontSize: 14, cursor: "pointer", textAlign: "left",
-        boxShadow: hasError ? "0 0 0 3px rgba(217,48,37,0.2)" : open ? "0 0 0 3px var(--accent-dim)" : "none",
-        transition: "border-color 0.14s, box-shadow 0.14s",
+        borderRadius: "var(--radius)", padding: "6px 10px", minHeight: 36,
+        fontSize: 13, cursor: "pointer", textAlign: "left",
+        boxShadow: hasError && !open ? "0 0 0 2px var(--danger)33" : undefined,
+        transition: "border-color 0.15s",
         fontFamily: "var(--font-inter), Inter, sans-serif",
       }}>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 4, flex: 1 }}>
@@ -71,16 +71,16 @@ export function CustomGroupedMultiSelect({
             );
           })}
         </div>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-          style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s", color: "var(--text3)" }}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+          style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s", color: "var(--text3)" }}>
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
       {open && (
         <div style={{
           position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0,
-          background: "var(--surface)", border: "1.5px solid var(--border2)",
-          borderRadius: "var(--radius2)", boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+          background: "var(--bg2)", border: "1.5px solid var(--border)",
+          borderRadius: "var(--radius)", boxShadow: "0 8px 28px rgba(0,0,0,0.15)",
           zIndex: 200, maxHeight: 260, overflowY: "auto",
         }}>
           {groups.map((g, gi) => {
@@ -105,17 +105,28 @@ export function CustomGroupedMultiSelect({
                       onMouseEnter={e => { if (!checked) e.currentTarget.style.background = "var(--bg3)"; }}
                       onMouseLeave={e => { if (!checked) e.currentTarget.style.background = "transparent"; }}
                       style={{
-                        padding: "8px 16px 8px 20px", cursor: "pointer", fontSize: 13,
-                        color: checked ? ts.color : "var(--text)",
+                        padding: "9px 12px", cursor: "pointer", fontSize: 13,
+                        color: checked ? ts.color : "var(--text1)",
                         background: checked ? ts.bg : "transparent",
                         fontWeight: checked ? 600 : 400,
                         display: "flex", alignItems: "center", gap: 8,
+                        borderBottom: "1px solid var(--border)",
+                        transition: "background 0.1s",
                       }}>
-                      {checked ? (
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ flexShrink: 0, color: ts.color }}>
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                      ) : <span style={{ width: 11 }} />}
+                      <span style={{
+                        width: 15, height: 15, flexShrink: 0,
+                        border: `1.5px solid ${checked ? ts.color : "var(--border)"}`,
+                        borderRadius: 3,
+                        background: checked ? ts.color : "transparent",
+                        display: "inline-flex", alignItems: "center", justifyContent: "center",
+                        transition: "background 0.15s, border-color 0.15s",
+                      }}>
+                        {checked && (
+                          <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="2 6 5 9 10 3" />
+                          </svg>
+                        )}
+                      </span>
                       {d.name}
                     </div>
                   );
