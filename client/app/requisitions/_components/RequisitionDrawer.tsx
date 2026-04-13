@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   requisitionService,
@@ -35,9 +35,6 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
 
   const [files, setFiles] = useState<AttachmentResponse[]>([]);
   const [filesLoading, setFilesLoading] = useState(true);
-  const [fileUploading, setFileUploading] = useState(false);
-  const [fileDeleting, setFileDeleting] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setFilesLoading(true);
@@ -92,31 +89,6 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
     } catch {
       showToast("Xatolik yuz berdi", "error");
     } finally { setActing(false); }
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = "";
-    setFileUploading(true);
-    try {
-      const uploaded = await requisitionService.uploadFile(req.id, file);
-      setFiles(prev => [...prev, uploaded]);
-      showToast("Fayl yuklandi", "success");
-    } catch {
-      showToast("Fayl yuklashda xatolik", "error");
-    } finally { setFileUploading(false); }
-  };
-
-  const handleFileDelete = async (fileId: string) => {
-    setFileDeleting(fileId);
-    try {
-      await requisitionService.deleteFile(req.id, fileId);
-      setFiles(prev => prev.filter(f => f.id !== fileId));
-      showToast("Fayl o'chirildi", "success");
-    } catch {
-      showToast("O'chirishda xatolik", "error");
-    } finally { setFileDeleting(null); }
   };
 
   const handleFileDownload = async (file: AttachmentResponse) => {
@@ -228,22 +200,6 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
 
           {/* Files */}
           <Section label={`Fayllar${files.length > 0 ? ` (${files.length})` : ""}`}>
-            <div style={{ marginBottom: 10 }}>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={fileUploading}
-                style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 13px", background: "var(--accent-dim)", color: "var(--accent)", border: "1px solid rgba(26,110,235,0.25)", borderRadius: "var(--radius)", fontSize: 12, fontWeight: 600, cursor: fileUploading ? "not-allowed" : "pointer", opacity: fileUploading ? 0.7 : 1 }}
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="17 8 12 3 7 8"/>
-                  <line x1="12" y1="3" x2="12" y2="15"/>
-                </svg>
-                {fileUploading ? "Yuklanmoqda…" : "Fayl qo'shish"}
-              </button>
-              <input ref={fileInputRef} type="file" style={{ display: "none" }} onChange={handleFileUpload} />
-            </div>
-
             {filesLoading ? (
               <div style={{ color: "var(--text3)", fontSize: 13, padding: "10px 0" }}>Yuklanmoqda…</div>
             ) : files.length === 0 ? (
@@ -271,18 +227,6 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                         <polyline points="7 10 12 15 17 10"/>
                         <line x1="12" y1="15" x2="12" y2="3"/>
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => handleFileDelete(file.id)}
-                      disabled={fileDeleting === file.id}
-                      title="O'chirish"
-                      style={{ padding: "4px 7px", background: "none", border: "none", cursor: fileDeleting === file.id ? "not-allowed" : "pointer", color: "var(--danger)", borderRadius: "var(--radius)", lineHeight: 1, opacity: fileDeleting === file.id ? 0.5 : 1 }}
-                    >
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                        <polyline points="3 6 5 6 21 6"/>
-                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                        <path d="M10 11v6M14 11v6M9 6V4h6v2"/>
                       </svg>
                     </button>
                   </div>
