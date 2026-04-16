@@ -93,7 +93,9 @@ function formatTs(iso: string): string {
   const time = d.toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" });
   if (isToday) return `Bugun · ${time}`;
   if (isYesterday) return `Kecha · ${time}`;
-  return `${d.toLocaleDateString("uz-UZ")} · ${time}`;
+  const day = String(d.getDate()).padStart(2, "0");
+  const mon = String(d.getMonth() + 1).padStart(2, "0");
+  return `${day}.${mon}.${d.getFullYear()} · ${time}`;
 }
 
 const UZ_MONTHS = [
@@ -113,7 +115,11 @@ function formatFullDate(iso: string): string {
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("uz-UZ", { year: "numeric", month: "long", day: "numeric" });
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = UZ_MONTHS[d.getMonth()];
+  return `${day}-${month} ${d.getFullYear()}-yil`;
 }
 
 export default function NotificationsPage() {
