@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { DepartmentType, DEPARTMENT_TYPE_LABELS, type DepartmentOption } from "@/lib/userService";
 import { TYPE_STYLE } from "./constants";
 
@@ -14,96 +15,207 @@ export function CustomGroupedSelect({
   hasError?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const selected = departments.find(d => d.id === value);
   const selectedTs = selected?.type !== undefined ? TYPE_STYLE[selected.type] : null;
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
 
   const groups = ([DepartmentType.IshlabChiqarish, DepartmentType.Bolim, DepartmentType.Boshqaruv] as const)
     .map(t => ({ type: t, items: departments.filter(d => d.type === t) }))
     .filter(g => g.items.length > 0);
 
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const minW = 160;
+    const dropW = Math.max(rect.width, minW);
+    const leftPos = rect.left + dropW > window.innerWidth ? window.innerWidth - dropW - 4 : rect.left;
+    setDropdownStyle({
+      position: "fixed",
+      top: rect.bottom + 4,
+      left: leftPos,
+      width: dropW,
+      zIndex: 9999,
+    });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (triggerRef.current?.contains(e.target as Node)) return;
+      if (dropdownRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onScroll = (e: Event) => {
+      if (dropdownRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    };
+    const onResize = () => setOpen(false);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [open]);
+
+  const dropdown = open ? (
+    <div
+      ref={dropdownRef}
+      onWheel={e => e.stopPropagation()}
+      style={{
+        ...dropdownStyle,
+        background: "var(--bg2)",
+        border: "1.5px solid var(--border)",
+        borderRadius: "var(--radius)",
+        boxShadow: "0 8px 28px rgba(0,0,0,0.15)",
+        maxHeight: 300,
+        overflowY: "auto",
+      }}
+    >
+      {groups.map((g, gi) => {
+        const ts = TYPE_STYLE[g.type];
+        return (
+          <div key={g.type}>
+            {/* Group header */}
+            <div style={{
+              padding: "6px 12px 5px",
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.6px",
+              textTransform: "uppercase",
+              color: ts.color,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              borderTop: gi > 0 ? "1px solid var(--border)" : "none",
+              borderBottom: "1px solid var(--border)",
+              background: "var(--bg3)",
+              position: "sticky",
+              top: 0,
+            }}>
+              <span style={{ fontSize: 12 }}>{ts.icon}</span>
+              {DEPARTMENT_TYPE_LABELS[g.type]}
+            </div>
+
+            {/* Group items */}
+            {g.items.map(d => {
+              const checked = d.id === value;
+              return (
+                <div
+                  key={d.id}
+                  onClick={() => { onChange(d.id); setOpen(false); }}
+                  onMouseEnter={e => { if (!checked) e.currentTarget.style.background = "var(--bg3)"; }}
+                  onMouseLeave={e => { if (!checked) e.currentTarget.style.background = checked ? "var(--accent-dim)" : ""; }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "9px 12px 9px 16px",
+                    cursor: "pointer",
+                    fontSize: 13,
+                    color: checked ? "var(--accent)" : "var(--text1)",
+                    fontWeight: checked ? 600 : 400,
+                    background: checked ? "var(--accent-dim)" : "transparent",
+                    borderBottom: "1px solid var(--border)",
+                    transition: "background 0.1s",
+                  }}
+                >
+                  <span style={{
+                    width: 15, height: 15, flexShrink: 0,
+                    border: `1.5px solid ${checked ? "var(--accent)" : "var(--border)"}`,
+                    borderRadius: 3,
+                    background: checked ? "var(--accent)" : "transparent",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    transition: "background 0.15s, border-color 0.15s",
+                  }}>
+                    {checked && (
+                      <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="2 6 5 9 10 3" />
+                      </svg>
+                    )}
+                  </span>
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {d.name}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  ) : null;
+
   return (
-    <div ref={ref} style={{ position: "relative" }}>
-      <button type="button" onClick={() => setOpen(o => !o)} style={{
-        width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
-        background: "var(--bg3)",
-        border: `1.5px solid ${hasError ? "var(--danger)" : open ? "var(--accent)" : "var(--border)"}`,
-        borderRadius: "var(--radius)", padding: "9px 12px",
-        fontSize: 14, cursor: "pointer", textAlign: "left",
-        boxShadow: hasError ? "0 0 0 3px rgba(217,48,37,0.2)" : open ? "0 0 0 3px var(--accent-dim)" : "none",
-        transition: "border-color 0.14s, box-shadow 0.14s",
-        fontFamily: "var(--font-inter), Inter, sans-serif",
-      }}>
+    <div style={{ position: "relative", width: "100%" }}>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        style={{
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          padding: "9px 12px",
+          border: `1.5px solid ${open ? "var(--accent)" : hasError ? "var(--danger)" : "var(--border)"}`,
+          borderRadius: "var(--radius)",
+          fontSize: 14,
+          background: "var(--bg3)",
+          color: selected ? "var(--text1)" : "var(--text3)",
+          cursor: "pointer",
+          transition: "border-color 0.15s",
+          textAlign: "left",
+          boxSizing: "border-box",
+          boxShadow: !open && hasError ? "0 0 0 2px var(--danger)33" : undefined,
+          fontFamily: "var(--font-inter), Inter, sans-serif",
+        }}
+      >
         {selected && selectedTs ? (
           <span style={{
             display: "inline-flex", alignItems: "center", gap: 5,
-            padding: "2px 9px", borderRadius: 10, fontSize: 12, fontWeight: 600,
+            padding: "1px 8px", borderRadius: 10, fontSize: 12, fontWeight: 600,
             background: selectedTs.bg, color: selectedTs.color, border: `1px solid ${selectedTs.border}`,
           }}>
-            {selectedTs.icon} {selected.name}
+            <span style={{ fontSize: 11 }}>{selectedTs.icon}</span>
+            {selected.name}
           </span>
         ) : (
-          <span style={{ color: "var(--text3)" }}>{placeholder}</span>
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+            {placeholder}
+          </span>
         )}
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-          style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s", color: "var(--text3)" }}>
+        <svg
+          width="12" height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          style={{
+            flexShrink: 0,
+            color: "var(--text3)",
+            transform: open ? "rotate(180deg)" : "none",
+            transition: "transform 0.2s",
+          }}
+        >
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
-      {open && (
-        <div style={{
-          position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0,
-          background: "var(--surface)", border: "1.5px solid var(--border2)",
-          borderRadius: "var(--radius2)", boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-          zIndex: 200, maxHeight: 260, overflowY: "auto",
-        }}>
-          {groups.map((g, gi) => {
-            const ts = TYPE_STYLE[g.type];
-            return (
-              <div key={g.type}>
-                <div style={{
-                  padding: "7px 12px 5px", fontSize: 11, fontWeight: 700,
-                  letterSpacing: "0.7px", textTransform: "uppercase",
-                  color: ts.color, background: ts.bg,
-                  display: "flex", alignItems: "center", gap: 6,
-                  borderTop: gi > 0 ? "1px solid var(--border)" : "none",
-                  position: "sticky", top: 0,
-                }}>
-                  {ts.icon} {DEPARTMENT_TYPE_LABELS[g.type]}
-                </div>
-                {g.items.map(d => (
-                  <div key={d.id}
-                    onClick={() => { onChange(d.id); setOpen(false); }}
-                    onMouseEnter={e => { if (d.id !== value) e.currentTarget.style.background = "var(--bg3)"; }}
-                    onMouseLeave={e => { if (d.id !== value) e.currentTarget.style.background = d.id === value ? ts.bg : "transparent"; }}
-                    style={{
-                      padding: "8px 16px 8px 20px", cursor: "pointer", fontSize: 13,
-                      color: d.id === value ? ts.color : "var(--text)",
-                      background: d.id === value ? ts.bg : "transparent",
-                      fontWeight: d.id === value ? 600 : 400,
-                      display: "flex", alignItems: "center", gap: 8,
-                    }}>
-                    {d.id === value ? (
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ flexShrink: 0, color: ts.color }}>
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    ) : <span style={{ width: 11 }} />}
-                    {d.name}
-                  </div>
-                ))}
-              </div>
-            );
-          })}
-        </div>
-      )}
+
+      {typeof document !== "undefined" && dropdown
+        ? createPortal(dropdown, document.body)
+        : null}
     </div>
   );
 }
