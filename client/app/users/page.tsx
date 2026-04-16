@@ -314,7 +314,7 @@ function UsersPageInner() {
 
 export default function UsersPage() {
   return (
-    <div className="page-transition">
+    <div className="page-transition" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
       <Suspense>
         <UsersPageInner />
       </Suspense>
