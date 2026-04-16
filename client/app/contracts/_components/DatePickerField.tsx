@@ -83,8 +83,9 @@ export function DatePickerField({ value, displayValue, onDisplayChange, onDateSe
     <div ref={ref} style={{ position:"relative" }}>
       <div style={{ position:"relative", display:"flex", alignItems:"center" }}>
         <input className="form-input" type="text" value={displayValue} placeholder="kun.oy.yil"
-          onChange={e => { const m = maskDate(e.target.value); onDisplayChange(m); const iso = displayToIso(m); if (iso) onDateSelect(iso); }}
-          style={{ ...(hasError ? {borderColor:"var(--danger)"} : {}), paddingRight:38, width:"100%" }}
+          readOnly
+          onClick={() => setOpen(o => !o)}
+          style={{ ...(hasError ? {borderColor:"var(--danger)"} : {}), paddingRight:38, width:"100%", cursor:"pointer" }}
         />
         <button type="button" onClick={()=>setOpen(o=>!o)} style={{
           position:"absolute", right:8, background:"none", border:"none", cursor:"pointer",
