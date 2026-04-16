@@ -19,28 +19,44 @@ public static class AutomatedMigration
         await SeedDepartmentsAsync(context);
     }
 
+    private static readonly Dictionary<PermissionModule, PermissionAction[]> ModuleActions = new()
+    {
+        [PermissionModule.Users]              = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete],
+        [PermissionModule.Roles]              = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete],
+        [PermissionModule.Departments]        = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete],
+        [PermissionModule.Products]           = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete],
+        [PermissionModule.Contracts]          = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete, PermissionAction.ViewAll, PermissionAction.Approve],
+        [PermissionModule.TechProcess]        = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete, PermissionAction.ViewAll],
+        [PermissionModule.TechnicalDrawings]  = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete, PermissionAction.ViewAll],
+        [PermissionModule.CostNorm]           = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete, PermissionAction.ViewAll],
+        [PermissionModule.MaterialInventory]  = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete, PermissionAction.ViewAll, PermissionAction.SendToWarehouse],
+        [PermissionModule.Tasks]              = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete, PermissionAction.ViewAll],
+        [PermissionModule.Notifications]      = [PermissionAction.View, PermissionAction.ViewAll],
+        [PermissionModule.Requisitions]       = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete, PermissionAction.ViewAll, PermissionAction.Approve, PermissionAction.SendToWarehouse],
+    };
+
     private static async System.Threading.Tasks.Task SeedPermissionsAsync(DatabaseContext context)
     {
-        var modules = Enum.GetValues<PermissionModule>();
-        var actions = Enum.GetValues<PermissionAction>();
-
-        // Eski, endi ishlatilmaydigan permission'larni o'chirish
-        var validModules = modules.ToList();
-        var validActions = actions.ToList();
-
+        // Ortiqcha (endi kerak bo'lmagan) permission'larni o'chirish
         var allExisting = await context.Permissions.ToListAsync();
         var outdatedPermissions = allExisting
-            .Where(p => !validModules.Contains(p.Module) || !validActions.Contains(p.Action))
+            .Where(p => !ModuleActions.TryGetValue(p.Module, out var allowed) || !allowed.Contains(p.Action))
             .ToList();
 
         if (outdatedPermissions.Count > 0)
         {
+            var outdatedIds = outdatedPermissions.Select(p => p.Id).ToHashSet();
+            var rolePermsToDelete = await context.RolePermissions
+                .Where(rp => outdatedIds.Contains(rp.PermissionId))
+                .ToListAsync();
+
+            context.RolePermissions.RemoveRange(rolePermsToDelete);
             context.Permissions.RemoveRange(outdatedPermissions);
             await context.SaveChangesAsync();
         }
 
         // Yangi permission'larni qo'shish
-        foreach (var module in modules)
+        foreach (var (module, actions) in ModuleActions)
         {
             foreach (var action in actions)
             {
@@ -89,9 +105,35 @@ public static class AutomatedMigration
 
     private static async System.Threading.Tasks.Task SeedDepartmentsAsync(DatabaseContext context)
     {
-        var seedDepartments = new[] { "Mexanika", "Optika", "Himoya", "Tikuv", "Antidron" };
+        var seedDepartments = new[]
+        {
+            // Bo'limlar
+            (Name: "Sifat nazorati bo'limi",                                                                          Type: DepartmentType.Bolim),
+            (Name: "Konstruktorlik bo'limi",                                                                          Type: DepartmentType.Bolim),
+            (Name: "Texnologiya bo'limi",                                                                             Type: DepartmentType.Bolim),
+            (Name: "Istiqbolli loyihalarni va innovatsiani rivojlantirish hamda hamkorlar bilan ishlash bo'limi",     Type: DepartmentType.Bolim),
+            (Name: "Axborot tizimlar va dasturiy ta'minot bo'limi",                                                   Type: DepartmentType.Bolim),
+            (Name: "Marketing, savdo va xarid bo'limi",                                                               Type: DepartmentType.Bolim),
+            (Name: "Iqtisodiy rejalashtirish bo'limi",                                                                Type: DepartmentType.Bolim),
+            (Name: "Buxgalteriya bo'limi",                                                                            Type: DepartmentType.Bolim),
+            (Name: "Kadrlar va umumiy bo'lim",                                                                        Type: DepartmentType.Bolim),
+            (Name: "Xo'jalik ishlari bo'limi",                                                                        Type: DepartmentType.Bolim),
+            (Name: "Energetika bo'limi",                                                                              Type: DepartmentType.Bolim),
+            (Name: "Nazorat va qo'riqlash bo'limi",                                                                   Type: DepartmentType.Bolim),
+            (Name: "Omborxona",                                                                                        Type: DepartmentType.Bolim),
 
-        foreach (var name in seedDepartments)
+            // Ishlab chiqarish sexlari
+            (Name: "Mexanika va metalga qayta ishlov berish sexi",                                                    Type: DepartmentType.IshlabChiqarish),
+            (Name: "Optik-elektron mahsulotlar ishlab chiqarish sexi",                                                Type: DepartmentType.IshlabChiqarish),
+            (Name: "Himoya vositalarini ishlab chiqarish sexi",                                                       Type: DepartmentType.IshlabChiqarish),
+            (Name: "Tikuv sexi",                                                                                      Type: DepartmentType.IshlabChiqarish),
+            (Name: "Uchuvchisiz uchish apparatlariga radioelektron qarshi kurashish vositalarini ishlab chiqarish sexi", Type: DepartmentType.IshlabChiqarish),
+
+            // Boshqaruv
+            (Name: "Korxona boshqaruvi",                                                                              Type: DepartmentType.Boshqaruv),
+        };
+
+        foreach (var (name, type) in seedDepartments)
         {
             var exists = await context.Departments.AnyAsync(d => d.Name == name);
             if (!exists)
@@ -100,7 +142,9 @@ public static class AutomatedMigration
                 {
                     Id = Guid.NewGuid(),
                     Name = name,
+                    Type = type,
                     EmployeeCount = 0,
+                    IsActive = true,
                     CreatedAt = DateTime.UtcNow,
                 });
             }

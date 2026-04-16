@@ -1,3 +1,4 @@
+using API.Authorization;
 using Application.DTOs.Products;
 using Application.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -17,6 +18,7 @@ public class ProductController : ControllerBase
         _productService = productService;
     }
 
+    [HasPermission("Products.View")]
     [HttpGet]
     public async Task<IActionResult> GetAll(
         [FromQuery] int page = 1,
@@ -28,6 +30,7 @@ public class ProductController : ControllerBase
         return Ok(result);
     }
 
+    [HasPermission("Products.View")]
     [HttpGet("by-department/{departmentId:guid}")]
     public async Task<IActionResult> GetByDepartment(Guid departmentId)
     {
@@ -35,6 +38,7 @@ public class ProductController : ControllerBase
         return Ok(result);
     }
 
+    [HasPermission("Products.View")]
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id)
     {
@@ -46,6 +50,7 @@ public class ProductController : ControllerBase
         return Ok(result);
     }
 
+    [HasPermission("Products.Create")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] ProductCreateDto dto)
     {
@@ -57,6 +62,7 @@ public class ProductController : ControllerBase
         return StatusCode(result.Result, result);
     }
 
+    [HasPermission("Products.Create")]
     [HttpPost("bulk")]
     public async Task<IActionResult> CreateBulk([FromBody] IEnumerable<ProductCreateDto> dtos)
     {
@@ -68,6 +74,7 @@ public class ProductController : ControllerBase
         return StatusCode(result.Result, result);
     }
 
+    [HasPermission("Products.Update")]
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] ProductUpdateDto dto)
     {
@@ -79,6 +86,7 @@ public class ProductController : ControllerBase
         return StatusCode(result.Result, result);
     }
 
+    [HasPermission("Products.Delete")]
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {

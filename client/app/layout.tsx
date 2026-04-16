@@ -152,7 +152,7 @@ function applyAppearanceFont(family: string, scale: number) {
 }
 
 // Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
-const readyRoutes = new Set(["/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions"]);
+const readyRoutes = new Set(["/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions", "/inventory"]);
 const readyPrefixes = ["/requisitions/", "/contracts/", "/techprocess/", "/technicaldrawings/", "/requisitions/print"];
 
 const pageTitles: Record<string, string> = {
@@ -170,6 +170,7 @@ const pageTitles: Record<string, string> = {
   "/appearance":    "Tashqi ko'rinish",
   "/requisitions":        "Talabnomalar",
   "/requisitions/print":  "Talabnoma",
+  "/inventory":           "Inventarizatsiya",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
