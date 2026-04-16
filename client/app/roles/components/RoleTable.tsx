@@ -14,7 +14,7 @@ interface Props {
   openAddRole: () => void;
   openViewRole: (r: RoleResponse) => void;
   openEditRole: (r: RoleResponse) => void;
-  activateRole: (id: string) => void;
+  setActivateConfirmId: (id: string) => void;
   setDeleteConfirmId: (id: string) => void;
   setDeleteError: (e: string | null) => void;
 }
@@ -22,8 +22,8 @@ interface Props {
 export default function RoleTable({
   loading, filtered, search, setSearch, fetchAll,
   canCreate, canUpdate, canDelete,
-  openAddRole, openViewRole, openEditRole, activateRole,
-  setDeleteConfirmId, setDeleteError,
+  openAddRole, openViewRole, openEditRole,
+  setActivateConfirmId, setDeleteConfirmId, setDeleteError,
 }: Props) {
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
@@ -117,7 +117,7 @@ export default function RoleTable({
                             </button>
                           )}
                           {canUpdate && r.isActive === false && (
-                            <button className="btn-icon" title="Aktivlashtirish" onClick={() => activateRole(r.id)}
+                            <button className="btn-icon" title="Aktivlashtirish" onClick={() => setActivateConfirmId(r.id)}
                               style={{ color: "#16a34a", borderColor: "#16a34a33", background: "#f0fdf4" }}>
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <polyline points="20 6 9 17 4 12" />

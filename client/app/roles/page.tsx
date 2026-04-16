@@ -14,6 +14,7 @@ import { useToastStore } from "@/lib/store/toastStore";
 import RoleFormView from "./components/RoleFormView";
 import RoleViewDrawer from "./components/RoleViewDrawer";
 import DeactivateModal from "./components/DeactivateModal";
+import ActivateModal from "./components/ActivateModal";
 import RoleTable from "./components/RoleTable";
 
 export default function RolesPage() {
@@ -43,6 +44,10 @@ export default function RolesPage() {
   const [roleSaving, setRoleSaving] = useState(false);
   const [permsLoading, setPermsLoading] = useState(false);
   const [formSubmitted, setFormSubmitted] = useState(false);
+
+  // Activate
+  const [activateConfirmId, setActivateConfirmId] = useState<string | null>(null);
+  const [activating, setActivating] = useState(false);
 
   // Delete / Deactivate
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -203,13 +208,18 @@ export default function RolesPage() {
     }
   };
 
-  const activateRole = async (id: string) => {
+  const activateRole = async () => {
+    if (!activateConfirmId) return;
+    setActivating(true);
     try {
-      await roleService.update(id, { isActive: true });
+      await roleService.update(activateConfirmId, { isActive: true });
+      setActivateConfirmId(null);
       await fetchAll();
       showToast("Rol muvaffaqiyatli aktiv qilindi!");
     } catch {
       showToast("Rolni aktiv qilishda xatolik yuz berdi.", "Xatolik");
+    } finally {
+      setActivating(false);
     }
   };
 
@@ -256,10 +266,18 @@ export default function RolesPage() {
         openAddRole={openAddRole}
         openViewRole={openViewRole}
         openEditRole={openEditRole}
-        activateRole={activateRole}
+        setActivateConfirmId={setActivateConfirmId}
         setDeleteConfirmId={setDeleteConfirmId}
         setDeleteError={setDeleteError}
       />
+
+      {activateConfirmId && (
+        <ActivateModal
+          activating={activating}
+          onConfirm={activateRole}
+          onClose={() => setActivateConfirmId(null)}
+        />
+      )}
 
       {deleteConfirmId && (
         <DeactivateModal
