@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useDraft } from "@/lib/useDraft";
 import {
@@ -13,6 +13,187 @@ import {
 } from "@/lib/userService";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useToastStore } from "@/lib/store/toastStore";
+
+const TYPE_FILTER_OPTIONS: { value: DepartmentType | null; label: string; icon?: string }[] = [
+  { value: null, label: "Barchasi" },
+  { value: DepartmentType.IshlabChiqarish, label: DEPARTMENT_TYPE_LABELS[DepartmentType.IshlabChiqarish], icon: "🏭" },
+  { value: DepartmentType.Bolim,           label: DEPARTMENT_TYPE_LABELS[DepartmentType.Bolim],           icon: "🏢" },
+  { value: DepartmentType.Boshqaruv,       label: DEPARTMENT_TYPE_LABELS[DepartmentType.Boshqaruv],       icon: "👔" },
+];
+
+function TypeFilterDropdown({
+  value,
+  onChange,
+  counts,
+}: {
+  value: DepartmentType | null;
+  onChange: (v: DepartmentType | null) => void;
+  counts: Record<string, number>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const selected = TYPE_FILTER_OPTIONS.find(o => o.value === value)!;
+
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const dropW = Math.max(rect.width, 200);
+    const leftPos = rect.left + dropW > window.innerWidth ? window.innerWidth - dropW - 4 : rect.left;
+    setDropdownStyle({
+      position: "fixed",
+      top: rect.bottom + 4,
+      left: leftPos,
+      width: dropW,
+      zIndex: 9999,
+    });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (triggerRef.current?.contains(e.target as Node)) return;
+      if (dropdownRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onScroll = (e: Event) => {
+      if (dropdownRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    };
+    const onResize = () => setOpen(false);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [open]);
+
+  const totalCount = counts["all"] ?? 0;
+
+  const dropdown = open ? (
+    <div
+      ref={dropdownRef}
+      onWheel={e => e.stopPropagation()}
+      style={{
+        ...dropdownStyle,
+        background: "var(--bg2)",
+        border: "1.5px solid var(--border)",
+        borderRadius: "var(--radius)",
+        boxShadow: "0 8px 28px rgba(0,0,0,0.15)",
+        maxHeight: 300,
+        overflowY: "auto",
+      }}
+    >
+      {TYPE_FILTER_OPTIONS.map(opt => {
+        const checked = opt.value === value;
+        const count = opt.value === null ? totalCount : (counts[String(opt.value)] ?? 0);
+        return (
+          <div
+            key={String(opt.value)}
+            onClick={() => { onChange(opt.value); setOpen(false); }}
+            onMouseEnter={e => { if (!checked) e.currentTarget.style.background = "var(--bg3)"; }}
+            onMouseLeave={e => { if (!checked) e.currentTarget.style.background = checked ? "var(--accent-dim)" : ""; }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "9px 12px",
+              cursor: "pointer",
+              fontSize: 13,
+              color: checked ? "var(--accent)" : "var(--text1)",
+              fontWeight: checked ? 600 : 400,
+              background: checked ? "var(--accent-dim)" : "transparent",
+              borderBottom: "1px solid var(--border)",
+              transition: "background 0.1s",
+            }}
+          >
+            <span style={{
+              width: 15, height: 15, flexShrink: 0,
+              border: `1.5px solid ${checked ? "var(--accent)" : "var(--border)"}`,
+              borderRadius: 3,
+              background: checked ? "var(--accent)" : "transparent",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "background 0.15s, border-color 0.15s",
+            }}>
+              {checked && (
+                <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="2 6 5 9 10 3" />
+                </svg>
+              )}
+            </span>
+            {opt.icon && <span style={{ fontSize: 15, lineHeight: 1 }}>{opt.icon}</span>}
+            <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {opt.label}
+            </span>
+            <span style={{
+              fontSize: 11, fontWeight: 600,
+              background: checked ? "var(--accent)" : "var(--border)",
+              color: checked ? "#fff" : "var(--text2)",
+              borderRadius: 10, padding: "1px 7px", flexShrink: 0,
+            }}>{count}</span>
+          </div>
+        );
+      })}
+    </div>
+  ) : null;
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "7px 12px",
+          border: `1.5px solid ${open ? "var(--accent)" : "var(--border)"}`,
+          borderRadius: "var(--radius)",
+          fontSize: 13,
+          fontWeight: 600,
+          background: "var(--bg3)",
+          color: "var(--text1)",
+          cursor: "pointer",
+          transition: "border-color 0.15s",
+          whiteSpace: "nowrap",
+          minWidth: 160,
+          fontFamily: "var(--font-inter), Inter, sans-serif",
+        }}
+      >
+        {selected.icon && <span style={{ fontSize: 15, lineHeight: 1 }}>{selected.icon}</span>}
+        <span style={{ flex: 1, textAlign: "left" }}>{selected.label}</span>
+        <span style={{
+          fontSize: 11, fontWeight: 600,
+          background: "var(--accent)",
+          color: "#fff",
+          borderRadius: 10, padding: "1px 7px", flexShrink: 0,
+        }}>
+          {value === null ? totalCount : (counts[String(value)] ?? 0)}
+        </span>
+        <svg
+          width="12" height="12" viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" strokeWidth="2.5"
+          style={{ flexShrink: 0, color: "var(--text3)", transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {typeof document !== "undefined" && dropdown ? createPortal(dropdown, document.body) : null}
+    </div>
+  );
+}
 
 interface DeptForm {
   name: string;
@@ -335,6 +516,7 @@ export default function DepartmentsPage() {
 
   /* ===== List view ===== */
   const counts = {
+    all: depts.length,
     [DepartmentType.IshlabChiqarish]: depts.filter(d => d.type === DepartmentType.IshlabChiqarish).length,
     [DepartmentType.Bolim]:           depts.filter(d => d.type === DepartmentType.Bolim).length,
     [DepartmentType.Boshqaruv]:       depts.filter(d => d.type === DepartmentType.Boshqaruv).length,
@@ -342,45 +524,6 @@ export default function DepartmentsPage() {
 
   return (
     <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
-
-      {/* Stats chips */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
-        {([null, DepartmentType.IshlabChiqarish, DepartmentType.Bolim, DepartmentType.Boshqaruv] as const).map(t => {
-          const active = typeFilter === t;
-          const label = t === null ? "Barchasi" : DEPARTMENT_TYPE_LABELS[t];
-          const count = t === null ? depts.length : (counts as Record<DepartmentType, number>)[t] ?? 0;
-          const s = t !== null ? TYPE_STYLE[t] : null;
-          return (
-            <button
-              key={String(t)}
-              type="button"
-              onClick={() => setTypeFilter(t)}
-              style={{
-                display: "inline-flex", alignItems: "center", gap: 6,
-                padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 13, fontWeight: 600,
-                border: active
-                  ? `1.5px solid ${s ? s.color : "var(--accent)"}`
-                  : "1.5px solid var(--border)",
-                background: active
-                  ? (s ? s.bg : "var(--accent-dim)")
-                  : "var(--bg1)",
-                color: active
-                  ? (s ? s.color : "var(--accent)")
-                  : "var(--text2)",
-                transition: "all 0.15s",
-              }}
-            >
-              {t !== null && <span>{s!.icon}</span>}
-              {label}
-              <span style={{
-                background: active ? (s ? s.color : "var(--accent)") : "var(--border)",
-                color: active ? "#fff" : "var(--text2)",
-                borderRadius: 10, padding: "1px 7px", fontSize: 11,
-              }}>{count}</span>
-            </button>
-          );
-        })}
-      </div>
 
       {/* Toolbar */}
       <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px" }}>
@@ -391,6 +534,7 @@ export default function DepartmentsPage() {
           <input className="search-input" placeholder="Qidirish"
             value={search} onChange={e => setSearch(e.target.value)} />
         </div>
+        <TypeFilterDropdown value={typeFilter} onChange={setTypeFilter} counts={counts} />
         <button
           className="btn-icon"
           onClick={load}
