@@ -20,6 +20,8 @@ import { emptyForm, type UserForm } from "./_components/constants";
 import { UserCreateView } from "./_components/UserCreateView";
 import { UserEditView } from "./_components/UserEditView";
 import { UserListView } from "./_components/UserListView";
+import DeactivateModal from "./_components/DeactivateModal";
+import ActivateModal from "./_components/ActivateModal";
 
 function UsersPageInner() {
   const router = useRouter();
@@ -52,8 +54,11 @@ function UsersPageInner() {
   const [saving, setSaving] = useState(false);
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [saveError, setSaveError] = useState("");
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
+  const [deactivateId, setDeactivateId] = useState<string | null>(null);
+  const [deactivating, setDeactivating] = useState(false);
+  const [deactivateError, setDeactivateError] = useState<string | null>(null);
+  const [activateConfirmId, setActivateConfirmId] = useState<string | null>(null);
+  const [activating, setActivating] = useState(false);
   const [confirmHead, setConfirmHead] = useState<{ headName: string } | null>(null);
 
   const showCreate = view === "create";
@@ -229,95 +234,133 @@ function UsersPageInner() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    setDeleting(true);
+  const handleDeactivate = async () => {
+    if (!deactivateId) return;
+    setDeactivating(true);
+    setDeactivateError(null);
     try {
-      await userService.delete(deleteId);
-      setDeleteId(null);
-      showToast("Foydalanuvchi muvaffaqiyatli o'chirildi!");
+      await userService.deactivate(deactivateId);
+      setDeactivateId(null);
+      showToast("Foydalanuvchi muvaffaqiyatli noaktiv qilindi!");
+      await load();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
+      setDeactivateError(msg || "Xatolik yuz berdi.");
+    } finally {
+      setDeactivating(false);
+    }
+  };
+
+  const handleActivate = async () => {
+    if (!activateConfirmId) return;
+    setActivating(true);
+    try {
+      await userService.activate(activateConfirmId);
+      setActivateConfirmId(null);
+      showToast("Foydalanuvchi muvaffaqiyatli aktiv qilindi!");
       await load();
     } catch {
-      showToast("O'chirishda xatolik yuz berdi.", "Xatolik");
+      showToast("Foydalanuvchini aktiv qilishda xatolik yuz berdi.", "Xatolik");
     } finally {
-      setDeleting(false);
+      setActivating(false);
     }
   };
 
   if (showEdit) {
     return (
-      <UserEditView
-        form={form}
-        setForm={setForm}
-        formSubmitted={formSubmitted}
-        saving={saving}
-        saveError={saveError}
-        roles={roles}
-        departments={departments}
-        confirmHead={confirmHead}
-        setConfirmHead={setConfirmHead}
-        handleUpdate={handleUpdate}
-        handleIsHeadChange={handleIsHeadChange}
-        onCancel={handleCancel}
-      />
+      <div className="page-transition" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        <UserEditView
+          form={form}
+          setForm={setForm}
+          formSubmitted={formSubmitted}
+          saving={saving}
+          saveError={saveError}
+          roles={roles}
+          departments={departments}
+          confirmHead={confirmHead}
+          setConfirmHead={setConfirmHead}
+          handleUpdate={handleUpdate}
+          handleIsHeadChange={handleIsHeadChange}
+          onCancel={handleCancel}
+        />
+      </div>
     );
   }
 
   if (showCreate) {
     return (
-      <UserCreateView
-        form={form}
-        setForm={setForm}
-        formSubmitted={formSubmitted}
-        saving={saving}
-        saveError={saveError}
-        roles={roles}
-        departments={departments}
-        confirmHead={confirmHead}
-        setConfirmHead={setConfirmHead}
-        handleCreate={handleCreate}
-        handleIsHeadChange={handleIsHeadChange}
-        onCancel={handleCancel}
-      />
+      <div className="page-transition" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        <UserCreateView
+          form={form}
+          setForm={setForm}
+          formSubmitted={formSubmitted}
+          saving={saving}
+          saveError={saveError}
+          roles={roles}
+          departments={departments}
+          confirmHead={confirmHead}
+          setConfirmHead={setConfirmHead}
+          handleCreate={handleCreate}
+          handleIsHeadChange={handleIsHeadChange}
+          onCancel={handleCancel}
+        />
+      </div>
     );
   }
 
   return (
-    <UserListView
-      filtered={filtered}
-      users={users}
-      departments={departments}
-      page={page}
-      totalPages={totalPages}
-      totalCount={totalCount}
-      loading={loading}
-      error={error}
-      search={search}
-      setSearch={setSearch}
-      typeFilter={typeFilter}
-      setTypeFilter={setTypeFilter}
-      canCreate={canCreate}
-      canUpdate={canUpdate}
-      canDelete={canDelete}
-      deleteId={deleteId}
-      setDeleteId={setDeleteId}
-      deleting={deleting}
-      handleDelete={handleDelete}
-      onOpenCreate={openCreate}
-      onOpenEdit={openEdit}
-      onRefresh={() => load()}
-      animOffset={animOffset.current}
-      setPage={setPage}
-    />
+    <>
+      <div className="page-transition" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        <UserListView
+          filtered={filtered}
+          users={users}
+          departments={departments}
+          page={page}
+          totalPages={totalPages}
+          totalCount={totalCount}
+          loading={loading}
+          error={error}
+          search={search}
+          setSearch={setSearch}
+          typeFilter={typeFilter}
+          setTypeFilter={setTypeFilter}
+          canCreate={canCreate}
+          canUpdate={canUpdate}
+          canDelete={canDelete}
+          setDeactivateId={setDeactivateId}
+          setActivateConfirmId={setActivateConfirmId}
+          onOpenCreate={openCreate}
+          onOpenEdit={openEdit}
+          onRefresh={() => load()}
+          animOffset={animOffset.current}
+          setPage={setPage}
+        />
+      </div>
+
+      {deactivateId && (
+        <DeactivateModal
+          deactivateError={deactivateError}
+          deactivating={deactivating}
+          onConfirm={handleDeactivate}
+          onClose={() => setDeactivateId(null)}
+        />
+      )}
+
+      {activateConfirmId && (
+        <ActivateModal
+          activating={activating}
+          onConfirm={handleActivate}
+          onClose={() => setActivateConfirmId(null)}
+        />
+      )}
+    </>
   );
 }
 
 export default function UsersPage() {
   return (
-    <div className="page-transition" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-      <Suspense>
-        <UsersPageInner />
-      </Suspense>
-    </div>
+    <Suspense>
+      <UsersPageInner />
+    </Suspense>
   );
 }

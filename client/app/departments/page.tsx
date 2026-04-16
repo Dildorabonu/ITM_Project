@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useDraft } from "@/lib/useDraft";
 import {
   departmentService,
@@ -11,6 +12,7 @@ import {
   type DepartmentUpdatePayload,
 } from "@/lib/userService";
 import { useAuthStore } from "@/lib/store/authStore";
+import { useToastStore } from "@/lib/store/toastStore";
 
 interface DeptForm {
   name: string;
@@ -31,6 +33,7 @@ export default function DepartmentsPage() {
   const canCreate = hasPermission("Departments.Create");
   const canUpdate = hasPermission("Departments.Update");
   const canDelete = hasPermission("Departments.Delete");
+  const showToast = useToastStore(s => s.show);
 
   const [depts, setDepts] = useState<DepartmentResponse[]>([]);
   const [filtered, setFiltered] = useState<DepartmentResponse[]>([]);
@@ -125,6 +128,7 @@ export default function DepartmentsPage() {
           employeeCount: count ?? editTarget.employeeCount,
         };
         setDepts(prev => prev.map(d => d.id === editTarget.id ? updated : d));
+        showToast("Bo'lim muvaffaqiyatli yangilandi!");
       } else {
         const payload: DepartmentCreatePayload = {
           name: form.name,
@@ -141,10 +145,11 @@ export default function DepartmentsPage() {
           isActive: true,
         };
         setDepts(prev => [...prev, created]);
+        showToast("Bo'lim muvaffaqiyatli yaratildi!");
       }
       setShowForm(false);
     } catch {
-      // stay on error
+      showToast("Saqlashda xatolik yuz berdi.", "Xatolik");
     } finally {
       setSaving(false);
     }
@@ -156,7 +161,9 @@ export default function DepartmentsPage() {
     setToggleError("");
     try {
       await departmentService.delete(toggleTarget.id);
+      const wasActive = toggleTarget.isActive !== false;
       setDepts(prev => prev.map(d => d.id === toggleTarget.id ? { ...d, isActive: !toggleTarget.isActive } : d));
+      showToast(wasActive ? "Bo'lim noaktiv qilindi!" : "Bo'lim muvaffaqiyatli faollashtirildi!");
       setToggleId(null);
       setToggleTarget(null);
     } catch {
@@ -171,7 +178,25 @@ export default function DepartmentsPage() {
     const ts = TYPE_STYLE[form.type] ?? { bg: "var(--bg1)", color: "var(--text2)", border: "var(--border)", icon: "🏢" };
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button
+            type="button"
+            onClick={() => setShowForm(false)}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              background: "var(--bg3)", border: "1.5px solid var(--border)",
+              borderRadius: "var(--radius)", cursor: "pointer",
+              padding: "7px 14px", color: "var(--text2)", fontSize: 13, fontWeight: 500,
+              transition: "border-color 0.15s, color 0.15s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text2)"; }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+            Orqaga
+          </button>
           <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>
             {editTarget ? "Bo'limni tahrirlash" : "Yangi bo'lim / ishlab chiqarish / boshliq"}
           </span>
@@ -501,7 +526,7 @@ export default function DepartmentsPage() {
       </div>
 
       {/* Delete confirm */}
-      {toggleId && toggleTarget && (
+      {toggleId && toggleTarget && createPortal(
         <div className="modal-overlay" onClick={() => { setToggleId(null); setToggleTarget(null); setToggleError(""); }}>
           <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 400 }}>
             <div className="modal-header" style={{ color: toggleTarget.isActive === false ? "#22c55e" : "var(--danger)", borderBottom: "1px solid var(--border)" }}>
@@ -541,7 +566,8 @@ export default function DepartmentsPage() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

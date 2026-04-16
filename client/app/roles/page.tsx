@@ -253,23 +253,25 @@ export default function RolesPage() {
   }
 
   return (
-    <div className="page-transition">
-      <RoleTable
-        loading={loading}
-        filtered={filtered}
-        search={search}
-        setSearch={setSearch}
-        fetchAll={fetchAll}
-        canCreate={canCreate}
-        canUpdate={canUpdate}
-        canDelete={canDelete}
-        openAddRole={openAddRole}
-        openViewRole={openViewRole}
-        openEditRole={openEditRole}
-        setActivateConfirmId={setActivateConfirmId}
-        setDeleteConfirmId={setDeleteConfirmId}
-        setDeleteError={setDeleteError}
-      />
+    <>
+      <div className="page-transition">
+        <RoleTable
+          loading={loading}
+          filtered={filtered}
+          search={search}
+          setSearch={setSearch}
+          fetchAll={fetchAll}
+          canCreate={canCreate}
+          canUpdate={canUpdate}
+          canDelete={canDelete}
+          openAddRole={openAddRole}
+          openViewRole={openViewRole}
+          openEditRole={openEditRole}
+          setActivateConfirmId={setActivateConfirmId}
+          setDeleteConfirmId={setDeleteConfirmId}
+          setDeleteError={setDeleteError}
+        />
+      </div>
 
       {activateConfirmId && (
         <ActivateModal
@@ -299,6 +301,6 @@ export default function RolesPage() {
           onClose={() => setViewRole(null)}
         />
       )}
-    </div>
+    </>
   );
 }
