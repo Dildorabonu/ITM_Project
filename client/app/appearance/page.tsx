@@ -273,16 +273,21 @@ const cardStyle: React.CSSProperties = {
           {/* Preview */}
           <div style={{ marginTop: 20, display: "flex", gap: 10 }}>
             {RADIUS_OPTIONS.map((r) => (
-              <div key={r.value} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+              <button
+                key={r.value}
+                onClick={() => handleRadius(r.value)}
+                style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, background: "none", border: "none", padding: 0, cursor: "pointer" }}
+              >
                 <div style={{
                   width: 48, height: 32,
                   background: radius === r.value ? "var(--accent)" : "var(--surface2)",
                   border: `1px solid ${radius === r.value ? "var(--accent)" : "var(--border)"}`,
                   borderRadius: r.radius2,
-                  transition: "background 0.2s",
+                  transition: "background 0.2s, transform 0.1s",
+                  transform: radius === r.value ? "scale(1.1)" : "scale(1)",
                 }} />
                 <span style={{ fontSize: 11, color: radius === r.value ? "var(--accent)" : "var(--text3)" }}>{r.label}</span>
-              </div>
+              </button>
             ))}
           </div>
         </div>
