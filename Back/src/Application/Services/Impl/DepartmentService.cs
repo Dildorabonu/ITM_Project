@@ -19,6 +19,7 @@ public class DepartmentService : IDepartmentService
     {
         var departments = await _context.Departments
             .AsNoTracking()
+            .OrderBy(d => d.Name)
             .ToListAsync();
 
         var headUsers = await _context.Users
