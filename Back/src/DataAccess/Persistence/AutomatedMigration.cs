@@ -16,6 +16,7 @@ public static class AutomatedMigration
         await SeedPermissionsAsync(context);
         await SeedSuperAdminUserAsync(context);
         await SeedSuperAdminPermissionsAsync(context);
+        await SeedDefaultRolesAsync(context);
         await SeedDepartmentsAsync(context);
     }
 
@@ -101,6 +102,229 @@ public static class AutomatedMigration
             context.Users.Add(superAdminUser);
             await context.SaveChangesAsync();
         }
+    }
+
+    private static async System.Threading.Tasks.Task SeedDefaultRolesAsync(DatabaseContext context)
+    {
+        var roles = new[]
+        {
+            new
+            {
+                Id = new Guid("51501175-3742-4610-8b84-f79495340122"),
+                Name = "Mexanika",
+                Description = "Tex jarayon & Normalar",
+                CreatedAt = new DateTime(2026, 4, 16, 8, 41, 3, 307, DateTimeKind.Utc).AddTicks(2440),
+                Permissions = new[] {
+                    (PermissionModule.Contracts, PermissionAction.View),
+                    (PermissionModule.TechProcess, PermissionAction.View),
+                    (PermissionModule.TechProcess, PermissionAction.Create),
+                    (PermissionModule.TechProcess, PermissionAction.Update),
+                    (PermissionModule.TechProcess, PermissionAction.Delete),
+                    (PermissionModule.TechProcess, PermissionAction.ViewAll),
+                    (PermissionModule.TechnicalDrawings, PermissionAction.View),
+                    (PermissionModule.TechnicalDrawings, PermissionAction.ViewAll),
+                    (PermissionModule.CostNorm, PermissionAction.View),
+                    (PermissionModule.CostNorm, PermissionAction.Create),
+                    (PermissionModule.CostNorm, PermissionAction.Update),
+                    (PermissionModule.CostNorm, PermissionAction.Delete),
+                    (PermissionModule.CostNorm, PermissionAction.ViewAll),
+                    (PermissionModule.Notifications, PermissionAction.View),
+                    (PermissionModule.Requisitions, PermissionAction.View),
+                    (PermissionModule.Requisitions, PermissionAction.Create),
+                    (PermissionModule.Requisitions, PermissionAction.Update),
+                    (PermissionModule.Requisitions, PermissionAction.Delete),
+                    (PermissionModule.Requisitions, PermissionAction.Approve),
+                    (PermissionModule.Requisitions, PermissionAction.SendToWarehouse),
+                }
+            },
+            new
+            {
+                Id = new Guid("2fe2f5d4-233c-4d58-9ff5-0e043a9fb5a4"),
+                Name = "Kontruktor",
+                Description = "Texnik chizmalar",
+                CreatedAt = new DateTime(2026, 4, 16, 9, 12, 49, 772, DateTimeKind.Utc).AddTicks(4530),
+                Permissions = new[] {
+                    (PermissionModule.Contracts, PermissionAction.View),
+                    (PermissionModule.TechProcess, PermissionAction.View),
+                    (PermissionModule.TechnicalDrawings, PermissionAction.View),
+                    (PermissionModule.TechnicalDrawings, PermissionAction.Create),
+                    (PermissionModule.TechnicalDrawings, PermissionAction.Update),
+                    (PermissionModule.TechnicalDrawings, PermissionAction.Delete),
+                    (PermissionModule.TechnicalDrawings, PermissionAction.ViewAll),
+                    (PermissionModule.CostNorm, PermissionAction.View),
+                    (PermissionModule.Notifications, PermissionAction.View),
+                    (PermissionModule.Requisitions, PermissionAction.View),
+                    (PermissionModule.Requisitions, PermissionAction.Create),
+                    (PermissionModule.Requisitions, PermissionAction.Update),
+                    (PermissionModule.Requisitions, PermissionAction.Delete),
+                    (PermissionModule.Requisitions, PermissionAction.Approve),
+                    (PermissionModule.Requisitions, PermissionAction.SendToWarehouse),
+                }
+            },
+            new
+            {
+                Id = new Guid("3cc44a5d-1871-4711-bc0a-9a7753c1a887"),
+                Name = "Marketing",
+                Description = "Shartnomalar tuzish",
+                CreatedAt = new DateTime(2026, 4, 16, 9, 14, 58, 377, DateTimeKind.Utc).AddTicks(6550),
+                Permissions = new[] {
+                    (PermissionModule.Departments, PermissionAction.View),
+                    (PermissionModule.Products, PermissionAction.View),
+                    (PermissionModule.Contracts, PermissionAction.View),
+                    (PermissionModule.Contracts, PermissionAction.Create),
+                    (PermissionModule.Contracts, PermissionAction.Update),
+                    (PermissionModule.Contracts, PermissionAction.Delete),
+                    (PermissionModule.Contracts, PermissionAction.ViewAll),
+                    (PermissionModule.Contracts, PermissionAction.Approve),
+                    (PermissionModule.TechProcess, PermissionAction.View),
+                    (PermissionModule.TechnicalDrawings, PermissionAction.View),
+                    (PermissionModule.CostNorm, PermissionAction.View),
+                    (PermissionModule.Notifications, PermissionAction.View),
+                    (PermissionModule.Requisitions, PermissionAction.View),
+                    (PermissionModule.Requisitions, PermissionAction.Create),
+                    (PermissionModule.Requisitions, PermissionAction.Update),
+                    (PermissionModule.Requisitions, PermissionAction.Delete),
+                    (PermissionModule.Requisitions, PermissionAction.Approve),
+                    (PermissionModule.Requisitions, PermissionAction.SendToWarehouse),
+                }
+            },
+            new
+            {
+                Id = new Guid("5910edfc-f5bd-4d09-9d38-48d59a70bbaf"),
+                Name = "Ishlab chiqarish",
+                Description = "ishlab chiqarish tuzilmalari boshliqlari",
+                CreatedAt = new DateTime(2026, 4, 16, 9, 29, 29, 601, DateTimeKind.Utc).AddTicks(7680),
+                Permissions = new[] {
+                    (PermissionModule.Contracts, PermissionAction.View),
+                    (PermissionModule.TechProcess, PermissionAction.View),
+                    (PermissionModule.TechnicalDrawings, PermissionAction.View),
+                    (PermissionModule.CostNorm, PermissionAction.View),
+                    (PermissionModule.Tasks, PermissionAction.View),
+                    (PermissionModule.Tasks, PermissionAction.Create),
+                    (PermissionModule.Tasks, PermissionAction.Update),
+                    (PermissionModule.Tasks, PermissionAction.Delete),
+                    (PermissionModule.Notifications, PermissionAction.View),
+                    (PermissionModule.Requisitions, PermissionAction.View),
+                    (PermissionModule.Requisitions, PermissionAction.Create),
+                    (PermissionModule.Requisitions, PermissionAction.Update),
+                    (PermissionModule.Requisitions, PermissionAction.Delete),
+                    (PermissionModule.Requisitions, PermissionAction.Approve),
+                    (PermissionModule.Requisitions, PermissionAction.SendToWarehouse),
+                }
+            },
+            new
+            {
+                Id = new Guid("8f9db59d-b4cc-45cf-b9fa-4643e8a5cc41"),
+                Name = "Boshqaruv",
+                Description = "Boshqaruv tuzilmasidagilar uchun",
+                CreatedAt = new DateTime(2026, 4, 16, 9, 33, 56, 564, DateTimeKind.Utc).AddTicks(3690),
+                Permissions = new[] {
+                    (PermissionModule.Users, PermissionAction.View),
+                    (PermissionModule.Roles, PermissionAction.View),
+                    (PermissionModule.Products, PermissionAction.View),
+                    (PermissionModule.Contracts, PermissionAction.View),
+                    (PermissionModule.Contracts, PermissionAction.ViewAll),
+                    (PermissionModule.TechProcess, PermissionAction.View),
+                    (PermissionModule.TechProcess, PermissionAction.ViewAll),
+                    (PermissionModule.TechnicalDrawings, PermissionAction.View),
+                    (PermissionModule.TechnicalDrawings, PermissionAction.ViewAll),
+                    (PermissionModule.CostNorm, PermissionAction.View),
+                    (PermissionModule.CostNorm, PermissionAction.ViewAll),
+                    (PermissionModule.Tasks, PermissionAction.View),
+                    (PermissionModule.Tasks, PermissionAction.ViewAll),
+                    (PermissionModule.Notifications, PermissionAction.View),
+                    (PermissionModule.Requisitions, PermissionAction.View),
+                    (PermissionModule.Requisitions, PermissionAction.Create),
+                    (PermissionModule.Requisitions, PermissionAction.Update),
+                    (PermissionModule.Requisitions, PermissionAction.Delete),
+                    (PermissionModule.Requisitions, PermissionAction.ViewAll),
+                    (PermissionModule.Requisitions, PermissionAction.Approve),
+                    (PermissionModule.Requisitions, PermissionAction.SendToWarehouse),
+                }
+            },
+            new
+            {
+                Id = new Guid("58dbcbab-b38a-45bd-b4ee-22feed5b2089"),
+                Name = "Omborchi",
+                Description = "Omborchi",
+                CreatedAt = new DateTime(2026, 4, 16, 9, 34, 54, 378, DateTimeKind.Utc).AddTicks(2200),
+                Permissions = new[] {
+                    (PermissionModule.Products, PermissionAction.View),
+                    (PermissionModule.Products, PermissionAction.Create),
+                    (PermissionModule.Products, PermissionAction.Update),
+                    (PermissionModule.Products, PermissionAction.Delete),
+                    (PermissionModule.WarehouseCheck, PermissionAction.View),
+                    (PermissionModule.Notifications, PermissionAction.View),
+                    (PermissionModule.Requisitions, PermissionAction.View),
+                    (PermissionModule.Requisitions, PermissionAction.Create),
+                    (PermissionModule.Requisitions, PermissionAction.Update),
+                    (PermissionModule.Requisitions, PermissionAction.Delete),
+                    (PermissionModule.Requisitions, PermissionAction.ViewAll),
+                    (PermissionModule.Requisitions, PermissionAction.Approve),
+                    (PermissionModule.Requisitions, PermissionAction.SendToWarehouse),
+                }
+            },
+            new
+            {
+                Id = new Guid("02126cf3-623a-4cbc-af64-78a634a2c727"),
+                Name = "Bo'lim boshlig'i",
+                Description = "Bo'lim boshlig'lari uchun",
+                CreatedAt = new DateTime(2026, 4, 16, 9, 36, 32, 411, DateTimeKind.Utc).AddTicks(900),
+                Permissions = new[] {
+                    (PermissionModule.Departments, PermissionAction.View),
+                    (PermissionModule.Products, PermissionAction.View),
+                    (PermissionModule.Contracts, PermissionAction.View),
+                    (PermissionModule.TechProcess, PermissionAction.View),
+                    (PermissionModule.TechnicalDrawings, PermissionAction.View),
+                    (PermissionModule.CostNorm, PermissionAction.View),
+                    (PermissionModule.Notifications, PermissionAction.View),
+                    (PermissionModule.Requisitions, PermissionAction.View),
+                    (PermissionModule.Requisitions, PermissionAction.Create),
+                    (PermissionModule.Requisitions, PermissionAction.Update),
+                    (PermissionModule.Requisitions, PermissionAction.Delete),
+                    (PermissionModule.Requisitions, PermissionAction.Approve),
+                    (PermissionModule.Requisitions, PermissionAction.SendToWarehouse),
+                }
+            },
+        };
+
+        var allPermissions = await context.Permissions.ToListAsync();
+
+        foreach (var roleDef in roles)
+        {
+            if (!await context.Roles.AnyAsync(r => r.Id == roleDef.Id))
+            {
+                context.Roles.Add(new Role
+                {
+                    Id = roleDef.Id,
+                    Name = roleDef.Name,
+                    Description = roleDef.Description,
+                    IsActive = true,
+                    CreatedAt = roleDef.CreatedAt,
+                });
+                await context.SaveChangesAsync();
+            }
+
+            foreach (var (module, action) in roleDef.Permissions)
+            {
+                var permission = allPermissions.FirstOrDefault(p => p.Module == module && p.Action == action);
+                if (permission == null) continue;
+
+                var exists = await context.RolePermissions
+                    .AnyAsync(rp => rp.RoleId == roleDef.Id && rp.PermissionId == permission.Id);
+
+                if (!exists)
+                {
+                    context.RolePermissions.Add(new RolePermission
+                    {
+                        RoleId = roleDef.Id,
+                        PermissionId = permission.Id,
+                    });
+                }
+            }
+        }
+
+        await context.SaveChangesAsync();
     }
 
     private static async System.Threading.Tasks.Task SeedDepartmentsAsync(DatabaseContext context)
