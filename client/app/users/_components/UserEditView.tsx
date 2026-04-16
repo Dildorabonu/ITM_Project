@@ -230,7 +230,7 @@ export function UserEditView({
               Yangi rahbar belgilash uchun avval mavjud rahbarni olib tashlang.
             </div>
             <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-              <button className="btn" onClick={() => setConfirmHead(null)}>Tushundim</button>
+              <button className="btn btn-outline" onClick={() => setConfirmHead(null)}>Tushundim</button>
             </div>
           </div>
         </div>,
