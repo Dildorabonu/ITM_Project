@@ -193,7 +193,7 @@ export default function RoleFormView({
                         <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 12 }}>
                           <button onClick={() => togglePerm(a.id)} style={{
                             width: 40, height: 22, borderRadius: 11, border: "none", cursor: "pointer",
-                            background: on ? "var(--accent)" : "var(--surface2)",
+                            background: on ? "var(--accent)" : "var(--border2)",
                             position: "relative", flexShrink: 0, transition: "background 0.2s",
                           }}>
                             <span style={{
