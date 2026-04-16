@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useAuthStore } from "@/lib/store/authStore";
@@ -10,36 +9,70 @@ import {
   type DepartmentResponse,
   type ContractResponse,
   ContractStatus,
-  CONTRACT_STATUS_LABELS,
+  DepartmentType,
+  userService,
+  departmentService,
+  contractService,
+  roleService,
 } from "@/lib/userService";
 
-const contracts = [
-  { id: "SH-2025-047", client: "Toshmetov Zavodi", product: "Metall konstruktsiya", status: "s-warn", statusLabel: "Tekshiruv" },
-  { id: "SH-2025-046", client: "UzTexnik LLC",    product: "Plastik qoplama",      status: "s-ok",   statusLabel: "Tasdiqlandi" },
-  { id: "SH-2025-045", client: "AlmaZavod JSC",   product: "Kimyoviy eritma",      status: "s-blue", statusLabel: "Ishlab chiqarish" },
-  { id: "SH-2025-044", client: "NovoProm OOO",    product: "Yog'och buyum",        status: "s-gray", statusLabel: "Yakunlandi" },
-];
+/* ───── Icons (SVG) ───── */
 
-type TaskId = "dt1" | "dt2" | "dt3" | "dt4" | "dt5";
-const initialTasks: { id: TaskId; name: string; priority: string; pClass: string; time: string; done: boolean }[] = [
-  { id: "dt1", name: "Ombor inventarizatsiyasi (A sektor)",  priority: "Yuqori", pClass: "p-high", time: "09:00", done: true },
-  { id: "dt2", name: "SH-045 mahsulot tekshiruvi",           priority: "O'rta",  pClass: "p-mid",  time: "10:30", done: true },
-  { id: "dt3", name: "Yetkazib beruvchi bilan muzokaralar",  priority: "Yuqori", pClass: "p-high", time: "14:00", done: false },
-  { id: "dt4", name: "Hisobot tuzish — iyun oyi",            priority: "Past",   pClass: "p-low",  time: "16:00", done: false },
-  { id: "dt5", name: "Bug'alteriyaga hujjat topshirish",     priority: "O'rta",  pClass: "p-mid",  time: "17:00", done: false },
-];
-
-/* ───── Icons ───── */
-
-function WaveIcon() {
+function SunIcon() {
   return (
-    <svg width="28" height="28" fill="none" viewBox="0 0 24 24">
-      <path d="M7 11.5V7a5 5 0 0 1 10 0v4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M5.5 11.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5v4a4.5 4.5 0 0 0 9 0v-4c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5v4a7.5 7.5 0 0 1-15 0v-4z" fill="currentColor" opacity="0.15" />
-      <circle cx="12" cy="7" r="2" fill="currentColor" opacity="0.4" />
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="4" fill="currentColor" opacity="0.9" />
+      <g stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+        <line x1="12" y1="1" x2="12" y2="3" />
+        <line x1="12" y1="21" x2="12" y2="23" />
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+        <line x1="1" y1="12" x2="3" y2="12" />
+        <line x1="21" y1="12" x2="23" y2="12" />
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+      </g>
     </svg>
   );
 }
+
+function MoonIcon() {
+  return (
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="currentColor" opacity="0.85" />
+    </svg>
+  );
+}
+
+function SunsetIcon() {
+  return (
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+      <path d="M17 18a5 5 0 1 0-10 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="currentColor" opacity="0.15" />
+      <line x1="12" y1="9" x2="12" y2="3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="4.22" y1="10.22" x2="5.64" y2="11.64" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="1" y1="18" x2="3" y2="18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="21" y1="18" x2="23" y2="18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="18.36" y1="11.64" x2="19.78" y2="10.22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="1" y1="22" x2="23" y2="22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SunriseIcon() {
+  return (
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+      <path d="M17 18a5 5 0 1 0-10 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="currentColor" opacity="0.15" />
+      <line x1="12" y1="3" x2="12" y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <polyline points="8 6 12 2 16 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <line x1="4.22" y1="10.22" x2="5.64" y2="11.64" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="1" y1="18" x2="3" y2="18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="21" y1="18" x2="23" y2="18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="18.36" y1="11.64" x2="19.78" y2="10.22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="1" y1="22" x2="23" y2="22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function ArrowRightIcon() {
   return <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7" /></svg>;
 }
@@ -55,20 +88,35 @@ function ContractSmIcon() {
 function RoleSmIcon() {
   return <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>;
 }
-function BellSmIcon() {
-  return <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>;
-}
 function TrendUpIcon() {
   return <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>;
 }
 function CalendarIcon() {
   return <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>;
 }
-function PieChartIcon() {
-  return <svg width="14" height="14" fill="none" stroke="var(--accent)" strokeWidth="2" viewBox="0 0 24 24"><path d="M21.21 15.89A10 10 0 1 1 8 2.83" /><path d="M22 12A10 10 0 0 0 12 2v10z" /></svg>;
-}
 function ActivityIcon() {
   return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>;
+}
+function ClockIcon() {
+  return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>;
+}
+function AlertTriangleIcon() {
+  return <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>;
+}
+function BarChart2Icon() {
+  return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>;
+}
+function CheckCircleIcon() {
+  return <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>;
+}
+function LayersIcon() {
+  return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" /></svg>;
+}
+function CheckSmIcon() {
+  return <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" /></svg>;
+}
+function XSmIcon() {
+  return <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>;
 }
 
 /* ───── Animated Background (floating orbs) ───── */
@@ -143,7 +191,7 @@ function useCountUp(target: number, duration = 1200) {
     const start = performance.now();
     const tick = (now: number) => {
       const t = Math.min((now - start) / duration, 1);
-      const ease = 1 - Math.pow(1 - t, 3); // easeOutCubic
+      const ease = 1 - Math.pow(1 - t, 3);
       setVal(Math.round(ease * target));
       if (t < 1) rafRef.current = requestAnimationFrame(tick);
     };
@@ -184,32 +232,51 @@ function ProgressRing({ value, max, label, color, size = 90 }: { value: number; 
 
 /* ───── Helpers ───── */
 
-function getGreeting(): string {
+function getGreeting(): { text: string; icon: "sunrise" | "sun" | "sunset" | "moon" } {
   const h = new Date().getHours();
-  if (h < 6) return "Xayrli tun";
-  if (h < 12) return "Xayrli tong";
-  if (h < 18) return "Xayrli kun";
-  return "Xayrli kech";
+  if (h < 6)  return { text: "Xayrli tun",  icon: "moon" };
+  if (h < 12) return { text: "Xayrli tong", icon: "sunrise" };
+  if (h < 18) return { text: "Xayrli kun",  icon: "sun" };
+  return { text: "Xayrli kech", icon: "sunset" };
 }
 
-function formatTs(iso: string): string {
-  const d = new Date(iso);
+const UZ_MONTHS = ["yanvar","fevral","mart","aprel","may","iyun","iyul","avgust","sentyabr","oktyabr","noyabr","dekabr"];
+const UZ_MONTHS_SHORT = ["yan","fev","mar","apr","may","iyn","iyl","avg","sen","okt","noy","dek"];
+const UZ_WEEKDAYS = ["yakshanba","dushanba","seshanba","chorshanba","payshanba","juma","shanba"];
+
+function formatUzDate(d: Date, format: "full" | "short" | "numeric" = "full"): string {
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = d.getMonth();
+  const year = d.getFullYear();
+  if (format === "numeric") return `${day}.${String(month + 1).padStart(2, "0")}.${year}`;
+  if (format === "short") return `${day}-${UZ_MONTHS_SHORT[month]} ${year}`;
+  return `${d.getDate()}-${UZ_MONTHS[month]} ${year}-yil, ${UZ_WEEKDAYS[d.getDay()]}`;
+}
+
+function getGreetingIcon(icon: string) {
+  switch (icon) {
+    case "sunrise": return <SunriseIcon />;
+    case "sun":     return <SunIcon />;
+    case "sunset":  return <SunsetIcon />;
+    case "moon":    return <MoonIcon />;
+    default:        return <SunIcon />;
+  }
+}
+
+function daysUntil(dateStr: string): number {
   const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 1) return "Hozir";
-  if (diffMin < 60) return `${diffMin} daq. oldin`;
-  const isToday = d.toDateString() === now.toDateString();
-  const time = d.toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" });
-  if (isToday) return `Bugun · ${time}`;
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (d.toDateString() === yesterday.toDateString()) return `Kecha · ${time}`;
-  return `${d.toLocaleDateString("uz-UZ")} · ${time}`;
+  now.setHours(0, 0, 0, 0);
+  const target = new Date(dateStr);
+  target.setHours(0, 0, 0, 0);
+  return Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-type Notif = { id: string; type: "blue" | "warn" | "danger" | "green"; title: string; body: string; isRead: boolean; createdAt: string };
-const typeMap: Record<number, "blue" | "warn" | "danger" | "green"> = { 0: "blue", 1: "warn", 2: "danger", 3: "green" };
+function deadlineUrgency(days: number): "critical" | "warn" | "normal" | "passed" {
+  if (days < 0) return "passed";
+  if (days <= 3) return "critical";
+  if (days <= 10) return "warn";
+  return "normal";
+}
 
 /* ───── Page ───── */
 
@@ -229,7 +296,6 @@ export default function DashboardPage() {
   const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
   const [contracts, setContracts] = useState<ContractResponse[]>([]);
   const [roles, setRoles] = useState<{ id: string; name: string }[]>([]);
-  const [notifs, setNotifs] = useState<Notif[]>([]);
 
   useEffect(() => {
     if (!accessToken) return;
@@ -243,9 +309,6 @@ export default function DashboardPage() {
         if (canViewContracts) { promises.push(contractService.getAll());       keys.push("contracts"); }
         if (canViewRoles)     { promises.push(roleService.getAll());           keys.push("roles"); }
 
-        promises.push(api.get("/api/notification").then(r => r.data?.result ?? []).catch(() => []));
-        keys.push("notifs");
-
         const results = await Promise.allSettled(promises);
         results.forEach((res, i) => {
           if (res.status !== "fulfilled") return;
@@ -254,14 +317,6 @@ export default function DashboardPage() {
             case "depts":     setDepartments(res.value as DepartmentResponse[]); break;
             case "contracts": setContracts(res.value as ContractResponse[]); break;
             case "roles":     setRoles(res.value as { id: string; name: string }[]); break;
-            case "notifs": {
-              const raw = res.value as any[];
-              setNotifs(raw.slice(0, 5).map((n: any) => ({
-                id: n.id, type: typeMap[n.type] ?? "blue",
-                title: n.title, body: n.body, isRead: n.isRead, createdAt: n.createdAt,
-              })));
-              break;
-            }
           }
         });
       } catch { /* handled */ }
@@ -285,33 +340,39 @@ export default function DashboardPage() {
   const animContracts = useCountUp(activeContracts);
   const animRoles = useCountUp(totalRoles);
 
-  // Top departments by employee count
-  const topDepts = useMemo(() =>
-    departments
-      .filter(d => d.isActive && (d.employeeCount || 0) > 0)
-      .sort((a, b) => (b.employeeCount || 0) - (a.employeeCount || 0))
-      .slice(0, 5),
-    [departments]
+  // Upcoming deadlines - active contracts sorted by endDate
+  const upcomingDeadlines = useMemo(() =>
+    contracts
+      .filter(c => c.status !== ContractStatus.Completed && c.status !== ContractStatus.Cancelled)
+      .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime())
+      .slice(0, 6),
+    [contracts]
   );
-  const maxEmp = topDepts.length > 0 ? (topDepts[0].employeeCount || 1) : 1;
 
-  // Contract pipeline
-  const pipeline = useMemo(() => {
-    const statusCounts: Record<number, number> = {};
-    contracts.forEach(c => { statusCounts[c.status] = (statusCounts[c.status] || 0) + 1; });
-    return [
-      { label: CONTRACT_STATUS_LABELS[ContractStatus.Draft] || "Qoralama", value: statusCounts[ContractStatus.Draft] || 0, color: "var(--text3)", cls: "pc-gray" },
-      { label: CONTRACT_STATUS_LABELS[ContractStatus.DrawingPending] || "Chizma kutilmoqda", value: statusCounts[ContractStatus.DrawingPending] || 0, color: "var(--warn)", cls: "pc-warn" },
-      { label: CONTRACT_STATUS_LABELS[ContractStatus.TechProcessing] || "Tex jarayon", value: statusCounts[ContractStatus.TechProcessing] || 0, color: "var(--accent)", cls: "pc-accent" },
-      { label: CONTRACT_STATUS_LABELS[ContractStatus.WarehouseCheck] || "Ombor tekshiruvi", value: statusCounts[ContractStatus.WarehouseCheck] || 0, color: "var(--purple)", cls: "pc-purple" },
-      { label: CONTRACT_STATUS_LABELS[ContractStatus.InProduction] || "Ishlab chiqarishda", value: statusCounts[ContractStatus.InProduction] || 0, color: "#4a90d9", cls: "pc-blue" },
-      { label: CONTRACT_STATUS_LABELS[ContractStatus.Completed] || "Yakunlandi", value: statusCounts[ContractStatus.Completed] || 0, color: "var(--success)", cls: "pc-success" },
-      { label: CONTRACT_STATUS_LABELS[ContractStatus.Cancelled] || "Bekor qilindi", value: statusCounts[ContractStatus.Cancelled] || 0, color: "var(--danger)", cls: "pc-danger" },
-    ].filter(s => s.value > 0);
+  // Department activity - count active contracts per department
+  const deptActivity = useMemo(() => {
+    const map = new Map<string, { name: string; type: DepartmentType; count: number }>();
+    contracts
+      .filter(c => c.status === ContractStatus.InProduction || c.status === ContractStatus.TechProcessing || c.status === ContractStatus.WarehouseCheck)
+      .forEach(c => {
+        (c.departments || []).forEach(d => {
+          const existing = map.get(d.id);
+          if (existing) {
+            existing.count++;
+          } else {
+            map.set(d.id, { name: d.name, type: d.type, count: 1 });
+          }
+        });
+      });
+    return Array.from(map.values())
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
   }, [contracts]);
 
+  const maxDeptActivity = deptActivity.length > 0 ? deptActivity[0].count : 1;
+
   const today = new Date();
-  const dateStr = today.toLocaleDateString("uz-UZ", { day: "2-digit", month: "long", year: "numeric", weekday: "long" });
+  const dateStr = formatUzDate(today, "full");
   const firstName = user?.firstName || user?.login || "";
   const greeting = getGreeting();
 
@@ -336,8 +397,8 @@ export default function DashboardPage() {
         <div className="nd-hero-aurora" />
         <div className="nd-hero-content">
           <div className="nd-hero-greeting">
-            <span className="nd-hero-wave"><WaveIcon /></span>
-            <span>{greeting},</span>
+            <span className="nd-hero-icon-pulse">{getGreetingIcon(greeting.icon)}</span>
+            <span>{greeting.text},</span>
           </div>
           <h1 className="nd-hero-name">{firstName}</h1>
           <p className="nd-hero-sub">Bugungi ish jadvali va tashkilot holati</p>
@@ -359,7 +420,7 @@ export default function DashboardPage() {
       {/* ═══ Stats Row ═══ */}
       <div className="nd-stats-row">
         {canViewUsers && (
-          <div className="nd-stat-card nd-glow-hover" onClick={() => router.push("/users")}>
+          <div className="nd-stat-card nd-glow-hover nd-stagger-0" onClick={() => router.push("/users")}>
             <div className="nd-stat-icon ic-accent"><UsersSmIcon /></div>
             <div className="nd-stat-info">
               <span className="nd-stat-label">Foydalanuvchilar</span>
@@ -370,7 +431,7 @@ export default function DashboardPage() {
           </div>
         )}
         {canViewDepts && (
-          <div className="nd-stat-card nd-glow-hover" onClick={() => router.push("/departments")}>
+          <div className="nd-stat-card nd-glow-hover nd-stagger-1" onClick={() => router.push("/departments")}>
             <div className="nd-stat-icon ic-warn"><DeptSmIcon /></div>
             <div className="nd-stat-info">
               <span className="nd-stat-label">Faol bo&apos;limlar</span>
@@ -381,7 +442,7 @@ export default function DashboardPage() {
           </div>
         )}
         {canViewContracts && (
-          <div className="nd-stat-card nd-glow-hover" onClick={() => router.push("/contracts")}>
+          <div className="nd-stat-card nd-glow-hover nd-stagger-2" onClick={() => router.push("/contracts")}>
             <div className="nd-stat-icon ic-success"><ContractSmIcon /></div>
             <div className="nd-stat-info">
               <span className="nd-stat-label">Faol shartnomalar</span>
@@ -394,7 +455,7 @@ export default function DashboardPage() {
           </div>
         )}
         {canViewRoles && (
-          <div className="nd-stat-card nd-glow-hover" onClick={() => router.push("/roles")}>
+          <div className="nd-stat-card nd-glow-hover nd-stagger-3" onClick={() => router.push("/roles")}>
             <div className="nd-stat-icon ic-purple"><RoleSmIcon /></div>
             <div className="nd-stat-info">
               <span className="nd-stat-label">Rollar</span>
@@ -406,17 +467,71 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* ═══ Main Grid ═══ */}
-      <div className="nd-main-grid">
-        {/* Left: Ish jarayoni (Work Progress) */}
-        <div className="nd-section nd-glow-hover">
-          <div className="nd-section-header">
-            <ActivityIcon />
-            <span>Ish jarayoni</span>
+      {/* ═══ Deadlines + Work Progress (side by side) ═══ */}
+      <div className="nd-main-grid nd-duo-row">
+        {/* Left: Deadline Tracker */}
+        {canViewContracts && (
+          <div className="nd-section nd-glow-hover">
+            <div className="nd-section-header">
+              <ClockIcon />
+              <span>Yaqinlashayotgan deadlinelar</span>
+              <button type="button" className="nd-section-link" onClick={() => router.push("/contracts")}>
+                Barchasini ko&apos;rish <ArrowRightIcon />
+              </button>
+            </div>
+            <div className="nd-deadline-list">
+              {upcomingDeadlines.length === 0 ? (
+                <div className="nd-empty">
+                  <CheckCircleIcon />
+                  <span>Yaqin deadline topilmadi</span>
+                </div>
+              ) : (
+                upcomingDeadlines.map((c, i) => {
+                  const days = daysUntil(c.endDate);
+                  const urgency = deadlineUrgency(days);
+                  const endDate = new Date(c.endDate);
+                  return (
+                    <div
+                      key={c.id}
+                      className={`nd-deadline-item nd-fadein-${Math.min(i, 4)} dl-${urgency}`}
+                      onClick={() => router.push(`/contracts`)}
+                    >
+                      <div className="nd-deadline-left">
+                        <div className={`nd-deadline-urgency-dot dl-dot-${urgency}`} />
+                        <div className="nd-deadline-info">
+                          <div className="nd-deadline-contract">{c.contractNo}</div>
+                          <div className="nd-deadline-product">{c.productType} — {c.contractParty}</div>
+                        </div>
+                      </div>
+                      <div className="nd-deadline-right">
+                        <div className={`nd-deadline-days dl-days-${urgency}`}>
+                          {urgency === "passed" ? (
+                            <><AlertTriangleIcon /> {Math.abs(days)} kun o&apos;tgan</>
+                          ) : days === 0 ? (
+                            <><AlertTriangleIcon /> Bugun</>
+                          ) : (
+                            <>{days} kun qoldi</>
+                          )}
+                        </div>
+                        <div className="nd-deadline-date">
+                          {formatUzDate(endDate, "short")}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
+        )}
 
-          {/* Progress Rings */}
-          {canViewContracts && (
+        {/* Right: Work Progress */}
+        {canViewContracts && (
+          <div className="nd-section nd-glow-hover">
+            <div className="nd-section-header">
+              <ActivityIcon />
+              <span>Ish jarayoni</span>
+            </div>
             <div className="nd-rings-row">
               <ProgressRing value={completedContracts} max={totalContracts} label="Yakunlangan" color="ring-success" />
               <ProgressRing value={activeContracts} max={totalContracts} label="Faol" color="ring-accent" />
@@ -427,98 +542,184 @@ export default function DashboardPage() {
                 color="ring-purple"
               />
             </div>
-          )}
 
-          {/* Top departments bar chart */}
-          {canViewDepts && topDepts.length > 0 && (
-            <div className="nd-dept-bars">
-              <div className="nd-dept-bars-title">Top bo&apos;limlar</div>
-              {topDepts.map((d, i) => (
-                <div key={d.id} className="nd-dept-bar-row">
-                  <span className="nd-dept-bar-name">{d.name}</span>
-                  <div className="nd-dept-bar-track">
-                    <div
-                      className={`nd-dept-bar-fill bar-delay-${i}`}
-                      style={{ "--bar-w": `${((d.employeeCount || 0) / maxEmp) * 100}%` } as React.CSSProperties}
-                    />
-                  </div>
-                  <span className="nd-dept-bar-val">{d.employeeCount}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {!canViewContracts && !canViewDepts && (
-            <div className="nd-empty">
-              <ActivityIcon />
-              <span>Ma&apos;lumotlar mavjud emas</span>
-            </div>
-          )}
-        </div>
-
-        {/* Right: Notifications Feed */}
-        <div className="nd-section nd-glow-hover">
-          <div className="nd-section-header">
-            <BellSmIcon />
-            <span>So&apos;nggi bildirishnomalar</span>
-            <button type="button" className="nd-section-link" onClick={() => router.push("/notifications")}>
-              Barchasini ko&apos;rish <ArrowRightIcon />
-            </button>
-          </div>
-          <div className="nd-notif-feed">
-            {notifs.length === 0 ? (
-              <div className="nd-empty">
-                <BellSmIcon />
-                <span>Yangi bildirishnomalar yo&apos;q</span>
+            {/* Quick stats */}
+            <div className="nd-progress-stats">
+              <div className="nd-progress-stat-item">
+                <span className="nd-progress-stat-dot psd-success" />
+                <span className="nd-progress-stat-label">Yakunlangan</span>
+                <span className="nd-progress-stat-val">{completedContracts}</span>
               </div>
-            ) : (
-              notifs.map((n, i) => (
-                <div key={n.id} className={`nd-notif-item nd-fadein-${i} ${n.isRead ? "" : "unread"}`}>
-                  <div className={`nd-notif-dot nd-dot-${n.type}`} />
-                  <div className="nd-notif-content">
-                    <div className="nd-notif-title">{n.title}</div>
-                    <div className="nd-notif-body">{n.body}</div>
-                    <div className="nd-notif-time">{formatTs(n.createdAt)}</div>
-                  </div>
+              <div className="nd-progress-stat-item">
+                <span className="nd-progress-stat-dot psd-accent" />
+                <span className="nd-progress-stat-label">Jarayonda</span>
+                <span className="nd-progress-stat-val">{activeContracts}</span>
+              </div>
+              <div className="nd-progress-stat-item">
+                <span className="nd-progress-stat-dot psd-danger" />
+                <span className="nd-progress-stat-label">Bekor qilingan</span>
+                <span className="nd-progress-stat-val">{contracts.filter(c => c.status === ContractStatus.Cancelled).length}</span>
+              </div>
+            </div>
+
+            {/* Department activity (compact) */}
+            {deptActivity.length > 0 && (
+              <div className="nd-dept-compact">
+                <div className="nd-dept-compact-title">
+                  <BarChart2Icon />
+                  <span>Bo&apos;limlar faolligi</span>
                 </div>
-              ))
+                {deptActivity.slice(0, 4).map((d, i) => {
+                  const pct = Math.round((d.count / maxDeptActivity) * 100);
+                  const barCls = d.type === DepartmentType.IshlabChiqarish
+                    ? "bar-accent"
+                    : d.type === DepartmentType.Boshqaruv
+                      ? "bar-purple"
+                      : "bar-success";
+                  return (
+                    <div key={i} className="nd-activity-row">
+                      <div className="nd-activity-name" title={d.name}>{d.name}</div>
+                      <div className="nd-activity-bar-track">
+                        <div
+                          className={`nd-activity-bar-fill bar-delay-${i} ${barCls}`}
+                          style={{ "--bar-w": `${pct}%` } as React.CSSProperties}
+                        />
+                      </div>
+                      <div className="nd-activity-count">{d.count}</div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
-        </div>
+        )}
       </div>
 
-      {/* ═══ Bottom: Contract Pipeline ═══ */}
-      {canViewContracts && pipeline.length > 0 && (
-        <div className="nd-pipeline-section nd-glow-hover">
-          <div className="nd-section-header">
-            <PieChartIcon />
-            <span>Shartnomalar pipeline</span>
-            <button type="button" className="nd-section-link" onClick={() => router.push("/contracts")}>
-              Batafsil <ArrowRightIcon />
-            </button>
-          </div>
-          <div className="nd-pipeline-body">
-            <div className="nd-pipeline-steps">
-              {pipeline.map((step, i) => (
-                <div key={i} className="nd-pipeline-step nd-pipeline-fadein" data-delay={i}>
-                  <div className={`nd-pipeline-count ${step.cls}`}>
-                    {step.value}
-                  </div>
-                  <div className="nd-pipeline-label">{step.label}</div>
-                  {i < pipeline.length - 1 && (
-                    <div className="nd-pipeline-arrow">
-                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M7 4l6 6-6 6" stroke="var(--border2)" strokeWidth="1.5" strokeLinecap="round" /></svg>
-                    </div>
-                  )}
+      {/* ═══ Production Pipeline Board ═══ */}
+      {canViewContracts && (() => {
+        const STAGES = [
+          { status: ContractStatus.Draft, label: "Shartnoma", color: "stg-blue" },
+          { status: ContractStatus.DrawingPending, label: "Chizma", color: "stg-indigo" },
+          { status: ContractStatus.TechProcessing, label: "Tex. jarayon", color: "stg-violet" },
+          { status: ContractStatus.TechProcessApproved, label: "Tasdiqlash", color: "stg-purple" },
+          { status: ContractStatus.WarehouseCheck, label: "Ombor", color: "stg-amber" },
+          { status: ContractStatus.InProduction, label: "Ishlab chiq.", color: "stg-emerald" },
+          { status: ContractStatus.Completed, label: "Yakunlandi", color: "stg-green" },
+        ];
+        const statusOrder = STAGES.map(s => s.status);
+        const pipeContracts = contracts
+          .filter(c => c.status !== ContractStatus.Cancelled && c.status !== ContractStatus.Completed)
+          .slice(0, 8);
+
+        if (pipeContracts.length === 0) return null;
+
+        // Count per stage
+        const stageCounts = STAGES.map(s =>
+          contracts.filter(c => c.status === s.status).length
+        );
+
+        return (
+          <div className="pm-wrapper">
+            {/* Decorative bg */}
+            <div className="pm-bg-grid" />
+            <div className="pm-bg-glow pm-bg-glow-1" />
+            <div className="pm-bg-glow pm-bg-glow-2" />
+
+            {/* Header */}
+            <div className="pm-header">
+              <div className="pm-header-left">
+                <div className="pm-header-icon"><LayersIcon /></div>
+                <div>
+                  <h2 className="pm-title">Ishlab chiqarish jarayoni</h2>
+                  <p className="pm-subtitle">{pipeContracts.length} ta faol shartnoma</p>
+                </div>
+              </div>
+              <button type="button" className="pm-view-all" onClick={() => router.push("/contracts")}>
+                Barchasini ko&apos;rish <ArrowRightIcon />
+              </button>
+            </div>
+
+            {/* Stage summary chips */}
+            <div className="pm-stage-chips">
+              {STAGES.map((s, i) => (
+                <div key={i} className={`pm-chip ${s.color} ${stageCounts[i] > 0 ? "pm-chip-active" : ""}`}>
+                  <span className="pm-chip-count">{stageCounts[i]}</span>
+                  <span className="pm-chip-label">{s.label}</span>
                 </div>
               ))}
             </div>
-            <div className="nd-pipeline-chart">
-              <DonutChart segments={pipeline} size={140} thickness={22} />
+
+            {/* Pipeline matrix table */}
+            <div className="pm-table-scroll">
+              <table className="pm-table">
+                <thead>
+                  <tr>
+                    <th className="pm-th pm-th-contract">Shartnoma</th>
+                    {STAGES.map((s, i) => (
+                      <th key={i} className={`pm-th pm-th-stage ${s.color}`}>
+                        <span className="pm-th-text">{s.label}</span>
+                      </th>
+                    ))}
+                    <th className="pm-th pm-th-progress">Holat</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pipeContracts.map((contract, ci) => {
+                    const currentIdx = statusOrder.indexOf(contract.status);
+                    const progressPct = Math.round((currentIdx / (STAGES.length - 1)) * 100);
+                    return (
+                      <tr key={contract.id} className={`pm-row pm-row-fadein-${Math.min(ci, 5)}`} onClick={() => router.push("/contracts")}>
+                        <td className="pm-td pm-td-contract">
+                          <div className="pm-contract-info">
+                            <span className="pm-contract-no">{contract.contractNo}</span>
+                            <span className="pm-contract-product">{contract.productType}</span>
+                            <span className="pm-contract-party">{contract.contractParty}</span>
+                          </div>
+                        </td>
+                        {STAGES.map((stage, si) => {
+                          const isDone = si < currentIdx;
+                          const isCurrent = si === currentIdx;
+                          return (
+                            <td key={si} className={`pm-td pm-td-cell ${isCurrent ? "pm-cell-current" : ""}`}>
+                              {isDone && (
+                                <div className={`pm-dot pm-dot-done ${stage.color}`}>
+                                  <CheckSmIcon />
+                                </div>
+                              )}
+                              {isCurrent && (
+                                <div className={`pm-dot pm-dot-active ${stage.color}`}>
+                                  <span className="pm-dot-pulse" />
+                                  <span className="pm-dot-core" />
+                                </div>
+                              )}
+                              {!isDone && !isCurrent && (
+                                <div className="pm-dot pm-dot-pending" />
+                              )}
+                              {/* Connector line */}
+                              {si > 0 && (
+                                <div className={`pm-connector ${isDone ? "pm-conn-done" : isCurrent ? "pm-conn-current" : "pm-conn-pending"}`} />
+                              )}
+                            </td>
+                          );
+                        })}
+                        <td className="pm-td pm-td-status">
+                          <div className="pm-status-wrap">
+                            <div className="pm-mini-bar">
+                              <div className="pm-mini-fill" style={{ "--pm-pct": `${progressPct}%` } as React.CSSProperties} />
+                            </div>
+                            <span className="pm-pct-text">{progressPct}%</span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
+
     </div>
   );
 }
