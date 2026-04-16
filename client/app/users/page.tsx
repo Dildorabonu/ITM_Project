@@ -20,6 +20,8 @@ import { emptyForm, type UserForm } from "./_components/constants";
 import { UserCreateView } from "./_components/UserCreateView";
 import { UserEditView } from "./_components/UserEditView";
 import { UserListView } from "./_components/UserListView";
+import DeactivateModal from "./_components/DeactivateModal";
+import ActivateModal from "./_components/ActivateModal";
 
 function UsersPageInner() {
   const router = useRouter();
@@ -266,83 +268,99 @@ function UsersPageInner() {
 
   if (showEdit) {
     return (
-      <UserEditView
-        form={form}
-        setForm={setForm}
-        formSubmitted={formSubmitted}
-        saving={saving}
-        saveError={saveError}
-        roles={roles}
-        departments={departments}
-        confirmHead={confirmHead}
-        setConfirmHead={setConfirmHead}
-        handleUpdate={handleUpdate}
-        handleIsHeadChange={handleIsHeadChange}
-        onCancel={handleCancel}
-      />
+      <div className="page-transition" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        <UserEditView
+          form={form}
+          setForm={setForm}
+          formSubmitted={formSubmitted}
+          saving={saving}
+          saveError={saveError}
+          roles={roles}
+          departments={departments}
+          confirmHead={confirmHead}
+          setConfirmHead={setConfirmHead}
+          handleUpdate={handleUpdate}
+          handleIsHeadChange={handleIsHeadChange}
+          onCancel={handleCancel}
+        />
+      </div>
     );
   }
 
   if (showCreate) {
     return (
-      <UserCreateView
-        form={form}
-        setForm={setForm}
-        formSubmitted={formSubmitted}
-        saving={saving}
-        saveError={saveError}
-        roles={roles}
-        departments={departments}
-        confirmHead={confirmHead}
-        setConfirmHead={setConfirmHead}
-        handleCreate={handleCreate}
-        handleIsHeadChange={handleIsHeadChange}
-        onCancel={handleCancel}
-      />
+      <div className="page-transition" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        <UserCreateView
+          form={form}
+          setForm={setForm}
+          formSubmitted={formSubmitted}
+          saving={saving}
+          saveError={saveError}
+          roles={roles}
+          departments={departments}
+          confirmHead={confirmHead}
+          setConfirmHead={setConfirmHead}
+          handleCreate={handleCreate}
+          handleIsHeadChange={handleIsHeadChange}
+          onCancel={handleCancel}
+        />
+      </div>
     );
   }
 
   return (
-    <UserListView
-      filtered={filtered}
-      users={users}
-      departments={departments}
-      page={page}
-      totalPages={totalPages}
-      totalCount={totalCount}
-      loading={loading}
-      error={error}
-      search={search}
-      setSearch={setSearch}
-      typeFilter={typeFilter}
-      setTypeFilter={setTypeFilter}
-      canCreate={canCreate}
-      canUpdate={canUpdate}
-      canDelete={canDelete}
-      deactivateId={deactivateId}
-      setDeactivateId={setDeactivateId}
-      deactivating={deactivating}
-      deactivateError={deactivateError}
-      handleDeactivate={handleDeactivate}
-      activateConfirmId={activateConfirmId}
-      setActivateConfirmId={setActivateConfirmId}
-      activating={activating}
-      handleActivate={handleActivate}
-      onOpenCreate={openCreate}
-      onOpenEdit={openEdit}
-      onRefresh={() => load()}
-      animOffset={animOffset.current}
-      setPage={setPage}
-    />
+    <>
+      <div className="page-transition" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        <UserListView
+          filtered={filtered}
+          users={users}
+          departments={departments}
+          page={page}
+          totalPages={totalPages}
+          totalCount={totalCount}
+          loading={loading}
+          error={error}
+          search={search}
+          setSearch={setSearch}
+          typeFilter={typeFilter}
+          setTypeFilter={setTypeFilter}
+          canCreate={canCreate}
+          canUpdate={canUpdate}
+          canDelete={canDelete}
+          setDeactivateId={setDeactivateId}
+          setActivateConfirmId={setActivateConfirmId}
+          onOpenCreate={openCreate}
+          onOpenEdit={openEdit}
+          onRefresh={() => load()}
+          animOffset={animOffset.current}
+          setPage={setPage}
+        />
+      </div>
+
+      {deactivateId && (
+        <DeactivateModal
+          deactivateError={deactivateError}
+          deactivating={deactivating}
+          onConfirm={handleDeactivate}
+          onClose={() => setDeactivateId(null)}
+        />
+      )}
+
+      {activateConfirmId && (
+        <ActivateModal
+          activating={activating}
+          onConfirm={handleActivate}
+          onClose={() => setActivateConfirmId(null)}
+        />
+      )}
+    </>
   );
 }
 
 export default function UsersPage() {
   return (
-    <div className="page-transition" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-      <Suspense>
-        <UsersPageInner />
-      </Suspense>
-    </div>
+    <Suspense>
+      <UsersPageInner />
+    </Suspense>
   );
 }

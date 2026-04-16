@@ -2,8 +2,6 @@
 
 import { DepartmentType, DEPARTMENT_TYPE_LABELS, type UserResponse, type DepartmentOption } from "@/lib/userService";
 import { TYPE_STYLE } from "./constants";
-import DeactivateModal from "./DeactivateModal";
-import ActivateModal from "./ActivateModal";
 
 interface UserListViewProps {
   filtered: UserResponse[];
@@ -21,15 +19,8 @@ interface UserListViewProps {
   canCreate: boolean;
   canUpdate: boolean;
   canDelete: boolean;
-  deactivateId: string | null;
   setDeactivateId: (v: string | null) => void;
-  deactivating: boolean;
-  deactivateError: string | null;
-  handleDeactivate: () => void;
-  activateConfirmId: string | null;
   setActivateConfirmId: (v: string | null) => void;
-  activating: boolean;
-  handleActivate: () => void;
   onOpenCreate: () => void;
   onOpenEdit: (u: UserResponse) => void;
   onRefresh: () => void;
@@ -44,8 +35,7 @@ export function UserListView({
   search, setSearch,
   typeFilter, setTypeFilter,
   canCreate, canUpdate, canDelete,
-  deactivateId, setDeactivateId, deactivating, deactivateError, handleDeactivate,
-  activateConfirmId, setActivateConfirmId, activating, handleActivate,
+  setDeactivateId, setActivateConfirmId,
   onOpenCreate, onOpenEdit, onRefresh,
   animOffset, setPage,
 }: UserListViewProps) {
@@ -258,22 +248,6 @@ export function UserListView({
         </div>
       )}
 
-      {deactivateId && (
-        <DeactivateModal
-          deactivateError={deactivateError}
-          deactivating={deactivating}
-          onConfirm={handleDeactivate}
-          onClose={() => setDeactivateId(null)}
-        />
-      )}
-
-      {activateConfirmId && (
-        <ActivateModal
-          activating={activating}
-          onConfirm={handleActivate}
-          onClose={() => setActivateConfirmId(null)}
-        />
-      )}
     </div>
   );
 }
