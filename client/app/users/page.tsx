@@ -15,6 +15,7 @@ import {
   type UserUpdatePayload,
 } from "@/lib/userService";
 import { useAuthStore } from "@/lib/store/authStore";
+import { useToastStore } from "@/lib/store/toastStore";
 import { emptyForm, type UserForm } from "./_components/constants";
 import { UserCreateView } from "./_components/UserCreateView";
 import { UserEditView } from "./_components/UserEditView";
@@ -28,6 +29,7 @@ function UsersPageInner() {
   const editId = searchParams.get("id");
 
   const hasPermission = useAuthStore(s => s.hasPermission);
+  const showToast = useToastStore(s => s.show);
   const canCreate = hasPermission("Users.Create");
   const canUpdate = hasPermission("Users.Update");
   const canDelete = hasPermission("Users.Delete");
@@ -182,12 +184,14 @@ function UsersPageInner() {
       };
       await userService.create(payload);
       sessionStorage.removeItem("draft_users");
+      showToast("Foydalanuvchi muvaffaqiyatli yaratildi!");
       router.push(pathname);
       await load();
       departmentService.getAll().then(setDepartments).catch(() => {});
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
       setSaveError(msg || "Saqlashda xatolik yuz berdi.");
+      showToast(msg || "Saqlashda xatolik yuz berdi.", "Xatolik");
     } finally {
       setSaving(false);
     }
@@ -212,12 +216,14 @@ function UsersPageInner() {
       };
       await userService.update(editTarget.id, payload);
       sessionStorage.removeItem("draft_users");
+      showToast("Foydalanuvchi muvaffaqiyatli yangilandi!");
       router.push(pathname);
       await load();
       departmentService.getAll().then(setDepartments).catch(() => {});
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
       setSaveError(msg || "Saqlashda xatolik yuz berdi.");
+      showToast(msg || "Saqlashda xatolik yuz berdi.", "Xatolik");
     } finally {
       setSaving(false);
     }
@@ -229,9 +235,10 @@ function UsersPageInner() {
     try {
       await userService.delete(deleteId);
       setDeleteId(null);
+      showToast("Foydalanuvchi muvaffaqiyatli o'chirildi!");
       await load();
     } catch {
-      // stay open on error
+      showToast("O'chirishda xatolik yuz berdi.", "Xatolik");
     } finally {
       setDeleting(false);
     }
