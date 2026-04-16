@@ -49,7 +49,7 @@ const navGroups: NavGroup[] = [
     items: [
       { name: "Mahsulotlar",      href: "/products",     icon: "shopping-bag", permission: "Products.View" },
       { name: "Talabnomalar",     href: "/requisitions", icon: "clipboard",    permission: ["Requisitions.View", "Requisitions.ViewAll"] },
-      { name: "Ombor tekshiruvi", href: "/warehouse",    icon: "package" },
+      { name: "Ombor tekshiruvi", href: "/warehouse",    icon: "package",      permission: "WarehouseCheck.View" },
     ],
   },
   {
