@@ -29,7 +29,7 @@ public static class AutomatedMigration
         [PermissionModule.TechProcess]        = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete, PermissionAction.ViewAll],
         [PermissionModule.TechnicalDrawings]  = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete, PermissionAction.ViewAll],
         [PermissionModule.CostNorm]           = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete, PermissionAction.ViewAll],
-        [PermissionModule.MaterialInventory]  = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete, PermissionAction.ViewAll, PermissionAction.SendToWarehouse],
+        [PermissionModule.WarehouseCheck]      = [PermissionAction.View],
         [PermissionModule.Tasks]              = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete, PermissionAction.ViewAll],
         [PermissionModule.Notifications]      = [PermissionAction.View, PermissionAction.ViewAll],
         [PermissionModule.Requisitions]       = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete, PermissionAction.ViewAll, PermissionAction.Approve, PermissionAction.SendToWarehouse],
