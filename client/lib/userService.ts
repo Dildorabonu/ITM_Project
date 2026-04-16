@@ -462,10 +462,6 @@ export const contractService = {
     await api.put(`/api/contract/${id}/status`, { status });
   },
 
-  delete: async (id: string): Promise<void> => {
-    await api.delete(`/api/contract/${id}`);
-  },
-
   deactivate: async (id: string): Promise<void> => {
     await api.patch(`/api/contract/${id}/deactivate`);
   },
