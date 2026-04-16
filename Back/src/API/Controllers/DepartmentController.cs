@@ -1,3 +1,4 @@
+using API.Authorization;
 using Application.DTOs.Departments;
 using Application.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -17,6 +18,7 @@ public class DepartmentController : ControllerBase
         _departmentService = departmentService;
     }
 
+    [HasPermission("Departments.View")]
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
@@ -24,6 +26,7 @@ public class DepartmentController : ControllerBase
         return Ok(result);
     }
 
+    [HasPermission("Departments.View")]
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id)
     {
@@ -35,6 +38,7 @@ public class DepartmentController : ControllerBase
         return Ok(result);
     }
 
+    [HasPermission("Departments.Create")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] DepartmentCreateDto dto)
     {
@@ -46,6 +50,7 @@ public class DepartmentController : ControllerBase
         return StatusCode(result.Result, result);
     }
 
+    [HasPermission("Departments.Update")]
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] DepartmentUpdateDto dto)
     {
@@ -57,6 +62,7 @@ public class DepartmentController : ControllerBase
         return StatusCode(result.Result, result);
     }
 
+    [HasPermission("Departments.Delete")]
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {
