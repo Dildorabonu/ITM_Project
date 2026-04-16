@@ -18,7 +18,7 @@ public class MaterialController : ControllerBase
         _materialService = materialService;
     }
 
-    [HasPermission("MaterialInventory.View")]
+    [HasPermission("WarehouseCheck.View")]
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] string? category = null)
     {
@@ -26,7 +26,7 @@ public class MaterialController : ControllerBase
         return Ok(result);
     }
 
-    [HasPermission("MaterialInventory.View")]
+    [HasPermission("WarehouseCheck.View")]
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id)
     {
@@ -38,7 +38,6 @@ public class MaterialController : ControllerBase
         return Ok(result);
     }
 
-    [HasPermission("MaterialInventory.Create")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] MaterialCreateDto dto)
     {
@@ -50,7 +49,6 @@ public class MaterialController : ControllerBase
         return StatusCode(result.Result, result);
     }
 
-    [HasPermission("MaterialInventory.Create")]
     [HttpPost("bulk")]
     public async Task<IActionResult> CreateBulk([FromBody] IEnumerable<MaterialCreateDto> dtos)
     {
@@ -62,7 +60,6 @@ public class MaterialController : ControllerBase
         return StatusCode(result.Result, result);
     }
 
-    [HasPermission("MaterialInventory.Update")]
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] MaterialUpdateDto dto)
     {
@@ -74,7 +71,6 @@ public class MaterialController : ControllerBase
         return StatusCode(result.Result, result);
     }
 
-    [HasPermission("MaterialInventory.Delete")]
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {
