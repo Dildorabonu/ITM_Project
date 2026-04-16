@@ -127,13 +127,13 @@ export function UserListView({
         )}
       </div>
 
-      <div className="itm-card" style={{ flex: 1 }}>
+      <div className="itm-card" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
         {loading ? (
-          <div style={{ padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
+          <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
         ) : error ? (
-          <div style={{ padding: 40, textAlign: "center", color: "#e05252" }}>{error}</div>
+          <div style={{ flex: 1, padding: 40, textAlign: "center", color: "#e05252" }}>{error}</div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div style={{ overflowX: "auto", flex: 1 }}>
             <table className="itm-table">
               <thead>
                 <tr>
