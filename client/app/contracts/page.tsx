@@ -40,7 +40,6 @@ export default function ContractsPage() {
   const showToast = useToastStore((s) => s.show);
   const canCreate = hasPermission("Contracts.Create");
   const canUpdate = hasPermission("Contracts.Update");
-  const canDelete = hasPermission("Contracts.Delete");
 
   const [contracts, setContracts]       = useState<ContractResponse[]>([]);
   const [filtered, setFiltered]         = useState<ContractResponse[]>([]);
@@ -97,9 +96,6 @@ export default function ContractsPage() {
   const [scanning, setScanning]             = useState(false);
   const [scanError, setScanError]           = useState("");
 
-  // Delete confirm
-  const [deleteId, setDeleteId]         = useState<string | null>(null);
-  const [deleting, setDeleting]         = useState(false);
 
   // Deactivate confirm
   const [deactivateId, setDeactivateId] = useState<string | null>(null);
@@ -386,26 +382,6 @@ export default function ContractsPage() {
     }
   };
 
-  // ── Delete ────────────────────────────────────────────────────────────────
-
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    setDeleting(true);
-    try {
-      await contractService.delete(deleteId);
-      setContracts(prev => prev.filter(c => c.id !== deleteId));
-      setDeleteId(null);
-      window.dispatchEvent(new Event("notif-read"));
-      showToast("Shartnoma muvaffaqiyatli o'chirildi!");
-    } catch (err: unknown) {
-      const errors: string[] | undefined = (err as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors;
-      const msg = errors?.length ? errors[0] : "Shartnomani o'chirishda xatolik yuz berdi.";
-      showToast(msg, "Xatolik");
-    } finally {
-      setDeleting(false);
-    }
-  };
-
   // ── Activate ──────────────────────────────────────────────────────────────
 
   const handleActivate = async () => {
@@ -584,11 +560,11 @@ export default function ContractsPage() {
                     <td style={{ textAlign: "center", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {canUpdate ? (
                         <button onClick={() => { setStatusTarget(c); setNewStatus(String(c.status)); }}
-                          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", maxWidth: 140, display: "block", overflow: "hidden" }}>
+                          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", maxWidth: 140, display: "flex", justifyContent: "center", overflow: "hidden", margin: "0 auto" }}>
                           <StatusBadge status={c.status} />
                         </button>
                       ) : (
-                        <div style={{ maxWidth: 140, overflow: "hidden", display: "inline-block" }}>
+                        <div style={{ maxWidth: 140, overflow: "hidden", display: "inline-flex", justifyContent: "center" }}>
                           <StatusBadge status={c.status} />
                         </div>
                       )}
@@ -636,16 +612,6 @@ export default function ContractsPage() {
                             style={{ color: "#16a34a", borderColor: "#16a34a33", background: "#f0fdf4" }}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                               <circle cx="12" cy="12" r="10" /><polyline points="8 12 11 15 16 9" />
-                            </svg>
-                          </button>
-                        )}
-                        {canDelete && (
-                          <button className="btn-icon btn-icon-danger" onClick={() => setDeleteId(c.id)} title="O'chirish"
-                            style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" />
-                              <path d="M10 11v6M14 11v6" />
-                              <path d="M9 6V4h6v2" />
                             </svg>
                           </button>
                         )}
@@ -770,16 +736,6 @@ export default function ContractsPage() {
           </div>
         </div>
       )}
-
-      {/* ── Delete Confirm Modal ── */}
-      <ConfirmModal
-        open={!!deleteId}
-        title="Shartnomani o'chirish"
-        message="Bu shartnoma o'chiriladi. Bu amalni qaytarib bo'lmaydi."
-        loading={deleting}
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteId(null)}
-      />
 
     </div>
   );
