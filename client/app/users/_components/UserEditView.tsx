@@ -5,6 +5,7 @@ import { type RoleOption, type DepartmentOption } from "@/lib/userService";
 import { CustomSelect } from "./CustomSelect";
 import { CustomGroupedSelect } from "./CustomGroupedSelect";
 import { type UserForm } from "./constants";
+import { PasswordStrengthHint, isPasswordStrong } from "./PasswordStrengthHint";
 
 interface UserEditViewProps {
   form: UserForm;
@@ -67,7 +68,7 @@ export function UserEditView({
           />
         </div>
         <div>
-          <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", marginBottom: 6, display: "block" }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: formSubmitted && form.password.trim() && !isPasswordStrong(form.password) ? "var(--danger)" : "var(--text2)", marginBottom: 6, display: "block" }}>
             Yangi parol (o&apos;zgartirmaslik uchun bo&apos;sh qoldiring)
           </label>
           <input
@@ -76,7 +77,13 @@ export function UserEditView({
             value={form.password}
             onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
             placeholder="••••••••"
+            autoComplete="new-password"
+            style={formSubmitted && form.password.trim() && !isPasswordStrong(form.password) ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : undefined}
           />
+          {form.password.length > 0 && <PasswordStrengthHint password={form.password} />}
+          {formSubmitted && form.password.trim() && !isPasswordStrong(form.password) && (
+            <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Parol yetarlicha kuchli emas</div>
+          )}
         </div>
         <div>
           <label style={{ fontSize: 13, fontWeight: 600, color: formSubmitted && !form.roleId ? "var(--danger)" : "var(--text2)", marginBottom: 6, display: "block" }}>
