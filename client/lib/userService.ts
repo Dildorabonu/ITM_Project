@@ -102,8 +102,12 @@ export const userService = {
     await api.put(`/api/user/${id}`, dto);
   },
 
-  delete: async (id: string): Promise<void> => {
-    await api.delete(`/api/user/${id}`);
+  deactivate: async (id: string): Promise<void> => {
+    await api.patch(`/api/user/${id}/deactivate`);
+  },
+
+  activate: async (id: string): Promise<void> => {
+    await api.patch(`/api/user/${id}/activate`);
   },
 };
 

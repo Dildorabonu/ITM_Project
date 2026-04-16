@@ -52,8 +52,11 @@ function UsersPageInner() {
   const [saving, setSaving] = useState(false);
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [saveError, setSaveError] = useState("");
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
+  const [deactivateId, setDeactivateId] = useState<string | null>(null);
+  const [deactivating, setDeactivating] = useState(false);
+  const [deactivateError, setDeactivateError] = useState<string | null>(null);
+  const [activateConfirmId, setActivateConfirmId] = useState<string | null>(null);
+  const [activating, setActivating] = useState(false);
   const [confirmHead, setConfirmHead] = useState<{ headName: string } | null>(null);
 
   const showCreate = view === "create";
@@ -229,18 +232,35 @@ function UsersPageInner() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    setDeleting(true);
+  const handleDeactivate = async () => {
+    if (!deactivateId) return;
+    setDeactivating(true);
+    setDeactivateError(null);
     try {
-      await userService.delete(deleteId);
-      setDeleteId(null);
-      showToast("Foydalanuvchi muvaffaqiyatli o'chirildi!");
+      await userService.deactivate(deactivateId);
+      setDeactivateId(null);
+      showToast("Foydalanuvchi muvaffaqiyatli noaktiv qilindi!");
+      await load();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
+      setDeactivateError(msg || "Xatolik yuz berdi.");
+    } finally {
+      setDeactivating(false);
+    }
+  };
+
+  const handleActivate = async () => {
+    if (!activateConfirmId) return;
+    setActivating(true);
+    try {
+      await userService.activate(activateConfirmId);
+      setActivateConfirmId(null);
+      showToast("Foydalanuvchi muvaffaqiyatli aktiv qilindi!");
       await load();
     } catch {
-      showToast("O'chirishda xatolik yuz berdi.", "Xatolik");
+      showToast("Foydalanuvchini aktiv qilishda xatolik yuz berdi.", "Xatolik");
     } finally {
-      setDeleting(false);
+      setActivating(false);
     }
   };
 
@@ -299,10 +319,15 @@ function UsersPageInner() {
       canCreate={canCreate}
       canUpdate={canUpdate}
       canDelete={canDelete}
-      deleteId={deleteId}
-      setDeleteId={setDeleteId}
-      deleting={deleting}
-      handleDelete={handleDelete}
+      deactivateId={deactivateId}
+      setDeactivateId={setDeactivateId}
+      deactivating={deactivating}
+      deactivateError={deactivateError}
+      handleDeactivate={handleDeactivate}
+      activateConfirmId={activateConfirmId}
+      setActivateConfirmId={setActivateConfirmId}
+      activating={activating}
+      handleActivate={handleActivate}
       onOpenCreate={openCreate}
       onOpenEdit={openEdit}
       onRefresh={() => load()}

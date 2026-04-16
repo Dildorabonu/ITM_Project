@@ -67,10 +67,18 @@ public class UserController : ControllerBase
     }
 
     [HasPermission("Users.Delete")]
-    [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id)
+    [HttpPatch("{id:guid}/deactivate")]
+    public async Task<IActionResult> Deactivate(Guid id)
     {
-        var result = await _userService.DeleteAsync(id);
+        var result = await _userService.UpdateAsync(id, new Application.DTOs.Users.UserUpdateDto { IsActive = false });
+        return StatusCode(result.Succeeded ? result.Result : result.StatusCode, result);
+    }
+
+    [HasPermission("Users.Update")]
+    [HttpPatch("{id:guid}/activate")]
+    public async Task<IActionResult> Activate(Guid id)
+    {
+        var result = await _userService.UpdateAsync(id, new Application.DTOs.Users.UserUpdateDto { IsActive = true });
         return StatusCode(result.Succeeded ? result.Result : result.StatusCode, result);
     }
 }
