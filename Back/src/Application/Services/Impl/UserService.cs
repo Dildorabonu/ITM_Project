@@ -159,7 +159,12 @@ public class UserService : IUserService
         }
         if (dto.RoleId.HasValue) user.RoleId = dto.RoleId;
         if (dto.DepartmentId.HasValue) user.DepartmentId = dto.DepartmentId;
-        if (dto.IsActive.HasValue) user.IsActive = dto.IsActive.Value;
+        if (dto.IsActive.HasValue)
+        {
+            user.IsActive = dto.IsActive.Value;
+            if (!dto.IsActive.Value)
+                user.IsHead = false;
+        }
 
         if (dto.IsHead.HasValue)
         {

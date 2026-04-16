@@ -1,8 +1,9 @@
 "use client";
 
 import { DepartmentType, DEPARTMENT_TYPE_LABELS, type UserResponse, type DepartmentOption } from "@/lib/userService";
-import { ConfirmModal } from "@/app/_components/ConfirmModal";
 import { TYPE_STYLE } from "./constants";
+import DeactivateModal from "./DeactivateModal";
+import ActivateModal from "./ActivateModal";
 
 interface UserListViewProps {
   filtered: UserResponse[];
@@ -20,10 +21,15 @@ interface UserListViewProps {
   canCreate: boolean;
   canUpdate: boolean;
   canDelete: boolean;
-  deleteId: string | null;
-  setDeleteId: (v: string | null) => void;
-  deleting: boolean;
-  handleDelete: () => void;
+  deactivateId: string | null;
+  setDeactivateId: (v: string | null) => void;
+  deactivating: boolean;
+  deactivateError: string | null;
+  handleDeactivate: () => void;
+  activateConfirmId: string | null;
+  setActivateConfirmId: (v: string | null) => void;
+  activating: boolean;
+  handleActivate: () => void;
   onOpenCreate: () => void;
   onOpenEdit: (u: UserResponse) => void;
   onRefresh: () => void;
@@ -38,7 +44,8 @@ export function UserListView({
   search, setSearch,
   typeFilter, setTypeFilter,
   canCreate, canUpdate, canDelete,
-  deleteId, setDeleteId, deleting, handleDelete,
+  deactivateId, setDeactivateId, deactivating, deactivateError, handleDeactivate,
+  activateConfirmId, setActivateConfirmId, activating, handleActivate,
   onOpenCreate, onOpenEdit, onRefresh,
   animOffset, setPage,
 }: UserListViewProps) {
@@ -192,14 +199,20 @@ export function UserListView({
                                   </svg>
                                 </button>
                               )}
-                              {canDelete && (
-                                <button className="btn-icon btn-icon-danger" title="O'chirish" onClick={() => setDeleteId(u.id)}
+                              {canDelete && u.isActive && (
+                                <button className="btn-icon btn-icon-danger" title="Noaktiv qilish" onClick={() => setDeactivateId(u.id)}
                                   style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
                                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <polyline points="3 6 5 6 21 6" />
-                                    <path d="M19 6l-1 14H6L5 6" />
-                                    <path d="M10 11v6M14 11v6" />
-                                    <path d="M9 6V4h6v2" />
+                                    <circle cx="12" cy="12" r="10" />
+                                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                                  </svg>
+                                </button>
+                              )}
+                              {canDelete && !u.isActive && (
+                                <button className="btn-icon" title="Aktivlashtirish" onClick={() => setActivateConfirmId(u.id)}
+                                  style={{ color: "#16a34a", borderColor: "#16a34a33", background: "#f0fdf4" }}>
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <polyline points="20 6 9 17 4 12" />
                                   </svg>
                                 </button>
                               )}
@@ -245,14 +258,22 @@ export function UserListView({
         </div>
       )}
 
-      <ConfirmModal
-        open={!!deleteId}
-        title="Foydalanuvchini o'chirish"
-        message="Ushbu foydalanuvchi o'chiriladi. Davom etasizmi?"
-        loading={deleting}
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteId(null)}
-      />
+      {deactivateId && (
+        <DeactivateModal
+          deactivateError={deactivateError}
+          deactivating={deactivating}
+          onConfirm={handleDeactivate}
+          onClose={() => setDeactivateId(null)}
+        />
+      )}
+
+      {activateConfirmId && (
+        <ActivateModal
+          activating={activating}
+          onConfirm={handleActivate}
+          onClose={() => setActivateConfirmId(null)}
+        />
+      )}
     </div>
   );
 }
