@@ -29,9 +29,29 @@ export default function RoleFormView({
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>
-          {editRole ? "Rolni tahrirlash" : "Yangi rol"}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              background: "var(--bg3)", border: "1.5px solid var(--border)",
+              borderRadius: "var(--radius)", cursor: "pointer",
+              padding: "7px 14px", color: "var(--text2)", fontSize: 13, fontWeight: 500,
+              transition: "border-color 0.15s, color 0.15s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text2)"; }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+            Orqaga
+          </button>
+          <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>
+            {editRole ? "Rolni tahrirlash" : "Yangi rol"}
+          </span>
+        </div>
         <span style={{
           background: "var(--accent)", color: "#fff", borderRadius: 999,
           fontSize: 12, fontWeight: 700, padding: "6px 16px", letterSpacing: 0.3,
@@ -89,14 +109,14 @@ export default function RoleFormView({
               const allSelected = selected === total;
               return (
                 <div key={mod.module} style={{
-                  border: `1.5px solid ${allSelected ? "#22c55e55" : "var(--border)"}`,
+                  border: `1.5px solid ${allSelected ? "var(--accent)" : "var(--border)"}`,
                   borderRadius: 10, padding: "12px 14px",
-                  background: allSelected ? "#f0fdf4" : "var(--bg2)", transition: "all 0.15s",
+                  background: allSelected ? "var(--accent-dim)" : "var(--bg2)", transition: "all 0.15s",
                 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                     <span style={{ fontWeight: 600, fontSize: 13, color: "var(--text1)" }}>{mod.moduleName}</span>
                     <span style={{
-                      background: allSelected ? "#22c55e" : "var(--bg3)",
+                      background: allSelected ? "var(--accent)" : "var(--bg3)",
                       color: allSelected ? "#fff" : "var(--text3)",
                       borderRadius: 999, fontSize: 11, fontWeight: 700, padding: "2px 8px",
                     }}>{selected}/{total}</span>
@@ -104,7 +124,8 @@ export default function RoleFormView({
                   <div style={{ height: 4, borderRadius: 99, background: "var(--border)", overflow: "hidden" }}>
                     <div style={{
                       height: "100%", borderRadius: 99,
-                      background: allSelected ? "#22c55e" : selected > 0 ? "#86efac" : "transparent",
+                      background: allSelected ? "var(--accent)" : selected > 0 ? "var(--accent)" : "transparent",
+                      opacity: allSelected ? 1 : selected > 0 ? 0.45 : 1,
                       width: `${total > 0 ? (selected / total) * 100 : 0}%`,
                       transition: "width 0.2s",
                     }} />
@@ -133,8 +154,8 @@ export default function RoleFormView({
               <div key={mod.module} style={{ border: "1.5px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: "var(--bg2)" }}>
                   <svg width="22" height="22" viewBox="0 0 24 24"
-                    fill={allSelected ? "#22c55e22" : "none"}
-                    stroke={allSelected ? "#22c55e" : "var(--text3)"}
+                    fill={allSelected ? "var(--accent-dim)" : "none"}
+                    stroke={allSelected ? "var(--accent)" : "var(--text3)"}
                     strokeWidth="2" style={{ flexShrink: 0 }}>
                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                     {allSelected && <polyline points="9 12 11 14 15 10" />}
@@ -144,8 +165,8 @@ export default function RoleFormView({
                     <div style={{ fontSize: 12, color: "var(--text3)" }}>{total} ta ruxsatdan {selected} tasi tanlangan</div>
                   </div>
                   <button onClick={() => toggleAllModule(mod)} title="Hammasini tanlash" style={{
-                    background: allSelected ? "#22c55e18" : "none", border: "none", cursor: "pointer",
-                    padding: 6, borderRadius: 6, color: allSelected ? "#22c55e" : "var(--text3)",
+                    background: allSelected ? "var(--accent-dim)" : "none", border: "none", cursor: "pointer",
+                    padding: 6, borderRadius: 6, color: allSelected ? "var(--accent)" : "var(--text3)",
                   }}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <polyline points="20 6 9 17 4 12" />
@@ -172,7 +193,7 @@ export default function RoleFormView({
                         <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 12 }}>
                           <button onClick={() => togglePerm(a.id)} style={{
                             width: 40, height: 22, borderRadius: 11, border: "none", cursor: "pointer",
-                            background: on ? "#22c55e" : "#d1d5db",
+                            background: on ? "var(--accent)" : "var(--surface2)",
                             position: "relative", flexShrink: 0, transition: "background 0.2s",
                           }}>
                             <span style={{

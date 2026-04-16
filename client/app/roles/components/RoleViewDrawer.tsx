@@ -68,15 +68,19 @@ export default function RoleViewDrawer({
                     width: "100%", display: "flex", alignItems: "center", gap: 12,
                     padding: "14px 16px", background: "var(--bg2)", border: "none", cursor: "pointer",
                   }}>
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" strokeWidth="2" style={{ flexShrink: 0 }}>
+                    <svg width="22" height="22" viewBox="0 0 24 24"
+                      fill={selectedCount > 0 ? "var(--accent-dim)" : "none"}
+                      stroke={selectedCount > 0 ? "var(--accent)" : "var(--text3)"}
+                      strokeWidth="2" style={{ flexShrink: 0 }}>
                       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                      {selectedCount === mod.actions.length && <polyline points="9 12 11 14 15 10" />}
                     </svg>
                     <div style={{ flex: 1, textAlign: "left" }}>
                       <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text1)" }}>{mod.moduleName}</div>
                       <div style={{ fontSize: 12, color: "var(--text3)" }}>{mod.actions.length} ta ruxsatdan {selectedCount} tasi berilgan</div>
                     </div>
                     <span style={{
-                      background: selectedCount > 0 ? "#22c55e" : "var(--bg3)",
+                      background: selectedCount > 0 ? "var(--accent)" : "var(--bg3)",
                       color: selectedCount > 0 ? "#fff" : "var(--text3)",
                       borderRadius: 999, fontSize: 12, fontWeight: 700, minWidth: 24, height: 24,
                       display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 8px",
@@ -92,20 +96,20 @@ export default function RoleViewDrawer({
                         const has = viewPerms.has(a.id);
                         return (
                           <div key={a.id} style={{
-                            background: has ? "#f0fdf4" : "var(--bg2)",
-                            border: `1.5px solid ${has ? "#bbf7d0" : "var(--border)"}`,
+                            background: has ? "var(--accent-dim)" : "var(--bg2)",
+                            border: `1.5px solid ${has ? "var(--accent)" : "var(--border)"}`,
                             borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10,
                           }}>
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                              stroke={has ? "#22c55e" : "var(--text3)"} strokeWidth="2" style={{ flexShrink: 0 }}>
+                              stroke={has ? "var(--accent)" : "var(--text3)"} strokeWidth="2" style={{ flexShrink: 0 }}>
                               {has
                                 ? <><circle cx="7.5" cy="15.5" r="4.5" /><path d="M21 2l-9.6 9.6M15.5 7.5L19 11l2-2M12 10l2 2" /></>
                                 : <><circle cx="12" cy="12" r="9" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></>
                               }
                             </svg>
                             <div>
-                              <div style={{ fontWeight: 600, fontSize: 13, color: has ? "#111" : "var(--text2)" }}>{a.actionName}</div>
-                              <div style={{ fontSize: 11, color: has ? "#6b7280" : "var(--text3)" }}>{a.action}</div>
+                              <div style={{ fontWeight: 600, fontSize: 13, color: has ? "var(--text)" : "var(--text2)" }}>{a.actionName}</div>
+                              <div style={{ fontSize: 11, color: has ? "var(--text2)" : "var(--text3)" }}>{a.action}</div>
                             </div>
                           </div>
                         );
