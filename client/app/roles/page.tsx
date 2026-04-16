@@ -10,6 +10,7 @@ import {
   type RoleCreatePayload,
 } from "@/lib/userService";
 import { useAuthStore } from "@/lib/store/authStore";
+import { useToastStore } from "@/lib/store/toastStore";
 import RoleFormView from "./components/RoleFormView";
 import RoleViewDrawer from "./components/RoleViewDrawer";
 import DeactivateModal from "./components/DeactivateModal";
@@ -17,6 +18,7 @@ import RoleTable from "./components/RoleTable";
 
 export default function RolesPage() {
   const hasPermission = useAuthStore(s => s.hasPermission);
+  const showToast = useToastStore(s => s.show);
   const canCreate = hasPermission("Roles.Create");
   const canUpdate = hasPermission("Roles.Update");
   const canDelete = hasPermission("Roles.Delete");
@@ -174,6 +176,9 @@ export default function RolesPage() {
       }
       setShowRoleModal(false);
       await fetchAll();
+      showToast(editRole ? "Rol muvaffaqiyatli tahrirlandi!" : "Rol muvaffaqiyatli yaratildi!");
+    } catch {
+      showToast("Rolni saqlashda xatolik yuz berdi.", "Xatolik");
     } finally {
       setRoleSaving(false);
     }
@@ -188,6 +193,7 @@ export default function RolesPage() {
       await roleService.delete(deleteConfirmId);
       setDeleteConfirmId(null);
       await fetchAll();
+      showToast("Rol muvaffaqiyatli noaktiv qilindi!");
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { errors?: string[] } } };
       const msg = axiosErr?.response?.data?.errors?.[0] ?? "Xatolik yuz berdi.";
@@ -201,8 +207,9 @@ export default function RolesPage() {
     try {
       await roleService.update(id, { isActive: true });
       await fetchAll();
+      showToast("Rol muvaffaqiyatli aktiv qilindi!");
     } catch {
-      // ignore
+      showToast("Rolni aktiv qilishda xatolik yuz berdi.", "Xatolik");
     }
   };
 
