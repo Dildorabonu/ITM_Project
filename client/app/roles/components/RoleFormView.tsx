@@ -152,7 +152,7 @@ export default function RoleFormView({
             const expanded = expandedEditModules.has(mod.module);
             return (
               <div key={mod.module} style={{ border: "1.5px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: "var(--bg2)" }}>
+                <div onClick={() => toggleEditModule(mod.module)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: "var(--bg2)", cursor: "pointer" }}>
                   <svg width="22" height="22" viewBox="0 0 24 24"
                     fill={allSelected ? "var(--accent-dim)" : "none"}
                     stroke={allSelected ? "var(--accent)" : "var(--text3)"}
@@ -164,7 +164,7 @@ export default function RoleFormView({
                     <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text1)" }}>{mod.moduleName}</div>
                     <div style={{ fontSize: 12, color: "var(--text3)" }}>{total} ta ruxsatdan {selected} tasi tanlangan</div>
                   </div>
-                  <button onClick={() => toggleAllModule(mod)} title="Hammasini tanlash" style={{
+                  <button onClick={e => { e.stopPropagation(); toggleAllModule(mod); }} title="Hammasini tanlash" style={{
                     background: allSelected ? "var(--accent-dim)" : "none", border: "none", cursor: "pointer",
                     padding: 6, borderRadius: 6, color: allSelected ? "var(--accent)" : "var(--text3)",
                   }}>
@@ -172,14 +172,12 @@ export default function RoleFormView({
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                   </button>
-                  <button onClick={() => toggleEditModule(mod.module)} style={{
-                    background: "none", border: "none", cursor: "pointer", padding: 4, color: "var(--text3)",
-                  }}>
+                  <span style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "var(--text3)", display: "inline-flex" }}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
                       style={{ transition: "transform 0.2s", transform: expanded ? "rotate(180deg)" : "rotate(0deg)", display: "block" }}>
                       <polyline points="6 9 12 15 18 9" />
                     </svg>
-                  </button>
+                  </span>
                 </div>
                 {expanded && (
                   <div style={{
