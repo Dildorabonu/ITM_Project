@@ -79,27 +79,33 @@ public static class AutomatedMigration
         await context.SaveChangesAsync();
     }
 
+    private const string SuperAdminPassword = "ITMFactory@2026!";
+
     private static async System.Threading.Tasks.Task SeedSuperAdminUserAsync(DatabaseContext context)
     {
         var superAdminRoleId = new Guid("00000000-0000-0000-0000-000000000001");
         var superAdminUserId = new Guid("00000000-0000-0000-0000-000000000001");
 
-        if (!await context.Users.AnyAsync(u => u.Id == superAdminUserId))
+        var existing = await context.Users.FirstOrDefaultAsync(u => u.Id == superAdminUserId);
+        if (existing is null)
         {
-            var superAdminUser = new User
+            context.Users.Add(new User
             {
                 Id = superAdminUserId,
                 FirstName = "Super",
                 LastName = "Admin",
                 Login = "superadmin",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123"),
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(SuperAdminPassword),
                 RoleId = superAdminRoleId,
                 DepartmentId = null,
                 IsActive = true,
                 CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-            };
-
-            context.Users.Add(superAdminUser);
+            });
+            await context.SaveChangesAsync();
+        }
+        else if (BCrypt.Net.BCrypt.Verify("Admin@123", existing.PasswordHash))
+        {
+            existing.PasswordHash = BCrypt.Net.BCrypt.HashPassword(SuperAdminPassword);
             await context.SaveChangesAsync();
         }
     }
