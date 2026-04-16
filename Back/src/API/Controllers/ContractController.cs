@@ -93,18 +93,6 @@ public class ContractController : ControllerBase
         return Ok(result);
     }
 
-    [HasPermission("Contracts.Delete")]
-    [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id)
-    {
-        var result = await _contractService.DeleteAsync(id);
-
-        if (!result.Succeeded)
-            return StatusCode(result.StatusCode, result);
-
-        return Ok(result);
-    }
-
     [HasPermission("Contracts.Update")]
     [HttpPatch("{id:guid}/deactivate")]
     public async Task<IActionResult> Deactivate(Guid id)

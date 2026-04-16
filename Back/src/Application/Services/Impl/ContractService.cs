@@ -229,43 +229,6 @@ public class ContractService : IContractService
         }
     }
 
-    public async Task<ApiResult<int>> DeleteAsync(Guid id)
-    {
-        var contract = await _context.Contracts
-            .Include(c => c.ContractUsers)
-            .Include(c => c.ContractDepartments)
-            .FirstOrDefaultAsync(c => c.Id == id);
-
-        if (contract is null)
-            return ApiResult<int>.Failure([$"Contract with id '{id}' not found."], 404);
-
-        var title = $"Shartnoma o'chirildi: {contract.ContractNo}";
-        var body  = $"№{contract.ContractNo} shartnoma tizimdan o'chirildi.";
-
-        var deleteUserIds = contract.ContractUsers.Select(cu => cu.UserId).ToHashSet();
-        var deleteDeptUserIds = await _context.Users
-            .Where(u => u.IsActive && contract.ContractDepartments.Select(cd => cd.DepartmentId).Contains(u.DepartmentId!.Value))
-            .Select(u => u.Id)
-            .ToListAsync();
-
-        _context.Contracts.Remove(contract);
-        try
-        {
-            await _context.SaveChangesAsync();
-        }
-        catch (Microsoft.EntityFrameworkCore.DbUpdateException)
-        {
-            return ApiResult<int>.Failure(
-                ["Bu shartnomani o'chirib bo'lmaydi: unga bog'liq yozuvlar mavjud (buyurtmalar, jarayonlar yoki boshqa ma'lumotlar)."],
-                409);
-        }
-
-        await _notificationService.NotifyUsersAndSuperAdminsAsync(
-            deleteUserIds.Union(deleteDeptUserIds), title, body, NotificationType.Warning);
-
-        return ApiResult<int>.Success(200);
-    }
-
     public async Task<ApiResult<int>> DeactivateAsync(Guid id)
     {
         var contract = await _context.Contracts
