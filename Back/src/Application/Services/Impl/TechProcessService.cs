@@ -13,10 +13,12 @@ namespace Application.Services.Impl;
 public class TechProcessService : ITechProcessService
 {
     private readonly DatabaseContext _context;
+    private readonly INotificationService _notificationService;
 
-    public TechProcessService(DatabaseContext context)
+    public TechProcessService(DatabaseContext context, INotificationService notificationService)
     {
         _context = context;
+        _notificationService = notificationService;
     }
 
     public async Task<ApiResult<IEnumerable<TechProcessResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, ProcessStatus? status = null)
@@ -93,6 +95,22 @@ public class TechProcessService : ITechProcessService
 
         await _context.SaveChangesAsync();
 
+        if (contract is not null)
+        {
+            var deptUserIds = await _context.Users
+                .Where(u => u.IsActive && _context.ContractDepartments
+                    .Any(cd => cd.ContractId == dto.ContractId && cd.DepartmentId == u.DepartmentId))
+                .Select(u => u.Id)
+                .ToListAsync();
+
+            await _notificationService.NotifyUsersAndSuperAdminsAsync(
+                deptUserIds,
+                $"Tex jarayon yaratildi: {contract.ContractNo}",
+                $"«{contract.ContractNo}» shartnomasi uchun «{tp.Title}» tex jarayoni yaratildi.",
+                NotificationType.Info,
+                contract.Id);
+        }
+
         return ApiResult<Guid>.Success(tp.Id, 201);
     }
 
@@ -111,6 +129,24 @@ public class TechProcessService : ITechProcessService
         {
             contract.Status = ContractStatus.WarehouseCheck;
             await _context.SaveChangesAsync();
+
+            var deptUserIds = await _context.Users
+                .Where(u => u.IsActive && _context.ContractDepartments
+                    .Any(cd => cd.ContractId == contractId && cd.DepartmentId == u.DepartmentId))
+                .Select(u => u.Id)
+                .ToListAsync();
+
+            var contractUserIds = await _context.ContractUsers
+                .Where(cu => cu.ContractId == contractId)
+                .Select(cu => cu.UserId)
+                .ToListAsync();
+
+            await _notificationService.NotifyUsersAndSuperAdminsAsync(
+                deptUserIds.Union(contractUserIds).Distinct(),
+                $"Shartnoma ombor tekshiruviga o'tdi: {contract.ContractNo}",
+                $"«{contract.ContractNo}» shartnomasi tex jarayon va xarajat normalari tasdiqlandi. Ombor tekshiruvi bosqichiga o'tildi.",
+                NotificationType.Task,
+                contract.Id);
         }
     }
 
@@ -144,6 +180,29 @@ public class TechProcessService : ITechProcessService
 
         await _context.SaveChangesAsync();
         await TryAdvanceToWarehouseCheckAsync(tp.ContractId);
+
+        var approveContract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == tp.ContractId);
+        if (approveContract is not null)
+        {
+            var deptUserIds = await _context.Users
+                .Where(u => u.IsActive && _context.ContractDepartments
+                    .Any(cd => cd.ContractId == tp.ContractId && cd.DepartmentId == u.DepartmentId))
+                .Select(u => u.Id)
+                .ToListAsync();
+
+            var contractUserIds = await _context.ContractUsers
+                .Where(cu => cu.ContractId == tp.ContractId)
+                .Select(cu => cu.UserId)
+                .ToListAsync();
+
+            await _notificationService.NotifyUsersAndSuperAdminsAsync(
+                deptUserIds.Union(contractUserIds).Distinct(),
+                $"Tex jarayon tasdiqlandi: {approveContract.ContractNo}",
+                $"«{approveContract.ContractNo}» shartnomasi uchun «{tp.Title}» tex jarayoni tasdiqlandi.",
+                NotificationType.Task,
+                approveContract.Id);
+        }
+
         return ApiResult<int>.Success(1);
     }
 
