@@ -3,23 +3,10 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Roboto_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { useAuthStore } from "@/lib/store/authStore";
 import { api } from "@/lib/api";
 import ToastContainer from "@/app/_components/ToastContainer";
-
-const robotoMono = Roboto_Mono({
-  variable: "--font-mono",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-});
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800"],
-});
 
 type NavItem = { name: string; href: string; icon: string; badge?: number; badgeWarn?: boolean; permission?: string | string[] };
 type NavGroup = { label: string; icon: string; items: NavItem[] };
@@ -359,7 +346,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       : "??";
 
   return (
-    <html lang="uz" className={`${robotoMono.variable} ${inter.variable}${darkMode ? " dark" : ""}`} suppressHydrationWarning>
+    <html lang="uz" className={darkMode ? "dark" : ""} suppressHydrationWarning>
       <body className="font-body-itm" style={{
         ...themeVars,
         transition: "background 0.3s ease, color 0.3s ease",
