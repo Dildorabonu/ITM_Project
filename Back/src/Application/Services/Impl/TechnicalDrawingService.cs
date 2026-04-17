@@ -11,11 +11,13 @@ public class TechnicalDrawingService : ITechnicalDrawingService
 {
     private readonly DatabaseContext _context;
     private readonly IAttachmentService _attachmentService;
+    private readonly INotificationService _notificationService;
 
-    public TechnicalDrawingService(DatabaseContext context, IAttachmentService attachmentService)
+    public TechnicalDrawingService(DatabaseContext context, IAttachmentService attachmentService, INotificationService notificationService)
     {
         _context = context;
         _attachmentService = attachmentService;
+        _notificationService = notificationService;
     }
 
     public async Task<ApiResult<IEnumerable<TechnicalDrawingResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, DrawingStatus? status = null)
@@ -75,6 +77,19 @@ public class TechnicalDrawingService : ITechnicalDrawingService
         _context.TechnicalDrawings.Add(drawing);
         await _context.SaveChangesAsync();
 
+        var deptUserIds = await _context.Users
+            .Where(u => u.IsActive && _context.ContractDepartments
+                .Any(cd => cd.ContractId == dto.ContractId && cd.DepartmentId == u.DepartmentId))
+            .Select(u => u.Id)
+            .ToListAsync();
+
+        await _notificationService.NotifyUsersAndSuperAdminsAsync(
+            deptUserIds,
+            $"Yangi texnik chizma yuklandi: {contract.ContractNo}",
+            $"«{contract.ContractNo}» shartnomasi uchun «{drawing.Title}» texnik chizmasi yuklandi.",
+            NotificationType.Info,
+            contract.Id);
+
         return ApiResult<Guid>.Success(drawing.Id, 201);
     }
 
@@ -101,13 +116,43 @@ public class TechnicalDrawingService : ITechnicalDrawingService
 
         drawing.Status = status;
 
+        var contractMoved = false;
         if (status == DrawingStatus.Approved && drawing.Contract is not null &&
             drawing.Contract.Status == ContractStatus.DrawingPending)
         {
             drawing.Contract.Status = ContractStatus.TechProcessing;
+            contractMoved = true;
         }
 
         await _context.SaveChangesAsync();
+
+        if (drawing.Contract is not null)
+        {
+            var contractId = drawing.Contract.Id;
+            var contractNo = drawing.Contract.ContractNo;
+
+            var deptUserIds = await _context.Users
+                .Where(u => u.IsActive && _context.ContractDepartments
+                    .Any(cd => cd.ContractId == contractId && cd.DepartmentId == u.DepartmentId))
+                .Select(u => u.Id)
+                .ToListAsync();
+
+            var contractUserIds = await _context.ContractUsers
+                .Where(cu => cu.ContractId == contractId)
+                .Select(cu => cu.UserId)
+                .ToListAsync();
+
+            var allUserIds = deptUserIds.Union(contractUserIds).Distinct();
+
+            if (status == DrawingStatus.Approved)
+            {
+                var body = contractMoved
+                    ? $"«{contractNo}» shartnomasi texnik chizmasi tasdiqlandi. Shartnoma holati «Tex jarayon tayyorlanmoqda» ga o'zgardi."
+                    : $"«{contractNo}» shartnomasi uchun «{drawing.Title}» texnik chizmasi tasdiqlandi.";
+                await _notificationService.NotifyUsersAndSuperAdminsAsync(
+                    allUserIds, $"Texnik chizma tasdiqlandi: {contractNo}", body, NotificationType.Task, contractId);
+            }
+        }
 
         return ApiResult<int>.Success(200);
     }
