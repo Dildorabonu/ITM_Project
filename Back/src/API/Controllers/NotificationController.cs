@@ -32,9 +32,7 @@ public class NotificationController : ControllerBase
         var userId = GetUserId();
         if (userId is null) return Unauthorized();
 
-        var result = IsSuperAdmin()
-            ? await _service.GetAllNotificationsAsync()
-            : await _service.GetByUserAsync(userId.Value);
+        var result = await _service.GetByUserAsync(userId.Value);
         return Ok(result);
     }
 
@@ -44,9 +42,7 @@ public class NotificationController : ControllerBase
         var userId = GetUserId();
         if (userId is null) return Unauthorized();
 
-        var result = IsSuperAdmin()
-            ? await _service.GetAllUnreadCountAsync()
-            : await _service.GetUnreadCountAsync(userId.Value);
+        var result = await _service.GetUnreadCountAsync(userId.Value);
         return Ok(result);
     }
 
@@ -56,9 +52,7 @@ public class NotificationController : ControllerBase
         var userId = GetUserId();
         if (userId is null) return Unauthorized();
 
-        var result = IsSuperAdmin()
-            ? await _service.MarkAsReadByIdAsync(id)
-            : await _service.MarkAsReadAsync(id, userId.Value);
+        var result = await _service.MarkAsReadAsync(id, userId.Value);
         if (!result.Succeeded) return NotFound(result);
         return Ok(result);
     }
@@ -69,9 +63,7 @@ public class NotificationController : ControllerBase
         var userId = GetUserId();
         if (userId is null) return Unauthorized();
 
-        var result = IsSuperAdmin()
-            ? await _service.MarkAllReadForAllAsync()
-            : await _service.MarkAllAsReadAsync(userId.Value);
+        var result = await _service.MarkAllAsReadAsync(userId.Value);
         return Ok(result);
     }
 
@@ -81,9 +73,7 @@ public class NotificationController : ControllerBase
         var userId = GetUserId();
         if (userId is null) return Unauthorized();
 
-        var result = IsSuperAdmin()
-            ? await _service.DeleteAsync(id)
-            : await _service.DeleteOwnAsync(id, userId.Value);
+        var result = await _service.DeleteOwnAsync(id, userId.Value);
         if (!result.Succeeded) return StatusCode(result.StatusCode, result);
         return Ok(result);
     }

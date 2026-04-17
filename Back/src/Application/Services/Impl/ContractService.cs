@@ -108,11 +108,11 @@ public class ContractService : IContractService
         await _context.SaveChangesAsync();
 
         var createDeptUserIds = await _context.Users
-            .Where(u => u.IsActive && dto.DepartmentIds.Contains(u.DepartmentId!.Value))
+            .Where(u => u.IsActive && u.Id != createdBy && dto.DepartmentIds.Contains(u.DepartmentId!.Value))
             .Select(u => u.Id)
             .ToListAsync();
 
-        await _notificationService.NotifyUsersAndSuperAdminsAsync(
+        await _notificationService.NotifyUsersAsync(
             createDeptUserIds,
             $"Shartnomaga tayinlandingiz: {contract.ContractNo}",
             $"Siz «{contract.ContractNo}» shartnomasi bo'yicha tayinlandingiz.",
