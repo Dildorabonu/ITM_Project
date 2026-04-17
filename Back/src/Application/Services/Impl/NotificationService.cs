@@ -207,6 +207,34 @@ public class NotificationService : INotificationService
         }
     }
 
+    public async Task NotifyUsersAsync(IEnumerable<Guid> userIds, string title, string body, NotificationType type, Guid? contractId = null)
+    {
+        try
+        {
+            var ids = userIds.Distinct().ToList();
+            if (ids.Count == 0) return;
+
+            var notifications = ids.Select(uid => new Core.Entities.Notification
+            {
+                Id = Guid.NewGuid(),
+                UserId = uid,
+                Title = title,
+                Body = body,
+                Type = type,
+                ContractId = contractId,
+                IsRead = false,
+                CreatedAt = DateTime.UtcNow,
+            }).ToList();
+
+            _context.Notifications.AddRange(notifications);
+            await _context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Foydalanuvchilarga bildirishnoma yuborishda xatolik: {Title}", title);
+        }
+    }
+
     public async Task NotifyUsersAndSuperAdminsAsync(IEnumerable<Guid> userIds, string title, string body, NotificationType type, Guid? contractId = null)
     {
         try

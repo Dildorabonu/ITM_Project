@@ -19,6 +19,7 @@ public interface INotificationService
     Task CreateAsync(Guid userId, string title, string body, NotificationType type, Guid? contractId = null);
     Task NotifyAllAsync(string title, string body, NotificationType type, Guid? contractId = null);
     Task NotifySuperAdminsAsync(string title, string body, NotificationType type, Guid? contractId = null);
+    Task NotifyUsersAsync(IEnumerable<Guid> userIds, string title, string body, NotificationType type, Guid? contractId = null);
     Task NotifyUsersAndSuperAdminsAsync(IEnumerable<Guid> userIds, string title, string body, NotificationType type, Guid? contractId = null);
     Task NotifyDepartmentAsync(Guid departmentId, string title, string body, NotificationType type, Guid? contractId = null);
     Task NotifyDepartmentAndUsersAsync(Guid departmentId, IEnumerable<Guid> assignedUserIds, string title, string body, NotificationType type, Guid? contractId = null);
