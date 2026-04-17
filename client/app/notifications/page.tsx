@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { ContractStatus, Priority } from "@/lib/userService";
@@ -315,7 +316,7 @@ export default function NotificationsPage() {
       )}
 
       {/* ── Detail Modal ─────────────────────────────────── */}
-      {selected && (
+      {selected && createPortal(
         <div className="modal-overlay" onClick={() => { setSelected(null); setContractDetail(null); }}>
           <div
             className="modal-box"
@@ -435,7 +436,8 @@ export default function NotificationsPage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
