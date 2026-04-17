@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.21",
-    "axios": "^1.13.6",
+    "axios": "1.13.6",
     "html2pdf.js": "^0.14.0",
     "lucide-react": "^0.577.0",
     "mammoth": "^1.12.0",
