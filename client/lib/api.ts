@@ -25,6 +25,36 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Refresh lock — prevents multiple concurrent refresh calls
+let refreshPromise: Promise<string> | null = null;
+
+function doRefresh(): Promise<string> {
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = (async () => {
+    try {
+      const raw = localStorage.getItem("itm_auth");
+      if (!raw) throw new Error("no token");
+      const stored = JSON.parse(raw);
+      const refreshToken = stored?.state?.refreshToken;
+      if (!refreshToken) throw new Error("no refresh token");
+
+      const res = await axios.post(`${API_URL}/api/auth/refresh`, { refreshToken });
+      const { accessToken, refreshToken: newRefreshToken } = res.data.result ?? res.data;
+
+      stored.state.accessToken = accessToken;
+      stored.state.refreshToken = newRefreshToken;
+      localStorage.setItem("itm_auth", JSON.stringify(stored));
+
+      return accessToken as string;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+}
+
 // On 401, attempt token refresh
 api.interceptors.response.use(
   (res) => res,
@@ -33,22 +63,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !original._retry) {
       original._retry = true;
       try {
-        const raw = localStorage.getItem("itm_auth");
-        if (!raw) throw new Error("no token");
-        const { state } = JSON.parse(raw);
-        if (!state?.refreshToken) throw new Error("no refresh token");
-
-        const res = await axios.post(`${API_URL}/api/auth/refresh`, {
-          refreshToken: state.refreshToken,
-        });
-        const { accessToken, refreshToken } = res.data.result ?? res.data;
-
-        // Update store in localStorage directly
-        const stored = JSON.parse(raw);
-        stored.state.accessToken = accessToken;
-        stored.state.refreshToken = refreshToken;
-        localStorage.setItem("itm_auth", JSON.stringify(stored));
-
+        const accessToken = await doRefresh();
         original.headers.Authorization = `Bearer ${accessToken}`;
         return api(original);
       } catch {
