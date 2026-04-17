@@ -1,7 +1,7 @@
 "use client";
 
 import { createPortal } from "react-dom";
-import { technicalDrawingService, DrawingStatus, type TechnicalDrawingResponse, type AttachmentResponse } from "@/lib/userService";
+import { technicalDrawingService, type TechnicalDrawingResponse, type AttachmentResponse } from "@/lib/userService";
 import { StatusBadge } from "./StatusBadge";
 
 function fmtDate(value: string) {
@@ -16,12 +16,10 @@ interface DrawingDrawerProps {
   drawerFiles: AttachmentResponse[];
   drawerLoading: boolean;
   onClose: () => void;
-  onApprove: (item: TechnicalDrawingResponse) => void;
-  approving: boolean;
 }
 
 export function DrawingDrawer({
-  drawer, drawerFiles, drawerLoading, onClose, onApprove, approving,
+  drawer, drawerFiles, drawerLoading, onClose,
 }: DrawingDrawerProps) {
   return createPortal(
     <div
@@ -104,19 +102,6 @@ export function DrawingDrawer({
           )}
         </div>
 
-        {/* Action buttons */}
-        {drawer.status !== DrawingStatus.Approved && (
-          <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
-            <button
-              className="btn btn-primary"
-              onClick={() => onApprove(drawer)}
-              disabled={approving}
-              style={{ fontSize: 13, padding: "8px 18px" }}
-            >
-              {approving ? "Tasdiqlanmoqda..." : "Tasdiqlash"}
-            </button>
-          </div>
-        )}
 
         {/* Files */}
         <div style={{ borderTop: "1.5px solid var(--border)", paddingTop: 20, marginTop: 4 }}>

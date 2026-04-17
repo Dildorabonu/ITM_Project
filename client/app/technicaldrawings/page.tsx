@@ -12,6 +12,7 @@ import {
 } from "@/lib/userService";
 
 import { useToastStore } from "@/lib/store/toastStore";
+import { useAuthStore } from "@/lib/store/authStore";
 
 import { type MergedRow, type DrawingFormValues, emptyDrawingForm } from "./_types";
 import { StatusBadge } from "./_components/StatusBadge";
@@ -28,6 +29,9 @@ function fmtDate(value: string) {
 
 export default function TechnicalDrawingsPage() {
   const showToast = useToastStore((s) => s.show);
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canCreate = hasPermission("TechnicalDrawings.Create");
+  const canUpdate = hasPermission("TechnicalDrawings.Update");
   const [list, setList] = useState<TechnicalDrawingResponse[]>([]);
   const [contracts, setContracts] = useState<ContractResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -397,14 +401,16 @@ export default function TechnicalDrawingsPage() {
                             <td style={{ textAlign: "center", fontSize: 13, color: "var(--text1)" }}>{fmtDate(c.createdAt)}</td>
                             <td style={{ borderLeft: "2px solid var(--border)" }}>
                               <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-                                <button
-                                  className="btn-icon"
-                                  onClick={() => openCreate(c)}
-                                  title="Chizma yaratish"
-                                  style={{ color: "var(--accent)", borderColor: "var(--accent)33", background: "var(--accent-dim)", width: 28, height: 28, fontSize: 18, fontWeight: 400, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
-                                >
-                                  +
-                                </button>
+                                {canCreate && (
+                                  <button
+                                    className="btn-icon"
+                                    onClick={() => openCreate(c)}
+                                    title="Chizma yaratish"
+                                    style={{ color: "var(--accent)", borderColor: "var(--accent)33", background: "var(--accent-dim)", width: 28, height: 28, fontSize: 18, fontWeight: 400, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
+                                  >
+                                    +
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -461,18 +467,20 @@ export default function TechnicalDrawingsPage() {
                                   <circle cx="12" cy="12" r="3" />
                                 </svg>
                               </button>
-                              <button
-                                className="btn-icon"
-                                onClick={() => openEdit(item)}
-                                title="Tahrirlash"
-                                style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}
-                              >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                </svg>
-                              </button>
-                              {item.status !== DrawingStatus.Approved && (
+                              {canUpdate && (
+                                <button
+                                  className="btn-icon"
+                                  onClick={() => openEdit(item)}
+                                  title="Tahrirlash"
+                                  style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                  </svg>
+                                </button>
+                              )}
+                              {canUpdate && item.status !== DrawingStatus.Approved && (
                                 <button
                                   className="btn-icon"
                                   onClick={() => handleApprove(item)}
@@ -505,8 +513,6 @@ export default function TechnicalDrawingsPage() {
           drawerFiles={drawerFiles}
           drawerLoading={drawerLoading}
           onClose={() => setDrawer(null)}
-          onApprove={handleApprove}
-          approving={approving}
         />
       )}
 
