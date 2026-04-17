@@ -30,12 +30,26 @@ export function DrawingForm({
   const handleFileDrop = (e: React.DragEvent) => {
     e.preventDefault();
     const dropped = Array.from(e.dataTransfer.files);
-    if (dropped.length > 0) setForm((f) => ({ ...f, files: [dropped[0]] }));
+    if (dropped.length > 0) {
+      const file = dropped[0];
+      setForm((f) => ({
+        ...f,
+        files: [file],
+        ...(f.title.trim() === "" ? { title: file.name.replace(/\.[^.]+$/, "") } : {}),
+      }));
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files ?? []);
-    if (selected.length > 0) setForm((f) => ({ ...f, files: [selected[0]] }));
+    if (selected.length > 0) {
+      const file = selected[0];
+      setForm((f) => ({
+        ...f,
+        files: [file],
+        ...(f.title.trim() === "" ? { title: file.name.replace(/\.[^.]+$/, "") } : {}),
+      }));
+    }
     e.target.value = "";
   };
 
@@ -84,7 +98,7 @@ export function DrawingForm({
                 className="form-input"
                 value={form.title}
                 onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                placeholder="Texnik chizma nomi"
+                placeholder="Avtomatik to'ldiriladi"
                 autoFocus={mode === "create"}
                 style={{ height: 44, fontSize: 14, ...(hasError ? { borderColor: "var(--danger)" } : {}) }}
               />
