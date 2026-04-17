@@ -62,6 +62,16 @@ export default function TechProductionPage() {
 
   const [tpDetailFiles, setTpDetailFiles] = useState<AttachmentResponse[]>([]);
 
+  // TP draft warning modal
+  const [tpDraftWarning, setTpDraftWarning] = useState<string|null>(null);
+  // CN draft warning modal
+  const [cnDraftWarning, setCnDraftWarning] = useState<string|null>(null);
+  // Approve confirm modals
+  const [tpApproveTarget, setTpApproveTarget] = useState<{id:string;title:string}|null>(null);
+  const [cnApproveTarget, setCnApproveTarget] = useState<{id:string;title:string}|null>(null);
+  const [tpApproving, setTpApproving] = useState(false);
+  const [cnApproving, setCnApproving] = useState(false);
+
   // TP actions
 const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
 
@@ -204,23 +214,30 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
     setTpShowForm(true);
   };
 
-  const handleTpSave = async () => {
+  const handleTpSave = () => {
     setTpSubmitted(true); setTpFileError(""); setTpFormError("");
     if(!tpForm.contractId) { setTpFormError("Shartnoma tanlanmagan. Iltimos, ro'yxatdan shartnomani tanlang va qayta urinib ko'ring."); return; }
     if(!tpForm.title.trim()&&!finalFile) { setTpFormError("Fayl yuklanmagan bo'lsa, nomni qo'lda kiriting."); return; }
     if(!finalFile) { setTpFileError("Texnologik jarayon faylini yuklang."); return; }
+    const title = tpForm.title.trim() || finalFile!.name.replace(/\.[^.]+$/, "");
+    setTpDraftWarning(title);
+  };
+
+  const handleTpSaveConfirm = async () => {
     setTpSaving(true);
     try {
       const dto: TechProcessCreatePayload = { contractId:tpForm.contractId, title:tpForm.title.trim()||finalFile!.name.replace(/\.[^.]+$/,""), notes:tpForm.notes||null };
       const newId = await techProcessService.create(dto);
-      await techProcessService.uploadFile(newId,finalFile);
+      await techProcessService.uploadFile(newId, finalFile!);
       const fresh = await techProcessService.getById(newId);
       setTpList(prev=>[fresh,...prev]);
+      setTpDraftWarning(null);
       setTpShowForm(false);
       showToast("Texnologik jarayon muvaffaqiyatli yaratildi!");
     } catch(e: unknown) {
       const msg=(e as {response?:{data?:{errors?:string[]}}})?.response?.data?.errors?.[0];
       setTpFormError(msg??"Saqlashda xatolik yuz berdi.");
+      setTpDraftWarning(null);
     } finally { setTpSaving(false); }
   };
 
@@ -249,30 +266,58 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
     setCnMode("create");
   }
 
-  async function handleCnSave() {
+  function handleCnSave() {
     setCnSubmitted(true); setCnSaveError(null);
     if(!cnForm.contractId) { setCnSaveError("Shartnoma tanlanmagan. Iltimos, ro'yxatdan shartnomani tanlang va qayta urinib ko'ring."); return; }
     if(!cnForm.title.trim()&&!cnFormFile) { setCnSaveError("Nomi kiritilmagan. Fayl yuklanmagan bo'lsa, nomni qo'lda kiriting."); return; }
     if(cnParsedTables.length===0) { setCnSaveError("Me'yoriy sarf jadvali faylini yuklang va qayta urinib ko'ring."); return; }
+    const title = cnForm.title.trim() || cnFormFile?.name?.replace(/\.docx$/i,"") || "";
+    setCnDraftWarning(title);
+  }
+
+  async function handleCnSaveConfirm() {
     setCnSaving(true);
     try {
       const allRows=cnParsedTables.flatMap(t=>t.rows);
       const items=allRows.map((row,idx)=>({ isSection:row.isSection,sectionName:row.isSection?row.sectionName:null,no:row.no||null,name:row.name||null,unit:row.unit||null,readyQty:row.readyQty||null,wasteQty:row.wasteQty||null,totalQty:row.totalQty||null,photoRaw:row.photoRaw||null,photoSemi:row.photoSemi||null,importType:row.importType||null,sortOrder:idx }));
       const newId=await costNormService.create({contractId:cnForm.contractId,title:cnForm.title||cnFormFile?.name?.replace(/\.docx$/i,"")||"",notes:cnForm.notes||null,items});
       if(cnFormFile&&newId) await costNormService.uploadFile(newId,cnFormFile);
-      await loadCn(); setCnMode("list");
+      await loadCn(); setCnDraftWarning(null); setCnMode("list");
       showToast("Me'yoriy sarf muvaffaqiyatli yaratildi!");
     } catch(e: unknown) {
       const msg=(e as {response?:{data?:{errors?:string[]}}})?.response?.data?.errors?.[0];
       setCnSaveError(msg??"Saqlashda xatolik yuz berdi");
+      setCnDraftWarning(null);
     }
     finally { setCnSaving(false); }
   }
 
-  async function handleCnApprove(id: string) {
-    setCnApprovingId(id);
-    try { await costNormService.approve(id); setCnList(prev=>prev.map(n=>n.id===id?{...n,status:DrawingStatus.Approved}:n)); if(cnSelected?.id===id) setCnSelected(n=>n?{...n,status:DrawingStatus.Approved}:n); }
-    finally { setCnApprovingId(null); }
+  function handleCnApprove(norm: CostNormResponse) {
+    setCnApproveTarget({ id: norm.id, title: norm.title });
+  }
+
+  async function handleCnApproveConfirm() {
+    if (!cnApproveTarget) return;
+    setCnApproving(true);
+    try {
+      await costNormService.approve(cnApproveTarget.id);
+      setCnList(prev=>prev.map(n=>n.id===cnApproveTarget.id?{...n,status:DrawingStatus.Approved}:n));
+      if(cnSelected?.id===cnApproveTarget.id) setCnSelected(n=>n?{...n,status:DrawingStatus.Approved}:n);
+      setCnApproveTarget(null);
+      showToast("Me'yoriy sarf tasdiqlandi!");
+    } finally { setCnApproving(false); }
+  }
+
+  async function handleTpApproveConfirm() {
+    if (!tpApproveTarget) return;
+    setTpApproving(true);
+    try {
+      await techProcessService.approve(tpApproveTarget.id);
+      if (tpSelected?.id === tpApproveTarget.id) await tpRefreshSelected(tpApproveTarget.id);
+      await loadTp();
+      setTpApproveTarget(null);
+      showToast("Texnologik jarayon tasdiqlandi!");
+    } finally { setTpApproving(false); }
   }
 
   function openCnDetail(norm: CostNormResponse) {
@@ -328,6 +373,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
   // TP: full-page create form
   if (tpShowForm) {
     return (
+      <>
       <div style={{ display:"flex",flexDirection:"column",gap:24 }}>
         <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between" }}>
           <div style={{ display:"flex",alignItems:"center",gap:12 }}>
@@ -389,12 +435,44 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
           </button>
         </div>
       </div>
+      {tpDraftWarning && createPortal(
+        <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center" }}>
+          <div style={{ background:"var(--surface)",border:"1px solid var(--warn)",borderRadius:12,padding:28,width:400,maxWidth:"95vw" }}>
+            <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:14 }}>
+              <div style={{ width:38,height:38,borderRadius:8,background:"var(--warn-dim)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+                <svg width="20" height="20" fill="none" stroke="var(--warn)" strokeWidth="2" viewBox="0 0 24 24">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+              </div>
+              <div style={{ fontSize:15,fontWeight:700,color:"var(--warn)" }}>Texnologik jarayon qoralama holatida</div>
+            </div>
+            <p style={{ fontSize:13,color:"var(--text2)",lineHeight:1.65,margin:"0 0 20px" }}>
+              <span style={{ fontWeight:600,color:"var(--text)" }}>«{tpDraftWarning}»</span> texnologik jarayon{" "}
+              <span style={{ fontWeight:600,color:"var(--warn)" }}>qoralama</span> holatida saqlanadi.
+              Keyinchalik jadvaldan tasdiqlash tugmasi orqali tasdiqlab olishingiz mumkin.
+            </p>
+            <div style={{ display:"flex",gap:10,justifyContent:"flex-end" }}>
+              <button className="btn btn-outline" onClick={()=>setTpDraftWarning(null)} disabled={tpSaving}>
+                Bekor qilish
+              </button>
+              <button className="btn btn-primary" onClick={handleTpSaveConfirm} disabled={tpSaving}>
+                {tpSaving?"Saqlanmoqda...":"Tushundim, saqlash"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+      </>
     );
   }
 
   // CN: full-page create form
   if (cnMode === "create") {
     return (
+      <>
       <div style={{ display:"flex",flexDirection:"column",flex:1,minHeight:0 }}>
         {cnFileOverlayVisible&&(
           <FileParsingOverlay dataReady={cnFileParseReady} onComplete={()=>{
@@ -521,6 +599,37 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
           </div>
         )}
       </div>
+      {cnDraftWarning && createPortal(
+        <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center" }}>
+          <div style={{ background:"var(--surface)",border:"1px solid var(--warn)",borderRadius:12,padding:28,width:400,maxWidth:"95vw" }}>
+            <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:14 }}>
+              <div style={{ width:38,height:38,borderRadius:8,background:"var(--warn-dim)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+                <svg width="20" height="20" fill="none" stroke="var(--warn)" strokeWidth="2" viewBox="0 0 24 24">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+              </div>
+              <div style={{ fontSize:15,fontWeight:700,color:"var(--warn)" }}>Me&apos;yoriy sarf qoralama holatida</div>
+            </div>
+            <p style={{ fontSize:13,color:"var(--text2)",lineHeight:1.65,margin:"0 0 20px" }}>
+              <span style={{ fontWeight:600,color:"var(--text)" }}>«{cnDraftWarning}»</span> me&apos;yoriy sarf{" "}
+              <span style={{ fontWeight:600,color:"var(--warn)" }}>qoralama</span> holatida saqlanadi.
+              Keyinchalik jadvaldan tasdiqlash tugmasi orqali tasdiqlab olishingiz mumkin.
+            </p>
+            <div style={{ display:"flex",gap:10,justifyContent:"flex-end" }}>
+              <button className="btn btn-outline" onClick={()=>setCnDraftWarning(null)} disabled={cnSaving}>
+                Bekor qilish
+              </button>
+              <button className="btn btn-primary" onClick={handleCnSaveConfirm} disabled={cnSaving}>
+                {cnSaving?"Saqlanmoqda...":"Tushundim, saqlash"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+      </>
     );
   }
 
@@ -528,6 +637,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
   if (tpMode === "detail" && tpSelected) {
     const canApprove = tpSelected.status === ProcessStatus.InProgress;
     return (
+      <>
       <div style={{ display:"flex",flexDirection:"column",flex:1,gap:16 }}>
 
         {/* Header */}
@@ -545,10 +655,10 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
             <TpBadge status={tpSelected.status}/>
           </div>
           {canApprove&&(
-            <button onClick={async()=>{ setTpApprovingId(tpSelected.id); try { await techProcessService.approve(tpSelected.id); await tpRefreshSelected(tpSelected.id); } finally { setTpApprovingId(null); } }} disabled={tpApprovingId===tpSelected.id}
-              style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"7px 16px",borderRadius:"var(--radius)",border:"1px solid rgba(15,123,69,0.3)",background:"var(--success-dim)",color:"var(--success)",fontSize:13,fontWeight:600,cursor:"pointer",opacity:tpApprovingId===tpSelected.id?0.6:1 }}>
+            <button onClick={()=>setTpApproveTarget({id:tpSelected.id,title:tpSelected.title})} disabled={tpApproving}
+              style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"7px 16px",borderRadius:"var(--radius)",border:"1px solid rgba(15,123,69,0.3)",background:"var(--success-dim)",color:"var(--success)",fontSize:13,fontWeight:600,cursor:"pointer",opacity:tpApproving?0.6:1 }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-              {tpApprovingId===tpSelected.id?"Tasdiqlanmoqda...":"Tasdiqlash"}
+              {tpApproving?"Tasdiqlanmoqda...":"Tasdiqlash"}
             </button>
           )}
         </div>
@@ -625,6 +735,33 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
         )}
 
       </div>
+      {tpApproveTarget && createPortal(
+        <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center" }}>
+          <div style={{ background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,padding:28,width:400,maxWidth:"95vw" }}>
+            <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:14 }}>
+              <div style={{ width:38,height:38,borderRadius:8,background:"var(--success-dim)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+                <svg width="20" height="20" fill="none" stroke="var(--success)" strokeWidth="2" viewBox="0 0 24 24">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+              </div>
+              <div style={{ fontSize:15,fontWeight:700,color:"var(--text)" }}>Tasdiqlashni tasdiqlaysizmi?</div>
+            </div>
+            <p style={{ fontSize:13,color:"var(--text2)",lineHeight:1.65,margin:"0 0 20px" }}>
+              <span style={{ fontWeight:600,color:"var(--text)" }}>«{tpApproveTarget.title}»</span> texnologik jarayonni{" "}
+              <span style={{ fontWeight:600,color:"var(--success)" }}>tasdiqlangan</span> holatiga o&apos;tkazmoqchimisiz?
+            </p>
+            <div style={{ display:"flex",gap:10,justifyContent:"flex-end" }}>
+              <button className="btn btn-outline" onClick={()=>setTpApproveTarget(null)} disabled={tpApproving}>Bekor qilish</button>
+              <button className="btn btn-primary" onClick={handleTpApproveConfirm} disabled={tpApproving}
+                style={{ background:"var(--success)",borderColor:"var(--success)" }}>
+                {tpApproving?"Tasdiqlanmoqda...":"Ha, tasdiqlash"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+      </>
     );
   }
 
@@ -769,6 +906,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
     const tpDone = tpEffective && (tpEffective.status === ProcessStatus.Approved || tpEffective.status === ProcessStatus.Completed);
     const cnDone = cnEffective && cnEffective.status === DrawingStatus.Approved;
     return (
+      <>
       <div style={{ display:"flex",flexDirection:"column",flex:1,gap:16 }}>
         <div style={{ display:"flex",alignItems:"center",gap:12 }}>
           <button onClick={closeDetail}
@@ -872,10 +1010,10 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
               {tpEffective&&!tpInlineEditing&&drawingApproved&&(
                 <div style={{ display:"flex",gap:4 }}>
                   {tpEffective.status===ProcessStatus.InProgress&&(
-                    <button onClick={async()=>{ setTpApprovingId(tpEffective.id); try { await techProcessService.approve(tpEffective.id); await loadTp(); } finally { setTpApprovingId(null); } }} disabled={tpApprovingId===tpEffective.id}
-                      style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--success-dim)",border:"1px solid rgba(15,123,69,0.2)",color:"var(--success)",cursor:"pointer",opacity:tpApprovingId===tpEffective.id?0.6:1 }}>
+                    <button onClick={()=>setTpApproveTarget({id:tpEffective.id,title:tpEffective.title})} disabled={tpApproving}
+                      style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--success-dim)",border:"1px solid rgba(15,123,69,0.2)",color:"var(--success)",cursor:"pointer",opacity:tpApproving?0.6:1 }}>
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                      {tpApprovingId===tpEffective.id?"...":"Tasdiqlash"}
+                      {tpApproving?"...":"Tasdiqlash"}
                     </button>
                   )}
                   <button onClick={()=>openTpDetail(tpEffective)}
@@ -990,10 +1128,10 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
               {cnEffective&&(
                 <div style={{ display:"flex",gap:4 }}>
                   {cnEffective.status===DrawingStatus.InProgress&&(
-                    <button onClick={()=>handleCnApprove(cnEffective.id)} disabled={cnApprovingId===cnEffective.id}
-                      style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--success-dim)",border:"1px solid rgba(15,123,69,0.2)",color:"var(--success)",cursor:"pointer",opacity:cnApprovingId===cnEffective.id?0.6:1 }}>
+                    <button onClick={()=>handleCnApprove(cnEffective)} disabled={cnApproving}
+                      style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--success-dim)",border:"1px solid rgba(15,123,69,0.2)",color:"var(--success)",cursor:"pointer",opacity:cnApproving?0.6:1 }}>
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                      {cnApprovingId===cnEffective.id?"...":"Tasdiqlash"}
+                      {cnApproving?"...":"Tasdiqlash"}
                     </button>
                   )}
                   <button onClick={()=>openCnDetail(cnEffective)}
@@ -1039,10 +1177,64 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
         </div>
 
       </div>
+      {tpApproveTarget && createPortal(
+        <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center" }}>
+          <div style={{ background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,padding:28,width:400,maxWidth:"95vw" }}>
+            <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:14 }}>
+              <div style={{ width:38,height:38,borderRadius:8,background:"var(--success-dim)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+                <svg width="20" height="20" fill="none" stroke="var(--success)" strokeWidth="2" viewBox="0 0 24 24">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+              </div>
+              <div style={{ fontSize:15,fontWeight:700,color:"var(--text)" }}>Tasdiqlashni tasdiqlaysizmi?</div>
+            </div>
+            <p style={{ fontSize:13,color:"var(--text2)",lineHeight:1.65,margin:"0 0 20px" }}>
+              <span style={{ fontWeight:600,color:"var(--text)" }}>«{tpApproveTarget.title}»</span> texnologik jarayonni{" "}
+              <span style={{ fontWeight:600,color:"var(--success)" }}>tasdiqlangan</span> holatiga o&apos;tkazmoqchimisiz?
+            </p>
+            <div style={{ display:"flex",gap:10,justifyContent:"flex-end" }}>
+              <button className="btn btn-outline" onClick={()=>setTpApproveTarget(null)} disabled={tpApproving}>Bekor qilish</button>
+              <button className="btn btn-primary" onClick={handleTpApproveConfirm} disabled={tpApproving}
+                style={{ background:"var(--success)",borderColor:"var(--success)" }}>
+                {tpApproving?"Tasdiqlanmoqda...":"Ha, tasdiqlash"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+      {cnApproveTarget && createPortal(
+        <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center" }}>
+          <div style={{ background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,padding:28,width:400,maxWidth:"95vw" }}>
+            <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:14 }}>
+              <div style={{ width:38,height:38,borderRadius:8,background:"var(--success-dim)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+                <svg width="20" height="20" fill="none" stroke="var(--success)" strokeWidth="2" viewBox="0 0 24 24">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+              </div>
+              <div style={{ fontSize:15,fontWeight:700,color:"var(--text)" }}>Tasdiqlashni tasdiqlaysizmi?</div>
+            </div>
+            <p style={{ fontSize:13,color:"var(--text2)",lineHeight:1.65,margin:"0 0 20px" }}>
+              <span style={{ fontWeight:600,color:"var(--text)" }}>«{cnApproveTarget.title}»</span> me&apos;yoriy sarfni{" "}
+              <span style={{ fontWeight:600,color:"var(--success)" }}>tasdiqlangan</span> holatiga o&apos;tkazmoqchimisiz?
+            </p>
+            <div style={{ display:"flex",gap:10,justifyContent:"flex-end" }}>
+              <button className="btn btn-outline" onClick={()=>setCnApproveTarget(null)} disabled={cnApproving}>Bekor qilish</button>
+              <button className="btn btn-primary" onClick={handleCnApproveConfirm} disabled={cnApproving}
+                style={{ background:"var(--success)",borderColor:"var(--success)" }}>
+                {cnApproving?"Tasdiqlanmoqda...":"Ha, tasdiqlash"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+      </>
     );
   }
 
   return (
+    <>
     <div className="page-transition" style={{ display:"flex",flexDirection:"column",flex:1,gap:16 }}>
 
       {/* ── Toolbar ── */}
@@ -1154,5 +1346,68 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
       , document.body)}
 
     </div>
+
+    {/* TP approve confirm modal */}
+    {tpApproveTarget && createPortal(
+      <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center" }}>
+        <div style={{ background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,padding:28,width:400,maxWidth:"95vw" }}>
+          <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:14 }}>
+            <div style={{ width:38,height:38,borderRadius:8,background:"var(--success-dim)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+              <svg width="20" height="20" fill="none" stroke="var(--success)" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                <polyline points="22 4 12 14.01 9 11.01"/>
+              </svg>
+            </div>
+            <div style={{ fontSize:15,fontWeight:700,color:"var(--text)" }}>Tasdiqlashni tasdiqlaysizmi?</div>
+          </div>
+          <p style={{ fontSize:13,color:"var(--text2)",lineHeight:1.65,margin:"0 0 20px" }}>
+            <span style={{ fontWeight:600,color:"var(--text)" }}>«{tpApproveTarget.title}»</span> texnologik jarayonni{" "}
+            <span style={{ fontWeight:600,color:"var(--success)" }}>tasdiqlangan</span> holatiga o&apos;tkazmoqchimisiz?
+          </p>
+          <div style={{ display:"flex",gap:10,justifyContent:"flex-end" }}>
+            <button className="btn btn-outline" onClick={()=>setTpApproveTarget(null)} disabled={tpApproving}>
+              Bekor qilish
+            </button>
+            <button className="btn btn-primary" onClick={handleTpApproveConfirm} disabled={tpApproving}
+              style={{ background:"var(--success)",borderColor:"var(--success)" }}>
+              {tpApproving?"Tasdiqlanmoqda...":"Ha, tasdiqlash"}
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    )}
+
+    {/* TP & CN approve confirm modals */}
+    {cnApproveTarget && createPortal(
+      <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center" }}>
+        <div style={{ background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,padding:28,width:400,maxWidth:"95vw" }}>
+          <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:14 }}>
+            <div style={{ width:38,height:38,borderRadius:8,background:"var(--success-dim)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+              <svg width="20" height="20" fill="none" stroke="var(--success)" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                <polyline points="22 4 12 14.01 9 11.01"/>
+              </svg>
+            </div>
+            <div style={{ fontSize:15,fontWeight:700,color:"var(--text)" }}>Tasdiqlashni tasdiqlaysizmi?</div>
+          </div>
+          <p style={{ fontSize:13,color:"var(--text2)",lineHeight:1.65,margin:"0 0 20px" }}>
+            <span style={{ fontWeight:600,color:"var(--text)" }}>«{cnApproveTarget.title}»</span> me&apos;yoriy sarfni{" "}
+            <span style={{ fontWeight:600,color:"var(--success)" }}>tasdiqlangan</span> holatiga o&apos;tkazmoqchimisiz?
+          </p>
+          <div style={{ display:"flex",gap:10,justifyContent:"flex-end" }}>
+            <button className="btn btn-outline" onClick={()=>setCnApproveTarget(null)} disabled={cnApproving}>
+              Bekor qilish
+            </button>
+            <button className="btn btn-primary" onClick={handleCnApproveConfirm} disabled={cnApproving}
+              style={{ background:"var(--success)",borderColor:"var(--success)" }}>
+              {cnApproving?"Tasdiqlanmoqda...":"Ha, tasdiqlash"}
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    )}
+    </>
   );
 }

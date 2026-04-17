@@ -55,6 +55,7 @@ export default function TechnicalDrawingsPage() {
 
   // Approve
   const [approving, setApproving] = useState(false);
+  const [approveConfirmTarget, setApproveConfirmTarget] = useState<TechnicalDrawingResponse | null>(null);
 
   // Edit form
   const [showEditForm, setShowEditForm] = useState(false);
@@ -180,13 +181,19 @@ export default function TechnicalDrawingsPage() {
 
   // ── Approve ───────────────────────────────────────────────────────────────
 
-  const handleApprove = async (item: TechnicalDrawingResponse) => {
+  const handleApprove = (item: TechnicalDrawingResponse) => {
+    setApproveConfirmTarget(item);
+  };
+
+  const handleApproveConfirm = async () => {
+    if (!approveConfirmTarget) return;
     setApproving(true);
     try {
-      await technicalDrawingService.updateStatus(item.id, DrawingStatus.Approved);
+      await technicalDrawingService.updateStatus(approveConfirmTarget.id, DrawingStatus.Approved);
       await loadData();
       setDrawer(null);
       setDraftWarning(null);
+      setApproveConfirmTarget(null);
       showToast("Texnik chizma tasdiqlandi!");
     } finally {
       setApproving(false);
@@ -264,6 +271,42 @@ export default function TechnicalDrawingsPage() {
     document.body
   );
 
+  // ── Approve confirm modal ─────────────────────────────────────────────────
+
+  const approveConfirmModal = approveConfirmTarget && createPortal(
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: 28, width: 380, maxWidth: "95vw" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 8, background: "var(--success-dim)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <svg width="20" height="20" fill="none" stroke="var(--success)" strokeWidth="2" viewBox="0 0 24 24">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>Tasdiqlashni tasdiqlaysizmi?</div>
+        </div>
+        <p style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.65, margin: "0 0 20px" }}>
+          <span style={{ fontWeight: 600, color: "var(--text)" }}>«{approveConfirmTarget.title}»</span> texnik chizmasini{" "}
+          <span style={{ fontWeight: 600, color: "var(--success)" }}>tasdiqlangan</span> holatiga o'tkazmoqchimisiz?
+        </p>
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button className="btn btn-outline" onClick={() => setApproveConfirmTarget(null)} disabled={approving}>
+            Bekor qilish
+          </button>
+          <button
+            className="btn btn-primary"
+            onClick={handleApproveConfirm}
+            disabled={approving}
+            style={{ background: "var(--success)", borderColor: "var(--success)" }}
+          >
+            {approving ? "Tasdiqlanmoqda..." : "Ha, tasdiqlash"}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+
   // ── Render: Create form ───────────────────────────────────────────────────
 
   if (showCreateForm && createContract) {
@@ -280,6 +323,7 @@ export default function TechnicalDrawingsPage() {
           onCancel={() => setShowCreateForm(false)}
         />
         {draftWarningModal}
+        {approveConfirmModal}
       </>
     );
   }
@@ -517,6 +561,7 @@ export default function TechnicalDrawingsPage() {
       )}
 
       {draftWarningModal}
+      {approveConfirmModal}
 
     </div>
   );
