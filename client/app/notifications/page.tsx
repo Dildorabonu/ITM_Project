@@ -222,9 +222,9 @@ export default function NotificationsPage() {
   const unreadCount = notifs.filter(n => !n.isRead).length;
 
   const infoRow = (label: string, value: string, color?: string) => (
-    <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-      <span style={{ fontSize: 13, color: "var(--text3)", fontWeight: 500 }}>{label}</span>
-      <span style={{ fontSize: 13, color: color || "var(--text)", fontWeight: 600 }}>{value}</span>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+      <span style={{ fontSize: 13, color: "var(--text3)", fontWeight: 500, flexShrink: 0 }}>{label}</span>
+      <span style={{ fontSize: 13, color: color || "var(--text)", fontWeight: 600, textAlign: "right", wordBreak: "break-word" }}>{value}</span>
     </div>
   );
 
@@ -363,11 +363,26 @@ export default function NotificationsPage() {
                       {infoRow("Tugash sanasi (Deadline)", formatDate(contractDetail.endDate))}
                       {infoRow("Yaratgan", contractDetail.createdByFullName || "—")}
                       {infoRow("Yaratilgan sana", formatFullDate(contractDetail.createdAt))}
-                      {contractDetail.departments.length > 0 && infoRow("Bo'limlar", contractDetail.departments.map(d => d.name).join(", "))}
+                      {contractDetail.departments.length > 0 && (
+                        <div style={{ padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+                          <div style={{ fontSize: 13, color: "var(--text3)", fontWeight: 500, marginBottom: 6 }}>Bo&apos;limlar</div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                            {contractDetail.departments.map(d => (
+                              <span key={d.id} style={{
+                                fontSize: 12, padding: "3px 10px", borderRadius: 12,
+                                background: "var(--surface2)", color: "var(--text2)",
+                                fontWeight: 500, border: "1px solid var(--border)",
+                              }}>
+                                {d.name}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       {contractDetail.assignedUsers.length > 0 && (
-                        <div style={{ paddingTop: 8 }}>
-                          <span style={{ fontSize: 13, color: "var(--text3)", fontWeight: 500 }}>Tayinlangan xodimlar</span>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+                        <div style={{ padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+                          <div style={{ fontSize: 13, color: "var(--text3)", fontWeight: 500, marginBottom: 6 }}>Tayinlangan xodimlar</div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                             {contractDetail.assignedUsers.map(u => (
                               <span key={u.userId} style={{
                                 fontSize: 12, padding: "3px 10px", borderRadius: 12,
