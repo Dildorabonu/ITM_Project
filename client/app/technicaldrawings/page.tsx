@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   technicalDrawingService,
   contractService,
@@ -44,6 +45,9 @@ export default function TechnicalDrawingsPage() {
   const [createForm, setCreateForm] = useState<DrawingFormValues>(emptyDrawingForm);
   const [createSubmitted, setCreateSubmitted] = useState(false);
   const [createSaving, setCreateSaving] = useState(false);
+
+  // Draft warning banner
+  const [draftWarning, setDraftWarning] = useState<string | null>(null);
 
   // Approve
   const [approving, setApproving] = useState(false);
@@ -137,9 +141,13 @@ export default function TechnicalDrawingsPage() {
     setShowCreateForm(true);
   };
 
-  const handleCreateSave = async () => {
+  const handleCreateSave = () => {
     setCreateSubmitted(true);
     if (!createForm.title.trim()) return;
+    setDraftWarning(createForm.title.trim());
+  };
+
+  const handleCreateConfirm = async () => {
     setCreateSaving(true);
     try {
       const newId = await technicalDrawingService.create({
@@ -151,6 +159,7 @@ export default function TechnicalDrawingsPage() {
         await Promise.all(createForm.files.map((f) => technicalDrawingService.uploadFile(newId, f)));
       }
       await loadData();
+      setDraftWarning(null);
       setShowCreateForm(false);
       showToast("Texnik chizma muvaffaqiyatli yaratildi!");
     } finally {
@@ -173,6 +182,7 @@ export default function TechnicalDrawingsPage() {
       await technicalDrawingService.updateStatus(item.id, DrawingStatus.Approved);
       await loadData();
       setDrawer(null);
+      setDraftWarning(null);
       showToast("Texnik chizma tasdiqlandi!");
     } finally {
       setApproving(false);
@@ -217,20 +227,56 @@ export default function TechnicalDrawingsPage() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, [showEditForm]);
 
+  // ── Draft warning modal ───────────────────────────────────────────────────
+
+  const draftWarningModal = draftWarning && createPortal(
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: "var(--surface)", border: "1px solid var(--warn)", borderRadius: 12, padding: 28, width: 380, maxWidth: "95vw" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 8, background: "var(--warn-dim)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <svg width="20" height="20" fill="none" stroke="var(--warn)" strokeWidth="2" viewBox="0 0 24 24">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--warn)" }}>Chizma qoralama holatida</div>
+        </div>
+        <p style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.65, margin: "0 0 20px" }}>
+          <span style={{ fontWeight: 600, color: "var(--text)" }}>«{draftWarning}»</span> chizmasi{" "}
+          <span style={{ fontWeight: 600, color: "var(--warn)" }}>qoralama</span> holatida saqlanadi.
+          Keyinchalik jadvaldan tasdiqlash tugmasi orqali tasdiqlab olishingiz mumkin.
+        </p>
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button className="btn btn-outline" onClick={() => setDraftWarning(null)} disabled={createSaving}>
+            Bekor qilish
+          </button>
+          <button className="btn btn-primary" onClick={handleCreateConfirm} disabled={createSaving}>
+            {createSaving ? "Saqlanmoqda..." : "Tushundim, saqlash"}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+
   // ── Render: Create form ───────────────────────────────────────────────────
 
   if (showCreateForm && createContract) {
     return (
-      <DrawingForm
-        mode="create"
-        contract={createContract}
-        form={createForm}
-        setForm={setCreateForm}
-        submitted={createSubmitted}
-        saving={createSaving}
-        onSave={handleCreateSave}
-        onCancel={() => setShowCreateForm(false)}
-      />
+      <>
+        <DrawingForm
+          mode="create"
+          contract={createContract}
+          form={createForm}
+          setForm={setCreateForm}
+          submitted={createSubmitted}
+          saving={createSaving}
+          onSave={handleCreateSave}
+          onCancel={() => setShowCreateForm(false)}
+        />
+        {draftWarningModal}
+      </>
     );
   }
 
@@ -463,6 +509,8 @@ export default function TechnicalDrawingsPage() {
           approving={approving}
         />
       )}
+
+      {draftWarningModal}
 
     </div>
   );

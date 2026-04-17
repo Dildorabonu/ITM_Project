@@ -126,6 +126,7 @@ export default function NotificationsPage() {
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Notif | null>(null);
   const [contractDetail, setContractDetail] = useState<ContractDetail | null>(null);
   const [contractLoading, setContractLoading] = useState(false);
@@ -135,6 +136,7 @@ export default function NotificationsPage() {
     try {
       const res = await api.get("/api/notification");
       const data = res.data.result || [];
+      setFetchError(null);
       setNotifs(
         data.map((n: any) => ({
           id: n.id,
@@ -146,8 +148,10 @@ export default function NotificationsPage() {
           createdAt: n.createdAt,
         }))
       );
-    } catch {
-      // ignore
+    } catch (err: any) {
+      const status = err?.response?.status;
+      const msg = err?.response?.data?.errors?.[0] || err?.message || "Serverga ulanishda xatolik";
+      setFetchError(`${status ? `[${status}] ` : ""}${msg}`);
     } finally {
       setLoading(false);
     }
@@ -250,6 +254,24 @@ export default function NotificationsPage() {
           Barchasini o&apos;qilgan qilish
         </button>
       </div>
+
+      {fetchError && (
+        <div style={{
+          background: "var(--danger-dim, rgba(239,68,68,0.12))", color: "var(--danger)",
+          border: "1px solid var(--danger)", padding: "10px 16px",
+          borderRadius: "var(--radius)", marginBottom: 12, fontSize: 13, fontWeight: 500,
+          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+        }}>
+          <span>Bildirishnomalar yuklanmadi: {fetchError}</span>
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ color: "var(--danger)", fontWeight: 600, fontSize: 12 }}
+            onClick={fetchNotifs}
+          >
+            Qayta urinish
+          </button>
+        </div>
+      )}
 
       {deleteError && (
         <div style={{
