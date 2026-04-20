@@ -24,6 +24,7 @@ import {
   emptyForm,
   STATUS_FILTER_OPTIONS,
   STATUS_CHANGE_OPTIONS,
+  PRIORITY_OPTIONS,
 } from "./_types";
 import { isoToDisplayDate } from "./_components/DatePickerField";
 import { StatusBadge, PriorityBadge } from "./_components/StatusBadge";
@@ -47,8 +48,14 @@ export default function ContractsPage() {
   const [error, setError]               = useState("");
 
   // Filters
-  const [search, setSearch]             = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
+  const [search, setSearch]               = useState("");
+  const [filterStatus, setFilterStatus]   = useState("");
+  const [filterPriority, setFilterPriority] = useState("");
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
+  const [pendingStatus, setPendingStatus]   = useState("");
+  const [pendingPriority, setPendingPriority] = useState("");
+  const filterBtnRef  = useRef<HTMLButtonElement>(null);
+  const filterPanelRef = useRef<HTMLDivElement>(null);
 
   // Form
   const [showForm, setShowForm]         = useState(false);
@@ -169,15 +176,28 @@ export default function ContractsPage() {
   }, []);
 
   useEffect(() => {
+    if (!filterPanelOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        filterBtnRef.current && !filterBtnRef.current.contains(e.target as Node) &&
+        filterPanelRef.current && !filterPanelRef.current.contains(e.target as Node)
+      ) setFilterPanelOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [filterPanelOpen]);
+
+  useEffect(() => {
     const q = search.toLowerCase();
     setFiltered(
       contracts.filter(c => {
         const matchSearch = !q || c.contractNo.toLowerCase().includes(q);
         const matchStatus = filterStatus === "" || c.status === Number(filterStatus);
-        return matchSearch && matchStatus;
+        const matchPriority = filterPriority === "" || c.priority === Number(filterPriority);
+        return matchSearch && matchStatus && matchPriority;
       })
     );
-  }, [search, filterStatus, contracts]);
+  }, [search, filterStatus, filterPriority, contracts]);
 
   useEffect(() => {
     if (openPickerIdx === null) return;
@@ -476,6 +496,29 @@ export default function ContractsPage() {
     );
   }
 
+  // ── Filters helpers ───────────────────────────────────────────────────────────
+
+  const activeFilterCount = (filterStatus !== "" ? 1 : 0) + (filterPriority !== "" ? 1 : 0);
+
+  const openFilterPanel = () => {
+    setPendingStatus(filterStatus);
+    setPendingPriority(filterPriority);
+    setFilterPanelOpen(true);
+  };
+
+  const applyFilters = () => {
+    setFilterStatus(pendingStatus);
+    setFilterPriority(pendingPriority);
+    setFilterPanelOpen(false);
+  };
+
+  const clearFilters = () => {
+    setPendingStatus("");
+    setPendingPriority("");
+    setFilterStatus("");
+    setFilterPriority("");
+  };
+
   // ── Render: List ──────────────────────────────────────────────────────────
 
   return (
@@ -487,17 +530,149 @@ export default function ContractsPage() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          <input className="search-input" placeholder="Qidirish (raqam)"
+          <input className="search-input" placeholder="Qidirish: raqam, tomon..."
             value={search} onChange={e => setSearch(e.target.value)} />
         </div>
 
-        <div style={{ width: 210 }}>
-          <CheckSelect
-            value={filterStatus}
-            onChange={setFilterStatus}
-            options={STATUS_FILTER_OPTIONS.filter(o => o.value !== "").map(o => ({ id: o.value, name: o.label, color: o.color }))}
-            placeholder="Barcha holat"
-          />
+        <span style={{ fontSize: 12, color: "var(--text3)", fontWeight: 600, fontFamily: "var(--font-mono)", flexShrink: 0 }}>
+          {filtered.length} / {contracts.length}
+        </span>
+
+        {/* Filter dropdown */}
+        <div style={{ position: "relative", flexShrink: 0 }}>
+          <button
+            ref={filterBtnRef}
+            onClick={() => filterPanelOpen ? setFilterPanelOpen(false) : openFilterPanel()}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "6px 12px", borderRadius: "var(--radius)",
+              border: `1px solid ${activeFilterCount > 0 ? "var(--accent)" : "var(--border2)"}`,
+              background: activeFilterCount > 0 ? "var(--accent-dim)" : "var(--surface)",
+              color: activeFilterCount > 0 ? "var(--accent)" : "var(--text2)",
+              fontSize: 13, fontWeight: 500, cursor: "pointer",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={e => { if (!activeFilterCount) (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--accent)"; }}
+            onMouseLeave={e => { if (!activeFilterCount) (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border2)"; }}
+          >
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+            </svg>
+            Filtrlar
+            {activeFilterCount > 0 && (
+              <span style={{
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                width: 18, height: 18, borderRadius: "50%",
+                background: "var(--accent)", color: "#fff",
+                fontSize: 10, fontWeight: 700, fontFamily: "var(--font-mono)",
+              }}>
+                {activeFilterCount}
+              </span>
+            )}
+            <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
+              style={{ transition: "transform 0.2s", transform: filterPanelOpen ? "rotate(180deg)" : "rotate(0deg)" }}>
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+
+          {filterPanelOpen && (
+            <div
+              ref={filterPanelRef}
+              style={{
+                position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 100,
+                width: 280,
+                background: "var(--surface)", border: "1px solid var(--border)",
+                borderRadius: "var(--radius2)",
+                boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+                animation: "panel-appear 0.18s ease",
+              }}
+            >
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "12px 14px 10px",
+                borderBottom: "1px solid var(--border)",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, fontWeight: 600, color: "var(--text)" }}>
+                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                  </svg>
+                  Filtrlar
+                </div>
+                {(pendingStatus !== "" || pendingPriority !== "") && (
+                  <button
+                    onClick={clearFilters}
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 4,
+                      background: "none", border: "none", cursor: "pointer",
+                      color: "var(--text3)", fontSize: 12, padding: "2px 4px",
+                      borderRadius: 4, transition: "color 0.15s",
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.color = "var(--text)")}
+                    onMouseLeave={e => (e.currentTarget.style.color = "var(--text3)")}
+                  >
+                    <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                    Tozalash
+                  </button>
+                )}
+              </div>
+
+              <div style={{ padding: "14px 14px 0" }}>
+                <div style={{ marginBottom: 14, position: "relative" }}>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text3)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 5 }}>
+                    <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    Holat
+                  </p>
+                  <CheckSelect
+                    value={pendingStatus}
+                    onChange={setPendingStatus}
+                    options={STATUS_FILTER_OPTIONS.filter(o => o.value !== "").map(o => ({ id: o.value, name: o.label, color: o.color }))}
+                    placeholder="Barcha holat"
+                    disablePortal
+                  />
+                </div>
+                <div style={{ marginBottom: 14, position: "relative" }}>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text3)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 5 }}>
+                    <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>
+                    </svg>
+                    Ustuvorlik
+                  </p>
+                  <CheckSelect
+                    value={pendingPriority}
+                    onChange={setPendingPriority}
+                    options={PRIORITY_OPTIONS.map(o => ({ id: o.value, name: o.label, color: o.color }))}
+                    placeholder="Barcha ustuvorlik"
+                    disablePortal
+                  />
+                </div>
+              </div>
+
+              <div style={{ padding: "0 14px 14px" }}>
+                <button
+                  onClick={applyFilters}
+                  style={{
+                    width: "100%", padding: "9px 0",
+                    background: "var(--accent)", color: "#fff",
+                    border: "none", borderRadius: "var(--radius)",
+                    fontSize: 13, fontWeight: 600, cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "var(--accent2)")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "var(--accent)")}
+                >
+                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  Filtrlarni qo&apos;llash
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <button className="btn-icon" onClick={load} title="Yangilash"
