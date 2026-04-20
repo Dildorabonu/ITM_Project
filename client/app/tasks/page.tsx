@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store/authStore";
 import { ConfirmModal } from "@/app/_components/ConfirmModal";
+import { CheckSelect } from "@/app/_components/CheckSelect";
 import {
   contractService,
   ContractResponse,
@@ -64,7 +65,6 @@ const STATUS_COLORS: Record<ContractStatus, string> = {
   [ContractStatus.Draft]:               "s-gray",
   [ContractStatus.DrawingPending]:      "s-purple",
   [ContractStatus.TechProcessing]:      "s-warn",
-  [ContractStatus.TechProcessApproved]: "s-ok",
   [ContractStatus.WarehouseCheck]:      "s-warn",
   [ContractStatus.InProduction]:        "s-blue",
   [ContractStatus.Completed]:           "s-green",
@@ -75,7 +75,6 @@ const STATUS_LABELS: Record<ContractStatus, string> = {
   [ContractStatus.Draft]:               "Qoralama",
   [ContractStatus.DrawingPending]:      "Chizma tayyorlanmoqda",
   [ContractStatus.TechProcessing]:      "Tex jarayon",
-  [ContractStatus.TechProcessApproved]: "Tex jarayon tasdiqlandi",
   [ContractStatus.WarehouseCheck]:      "Ombor tekshiruvi",
   [ContractStatus.InProduction]:        "Ishlab chiqarishda",
   [ContractStatus.Completed]:           "Yakunlandi",
@@ -1589,7 +1588,7 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
       </div>}
 
       {/* Requisition reminder banner */}
-      {(contract.status === ContractStatus.TechProcessApproved || contract.status === ContractStatus.WarehouseCheck) && (
+      {contract.status === ContractStatus.WarehouseCheck && (
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           gap: 12, padding: "10px 14px", marginBottom: 12,
@@ -1750,6 +1749,25 @@ export default function TasksPage() {
   const [phase, setPhase] = useState<Phase>("grid");
   const [blockModal, setBlockModal] = useState<ContractResponse | null>(null);
 
+  // ─── Filters ────────────────────────────────────────────────────────────────
+  const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterPriority, setFilterPriority] = useState("");
+
+  const filteredContracts = contracts.filter(c => {
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      const matches =
+        c.contractNo.toLowerCase().includes(q) ||
+        c.contractParty.toLowerCase().includes(q) ||
+        c.productType.toLowerCase().includes(q);
+      if (!matches) return false;
+    }
+    if (filterStatus !== "" && String(c.status) !== filterStatus) return false;
+    if (filterPriority !== "" && String(c.priority) !== filterPriority) return false;
+    return true;
+  });
+
   const handleSelect = async (c: ContractResponse) => {
     if (phase !== "grid") return;
     const [tpList, cnList] = await Promise.all([
@@ -1801,6 +1819,8 @@ export default function TasksPage() {
     );
   }
 
+  const activeFilterCount = (search.trim() ? 1 : 0) + (filterStatus !== "" ? 1 : 0) + (filterPriority !== "" ? 1 : 0);
+
   return (
     <div className="page-transition">
       {contracts.length === 0 ? (
@@ -1814,15 +1834,73 @@ export default function TasksPage() {
         </div>
       ) : (phase === "grid" || phase === "grid-exit") ? (
         /* Grid view (with exit animation when transitioning) */
-        <div className={`tasks-contract-grid${phase === "grid-exit" ? " tg-exiting" : ""}`}>
-          {contracts.map(c => (
-            <ContractCard
-              key={c.id}
-              contract={c}
-              selected={selected?.id === c.id}
-              onClick={() => handleSelect(c)}
-            />
-          ))}
+        <div className={phase === "grid-exit" ? "tg-exiting" : ""}>
+          {/* Filter bar */}
+          <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px", flexWrap: "wrap", overflow: "visible" }}>
+            <div className="search-wrap" style={{ maxWidth: "none", flex: 1, minWidth: 180 }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <input
+                className="search-input"
+                placeholder="Qidirish: raqam, tomon, mahsulot…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+
+            <div style={{ width: 200 }}>
+              <CheckSelect
+                value={filterStatus}
+                onChange={setFilterStatus}
+                options={(Object.entries(STATUS_LABELS) as unknown as [ContractStatus, string][]).map(([val, label]) => ({ id: String(val), name: label }))}
+                placeholder="Barcha holat"
+              />
+            </div>
+
+            <div style={{ width: 200 }}>
+              <CheckSelect
+                value={filterPriority}
+                onChange={setFilterPriority}
+                options={(Object.entries(PRIORITY_LABELS) as unknown as [Priority, string][]).map(([val, label]) => ({ id: String(val), name: label }))}
+                placeholder="Barcha ustuvorlik"
+              />
+            </div>
+
+            {activeFilterCount > 0 && (
+              <button className="btn-icon btn-icon-danger" title="Filterlarni tozalash"
+                onClick={() => { setSearch(""); setFilterStatus(""); setFilterPriority(""); }}
+                style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)", width: 34, height: 34 }}>
+                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            )}
+
+            <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--text3)", fontWeight: 600, flexShrink: 0, fontFamily: "var(--font-mono)" }}>
+              {filteredContracts.length} / {contracts.length}
+            </span>
+          </div>
+
+          {filteredContracts.length === 0 ? (
+            <div className="itm-card" style={{ textAlign: "center", padding: 48, color: "var(--text3)" }}>
+              <svg width="32" height="32" fill="none" stroke="var(--text3)" strokeWidth="1.5" viewBox="0 0 24 24" style={{ marginBottom: 10 }}>
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <div>Filter bo&apos;yicha shartnoma topilmadi.</div>
+            </div>
+          ) : (
+            <div className="tasks-contract-grid">
+              {filteredContracts.map(c => (
+                <ContractCard
+                  key={c.id}
+                  contract={c}
+                  selected={selected?.id === c.id}
+                  onClick={() => handleSelect(c)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       ) : (
         /* Panel view (bar + tasks) */

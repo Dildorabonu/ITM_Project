@@ -342,7 +342,6 @@ export enum ContractStatus {
   InProduction = 4,
   Completed = 5,
   Cancelled = 6,
-  TechProcessApproved = 7,
 }
 
 export enum Priority {
@@ -356,7 +355,6 @@ export const CONTRACT_STATUS_LABELS: Record<ContractStatus, string> = {
   [ContractStatus.Draft]:                "Shartnoma yaratilindi",
   [ContractStatus.DrawingPending]:       "Chizmasi tayyorlanmoqda",
   [ContractStatus.TechProcessing]:       "Texnologik jarayon tayyorlanmoqda",
-  [ContractStatus.TechProcessApproved]:  "Texnologik jarayon tasdiqlandi",
   [ContractStatus.WarehouseCheck]:       "Ombor tekshiruvida",
   [ContractStatus.InProduction]:         "Ishlab chiqarishda",
   [ContractStatus.Completed]:            "Yakunlandi",
