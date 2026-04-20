@@ -1609,7 +1609,7 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
             </span>
           </div>
           <button
-            onClick={() => router.push(`/requisitions?contractId=${contract.id}&contractNo=${encodeURIComponent(contract.contractNo)}`)}
+            onClick={() => router.push(`/requisitions/print?contractId=${contract.id}&contractNo=${encodeURIComponent(contract.contractNo)}`)}
             style={{
               padding: "6px 14px", borderRadius: "var(--radius)", fontSize: 12, fontWeight: 700,
               background: "#f59e0b", color: "#fff", border: "none", cursor: "pointer",

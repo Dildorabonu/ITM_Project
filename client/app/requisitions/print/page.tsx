@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useToastStore } from "@/lib/store/toastStore";
 import {
   requisitionService,
@@ -17,6 +17,7 @@ import {
   type DepartmentResponse,
 } from "@/lib/userService";
 import { CheckSelect } from "../_components/CheckSelect";
+import { DatePickerField, isoToDisplayDate } from "@/app/contracts/_components/DatePickerField";
 
 interface TableRow {
   id: number;
@@ -31,8 +32,9 @@ interface TableRow {
 
 const emptyRow = (id: number): TableRow => ({ id, name: "", unit: "", quantity: "", spec: "", notes: "", image: "", imageFile: null });
 
-export default function RequisitionPrintPage() {
+function RequisitionPrintContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const docRef = useRef<HTMLDivElement>(null);
   const descRef = useRef<HTMLSpanElement>(null);
   const showToast = useToastStore((s) => s.show);
@@ -42,6 +44,8 @@ export default function RequisitionPrintPage() {
   const [signerName, setSignerName] = useState("");
   const [signerTitle, setSignerTitle] = useState("");
   const [signDate, setSignDate] = useState(new Date().toLocaleDateString("ru-RU").replace(/\//g, "."));
+  const today = new Date();
+  const [signDateIso, setSignDateIso] = useState(`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`);
 
   const [type, setType] = useState<RequisitionType>(RequisitionType.Contract);
   const [contractId, setContractId] = useState("");
@@ -87,9 +91,19 @@ export default function RequisitionPrintPage() {
   };
 
   useEffect(() => {
-    contractService.getAll().then(setContracts);
-    departmentService.getAllFull().then(setDepartments);
-  }, []);
+    const urlContractId = searchParams.get("contractId");
+    Promise.all([
+      contractService.getAll(),
+      departmentService.getAllFull(),
+    ]).then(([contractsData, depsData]) => {
+      setContracts(contractsData);
+      setDepartments(depsData);
+      if (urlContractId) {
+        setType(RequisitionType.Contract);
+        setContractId(urlContractId);
+      }
+    });
+  }, [searchParams]);
 
   const handleClear = () => {
     setRows(prev => {
@@ -315,7 +329,6 @@ export default function RequisitionPrintPage() {
         border: "1px solid var(--border)",
         borderRadius: "var(--radius)",
         boxShadow: "var(--shadow)",
-        overflow: "hidden",
       }}>
         {/* Top row: navigation + title */}
         <div style={{
@@ -399,8 +412,10 @@ export default function RequisitionPrintPage() {
         <div style={{
           display: "flex",
           alignItems: "center",
-          gap: 6,
-          padding: "8px 16px",
+          flexWrap: "wrap",
+          gap: 8,
+          padding: "10px 16px",
+          borderTop: "1px solid var(--border)",
         }}>
           <button
             onClick={handleClear}
@@ -600,6 +615,7 @@ export default function RequisitionPrintPage() {
                         ...(Object.values(ProductUnit).filter(v => typeof v === "number") as ProductUnit[]).map(u => ({ id: PRODUCT_UNIT_LABELS_CYR[u], name: PRODUCT_UNIT_LABELS_CYR[u] })),
                       ]}
                       placeholder="—"
+                      buttonStyle={{ background: "transparent", color: "#000", border: "1px solid #ccc" }}
                     />
                   </div>
                 </td>
@@ -720,12 +736,15 @@ export default function RequisitionPrintPage() {
             {signDate}
           </span>
           <span style={{ fontSize: 12, whiteSpace: "nowrap" }}>йил</span>
-          <input
-            type="date"
-            onChange={e => setSignDate(e.target.value.replace(/-/g, "."))}
-            className="no-print"
-            style={{ marginLeft: 8, fontSize: 11, border: "1.5px solid var(--border)", borderRadius: 3, padding: "2px 4px", background: "var(--bg3)", color: "var(--text)", cursor: "pointer" }}
-          />
+          <div className="no-print" style={{ marginLeft: 8, width: 200 }}>
+            <DatePickerField
+              value={signDateIso}
+              displayValue={signDate}
+              onDisplayChange={setSignDate}
+              onDateSelect={iso => { setSignDateIso(iso); setSignDate(isoToDisplayDate(iso)); }}
+              dropUp
+            />
+          </div>
         </div>
       </div>
       {confirmOpen && createPortal(
@@ -755,6 +774,14 @@ export default function RequisitionPrintPage() {
         document.body
       )}
     </>
+  );
+}
+
+export default function RequisitionPrintPage() {
+  return (
+    <Suspense>
+      <RequisitionPrintContent />
+    </Suspense>
   );
 }
 

@@ -38,12 +38,13 @@ export function displayToIso(disp: string): string {
   return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
 }
 
-export function DatePickerField({ value, displayValue, onDisplayChange, onDateSelect, hasError }: {
+export function DatePickerField({ value, displayValue, onDisplayChange, onDateSelect, hasError, dropUp }: {
   value: string;
   displayValue: string;
   onDisplayChange: (d: string) => void;
   onDateSelect: (iso: string) => void;
   hasError?: boolean;
+  dropUp?: boolean;
 }) {
   const today = new Date();
   const todayIso = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
@@ -99,7 +100,7 @@ export function DatePickerField({ value, displayValue, onDisplayChange, onDateSe
       </div>
       {open && (
         <div style={{
-          position:"absolute", top:"calc(100% + 6px)", left:0, zIndex:9999,
+          position:"absolute", ...(dropUp ? { bottom:"calc(100% + 6px)" } : { top:"calc(100% + 6px)" }), left:0, zIndex:9999,
           background:"var(--surface)", border:"1.5px solid var(--border)",
           borderRadius:12, boxShadow:"0 12px 40px rgba(0,0,0,0.13)", width:272, padding:"14px 12px 10px",
         }}>
