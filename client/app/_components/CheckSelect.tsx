@@ -17,9 +17,10 @@ interface CheckSelectProps {
   placeholder?: string;
   style?: React.CSSProperties;
   error?: boolean;
+  disablePortal?: boolean;
 }
 
-export function CheckSelect({ value, onChange, options, placeholder = "— Tanlang —", style, error }: CheckSelectProps) {
+export function CheckSelect({ value, onChange, options, placeholder = "— Tanlang —", style, error, disablePortal }: CheckSelectProps) {
   const [open, setOpen] = useState(false);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -28,6 +29,10 @@ export function CheckSelect({ value, onChange, options, placeholder = "— Tanla
   // Position dropdown relative to trigger using fixed coords
   useLayoutEffect(() => {
     if (!open || !triggerRef.current) return;
+    if (disablePortal) {
+      setDropdownStyle({ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 9999 });
+      return;
+    }
     const rect = triggerRef.current.getBoundingClientRect();
     const minW = 160;
     const dropW = Math.max(rect.width, minW);
@@ -39,7 +44,7 @@ export function CheckSelect({ value, onChange, options, placeholder = "— Tanla
       width: dropW,
       zIndex: 9999,
     });
-  }, [open]);
+  }, [open, disablePortal]);
 
   // Close on outside click
   useEffect(() => {
@@ -208,8 +213,8 @@ export function CheckSelect({ value, onChange, options, placeholder = "— Tanla
         </svg>
       </button>
 
-      {typeof document !== "undefined" && dropdown
-        ? createPortal(dropdown, document.body)
+      {dropdown
+        ? (disablePortal ? dropdown : (typeof document !== "undefined" ? createPortal(dropdown, document.body) : null))
         : null}
     </div>
   );
