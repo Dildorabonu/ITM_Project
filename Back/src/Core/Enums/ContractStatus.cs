@@ -9,5 +9,4 @@ public enum ContractStatus
     InProduction = 4,         // Ishlab chiqarish jarayoni boshlangan
     Completed = 5,            // Yakunlandi
     Cancelled = 6,            // Bekor qilindi
-    TechProcessApproved = 7,  // Texnologik jarayon tasdiqlandi
 }
