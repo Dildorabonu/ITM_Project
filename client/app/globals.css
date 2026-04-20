@@ -62,6 +62,8 @@
   --success-dim: rgba(15,123,69,0.09);
   --purple: #6d4aad;
   --purple-dim: rgba(109,74,173,0.09);
+  --teal: #0891b2;
+  --teal-dim: rgba(8,145,178,0.13);
 
   --text: #1a2332;
   --text2: #4a5d73;
@@ -109,8 +111,8 @@ body {
 /* ===== STATUS ===== */
 .status {
   display: inline-flex; align-items: center; gap: 5px;
-  font-size: 12px; font-weight: 600;
-  letter-spacing: 0.5px; padding: 3px 8px; border-radius: 3px;
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.5px; padding: 3px 8px; border-radius: var(--radius);
   text-transform: uppercase; white-space: nowrap;
   font-family: var(--font-inter), Inter, sans-serif;
 }
@@ -126,8 +128,12 @@ body {
 .s-blue::before  { background: var(--accent); }
 .s-gray  { background: var(--surface2);    color: var(--text3);   border: 1px solid var(--border); }
 .s-gray::before  { background: var(--text3); }
-.s-purple{ background: #ede9fe;            color: #6d28d9;        border: 1px solid rgba(109,40,217,0.2); }
-.s-purple::before{ background: #6d28d9; }
+.s-purple{ background: var(--purple-dim);  color: var(--purple);  border: 1px solid rgba(109,40,217,0.2); }
+.s-purple::before{ background: var(--purple); }
+.s-green { background: var(--success-dim); color: var(--success); border: 1px solid rgba(15,123,69,0.2); }
+.s-green::before { background: var(--success); }
+.s-teal  { background: var(--teal-dim);    color: var(--teal);    border: 1px solid rgba(8,145,178,0.2); }
+.s-teal::before  { background: var(--teal); }
 
 /* ===== PRIORITY ===== */
 .prio { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; text-transform: uppercase; font-family: var(--font-inter), Inter, sans-serif; }
@@ -419,10 +425,11 @@ body {
 .tasks-contract-card::before {
   content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
   background: linear-gradient(90deg, var(--accent, #3b82f6), #60a5fa);
+  border-radius: 14px 14px 0 0;
   opacity: 0; transition: opacity 0.18s;
 }
 .tasks-contract-card:hover {
-  box-shadow: 0 8px 24px rgba(0,0,0,0.13);
+  box-shadow: 0 8px 28px color-mix(in srgb, var(--accent) 35%, transparent);
   border-color: var(--accent, #3b82f6);
   transform: translateY(-3px);
 }
@@ -431,6 +438,18 @@ body {
   border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim);
 }
 .tasks-contract-card.selected::before { opacity: 1; }
+.tasks-contract-card.actionable {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.tasks-contract-card.actionable:hover {
+  filter: drop-shadow(0 12px 32px color-mix(in srgb, var(--accent) 45%, transparent));
+  transform: translateY(-3px);
+  border-color: var(--accent, #3b82f6);
+}
+.tasks-contract-card.actionable:hover::before { opacity: 1; }
+.tasks-contract-card.non-actionable {
+  opacity: 0.62;
+}
 .tcc-header {
   display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
   padding-bottom: 14px; border-bottom: 1px solid var(--border); margin-bottom: 14px;
