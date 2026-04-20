@@ -814,8 +814,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </div>
 
           {/* Page content */}
-          <main style={{ flex: 1, overflowY: "auto", background: "var(--surface)", border: "1px solid var(--border)" }}>
-            <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20, position: "relative", minHeight: "100%" }}>
+          <main style={{ flex: 1, overflow: "hidden", background: "var(--surface)", border: "1px solid var(--border)" }}>
+            <div style={{ padding: 24, height: "100%", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: 20, position: "relative", overflowY: "auto" }}>
               {children}
               {!readyRoutes.has(pathname) && !readyPrefixes.some(p => pathname.startsWith(p)) && (
                 <div style={{
