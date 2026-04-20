@@ -268,7 +268,7 @@ function UsersPageInner() {
 
   if (showEdit) {
     return (
-      <div className="page-transition" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+      <div className="page-transition" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
         <UserEditView
           form={form}
           setForm={setForm}
@@ -289,7 +289,7 @@ function UsersPageInner() {
 
   if (showCreate) {
     return (
-      <div className="page-transition" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+      <div className="page-transition" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
         <UserCreateView
           form={form}
           setForm={setForm}
@@ -310,7 +310,7 @@ function UsersPageInner() {
 
   return (
     <>
-      <div className="page-transition" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+      <div className="page-transition" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
         <UserListView
           filtered={filtered}
           users={users}
