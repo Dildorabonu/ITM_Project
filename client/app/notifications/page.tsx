@@ -60,7 +60,6 @@ const statusLabels: Record<number, string> = {
   [ContractStatus.InProduction]: "Ishlab chiqarish jarayonida",
   [ContractStatus.Completed]: "Yakunlandi",
   [ContractStatus.Cancelled]: "Bekor qilindi",
-  [ContractStatus.TechProcessApproved]: "Tex jarayon tasdiqlandi",
 };
 
 const priorityLabels: Record<number, string> = {
