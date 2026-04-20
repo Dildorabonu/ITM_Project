@@ -116,7 +116,7 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
         {/* Header */}
         <div style={{ padding: "20px 26px", borderBottom: "1.5px solid var(--border)", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 700, fontSize: 17, color: "var(--text1)", fontFamily: "var(--font-mono)" }}>{req.requisitionNo}</div>
+            <div style={{ fontWeight: 700, fontSize: 17, color: "var(--text)", fontFamily: "var(--font-mono)" }}>{req.requisitionNo}</div>
             <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 3 }}>{req.typeLabel}</div>
           </div>
           <RequisitionStatusBadge status={req.status} />
@@ -163,9 +163,9 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
                   {req.items.map((item, i) => (
                     <tr key={item.id} style={{ borderBottom: "1px solid var(--border)" }}>
                       <td style={{ padding: "8px 12px", color: "var(--text3)" }}>{i + 1}</td>
-                      <td style={{ padding: "8px 12px", color: "var(--text1)", fontWeight: 500 }}>{item.materialName}</td>
-                      <td style={{ padding: "8px 12px", color: "var(--text3)" }}>{item.unit}</td>
-                      <td style={{ padding: "8px 12px", fontWeight: 600, color: "var(--text1)" }}>{item.quantity}</td>
+                      <td style={{ padding: "8px 12px", color: "var(--text)", fontWeight: 500 }}>{item.materialName}</td>
+                      <td style={{ padding: "8px 12px", color: "var(--text2)" }}>{item.unit}</td>
+                      <td style={{ padding: "8px 12px", fontWeight: 600, color: "var(--text)" }}>{item.quantity}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -213,7 +213,7 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
                       <polyline points="13 2 13 9 20 9"/>
                     </svg>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.fileName}</div>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.fileName}</div>
                       <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 1 }}>
                         {(file.fileSize / 1024).toFixed(1)} KB • {fmtDateTime(file.uploadedAt)}
                       </div>
@@ -286,13 +286,13 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
           onClick={() => setRejectOpen(false)}
         >
           <div onClick={e => e.stopPropagation()} style={{ background: "var(--bg2)", borderRadius: 14, padding: 28, width: 420, maxWidth: "90vw", boxShadow: "var(--shadow2)" }}>
-            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16, color: "var(--text1)" }}>Rad etish sababi</div>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16, color: "var(--text)" }}>Rad etish sababi</div>
             <textarea
               value={rejectReason}
               onChange={e => setRejectReason(e.target.value)}
               rows={4}
               placeholder="Sababni kiriting…"
-              style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, resize: "vertical", boxSizing: "border-box", background: "var(--bg3)", color: "var(--text1)" }}
+              style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, resize: "vertical", boxSizing: "border-box", background: "var(--bg3)", color: "var(--text)" }}
             />
             <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
               <button
@@ -329,7 +329,7 @@ function InfoCard({ label, value, full }: { label: string; value?: string; full?
   return (
     <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "12px 16px", gridColumn: full ? "1 / -1" : undefined }}>
       <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4 }}>{label}</div>
-      <div style={{ fontWeight: 600, fontSize: 13, color: "var(--text1)", wordBreak: "break-word" }}>{value || "—"}</div>
+      <div style={{ fontWeight: 600, fontSize: 13, color: "var(--text)", wordBreak: "break-word" }}>{value || "—"}</div>
     </div>
   );
 }

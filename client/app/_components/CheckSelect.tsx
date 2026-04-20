@@ -16,11 +16,12 @@ interface CheckSelectProps {
   options: Option[];
   placeholder?: string;
   style?: React.CSSProperties;
+  buttonStyle?: React.CSSProperties;
   error?: boolean;
   disablePortal?: boolean;
 }
 
-export function CheckSelect({ value, onChange, options, placeholder = "— Tanlang —", style, error, disablePortal }: CheckSelectProps) {
+export function CheckSelect({ value, onChange, options, placeholder = "— Tanlang —", style, buttonStyle, error, disablePortal }: CheckSelectProps) {
   const [open, setOpen] = useState(false);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -181,7 +182,8 @@ export function CheckSelect({ value, onChange, options, placeholder = "— Tanla
           borderRadius: "var(--radius)",
           fontSize: 13,
           background: "var(--bg2)",
-          color: selected ? "var(--text1)" : "var(--text3)",
+          color: selected ? "var(--text)" : "var(--text3)",
+          ...buttonStyle,
           cursor: "pointer",
           transition: "border-color 0.15s",
           textAlign: "left",
