@@ -319,6 +319,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     "--sidebar-border": "#30363d",
     "--warn-dim": "rgba(224,123,0,0.15)", "--danger-dim": "rgba(217,48,37,0.15)",
     "--success-dim": "rgba(15,123,69,0.15)", "--purple-dim": "rgba(109,74,173,0.15)",
+    "--teal-dim": "rgba(8,145,178,0.15)",
     "--shadow": "0 2px 12px rgba(0,0,0,0.4)", "--shadow2": "0 4px 24px rgba(0,0,0,0.5)",
     "--profile-text": "var(--accent-light)", "--profile-text2": "var(--accent)",
     "--profile-avatar-bg": "linear-gradient(135deg,var(--accent-dim) 0%,var(--accent-mid) 50%,var(--accent-dim) 100%)",

@@ -64,7 +64,7 @@ function saveShipments(contractId: string, batches: ShipmentBatch[]) {
 const STATUS_COLORS: Record<ContractStatus, string> = {
   [ContractStatus.Draft]:               "s-gray",
   [ContractStatus.DrawingPending]:      "s-purple",
-  [ContractStatus.TechProcessing]:      "s-warn",
+  [ContractStatus.TechProcessing]:      "s-teal",
   [ContractStatus.WarehouseCheck]:      "s-warn",
   [ContractStatus.InProduction]:        "s-blue",
   [ContractStatus.Completed]:           "s-green",
@@ -122,7 +122,7 @@ function ContractBar({
       <div className="tcb-meta">
         <span className="tcb-product">{contract.productType}</span>
         <span className="tcb-qty">{contract.quantity.toLocaleString()} {contract.unit}</span>
-        <span className={`status ${PRIORITY_COLORS[contract.priority]}`} style={{ fontSize: 11 }}>
+        <span className={`status ${PRIORITY_COLORS[contract.priority]}`}>
           {PRIORITY_LABELS[contract.priority]}
         </span>
         <span className="tcb-dates mono">
@@ -149,13 +149,17 @@ function ContractBar({
 
 // ─── Contract card ────────────────────────────────────────────────────────────
 
+const ACTIONABLE_STATUSES = new Set([ContractStatus.WarehouseCheck, ContractStatus.InProduction]);
+
 function ContractCard({
   contract,
   selected,
+  isActionable,
   onClick,
 }: {
   contract: ContractResponse;
   selected: boolean;
+  isActionable: boolean;
   onClick: () => void;
 }) {
   const [tasks, setTasks] = useState<ContractTaskResponse[]>([]);
@@ -183,7 +187,8 @@ function ContractCard({
   return (
     <div
       onClick={onClick}
-      className={`tasks-contract-card${selected ? " selected launching" : ""}`}
+      className={`tasks-contract-card${selected ? " selected launching" : isActionable ? " actionable" : " non-actionable"}`}
+      style={isActionable && !selected ? { borderLeft: "6px solid var(--accent)" } : undefined}
     >
       {/* Top row */}
       <div className="tcc-header">
@@ -222,7 +227,7 @@ function ContractCard({
             </div>
             <div className="tcc-row">
               <span className="tcc-label">Ustuvorlik</span>
-              <span className={`status ${PRIORITY_COLORS[contract.priority]}`} style={{ fontSize: 11 }}>
+              <span className={`status ${PRIORITY_COLORS[contract.priority]}`}>
                 {PRIORITY_LABELS[contract.priority]}
               </span>
             </div>
@@ -1891,11 +1896,18 @@ export default function TasksPage() {
             </div>
           ) : (
             <div className="tasks-contract-grid">
-              {filteredContracts.map(c => (
+              {[...filteredContracts]
+                .sort((a, b) => {
+                  const aOk = ACTIONABLE_STATUSES.has(a.status) ? 0 : 1;
+                  const bOk = ACTIONABLE_STATUSES.has(b.status) ? 0 : 1;
+                  return aOk - bOk;
+                })
+                .map(c => (
                 <ContractCard
                   key={c.id}
                   contract={c}
                   selected={selected?.id === c.id}
+                  isActionable={ACTIONABLE_STATUSES.has(c.status)}
                   onClick={() => handleSelect(c)}
                 />
               ))}
