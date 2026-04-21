@@ -35,7 +35,7 @@ public class AttachmentService : IAttachmentService
     public async Task<ApiResult<AttachmentResponseDto>> UploadAsync(
         string entityType, Guid entityId,
         Stream fileStream, string fileName, string contentType, long fileSize,
-        Guid uploadedBy)
+        Guid uploadedBy, string? label = null)
     {
         var ext = Path.GetExtension(fileName);
         var storedName = $"{Guid.NewGuid()}{ext}";
@@ -58,6 +58,7 @@ public class AttachmentService : IAttachmentService
             FileSize = fileSize,
             UploadedAt = DateTime.UtcNow,
             UploadedBy = uploadedBy,
+            Label = label,
         };
 
         _context.Attachments.Add(attachment);
@@ -135,5 +136,6 @@ public class AttachmentService : IAttachmentService
         UploadedByFullName = a.Uploader is not null
             ? $"{a.Uploader.FirstName} {a.Uploader.LastName}"
             : null,
+        Label = a.Label,
     };
 }
