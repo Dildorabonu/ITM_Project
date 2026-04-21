@@ -97,7 +97,7 @@ export function UserListView({
         .sdot-off { background: #94a3b8; }
       `}</style>
 
-      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px", overflow: "visible" }}>
+      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, padding: "8px 14px", overflow: "visible" }}>
         <div className="search-wrap" style={{ maxWidth: "none", flex: 1 }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -269,7 +269,7 @@ export function UserListView({
         ) : (
           <div style={{ overflowX: "auto", overflowY: "auto", flex: 1, minHeight: 0 }}>
             <table className="itm-table">
-              <thead style={{ position: "sticky", top: 0, zIndex: 2, boxShadow: "0 2px 0 var(--border)" }}>
+              <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
                 <tr>
                   <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>T/r</th>
                   <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Ism</th>
@@ -359,10 +359,10 @@ export function UserListView({
           padding: "8px 14px",
           marginTop: 8,
         }}>
-          <span style={{ fontSize: 17, color: "var(--text)", fontFamily: "var(--font-mono)", fontWeight: 450, marginTop: 14 }}>
+          <span style={{ fontSize: 17, color: "var(--text)", fontFamily: "var(--font-mono)", fontWeight: 450 }}>
             {totalCount} tadan {(page - 1) * 20 + 1}&nbsp;–&nbsp;{Math.min(page * 20, totalCount)} ko&apos;rsatilmoqda
           </span>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <button
               className="btn-secondary"
               disabled={page <= 1}
