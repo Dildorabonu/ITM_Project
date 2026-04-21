@@ -17,7 +17,6 @@ import {
   type DepartmentResponse,
 } from "@/lib/userService";
 import { CheckSelect } from "../_components/CheckSelect";
-import { DatePickerField, isoToDisplayDate } from "@/app/contracts/_components/DatePickerField";
 
 interface TableRow {
   id: number;
@@ -44,8 +43,6 @@ function RequisitionPrintContent() {
   const [signerName, setSignerName] = useState("");
   const [signerTitle, setSignerTitle] = useState("");
   const [signDate, setSignDate] = useState(new Date().toLocaleDateString("ru-RU").replace(/\//g, "."));
-  const today = new Date();
-  const [signDateIso, setSignDateIso] = useState(`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`);
 
   const [type, setType] = useState<RequisitionType>(RequisitionType.Contract);
   const [contractId, setContractId] = useState("");
@@ -793,15 +790,6 @@ function RequisitionPrintContent() {
             {signDate}
           </span>
           <span style={{ fontSize: 12, whiteSpace: "nowrap" }}>йил</span>
-          <div className="no-print" style={{ marginLeft: 8, width: 200 }}>
-            <DatePickerField
-              value={signDateIso}
-              displayValue={signDate}
-              onDisplayChange={setSignDate}
-              onDateSelect={iso => { setSignDateIso(iso); setSignDate(isoToDisplayDate(iso)); }}
-              dropUp
-            />
-          </div>
         </div>
       </div>
       {confirmOpen && createPortal(
