@@ -338,6 +338,8 @@ function FileRow({ file, onDownload, onPreview, previewing, accentColor }: {
 }) {
   const ext = file.fileName.split(".").pop()?.toLowerCase() ?? "";
   const previewable = ["pdf", "png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"].includes(ext);
+  const [previewHover, setPreviewHover] = useState(false);
+  const [downloadHover, setDownloadHover] = useState(false);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", border: `1.5px solid var(--border)`, borderRadius: "var(--radius)", background: "var(--bg3)" }}>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={accentColor} strokeWidth="2" style={{ flexShrink: 0 }}>
@@ -355,7 +357,18 @@ function FileRow({ file, onDownload, onPreview, previewing, accentColor }: {
           onClick={onPreview}
           disabled={previewing}
           title="Yangi tabda ko'rish"
-          style={{ padding: "4px 7px", background: "none", border: "none", cursor: previewing ? "wait" : "pointer", color: previewing ? "var(--text3)" : "var(--text2)", borderRadius: "var(--radius)", lineHeight: 1, opacity: previewing ? 0.6 : 1 }}
+          onMouseEnter={() => setPreviewHover(true)}
+          onMouseLeave={() => setPreviewHover(false)}
+          style={{
+            padding: "4px 7px", border: "none", lineHeight: 1, borderRadius: "var(--radius)",
+            cursor: previewing ? "wait" : "pointer",
+            color: "#0ea5e9",
+            background: previewHover && !previewing ? "rgba(14,165,233,0.15)" : "rgba(14,165,233,0.07)",
+            outline: "1px solid rgba(14,165,233,0.3)",
+            opacity: previewing ? 0.5 : 1,
+            transform: previewHover && !previewing ? "scale(1.1)" : "scale(1)",
+            transition: "background 0.15s, color 0.15s, transform 0.15s",
+          }}
         >
           {previewing ? (
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ animation: "spin 0.8s linear infinite" }}>
@@ -372,7 +385,16 @@ function FileRow({ file, onDownload, onPreview, previewing, accentColor }: {
       <button
         onClick={onDownload}
         title="Yuklab olish"
-        style={{ padding: "4px 7px", background: "none", border: "none", cursor: "pointer", color: accentColor, borderRadius: "var(--radius)", lineHeight: 1 }}
+        onMouseEnter={() => setDownloadHover(true)}
+        onMouseLeave={() => setDownloadHover(false)}
+        style={{
+          padding: "4px 7px", border: "none", lineHeight: 1, borderRadius: "var(--radius)", cursor: "pointer",
+          color: "#10b981",
+          background: downloadHover ? "rgba(16,185,129,0.15)" : "rgba(16,185,129,0.07)",
+          outline: "1px solid rgba(16,185,129,0.3)",
+          transform: downloadHover ? "scale(1.1)" : "scale(1)",
+          transition: "background 0.15s, transform 0.15s",
+        }}
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
