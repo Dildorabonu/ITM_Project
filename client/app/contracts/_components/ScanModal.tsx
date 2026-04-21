@@ -40,7 +40,11 @@ export function ScanModal({
             <span style={{ fontWeight: 700, fontSize: 16, color: "var(--text1)" }}>Hujjatni skanerlash</span>
           </div>
           <button onClick={() => { if (!scanning) onClose(); }}
-            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
+            style={{ background: "none", border: "1.5px solid var(--danger)", cursor: "pointer", color: "var(--danger)", fontSize: 18, lineHeight: 1, padding: "2px 6px", borderRadius: "var(--radius)", transition: "background 0.14s, transform 0.14s", opacity: scanning ? 0.4 : 1 }}
+            onMouseEnter={e => { if (!scanning) (e.currentTarget as HTMLButtonElement).style.background = "var(--danger-dim)"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
+            onMouseDown={e => { if (!scanning) (e.currentTarget as HTMLButtonElement).style.transform = "scale(0.88)"; }}
+            onMouseUp={e => { (e.currentTarget as HTMLButtonElement).style.transform = "scale(1)"; }}>✕</button>
         </div>
 
         {/* Skanerlar ro'yxati */}
