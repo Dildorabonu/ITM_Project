@@ -359,10 +359,10 @@ export function UserListView({
           padding: "8px 14px",
           marginTop: 8,
         }}>
-          <span style={{ fontSize: 12, color: "var(--text3)", fontFamily: "var(--font-mono)" }}>
+          <span style={{ fontSize: 17, color: "var(--text)", fontFamily: "var(--font-mono)", fontWeight: 450, marginTop: 14 }}>
             {totalCount} tadan {(page - 1) * 20 + 1}&nbsp;–&nbsp;{Math.min(page * 20, totalCount)} ko&apos;rsatilmoqda
           </span>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 14 }}>
             <button
               className="btn-secondary"
               disabled={page <= 1}
