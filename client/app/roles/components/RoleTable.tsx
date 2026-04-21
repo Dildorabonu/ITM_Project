@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { type RoleResponse } from "@/lib/userService";
 
 interface Props {
@@ -25,8 +26,24 @@ export default function RoleTable({
   openAddRole, openViewRole, openEditRole,
   setActivateConfirmId, setDeleteConfirmId, setDeleteError,
 }: Props) {
+  const animOffset = useRef(-(Date.now() % 1500) / 1000).current;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+      <style>{`
+        @keyframes sdot-ping {
+          0%   { box-shadow: 0 0 0 0px rgba(34,197,94,0.55); }
+          100% { box-shadow: 0 0 0 6px rgba(34,197,94,0);    }
+        }
+        .sdot {
+          display: inline-block;
+          width: 9px; height: 9px;
+          border-radius: 50%;
+          vertical-align: middle;
+        }
+        .sdot-on  { background: #22c55e; animation: sdot-ping 1.5s ease-out ${animOffset}s infinite; }
+        .sdot-off { background: #94a3b8; }
+      `}</style>
       {/* Toolbar */}
       <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px" }}>
         <div className="search-wrap" style={{ maxWidth: "none", flex: 1 }}>
@@ -85,16 +102,15 @@ export default function RoleTable({
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Rollar topilmadi</td></tr>
               ) : filtered.map((r, i) => (
-                <tr key={r.id} style={{ opacity: r.isActive === false ? 0.6 : 1 }}>
+                <tr key={r.id}>
                   <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>{String(i + 1).padStart(2, "0")}</td>
                   <td style={{ textAlign: "center" }}>{r.name}</td>
                   <td style={{ textAlign: "center", color: "var(--text1)" }}>{r.description || "—"}</td>
                   <td style={{ textAlign: "center" }}>
-                    {r.isActive === false ? (
-                      <span style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 999, fontSize: 11, fontWeight: 700, padding: "3px 10px" }}>Noaktiv</span>
-                    ) : (
-                      <span style={{ background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0", borderRadius: 999, fontSize: 11, fontWeight: 700, padding: "3px 10px" }}>Aktiv</span>
-                    )}
+                    <span
+                      className={`sdot ${r.isActive !== false ? "sdot-on" : "sdot-off"}`}
+                      title={r.isActive !== false ? "Aktiv" : "Noaktiv"}
+                    />
                   </td>
                   <td className="td-actions" style={{ borderLeft: "2px solid var(--border)" }}>
                     <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>

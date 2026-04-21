@@ -583,7 +583,6 @@ export default function DepartmentsPage() {
                 {filtered.length === 0 ? (
                   <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
                 ) : filtered.map((d, i) => {
-                  const ts = TYPE_STYLE[d.type] ?? { bg: "var(--bg1)", color: "var(--text2)", border: "var(--border)", icon: "🏢" };
                   const inactive = d.isActive === false;
                   return (
                     <tr key={d.id} style={inactive ? { opacity: 0.55 } : undefined}>
@@ -609,15 +608,7 @@ export default function DepartmentsPage() {
                           )}
                         </span>
                       </td>
-                      <td style={{ textAlign: "center" }}>
-                        <span style={{
-                          display: "inline-flex", alignItems: "center", gap: 5,
-                          padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600,
-                          background: ts.bg, color: ts.color, border: `1px solid ${ts.border}`,
-                        }}>
-                          {ts.icon} {DEPARTMENT_TYPE_LABELS[d.type]}
-                        </span>
-                      </td>
+                      <td style={{ textAlign: "center", color: "var(--text1)" }}>{DEPARTMENT_TYPE_LABELS[d.type]}</td>
                       <td style={{ textAlign: "center", color: "var(--text1)" }}>{d.headUserName ?? "—"}</td>
                       <td style={{ textAlign: "center", color: "var(--text1)" }}>{d.employeeCount ?? "—"}</td>
                       <td style={{ borderLeft: "2px solid var(--border)" }}>
