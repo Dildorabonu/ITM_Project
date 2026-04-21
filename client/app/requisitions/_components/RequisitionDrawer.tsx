@@ -35,6 +35,7 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
 
   const [files, setFiles] = useState<AttachmentResponse[]>([]);
   const [filesLoading, setFilesLoading] = useState(true);
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
 
   useEffect(() => {
     setFilesLoading(true);
@@ -44,7 +45,6 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
       .finally(() => setFilesLoading(false));
   }, [req.id]);
 
-  // Close on Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", handler);
@@ -96,6 +96,25 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
       await requisitionService.downloadFile(req.id, file.id, file.fileName);
     } catch {
       showToast("Yuklab olishda xatolik", "error");
+    }
+  };
+
+  const handleFilePreview = async (file: AttachmentResponse) => {
+    setPreviewingId(file.id);
+    try {
+      const url = await requisitionService.getFileBlobUrl(req.id, file.id);
+      const tab = window.open("", "_blank");
+      if (tab) {
+        tab.location.href = url;
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+      } else {
+        URL.revokeObjectURL(url);
+        showToast("Yangi tab ochilmadi. Popup bloker tekshiring.", "error");
+      }
+    } catch {
+      showToast("Faylni yuklashda xatolik", "error");
+    } finally {
+      setPreviewingId(null);
     }
   };
 
@@ -209,23 +228,35 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
             </Section>
           ) : (
             <>
-              {/* TZ fayllar */}
               {files.filter(f => f.label === "tz").length > 0 && (
                 <Section label={`TZ — Texnik Topshiriq (${files.filter(f => f.label === "tz").length})`}>
                   <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                     {files.filter(f => f.label === "tz").map(file => (
-                      <FileRow key={file.id} file={file} onDownload={() => handleFileDownload(file)} accentColor="var(--purple)" />
+                      <FileRow
+                        key={file.id}
+                        file={file}
+                        previewing={previewingId === file.id}
+                        onDownload={() => handleFileDownload(file)}
+                        onPreview={() => handleFilePreview(file)}
+                        accentColor="var(--purple)"
+                      />
                     ))}
                   </div>
                 </Section>
               )}
 
-              {/* Talabnoma PDF va boshqa fayllar */}
               {files.filter(f => f.label !== "tz").length > 0 && (
                 <Section label={`Ilovalar (${files.filter(f => f.label !== "tz").length})`}>
                   <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                     {files.filter(f => f.label !== "tz").map(file => (
-                      <FileRow key={file.id} file={file} onDownload={() => handleFileDownload(file)} accentColor="var(--accent)" />
+                      <FileRow
+                        key={file.id}
+                        file={file}
+                        previewing={previewingId === file.id}
+                        onDownload={() => handleFileDownload(file)}
+                        onPreview={() => handleFilePreview(file)}
+                        accentColor="var(--accent)"
+                      />
                     ))}
                   </div>
                 </Section>
@@ -323,7 +354,15 @@ function Section({ label, children, danger }: { label: string; children: React.R
   );
 }
 
-function FileRow({ file, onDownload, accentColor }: { file: AttachmentResponse; onDownload: () => void; accentColor: string }) {
+function FileRow({ file, onDownload, onPreview, previewing, accentColor }: {
+  file: AttachmentResponse;
+  onDownload: () => void;
+  onPreview: () => void;
+  previewing: boolean;
+  accentColor: string;
+}) {
+  const ext = file.fileName.split(".").pop()?.toLowerCase() ?? "";
+  const previewable = ["pdf", "png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"].includes(ext);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", border: `1.5px solid var(--border)`, borderRadius: "var(--radius)", background: "var(--bg3)" }}>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={accentColor} strokeWidth="2" style={{ flexShrink: 0 }}>
@@ -336,6 +375,25 @@ function FileRow({ file, onDownload, accentColor }: { file: AttachmentResponse; 
           {(file.fileSize / 1024).toFixed(1)} KB • {fmtDateTime(file.uploadedAt)}
         </div>
       </div>
+      {previewable && (
+        <button
+          onClick={onPreview}
+          disabled={previewing}
+          title="Yangi tabda ko'rish"
+          style={{ padding: "4px 7px", background: "none", border: "none", cursor: previewing ? "wait" : "pointer", color: previewing ? "var(--text3)" : "var(--text2)", borderRadius: "var(--radius)", lineHeight: 1, opacity: previewing ? 0.6 : 1 }}
+        >
+          {previewing ? (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ animation: "spin 0.8s linear infinite" }}>
+              <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+            </svg>
+          ) : (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          )}
+        </button>
+      )}
       <button
         onClick={onDownload}
         title="Yuklab olish"
