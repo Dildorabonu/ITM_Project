@@ -33,6 +33,7 @@ export default function RequisitionDetailPage() {
 
   const [files, setFiles] = useState<AttachmentResponse[]>([]);
   const [filesLoading, setFilesLoading] = useState(false);
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
 
   useEffect(() => {
     requisitionService.getById(id).then(data => {
@@ -51,6 +52,25 @@ export default function RequisitionDetailPage() {
       await requisitionService.downloadFile(id, file.id, file.fileName);
     } catch {
       showToast("Yuklab olishda xatolik", "error");
+    }
+  };
+
+  const handleFilePreview = async (file: AttachmentResponse) => {
+    setPreviewingId(file.id);
+    try {
+      const url = await requisitionService.getFileBlobUrl(id, file.id);
+      const tab = window.open("", "_blank");
+      if (tab) {
+        tab.location.href = url;
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+      } else {
+        URL.revokeObjectURL(url);
+        showToast("Yangi tab ochilmadi. Popup bloker tekshiring.", "error");
+      }
+    } catch {
+      showToast("Faylni yuklashda xatolik", "error");
+    } finally {
+      setPreviewingId(null);
     }
   };
 
@@ -221,7 +241,7 @@ export default function RequisitionDetailPage() {
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {files.filter(f => f.label === "tz").map(file => (
-                    <FileRow key={file.id} file={file} onDownload={() => handleFileDownload(file)} accentColor="var(--purple)" />
+                    <FileRow key={file.id} file={file} previewing={previewingId === file.id} onDownload={() => handleFileDownload(file)} onPreview={() => handleFilePreview(file)} accentColor="var(--purple)" />
                   ))}
                 </div>
               </div>
@@ -233,7 +253,7 @@ export default function RequisitionDetailPage() {
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {files.filter(f => f.label !== "tz").map(file => (
-                    <FileRow key={file.id} file={file} onDownload={() => handleFileDownload(file)} accentColor="var(--accent)" />
+                    <FileRow key={file.id} file={file} previewing={previewingId === file.id} onDownload={() => handleFileDownload(file)} onPreview={() => handleFilePreview(file)} accentColor="var(--accent)" />
                   ))}
                 </div>
               </div>
@@ -331,7 +351,15 @@ function InfoCard({ label, value, full }: { label: string; value: string; full?:
   );
 }
 
-function FileRow({ file, onDownload, accentColor }: { file: AttachmentResponse; onDownload: () => void; accentColor: string }) {
+function FileRow({ file, onDownload, onPreview, previewing, accentColor }: {
+  file: AttachmentResponse;
+  onDownload: () => void;
+  onPreview: () => void;
+  previewing: boolean;
+  accentColor: string;
+}) {
+  const ext = file.fileName.split(".").pop()?.toLowerCase() ?? "";
+  const previewable = ["pdf", "png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"].includes(ext);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", background: "var(--bg3)" }}>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accentColor} strokeWidth="2" style={{ flexShrink: 0 }}>
@@ -345,6 +373,25 @@ function FileRow({ file, onDownload, accentColor }: { file: AttachmentResponse; 
           {file.uploadedByFullName && ` • ${file.uploadedByFullName}`}
         </div>
       </div>
+      {previewable && (
+        <button
+          onClick={onPreview}
+          disabled={previewing}
+          title="Yangi tabda ko'rish"
+          style={{ padding: "5px 8px", background: "none", border: "none", cursor: previewing ? "wait" : "pointer", color: previewing ? "var(--text3)" : "var(--text2)", borderRadius: "var(--radius)", opacity: previewing ? 0.6 : 1 }}
+        >
+          {previewing ? (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ animation: "spin 0.8s linear infinite" }}>
+              <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+            </svg>
+          ) : (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          )}
+        </button>
+      )}
       <button
         onClick={onDownload}
         title="Yuklab olish"
