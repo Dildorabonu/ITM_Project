@@ -57,6 +57,8 @@ function RequisitionPrintContent() {
   const [savingSystem, setSavingSystem] = useState(false);
   const [normLoading, setNormLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [tzFile, setTzFile] = useState<File | null>(null);
+  const tzInputRef = useRef<HTMLInputElement>(null);
 
   const fillFromNorm = async () => {
     if (!contractId) return;
@@ -116,6 +118,8 @@ function RequisitionPrintContent() {
     setSignDate(new Date().toLocaleDateString("ru-RU").replace(/\//g, "."));
     setContractId("");
     setDepartmentId("");
+    setTzFile(null);
+    if (tzInputRef.current) tzInputRef.current.value = "";
     if (descRef.current) descRef.current.textContent = "";
   };
 
@@ -273,7 +277,12 @@ function RequisitionPrintContent() {
       if (pdfBlob) {
         const dateStr = new Date().toISOString().slice(0, 10);
         const pdfFile = new File([pdfBlob], `talabnoma_${dateStr}.pdf`, { type: "application/pdf" });
-        await requisitionService.uploadFile(reqId, pdfFile);
+        await requisitionService.uploadFile(reqId, pdfFile, "pdf");
+      }
+
+      // TZ faylni yuklash (agar tanlangan bo'lsa)
+      if (tzFile) {
+        await requisitionService.uploadFile(reqId, tzFile, "tz");
       }
 
       showToast("Talabnoma tizimda saqlandi", "success");
@@ -486,6 +495,54 @@ function RequisitionPrintContent() {
             </svg>
             Chop etish
           </button>
+
+          <div style={{ width: 1, height: 20, background: "var(--border)" }} />
+
+          {/* TZ fayl ilova */}
+          <input
+            ref={tzInputRef}
+            type="file"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.zip"
+            style={{ display: "none" }}
+            onChange={e => {
+              const f = e.target.files?.[0] ?? null;
+              setTzFile(f);
+            }}
+          />
+          {tzFile ? (
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", background: "var(--accent-dim)", border: "1.5px solid var(--accent)", borderRadius: "var(--radius)", maxWidth: 220 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.2" style={{ flexShrink: 0 }}>
+                <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+                <polyline points="13 2 13 9 20 9"/>
+              </svg>
+              <span style={{ fontSize: 12, fontWeight: 500, color: "var(--accent)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+                {tzFile.name}
+              </span>
+              <button
+                type="button"
+                onClick={() => { setTzFile(null); if (tzInputRef.current) tzInputRef.current.value = ""; }}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent)", padding: 0, lineHeight: 1, flexShrink: 0 }}
+                title="O'chirish"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => tzInputRef.current?.click()}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text2)"; }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 13px", background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, fontSize: 13, color: "var(--text2)", transition: "border-color 0.15s, color 0.15s" }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+              </svg>
+              TZ ilova
+            </button>
+          )}
 
           {type === RequisitionType.Contract && (
             <>

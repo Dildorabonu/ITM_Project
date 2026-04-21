@@ -49,6 +49,9 @@ namespace DataAccess.Migrations
                     b.Property<long>("FileSize")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("Label")
+                        .HasColumnType("text");
+
                     b.Property<string>("StoredName")
                         .IsRequired()
                         .HasMaxLength(256)
