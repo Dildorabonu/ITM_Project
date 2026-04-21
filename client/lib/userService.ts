@@ -330,6 +330,7 @@ export interface AttachmentResponse {
   uploadedAt: string;
   uploadedBy: string;
   uploadedByFullName: string | null;
+  label: string | null;
 }
 
 // ─── Contracts ───────────────────────────────────────────────────────────────
@@ -1273,11 +1274,13 @@ export const requisitionService = {
     }
   },
 
-  uploadFile: async (id: string, file: File): Promise<AttachmentResponse> => {
+  uploadFile: async (id: string, file: File, label?: string): Promise<AttachmentResponse> => {
     const form = new FormData();
     form.append("file", file);
+    const params = label ? { label } : {};
     const res = await api.post(`/api/requisition/${id}/files`, form, {
       headers: { "Content-Type": "multipart/form-data" },
+      params,
     });
     return res.data?.result ?? res.data;
   },

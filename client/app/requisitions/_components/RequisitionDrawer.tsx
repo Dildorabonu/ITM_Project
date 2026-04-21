@@ -199,41 +199,39 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
           )}
 
           {/* Files */}
-          <Section label={`Fayllar${files.length > 0 ? ` (${files.length})` : ""}`}>
-            {filesLoading ? (
+          {filesLoading ? (
+            <Section label="Fayllar">
               <div style={{ color: "var(--text3)", fontSize: 13, padding: "10px 0" }}>Yuklanmoqda…</div>
-            ) : files.length === 0 ? (
+            </Section>
+          ) : files.length === 0 ? (
+            <Section label="Fayllar">
               <div style={{ color: "var(--text3)", fontSize: 13, padding: "10px 0" }}>Fayllar yo'q</div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                {files.map(file => (
-                  <div key={file.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", background: "var(--bg3)" }}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" strokeWidth="2" style={{ flexShrink: 0 }}>
-                      <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
-                      <polyline points="13 2 13 9 20 9"/>
-                    </svg>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.fileName}</div>
-                      <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 1 }}>
-                        {(file.fileSize / 1024).toFixed(1)} KB • {fmtDateTime(file.uploadedAt)}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleFileDownload(file)}
-                      title="Yuklab olish"
-                      style={{ padding: "4px 7px", background: "none", border: "none", cursor: "pointer", color: "var(--accent)", borderRadius: "var(--radius)", lineHeight: 1 }}
-                    >
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="7 10 12 15 17 10"/>
-                        <line x1="12" y1="15" x2="12" y2="3"/>
-                      </svg>
-                    </button>
+            </Section>
+          ) : (
+            <>
+              {/* TZ fayllar */}
+              {files.filter(f => f.label === "tz").length > 0 && (
+                <Section label={`TZ — Texnik Topshiriq (${files.filter(f => f.label === "tz").length})`}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                    {files.filter(f => f.label === "tz").map(file => (
+                      <FileRow key={file.id} file={file} onDownload={() => handleFileDownload(file)} accentColor="var(--purple)" />
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
-          </Section>
+                </Section>
+              )}
+
+              {/* Talabnoma PDF va boshqa fayllar */}
+              {files.filter(f => f.label !== "tz").length > 0 && (
+                <Section label={`Ilovalar (${files.filter(f => f.label !== "tz").length})`}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                    {files.filter(f => f.label !== "tz").map(file => (
+                      <FileRow key={file.id} file={file} onDownload={() => handleFileDownload(file)} accentColor="var(--accent)" />
+                    ))}
+                  </div>
+                </Section>
+              )}
+            </>
+          )}
 
           {/* Actions */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -321,6 +319,34 @@ function Section({ label, children, danger }: { label: string; children: React.R
     <div className="itm-card" style={{ padding: "20px 22px", overflow: "visible" }}>
       <div style={{ fontSize: 11, color: danger ? "var(--danger)" : "var(--accent)", fontWeight: 600, marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</div>
       {children}
+    </div>
+  );
+}
+
+function FileRow({ file, onDownload, accentColor }: { file: AttachmentResponse; onDownload: () => void; accentColor: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", border: `1.5px solid var(--border)`, borderRadius: "var(--radius)", background: "var(--bg3)" }}>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={accentColor} strokeWidth="2" style={{ flexShrink: 0 }}>
+        <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+        <polyline points="13 2 13 9 20 9"/>
+      </svg>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.fileName}</div>
+        <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 1 }}>
+          {(file.fileSize / 1024).toFixed(1)} KB • {fmtDateTime(file.uploadedAt)}
+        </div>
+      </div>
+      <button
+        onClick={onDownload}
+        title="Yuklab olish"
+        style={{ padding: "4px 7px", background: "none", border: "none", cursor: "pointer", color: accentColor, borderRadius: "var(--radius)", lineHeight: 1 }}
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+      </button>
     </div>
   );
 }

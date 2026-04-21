@@ -11,4 +11,5 @@ public class AttachmentResponseDto
     public DateTime UploadedAt { get; set; }
     public Guid UploadedBy { get; set; }
     public string? UploadedByFullName { get; set; }
+    public string? Label { get; set; }
 }
