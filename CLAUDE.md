@@ -80,7 +80,7 @@ Fontlar `app/layout.tsx` da Next.js `next/font/google` orqali yuklanadi:
 | CSS o'zgaruvchi | Font | Ishlatilishi |
 |---|---|---|
 | `--font-inter` | Inter | Asosiy body va heading shrift |
-| `--font-mono` | Roboto Mono | Kod, badge, raqamlar |
+| `--font-mono` | Inter | Kod, badge, raqamlar (Roboto Mono olib tashlandi, hammasi Inter) |
 
 **Utility klasslar** (`globals.css`):
 - `.font-head-itm` — sarlavhalar uchun (Inter)
