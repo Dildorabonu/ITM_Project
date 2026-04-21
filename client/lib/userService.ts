@@ -1297,6 +1297,11 @@ export const requisitionService = {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   },
 
+  getFileBlobUrl: async (id: string, fileId: string): Promise<string> => {
+    const res = await api.get(`/api/requisition/${id}/files/${fileId}/download`, { responseType: "blob" });
+    return URL.createObjectURL(res.data);
+  },
+
   deleteFile: async (id: string, fileId: string): Promise<void> => {
     await api.delete(`/api/requisition/${id}/files/${fileId}`);
   },
