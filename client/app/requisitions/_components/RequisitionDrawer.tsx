@@ -87,16 +87,38 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
   };
 
   const handleFilePreview = async (file: AttachmentResponse) => {
+    const ext = file.fileName.split(".").pop()?.toLowerCase() ?? "";
     setPreviewingId(file.id);
     try {
-      const url = await requisitionService.getFileBlobUrl(req.id, file.id);
-      const tab = window.open("", "_blank");
-      if (tab) {
-        tab.location.href = url;
-        setTimeout(() => URL.revokeObjectURL(url), 10000);
+      const blob = await requisitionService.getFileBlob(req.id, file.id);
+      if (ext === "docx" || ext === "doc") {
+        const { renderAsync } = await import("docx-preview");
+        const container = document.createElement("div");
+        container.style.cssText = "position:absolute;left:-9999px;top:0;width:816px;background:white";
+        document.body.appendChild(container);
+        const styleContainer = document.createElement("div");
+        document.head.appendChild(styleContainer);
+        await renderAsync(blob, container, styleContainer, { className: "docx", useBase64URL: true, breakPages: true });
+        const styles = styleContainer.innerHTML;
+        const content = container.innerHTML;
+        document.body.removeChild(container);
+        document.head.removeChild(styleContainer);
+        const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${file.fileName}</title>${styles}<style>html,body{margin:0;padding:24px;background:#f0f0f0;display:flex;justify-content:center}.docx-wrapper{box-shadow:0 2px 16px rgba(0,0,0,0.18)}</style></head><body>${content}</body></html>`;
+        const htmlBlob = new Blob([html], { type: "text/html" });
+        const url = URL.createObjectURL(htmlBlob);
+        const tab = window.open(url, "_blank");
+        if (!tab) showToast("Yangi tab ochilmadi. Popup bloker tekshiring.", "error");
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
       } else {
-        URL.revokeObjectURL(url);
-        showToast("Yangi tab ochilmadi. Popup bloker tekshiring.", "error");
+        const url = URL.createObjectURL(blob);
+        const tab = window.open("", "_blank");
+        if (tab) {
+          tab.location.href = url;
+          setTimeout(() => URL.revokeObjectURL(url), 10000);
+        } else {
+          URL.revokeObjectURL(url);
+          showToast("Yangi tab ochilmadi. Popup bloker tekshiring.", "error");
+        }
       }
     } catch {
       showToast("Faylni yuklashda xatolik", "error");
@@ -295,7 +317,7 @@ function FileRow({ file, onDownload, onPreview, previewing, accentColor }: {
   accentColor: string;
 }) {
   const ext = file.fileName.split(".").pop()?.toLowerCase() ?? "";
-  const previewable = ["pdf", "png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"].includes(ext);
+  const previewable = ["pdf", "png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "docx", "doc"].includes(ext);
   const [previewHover, setPreviewHover] = useState(false);
   const [downloadHover, setDownloadHover] = useState(false);
   return (
