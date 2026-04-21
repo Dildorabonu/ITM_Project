@@ -350,60 +350,59 @@ export function UserListView({
           </div>
         )}
 
-        {totalPages > 1 && (
-          <div style={{
-            flexShrink: 0,
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "10px 16px",
-            borderTop: "1.5px solid var(--border)",
-          }}>
-            <span style={{ fontSize: 13, color: "var(--text2)" }}>
-              Ko&apos;rsatilmoqda {(page - 1) * 20 + 1}–{Math.min(page * 20, totalCount)} / {totalCount}
-            </span>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <button
-                className="btn-secondary"
-                disabled={page <= 1}
-                onClick={() => setPage(p => p - 1)}
-                style={{ padding: "6px 14px", fontSize: 13 }}
-              >
-                ← Oldingi
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
-                .reduce<(number | "...")[]>((acc, p, idx, arr) => {
-                  if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("...");
-                  acc.push(p);
-                  return acc;
-                }, [])
-                .map((p, idx) =>
-                  p === "..." ? (
-                    <span key={`ellipsis-${idx}`} style={{ fontSize: 13, color: "var(--text3)", padding: "0 2px" }}>…</span>
-                  ) : (
-                    <button
-                      key={p}
-                      className={p === page ? "btn-primary" : "btn-secondary"}
-                      onClick={() => setPage(p as number)}
-                      style={{ minWidth: 32, padding: "6px 10px", fontSize: 13, fontWeight: p === page ? 700 : 400 }}
-                    >
-                      {p}
-                    </button>
-                  )
-                )}
-              <button
-                className="btn-secondary"
-                disabled={page >= totalPages}
-                onClick={() => setPage(p => p + 1)}
-                style={{ padding: "6px 14px", fontSize: 13 }}
-              >
-                Keyingi →
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
-
+      {totalPages > 1 && (
+        <div style={{
+          flexShrink: 0,
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "8px 14px",
+          marginTop: 8,
+        }}>
+          <span style={{ fontSize: 12, color: "var(--text3)", fontFamily: "var(--font-mono)" }}>
+            {totalCount} tadan {(page - 1) * 20 + 1}&nbsp;–&nbsp;{Math.min(page * 20, totalCount)} ko&apos;rsatilmoqda
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <button
+              className="btn-secondary"
+              disabled={page <= 1}
+              onClick={() => setPage(p => p - 1)}
+              style={{ padding: "5px 12px", fontSize: 12 }}
+            >
+              ← Oldingi
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+              .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+                if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("...");
+                acc.push(p);
+                return acc;
+              }, [])
+              .map((p, idx) =>
+                p === "..." ? (
+                  <span key={`ellipsis-${idx}`} style={{ fontSize: 13, color: "var(--text3)", padding: "0 2px" }}>…</span>
+                ) : (
+                  <button
+                    key={p}
+                    className={p === page ? "btn-primary" : "btn-secondary"}
+                    onClick={() => setPage(p as number)}
+                    style={{ minWidth: 30, padding: "5px 8px", fontSize: 12, fontWeight: p === page ? 700 : 400 }}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
+            <button
+              className="btn-secondary"
+              disabled={page >= totalPages}
+              onClick={() => setPage(p => p + 1)}
+              style={{ padding: "5px 12px", fontSize: 12 }}
+            >
+              Keyingi →
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
