@@ -38,7 +38,7 @@
 
 :root {
   --font-inter: "Inter", Arial, sans-serif;
-  --font-mono: "Roboto Mono", monospace;
+  --font-mono: "Inter", Arial, sans-serif;
   --bg: #f0f4f8;
   --bg2: #ffffff;
   --bg3: #f8fafc;
@@ -107,6 +107,7 @@ body {
 /* ===== FONT SHORTHAND CLASSES ===== */
 .font-head-itm { font-family: var(--font-inter), Inter, sans-serif; }
 .font-body-itm { font-family: var(--font-inter), Inter, sans-serif; }
+.font-mono { font-family: var(--font-inter), Inter, sans-serif !important; }
 
 /* ===== STATUS ===== */
 .status {
