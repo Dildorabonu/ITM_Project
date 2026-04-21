@@ -121,7 +121,7 @@ public class RequisitionController : ControllerBase
     [HasPermission("Requisitions.Create")]
     [HttpPost("{id:guid}/files")]
     [RequestSizeLimit(50 * 1024 * 1024)] // 50 MB
-    public async Task<IActionResult> UploadFile(Guid id, IFormFile file)
+    public async Task<IActionResult> UploadFile(Guid id, IFormFile file, [FromQuery] string? label = null)
     {
         if (file is null || file.Length == 0)
             return BadRequest("Fayl tanlanmagan.");
@@ -133,7 +133,7 @@ public class RequisitionController : ControllerBase
         var result = await _attachmentService.UploadAsync(
             EntityType, id,
             stream, file.FileName, file.ContentType, file.Length,
-            userId.Value);
+            userId.Value, label);
 
         if (!result.Succeeded) return BadRequest(result);
         return StatusCode(201, result);

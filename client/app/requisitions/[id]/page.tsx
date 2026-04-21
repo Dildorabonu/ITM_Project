@@ -202,41 +202,44 @@ export default function RequisitionDetailPage() {
         )}
 
         {/* Files */}
-        <div className="itm-card" style={{ padding: 22 }}>
-          <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600 }}>
-              Fayllar {files.length > 0 ? `(${files.length})` : ""}
-            </div>
-          </div>
-
-          {filesLoading ? (
+        {filesLoading ? (
+          <div className="itm-card" style={{ padding: 22 }}>
+            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 14 }}>Fayllar</div>
             <div style={{ color: "var(--text3)", fontSize: 13, textAlign: "center", padding: "16px 0" }}>Yuklanmoqda…</div>
-          ) : files.length === 0 ? (
+          </div>
+        ) : files.length === 0 ? (
+          <div className="itm-card" style={{ padding: 22 }}>
+            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 14 }}>Fayllar</div>
             <div style={{ color: "var(--text3)", fontSize: 13, textAlign: "center", padding: "16px 0" }}>Fayllar yo'q</div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {files.map(file => (
-                <div key={file.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", background: "var(--bg3)" }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" strokeWidth="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.fileName}</div>
-                    <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>
-                      {(file.fileSize / 1024).toFixed(1)} KB • {fmtDateTime(file.uploadedAt)}
-                      {file.uploadedByFullName && ` • ${file.uploadedByFullName}`}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleFileDownload(file)}
-                    title="Yuklab olish"
-                    style={{ padding: "5px 8px", background: "none", border: "none", cursor: "pointer", color: "var(--accent)", borderRadius: "var(--radius)" }}
-                  >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  </button>
+          </div>
+        ) : (
+          <>
+            {files.filter(f => f.label === "tz").length > 0 && (
+              <div className="itm-card" style={{ padding: 22 }}>
+                <div style={{ fontSize: 12, color: "var(--purple)", fontWeight: 600, marginBottom: 14 }}>
+                  TZ — Texnik Topshiriq ({files.filter(f => f.label === "tz").length})
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {files.filter(f => f.label === "tz").map(file => (
+                    <FileRow key={file.id} file={file} onDownload={() => handleFileDownload(file)} accentColor="var(--purple)" />
+                  ))}
+                </div>
+              </div>
+            )}
+            {files.filter(f => f.label !== "tz").length > 0 && (
+              <div className="itm-card" style={{ padding: 22 }}>
+                <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 14 }}>
+                  Ilovalar ({files.filter(f => f.label !== "tz").length})
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {files.filter(f => f.label !== "tz").map(file => (
+                    <FileRow key={file.id} file={file} onDownload={() => handleFileDownload(file)} accentColor="var(--accent)" />
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
 
         {/* Actions */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -324,6 +327,35 @@ function InfoCard({ label, value, full }: { label: string; value: string; full?:
     <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "12px 16px", gridColumn: full ? "1 / -1" : undefined }}>
       <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4 }}>{label}</div>
       <div style={{ fontWeight: 600, fontSize: 13, color: "var(--text1)", wordBreak: "break-word" }}>{value || "—"}</div>
+    </div>
+  );
+}
+
+function FileRow({ file, onDownload, accentColor }: { file: AttachmentResponse; onDownload: () => void; accentColor: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", background: "var(--bg3)" }}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accentColor} strokeWidth="2" style={{ flexShrink: 0 }}>
+        <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+        <polyline points="13 2 13 9 20 9"/>
+      </svg>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.fileName}</div>
+        <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>
+          {(file.fileSize / 1024).toFixed(1)} KB • {fmtDateTime(file.uploadedAt)}
+          {file.uploadedByFullName && ` • ${file.uploadedByFullName}`}
+        </div>
+      </div>
+      <button
+        onClick={onDownload}
+        title="Yuklab olish"
+        style={{ padding: "5px 8px", background: "none", border: "none", cursor: "pointer", color: accentColor, borderRadius: "var(--radius)" }}
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+      </button>
     </div>
   );
 }

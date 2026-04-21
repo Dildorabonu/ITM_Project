@@ -11,6 +11,7 @@ public class Attachment
     public long FileSize { get; set; }
     public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
     public Guid UploadedBy { get; set; }
+    public string? Label { get; set; }
 
     public User? Uploader { get; set; }
 }
