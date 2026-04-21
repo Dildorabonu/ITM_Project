@@ -3,7 +3,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { DepartmentType, DEPARTMENT_TYPE_LABELS, type DepartmentOption } from "@/lib/userService";
-import { TYPE_STYLE } from "./constants";
 
 export function CustomGroupedSelect({
   value, onChange, departments, placeholder, hasError,
@@ -19,7 +18,6 @@ export function CustomGroupedSelect({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const selected = departments.find(d => d.id === value);
-  const selectedTs = selected?.type !== undefined ? TYPE_STYLE[selected.type] : null;
 
   const groups = ([DepartmentType.IshlabChiqarish, DepartmentType.Bolim, DepartmentType.Boshqaruv] as const)
     .map(t => ({ type: t, items: departments.filter(d => d.type === t) }))
@@ -73,86 +71,58 @@ export function CustomGroupedSelect({
       style={{
         ...dropdownStyle,
         background: "var(--bg2)",
-        border: "1.5px solid var(--border)",
+        border: "1px solid var(--border)",
         borderRadius: "var(--radius)",
         boxShadow: "0 8px 28px rgba(0,0,0,0.15)",
         maxHeight: 300,
         overflowY: "auto",
       }}
     >
-      {groups.map((g, gi) => {
-        const ts = TYPE_STYLE[g.type];
-        return (
-          <div key={g.type}>
-            {/* Group header */}
-            <div style={{
-              padding: "6px 12px 5px",
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: "0.6px",
-              textTransform: "uppercase",
-              color: ts.color,
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              borderTop: gi > 0 ? "1px solid var(--border)" : "none",
-              borderBottom: "1px solid var(--border)",
-              background: "var(--bg3)",
-              position: "sticky",
-              top: 0,
-            }}>
-              <span style={{ fontSize: 12 }}>{ts.icon}</span>
-              {DEPARTMENT_TYPE_LABELS[g.type]}
-            </div>
-
-            {/* Group items */}
-            {g.items.map(d => {
-              const checked = d.id === value;
-              return (
-                <div
-                  key={d.id}
-                  onClick={() => { onChange(d.id); setOpen(false); }}
-                  onMouseEnter={e => { if (!checked) e.currentTarget.style.background = "var(--bg3)"; }}
-                  onMouseLeave={e => { if (!checked) e.currentTarget.style.background = checked ? "var(--accent-dim)" : ""; }}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    padding: "9px 12px 9px 16px",
-                    cursor: "pointer",
-                    fontSize: 13,
-                    color: checked ? "var(--accent)" : "var(--text1)",
-                    fontWeight: checked ? 600 : 400,
-                    background: checked ? "var(--accent-dim)" : "transparent",
-                    borderBottom: "1px solid var(--border)",
-                    transition: "background 0.1s",
-                  }}
-                >
-                  <span style={{
-                    width: 15, height: 15, flexShrink: 0,
-                    border: `1.5px solid ${checked ? "var(--accent)" : "var(--border)"}`,
-                    borderRadius: 3,
-                    background: checked ? "var(--accent)" : "transparent",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    transition: "background 0.15s, border-color 0.15s",
-                  }}>
-                    {checked && (
-                      <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="2 6 5 9 10 3" />
-                      </svg>
-                    )}
-                  </span>
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {d.name}
-                  </span>
-                </div>
-              );
-            })}
+      {groups.map((g, gi) => (
+        <div key={g.type}>
+          <div style={{
+            padding: "5px 12px",
+            fontSize: 10,
+            fontWeight: 600,
+            letterSpacing: "0.6px",
+            textTransform: "uppercase",
+            color: "var(--text3)",
+            borderTop: gi > 0 ? "1px solid var(--border)" : "none",
+            borderBottom: "1px solid var(--border)",
+            background: "var(--bg2)",
+            position: "sticky",
+            top: 0,
+          }}>
+            {DEPARTMENT_TYPE_LABELS[g.type]}
           </div>
-        );
-      })}
+
+          {g.items.map(d => {
+            const checked = d.id === value;
+            return (
+              <div
+                key={d.id}
+                onClick={() => { onChange(d.id); setOpen(false); }}
+                onMouseEnter={e => { if (!checked) e.currentTarget.style.background = "var(--surface2)"; }}
+                onMouseLeave={e => { if (!checked) e.currentTarget.style.background = "transparent"; }}
+                style={{
+                  padding: "8px 12px",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  color: checked ? "var(--accent)" : "var(--text)",
+                  fontWeight: checked ? 600 : 400,
+                  background: checked ? "var(--accent-dim)" : "transparent",
+                  transition: "background 0.1s",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {d.name}
+              </div>
+            );
+          })}
+        </div>
+      ))}
     </div>
   ) : null;
 
@@ -171,31 +141,23 @@ export function CustomGroupedSelect({
           padding: "9px 12px",
           border: `1.5px solid ${open ? "var(--accent)" : hasError ? "var(--danger)" : "var(--border)"}`,
           borderRadius: "var(--radius)",
-          fontSize: 14,
-          background: "var(--bg3)",
-          color: selected ? "var(--text1)" : "var(--text3)",
+          fontSize: 13,
+          background: "var(--surface)",
+          color: selected ? "var(--text)" : "var(--text3)",
           cursor: "pointer",
           transition: "border-color 0.15s",
           textAlign: "left",
           boxSizing: "border-box",
           boxShadow: !open && hasError ? "0 0 0 2px var(--danger)33" : undefined,
           fontFamily: "var(--font-inter), Inter, sans-serif",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
         }}
       >
-        {selected && selectedTs ? (
-          <span style={{
-            display: "inline-flex", alignItems: "center", gap: 5,
-            padding: "1px 8px", borderRadius: 10, fontSize: 12, fontWeight: 600,
-            background: selectedTs.bg, color: selectedTs.color, border: `1px solid ${selectedTs.border}`,
-          }}>
-            <span style={{ fontSize: 11 }}>{selectedTs.icon}</span>
-            {selected.name}
-          </span>
-        ) : (
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-            {placeholder}
-          </span>
-        )}
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+          {selected ? selected.name : placeholder}
+        </span>
         <svg
           width="12" height="12"
           viewBox="0 0 24 24"
