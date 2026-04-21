@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import {
   requisitionService,
   RequisitionStatus,
-  RequisitionType,
   type RequisitionResponse,
   type AttachmentResponse,
 } from "@/lib/userService";
@@ -25,7 +24,6 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const showToast = useToastStore((s) => s.show);
 
-  const canApprove = hasPermission("Requisitions.Approve");
   const canSendToWarehouse = hasPermission("Requisitions.SendToWarehouse");
 
   const [acting, setActing] = useState(false);
@@ -54,17 +52,6 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
   const refresh = async () => {
     const updated = await requisitionService.getById(req.id);
     if (updated) onUpdate(updated);
-  };
-
-  const handleApprove = async () => {
-    setActing(true);
-    try {
-      await requisitionService.approve(req.id);
-      showToast("Talabnoma tasdiqlandi", "success");
-      await refresh();
-    } catch {
-      showToast("Xatolik yuz berdi", "error");
-    } finally { setActing(false); }
   };
 
   const handleRejectConfirm = async () => {
@@ -241,36 +228,7 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
 
           {/* Actions */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {req.status === RequisitionStatus.Pending && req.type === RequisitionType.Individual && canApprove && (
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  disabled={acting}
-                  onClick={handleApprove}
-                  style={{ flex: 1, padding: "11px", borderRadius: "var(--radius)", background: "var(--success)", color: "#fff", border: "none", fontWeight: 600, fontSize: 13, cursor: acting ? "not-allowed" : "pointer", opacity: acting ? 0.7 : 1 }}
-                >
-                  {acting ? "…" : "Tasdiqlash"}
-                </button>
-                <button
-                  disabled={acting}
-                  onClick={() => { setRejectOpen(true); setRejectReason(""); }}
-                  style={{ flex: 1, padding: "11px", borderRadius: "var(--radius)", background: "var(--danger-dim)", color: "var(--danger)", border: "1px solid rgba(217,48,37,0.3)", fontWeight: 600, fontSize: 13, cursor: acting ? "not-allowed" : "pointer", opacity: acting ? 0.7 : 1 }}
-                >
-                  Rad etish
-                </button>
-              </div>
-            )}
-
-            {req.status === RequisitionStatus.Pending && req.type === RequisitionType.Contract && canSendToWarehouse && (
-              <button
-                disabled={acting}
-                onClick={handleSendToWarehouse}
-                style={{ padding: "11px 24px", borderRadius: "var(--radius)", background: "var(--accent-dim)", color: "var(--accent)", border: "1px solid rgba(26,110,235,0.25)", fontWeight: 600, fontSize: 13, cursor: acting ? "not-allowed" : "pointer", opacity: acting ? 0.7 : 1 }}
-              >
-                {acting ? "…" : "Omborga yuborish"}
-              </button>
-            )}
-
-            {req.status === RequisitionStatus.Approved && req.type === RequisitionType.Individual && canSendToWarehouse && (
+            {(req.status === RequisitionStatus.Draft || req.status === RequisitionStatus.Pending) && canSendToWarehouse && (
               <button
                 disabled={acting}
                 onClick={handleSendToWarehouse}
