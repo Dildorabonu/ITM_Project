@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { DepartmentType, DEPARTMENT_TYPE_LABELS, type UserResponse, type DepartmentOption } from "@/lib/userService";
-import { TYPE_STYLE } from "./constants";
 import { CheckSelect } from "@/app/_components/CheckSelect";
 
 interface UserListViewProps {
@@ -204,7 +203,7 @@ export function UserListView({
                       DepartmentType.IshlabChiqarish,
                       DepartmentType.Bolim,
                       DepartmentType.Boshqaruv,
-                    ].map(t => ({ id: String(t), name: DEPARTMENT_TYPE_LABELS[t], icon: TYPE_STYLE[t].icon }))}
+                    ].map(t => ({ id: String(t), name: DEPARTMENT_TYPE_LABELS[t] }))}
                     placeholder="Barcha tuzilma"
                     disablePortal
                   />
@@ -285,8 +284,6 @@ export function UserListView({
                 {filtered.length === 0 ? (
                   <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
                 ) : filtered.map((u, i) => {
-                  const dept = u.departmentId ? departments.find(d => d.id === u.departmentId) : null;
-                  const ts = dept?.type !== undefined ? TYPE_STYLE[dept.type] : null;
                   return (
                     <tr key={u.id}>
                       <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>{String((page - 1) * 20 + i + 1).padStart(2, "0")}</td>
@@ -294,15 +291,12 @@ export function UserListView({
                       <td style={{ textAlign: "center", color: "var(--text1)" }}>{u.lastName}</td>
                       <td style={{ textAlign: "center" }}>{u.login}</td>
                       <td style={{ textAlign: "center", maxWidth: 180, overflow: "hidden" }}>
-                        {u.departmentName && ts ? (
+                        {u.departmentName ? (
                           <span style={{
-                            display: "inline-flex", alignItems: "center", gap: 4,
-                            padding: "2px 8px", borderRadius: 12, fontSize: 12, fontWeight: 600,
-                            background: ts.bg, color: ts.color, border: `1px solid ${ts.border}`,
-                            maxWidth: "100%", overflow: "hidden",
+                            display: "block",
+                            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                           }} title={u.departmentName}>
-                            <span style={{ flexShrink: 0 }}>{ts.icon}</span>
-                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{u.departmentName}</span>
+                            {u.departmentName}
                           </span>
                         ) : (
                           <span style={{ color: "var(--text3)", fontSize: 12 }}>—</span>
