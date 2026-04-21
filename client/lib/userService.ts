@@ -1302,6 +1302,11 @@ export const requisitionService = {
     return URL.createObjectURL(res.data);
   },
 
+  getFileBlob: async (id: string, fileId: string): Promise<Blob> => {
+    const res = await api.get(`/api/requisition/${id}/files/${fileId}/download`, { responseType: "blob" });
+    return res.data;
+  },
+
   deleteFile: async (id: string, fileId: string): Promise<void> => {
     await api.delete(`/api/requisition/${id}/files/${fileId}`);
   },
