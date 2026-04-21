@@ -51,7 +51,11 @@ export function ContractDrawer({
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, position: "sticky", top: 0, background: "var(--bg2)", zIndex: 10, paddingBottom: 8 }}>
           <span style={{ fontWeight: 700, fontSize: 17, color: "var(--text1)" }}>Shartnoma tafsilotlari</span>
           <button onClick={onClose}
-            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
+            style={{ background: "none", border: "1.5px solid var(--danger)", cursor: "pointer", color: "var(--danger)", fontSize: 18, lineHeight: 1, padding: "2px 6px", borderRadius: "var(--radius)", transition: "background 0.14s, transform 0.14s" }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--danger-dim)"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
+            onMouseDown={e => { (e.currentTarget as HTMLButtonElement).style.transform = "scale(0.88)"; }}
+            onMouseUp={e => { (e.currentTarget as HTMLButtonElement).style.transform = "scale(1)"; }}>✕</button>
         </div>
 
         <WorkflowDiagram status={viewContract.status} />
