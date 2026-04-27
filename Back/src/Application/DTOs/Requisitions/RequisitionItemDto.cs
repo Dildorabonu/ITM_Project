@@ -26,4 +26,11 @@ public class RequisitionItemResponseDto
     public string? FreeTextPhoto { get; set; }
     public decimal Quantity { get; set; }
     public string? Notes { get; set; }
+
+    // Ombor tekshiruvi natijasi
+    public decimal? AvailableQuantity { get; set; }
+    public string? WarehouseNotes { get; set; }
+
+    // Child item da: parent itemdagi asl miqdor (UI: "100 dan 10 ta bor")
+    public decimal? OriginalQuantity { get; set; }
 }

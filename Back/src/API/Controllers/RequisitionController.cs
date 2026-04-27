@@ -57,7 +57,33 @@ public class RequisitionController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Pending → Approved + QR kod generatsiya (Individual)</summary>
+    /// <summary>Omborchi tekshiruvini yakunlaydi: PendingWarehouseCheck → WarehouseChecked</summary>
+    [HasPermission("Requisitions.WarehouseCheck")]
+    [HttpPost("{id:guid}/warehouse-check")]
+    public async Task<IActionResult> WarehouseCheck(Guid id, [FromBody] RequisitionWarehouseCheckDto dto)
+    {
+        var userId = GetUserId();
+        if (userId is null) return Unauthorized();
+
+        var result = await _requisitionService.WarehouseCheckAsync(id, dto, userId.Value);
+        if (!result.Succeeded) return BadRequest(result);
+        return Ok(result);
+    }
+
+    /// <summary>Yaratuvchi parent ni 2 ta childga bo'ladi: WarehouseChecked → Split</summary>
+    [HasPermission("Requisitions.Create")]
+    [HttpPost("{id:guid}/split")]
+    public async Task<IActionResult> Split(Guid id)
+    {
+        var userId = GetUserId();
+        if (userId is null) return Unauthorized();
+
+        var result = await _requisitionService.SplitAsync(id, userId.Value);
+        if (!result.Succeeded) return BadRequest(result);
+        return Ok(result);
+    }
+
+    /// <summary>Direktor tasdiqlaydi: PendingApproval → ReadyForWarehouseRelease yoki ReadyForPurchase + QR</summary>
     [HasPermission("Requisitions.Approve")]
     [HttpPost("{id:guid}/approve")]
     public async Task<IActionResult> Approve(Guid id)
@@ -70,7 +96,7 @@ public class RequisitionController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Pending → Rejected</summary>
+    /// <summary>Direktor rad etadi: PendingApproval → Rejected</summary>
     [HasPermission("Requisitions.Approve")]
     [HttpPost("{id:guid}/reject")]
     public async Task<IActionResult> Reject(Guid id, [FromBody] RequisitionRejectDto dto)
@@ -79,19 +105,6 @@ public class RequisitionController : ControllerBase
         if (userId is null) return Unauthorized();
 
         var result = await _requisitionService.RejectAsync(id, userId.Value, dto);
-        if (!result.Succeeded) return BadRequest(result);
-        return Ok(result);
-    }
-
-    /// <summary>Contract: Pending → SentToWarehouse | Individual: Approved → SentToWarehouse</summary>
-    [HasPermission("Requisitions.SendToWarehouse")]
-    [HttpPost("{id:guid}/send-to-warehouse")]
-    public async Task<IActionResult> SendToWarehouse(Guid id)
-    {
-        var userId = GetUserId();
-        if (userId is null) return Unauthorized();
-
-        var result = await _requisitionService.SendToWarehouseAsync(id, userId.Value);
         if (!result.Succeeded) return BadRequest(result);
         return Ok(result);
     }

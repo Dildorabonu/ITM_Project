@@ -27,4 +27,5 @@ public class User
     public ICollection<Notification> Notifications { get; set; } = [];
     public ICollection<Requisition> CreatedRequisitions { get; set; } = [];
     public ICollection<Requisition> ApprovedRequisitions { get; set; } = [];
+    public ICollection<Requisition> WarehouseCheckedRequisitions { get; set; } = [];
 }

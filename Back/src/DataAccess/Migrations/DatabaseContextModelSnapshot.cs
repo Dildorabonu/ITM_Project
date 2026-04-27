@@ -563,6 +563,9 @@ namespace DataAccess.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
+                    b.Property<Guid?>("ParentRequisitionId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Purpose")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -589,11 +592,20 @@ namespace DataAccess.Migrations
                     b.Property<string>("SignerTitle")
                         .HasColumnType("text");
 
+                    b.Property<int?>("Source")
+                        .HasColumnType("integer");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
                     b.Property<int>("Type")
                         .HasColumnType("integer");
+
+                    b.Property<DateTime?>("WarehouseCheckedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("WarehouseCheckedBy")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -605,6 +617,10 @@ namespace DataAccess.Migrations
 
                     b.HasIndex("DepartmentId");
 
+                    b.HasIndex("ParentRequisitionId");
+
+                    b.HasIndex("WarehouseCheckedBy");
+
                     b.ToTable("Requisitions");
                 });
 
@@ -613,6 +629,10 @@ namespace DataAccess.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<decimal?>("AvailableQuantity")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
 
                     b.Property<string>("FreeTextName")
                         .HasColumnType("text");
@@ -633,12 +653,20 @@ namespace DataAccess.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<decimal?>("OriginalQuantity")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
                     b.Property<decimal>("Quantity")
                         .HasPrecision(18, 4)
                         .HasColumnType("numeric(18,4)");
 
                     b.Property<Guid>("RequisitionId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("WarehouseNotes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.HasKey("Id");
 
@@ -1141,6 +1169,16 @@ namespace DataAccess.Migrations
                         .HasForeignKey("DepartmentId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Core.Entities.Requisition", "Parent")
+                        .WithMany("Children")
+                        .HasForeignKey("ParentRequisitionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Core.Entities.User", "WarehouseChecker")
+                        .WithMany("WarehouseCheckedRequisitions")
+                        .HasForeignKey("WarehouseCheckedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Approver");
 
                     b.Navigation("Contract");
@@ -1148,6 +1186,10 @@ namespace DataAccess.Migrations
                     b.Navigation("Creator");
 
                     b.Navigation("Department");
+
+                    b.Navigation("Parent");
+
+                    b.Navigation("WarehouseChecker");
                 });
 
             modelBuilder.Entity("Core.Entities.RequisitionItem", b =>
@@ -1383,6 +1425,8 @@ namespace DataAccess.Migrations
 
             modelBuilder.Entity("Core.Entities.Requisition", b =>
                 {
+                    b.Navigation("Children");
+
                     b.Navigation("Items");
                 });
 
@@ -1416,6 +1460,8 @@ namespace DataAccess.Migrations
                     b.Navigation("Notifications");
 
                     b.Navigation("ReceivedStockIns");
+
+                    b.Navigation("WarehouseCheckedRequisitions");
                 });
 #pragma warning restore 612, 618
         }

@@ -18,6 +18,25 @@ public static class AutomatedMigration
         await SeedSuperAdminPermissionsAsync(context);
         await SeedDefaultRolesAsync(context);
         await SeedDepartmentsAsync(context);
+        await MigrateLegacyRequisitionStatusesAsync(context);
+    }
+
+    /// <summary>
+    /// Eski "Pending" (1) va "SentToWarehouse" (4) statuslari yangi flow'ga
+    /// mos kelmaydi — ularni "PendingWarehouseCheck" (5) ga ko'chiramiz.
+    /// </summary>
+    private static async System.Threading.Tasks.Task MigrateLegacyRequisitionStatusesAsync(DatabaseContext context)
+    {
+        // Raw SQL — eski qiymatlarni yangi qiymatga o'tkazish.
+        // Status int sifatida saqlanadi; Pending=1, SentToWarehouse=4 → PendingWarehouseCheck=5.
+        // Approved=2 ham eski flow'ga oid, lekin user qarori bo'yicha faqat Pending va SentToWarehouse ko'chiriladi.
+        await context.Database.ExecuteSqlRawAsync(
+            "UPDATE \"Requisitions\" SET \"Status\" = 5 WHERE \"Status\" IN (1, 4)");
+
+        // Eski Approved (2) yozuvlari ham PendingWarehouseCheck'ga ko'chirilsin (yangi flow'da Approved
+        // alohida ma'noga ega bo'lmagan, hozir ReadyForWarehouseRelease/Purchase ishlatiladi).
+        await context.Database.ExecuteSqlRawAsync(
+            "UPDATE \"Requisitions\" SET \"Status\" = 5 WHERE \"Status\" = 2");
     }
 
     private static readonly Dictionary<PermissionModule, PermissionAction[]> ModuleActions = new()
@@ -33,7 +52,7 @@ public static class AutomatedMigration
         [PermissionModule.WarehouseCheck]      = [PermissionAction.View],
         [PermissionModule.Tasks]              = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete, PermissionAction.ViewAll],
         [PermissionModule.Notifications]      = [PermissionAction.View, PermissionAction.ViewAll],
-        [PermissionModule.Requisitions]       = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete, PermissionAction.ViewAll, PermissionAction.Approve, PermissionAction.SendToWarehouse],
+        [PermissionModule.Requisitions]       = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete, PermissionAction.ViewAll, PermissionAction.Approve, PermissionAction.WarehouseCheck],
     };
 
     private static async System.Threading.Tasks.Task SeedPermissionsAsync(DatabaseContext context)
@@ -140,7 +159,6 @@ public static class AutomatedMigration
                     (PermissionModule.Requisitions, PermissionAction.Update),
                     (PermissionModule.Requisitions, PermissionAction.Delete),
                     (PermissionModule.Requisitions, PermissionAction.Approve),
-                    (PermissionModule.Requisitions, PermissionAction.SendToWarehouse),
                 }
             },
             new
@@ -164,7 +182,6 @@ public static class AutomatedMigration
                     (PermissionModule.Requisitions, PermissionAction.Update),
                     (PermissionModule.Requisitions, PermissionAction.Delete),
                     (PermissionModule.Requisitions, PermissionAction.Approve),
-                    (PermissionModule.Requisitions, PermissionAction.SendToWarehouse),
                 }
             },
             new
@@ -191,7 +208,6 @@ public static class AutomatedMigration
                     (PermissionModule.Requisitions, PermissionAction.Update),
                     (PermissionModule.Requisitions, PermissionAction.Delete),
                     (PermissionModule.Requisitions, PermissionAction.Approve),
-                    (PermissionModule.Requisitions, PermissionAction.SendToWarehouse),
                 }
             },
             new
@@ -215,7 +231,6 @@ public static class AutomatedMigration
                     (PermissionModule.Requisitions, PermissionAction.Update),
                     (PermissionModule.Requisitions, PermissionAction.Delete),
                     (PermissionModule.Requisitions, PermissionAction.Approve),
-                    (PermissionModule.Requisitions, PermissionAction.SendToWarehouse),
                 }
             },
             new
@@ -245,7 +260,6 @@ public static class AutomatedMigration
                     (PermissionModule.Requisitions, PermissionAction.Delete),
                     (PermissionModule.Requisitions, PermissionAction.ViewAll),
                     (PermissionModule.Requisitions, PermissionAction.Approve),
-                    (PermissionModule.Requisitions, PermissionAction.SendToWarehouse),
                 }
             },
             new
@@ -262,12 +276,8 @@ public static class AutomatedMigration
                     (PermissionModule.WarehouseCheck, PermissionAction.View),
                     (PermissionModule.Notifications, PermissionAction.View),
                     (PermissionModule.Requisitions, PermissionAction.View),
-                    (PermissionModule.Requisitions, PermissionAction.Create),
-                    (PermissionModule.Requisitions, PermissionAction.Update),
-                    (PermissionModule.Requisitions, PermissionAction.Delete),
                     (PermissionModule.Requisitions, PermissionAction.ViewAll),
-                    (PermissionModule.Requisitions, PermissionAction.Approve),
-                    (PermissionModule.Requisitions, PermissionAction.SendToWarehouse),
+                    (PermissionModule.Requisitions, PermissionAction.WarehouseCheck),
                 }
             },
             new
@@ -289,7 +299,6 @@ public static class AutomatedMigration
                     (PermissionModule.Requisitions, PermissionAction.Update),
                     (PermissionModule.Requisitions, PermissionAction.Delete),
                     (PermissionModule.Requisitions, PermissionAction.Approve),
-                    (PermissionModule.Requisitions, PermissionAction.SendToWarehouse),
                 }
             },
         };

@@ -22,11 +22,13 @@ import { ConfirmModal } from "@/app/_components/ConfirmModal";
 
 const STATUS_FILTER = [
   { value: "", label: "Barchasi" },
-  { value: String(RequisitionStatus.Draft),           label: REQUISITION_STATUS_LABELS[RequisitionStatus.Draft] },
-  { value: String(RequisitionStatus.Pending),         label: REQUISITION_STATUS_LABELS[RequisitionStatus.Pending] },
-  { value: String(RequisitionStatus.Approved),        label: REQUISITION_STATUS_LABELS[RequisitionStatus.Approved] },
-  { value: String(RequisitionStatus.Rejected),        label: REQUISITION_STATUS_LABELS[RequisitionStatus.Rejected] },
-  { value: String(RequisitionStatus.SentToWarehouse), label: REQUISITION_STATUS_LABELS[RequisitionStatus.SentToWarehouse] },
+  { value: String(RequisitionStatus.PendingWarehouseCheck),    label: REQUISITION_STATUS_LABELS[RequisitionStatus.PendingWarehouseCheck] },
+  { value: String(RequisitionStatus.WarehouseChecked),         label: REQUISITION_STATUS_LABELS[RequisitionStatus.WarehouseChecked] },
+  { value: String(RequisitionStatus.Split),                    label: REQUISITION_STATUS_LABELS[RequisitionStatus.Split] },
+  { value: String(RequisitionStatus.PendingApproval),          label: REQUISITION_STATUS_LABELS[RequisitionStatus.PendingApproval] },
+  { value: String(RequisitionStatus.ReadyForWarehouseRelease), label: REQUISITION_STATUS_LABELS[RequisitionStatus.ReadyForWarehouseRelease] },
+  { value: String(RequisitionStatus.ReadyForPurchase),         label: REQUISITION_STATUS_LABELS[RequisitionStatus.ReadyForPurchase] },
+  { value: String(RequisitionStatus.Rejected),                 label: REQUISITION_STATUS_LABELS[RequisitionStatus.Rejected] },
 ];
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
@@ -164,7 +166,12 @@ function RequisitionsContent() {
                           <circle cx="12" cy="12" r="3" />
                         </svg>
                       </button>
-                      {canDelete && r.status !== RequisitionStatus.Approved && r.status !== RequisitionStatus.SentToWarehouse && (
+                      {canDelete
+                        && r.status !== RequisitionStatus.Split
+                        && r.status !== RequisitionStatus.ReadyForWarehouseRelease
+                        && r.status !== RequisitionStatus.ReadyForPurchase
+                        && (r.children?.length ?? 0) === 0
+                        && (
                         <button
                           className="btn-icon btn-icon-danger"
                           title="O'chirish"

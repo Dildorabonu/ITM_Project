@@ -24,4 +24,7 @@ public enum PermissionAction
 
     [Display(Name = "Omborga yuborish", Description = "package")]
     SendToWarehouse = 7,
+
+    [Display(Name = "Ombor tekshiruvi", Description = "clipboard-check")]
+    WarehouseCheck = 8,
 }
