@@ -142,15 +142,7 @@ export default function RequisitionApprovalsPage() {
   return (
     <div className="page-transition">
       {/* ─── Header row ───────────────────────────────────────────────── */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <h1 className="font-head-itm" style={{ fontSize: 22, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.01em", margin: 0 }}>
-            Tasdiqlash
-          </h1>
-          <p style={{ fontSize: 13, color: "var(--text3)", margin: "4px 0 0 0" }}>
-            Tasdiq kutayotgan talabnomalar — eng eskisidan boshlab
-          </p>
-        </div>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "flex-start", marginBottom: 18, flexWrap: "wrap", gap: 12 }}>
         <button
           onClick={() => router.push("/requisitions")}
           style={{
