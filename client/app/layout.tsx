@@ -36,6 +36,7 @@ const navGroups: NavGroup[] = [
     items: [
       { name: "Mahsulotlar",      href: "/products",     icon: "shopping-bag", permission: "Products.View" },
       { name: "Talabnomalar",     href: "/requisitions", icon: "clipboard",    permission: ["Requisitions.View", "Requisitions.ViewAll"] },
+      { name: "Tasdiqlash",       href: "/requisitions/approvals", icon: "check-square", permission: "Requisitions.Approve" },
       { name: "Ombor tekshiruvi", href: "/warehouse",    icon: "package",      permission: "WarehouseCheck.View" },
     ],
   },
@@ -139,7 +140,7 @@ function applyAppearanceFont(family: string, scale: number) {
 }
 
 // Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
-const readyRoutes = new Set(["/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions"]);
+const readyRoutes = new Set(["/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions", "/requisitions/approvals"]);
 const readyPrefixes = ["/requisitions/", "/contracts/", "/techprocess/", "/technicaldrawings/", "/requisitions/print"];
 
 const pageTitles: Record<string, string> = {
@@ -155,8 +156,9 @@ const pageTitles: Record<string, string> = {
   "/departments":   "Tuzilma",
   "/products":      "Mahsulotlar",
   "/appearance":    "Tashqi ko'rinish",
-  "/requisitions":        "Talabnomalar",
-  "/requisitions/print":  "Talabnoma",
+  "/requisitions":           "Talabnomalar",
+  "/requisitions/approvals": "Talabnomalar — Tasdiqlash",
+  "/requisitions/print":     "Talabnoma",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
