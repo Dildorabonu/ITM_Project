@@ -1134,19 +1134,35 @@ export enum RequisitionType {
 }
 
 export enum RequisitionStatus {
-  Draft           = 0,
-  Pending         = 1,
-  Approved        = 2,
-  Rejected        = 3,
-  SentToWarehouse = 4,
+  Draft                    = 0,
+  Rejected                 = 3,
+  PendingWarehouseCheck    = 5,
+  WarehouseChecked         = 6,
+  Split                    = 7,
+  PendingApproval          = 8,
+  ReadyForWarehouseRelease = 9,
+  ReadyForPurchase         = 10,
+}
+
+export enum RequisitionSource {
+  Warehouse = 0,
+  Purchase  = 1,
 }
 
 export const REQUISITION_STATUS_LABELS: Record<RequisitionStatus, string> = {
-  [RequisitionStatus.Draft]:           "Qoralama",
-  [RequisitionStatus.Pending]:         "Kutilmoqda",
-  [RequisitionStatus.Approved]:        "Tasdiqlangan",
-  [RequisitionStatus.Rejected]:        "Rad etilgan",
-  [RequisitionStatus.SentToWarehouse]: "Omborga yuborilgan",
+  [RequisitionStatus.Draft]:                    "Qoralama",
+  [RequisitionStatus.Rejected]:                 "Rad etilgan",
+  [RequisitionStatus.PendingWarehouseCheck]:    "Ombor tekshiruvida",
+  [RequisitionStatus.WarehouseChecked]:         "Tekshiruv yakunlandi",
+  [RequisitionStatus.Split]:                    "Bo'lib yuborilgan",
+  [RequisitionStatus.PendingApproval]:          "Tasdiqlash kutilmoqda",
+  [RequisitionStatus.ReadyForWarehouseRelease]: "Ombordan olishga",
+  [RequisitionStatus.ReadyForPurchase]:         "Sotib olishga",
+};
+
+export const REQUISITION_SOURCE_LABELS: Record<RequisitionSource, string> = {
+  [RequisitionSource.Warehouse]: "Ombordan olinadigan",
+  [RequisitionSource.Purchase]:  "Sotib olinadigan",
 };
 
 export const REQUISITION_TYPE_LABELS: Record<RequisitionType, string> = {
@@ -1186,6 +1202,19 @@ export interface RequisitionItemResponse {
   freeTextPhoto?: string;
   quantity: number;
   notes?: string;
+  availableQuantity?: number;
+  warehouseNotes?: string;
+  originalQuantity?: number;
+}
+
+export interface RequisitionChildSummary {
+  id: string;
+  requisitionNo: string;
+  status: RequisitionStatus;
+  statusLabel: string;
+  source: RequisitionSource;
+  sourceLabel: string;
+  itemCount: number;
 }
 
 export interface RequisitionResponse {
@@ -1205,14 +1234,32 @@ export interface RequisitionResponse {
   signerName?: string;
   signerTitle?: string;
   signDate?: string;
+
+  parentRequisitionId?: string;
+  parentRequisitionNo?: string;
+  source?: RequisitionSource;
+  sourceLabel?: string;
+  children: RequisitionChildSummary[];
+
+  warehouseCheckedBy?: string;
+  warehouseCheckedByName?: string;
+  warehouseCheckedAt?: string;
+
   approvedBy?: string;
   approvedByName?: string;
   approvedAt?: string;
   qrCodeData?: string;
+
   createdBy: string;
   createdByName: string;
   createdAt: string;
   items: RequisitionItemResponse[];
+}
+
+export interface RequisitionWarehouseCheckItem {
+  itemId: string;
+  availableQuantity: number;
+  warehouseNotes?: string;
 }
 
 export const requisitionService = {
@@ -1257,8 +1304,13 @@ export const requisitionService = {
     await api.post(`/api/requisition/${id}/reject`, { rejectionReason });
   },
 
-  sendToWarehouse: async (id: string): Promise<void> => {
-    await api.post(`/api/requisition/${id}/send-to-warehouse`);
+  warehouseCheck: async (id: string, items: RequisitionWarehouseCheckItem[]): Promise<void> => {
+    await api.post(`/api/requisition/${id}/warehouse-check`, { items });
+  },
+
+  split: async (id: string): Promise<string[]> => {
+    const res = await api.post(`/api/requisition/${id}/split`);
+    return (res.data?.result ?? []) as string[];
   },
 
   delete: async (id: string): Promise<void> => {

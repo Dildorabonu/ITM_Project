@@ -11,7 +11,10 @@ public class RequisitionItemConfiguration : IEntityTypeConfiguration<Requisition
         builder.HasKey(i => i.Id);
 
         builder.Property(i => i.Quantity).HasPrecision(18, 4);
+        builder.Property(i => i.AvailableQuantity).HasPrecision(18, 4);
+        builder.Property(i => i.OriginalQuantity).HasPrecision(18, 4);
         builder.Property(i => i.Notes).HasMaxLength(500);
+        builder.Property(i => i.WarehouseNotes).HasMaxLength(500);
         builder.Property(i => i.FreeTextPhoto).HasColumnType("text");
 
         builder.HasOne(i => i.Requisition)

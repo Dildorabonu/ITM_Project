@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import {
   requisitionService,
   RequisitionStatus,
+  RequisitionSource,
   type RequisitionResponse,
   type AttachmentResponse,
 } from "@/lib/userService";
@@ -21,10 +23,16 @@ interface Props {
 }
 
 export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
+  const router = useRouter();
   const hasPermission = useAuthStore((s) => s.hasPermission);
+  const userId = useAuthStore((s) => s.user?.id);
   const showToast = useToastStore((s) => s.show);
 
-  const canSendToWarehouse = hasPermission("Requisitions.SendToWarehouse");
+  const canApprove = hasPermission("Requisitions.Approve");
+
+  const isCreator = userId === req.createdBy;
+  const canSplit = isCreator && req.status === RequisitionStatus.WarehouseChecked;
+  const canDoApproval = canApprove && req.status === RequisitionStatus.PendingApproval;
 
   const [acting, setActing] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
@@ -54,25 +62,38 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
     if (updated) onUpdate(updated);
   };
 
+  const handleApprove = async () => {
+    setActing(true);
+    try {
+      await requisitionService.approve(req.id);
+      showToast("Talabnoma tasdiqlandi", "success");
+      await refresh();
+    } catch {
+      showToast("Xatolik yuz berdi", "error");
+    } finally { setActing(false); }
+  };
+
   const handleRejectConfirm = async () => {
     if (!rejectReason.trim()) return;
     setRejectSaving(true);
     try {
       await requisitionService.reject(req.id, rejectReason.trim());
       showToast("Talabnoma rad etildi", "success");
-      onClose();
+      setRejectOpen(false);
+      setRejectSaving(false);
+      await refresh();
     } catch {
       showToast("Xatolik yuz berdi", "error");
       setRejectSaving(false);
     }
   };
 
-  const handleSendToWarehouse = async () => {
+  const handleSplit = async () => {
     setActing(true);
     try {
-      await requisitionService.sendToWarehouse(req.id);
-      showToast("Omborga yuborildi", "success");
-      await refresh();
+      const ids = await requisitionService.split(req.id);
+      showToast(`${ids.length} ta yangi talabnoma yaratildi`, "success");
+      onClose();
     } catch {
       showToast("Xatolik yuz berdi", "error");
     } finally { setActing(false); }
@@ -127,6 +148,10 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
     }
   };
 
+  const isChild = !!req.parentRequisitionId;
+  const showAvailability = req.status === RequisitionStatus.WarehouseChecked || req.status === RequisitionStatus.Split;
+  const isApproved = req.status === RequisitionStatus.ReadyForWarehouseRelease || req.status === RequisitionStatus.ReadyForPurchase;
+
   return createPortal(
     <>
       {/* Backdrop */}
@@ -137,7 +162,7 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
 
       {/* Drawer */}
       <div style={{
-        position: "fixed", top: 0, right: 0, bottom: 0, width: 700, maxWidth: "96vw",
+        position: "fixed", top: 0, right: 0, bottom: 0, width: 760, maxWidth: "96vw",
         background: "var(--bg2)", boxShadow: "var(--shadow2)",
         zIndex: 1001, display: "flex", flexDirection: "column", overflow: "hidden",
       }}>
@@ -145,7 +170,10 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
         <div style={{ padding: "20px 26px", borderBottom: "1.5px solid var(--border)", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 700, fontSize: 17, color: "var(--text)", fontFamily: "var(--font-mono)" }}>{req.requisitionNo}</div>
-            <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 3 }}>{req.typeLabel}</div>
+            <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 3 }}>
+              {req.typeLabel}
+              {req.sourceLabel && <span style={{ marginLeft: 8, color: req.source === RequisitionSource.Warehouse ? "var(--success)" : "var(--accent)", fontWeight: 500 }}>· {req.sourceLabel}</span>}
+            </div>
           </div>
           <RequisitionStatusBadge status={req.status} />
           <button
@@ -153,8 +181,6 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
             style={{ padding: 7, background: "none", border: "1.5px solid var(--danger)", cursor: "pointer", color: "var(--danger)", borderRadius: "var(--radius)", lineHeight: 1, transition: "background 0.15s, transform 0.15s" }}
             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--danger-dim)"; }}
             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
-            onMouseDown={e => { (e.currentTarget as HTMLButtonElement).style.transform = "scale(0.88)"; }}
-            onMouseUp={e => { (e.currentTarget as HTMLButtonElement).style.transform = "scale(1)"; }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -164,6 +190,61 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
 
         {/* Scrollable body */}
         <div style={{ flex: 1, overflowY: "auto", padding: "20px 26px", display: "flex", flexDirection: "column", gap: 16 }}>
+
+          {/* Parent / Children navigation */}
+          {(isChild || (req.children?.length ?? 0) > 0) && (
+            <Section label="Bog'liq talabnomalar">
+              {isChild && req.parentRequisitionNo && req.parentRequisitionId && (
+                <div style={{ marginBottom: req.children.length > 0 ? 10 : 0 }}>
+                  <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 6 }}>Asl talabnoma</div>
+                  <button
+                    onClick={() => { onClose(); router.push(`/requisitions/${req.parentRequisitionId}`); }}
+                    style={{
+                      width: "100%", padding: "10px 14px", border: "1.5px solid var(--border)",
+                      borderRadius: "var(--radius)", background: "var(--bg3)",
+                      display: "flex", alignItems: "center", gap: 10, cursor: "pointer", textAlign: "left",
+                      transition: "border-color 0.15s",
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--accent)"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border)"; }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2"><path d="M9 14l-4-4 4-4"/><path d="M5 10h11a4 4 0 0 1 4 4v2"/></svg>
+                    <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, color: "var(--text)" }}>{req.parentRequisitionNo}</span>
+                  </button>
+                </div>
+              )}
+              {(req.children?.length ?? 0) > 0 && (
+                <div>
+                  <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 6 }}>Bo'lingan talabnomalar</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {req.children.map(ch => (
+                      <button
+                        key={ch.id}
+                        onClick={() => { onClose(); router.push(`/requisitions/${ch.id}`); }}
+                        style={{
+                          padding: "10px 14px", border: "1.5px solid var(--border)",
+                          borderRadius: "var(--radius)", background: "var(--bg3)",
+                          display: "flex", alignItems: "center", gap: 12, cursor: "pointer", textAlign: "left",
+                          transition: "border-color 0.15s",
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--accent)"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border)"; }}
+                      >
+                        <span style={{
+                          fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 12,
+                          background: ch.source === RequisitionSource.Warehouse ? "var(--success-dim)" : "var(--accent-dim)",
+                          color: ch.source === RequisitionSource.Warehouse ? "var(--success)" : "var(--accent)",
+                        }}>{ch.sourceLabel}</span>
+                        <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, color: "var(--text)", flex: 1 }}>{ch.requisitionNo}</span>
+                        <span style={{ fontSize: 11, color: "var(--text3)" }}>{ch.itemCount} ta material</span>
+                        <RequisitionStatusBadge status={ch.status} small />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Section>
+          )}
 
           {/* Main info */}
           <Section label="Asosiy ma'lumotlar">
@@ -180,8 +261,76 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
             </div>
           </Section>
 
+          {/* Materials */}
+          <Section label={`Materiallar (${req.items.length})`}>
+            <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", overflow: "hidden" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: "var(--bg3)" }}>
+                    <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)" }}>#</th>
+                    <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)" }}>Nomi</th>
+                    <th style={{ padding: "8px 12px", textAlign: "center", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", width: 70 }}>O&apos;lchov</th>
+                    <th style={{ padding: "8px 12px", textAlign: "center", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", width: 90 }}>Miqdor</th>
+                    {showAvailability && <th style={{ padding: "8px 12px", textAlign: "center", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", width: 110 }}>Mavjud</th>}
+                    {isChild && <th style={{ padding: "8px 12px", textAlign: "center", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", width: 110 }}>Asl miqdor</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {req.items.map((item, i) => (
+                    <tr key={item.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                      <td style={{ padding: "8px 12px", color: "var(--text3)" }}>{i + 1}</td>
+                      <td style={{ padding: "8px 12px", color: "var(--text)", fontWeight: 500 }}>
+                        {item.materialName}
+                        {item.warehouseNotes && (
+                          <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2, fontStyle: "italic" }}>{item.warehouseNotes}</div>
+                        )}
+                      </td>
+                      <td style={{ padding: "8px 12px", color: "var(--text3)", textAlign: "center" }}>{item.unit || "—"}</td>
+                      <td style={{ padding: "8px 12px", fontWeight: 600, color: "var(--text)", textAlign: "center" }}>{item.quantity}</td>
+                      {showAvailability && (
+                        <td style={{ padding: "8px 12px", textAlign: "center" }}>
+                          {item.availableQuantity != null ? (
+                            <span style={{
+                              fontWeight: 600,
+                              color: item.availableQuantity >= item.quantity ? "var(--success)" :
+                                     item.availableQuantity > 0 ? "var(--warn)" : "var(--danger)",
+                            }}>
+                              {item.availableQuantity}
+                            </span>
+                          ) : "—"}
+                        </td>
+                      )}
+                      {isChild && (
+                        <td style={{ padding: "8px 12px", textAlign: "center", color: "var(--text3)" }}>
+                          {item.originalQuantity ?? "—"}
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {showAvailability && (
+              <div style={{ marginTop: 10, fontSize: 11, color: "var(--text3)", lineHeight: 1.5 }}>
+                <span style={{ color: "var(--success)", fontWeight: 600 }}>•</span> ko&apos;k = to&apos;liq mavjud,
+                <span style={{ color: "var(--warn)", fontWeight: 600, marginLeft: 6 }}>•</span> sariq = qisman bor,
+                <span style={{ color: "var(--danger)", fontWeight: 600, marginLeft: 6 }}>•</span> qizil = yo&apos;q
+              </div>
+            )}
+          </Section>
+
+          {/* Warehouse check info */}
+          {req.warehouseCheckedAt && (
+            <Section label="Ombor tekshiruvi">
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <InfoCard label="Tekshirgan" value={req.warehouseCheckedByName ?? "—"} />
+                <InfoCard label="Tekshirilgan vaqt" value={fmtDateTime(req.warehouseCheckedAt)} />
+              </div>
+            </Section>
+          )}
+
           {/* Approval info */}
-          {(req.status === RequisitionStatus.Approved || req.status === RequisitionStatus.SentToWarehouse) && (
+          {isApproved && (
             <Section label="Tasdiqlash">
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: req.qrCodeData ? 12 : 0 }}>
                 <InfoCard label="Tasdiqlagan" value={req.approvedByName ?? "—"} />
@@ -207,44 +356,25 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
 
           {/* Files */}
           {filesLoading ? (
-            <Section label="Fayllar">
-              <div style={{ color: "var(--text3)", fontSize: 13, padding: "10px 0" }}>Yuklanmoqda…</div>
-            </Section>
+            <Section label="Fayllar"><div style={{ color: "var(--text3)", fontSize: 13, padding: "10px 0" }}>Yuklanmoqda…</div></Section>
           ) : files.length === 0 ? (
-            <Section label="Fayllar">
-              <div style={{ color: "var(--text3)", fontSize: 13, padding: "10px 0" }}>Fayllar yo'q</div>
-            </Section>
+            <Section label="Fayllar"><div style={{ color: "var(--text3)", fontSize: 13, padding: "10px 0" }}>Fayllar yo&apos;q</div></Section>
           ) : (
             <>
               {files.filter(f => f.label === "tz").length > 0 && (
                 <Section label={`TZ — Texnik Topshiriq (${files.filter(f => f.label === "tz").length})`}>
                   <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                     {files.filter(f => f.label === "tz").map(file => (
-                      <FileRow
-                        key={file.id}
-                        file={file}
-                        previewing={previewingId === file.id}
-                        onDownload={() => handleFileDownload(file)}
-                        onPreview={() => handleFilePreview(file)}
-                        accentColor="var(--purple)"
-                      />
+                      <FileRow key={file.id} file={file} previewing={previewingId === file.id} onDownload={() => handleFileDownload(file)} onPreview={() => handleFilePreview(file)} accentColor="var(--purple)" />
                     ))}
                   </div>
                 </Section>
               )}
-
               {files.filter(f => f.label !== "tz").length > 0 && (
                 <Section label={`Ilovalar (${files.filter(f => f.label !== "tz").length})`}>
                   <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                     {files.filter(f => f.label !== "tz").map(file => (
-                      <FileRow
-                        key={file.id}
-                        file={file}
-                        previewing={previewingId === file.id}
-                        onDownload={() => handleFileDownload(file)}
-                        onPreview={() => handleFilePreview(file)}
-                        accentColor="var(--accent)"
-                      />
+                      <FileRow key={file.id} file={file} previewing={previewingId === file.id} onDownload={() => handleFileDownload(file)} onPreview={() => handleFilePreview(file)} accentColor="var(--accent)" />
                     ))}
                   </div>
                 </Section>
@@ -254,14 +384,42 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
 
           {/* Actions */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {(req.status === RequisitionStatus.Draft || req.status === RequisitionStatus.Pending) && canSendToWarehouse && (
+            {canSplit && (
               <button
                 disabled={acting}
-                onClick={handleSendToWarehouse}
-                style={{ padding: "11px 24px", borderRadius: "var(--radius)", background: "var(--accent-dim)", color: "var(--accent)", border: "1px solid rgba(26,110,235,0.25)", fontWeight: 600, fontSize: 13, cursor: acting ? "not-allowed" : "pointer", opacity: acting ? 0.7 : 1 }}
+                onClick={handleSplit}
+                style={{
+                  padding: "12px 24px", borderRadius: "var(--radius)",
+                  background: "var(--accent)", color: "#fff", border: "none",
+                  fontWeight: 600, fontSize: 13,
+                  cursor: acting ? "not-allowed" : "pointer", opacity: acting ? 0.7 : 1,
+                  display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
+                }}
               >
-                {acting ? "…" : "Omborga yuborish"}
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M6 3v12"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="6" r="3"/><path d="M18 9c0 6-6 6-6 12"/>
+                </svg>
+                {acting ? "Bo'linmoqda..." : "Bo'lib yuborish (Ombor / Sotib olish)"}
               </button>
+            )}
+
+            {canDoApproval && (
+              <div style={{ display: "flex", gap: 10 }}>
+                <button
+                  disabled={acting}
+                  onClick={handleApprove}
+                  style={{ flex: 1, padding: "11px", borderRadius: "var(--radius)", background: "var(--success)", color: "#fff", border: "none", fontWeight: 600, fontSize: 13, cursor: acting ? "not-allowed" : "pointer", opacity: acting ? 0.7 : 1 }}
+                >
+                  {acting ? "…" : "Tasdiqlash"}
+                </button>
+                <button
+                  disabled={acting}
+                  onClick={() => { setRejectOpen(true); setRejectReason(""); }}
+                  style={{ flex: 1, padding: "11px", borderRadius: "var(--radius)", background: "var(--danger-dim)", color: "var(--danger)", border: "1px solid rgba(217,48,37,0.3)", fontWeight: 600, fontSize: 13, cursor: acting ? "not-allowed" : "pointer", opacity: acting ? 0.7 : 1 }}
+                >
+                  Rad etish
+                </button>
+              </div>
             )}
           </div>
         </div>
