@@ -38,6 +38,7 @@ function RequisitionsContent() {
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const showToast = useToastStore((s) => s.show);
   const canDelete = hasPermission("Requisitions.Delete");
+  const canApprove = hasPermission("Requisitions.Approve");
 
   const [list, setList] = useState<RequisitionResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,6 +71,11 @@ function RequisitionsContent() {
       setDeleting(false);
     }
   };
+
+  const pendingApprovalCount = useMemo(
+    () => list.filter(r => r.status === RequisitionStatus.PendingApproval).length,
+    [list]
+  );
 
   const filtered = useMemo(() => {
     let res = list;
@@ -109,6 +115,39 @@ function RequisitionsContent() {
           placeholder="Holat bo'yicha"
           style={{ width: 200 }}
         />
+        {canApprove && (
+          <button
+            onClick={() => router.push("/requisitions/approvals")}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--warn)"; e.currentTarget.style.color = "var(--warn)"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = pendingApprovalCount > 0 ? "rgba(224,123,0,0.35)" : "var(--border)"; e.currentTarget.style.color = pendingApprovalCount > 0 ? "var(--warn)" : "var(--text2)"; }}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              padding: "8px 14px", fontSize: 13, fontWeight: 600,
+              borderRadius: "var(--radius)",
+              border: `1.5px solid ${pendingApprovalCount > 0 ? "rgba(224,123,0,0.35)" : "var(--border)"}`,
+              background: pendingApprovalCount > 0 ? "var(--warn-dim)" : "var(--bg3)",
+              color: pendingApprovalCount > 0 ? "var(--warn)" : "var(--text2)",
+              cursor: "pointer", transition: "border-color 0.15s, color 0.15s",
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <polyline points="9,11 12,14 22,4"/>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+            Tasdiqlash
+            {pendingApprovalCount > 0 && (
+              <span style={{
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                minWidth: 20, height: 20, padding: "0 6px",
+                background: "var(--warn)", color: "#fff",
+                fontSize: 11, fontWeight: 700, borderRadius: 10,
+                fontFamily: "var(--font-mono)",
+              }}>
+                {pendingApprovalCount}
+              </span>
+            )}
+          </button>
+        )}
         <button
           onClick={() => router.push("/requisitions/print")}
           onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; }}
