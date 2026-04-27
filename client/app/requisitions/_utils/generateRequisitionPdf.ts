@@ -55,13 +55,23 @@ function formatSignDate(req: RequisitionResponse): string {
   // Fallback: use createdAt → DD.MM.YYYY
   try {
     const dt = new Date(req.createdAt);
-    const dd = String(dt.getDate()).padStart(2, "0");
-    const mm = String(dt.getMonth() + 1).padStart(2, "0");
-    const yyyy = dt.getFullYear();
-    return `${dd}.${mm}.${yyyy}`;
+    return formatDateDdMmYyyy(dt);
   } catch {
     return "";
   }
+}
+
+function formatDateDdMmYyyy(dt: Date): string {
+  const dd = String(dt.getDate()).padStart(2, "0");
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const yyyy = dt.getFullYear();
+  return `${dd}.${mm}.${yyyy}`;
+}
+
+function formatIsoToDdMmYyyy(iso?: string | null): string {
+  if (!iso) return "";
+  try { return formatDateDdMmYyyy(new Date(iso)); }
+  catch { return ""; }
 }
 
 function buildIntroText(req: RequisitionResponse): string {
@@ -106,6 +116,27 @@ function formatQuantity(q: number | string): string {
 
 // ─── Document HTML ─────────────────────────────────────────────────────────────
 
+function buildSignatureBlock(opts: {
+  label: string;
+  name: string;
+  date: string;
+  qrBase64?: string | null;
+}): string {
+  const qrHtml = opts.qrBase64
+    ? `<img src="data:image/png;base64,${opts.qrBase64}" alt="QR" style="width:64px;height:64px;display:block;image-rendering:pixelated;" />`
+    : `<div style="width:64px;height:64px;border:1px dashed #bbb;"></div>`;
+
+  return `
+    <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px dashed #ccc;font-family:'Times New Roman',serif;">
+      ${qrHtml}
+      <div style="flex:1;font-size:12px;line-height:1.5;">
+        <div style="font-weight:700;text-transform:uppercase;font-size:11px;color:#333;letter-spacing:0.3px;">${escapeHtml(opts.label)}</div>
+        <div style="margin-top:2px;font-size:13px;color:#000;">${escapeHtml(opts.name || "—")}</div>
+        <div style="margin-top:2px;font-size:11px;color:#555;">${escapeHtml(opts.date)}</div>
+      </div>
+    </div>`;
+}
+
 function buildHtml(req: RequisitionResponse): string {
   const th = `padding:5px 6px;border:1px solid #a0720a;font-weight:700;font-size:11px;text-align:center;line-height:1.3;font-family:'Times New Roman',serif;color:#fff;`;
   const introHtml = buildIntroText(req);
@@ -113,6 +144,24 @@ function buildHtml(req: RequisitionResponse): string {
   const signDate = formatSignDate(req);
   const signerTitle = escapeHtml(req.signerTitle || "");
   const signerName = escapeHtml(req.signerName || "");
+
+  const warehouseBlock = req.warehouseCheckQrCodeData
+    ? buildSignatureBlock({
+        label: "Омборчи имзоси",
+        name: req.warehouseCheckedByName || "",
+        date: formatIsoToDdMmYyyy(req.warehouseCheckedAt),
+        qrBase64: req.warehouseCheckQrCodeData,
+      })
+    : "";
+
+  const approverBlock = req.qrCodeData
+    ? buildSignatureBlock({
+        label: "Тасдиқлаган (Бош директор)",
+        name: req.approvedByName || "",
+        date: formatIsoToDdMmYyyy(req.approvedAt),
+        qrBase64: req.qrCodeData,
+      })
+    : "";
 
   return `
     <div style="background:#fff;color:#000;font-family:'Times New Roman',serif;font-size:13px;padding:28px 36px;width:794px;box-sizing:border-box;">
@@ -170,6 +219,7 @@ function buildHtml(req: RequisitionResponse): string {
         </span>
         <span style="font-size:12px;white-space:nowrap;">йил</span>
       </div>
+      ${warehouseBlock || approverBlock ? `<div style="margin-top:18px;">${warehouseBlock}${approverBlock}</div>` : ""}
     </div>
   `;
 }

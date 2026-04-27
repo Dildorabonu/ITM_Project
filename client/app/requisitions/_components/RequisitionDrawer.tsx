@@ -15,6 +15,7 @@ import { useToastStore } from "@/lib/store/toastStore";
 import { fmtDateTime } from "../_types";
 import { RequisitionStatusBadge } from "./StatusBadge";
 import { splitWithPdfs } from "../_utils/splitWithPdfs";
+import { approveWithPdf } from "../_utils/approveWithPdf";
 
 interface Props {
   req: RequisitionResponse;
@@ -66,8 +67,11 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
   const handleApprove = async () => {
     setActing(true);
     try {
-      await requisitionService.approve(req.id);
-      showToast("Talabnoma tasdiqlandi", "success");
+      const { pdfUploaded } = await approveWithPdf(req.id);
+      showToast(
+        pdfUploaded ? "Talabnoma tasdiqlandi" : "Talabnoma tasdiqlandi (PDF yaratilmadi)",
+        pdfUploaded ? "success" : "Ogohlantirish",
+      );
       await refresh();
     } catch {
       showToast("Xatolik yuz berdi", "error");
@@ -264,17 +268,22 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
               {req.notes && <InfoCard label="Izoh" value={req.notes} full />}
               {req.signerTitle && <InfoCard label="Lavozim" value={req.signerTitle} />}
               {req.signerName && <InfoCard label="F.I.O." value={req.signerName} />}
-              {req.signDate && <InfoCard label="Imzo sanasi" value={req.signDate} />}
             </div>
           </Section>
 
           {/* Warehouse check info */}
           {req.warehouseCheckedAt && (
             <Section label="Ombor tekshiruvi">
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: req.warehouseCheckQrCodeData ? 12 : 0 }}>
                 <InfoCard label="Tekshirgan" value={req.warehouseCheckedByName ?? "—"} />
                 <InfoCard label="Tekshirilgan vaqt" value={fmtDateTime(req.warehouseCheckedAt)} />
               </div>
+              {req.warehouseCheckQrCodeData && (
+                <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius2)", padding: 16, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, background: "var(--bg3)" }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text2)" }}>Omborchi imzo QR kodi</div>
+                  <img src={`data:image/png;base64,${req.warehouseCheckQrCodeData}`} alt="Omborchi QR kodi" style={{ width: 140, height: 140, imageRendering: "pixelated" }} />
+                </div>
+              )}
             </Section>
           )}
 

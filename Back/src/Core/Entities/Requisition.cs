@@ -31,11 +31,12 @@ public class Requisition
     // ── Ombor tekshiruvi ───────────────────────────────────────────────
     public Guid? WarehouseCheckedBy { get; set; }
     public DateTime? WarehouseCheckedAt { get; set; }
+    public string? WarehouseCheckQrCodeData { get; set; }  // Base64 PNG — omborchi imzosi
 
     // ── Direktor tasdiqlash ────────────────────────────────────────────
     public Guid? ApprovedBy { get; set; }
     public DateTime? ApprovedAt { get; set; }
-    public string? QrCodeData { get; set; }  // Base64 PNG — chop etishda ishlatiladi
+    public string? QrCodeData { get; set; }  // Base64 PNG — direktor imzosi
 
     public Guid CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
