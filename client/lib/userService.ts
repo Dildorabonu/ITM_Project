@@ -1244,6 +1244,7 @@ export interface RequisitionResponse {
   warehouseCheckedBy?: string;
   warehouseCheckedByName?: string;
   warehouseCheckedAt?: string;
+  warehouseCheckQrCodeData?: string;
 
   approvedBy?: string;
   approvedByName?: string;

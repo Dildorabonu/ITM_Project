@@ -223,7 +223,6 @@ export default function RequisitionDetailPage() {
             {req.notes && <InfoCard label="Izoh" value={req.notes} full />}
             {req.signerTitle && <InfoCard label="Lavozim" value={req.signerTitle} />}
             {req.signerName && <InfoCard label="F.I.O." value={req.signerName} />}
-            {req.signDate && <InfoCard label="Imzo sanasi" value={req.signDate} />}
           </div>
         </div>
 
@@ -285,10 +284,19 @@ export default function RequisitionDetailPage() {
         {req.warehouseCheckedAt && (
           <div className="itm-card" style={{ padding: 22 }}>
             <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 14 }}>Ombor tekshiruvi</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: req.warehouseCheckQrCodeData ? 16 : 0 }}>
               <InfoCard label="Tekshirgan" value={req.warehouseCheckedByName ?? "—"} />
               <InfoCard label="Tekshirilgan vaqt" value={fmtDateTime(req.warehouseCheckedAt)} />
             </div>
+            {req.warehouseCheckQrCodeData && (
+              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius2)", padding: 20, display: "flex", flexDirection: "column", alignItems: "center", gap: 10, background: "var(--bg3)" }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text2)" }}>Omborchi imzo QR kodi</div>
+                <img src={`data:image/png;base64,${req.warehouseCheckQrCodeData}`} alt="Omborchi QR kodi" style={{ width: 180, height: 180, imageRendering: "pixelated" }} />
+                <div style={{ fontSize: 11, color: "var(--text3)", textAlign: "center" }}>
+                  Skanerlash orqali ombor tekshiruvini tekshirish mumkin
+                </div>
+              </div>
+            )}
           </div>
         )}
 
