@@ -9,8 +9,9 @@ export function RequisitionStatusBadge({ status, small }: Props) {
   const s = STATUS_STYLE[status] ?? { bg: "var(--bg3)", color: "var(--text2)", border: "var(--border)" };
   return (
     <span style={{
-      display: "inline-flex", alignItems: "center",
+      display: "inline-flex", alignItems: "center", justifyContent: "center",
       padding: small ? "2px 8px" : "3px 10px",
+      minWidth: small ? 150 : 160,
       borderRadius: 20, fontSize: small ? 11 : 12, fontWeight: 600,
       background: s.bg, color: s.color, border: `1px solid ${s.border}`,
       whiteSpace: "nowrap",
