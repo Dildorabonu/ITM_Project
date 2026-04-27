@@ -326,8 +326,19 @@ export default function WarehousePage() {
         availableQuantity: it.available,
         warehouseNotes: it.notes.trim() || undefined,
       }));
-      await requisitionService.warehouseCheck(selectedReq.id, payload);
-      showToast("Tekshiruv yakunlandi", "success");
+      const childIds = await requisitionService.warehouseCheck(selectedReq.id, payload);
+
+      // Har bir bola talabnoma uchun PDF yaratib biriktiramiz
+      const pdfFailures = await attachChildPdfs(childIds);
+
+      if (pdfFailures > 0) {
+        showToast(
+          `Tekshiruv yakunlandi, ${pdfFailures} ta PDF yaratilmadi`,
+          "Ogohlantirish",
+        );
+      } else {
+        showToast("Tekshiruv yakunlandi va talabnomalar tasdiqlashga jo'natildi", "success");
+      }
       setSelectedReqId(null);
       window.history.back();
       await load();
@@ -336,6 +347,28 @@ export default function WarehousePage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const attachChildPdfs = async (childIds: string[]): Promise<number> => {
+    if (childIds.length === 0) return 0;
+    const { generateRequisitionPdfBlob, buildPdfFileName } =
+      await import("../requisitions/_utils/generateRequisitionPdf");
+
+    // Sequential — bir vaqtda ikki render bir-biriga xalal bermasligi uchun
+    let failures = 0;
+    for (const childId of childIds) {
+      try {
+        const child = await requisitionService.getById(childId);
+        if (!child) { failures++; continue; }
+        const blob = await generateRequisitionPdfBlob(child);
+        if (!blob) { failures++; continue; }
+        const file = new File([blob], buildPdfFileName(child), { type: "application/pdf" });
+        await requisitionService.uploadFile(childId, file, "pdf");
+      } catch {
+        failures++;
+      }
+    }
+    return failures;
   };
 
   // ── Browser back ─────────────────────────────────────────────────────────

@@ -111,17 +111,17 @@ public class RequisitionService : IRequisitionService
         return ApiResult<Guid>.Success(requisition.Id);
     }
 
-    public async Task<ApiResult<bool>> WarehouseCheckAsync(Guid id, RequisitionWarehouseCheckDto dto, Guid checkerId)
+    public async Task<ApiResult<List<Guid>>> WarehouseCheckAsync(Guid id, RequisitionWarehouseCheckDto dto, Guid checkerId)
     {
         var r = await _context.Requisitions
             .Include(x => x.Items)
             .FirstOrDefaultAsync(x => x.Id == id);
 
         if (r is null)
-            return ApiResult<bool>.Failure([$"Requisition '{id}' topilmadi."], 404);
+            return ApiResult<List<Guid>>.Failure([$"Requisition '{id}' topilmadi."], 404);
 
         if (r.Status != RequisitionStatus.PendingWarehouseCheck)
-            return ApiResult<bool>.Failure(["Faqat ombor tekshiruvini kutayotgan talabnomani tekshirish mumkin."]);
+            return ApiResult<List<Guid>>.Failure(["Faqat ombor tekshiruvini kutayotgan talabnomani tekshirish mumkin."]);
 
         // Har bir item ga AvailableQuantity yozish
         var checkMap = dto.Items.ToDictionary(i => i.ItemId);
@@ -129,31 +129,42 @@ public class RequisitionService : IRequisitionService
         foreach (var item in r.Items)
         {
             if (!checkMap.TryGetValue(item.Id, out var check))
-                return ApiResult<bool>.Failure([$"Item '{item.Id}' uchun tekshiruv natijasi yuborilmagan."]);
+                return ApiResult<List<Guid>>.Failure([$"Item '{item.Id}' uchun tekshiruv natijasi yuborilmagan."]);
 
             if (check.AvailableQuantity < 0)
-                return ApiResult<bool>.Failure(["Mavjud miqdor manfiy bo'lishi mumkin emas."]);
+                return ApiResult<List<Guid>>.Failure(["Mavjud miqdor manfiy bo'lishi mumkin emas."]);
 
             if (check.AvailableQuantity > item.Quantity)
-                return ApiResult<bool>.Failure([$"Mavjud miqdor so'ralgan miqdordan ({item.Quantity}) ko'p bo'lishi mumkin emas."]);
+                return ApiResult<List<Guid>>.Failure([$"Mavjud miqdor so'ralgan miqdordan ({item.Quantity}) ko'p bo'lishi mumkin emas."]);
 
             item.AvailableQuantity = check.AvailableQuantity;
             item.WarehouseNotes = check.WarehouseNotes;
         }
 
-        r.Status = RequisitionStatus.WarehouseChecked;
         r.WarehouseCheckedBy = checkerId;
         r.WarehouseCheckedAt = DateTime.UtcNow;
+
+        // Avto-bo'linish: omborchi tekshiruvi tugagach darrov 2 ta child yaratiladi
+        var children = BuildChildren(r);
+
+        if (children.Count == 0)
+            return ApiResult<List<Guid>>.Failure(["Talabnomada bo'lish uchun item topilmadi."]);
+
+        foreach (var c in children) _context.Requisitions.Add(c);
+        r.Status = RequisitionStatus.Split;
 
         await _context.SaveChangesAsync();
 
         // Yaratuvchiga xabar
         await _notificationService.CreateAsync(r.CreatedBy,
             $"Ombor tekshiruvi yakunlandi: {r.RequisitionNo}",
-            "Talabnomangiz ombor tekshiruvidan o'tdi. Bo'lib yuborishingiz mumkin.",
+            $"Talabnomangiz tekshirildi va {children.Count} ta yo'nalishga bo'lindi.",
             NotificationType.Info);
 
-        return ApiResult<bool>.Success(true);
+        // Direktorlarga bildirishnoma
+        await NotifyDirectorsAsync(r.RequisitionNo, children.Count);
+
+        return ApiResult<List<Guid>>.Success(children.Select(c => c.Id).ToList());
     }
 
     public async Task<ApiResult<List<Guid>>> SplitAsync(Guid id, Guid currentUserId)
@@ -171,7 +182,23 @@ public class RequisitionService : IRequisitionService
         if (parent.CreatedBy != currentUserId)
             return ApiResult<List<Guid>>.Failure(["Faqat talabnoma yaratuvchisi uni bo'lib yuborishi mumkin."], 403);
 
-        // Itemlarni ikkiga bo'lish
+        var children = BuildChildren(parent);
+
+        if (children.Count == 0)
+            return ApiResult<List<Guid>>.Failure(["Bo'lish uchun item topilmadi."]);
+
+        foreach (var c in children) _context.Requisitions.Add(c);
+        parent.Status = RequisitionStatus.Split;
+
+        await _context.SaveChangesAsync();
+
+        await NotifyDirectorsAsync(parent.RequisitionNo, children.Count);
+
+        return ApiResult<List<Guid>>.Success(children.Select(c => c.Id).ToList());
+    }
+
+    private static List<Requisition> BuildChildren(Requisition parent)
+    {
         var warehouseItems = new List<RequisitionItem>();
         var purchaseItems = new List<RequisitionItem>();
 
@@ -213,14 +240,11 @@ public class RequisitionService : IRequisitionService
             }
         }
 
-        if (warehouseItems.Count == 0 && purchaseItems.Count == 0)
-            return ApiResult<List<Guid>>.Failure(["Bo'lish uchun item topilmadi."]);
-
-        var createdIds = new List<Guid>();
+        var children = new List<Requisition>();
 
         if (warehouseItems.Count > 0)
         {
-            var child = new Requisition
+            children.Add(new Requisition
             {
                 Id = Guid.NewGuid(),
                 RequisitionNo = $"{parent.RequisitionNo}-W",
@@ -235,16 +259,14 @@ public class RequisitionService : IRequisitionService
                 SignDate = parent.SignDate,
                 ParentRequisitionId = parent.Id,
                 Source = RequisitionSource.Warehouse,
-                CreatedBy = currentUserId,
+                CreatedBy = parent.CreatedBy,
                 Items = warehouseItems
-            };
-            _context.Requisitions.Add(child);
-            createdIds.Add(child.Id);
+            });
         }
 
         if (purchaseItems.Count > 0)
         {
-            var child = new Requisition
+            children.Add(new Requisition
             {
                 Id = Guid.NewGuid(),
                 RequisitionNo = $"{parent.RequisitionNo}-P",
@@ -259,21 +281,12 @@ public class RequisitionService : IRequisitionService
                 SignDate = parent.SignDate,
                 ParentRequisitionId = parent.Id,
                 Source = RequisitionSource.Purchase,
-                CreatedBy = currentUserId,
+                CreatedBy = parent.CreatedBy,
                 Items = purchaseItems
-            };
-            _context.Requisitions.Add(child);
-            createdIds.Add(child.Id);
+            });
         }
 
-        parent.Status = RequisitionStatus.Split;
-
-        await _context.SaveChangesAsync();
-
-        // Direktorlarga bildirishnoma
-        await NotifyDirectorsAsync(parent.RequisitionNo, createdIds.Count);
-
-        return ApiResult<List<Guid>>.Success(createdIds);
+        return children;
     }
 
     public async Task<ApiResult<bool>> ApproveAsync(Guid id, Guid directorId)
