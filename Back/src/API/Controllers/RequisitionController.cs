@@ -57,7 +57,7 @@ public class RequisitionController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Omborchi tekshiruvini yakunlaydi: PendingWarehouseCheck → WarehouseChecked</summary>
+    /// <summary>Omborchi tekshiruvini yakunlaydi va avto-bo'linish: PendingWarehouseCheck → Split. Yaratilgan child IDlarni qaytaradi.</summary>
     [HasPermission("Requisitions.WarehouseCheck")]
     [HttpPost("{id:guid}/warehouse-check")]
     public async Task<IActionResult> WarehouseCheck(Guid id, [FromBody] RequisitionWarehouseCheckDto dto)
@@ -70,7 +70,7 @@ public class RequisitionController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Yaratuvchi parent ni 2 ta childga bo'ladi: WarehouseChecked → Split</summary>
+    /// <summary>Legacy: yaratuvchi WarehouseChecked statusdagi parent ni 2 ta childga bo'ladi.</summary>
     [HasPermission("Requisitions.Create")]
     [HttpPost("{id:guid}/split")]
     public async Task<IActionResult> Split(Guid id)
@@ -131,11 +131,15 @@ public class RequisitionController : ControllerBase
         return Ok(result);
     }
 
-    [HasPermission("Requisitions.Create")]
+    [Authorize]
     [HttpPost("{id:guid}/files")]
     [RequestSizeLimit(50 * 1024 * 1024)] // 50 MB
     public async Task<IActionResult> UploadFile(Guid id, IFormFile file, [FromQuery] string? label = null)
     {
+        if (!User.HasClaim("perm", "Requisitions.Create") &&
+            !User.HasClaim("perm", "Requisitions.WarehouseCheck"))
+            return Forbid();
+
         if (file is null || file.Length == 0)
             return BadRequest("Fayl tanlanmagan.");
 
