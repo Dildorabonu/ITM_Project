@@ -39,12 +39,13 @@ public class RequisitionResponseDto
     public Guid? WarehouseCheckedBy { get; set; }
     public string? WarehouseCheckedByName { get; set; }
     public DateTime? WarehouseCheckedAt { get; set; }
+    public string? WarehouseCheckQrCodeData { get; set; }  // Base64 PNG — omborchi imzosi
 
     // Tasdiqlash
     public Guid? ApprovedBy { get; set; }
     public string? ApprovedByName { get; set; }
     public DateTime? ApprovedAt { get; set; }
-    public string? QrCodeData { get; set; }  // Base64 PNG
+    public string? QrCodeData { get; set; }  // Base64 PNG — direktor imzosi
 
     // Yaratuvchi
     public Guid CreatedBy { get; set; }
