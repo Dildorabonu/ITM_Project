@@ -17,11 +17,10 @@ import { ConfirmModal } from "@/app/_components/ConfirmModal";
 
 // ─── Source filter ─────────────────────────────────────────────────────────────
 
-type SourceFilter = "all" | "warehouse" | "purchase" | "main";
+type SourceFilter = "all" | "warehouse" | "purchase";
 
 const SOURCE_TABS: { id: SourceFilter; label: string }[] = [
   { id: "all",       label: "Barchasi" },
-  { id: "main",      label: "Asosiy"    },
   { id: "warehouse", label: "Ombordan"  },
   { id: "purchase",  label: "Sotib olish" },
 ];
@@ -60,7 +59,6 @@ export default function RequisitionApprovalsPage() {
     const pending = list.length;
     const warehouse = list.filter(r => r.source === RequisitionSource.Warehouse).length;
     const purchase  = list.filter(r => r.source === RequisitionSource.Purchase).length;
-    const main      = list.filter(r => r.source == null).length;
 
     const oldestDate = list.length > 0
       ? list.reduce((min, r) => {
@@ -72,7 +70,7 @@ export default function RequisitionApprovalsPage() {
       ? Math.max(0, Math.floor((Date.now() - oldestDate) / (1000 * 60 * 60 * 24)))
       : null;
 
-    return { pending, warehouse, purchase, main, oldestDays };
+    return { pending, warehouse, purchase, oldestDays };
   }, [list]);
 
   // ─── Filtering ───────────────────────────────────────────────────────────────
@@ -80,7 +78,6 @@ export default function RequisitionApprovalsPage() {
     let res = list;
     if (sourceFilter === "warehouse") res = res.filter(r => r.source === RequisitionSource.Warehouse);
     else if (sourceFilter === "purchase") res = res.filter(r => r.source === RequisitionSource.Purchase);
-    else if (sourceFilter === "main") res = res.filter(r => r.source == null);
 
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -163,7 +160,7 @@ export default function RequisitionApprovalsPage() {
       </div>
 
       {/* ─── Stats row ───────────────────────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 18 }}>
         <StatCard
           delay={0}
           label="Tasdiq kutmoqda"
@@ -174,14 +171,6 @@ export default function RequisitionApprovalsPage() {
         />
         <StatCard
           delay={1}
-          label="Asosiy"
-          value={stats.main}
-          icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>}
-          accent="var(--accent)"
-          accentBg="var(--accent-dim)"
-        />
-        <StatCard
-          delay={2}
           label="Ombordan"
           value={stats.warehouse}
           icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27,6.96 12,12.01 20.73,6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>}
@@ -189,7 +178,7 @@ export default function RequisitionApprovalsPage() {
           accentBg="var(--success-dim)"
         />
         <StatCard
-          delay={3}
+          delay={2}
           label="Sotib olishga"
           value={stats.purchase}
           icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>}
