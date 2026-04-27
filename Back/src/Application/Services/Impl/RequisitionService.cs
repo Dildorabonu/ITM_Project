@@ -123,6 +123,10 @@ public class RequisitionService : IRequisitionService
         if (r.Status != RequisitionStatus.PendingWarehouseCheck)
             return ApiResult<List<Guid>>.Failure(["Faqat ombor tekshiruvini kutayotgan talabnomani tekshirish mumkin."]);
 
+        var checker = await _context.Users.FindAsync(checkerId);
+        if (checker is null)
+            return ApiResult<List<Guid>>.Failure(["Omborchi topilmadi."], 404);
+
         // Har bir item ga AvailableQuantity yozish
         var checkMap = dto.Items.ToDictionary(i => i.ItemId);
 
@@ -143,6 +147,7 @@ public class RequisitionService : IRequisitionService
 
         r.WarehouseCheckedBy = checkerId;
         r.WarehouseCheckedAt = DateTime.UtcNow;
+        r.WarehouseCheckQrCodeData = GenerateWarehouseQrCode(r, checker);
 
         // Avto-bo'linish: omborchi tekshiruvi tugagach darrov 2 ta child yaratiladi
         var children = BuildChildren(r);
@@ -260,6 +265,9 @@ public class RequisitionService : IRequisitionService
                 ParentRequisitionId = parent.Id,
                 Source = RequisitionSource.Warehouse,
                 CreatedBy = parent.CreatedBy,
+                WarehouseCheckedBy = parent.WarehouseCheckedBy,
+                WarehouseCheckedAt = parent.WarehouseCheckedAt,
+                WarehouseCheckQrCodeData = parent.WarehouseCheckQrCodeData,
                 Items = warehouseItems
             });
         }
@@ -282,6 +290,9 @@ public class RequisitionService : IRequisitionService
                 ParentRequisitionId = parent.Id,
                 Source = RequisitionSource.Purchase,
                 CreatedBy = parent.CreatedBy,
+                WarehouseCheckedBy = parent.WarehouseCheckedBy,
+                WarehouseCheckedAt = parent.WarehouseCheckedAt,
+                WarehouseCheckQrCodeData = parent.WarehouseCheckQrCodeData,
                 Items = purchaseItems
             });
         }
@@ -450,11 +461,35 @@ public class RequisitionService : IRequisitionService
             hash
         });
 
+        return RenderQr(payload);
+    }
+
+    private static string GenerateWarehouseQrCode(Requisition r, User checker)
+    {
+        var checkerFullName = $"{checker.FirstName} {checker.LastName}";
+        var checkedAt = r.WarehouseCheckedAt?.ToString("yyyy-MM-ddTHH:mm:ss") ?? string.Empty;
+
+        var raw = $"WH|{r.Id}|{r.RequisitionNo}|{checker.Id}|{checkedAt}";
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(raw)))[..16];
+
+        var payload = JsonSerializer.Serialize(new
+        {
+            id = r.Id,
+            no = r.RequisitionNo,
+            checkedBy = checkerFullName,
+            checkedAt,
+            hash
+        });
+
+        return RenderQr(payload);
+    }
+
+    private static string RenderQr(string payload)
+    {
         using var qrGenerator = new QRCodeGenerator();
         using var qrData = qrGenerator.CreateQrCode(payload, QRCodeGenerator.ECCLevel.Q);
         using var qrCode = new PngByteQRCode(qrData);
         var pngBytes = qrCode.GetGraphic(6);
-
         return Convert.ToBase64String(pngBytes);
     }
 
@@ -518,6 +553,7 @@ public class RequisitionService : IRequisitionService
         WarehouseCheckedBy = r.WarehouseCheckedBy,
         WarehouseCheckedByName = r.WarehouseChecker is null ? null : $"{r.WarehouseChecker.FirstName} {r.WarehouseChecker.LastName}",
         WarehouseCheckedAt = r.WarehouseCheckedAt,
+        WarehouseCheckQrCodeData = r.WarehouseCheckQrCodeData,
         ApprovedBy = r.ApprovedBy,
         ApprovedByName = r.Approver is null ? null : $"{r.Approver.FirstName} {r.Approver.LastName}",
         ApprovedAt = r.ApprovedAt,

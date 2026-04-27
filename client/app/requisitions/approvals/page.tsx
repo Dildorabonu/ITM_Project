@@ -14,6 +14,7 @@ import { RequisitionDrawer } from "../_components/RequisitionDrawer";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useToastStore } from "@/lib/store/toastStore";
 import { ConfirmModal } from "@/app/_components/ConfirmModal";
+import { approveWithPdf } from "../_utils/approveWithPdf";
 
 // ─── Source filter ─────────────────────────────────────────────────────────────
 
@@ -98,8 +99,11 @@ export default function RequisitionApprovalsPage() {
     if (!approveId) return;
     setActing(true);
     try {
-      await requisitionService.approve(approveId);
-      showToast("Talabnoma tasdiqlandi", "success");
+      const { pdfUploaded } = await approveWithPdf(approveId);
+      showToast(
+        pdfUploaded ? "Talabnoma tasdiqlandi" : "Talabnoma tasdiqlandi (PDF yaratilmadi)",
+        pdfUploaded ? "success" : "Ogohlantirish",
+      );
       setApproveId(null);
       setDrawerReq(null);
       await load();

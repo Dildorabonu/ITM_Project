@@ -601,6 +601,9 @@ namespace DataAccess.Migrations
                     b.Property<int>("Type")
                         .HasColumnType("integer");
 
+                    b.Property<string>("WarehouseCheckQrCodeData")
+                        .HasColumnType("text");
+
                     b.Property<DateTime?>("WarehouseCheckedAt")
                         .HasColumnType("timestamp with time zone");
 
