@@ -28,6 +28,18 @@ public class RequisitionResponseDto
     public string? SignerTitle { get; set; }
     public string? SignDate { get; set; }
 
+    // Parent / Child
+    public Guid? ParentRequisitionId { get; set; }
+    public string? ParentRequisitionNo { get; set; }
+    public RequisitionSource? Source { get; set; }
+    public string? SourceLabel { get; set; }
+    public List<RequisitionChildSummaryDto> Children { get; set; } = [];
+
+    // Ombor tekshiruvi
+    public Guid? WarehouseCheckedBy { get; set; }
+    public string? WarehouseCheckedByName { get; set; }
+    public DateTime? WarehouseCheckedAt { get; set; }
+
     // Tasdiqlash
     public Guid? ApprovedBy { get; set; }
     public string? ApprovedByName { get; set; }
@@ -40,4 +52,15 @@ public class RequisitionResponseDto
     public DateTime CreatedAt { get; set; }
 
     public List<RequisitionItemResponseDto> Items { get; set; } = [];
+}
+
+public class RequisitionChildSummaryDto
+{
+    public Guid Id { get; set; }
+    public string RequisitionNo { get; set; } = string.Empty;
+    public RequisitionStatus Status { get; set; }
+    public string StatusLabel { get; set; } = string.Empty;
+    public RequisitionSource Source { get; set; }
+    public string SourceLabel { get; set; } = string.Empty;
+    public int ItemCount { get; set; }
 }

@@ -26,6 +26,11 @@ public class RequisitionConfiguration : IEntityTypeConfiguration<Requisition>
             .HasForeignKey(r => r.ApprovedBy)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(r => r.WarehouseChecker)
+            .WithMany(u => u.WarehouseCheckedRequisitions)
+            .HasForeignKey(r => r.WarehouseCheckedBy)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasOne(r => r.Contract)
             .WithMany()
             .HasForeignKey(r => r.ContractId)
@@ -34,6 +39,11 @@ public class RequisitionConfiguration : IEntityTypeConfiguration<Requisition>
         builder.HasOne(r => r.Department)
             .WithMany()
             .HasForeignKey(r => r.DepartmentId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(r => r.Parent)
+            .WithMany(r => r.Children)
+            .HasForeignKey(r => r.ParentRequisitionId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

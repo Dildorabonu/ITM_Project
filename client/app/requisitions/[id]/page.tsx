@@ -8,7 +8,7 @@ import { useToastStore } from "@/lib/store/toastStore";
 import {
   requisitionService,
   RequisitionStatus,
-  RequisitionType,
+  RequisitionSource,
   type AttachmentResponse,
 } from "@/lib/userService";
 import { RequisitionStatusBadge } from "../_components/StatusBadge";
@@ -18,10 +18,10 @@ export default function RequisitionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const hasPermission = useAuthStore((s) => s.hasPermission);
+  const userId = useAuthStore((s) => s.user?.id);
   const showToast = useToastStore((s) => s.show);
 
   const canApprove = hasPermission("Requisitions.Approve");
-  const canSendToWarehouse = hasPermission("Requisitions.SendToWarehouse");
 
   const [req, setReq] = useState<RequisitionResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,6 +36,7 @@ export default function RequisitionDetailPage() {
   const [previewingId, setPreviewingId] = useState<string | null>(null);
 
   useEffect(() => {
+    setLoading(true);
     requisitionService.getById(id).then(data => {
       setReq(data ?? null);
       setLoading(false);
@@ -46,6 +47,11 @@ export default function RequisitionDetailPage() {
       .catch(() => {})
       .finally(() => setFilesLoading(false));
   }, [id]);
+
+  const refresh = async () => {
+    const updated = await requisitionService.getById(id);
+    if (updated) setReq(updated);
+  };
 
   const handleFileDownload = async (file: AttachmentResponse) => {
     try {
@@ -74,15 +80,13 @@ export default function RequisitionDetailPage() {
     }
   };
 
-
   const handleApprove = async () => {
     if (!req) return;
     setActing(true);
     try {
       await requisitionService.approve(req.id);
       showToast("Talabnoma tasdiqlandi", "success");
-      const updated = await requisitionService.getById(req.id);
-      if (updated) setReq(updated);
+      await refresh();
     } catch {
       showToast("Xatolik yuz berdi", "error");
     } finally { setActing(false); }
@@ -94,21 +98,22 @@ export default function RequisitionDetailPage() {
     try {
       await requisitionService.reject(req.id, rejectReason.trim());
       showToast("Talabnoma rad etildi", "success");
-      router.push("/requisitions");
+      setRejectOpen(false);
+      setRejectSaving(false);
+      await refresh();
     } catch {
       showToast("Xatolik yuz berdi", "error");
       setRejectSaving(false);
     }
   };
 
-
-  const handleSendToWarehouse = async () => {
+  const handleSplit = async () => {
     if (!req) return;
     setActing(true);
     try {
-      await requisitionService.sendToWarehouse(req.id);
-      showToast("Omborga yuborildi", "success");
-      setReq(prev => prev ? { ...prev, status: RequisitionStatus.SentToWarehouse } : prev);
+      const ids = await requisitionService.split(req.id);
+      showToast(`${ids.length} ta yangi talabnoma yaratildi`, "success");
+      await refresh();
     } catch {
       showToast("Xatolik yuz berdi", "error");
     } finally { setActing(false); }
@@ -121,6 +126,13 @@ export default function RequisitionDetailPage() {
   if (!req) {
     return <div style={{ textAlign: "center", padding: 80, color: "var(--text3)" }}>Talabnoma topilmadi</div>;
   }
+
+  const isCreator = userId === req.createdBy;
+  const canSplit = isCreator && req.status === RequisitionStatus.WarehouseChecked;
+  const canDoApproval = canApprove && req.status === RequisitionStatus.PendingApproval;
+  const isChild = !!req.parentRequisitionId;
+  const showAvailability = req.status === RequisitionStatus.WarehouseChecked || req.status === RequisitionStatus.Split;
+  const isApproved = req.status === RequisitionStatus.ReadyForWarehouseRelease || req.status === RequisitionStatus.ReadyForPurchase;
 
   return (
     <div>
@@ -137,15 +149,63 @@ export default function RequisitionDetailPage() {
         </button>
         <div style={{ flex: 1 }}>
           <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "var(--text1)", fontFamily: "var(--font-mono)" }}>{req.requisitionNo}</h1>
-          <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 2 }}>{req.typeLabel}</div>
+          <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 2 }}>
+            {req.typeLabel}
+            {req.sourceLabel && <span style={{ marginLeft: 8, color: req.source === RequisitionSource.Warehouse ? "var(--success)" : "var(--accent)", fontWeight: 500 }}>· {req.sourceLabel}</span>}
+          </div>
         </div>
         <RequisitionStatusBadge status={req.status} />
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+        {/* Parent / Children */}
+        {(isChild || (req.children?.length ?? 0) > 0) && (
+          <div className="itm-card" style={{ padding: 22 }}>
+            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 14 }}>Bog&apos;liq talabnomalar</div>
+            {isChild && req.parentRequisitionNo && req.parentRequisitionId && (
+              <div style={{ marginBottom: req.children.length > 0 ? 12 : 0 }}>
+                <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 6 }}>Asl talabnoma</div>
+                <button
+                  onClick={() => router.push(`/requisitions/${req.parentRequisitionId}`)}
+                  style={{ width: "100%", padding: "10px 14px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", background: "var(--bg3)", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", textAlign: "left", transition: "border-color 0.15s" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--accent)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border)"; }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2"><path d="M9 14l-4-4 4-4"/><path d="M5 10h11a4 4 0 0 1 4 4v2"/></svg>
+                  <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, color: "var(--text)" }}>{req.parentRequisitionNo}</span>
+                </button>
+              </div>
+            )}
+            {(req.children?.length ?? 0) > 0 && (
+              <div>
+                <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 6 }}>Bo&apos;lingan talabnomalar</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {req.children.map(ch => (
+                    <button
+                      key={ch.id}
+                      onClick={() => router.push(`/requisitions/${ch.id}`)}
+                      style={{ padding: "10px 14px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", background: "var(--bg3)", display: "flex", alignItems: "center", gap: 12, cursor: "pointer", textAlign: "left", transition: "border-color 0.15s" }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--accent)"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border)"; }}
+                    >
+                      <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 12,
+                        background: ch.source === RequisitionSource.Warehouse ? "var(--success-dim)" : "var(--accent-dim)",
+                        color: ch.source === RequisitionSource.Warehouse ? "var(--success)" : "var(--accent)" }}>{ch.sourceLabel}</span>
+                      <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, color: "var(--text)", flex: 1 }}>{ch.requisitionNo}</span>
+                      <span style={{ fontSize: 11, color: "var(--text3)" }}>{ch.itemCount} ta material</span>
+                      <RequisitionStatusBadge status={ch.status} small />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Main info */}
         <div className="itm-card" style={{ padding: 22 }}>
-          <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 14 }}>Asosiy ma'lumotlar</div>
+          <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 14 }}>Asosiy ma&apos;lumotlar</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <InfoCard label="Maqsad" value={req.purpose} full />
             {req.contractNo && <InfoCard label="Shartnoma" value={req.contractNo} />}
@@ -168,19 +228,44 @@ export default function RequisitionDetailPage() {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ background: "var(--bg3)" }}>
-                  {["#", "Kod", "Nomi", "O'lchov", "Miqdor"].map(h => (
-                    <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>{h}</th>
-                  ))}
+                  <th style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)" }}>#</th>
+                  <th style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)" }}>Nomi</th>
+                  <th style={{ padding: "10px 14px", textAlign: "center", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", width: 90 }}>O&apos;lchov</th>
+                  <th style={{ padding: "10px 14px", textAlign: "center", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", width: 110 }}>Miqdor</th>
+                  {showAvailability && <th style={{ padding: "10px 14px", textAlign: "center", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", width: 130 }}>Mavjud</th>}
+                  {isChild && <th style={{ padding: "10px 14px", textAlign: "center", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", width: 130 }}>Asl miqdor</th>}
                 </tr>
               </thead>
               <tbody>
                 {req.items.map((item, i) => (
                   <tr key={item.id} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td style={{ padding: "10px 14px", color: "var(--text3)" }}>{i + 1}</td>
-                    <td style={{ padding: "10px 14px", fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text2)" }}>{item.materialCode}</td>
-                    <td style={{ padding: "10px 14px", color: "var(--text1)", fontWeight: 500 }}>{item.materialName}</td>
-                    <td style={{ padding: "10px 14px", color: "var(--text3)" }}>{item.unit}</td>
-                    <td style={{ padding: "10px 14px", fontWeight: 600, color: "var(--text1)" }}>{item.quantity}</td>
+                    <td style={{ padding: "10px 14px", color: "var(--text1)", fontWeight: 500 }}>
+                      {item.materialName}
+                      {item.warehouseNotes && (
+                        <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2, fontStyle: "italic" }}>{item.warehouseNotes}</div>
+                      )}
+                    </td>
+                    <td style={{ padding: "10px 14px", color: "var(--text3)", textAlign: "center" }}>{item.unit || "—"}</td>
+                    <td style={{ padding: "10px 14px", fontWeight: 600, color: "var(--text1)", textAlign: "center" }}>{item.quantity}</td>
+                    {showAvailability && (
+                      <td style={{ padding: "10px 14px", textAlign: "center" }}>
+                        {item.availableQuantity != null ? (
+                          <span style={{
+                            fontWeight: 600,
+                            color: item.availableQuantity >= item.quantity ? "var(--success)" :
+                                   item.availableQuantity > 0 ? "var(--warn)" : "var(--danger)",
+                          }}>
+                            {item.availableQuantity}
+                          </span>
+                        ) : "—"}
+                      </td>
+                    )}
+                    {isChild && (
+                      <td style={{ padding: "10px 14px", textAlign: "center", color: "var(--text3)" }}>
+                        {item.originalQuantity ?? "—"}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -188,8 +273,19 @@ export default function RequisitionDetailPage() {
           </div>
         </div>
 
-        {/* Approval / rejection info */}
-        {(req.status === RequisitionStatus.Approved || req.status === RequisitionStatus.SentToWarehouse) && (
+        {/* Warehouse check info */}
+        {req.warehouseCheckedAt && (
+          <div className="itm-card" style={{ padding: 22 }}>
+            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 14 }}>Ombor tekshiruvi</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <InfoCard label="Tekshirgan" value={req.warehouseCheckedByName ?? "—"} />
+              <InfoCard label="Tekshirilgan vaqt" value={fmtDateTime(req.warehouseCheckedAt)} />
+            </div>
+          </div>
+        )}
+
+        {/* Approval info */}
+        {isApproved && (
           <div className="itm-card" style={{ padding: 22 }}>
             <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 14 }}>Tasdiqlash</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: req.qrCodeData ? 16 : 0 }}>
@@ -199,19 +295,16 @@ export default function RequisitionDetailPage() {
             {req.qrCodeData && (
               <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius2)", padding: 20, display: "flex", flexDirection: "column", alignItems: "center", gap: 10, background: "var(--bg3)" }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text2)" }}>Tasdiqlash QR kodi</div>
-                <img
-                  src={`data:image/png;base64,${req.qrCodeData}`}
-                  alt="QR kod"
-                  style={{ width: 180, height: 180, imageRendering: "pixelated" }}
-                />
+                <img src={`data:image/png;base64,${req.qrCodeData}`} alt="QR kod" style={{ width: 180, height: 180, imageRendering: "pixelated" }} />
                 <div style={{ fontSize: 11, color: "var(--text3)", textAlign: "center" }}>
-                  Chop etishda avtomatik chiqadi • Skanerlash orqali tasdiqlashni tekshirish mumkin
+                  Skanerlash orqali tasdiqlashni tekshirish mumkin
                 </div>
               </div>
             )}
           </div>
         )}
 
+        {/* Rejection reason */}
         {req.status === RequisitionStatus.Rejected && (
           <div className="itm-card" style={{ padding: 22 }}>
             <div style={{ fontSize: 12, color: "var(--danger)", fontWeight: 600, marginBottom: 14 }}>Rad etish sababi</div>
@@ -230,7 +323,7 @@ export default function RequisitionDetailPage() {
         ) : files.length === 0 ? (
           <div className="itm-card" style={{ padding: 22 }}>
             <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 14 }}>Fayllar</div>
-            <div style={{ color: "var(--text3)", fontSize: 13, textAlign: "center", padding: "16px 0" }}>Fayllar yo'q</div>
+            <div style={{ color: "var(--text3)", fontSize: 13, textAlign: "center", padding: "16px 0" }}>Fayllar yo&apos;q</div>
           </div>
         ) : (
           <>
@@ -263,7 +356,26 @@ export default function RequisitionDetailPage() {
 
         {/* Actions */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {req.status === RequisitionStatus.Pending && req.type === RequisitionType.Individual && canApprove && (
+          {canSplit && (
+            <button
+              disabled={acting}
+              onClick={handleSplit}
+              style={{
+                padding: "12px 24px", borderRadius: "var(--radius)",
+                background: "var(--accent)", color: "#fff", border: "none",
+                fontWeight: 600, fontSize: 14,
+                cursor: acting ? "not-allowed" : "pointer", opacity: acting ? 0.7 : 1,
+                display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M6 3v12"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="6" r="3"/><path d="M18 9c0 6-6 6-6 12"/>
+              </svg>
+              {acting ? "Bo'linmoqda..." : "Bo'lib yuborish (Ombor / Sotib olish)"}
+            </button>
+          )}
+
+          {canDoApproval && (
             <div style={{ display: "flex", gap: 10 }}>
               <button
                 disabled={acting}
@@ -281,27 +393,6 @@ export default function RequisitionDetailPage() {
               </button>
             </div>
           )}
-
-          {req.status === RequisitionStatus.Pending && req.type === RequisitionType.Contract && canSendToWarehouse && (
-            <button
-              disabled={acting}
-              onClick={handleSendToWarehouse}
-              style={{ padding: "12px 24px", borderRadius: "var(--radius)", background: "var(--accent-dim)", color: "var(--accent)", border: "1px solid rgba(26,110,235,0.25)", fontWeight: 600, fontSize: 14, cursor: acting ? "not-allowed" : "pointer", opacity: acting ? 0.7 : 1 }}
-            >
-              {acting ? "…" : "Omborga yuborish"}
-            </button>
-          )}
-
-          {req.status === RequisitionStatus.Approved && req.type === RequisitionType.Individual && canSendToWarehouse && (
-            <button
-              disabled={acting}
-              onClick={handleSendToWarehouse}
-              style={{ padding: "12px 24px", borderRadius: "var(--radius)", background: "var(--accent-dim)", color: "var(--accent)", border: "1px solid rgba(26,110,235,0.25)", fontWeight: 600, fontSize: 14, cursor: acting ? "not-allowed" : "pointer", opacity: acting ? 0.7 : 1 }}
-            >
-              {acting ? "…" : "Omborga yuborish"}
-            </button>
-          )}
-
         </div>
       </div>
 
@@ -342,7 +433,7 @@ export default function RequisitionDetailPage() {
   );
 }
 
-function InfoCard({ label, value, full }: { label: string; value: string; full?: boolean }) {
+function InfoCard({ label, value, full }: { label: string; value?: string; full?: boolean }) {
   return (
     <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "12px 16px", gridColumn: full ? "1 / -1" : undefined }}>
       <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4 }}>{label}</div>
