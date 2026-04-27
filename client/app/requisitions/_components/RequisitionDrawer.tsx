@@ -157,7 +157,6 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
   };
 
   const isChild = !!req.parentRequisitionId;
-  const showAvailability = req.status === RequisitionStatus.WarehouseChecked || req.status === RequisitionStatus.Split;
   const isApproved = req.status === RequisitionStatus.ReadyForWarehouseRelease || req.status === RequisitionStatus.ReadyForPurchase;
 
   return createPortal(
@@ -267,64 +266,6 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
               {req.signerName && <InfoCard label="F.I.O." value={req.signerName} />}
               {req.signDate && <InfoCard label="Imzo sanasi" value={req.signDate} />}
             </div>
-          </Section>
-
-          {/* Materials */}
-          <Section label={`Materiallar (${req.items.length})`}>
-            <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", overflow: "hidden" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                <thead>
-                  <tr style={{ background: "var(--bg3)" }}>
-                    <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)" }}>#</th>
-                    <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)" }}>Nomi</th>
-                    <th style={{ padding: "8px 12px", textAlign: "center", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", width: 70 }}>O&apos;lchov</th>
-                    <th style={{ padding: "8px 12px", textAlign: "center", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", width: 90 }}>Miqdor</th>
-                    {showAvailability && <th style={{ padding: "8px 12px", textAlign: "center", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", width: 110 }}>Mavjud</th>}
-                    {isChild && <th style={{ padding: "8px 12px", textAlign: "center", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", width: 110 }}>Asl miqdor</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {req.items.map((item, i) => (
-                    <tr key={item.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                      <td style={{ padding: "8px 12px", color: "var(--text3)" }}>{i + 1}</td>
-                      <td style={{ padding: "8px 12px", color: "var(--text)", fontWeight: 500 }}>
-                        {item.materialName}
-                        {item.warehouseNotes && (
-                          <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2, fontStyle: "italic" }}>{item.warehouseNotes}</div>
-                        )}
-                      </td>
-                      <td style={{ padding: "8px 12px", color: "var(--text3)", textAlign: "center" }}>{item.unit || "—"}</td>
-                      <td style={{ padding: "8px 12px", fontWeight: 600, color: "var(--text)", textAlign: "center" }}>{item.quantity}</td>
-                      {showAvailability && (
-                        <td style={{ padding: "8px 12px", textAlign: "center" }}>
-                          {item.availableQuantity != null ? (
-                            <span style={{
-                              fontWeight: 600,
-                              color: item.availableQuantity >= item.quantity ? "var(--success)" :
-                                     item.availableQuantity > 0 ? "var(--warn)" : "var(--danger)",
-                            }}>
-                              {item.availableQuantity}
-                            </span>
-                          ) : "—"}
-                        </td>
-                      )}
-                      {isChild && (
-                        <td style={{ padding: "8px 12px", textAlign: "center", color: "var(--text3)" }}>
-                          {item.originalQuantity ?? "—"}
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {showAvailability && (
-              <div style={{ marginTop: 10, fontSize: 11, color: "var(--text3)", lineHeight: 1.5 }}>
-                <span style={{ color: "var(--success)", fontWeight: 600 }}>•</span> ko&apos;k = to&apos;liq mavjud,
-                <span style={{ color: "var(--warn)", fontWeight: 600, marginLeft: 6 }}>•</span> sariq = qisman bor,
-                <span style={{ color: "var(--danger)", fontWeight: 600, marginLeft: 6 }}>•</span> qizil = yo&apos;q
-              </div>
-            )}
           </Section>
 
           {/* Warehouse check info */}
