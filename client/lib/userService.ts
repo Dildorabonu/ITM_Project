@@ -1304,8 +1304,9 @@ export const requisitionService = {
     await api.post(`/api/requisition/${id}/reject`, { rejectionReason });
   },
 
-  warehouseCheck: async (id: string, items: RequisitionWarehouseCheckItem[]): Promise<void> => {
-    await api.post(`/api/requisition/${id}/warehouse-check`, { items });
+  warehouseCheck: async (id: string, items: RequisitionWarehouseCheckItem[]): Promise<string[]> => {
+    const res = await api.post(`/api/requisition/${id}/warehouse-check`, { items });
+    return (res.data?.result ?? []) as string[];
   },
 
   split: async (id: string): Promise<string[]> => {

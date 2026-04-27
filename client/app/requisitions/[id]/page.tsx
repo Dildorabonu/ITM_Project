@@ -13,6 +13,7 @@ import {
 } from "@/lib/userService";
 import { RequisitionStatusBadge } from "../_components/StatusBadge";
 import { fmtDateTime, type RequisitionResponse } from "../_types";
+import { splitWithPdfs } from "../_utils/splitWithPdfs";
 
 export default function RequisitionDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -111,8 +112,15 @@ export default function RequisitionDetailPage() {
     if (!req) return;
     setActing(true);
     try {
-      const ids = await requisitionService.split(req.id);
-      showToast(`${ids.length} ta yangi talabnoma yaratildi`, "success");
+      const { childIds, pdfFailures } = await splitWithPdfs(req.id);
+      if (pdfFailures > 0) {
+        showToast(
+          `${childIds.length} ta talabnoma yaratildi, ${pdfFailures} ta PDF yaratilmadi`,
+          "Ogohlantirish",
+        );
+      } else {
+        showToast(`${childIds.length} ta yangi talabnoma yaratildi`, "success");
+      }
       await refresh();
     } catch {
       showToast("Xatolik yuz berdi", "error");

@@ -14,6 +14,7 @@ import { useAuthStore } from "@/lib/store/authStore";
 import { useToastStore } from "@/lib/store/toastStore";
 import { fmtDateTime } from "../_types";
 import { RequisitionStatusBadge } from "./StatusBadge";
+import { splitWithPdfs } from "../_utils/splitWithPdfs";
 
 interface Props {
   req: RequisitionResponse;
@@ -91,8 +92,15 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
   const handleSplit = async () => {
     setActing(true);
     try {
-      const ids = await requisitionService.split(req.id);
-      showToast(`${ids.length} ta yangi talabnoma yaratildi`, "success");
+      const { childIds, pdfFailures } = await splitWithPdfs(req.id);
+      if (pdfFailures > 0) {
+        showToast(
+          `${childIds.length} ta talabnoma yaratildi, ${pdfFailures} ta PDF yaratilmadi`,
+          "Ogohlantirish",
+        );
+      } else {
+        showToast(`${childIds.length} ta yangi talabnoma yaratildi`, "success");
+      }
       onClose();
     } catch {
       showToast("Xatolik yuz berdi", "error");
