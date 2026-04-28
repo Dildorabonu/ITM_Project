@@ -14,7 +14,6 @@ import { useAuthStore } from "@/lib/store/authStore";
 import { useToastStore } from "@/lib/store/toastStore";
 import { fmtDateTime } from "../_types";
 import { RequisitionStatusBadge } from "./StatusBadge";
-import { splitWithPdfs } from "../_utils/splitWithPdfs";
 import { approveWithPdf } from "../_utils/approveWithPdf";
 
 interface Props {
@@ -27,13 +26,10 @@ interface Props {
 export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
   const router = useRouter();
   const hasPermission = useAuthStore((s) => s.hasPermission);
-  const userId = useAuthStore((s) => s.user?.id);
   const showToast = useToastStore((s) => s.show);
 
   const canApprove = hasPermission("Requisitions.Approve");
 
-  const isCreator = userId === req.createdBy;
-  const canSplit = isCreator && req.status === RequisitionStatus.WarehouseChecked;
   const canDoApproval = canApprove && req.status === RequisitionStatus.PendingApproval;
 
   const [acting, setActing] = useState(false);
@@ -91,24 +87,6 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
       showToast("Xatolik yuz berdi", "error");
       setRejectSaving(false);
     }
-  };
-
-  const handleSplit = async () => {
-    setActing(true);
-    try {
-      const { childIds, pdfFailures } = await splitWithPdfs(req.id);
-      if (pdfFailures > 0) {
-        showToast(
-          `${childIds.length} ta talabnoma yaratildi, ${pdfFailures} ta PDF yaratilmadi`,
-          "Ogohlantirish",
-        );
-      } else {
-        showToast(`${childIds.length} ta yangi talabnoma yaratildi`, "success");
-      }
-      onClose();
-    } catch {
-      showToast("Xatolik yuz berdi", "error");
-    } finally { setActing(false); }
   };
 
   const handleFileDownload = async (file: AttachmentResponse) => {
@@ -342,25 +320,6 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
 
           {/* Actions */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {canSplit && (
-              <button
-                disabled={acting}
-                onClick={handleSplit}
-                style={{
-                  padding: "12px 24px", borderRadius: "var(--radius)",
-                  background: "var(--accent)", color: "#fff", border: "none",
-                  fontWeight: 600, fontSize: 13,
-                  cursor: acting ? "not-allowed" : "pointer", opacity: acting ? 0.7 : 1,
-                  display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
-                }}
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <path d="M6 3v12"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="6" r="3"/><path d="M18 9c0 6-6 6-6 12"/>
-                </svg>
-                {acting ? "Bo'linmoqda..." : "Bo'lib yuborish (Ombor / Sotib olish)"}
-              </button>
-            )}
-
             {canDoApproval && (
               <div style={{ display: "flex", gap: 10 }}>
                 <button
