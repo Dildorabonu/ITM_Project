@@ -915,12 +915,12 @@ function RequisitionPrintContent() {
                       <tr key={row.id} ref={setRowRef(row.id)} style={{ borderBottom: "1px solid #ccc" }}>
                         <td style={{ ...td, textAlign: "center", fontWeight: 600, whiteSpace: "nowrap" }}>{i + 1}.</td>
                         <td style={td}>
-                          <textarea
+                          <AutoTextarea
                             value={row.name}
-                            onChange={e => updateRow(row.id, "name", e.target.value)}
-                            rows={2}
-                            style={cellInput}
+                            onChange={v => updateRow(row.id, "name", v)}
                             placeholder="Nomi..."
+                            style={cellInput}
+                            minHeight={36}
                           />
                         </td>
                         <td style={td}>
@@ -938,21 +938,21 @@ function RequisitionPrintContent() {
                           </div>
                         </td>
                         <td style={td}>
-                          <textarea
+                          <AutoTextarea
                             value={row.quantity}
-                            onChange={e => updateRow(row.id, "quantity", e.target.value)}
-                            rows={2}
-                            style={cellInput}
+                            onChange={v => updateRow(row.id, "quantity", v)}
                             placeholder="0"
+                            style={cellInput}
+                            minHeight={36}
                           />
                         </td>
                         <td style={td}>
-                          <textarea
+                          <AutoTextarea
                             value={row.spec}
-                            onChange={e => updateRow(row.id, "spec", e.target.value)}
-                            rows={3}
-                            style={cellInput}
+                            onChange={v => updateRow(row.id, "spec", v)}
                             placeholder="Texnik ko'rsatkich..."
+                            style={cellInput}
+                            minHeight={54}
                           />
                         </td>
                         <td style={{ ...td, textAlign: "center", padding: 6, verticalAlign: "middle" }}>
@@ -1005,12 +1005,12 @@ function RequisitionPrintContent() {
                           )}
                         </td>
                         <td style={td}>
-                          <textarea
+                          <AutoTextarea
                             value={row.notes}
-                            onChange={e => updateRow(row.id, "notes", e.target.value)}
-                            rows={2}
-                            style={cellInput}
+                            onChange={v => updateRow(row.id, "notes", v)}
                             placeholder="..."
+                            style={cellInput}
+                            minHeight={36}
                           />
                         </td>
                         <td className="no-print remove-row-btn" style={{ ...td, textAlign: "center", verticalAlign: "middle" }}>
@@ -1152,16 +1152,49 @@ const cellInput: React.CSSProperties = {
   background: "transparent",
   fontFamily: "Times New Roman, serif",
   fontSize: 12,
-  resize: "vertical",
+  resize: "none",
   outline: "none",
   padding: 0,
   color: "#000",
   boxSizing: "border-box",
   lineHeight: 1.5,
-  overflow: "auto",
+  overflow: "hidden",
   wordBreak: "break-word",
   minHeight: 28,
+  display: "block",
 };
+
+function AutoTextarea({
+  value,
+  onChange,
+  placeholder,
+  style,
+  minHeight = 28,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  style?: React.CSSProperties;
+  minHeight?: number;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.max(el.scrollHeight, minHeight) + "px";
+  }, [value, minHeight]);
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      rows={1}
+      style={style}
+    />
+  );
+}
 
 const sigInput: React.CSSProperties = {
   border: "none",
