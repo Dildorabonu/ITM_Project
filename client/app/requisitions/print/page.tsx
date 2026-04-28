@@ -44,17 +44,14 @@ const PAD_RIGHT = Math.round(15 * MM_TO_PX);      // 57
 const CONTENT_H = A4_H - PAD_TOP - PAD_BOTTOM;    // 1033
 // Fallback o'lchamlar (refs hali biriktirilmagan render bosqichida)
 const FALLBACK_ROW_H = 90;
-// Pessimistik minimum: image cell `height: 72` + td padding 10 + border 2 ≈ 84.
-// O'lchov noto'g'ri (0 yoki juda kichik) qaytarsa ham, bu qiymatdan past tushmaydi.
-const MIN_ROW_H = 80;
 const FALLBACK_HEADER_H = 150;
 const FALLBACK_SIGNATURE_H = 130;
-const TABLE_HEAD_H = 38;
+const TABLE_HEAD_H = 46;
 const ADD_ROW_BTN_H = 36;
 const FOOTER_BUFFER = 16;
 // Har sahifa pastida qoldiriladigan reserve bo'shliq — qatorlar
-// pastki marjnga yopishib qolmasligi uchun nafas joyi (~2cm).
-const PAGE_BOTTOM_PAD = 80;
+// pastki marjnga yopishib qolmasligi uchun nafas joyi (~1cm).
+const PAGE_BOTTOM_PAD = 40;
 
 function RequisitionPrintContent() {
   const router = useRouter();
@@ -172,9 +169,9 @@ function RequisitionPrintContent() {
     let used = 0;
 
     rows.forEach((row, i) => {
-      // Real o'lchov noto'g'ri (0 yoki juda kichik) bo'lsa ham, MIN_ROW_H dan past tushmaydi.
+      // O'lchov mavjud bo'lsa unga ishonamiz; aks holda FALLBACK ga tushamiz.
       const measured = rowHeights[row.id];
-      const rowH = Math.max(measured && measured > 0 ? measured : FALLBACK_ROW_H, MIN_ROW_H);
+      const rowH = measured && measured > 0 ? measured : FALLBACK_ROW_H;
       const isFirstPage = result.length === 0;
       const overhead = (isFirstPage ? headerH : 0) + TABLE_HEAD_H;
       const isLastRow = i === rows.length - 1;
@@ -888,13 +885,13 @@ function RequisitionPrintContent() {
               {/* Table */}
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, tableLayout: "fixed" }}>
                 <colgroup>
-                  <col style={{ width: "4%" }} />
-                  <col style={{ width: "22%" }} />
-                  <col style={{ width: "10%" }} />
-                  <col style={{ width: "8%" }} />
-                  <col style={{ width: "30%" }} />
-                  <col style={{ width: "10%" }} />
-                  <col style={{ width: "16%" }} />
+                  <col style={{ width: "6%" }} />
+                  <col style={{ width: "23%" }} />
+                  <col style={{ width: "11%" }} />
+                  <col style={{ width: "9%" }} />
+                  <col style={{ width: "24%" }} />
+                  <col style={{ width: "12%" }} />
+                  <col style={{ width: "15%" }} />
                   <col className="no-print" style={{ width: 36 }} />
                 </colgroup>
                 <thead>
@@ -914,7 +911,7 @@ function RequisitionPrintContent() {
                     const i = rows.findIndex(r => r.id === row.id);
                     return (
                       <tr key={row.id} ref={setRowRef(row.id)} style={{ borderBottom: "1px solid #ccc" }}>
-                        <td style={{ ...td, textAlign: "center", fontWeight: 600 }}>{i + 1}.</td>
+                        <td style={{ ...td, textAlign: "center", fontWeight: 600, whiteSpace: "nowrap" }}>{i + 1}.</td>
                         <td style={td}>
                           <textarea
                             value={row.name}
@@ -1123,12 +1120,12 @@ export default function RequisitionPrintPage() {
 // ─── Styles ────────────────────────────────────────────────────────────────────
 
 const th: React.CSSProperties = {
-  padding: "5px 6px",
+  padding: "7px 8px",
   border: "1px solid #a0720a",
   fontWeight: 700,
   fontSize: 11,
   textAlign: "center",
-  lineHeight: 1.3,
+  lineHeight: 1.35,
 };
 
 const td: React.CSSProperties = {
