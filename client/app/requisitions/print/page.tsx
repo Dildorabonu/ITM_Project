@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, Suspense } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, Suspense } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToastStore } from "@/lib/store/toastStore";
@@ -49,6 +49,18 @@ function RequisitionPrintContent() {
   const [departmentId, setDepartmentId] = useState("");
   const [contracts, setContracts] = useState<ContractResponse[]>([]);
   const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
+
+  const typeTabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const [typePill, setTypePill] = useState({ left: 0, width: 0 });
+  useLayoutEffect(() => {
+    const idx = type === RequisitionType.Contract ? 0 : 1;
+    const el = typeTabRefs.current[idx];
+    if (!el) return;
+    setTypePill(prev => {
+      const next = { left: el.offsetLeft, width: el.offsetWidth };
+      return prev.left === next.left && prev.width === next.width ? prev : next;
+    });
+  }, [type]);
 
   const [saving, setSaving] = useState(false);
   const [savingSystem, setSavingSystem] = useState(false);
@@ -365,7 +377,34 @@ function RequisitionPrintContent() {
 
           {/* Type + contract/dept selectors */}
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            <div style={{ display: "inline-flex", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", overflow: "hidden" }}>
+            <div
+              style={{
+                position: "relative",
+                display: "inline-grid",
+                gridTemplateColumns: "1fr 1fr",
+                border: "1.5px solid var(--border)",
+                borderRadius: "var(--radius)",
+                background: "var(--bg2)",
+                overflow: "hidden",
+                isolation: "isolate",
+              }}
+            >
+              <span
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  bottom: 0,
+                  left: 0,
+                  width: typePill.width,
+                  transform: `translateX(${typePill.left}px)`,
+                  background: "var(--accent)",
+                  transition: "transform 0.42s cubic-bezier(0.32, 0.72, 0, 1), width 0.42s cubic-bezier(0.32, 0.72, 0, 1)",
+                  willChange: "transform, width",
+                  zIndex: 0,
+                  pointerEvents: "none",
+                }}
+              />
               {([
                 { value: RequisitionType.Contract, label: "Shartnoma bo'yicha" },
                 { value: RequisitionType.Individual, label: "Individual" },
@@ -374,18 +413,20 @@ function RequisitionPrintContent() {
                 return (
                   <button
                     key={opt.value}
+                    ref={el => { typeTabRefs.current[i] = el; }}
                     type="button"
                     onClick={() => setType(opt.value)}
                     style={{
+                      position: "relative",
                       padding: "5px 12px",
                       border: "none",
-                      borderLeft: i > 0 ? "1.5px solid var(--border)" : "none",
-                      background: active ? "var(--accent)" : "var(--bg2)",
+                      background: "transparent",
                       color: active ? "#fff" : "var(--text)",
                       fontSize: 13,
-                      fontWeight: active ? 600 : 400,
+                      fontWeight: 600,
                       cursor: "pointer",
-                      transition: "background 0.15s, color 0.15s",
+                      transition: "color 0.32s ease",
+                      zIndex: 1,
                     }}
                   >
                     {opt.label}
