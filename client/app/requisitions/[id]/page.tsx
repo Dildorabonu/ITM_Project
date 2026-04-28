@@ -116,7 +116,7 @@ export default function RequisitionDetailPage() {
 
   const canDoApproval = canApprove && req.status === RequisitionStatus.PendingApproval;
   const isChild = !!req.parentRequisitionId;
-  const showAvailability = req.status === RequisitionStatus.WarehouseChecked || req.status === RequisitionStatus.Split;
+  const showAvailability = req.status === RequisitionStatus.WarehouseChecked;
   const isApproved = req.status === RequisitionStatus.ReadyForWarehouseRelease || req.status === RequisitionStatus.ReadyForPurchase;
 
   return (
