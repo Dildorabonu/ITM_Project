@@ -407,8 +407,8 @@ export default function TechnicalDrawingsPage() {
                     <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Nomi</th>
                     <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Yaratuvchi</th>
                     <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Status</th>
-                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Faollik</th>
                     <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Sana</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Faollik</th>
                     <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>Amal</th>
                   </tr>
                 </thead>
@@ -441,8 +441,8 @@ export default function TechnicalDrawingsPage() {
                                 Chizma yo&apos;q
                               </span>
                             </td>
-                            <td style={{ textAlign: "center", color: "var(--text3)", fontSize: 13 }}>—</td>
                             <td style={{ textAlign: "center", fontSize: 13, color: "var(--text1)" }}>{fmtDate(c.createdAt)}</td>
+                            <td style={{ textAlign: "center", color: "var(--text3)", fontSize: 13 }}>—</td>
                             <td style={{ borderLeft: "2px solid var(--border)" }}>
                               <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
                                 {canCreate && (
@@ -484,6 +484,9 @@ export default function TechnicalDrawingsPage() {
                           <td style={{ textAlign: "center" }}>
                             <StatusBadge status={item.status} />
                           </td>
+                          <td style={{ textAlign: "center", fontSize: 13, color: "var(--text1)", fontFamily: "Inter, sans-serif" }}>
+                            {fmtDate(item.createdAt)}
+                          </td>
                           <td style={{ textAlign: "center" }}>
                             <span style={{
                               display: "inline-flex", alignItems: "center", padding: "2px 10px",
@@ -494,9 +497,6 @@ export default function TechnicalDrawingsPage() {
                             }}>
                               {item.isActive ? "Faol" : "Nofaol"}
                             </span>
-                          </td>
-                          <td style={{ textAlign: "center", fontSize: 13, color: "var(--text1)", fontFamily: "Inter, sans-serif" }}>
-                            {fmtDate(item.createdAt)}
                           </td>
                           <td style={{ borderLeft: "2px solid var(--border)" }}>
                             <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
