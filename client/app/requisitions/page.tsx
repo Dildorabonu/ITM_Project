@@ -23,8 +23,6 @@ import { ConfirmModal } from "@/app/_components/ConfirmModal";
 const STATUS_FILTER = [
   { value: "", label: "Barchasi" },
   { value: String(RequisitionStatus.PendingWarehouseCheck),    label: REQUISITION_STATUS_LABELS[RequisitionStatus.PendingWarehouseCheck] },
-  { value: String(RequisitionStatus.WarehouseChecked),         label: REQUISITION_STATUS_LABELS[RequisitionStatus.WarehouseChecked] },
-  { value: String(RequisitionStatus.Split),                    label: REQUISITION_STATUS_LABELS[RequisitionStatus.Split] },
   { value: String(RequisitionStatus.PendingApproval),          label: REQUISITION_STATUS_LABELS[RequisitionStatus.PendingApproval] },
   { value: String(RequisitionStatus.ReadyForWarehouseRelease), label: REQUISITION_STATUS_LABELS[RequisitionStatus.ReadyForWarehouseRelease] },
   { value: String(RequisitionStatus.ReadyForPurchase),         label: REQUISITION_STATUS_LABELS[RequisitionStatus.ReadyForPurchase] },
@@ -206,7 +204,6 @@ function RequisitionsContent() {
                         </svg>
                       </button>
                       {canDelete
-                        && r.status !== RequisitionStatus.Split
                         && r.status !== RequisitionStatus.ReadyForWarehouseRelease
                         && r.status !== RequisitionStatus.ReadyForPurchase
                         && (r.children?.length ?? 0) === 0
