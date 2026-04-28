@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, Suspense } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, Suspense } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToastStore } from "@/lib/store/toastStore";
@@ -30,6 +30,31 @@ interface TableRow {
 }
 
 const emptyRow = (id: number): TableRow => ({ id, name: "", unit: "", quantity: "", spec: "", notes: "", image: "", imageFile: null });
+
+// ─── A4 page geometry ─────────────────────────────────────────────────────────
+// 96dpi: 1mm = 3.7795px
+const MM_TO_PX = 96 / 25.4;
+const A4_W = Math.round(210 * MM_TO_PX);          // 794
+const A4_H = Math.round(297 * MM_TO_PX);          // 1123
+// Standard talabnoma marjnlari: 12mm vertikal, 15mm gorizontal
+const PAD_TOP = Math.round(12 * MM_TO_PX);        // 45
+const PAD_BOTTOM = Math.round(12 * MM_TO_PX);     // 45
+const PAD_LEFT = Math.round(15 * MM_TO_PX);       // 57
+const PAD_RIGHT = Math.round(15 * MM_TO_PX);      // 57
+const CONTENT_H = A4_H - PAD_TOP - PAD_BOTTOM;    // 1033
+// Fallback o'lchamlar (refs hali biriktirilmagan render bosqichida)
+const FALLBACK_ROW_H = 90;
+// Pessimistik minimum: image cell `height: 72` + td padding 10 + border 2 ≈ 84.
+// O'lchov noto'g'ri (0 yoki juda kichik) qaytarsa ham, bu qiymatdan past tushmaydi.
+const MIN_ROW_H = 80;
+const FALLBACK_HEADER_H = 150;
+const FALLBACK_SIGNATURE_H = 130;
+const TABLE_HEAD_H = 38;
+const ADD_ROW_BTN_H = 36;
+const FOOTER_BUFFER = 16;
+// Har sahifa pastida qoldiriladigan reserve bo'shliq — qatorlar
+// pastki marjnga yopishib qolmasligi uchun nafas joyi (~2cm).
+const PAGE_BOTTOM_PAD = 80;
 
 function RequisitionPrintContent() {
   const router = useRouter();
@@ -62,6 +87,113 @@ function RequisitionPrintContent() {
     });
   }, [type]);
 
+  // ─── Page measurement & pagination ──────────────────────────────────────────
+  const headerRef = useRef<HTMLDivElement>(null);
+  const signatureRef = useRef<HTMLDivElement>(null);
+  const rowRefs = useRef<Map<number, HTMLTableRowElement>>(new Map());
+
+  const [headerH, setHeaderH] = useState(FALLBACK_HEADER_H);
+  const [signatureH, setSignatureH] = useState(FALLBACK_SIGNATURE_H);
+  const [rowHeights, setRowHeights] = useState<Record<number, number>>({});
+
+  const setRowRef = useCallback((id: number) => (el: HTMLTableRowElement | null) => {
+    if (el) {
+      el.dataset.rowId = String(id);
+      rowRefs.current.set(id, el);
+    } else {
+      rowRefs.current.delete(id);
+    }
+  }, []);
+
+  // Header / signature balandligini render dan keyin o'lchaymiz
+  useLayoutEffect(() => {
+    if (headerRef.current) {
+      const h = Math.ceil(headerRef.current.getBoundingClientRect().height);
+      setHeaderH(prev => (prev !== h ? h : prev));
+    }
+    if (signatureRef.current) {
+      const h = Math.ceil(signatureRef.current.getBoundingClientRect().height);
+      setSignatureH(prev => (prev !== h ? h : prev));
+    }
+  }, [description, signerName, signerTitle, signDate]);
+
+  // Qatorlar balandligini render dan keyin o'lchaymiz
+  useLayoutEffect(() => {
+    setRowHeights(prev => {
+      const next: Record<number, number> = {};
+      let changed = false;
+      rows.forEach(r => {
+        const el = rowRefs.current.get(r.id);
+        if (el) {
+          const h = Math.ceil(el.getBoundingClientRect().height);
+          // 0 yoki juda kichik o'lchov real emas — saqlamaymiz, shunda paginatsiya FALLBACK ga tushadi.
+          if (h > 0) {
+            next[r.id] = h;
+            if (prev[r.id] !== h) changed = true;
+          }
+        }
+      });
+      // O'chirilgan qatorlarni state dan ham olib tashlash
+      const prevKeys = Object.keys(prev);
+      if (prevKeys.length !== Object.keys(next).length) changed = true;
+      return changed ? next : prev;
+    });
+  }, [rows]);
+
+  // ResizeObserver — textarea qo'lda kichraytirilganda/kattalashtirilganda balandlik yangilanadi.
+  // MUHIM: <tr> elementi uchun `contentRect.height` ishonchli emas (table-row da content-box yo'q,
+  // ko'p browserlarda 0 qaytaradi). Shuning uchun layout balandligini `getBoundingClientRect()` orqali olamiz.
+  useEffect(() => {
+    const ro = new ResizeObserver(entries => {
+      setRowHeights(prev => {
+        let changed = false;
+        const next = { ...prev };
+        entries.forEach(e => {
+          const el = e.target as HTMLElement;
+          const id = Number(el.dataset.rowId);
+          if (Number.isNaN(id)) return;
+          const h = Math.ceil(el.getBoundingClientRect().height);
+          if (h > 0 && next[id] !== h) {
+            next[id] = h;
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+    });
+    rowRefs.current.forEach(el => ro.observe(el));
+    return () => ro.disconnect();
+  }, [rows]);
+
+  // Sahifalarga taqsimlash
+  const pages = useMemo<TableRow[][]>(() => {
+    const result: TableRow[][] = [];
+    let current: TableRow[] = [];
+    let used = 0;
+
+    rows.forEach((row, i) => {
+      // Real o'lchov noto'g'ri (0 yoki juda kichik) bo'lsa ham, MIN_ROW_H dan past tushmaydi.
+      const measured = rowHeights[row.id];
+      const rowH = Math.max(measured && measured > 0 ? measured : FALLBACK_ROW_H, MIN_ROW_H);
+      const isFirstPage = result.length === 0;
+      const overhead = (isFirstPage ? headerH : 0) + TABLE_HEAD_H;
+      const isLastRow = i === rows.length - 1;
+      const footer = isLastRow ? signatureH + ADD_ROW_BTN_H + FOOTER_BUFFER : 0;
+      const available = CONTENT_H - overhead - footer - PAGE_BOTTOM_PAD;
+
+      if (used + rowH > available && current.length > 0) {
+        result.push(current);
+        current = [];
+        used = 0;
+      }
+      current.push(row);
+      used += rowH;
+    });
+
+    if (current.length || result.length === 0) result.push(current);
+    return result;
+  }, [rows, rowHeights, headerH, signatureH]);
+
   const [saving, setSaving] = useState(false);
   const [savingSystem, setSavingSystem] = useState(false);
   const [normLoading, setNormLoading] = useState(false);
@@ -80,18 +212,23 @@ function RequisitionPrintContent() {
         norms[0];
       if (!norm) { showToast("Bu shartnoma uchun me'yoriy sarf topilmadi", "Xatolik"); return; }
       const qty = norm.contractQuantity;
-      const lines = norm.items.filter(i => !i.isSection && i.totalQty);
+      // Bo'lim sarlavhalarini va butunlay bo'sh qatorlarni chiqaramiz; totalQty
+      // to'ldirilmagan bo'lsa ham, agar nom yoki raqami bo'lsa qator ko'chiriladi.
+      const lines = norm.items.filter(i => !i.isSection && (i.name || i.no));
       if (!lines.length) { showToast("Me'yoriy sarfda material qatorlari topilmadi", "Xatolik"); return; }
-      const newRows = lines.map((ni, idx) => ({
-        id: Date.now() + idx,
-        name: ni.name ?? ni.no ?? "",
-        unit: ni.unit ?? "",
-        quantity: String(parseFloat((ni.totalQty ?? "0").replace(",", ".")) * qty),
-        spec: "",
-        notes: "",
-        image: ni.photoRaw ?? ni.photoSemi ?? "",
-        imageFile: null,
-      }));
+      const newRows = lines.map((ni, idx) => {
+        const totalQtyNum = ni.totalQty ? parseFloat(ni.totalQty.replace(",", ".")) : NaN;
+        return {
+          id: Date.now() + idx,
+          name: ni.name ?? ni.no ?? "",
+          unit: ni.unit ?? "",
+          quantity: Number.isFinite(totalQtyNum) ? String(totalQtyNum * qty) : "",
+          spec: "",
+          notes: "",
+          image: ni.photoRaw ?? ni.photoSemi ?? "",
+          imageFile: null,
+        };
+      });
       setRows(newRows);
       showToast(`Me'yoriy sarfdan ${newRows.length} ta qator to'ldirildi`, "success");
     } catch {
@@ -230,14 +367,18 @@ function RequisitionPrintContent() {
       cellSelectReplacements.push({ el: wrap, span });
     });
 
+    // Multi-page sahifalar orasidagi gap, shadow, border ni vaqtincha olib tashlash
+    el.classList.add("generating-pdf");
+
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const html2pdf = (await import("html2pdf.js" as any)).default;
       const blob: Blob = await html2pdf()
         .set({
           margin: 0,
+          pagebreak: { mode: ["css"], avoid: ".page-sheet" },
           image: { type: "jpeg", quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, width: 794 },
+          html2canvas: { scale: 2, useCORS: true, width: A4_W, windowWidth: A4_W },
           jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
         })
         .from(el)
@@ -245,6 +386,7 @@ function RequisitionPrintContent() {
         .output("blob");
       return blob;
     } finally {
+      el.classList.remove("generating-pdf");
       noPrint.forEach(e => e.style.removeProperty("display"));
       printImages.forEach(e => e.style.removeProperty("display"));
       inlineEditables.forEach(e => e.style.removeProperty("border-bottom"));
@@ -308,28 +450,79 @@ function RequisitionPrintContent() {
       {/* Print styles */}
       <style>{`
         @media print {
-          .no-print { display: none !important; }
-          .print-page {
+          /* Visibility hack: butun layoutni (sidebar/topbar/main wrappers)
+             ko'rinmas qilamiz, faqat .document-stack visible. Keyin uni
+             position:absolute bilan body'ning natural oqimiga ko'taramiz —
+             shunda parent overflow:hidden / height:100% / display:flex
+             paginatsiyaga aralashmaydi */
+          body * { visibility: hidden !important; }
+          .document-stack, .document-stack * { visibility: visible !important; }
+          .document-stack {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            display: block !important;
+            gap: 0 !important;
+            width: 210mm !important;
+            background: #fff !important;
+          }
+          html, body {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
+          }
+          .page-sheet {
             box-shadow: none !important;
             border: none !important;
-            padding: 12mm 15mm !important;
+            border-radius: 0 !important;
             width: 210mm !important;
+            height: 297mm !important;
             max-width: 210mm !important;
             margin: 0 !important;
-            font-size: 11px !important;
+            page-break-after: always !important;
+            break-after: page !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            overflow: hidden !important;
           }
-          .print-page table { font-size: 10px !important; }
-          .print-page table th { padding: 4px 5px !important; font-size: 10px !important; line-height: 1.3 !important; }
-          .print-page table td { padding: 4px 5px !important; }
-          body { background: white !important; margin: 0 !important; padding: 0 !important; }
+          .page-sheet:last-child {
+            page-break-after: auto !important;
+            break-after: auto !important;
+          }
+          .page-sheet table { font-size: 10px !important; }
+          .page-sheet table th { padding: 4px 5px !important; font-size: 10px !important; line-height: 1.3 !important; }
+          .page-sheet table td { padding: 4px 5px !important; }
           input, textarea { border: none !important; background: transparent !important; resize: none !important; overflow: hidden !important; }
           .inline-editable { border: none !important; }
           [data-cell-select] button { border: none !important; background: transparent !important; padding: 0 !important; font-family: Times New Roman, serif !important; font-size: 12px !important; color: #000 !important; height: auto !important; }
           [data-cell-select] svg { display: none !important; }
           .add-row-btn { display: none !important; }
           .remove-row-btn { display: none !important; }
-          .no-print { display: none !important; }
           .print-image { display: block !important; }
+          .no-print { display: none !important; }
+        }
+        /* PDF generatsiyasi vaqtidagi normallashtirish — har page-sheet
+           o'z PDF sahifasida bo'lishi uchun aniq break qoidalari */
+        .generating-pdf { display: block !important; gap: 0 !important; }
+        .generating-pdf .page-sheet {
+          box-shadow: none !important;
+          border: none !important;
+          border-radius: 0 !important;
+          margin: 0 !important;
+          page-break-after: always !important;
+          break-after: page !important;
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+        }
+        .generating-pdf .page-sheet:last-child {
+          page-break-after: auto !important;
+          break-after: auto !important;
         }
         @page { margin: 0; size: A4 portrait; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -614,230 +807,280 @@ function RequisitionPrintContent() {
         </div>
       </div>
 
-      {/* Document */}
-      <div ref={docRef} className="print-page" style={{
-        background: "#fff",
-        color: "#000",
-        fontFamily: "Times New Roman, serif",
-        fontSize: 13,
-        padding: "28px 36px",
-        boxShadow: "var(--shadow2)",
-        borderRadius: 6,
-        border: "1px solid var(--border)",
-        width: 794,
-        maxWidth: "100%",
-        boxSizing: "border-box",
+      {/* Document — multi-page A4 stack (Word kabi) */}
+      <div ref={docRef} className="document-stack" style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 24,
+        flexShrink: 0,
       }}>
-        {/* Company header */}
-        <div style={{ textAlign: "center", marginBottom: 4 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, fontFamily: "Times New Roman, serif" }}>
-            &quot;INNOVATSIYA TEXNOLOGIYALARI MARKAZI&quot; MChJ
-          </div>
-        </div>
-        <div style={{ textAlign: "center", marginBottom: 2, fontSize: 13 }}>
-          Бош директорига
-        </div>
-        <div style={{ textAlign: "center", fontWeight: 700, fontSize: 18, letterSpacing: 1, margin: "12px 0 18px", fontFamily: "Times New Roman, serif" }}>
-          ТАЛАБНОМА
-        </div>
-
-        {/* Intro text with editable box */}
-        <div style={{ fontSize: 13, lineHeight: 1.8, marginBottom: 20 }}>
-          Ушбу оркали Сиздан,{" "}
-          <span
-            ref={descRef}
-            className="inline-editable"
-            contentEditable
-            suppressContentEditableWarning
-            data-placeholder="matn kiriting..."
-            onInput={e => setDescription(e.currentTarget.textContent || "")}
-            style={{
-              borderBottom: "1px solid #999",
-              minWidth: 120,
-              display: "inline-block",
-              outline: "none",
-              fontFamily: "Times New Roman, serif",
-              fontSize: 13,
-              color: "#000",
-              cursor: "text",
-              verticalAlign: "baseline",
-              wordBreak: "break-word",
-              overflowWrap: "break-word",
-              whiteSpace: "pre-wrap",
-            }}
-          />{" "}
-          омбордан берилиши учун рухсат беришингизни сўрайман.
-        </div>
-
-        {/* Table */}
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, marginBottom: 24, tableLayout: "fixed" }}>
-          <colgroup>
-            <col style={{ width: "4%" }} />
-            <col style={{ width: "22%" }} />
-            <col style={{ width: "10%" }} />
-            <col style={{ width: "8%" }} />
-            <col style={{ width: "30%" }} />
-            <col style={{ width: "10%" }} />
-            <col style={{ width: "16%" }} />
-            <col className="no-print" style={{ width: 36 }} />
-          </colgroup>
-          <thead>
-            <tr style={{ background: "#b8860b", color: "#fff" }}>
-              <th style={th}>№</th>
-              <th style={th}>Махсулот номи<br /><span style={{ fontWeight: 400, fontSize: 10 }}>(рус тилида кўрсатилган)</span></th>
-              <th style={th}>Ўлчов<br />бирлиги</th>
-              <th style={th}>Миқдори</th>
-              <th style={th}>Техник кўрсаткичи<br /><span style={{ fontWeight: 400, fontSize: 10 }}>(рус тилида кўрсатилди)</span></th>
-              <th style={th}>Фотосурати</th>
-              <th style={th}>Изох</th>
-              <th className="no-print" style={{ ...th, background: "#9a6f00" }}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, i) => (
-              <tr key={row.id} style={{ borderBottom: "1px solid #ccc" }}>
-                <td style={{ ...td, textAlign: "center", fontWeight: 600 }}>{i + 1}.</td>
-                <td style={td}>
-                  <textarea
-                    value={row.name}
-                    onChange={e => updateRow(row.id, "name", e.target.value)}
-                    rows={2}
-                    style={cellInput}
-                    placeholder="Nomi..."
-                  />
-                </td>
-                <td style={td}>
-                  <div data-cell-select="true" data-value={row.unit}>
-                    <CheckSelect
-                      value={row.unit}
-                      onChange={v => updateRow(row.id, "unit", v)}
-                      options={[
-                        { id: "", name: "—" },
-                        ...(Object.values(ProductUnit).filter(v => typeof v === "number") as ProductUnit[]).map(u => ({ id: PRODUCT_UNIT_LABELS_CYR[u], name: PRODUCT_UNIT_LABELS_CYR[u] })),
-                      ]}
-                      placeholder="—"
-                      buttonStyle={{ background: "transparent", color: "#000", border: "1px solid #ccc" }}
-                    />
+        {pages.map((pageRows, pageIdx) => {
+          const isFirstPage = pageIdx === 0;
+          const isLastPage = pageIdx === pages.length - 1;
+          return (
+            <div
+              key={pageIdx}
+              className="page-sheet"
+              style={{
+                background: "#fff",
+                color: "#000",
+                fontFamily: "Times New Roman, serif",
+                fontSize: 13,
+                width: A4_W,
+                height: A4_H,
+                minHeight: A4_H,
+                flexShrink: 0,
+                padding: `${PAD_TOP}px ${PAD_RIGHT}px ${PAD_BOTTOM}px ${PAD_LEFT}px`,
+                boxSizing: "border-box",
+                boxShadow: "var(--shadow2)",
+                borderRadius: 6,
+                border: "1px solid var(--border)",
+                position: "relative",
+                overflow: "hidden",
+              }}
+            >
+              {isFirstPage && (
+                <div ref={headerRef}>
+                  {/* Company header */}
+                  <div style={{ textAlign: "center", marginBottom: 4 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, fontFamily: "Times New Roman, serif" }}>
+                      &quot;INNOVATSIYA TEXNOLOGIYALARI MARKAZI&quot; MChJ
+                    </div>
                   </div>
-                </td>
-                <td style={td}>
-                  <textarea
-                    value={row.quantity}
-                    onChange={e => updateRow(row.id, "quantity", e.target.value)}
-                    rows={2}
-                    style={cellInput}
-                    placeholder="0"
-                  />
-                </td>
-                <td style={td}>
-                  <textarea
-                    value={row.spec}
-                    onChange={e => updateRow(row.id, "spec", e.target.value)}
-                    rows={3}
-                    style={cellInput}
-                    placeholder="Texnik ko'rsatkich..."
-                  />
-                </td>
-                <td style={{ ...td, textAlign: "center", padding: 6, verticalAlign: "middle" }}>
-                  {row.image ? (
-                    <>
-                      {/* Preview + action buttons */}
-                      <div className="no-print" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                        <img src={row.image} alt="расм" style={{ maxWidth: "100%", maxHeight: 72, objectFit: "contain", borderRadius: 3, border: "1px solid #e0c060" }} />
-                        <div style={{ display: "flex", gap: 4 }}>
-                          <label title="Rasmni almashtirish" style={{
-                            display: "inline-flex", alignItems: "center", gap: 2,
-                            fontSize: 10, color: "#b8860b", cursor: "pointer",
-                            background: "#fffbea", border: "1px solid #d4a900",
-                            borderRadius: 3, padding: "2px 6px", fontFamily: "Arial, sans-serif",
-                          }}>
-                            <input type="file" accept="image/*" style={{ display: "none" }}
-                              onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(row.id, f); }} />
-                            ✎
-                          </label>
-                          <button onClick={() => handleImageRemove(row.id)} title="Rasmni o'chirish" style={{
-                            display: "inline-flex", alignItems: "center", gap: 2,
-                            fontSize: 10, color: "#c00", cursor: "pointer",
-                            background: "#fff0f0", border: "1px solid #f99",
-                            borderRadius: 3, padding: "2px 6px", fontFamily: "Arial, sans-serif",
-                          }}>✕</button>
-                        </div>
-                      </div>
-                      {/* Print-only image */}
-                      <img src={row.image} alt="расм" className="print-image" style={{ maxWidth: "100%", maxHeight: 72, objectFit: "contain", display: "none" }} />
-                    </>
-                  ) : (
-                    <label className="no-print" title="Rasm yuklash" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, height: 72, border: "1.5px dashed #c9a020", borderRadius: 5, cursor: "pointer", color: "#b8860b", background: "#fffdf0", transition: "background 0.15s" }}>
-                      <input type="file" accept="image/*" style={{ display: "none" }}
-                        onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(row.id, f); }} />
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c9a020" strokeWidth="1.5">
-                        <rect x="3" y="3" width="18" height="18" rx="2" />
-                        <circle cx="8.5" cy="8.5" r="1.5" />
-                        <polyline points="21 15 16 10 5 21" />
-                      </svg>
-                      <span style={{ fontSize: 9, fontFamily: "Arial, sans-serif", color: "#b8860b" }}>Rasm yuklash</span>
-                    </label>
-                  )}
-                </td>
-                <td style={td}>
-                  <textarea
-                    value={row.notes}
-                    onChange={e => updateRow(row.id, "notes", e.target.value)}
-                    rows={2}
-                    style={cellInput}
-                    placeholder="..."
-                  />
-                </td>
-                <td className="no-print remove-row-btn" style={{ ...td, textAlign: "center", verticalAlign: "middle" }}>
-                  {rows.length > 1 && (
+                  <div style={{ textAlign: "center", marginBottom: 2, fontSize: 13 }}>
+                    Бош директорига
+                  </div>
+                  <div style={{ textAlign: "center", fontWeight: 700, fontSize: 18, letterSpacing: 1, margin: "12px 0 18px", fontFamily: "Times New Roman, serif" }}>
+                    ТАЛАБНОМА
+                  </div>
+
+                  {/* Intro text with editable box */}
+                  <div style={{ fontSize: 13, lineHeight: 1.8, marginBottom: 20 }}>
+                    Ушбу оркали Сиздан,{" "}
+                    <span
+                      ref={descRef}
+                      className="inline-editable"
+                      contentEditable
+                      suppressContentEditableWarning
+                      data-placeholder="matn kiriting..."
+                      onInput={e => setDescription(e.currentTarget.textContent || "")}
+                      style={{
+                        borderBottom: "1px solid #999",
+                        minWidth: 120,
+                        display: "inline-block",
+                        outline: "none",
+                        fontFamily: "Times New Roman, serif",
+                        fontSize: 13,
+                        color: "#000",
+                        cursor: "text",
+                        verticalAlign: "baseline",
+                        wordBreak: "break-word",
+                        overflowWrap: "break-word",
+                        whiteSpace: "pre-wrap",
+                      }}
+                    />{" "}
+                    омбордан берилиши учун рухсат беришингизни сўрайман.
+                  </div>
+                </div>
+              )}
+
+              {/* Table */}
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, tableLayout: "fixed" }}>
+                <colgroup>
+                  <col style={{ width: "4%" }} />
+                  <col style={{ width: "22%" }} />
+                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "8%" }} />
+                  <col style={{ width: "30%" }} />
+                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "16%" }} />
+                  <col className="no-print" style={{ width: 36 }} />
+                </colgroup>
+                <thead>
+                  <tr style={{ background: "#b8860b", color: "#fff" }}>
+                    <th style={th}>№</th>
+                    <th style={th}>Махсулот номи<br /><span style={{ fontWeight: 400, fontSize: 10 }}>(рус тилида кўрсатилган)</span></th>
+                    <th style={th}>Ўлчов<br />бирлиги</th>
+                    <th style={th}>Миқдори</th>
+                    <th style={th}>Техник кўрсаткичи<br /><span style={{ fontWeight: 400, fontSize: 10 }}>(рус тилида кўрсатилди)</span></th>
+                    <th style={th}>Фотосурати</th>
+                    <th style={th}>Изох</th>
+                    <th className="no-print" style={{ ...th, background: "#9a6f00" }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageRows.map(row => {
+                    const i = rows.findIndex(r => r.id === row.id);
+                    return (
+                      <tr key={row.id} ref={setRowRef(row.id)} style={{ borderBottom: "1px solid #ccc" }}>
+                        <td style={{ ...td, textAlign: "center", fontWeight: 600 }}>{i + 1}.</td>
+                        <td style={td}>
+                          <textarea
+                            value={row.name}
+                            onChange={e => updateRow(row.id, "name", e.target.value)}
+                            rows={2}
+                            style={cellInput}
+                            placeholder="Nomi..."
+                          />
+                        </td>
+                        <td style={td}>
+                          <div data-cell-select="true" data-value={row.unit}>
+                            <CheckSelect
+                              value={row.unit}
+                              onChange={v => updateRow(row.id, "unit", v)}
+                              options={[
+                                { id: "", name: "—" },
+                                ...(Object.values(ProductUnit).filter(v => typeof v === "number") as ProductUnit[]).map(u => ({ id: PRODUCT_UNIT_LABELS_CYR[u], name: PRODUCT_UNIT_LABELS_CYR[u] })),
+                              ]}
+                              placeholder="—"
+                              buttonStyle={{ background: "transparent", color: "#000", border: "1px solid #ccc" }}
+                            />
+                          </div>
+                        </td>
+                        <td style={td}>
+                          <textarea
+                            value={row.quantity}
+                            onChange={e => updateRow(row.id, "quantity", e.target.value)}
+                            rows={2}
+                            style={cellInput}
+                            placeholder="0"
+                          />
+                        </td>
+                        <td style={td}>
+                          <textarea
+                            value={row.spec}
+                            onChange={e => updateRow(row.id, "spec", e.target.value)}
+                            rows={3}
+                            style={cellInput}
+                            placeholder="Texnik ko'rsatkich..."
+                          />
+                        </td>
+                        <td style={{ ...td, textAlign: "center", padding: 6, verticalAlign: "middle" }}>
+                          {row.image ? (
+                            <>
+                              {/* Preview + action buttons */}
+                              <div className="no-print" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                                <img src={row.image} alt="расм" style={{ maxWidth: "100%", maxHeight: 72, objectFit: "contain", borderRadius: 3, border: "1px solid #e0c060" }} />
+                                <div style={{ display: "flex", gap: 4 }}>
+                                  <label title="Rasmni almashtirish" style={{
+                                    display: "inline-flex", alignItems: "center", gap: 2,
+                                    fontSize: 10, color: "#b8860b", cursor: "pointer",
+                                    background: "#fffbea", border: "1px solid #d4a900",
+                                    borderRadius: 3, padding: "2px 6px", fontFamily: "Arial, sans-serif",
+                                  }}>
+                                    <input type="file" accept="image/*" style={{ display: "none" }}
+                                      onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(row.id, f); }} />
+                                    ✎
+                                  </label>
+                                  <button onClick={() => handleImageRemove(row.id)} title="Rasmni o'chirish" style={{
+                                    display: "inline-flex", alignItems: "center", gap: 2,
+                                    fontSize: 10, color: "#c00", cursor: "pointer",
+                                    background: "#fff0f0", border: "1px solid #f99",
+                                    borderRadius: 3, padding: "2px 6px", fontFamily: "Arial, sans-serif",
+                                  }}>✕</button>
+                                </div>
+                              </div>
+                              {/* Print-only image */}
+                              <img src={row.image} alt="расм" className="print-image" style={{ maxWidth: "100%", maxHeight: 72, objectFit: "contain", display: "none" }} />
+                            </>
+                          ) : (
+                            <label className="no-print" title="Rasm yuklash" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, height: 72, border: "1.5px dashed #c9a020", borderRadius: 5, cursor: "pointer", color: "#b8860b", background: "#fffdf0", transition: "background 0.15s" }}>
+                              <input type="file" accept="image/*" style={{ display: "none" }}
+                                onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(row.id, f); }} />
+                              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c9a020" strokeWidth="1.5">
+                                <rect x="3" y="3" width="18" height="18" rx="2" />
+                                <circle cx="8.5" cy="8.5" r="1.5" />
+                                <polyline points="21 15 16 10 5 21" />
+                              </svg>
+                              <span style={{ fontSize: 9, fontFamily: "Arial, sans-serif", color: "#b8860b" }}>Rasm yuklash</span>
+                            </label>
+                          )}
+                        </td>
+                        <td style={td}>
+                          <textarea
+                            value={row.notes}
+                            onChange={e => updateRow(row.id, "notes", e.target.value)}
+                            rows={2}
+                            style={cellInput}
+                            placeholder="..."
+                          />
+                        </td>
+                        <td className="no-print remove-row-btn" style={{ ...td, textAlign: "center", verticalAlign: "middle" }}>
+                          {rows.length > 1 && (
+                            <button
+                              onClick={() => removeRow(row.id)}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: "#c00", fontSize: 16, padding: 4 }}
+                            >✕</button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              {isLastPage && (
+                <>
+                  {/* Add row */}
+                  <div className="no-print add-row-btn" style={{ marginTop: 12, marginBottom: 16 }}>
                     <button
-                      onClick={() => removeRow(row.id)}
-                      style={{ background: "none", border: "none", cursor: "pointer", color: "#c00", fontSize: 16, padding: 4 }}
-                    >✕</button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                      onClick={addRow}
+                      style={{ fontSize: 12, fontWeight: 600, color: "#b8860b", background: "none", border: "1px dashed #b8860b", borderRadius: 4, padding: "5px 14px", cursor: "pointer" }}
+                    >
+                      + Qator qo&apos;shish
+                    </button>
+                  </div>
 
-        {/* Add row */}
-        <div className="no-print add-row-btn" style={{ marginBottom: 24 }}>
-          <button
-            onClick={addRow}
-            style={{ fontSize: 12, fontWeight: 600, color: "#b8860b", background: "none", border: "1px dashed #b8860b", borderRadius: 4, padding: "5px 14px", cursor: "pointer" }}
-          >
-            + Qator qo&apos;shish
-          </button>
-        </div>
+                  {/* Signature */}
+                  <div ref={signatureRef}>
+                    <div style={{ display: "flex", gap: 40, alignItems: "flex-start", marginTop: 8 }}>
+                      <div style={{ flex: 1 }}>
+                        <textarea
+                          value={signerTitle}
+                          onChange={e => setSignerTitle(e.target.value)}
+                          placeholder="Lavozim (masalan: ТИКУВ ЦЕХИ БОШЛИҒИ)"
+                          rows={2}
+                          style={{ ...sigInput, width: "100%", textTransform: "uppercase", fontWeight: 700, fontSize: 12, resize: "none", display: "block", overflow: "hidden", wordBreak: "break-word" }}
+                        />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <textarea
+                          value={signerName}
+                          onChange={e => setSignerName(e.target.value)}
+                          placeholder="F.I.O."
+                          rows={2}
+                          style={{ ...sigInput, width: "100%", resize: "none", display: "block", overflow: "hidden", wordBreak: "break-word" }}
+                        />
+                      </div>
+                    </div>
+                    <div style={{ marginTop: 10, display: "flex", alignItems: "baseline", gap: 4 }}>
+                      <span style={{ display: "inline-block", borderBottom: "1px solid #999", minWidth: 110, maxWidth: 110, fontSize: 12, fontFamily: "Times New Roman, serif", paddingBottom: 2, paddingLeft: 2 }}>
+                        {signDate}
+                      </span>
+                      <span style={{ fontSize: 12, whiteSpace: "nowrap" }}>йил</span>
+                    </div>
+                  </div>
+                </>
+              )}
 
-        {/* Signature */}
-        <div style={{ display: "flex", gap: 40, alignItems: "flex-start", marginTop: 16 }}>
-          <div style={{ flex: 1 }}>
-            <textarea
-              value={signerTitle}
-              onChange={e => setSignerTitle(e.target.value)}
-              placeholder="Lavozim (masalan: ТИКУВ ЦЕХИ БОШЛИҒИ)"
-              rows={2}
-              style={{ ...sigInput, width: "100%", textTransform: "uppercase", fontWeight: 700, fontSize: 12, resize: "none", display: "block", overflow: "hidden", wordBreak: "break-word" }}
-            />
-          </div>
-          <div style={{ flex: 1 }}>
-            <textarea
-              value={signerName}
-              onChange={e => setSignerName(e.target.value)}
-              placeholder="F.I.O."
-              rows={2}
-              style={{ ...sigInput, width: "100%", resize: "none", display: "block", overflow: "hidden", wordBreak: "break-word" }}
-            />
-          </div>
-        </div>
-        <div style={{ marginTop: 10, display: "flex", alignItems: "baseline", gap: 4 }}>
-          <span style={{ display: "inline-block", borderBottom: "1px solid #999", minWidth: 110, maxWidth: 110, fontSize: 12, fontFamily: "Times New Roman, serif", paddingBottom: 2, paddingLeft: 2 }}>
-            {signDate}
-          </span>
-          <span style={{ fontSize: 12, whiteSpace: "nowrap" }}>йил</span>
-        </div>
+              {/* Page number indicator (faqat ekranda) */}
+              {pages.length > 1 && (
+                <div className="no-print" style={{
+                  position: "absolute",
+                  right: 14,
+                  bottom: 8,
+                  fontSize: 10,
+                  color: "#999",
+                  fontFamily: "Arial, sans-serif",
+                  letterSpacing: 0.3,
+                }}>
+                  {pageIdx + 1} / {pages.length}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
       {confirmOpen && createPortal(
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 99999 }}>
@@ -902,14 +1145,15 @@ const cellInput: React.CSSProperties = {
   background: "transparent",
   fontFamily: "Times New Roman, serif",
   fontSize: 12,
-  resize: "none",
+  resize: "vertical",
   outline: "none",
   padding: 0,
   color: "#000",
   boxSizing: "border-box",
   lineHeight: 1.5,
-  overflow: "hidden",
+  overflow: "auto",
   wordBreak: "break-word",
+  minHeight: 28,
 };
 
 const sigInput: React.CSSProperties = {
