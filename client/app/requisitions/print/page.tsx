@@ -455,7 +455,9 @@ function RequisitionPrintContent() {
           </div>
         </div>
 
-        {/* Bottom row: action buttons */}
+        {/* Bottom row: action buttons — guruhlangan
+              chap: destruktiv | input guruhi
+              o'ng: chiqarish guruhi | yakuniy amal (yagona primary) */}
         <div style={{
           display: "flex",
           alignItems: "center",
@@ -464,6 +466,7 @@ function RequisitionPrintContent() {
           padding: "10px 16px",
           borderTop: "1px solid var(--border)",
         }}>
+          {/* — Destruktiv (ajralib turadi) — */}
           <button
             onClick={handleClear}
             title="Blankni tozalash"
@@ -482,61 +485,7 @@ function RequisitionPrintContent() {
 
           <div style={{ width: 1, height: 20, background: "var(--border)" }} />
 
-          <button
-            onClick={handleSaveSystem}
-            disabled={savingSystem || confirmOpen}
-            onMouseEnter={e => { if (!savingSystem) e.currentTarget.style.opacity = "0.85"; }}
-            onMouseLeave={e => { e.currentTarget.style.opacity = savingSystem ? "0.7" : "1"; }}
-            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: savingSystem ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, opacity: savingSystem ? 0.7 : 1, transition: "opacity 0.15s" }}
-          >
-            {savingSystem ? (
-              <span style={{ display: "inline-block", width: 14, height: 14, border: "2px solid currentColor", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
-            ) : (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                <polyline points="17 21 17 13 7 13 7 21" />
-                <polyline points="7 3 7 8 15 8" />
-              </svg>
-            )}
-            Talabnomani yuborish
-          </button>
-
-          <button
-            onClick={handleSavePdf}
-            disabled={saving}
-            onMouseEnter={e => { if (!saving) { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; } }}
-            onMouseLeave={e => { if (!saving) { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text)"; } }}
-            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", background: "var(--bg3)", color: "var(--text)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: saving ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, opacity: saving ? 0.7 : 1, transition: "border-color 0.15s, color 0.15s" }}
-          >
-            {saving ? (
-              <span style={{ display: "inline-block", width: 14, height: 14, border: "2px solid currentColor", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
-            ) : (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-            )}
-            PDF saqlash
-          </button>
-
-          <button
-            onClick={handlePrint}
-            onMouseEnter={e => { e.currentTarget.style.opacity = "0.85"; }}
-            onMouseLeave={e => { e.currentTarget.style.opacity = "1"; }}
-            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, fontSize: 13, transition: "opacity 0.15s" }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <polyline points="6,9 6,2 18,2 18,9" />
-              <path d="M6,18H4a2,2,0,0,1-2-2V11a2,2,0,0,1,2-2H20a2,2,0,0,1,2,2v5a2,2,0,0,1-2,2H18" />
-              <rect x="6" y="14" width="12" height="8" />
-            </svg>
-            Chop etish
-          </button>
-
-          <div style={{ width: 1, height: 20, background: "var(--border)" }} />
-
-          {/* TZ fayl ilova */}
+          {/* — Input/yuklash guruhi (TZ ilova + Me'yoriy sarf) — */}
           <input
             ref={tzInputRef}
             type="file"
@@ -583,28 +532,85 @@ function RequisitionPrintContent() {
           )}
 
           {type === RequisitionType.Contract && (
-            <>
-              <div style={{ flex: 1 }} />
-              <div style={{ width: 1, height: 20, background: "var(--border)" }} />
-              <button
-                type="button"
-                disabled={!contractId || normLoading}
-                onClick={fillFromNorm}
-                style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "none", background: "#2563eb", color: "#fff", cursor: (!contractId || normLoading) ? "not-allowed" : "pointer", opacity: (!contractId || normLoading) ? 0.45 : 1, whiteSpace: "nowrap", transition: "opacity 0.15s" }}
-              >
-                {normLoading ? (
-                  <span style={{ display: "inline-block", width: 13, height: 13, border: "2px solid currentColor", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
-                ) : (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="17 8 12 3 7 8" />
-                    <line x1="12" y1="3" x2="12" y2="15" />
-                  </svg>
-                )}
-                Me&apos;yoriy sarfdan to&apos;ldirish
-              </button>
-            </>
+            <button
+              type="button"
+              disabled={!contractId || normLoading}
+              onClick={fillFromNorm}
+              onMouseEnter={e => { if (contractId && !normLoading) { e.currentTarget.style.background = "var(--accent-dim)"; } }}
+              onMouseLeave={e => { e.currentTarget.style.background = "var(--bg3)"; }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 13px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "1.5px solid var(--accent)", background: "var(--bg3)", color: "var(--accent)", cursor: (!contractId || normLoading) ? "not-allowed" : "pointer", opacity: (!contractId || normLoading) ? 0.45 : 1, whiteSpace: "nowrap", transition: "background 0.15s" }}
+            >
+              {normLoading ? (
+                <span style={{ display: "inline-block", width: 13, height: 13, border: "2px solid currentColor", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+              )}
+              Me&apos;yoriy sarfdan to&apos;ldirish
+            </button>
           )}
+
+          {/* spacer — chiqarish guruhi va yakuniy amalni o'ngga itaradi */}
+          <div style={{ flex: 1 }} />
+
+          {/* — Chiqarish guruhi (saqlash + chop etish, ikkalasi ham ghost) — */}
+          <button
+            onClick={handleSavePdf}
+            disabled={saving}
+            onMouseEnter={e => { if (!saving) { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; } }}
+            onMouseLeave={e => { if (!saving) { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text)"; } }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", background: "var(--bg3)", color: "var(--text)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: saving ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, opacity: saving ? 0.7 : 1, transition: "border-color 0.15s, color 0.15s" }}
+          >
+            {saving ? (
+              <span style={{ display: "inline-block", width: 14, height: 14, border: "2px solid currentColor", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+            )}
+            PDF saqlash
+          </button>
+
+          <button
+            onClick={handlePrint}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text)"; }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", background: "var(--bg3)", color: "var(--text)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, fontSize: 13, transition: "border-color 0.15s, color 0.15s" }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <polyline points="6,9 6,2 18,2 18,9" />
+              <path d="M6,18H4a2,2,0,0,1-2-2V11a2,2,0,0,1,2-2H20a2,2,0,0,1,2,2v5a2,2,0,0,1-2,2H18" />
+              <rect x="6" y="14" width="12" height="8" />
+            </svg>
+            Chop etish
+          </button>
+
+          <div style={{ width: 1, height: 20, background: "var(--border)" }} />
+
+          {/* — Yakuniy amal (yagona primary purple) — */}
+          <button
+            onClick={handleSaveSystem}
+            disabled={savingSystem || confirmOpen}
+            onMouseEnter={e => { if (!savingSystem) e.currentTarget.style.opacity = "0.85"; }}
+            onMouseLeave={e => { e.currentTarget.style.opacity = savingSystem ? "0.7" : "1"; }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: savingSystem ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, opacity: savingSystem ? 0.7 : 1, transition: "opacity 0.15s" }}
+          >
+            {savingSystem ? (
+              <span style={{ display: "inline-block", width: 14, height: 14, border: "2px solid currentColor", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                <polyline points="17 21 17 13 7 13 7 21" />
+                <polyline points="7 3 7 8 15 8" />
+              </svg>
+            )}
+            Talabnomani yuborish
+          </button>
         </div>
       </div>
 
