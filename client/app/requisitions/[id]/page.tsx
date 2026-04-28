@@ -13,13 +13,11 @@ import {
 } from "@/lib/userService";
 import { RequisitionStatusBadge } from "../_components/StatusBadge";
 import { fmtDateTime, type RequisitionResponse } from "../_types";
-import { splitWithPdfs } from "../_utils/splitWithPdfs";
 
 export default function RequisitionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const hasPermission = useAuthStore((s) => s.hasPermission);
-  const userId = useAuthStore((s) => s.user?.id);
   const showToast = useToastStore((s) => s.show);
 
   const canApprove = hasPermission("Requisitions.Approve");
@@ -108,25 +106,6 @@ export default function RequisitionDetailPage() {
     }
   };
 
-  const handleSplit = async () => {
-    if (!req) return;
-    setActing(true);
-    try {
-      const { childIds, pdfFailures } = await splitWithPdfs(req.id);
-      if (pdfFailures > 0) {
-        showToast(
-          `${childIds.length} ta talabnoma yaratildi, ${pdfFailures} ta PDF yaratilmadi`,
-          "Ogohlantirish",
-        );
-      } else {
-        showToast(`${childIds.length} ta yangi talabnoma yaratildi`, "success");
-      }
-      await refresh();
-    } catch {
-      showToast("Xatolik yuz berdi", "error");
-    } finally { setActing(false); }
-  };
-
   if (loading) {
     return <div style={{ textAlign: "center", padding: 80, color: "var(--text3)" }}>Yuklanmoqda…</div>;
   }
@@ -135,8 +114,6 @@ export default function RequisitionDetailPage() {
     return <div style={{ textAlign: "center", padding: 80, color: "var(--text3)" }}>Talabnoma topilmadi</div>;
   }
 
-  const isCreator = userId === req.createdBy;
-  const canSplit = isCreator && req.status === RequisitionStatus.WarehouseChecked;
   const canDoApproval = canApprove && req.status === RequisitionStatus.PendingApproval;
   const isChild = !!req.parentRequisitionId;
   const showAvailability = req.status === RequisitionStatus.WarehouseChecked || req.status === RequisitionStatus.Split;
@@ -372,25 +349,6 @@ export default function RequisitionDetailPage() {
 
         {/* Actions */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {canSplit && (
-            <button
-              disabled={acting}
-              onClick={handleSplit}
-              style={{
-                padding: "12px 24px", borderRadius: "var(--radius)",
-                background: "var(--accent)", color: "#fff", border: "none",
-                fontWeight: 600, fontSize: 14,
-                cursor: acting ? "not-allowed" : "pointer", opacity: acting ? 0.7 : 1,
-                display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M6 3v12"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="6" r="3"/><path d="M18 9c0 6-6 6-6 12"/>
-              </svg>
-              {acting ? "Bo'linmoqda..." : "Bo'lib yuborish (Ombor / Sotib olish)"}
-            </button>
-          )}
-
           {canDoApproval && (
             <div style={{ display: "flex", gap: 10 }}>
               <button

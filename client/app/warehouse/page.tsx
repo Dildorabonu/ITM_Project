@@ -41,6 +41,7 @@ interface ReqCheckRow {
   foundItems: number;
   missingItems: number;
   fullyAvailable: boolean;
+  checked: boolean;
 }
 
 type MaterialStatus = "topilmadi" | "yetishmadi" | "yetarli";
@@ -249,6 +250,7 @@ export default function WarehousePage() {
         foundItems,
         missingItems,
         fullyAvailable: totalItems > 0 && missingItems === 0,
+        checked: !!req.warehouseCheckedAt,
       };
     });
   }, [requisitions, prodMap]);
@@ -271,8 +273,9 @@ export default function WarehousePage() {
 
   const stats = useMemo(() => {
     const total = reqRows.length;
-    const fullyAvailable = reqRows.filter(r => r.fullyAvailable).length;
-    const partial = total - fullyAvailable;
+    const checkedRows = reqRows.filter(r => r.checked);
+    const fullyAvailable = checkedRows.filter(r => r.fullyAvailable).length;
+    const partial = checkedRows.length - fullyAvailable;
     return { total, fullyAvailable, partial };
   }, [reqRows]);
 
@@ -681,6 +684,11 @@ export default function WarehousePage() {
                   <tr
                     key={row.id}
                     onClick={() => {
+                      if (row.checked) {
+                        window.history.pushState({ detail: row.id }, "");
+                        setSelectedReqId(row.id);
+                        return;
+                      }
                       pendingReqId.current = row.id;
                       setDetailDataReady(false);
                       setDetailLoading(true);
@@ -703,9 +711,11 @@ export default function WarehousePage() {
                     <td title={row.purpose} style={{ textAlign: "center", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.purpose}</td>
                     <td style={{ textAlign: "center" }}>{row.contractNo || row.departmentName || "—"}</td>
                     <td style={{ textAlign: "center", fontWeight: 600 }}>{row.totalItems}</td>
-                    <td style={{ textAlign: "center", color: "var(--success)", fontWeight: 600 }}>{row.foundItems}</td>
-                    <td style={{ textAlign: "center", color: row.missingItems > 0 ? "var(--danger)" : "var(--text3)", fontWeight: row.missingItems > 0 ? 600 : 400 }}>
-                      {row.missingItems > 0 ? row.missingItems : "—"}
+                    <td style={{ textAlign: "center", color: row.checked ? "var(--success)" : "var(--text3)", fontWeight: row.checked ? 600 : 400 }}>
+                      {row.checked ? row.foundItems : "—"}
+                    </td>
+                    <td style={{ textAlign: "center", color: row.checked && row.missingItems > 0 ? "var(--danger)" : "var(--text3)", fontWeight: row.checked && row.missingItems > 0 ? 600 : 400 }}>
+                      {row.checked ? (row.missingItems > 0 ? row.missingItems : "—") : "—"}
                     </td>
                     <td style={{ textAlign: "center" }}>{fmt(row.createdAt)}</td>
                     <td style={{ textAlign: "center" }}>{row.createdByName}</td>
