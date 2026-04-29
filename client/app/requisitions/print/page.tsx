@@ -606,8 +606,9 @@ function RequisitionPrintContent() {
           color: #aaa;
           pointer-events: none;
         }
+        .req-img-actions { opacity: 0; pointer-events: none; }
         .req-img-wrap:hover .req-img-actions,
-        .req-img-wrap:focus-within .req-img-actions { opacity: 1; }
+        .req-img-wrap:focus-within .req-img-actions { opacity: 1; pointer-events: auto; }
       `}</style>
 
       {/* Toolbar */}
@@ -1036,7 +1037,7 @@ function RequisitionPrintContent() {
                                 <div className="req-img-actions" style={{
                                   position: "absolute", top: 2, right: 2,
                                   display: "flex", gap: 2,
-                                  opacity: 0, transition: "opacity 0.15s", pointerEvents: "none",
+                                  transition: "opacity 0.15s",
                                 }}>
                                   <label title="Rasmni almashtirish" style={{
                                     display: "inline-flex", alignItems: "center", justifyContent: "center",
