@@ -1181,6 +1181,7 @@ export interface RequisitionItemCreate {
 }
 
 export interface RequisitionCreate {
+  requisitionNo: string;
   type: RequisitionType;
   contractId?: string;
   departmentId?: string;
