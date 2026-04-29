@@ -14,6 +14,7 @@ import { useAuthStore } from "@/lib/store/authStore";
 import { useToastStore } from "@/lib/store/toastStore";
 import { fmtDateTime } from "../_types";
 import { RequisitionStatusBadge } from "./StatusBadge";
+import { WorkflowDiagram } from "./WorkflowDiagram";
 import { approveWithPdf } from "../_utils/approveWithPdf";
 
 interface Props {
@@ -178,6 +179,9 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
 
         {/* Scrollable body */}
         <div style={{ flex: 1, overflowY: "auto", padding: "20px 26px", display: "flex", flexDirection: "column", gap: 16 }}>
+
+          {/* Workflow diagram */}
+          <WorkflowDiagram status={req.status} source={req.source} />
 
           {/* Parent / Children navigation */}
           {(isChild || (req.children?.length ?? 0) > 0) && (
