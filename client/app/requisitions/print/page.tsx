@@ -60,11 +60,18 @@ function RequisitionPrintContent() {
   const descRef = useRef<HTMLSpanElement>(null);
   const showToast = useToastStore((s) => s.show);
 
+  const [reqNo, setReqNo] = useState("");
   const [description, setDescription] = useState("");
   const [rows, setRows] = useState<TableRow[]>([emptyRow(1), emptyRow(2), emptyRow(3)]);
   const [signerName, setSignerName] = useState("");
   const [signerTitle, setSignerTitle] = useState("");
   const [signDate, setSignDate] = useState(new Date().toLocaleDateString("ru-RU").replace(/\//g, "."));
+
+  // "Yuborish" tugmasi bosilganda ochiladigan modal — talabnoma nomini so'raydi.
+  // pendingReqNo modal ichida yoziladi; faqat "Davom etish" bosilganda reqNo ga commit qilinadi
+  // (foydalanuvchi yozayotganida hujjat orqada qayta paginatsiya bo'lib qimirlamasligi uchun).
+  const [nameModalOpen, setNameModalOpen] = useState(false);
+  const [pendingReqNo, setPendingReqNo] = useState("");
 
   const [type, setType] = useState<RequisitionType>(RequisitionType.Contract);
   const [contractId, setContractId] = useState("");
@@ -334,6 +341,8 @@ function RequisitionPrintContent() {
       return [emptyRow(1), emptyRow(2), emptyRow(3)];
     });
     setDescription("");
+    setReqNo("");
+    setPendingReqNo("");
     setSignerName("");
     setSignerTitle("");
     setSignDate(new Date().toLocaleDateString("ru-RU").replace(/\//g, "."));
@@ -393,11 +402,19 @@ function RequisitionPrintContent() {
 
   const handleSaveSystem = () => {
     if (!validateSystem()) return;
-    if (type === RequisitionType.Contract) {
-      setConfirmOpen(true);
+    setPendingReqNo(reqNo);
+    setNameModalOpen(true);
+  };
+
+  const handleNameNext = () => {
+    const trimmed = pendingReqNo.trim();
+    if (!trimmed) {
+      showToast("Talabnoma nomini kiriting", "Xatolik");
       return;
     }
-    doSaveSystem();
+    setReqNo(trimmed);
+    setNameModalOpen(false);
+    setConfirmOpen(true);
   };
 
   const resolvePhotoUrl = async (row: TableRow): Promise<string | undefined> => {
@@ -496,11 +513,12 @@ function RequisitionPrintContent() {
       const photoUrls = await Promise.all(filledRows.map(resolvePhotoUrl));
 
       const reqId = await requisitionService.create({
+        requisitionNo: reqNo.trim(),
         type,
         contractId: type === RequisitionType.Contract ? contractId : undefined,
         departmentId: type === RequisitionType.Individual ? departmentId : undefined,
         purpose: description || "Blank talabnoma",
-        signerName: signerName || undefined,
+        signerName: signerName.trim() || undefined,
         signerTitle: signerTitle || undefined,
         signDate: signDate || undefined,
         items: filledRows.map((r, i) => ({
@@ -936,7 +954,7 @@ function RequisitionPrintContent() {
           {/* — Yakuniy amal (yagona primary purple) — */}
           <button
             onClick={handleSaveSystem}
-            disabled={savingSystem || confirmOpen}
+            disabled={savingSystem || confirmOpen || nameModalOpen}
             onMouseEnter={e => { if (!savingSystem) e.currentTarget.style.opacity = "0.85"; }}
             onMouseLeave={e => { e.currentTarget.style.opacity = savingSystem ? "0.7" : "1"; }}
             style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: savingSystem ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, opacity: savingSystem ? 0.7 : 1, transition: "opacity 0.15s" }}
@@ -999,8 +1017,11 @@ function RequisitionPrintContent() {
                   <div style={{ textAlign: "center", marginBottom: 2, fontSize: 13 }}>
                     Бош директорига
                   </div>
-                  <div style={{ textAlign: "center", fontWeight: 700, fontSize: 18, letterSpacing: 1, margin: "12px 0 18px", fontFamily: "Times New Roman, serif" }}>
-                    ТАЛАБНОМА
+                  <div style={{ textAlign: "center", margin: "12px 0 18px", fontFamily: "Times New Roman, serif" }}>
+                    <div style={{ fontWeight: 700, fontSize: 18, letterSpacing: 1 }}>ТАЛАБНОМА</div>
+                    {reqNo.trim() && (
+                      <div style={{ fontSize: 13, fontStyle: "italic", marginTop: 4 }}>«{reqNo.trim()}»</div>
+                    )}
                   </div>
 
                   {/* Intro text with editable box */}
@@ -1243,15 +1264,57 @@ function RequisitionPrintContent() {
           );
         })}
       </div>
+      {nameModalOpen && createPortal(
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 99999 }}>
+          <div style={{ background: "var(--bg2)", borderRadius: 14, padding: 28, width: 460, maxWidth: "90vw", minHeight: 240, boxShadow: "var(--shadow2)", display: "flex", flexDirection: "column" }}>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8, color: "var(--text1)" }}>Talabnoma nomi</div>
+            <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 16, lineHeight: 1.5 }}>
+              Yuborishdan oldin talabnoma nomini kiriting.
+            </div>
+
+            <input
+              autoFocus
+              value={pendingReqNo}
+              onChange={e => setPendingReqNo(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") handleNameNext(); }}
+              placeholder="Talabnoma nomini kiriting"
+              style={{
+                width: "100%", padding: "10px 12px",
+                border: "1.5px solid var(--border)", borderRadius: "var(--radius)",
+                fontSize: 14, background: "var(--bg3)", color: "var(--text)",
+                outline: "none", boxSizing: "border-box",
+              }}
+            />
+
+            <div style={{ display: "flex", gap: 10, marginTop: "auto", paddingTop: 20 }}>
+              <button
+                onClick={() => setNameModalOpen(false)}
+                style={{ flex: 1, padding: "9px", background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, color: "var(--text2)" }}
+              >
+                Bekor
+              </button>
+              <button
+                onClick={handleNameNext}
+                disabled={!pendingReqNo.trim()}
+                style={{ flex: 1, padding: "9px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: pendingReqNo.trim() ? "pointer" : "not-allowed", fontWeight: 600, opacity: pendingReqNo.trim() ? 1 : 0.5 }}
+              >
+                Davom etish
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
       {confirmOpen && createPortal(
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 99999 }}>
-          <div style={{ background: "var(--bg2)", borderRadius: 14, padding: 28, width: 420, maxWidth: "90vw", boxShadow: "var(--shadow2)" }}>
-            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 10, color: "var(--text1)" }}>Omborga yuborish</div>
-            <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 20, lineHeight: 1.6 }}>
-              Bu talabnoma <strong>bevosita ombor tekshiruviga</strong> yuboriladi.<br />
-              Davom etishni tasdiqlaysizmi?
+          <div style={{ background: "var(--bg2)", borderRadius: 14, padding: 28, width: 460, maxWidth: "90vw", minHeight: 240, boxShadow: "var(--shadow2)", display: "flex", flexDirection: "column" }}>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 10, color: "var(--text1)" }}>Ishonchingiz komilmi?</div>
+            <div style={{ fontSize: 15, color: "var(--text2)", marginBottom: 20, lineHeight: 1.6 }}>
+              <strong>{reqNo.trim()}</strong> nomli talabnoma{" "}
+              {type === RequisitionType.Contract ? "ombor tekshiruviga" : "tizimga"}{" "}
+              yuboriladi. Yuborilgandan keyin tahrirlab bo&apos;lmaydi.
             </div>
-            <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ display: "flex", gap: 10, marginTop: "auto" }}>
               <button
                 onClick={() => setConfirmOpen(false)}
                 style={{ flex: 1, padding: "9px", background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, color: "var(--text2)" }}
@@ -1262,7 +1325,7 @@ function RequisitionPrintContent() {
                 onClick={doSaveSystem}
                 style={{ flex: 1, padding: "9px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600 }}
               >
-                Omborga yuborish
+                Tasdiqlash va yuborish
               </button>
             </div>
           </div>

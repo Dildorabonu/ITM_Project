@@ -4,6 +4,9 @@ namespace Application.DTOs.Requisitions;
 
 public class RequisitionCreateDto
 {
+    // Yaratuvchi tomonidan blank formada qo'lda kiritiladi — majburiy.
+    public string RequisitionNo { get; set; } = string.Empty;
+
     public RequisitionType Type { get; set; }
 
     // Type = Contract bo'lsa majburiy
