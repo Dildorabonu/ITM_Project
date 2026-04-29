@@ -92,6 +92,36 @@ function RequisitionPrintContent() {
   const [headerH, setHeaderH] = useState(FALLBACK_HEADER_H);
   const [signatureH, setSignatureH] = useState(FALLBACK_SIGNATURE_H);
   const [rowHeights, setRowHeights] = useState<Record<number, number>>({});
+  const [rowManualHeights, setRowManualHeights] = useState<Record<number, number>>({});
+  const dragRef = useRef<{ rowId: number; startY: number; startHeight: number } | null>(null);
+
+  const startRowResize = useCallback((rowId: number) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const tr = rowRefs.current.get(rowId);
+    if (!tr) return;
+    const startHeight = Math.ceil(tr.getBoundingClientRect().height);
+    dragRef.current = { rowId, startY: e.clientY, startHeight };
+    document.body.style.cursor = "ns-resize";
+    document.body.style.userSelect = "none";
+
+    const onMove = (ev: MouseEvent) => {
+      const d = dragRef.current;
+      if (!d) return;
+      const dy = ev.clientY - d.startY;
+      const newH = Math.max(32, d.startHeight + dy);
+      setRowManualHeights(prev => prev[d.rowId] === newH ? prev : { ...prev, [d.rowId]: newH });
+    };
+    const onUp = () => {
+      dragRef.current = null;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, []);
 
   const setRowRef = useCallback((id: number) => (el: HTMLTableRowElement | null) => {
     if (el) {
@@ -912,8 +942,8 @@ function RequisitionPrintContent() {
                   {pageRows.map(row => {
                     const i = rows.findIndex(r => r.id === row.id);
                     return (
-                      <tr key={row.id} ref={setRowRef(row.id)} style={{ borderBottom: "1px solid #ccc" }}>
-                        <td style={{ ...td, textAlign: "center", fontWeight: 600, whiteSpace: "nowrap" }}>{i + 1}.</td>
+                      <tr key={row.id} ref={setRowRef(row.id)} style={{ borderBottom: "1px solid #ccc", position: "relative" }}>
+                        <td style={{ ...td, textAlign: "center", fontWeight: 600, whiteSpace: "nowrap", height: rowManualHeights[row.id] || undefined }}>{i + 1}.</td>
                         <td style={td}>
                           <AutoTextarea
                             value={row.name}
@@ -1020,6 +1050,20 @@ function RequisitionPrintContent() {
                               style={{ background: "none", border: "none", cursor: "pointer", color: "#c00", fontSize: 16, padding: 4 }}
                             >✕</button>
                           )}
+                          <div
+                            className="no-print"
+                            onMouseDown={startRowResize(row.id)}
+                            style={{
+                              position: "absolute",
+                              left: 0,
+                              right: 0,
+                              bottom: -3,
+                              height: 6,
+                              cursor: "ns-resize",
+                              zIndex: 5,
+                              background: "transparent",
+                            }}
+                          />
                         </td>
                       </tr>
                     );
