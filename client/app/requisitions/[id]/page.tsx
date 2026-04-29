@@ -13,6 +13,7 @@ import {
 } from "@/lib/userService";
 import { RequisitionStatusBadge } from "../_components/StatusBadge";
 import { WorkflowDiagram } from "../_components/WorkflowDiagram";
+import { downloadRequisitionPdf, openRequisitionPdfInNewTab } from "../_utils/downloadRequisitionPdf";
 import { fmtDateTime, type RequisitionResponse } from "../_types";
 
 export default function RequisitionDetailPage() {
@@ -34,6 +35,8 @@ export default function RequisitionDetailPage() {
   const [files, setFiles] = useState<AttachmentResponse[]>([]);
   const [filesLoading, setFilesLoading] = useState(false);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
+
+  const [childActing, setChildActing] = useState<{ id: string; action: "download" | "open" } | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -77,6 +80,31 @@ export default function RequisitionDetailPage() {
       showToast("Faylni yuklashda xatolik", "error");
     } finally {
       setPreviewingId(null);
+    }
+  };
+
+  const handleChildDownload = async (childId: string) => {
+    setChildActing({ id: childId, action: "download" });
+    try {
+      const ok = await downloadRequisitionPdf(childId);
+      if (!ok) showToast("PDF yaratilmadi", "error");
+    } catch {
+      showToast("Yuklab olishda xatolik", "error");
+    } finally {
+      setChildActing(null);
+    }
+  };
+
+  const handleChildOpen = async (childId: string) => {
+    setChildActing({ id: childId, action: "open" });
+    try {
+      const result = await openRequisitionPdfInNewTab(childId);
+      if (result === "blocked") showToast("Yangi tab ochilmadi. Popup bloker tekshiring.", "error");
+      else if (result === "error") showToast("PDF yaratilmadi", "error");
+    } catch {
+      showToast("Faylni yuklashda xatolik", "error");
+    } finally {
+      setChildActing(null);
     }
   };
 
@@ -180,6 +208,9 @@ export default function RequisitionDetailPage() {
                     const isWh = ch.source === RequisitionSource.Warehouse;
                     const destColor = isWh ? "var(--success)" : "var(--accent)";
                     const destLabel = isWh ? "Ombordan olishga" : "Sotib olishga";
+                    const isOpening = childActing?.id === ch.id && childActing.action === "open";
+                    const isDownloading = childActing?.id === ch.id && childActing.action === "download";
+                    const anyActing = childActing !== null;
                     return (
                       <div
                         key={ch.id}
@@ -203,6 +234,18 @@ export default function RequisitionDetailPage() {
                           </svg>
                           {destLabel}
                         </span>
+                        <ChildPdfButton
+                          variant="open"
+                          loading={isOpening}
+                          disabled={anyActing}
+                          onClick={() => handleChildOpen(ch.id)}
+                        />
+                        <ChildPdfButton
+                          variant="download"
+                          loading={isDownloading}
+                          disabled={anyActing}
+                          onClick={() => handleChildDownload(ch.id)}
+                        />
                       </div>
                     );
                   })}
@@ -437,6 +480,59 @@ function InfoCard({ label, value, full }: { label: string; value?: string; full?
       <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4 }}>{label}</div>
       <div style={{ fontWeight: 600, fontSize: 13, color: "var(--text1)", wordBreak: "break-word" }}>{value || "—"}</div>
     </div>
+  );
+}
+
+function ChildPdfButton({ variant, loading, disabled, onClick }: {
+  variant: "open" | "download";
+  loading: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  const [hover, setHover] = useState(false);
+  const isOpen = variant === "open";
+  const color = isOpen ? "#0ea5e9" : "#10b981";
+  const bgIdle = isOpen ? "rgba(14,165,233,0.07)" : "rgba(16,185,129,0.07)";
+  const bgHover = isOpen ? "rgba(14,165,233,0.15)" : "rgba(16,185,129,0.15)";
+  const outline = isOpen ? "rgba(14,165,233,0.3)" : "rgba(16,185,129,0.3)";
+  const title = isOpen ? "Yangi tabda ko'rish" : "Yuklab olish";
+  const interactive = !disabled && !loading;
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled || loading}
+      title={title}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        padding: "5px 8px", border: "none", borderRadius: "var(--radius)",
+        cursor: loading ? "wait" : disabled ? "not-allowed" : "pointer",
+        color,
+        background: hover && interactive ? bgHover : bgIdle,
+        outline: `1px solid ${outline}`,
+        opacity: disabled && !loading ? 0.5 : loading ? 0.6 : 1,
+        transform: hover && interactive ? "scale(1.1)" : "scale(1)",
+        transition: "background 0.15s, transform 0.15s",
+        flexShrink: 0,
+      }}
+    >
+      {loading ? (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ animation: "spin 0.8s linear infinite" }}>
+          <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+        </svg>
+      ) : isOpen ? (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+      ) : (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+      )}
+    </button>
   );
 }
 
