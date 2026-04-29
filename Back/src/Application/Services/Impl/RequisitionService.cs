@@ -58,6 +58,9 @@ public class RequisitionService : IRequisitionService
 
     public async Task<ApiResult<Guid>> CreateAsync(RequisitionCreateDto dto, Guid createdBy)
     {
+        if (string.IsNullOrWhiteSpace(dto.RequisitionNo))
+            return ApiResult<Guid>.Failure(["Talabnoma nomini kiriting."]);
+
         if (dto.Type == RequisitionType.Contract && dto.ContractId is null)
             return ApiResult<Guid>.Failure(["Shartnoma bo'yicha talabnomada ContractId majburiy."]);
 
@@ -73,7 +76,10 @@ public class RequisitionService : IRequisitionService
                 return ApiResult<Guid>.Failure(["Har bir materialda MaterialId yoki nomi ko'rsatilishi shart."]);
         }
 
-        var no = await GenerateRequisitionNoAsync();
+        var no = dto.RequisitionNo.Trim();
+        var taken = await _context.Requisitions.AnyAsync(r => r.RequisitionNo == no);
+        if (taken)
+            return ApiResult<Guid>.Failure(["Bunday nomli talabnoma allaqachon mavjud."]);
 
         var requisition = new Requisition
         {
@@ -396,15 +402,6 @@ public class RequisitionService : IRequisitionService
             .Include(r => r.Children)
             .Include(r => r.Items).ThenInclude(i => i.Material)
             .FirstOrDefaultAsync(r => r.Id == id);
-
-    private async Task<string> GenerateRequisitionNoAsync()
-    {
-        var year = DateTime.UtcNow.Year;
-        // Faqat parent (ParentRequisitionId == null) larni sanaymiz, child suffix bilan keladi
-        var count = await _context.Requisitions
-            .CountAsync(r => r.CreatedAt.Year == year && r.ParentRequisitionId == null);
-        return $"REQ-{year}-{(count + 1):D4}";
-    }
 
     private async System.Threading.Tasks.Task NotifyWarehouseCheckersAsync(Requisition r)
     {
