@@ -12,6 +12,7 @@ import {
   type AttachmentResponse,
 } from "@/lib/userService";
 import { RequisitionStatusBadge } from "../_components/StatusBadge";
+import { WorkflowDiagram } from "../_components/WorkflowDiagram";
 import { fmtDateTime, type RequisitionResponse } from "../_types";
 
 export default function RequisitionDetailPage() {
@@ -143,6 +144,11 @@ export default function RequisitionDetailPage() {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+        {/* Workflow diagram */}
+        <div className="itm-card" style={{ padding: 22 }}>
+          <WorkflowDiagram status={req.status} source={req.source} />
+        </div>
 
         {/* Parent / Children */}
         {(isChild || (req.children?.length ?? 0) > 0) && (
