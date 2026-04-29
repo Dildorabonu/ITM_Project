@@ -364,31 +364,6 @@ public class RequisitionService : IRequisitionService
         return ApiResult<bool>.Success(true);
     }
 
-    public async Task<ApiResult<bool>> DeleteAsync(Guid id, Guid currentUserId)
-    {
-        var r = await _context.Requisitions
-            .Include(r => r.Items)
-            .Include(r => r.Children)
-            .FirstOrDefaultAsync(r => r.Id == id);
-
-        if (r is null)
-            return ApiResult<bool>.Failure([$"Requisition '{id}' topilmadi."], 404);
-
-        if (r.Status is RequisitionStatus.ReadyForWarehouseRelease
-            or RequisitionStatus.ReadyForPurchase
-            or RequisitionStatus.Split)
-            return ApiResult<bool>.Failure(["Tasdiqlangan yoki bo'lib yuborilgan talabnomani o'chirib bo'lmaydi."]);
-
-        if (r.Children.Count > 0)
-            return ApiResult<bool>.Failure(["Bo'lingan talabnomani o'chirib bo'lmaydi."]);
-
-        _context.RequisitionItems.RemoveRange(r.Items);
-        _context.Requisitions.Remove(r);
-        await _context.SaveChangesAsync();
-
-        return ApiResult<bool>.Success(true);
-    }
-
     // ─── Yordamchi metodlar ───────────────────────────────────────────────────
 
     private async Task<Requisition?> GetWithIncludes(Guid id) =>

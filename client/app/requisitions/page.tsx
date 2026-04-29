@@ -15,8 +15,6 @@ import { RequisitionStatusBadge } from "./_components/StatusBadge";
 import { RequisitionDrawer } from "./_components/RequisitionDrawer";
 import { CheckSelect } from "./_components/CheckSelect";
 import { useAuthStore } from "@/lib/store/authStore";
-import { useToastStore } from "@/lib/store/toastStore";
-import { ConfirmModal } from "@/app/_components/ConfirmModal";
 
 // ─── Status filter options ─────────────────────────────────────────────────────
 
@@ -34,16 +32,12 @@ const STATUS_FILTER = [
 function RequisitionsContent() {
   const router = useRouter();
   const hasPermission = useAuthStore((s) => s.hasPermission);
-  const showToast = useToastStore((s) => s.show);
-  const canDelete = hasPermission("Requisitions.Delete");
   const canApprove = hasPermission("Requisitions.Approve");
 
   const [list, setList] = useState<RequisitionResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
   const [drawerReq, setDrawerReq] = useState<RequisitionResponse | null>(null);
 
   const load = useCallback(async () => {
@@ -54,21 +48,6 @@ function RequisitionsContent() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
-
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    setDeleting(true);
-    try {
-      await requisitionService.delete(deleteId);
-      showToast("Talabnoma o'chirildi", "success");
-      setDeleteId(null);
-      await load();
-    } catch {
-      showToast("Xatolik yuz berdi", "error");
-    } finally {
-      setDeleting(false);
-    }
-  };
 
   const pendingApprovalCount = useMemo(
     () => list.filter(r => r.status === RequisitionStatus.PendingApproval).length,
@@ -203,25 +182,6 @@ function RequisitionsContent() {
                           <circle cx="12" cy="12" r="3" />
                         </svg>
                       </button>
-                      {canDelete
-                        && r.status !== RequisitionStatus.ReadyForWarehouseRelease
-                        && r.status !== RequisitionStatus.ReadyForPurchase
-                        && (r.children?.length ?? 0) === 0
-                        && (
-                        <button
-                          className="btn-icon btn-icon-danger"
-                          title="O'chirish"
-                          style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}
-                          onClick={() => setDeleteId(r.id)}
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <polyline points="3 6 5 6 21 6" />
-                            <path d="M19 6l-1 14H6L5 6" />
-                            <path d="M10 11v6M14 11v6" />
-                            <path d="M9 6V4h6v2" />
-                          </svg>
-                        </button>
-                      )}
                     </div>
                   </td>
                 </tr>
@@ -231,15 +191,6 @@ function RequisitionsContent() {
           </div>
         </div>
       )}
-
-      <ConfirmModal
-        open={!!deleteId}
-        title="Talabnomani o'chirish"
-        message="Ushbu talabnoma o'chiriladi. Davom etasizmi?"
-        loading={deleting}
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteId(null)}
-      />
 
       {drawerReq && (
         <RequisitionDrawer

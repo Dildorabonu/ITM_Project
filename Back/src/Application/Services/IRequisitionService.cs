@@ -21,6 +21,4 @@ public interface IRequisitionService
 
     // Direktor: PendingApproval → Rejected
     Task<ApiResult<bool>> RejectAsync(Guid id, Guid directorId, RequisitionRejectDto dto);
-
-    Task<ApiResult<bool>> DeleteAsync(Guid id, Guid currentUserId);
 }
