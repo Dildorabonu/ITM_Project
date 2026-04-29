@@ -945,17 +945,14 @@ function RequisitionPrintContent() {
                       onInput={e => setDescription(e.currentTarget.textContent || "")}
                       style={{
                         borderBottom: "1px solid #999",
-                        minWidth: 120,
-                        display: "inline-block",
+                        display: "inline",
                         outline: "none",
                         fontFamily: "Times New Roman, serif",
                         fontSize: 13,
                         color: "#000",
                         cursor: "text",
-                        verticalAlign: "baseline",
                         wordBreak: "break-word",
                         overflowWrap: "break-word",
-                        whiteSpace: "pre-wrap",
                       }}
                     />{" "}
                     омбордан берилиши учун рухсат беришингизни сўрайман.
