@@ -199,9 +199,13 @@ function RequisitionPrintContent() {
     let used = 0;
 
     rows.forEach((row, i) => {
-      // O'lchov mavjud bo'lsa unga ishonamiz; aks holda FALLBACK ga tushamiz.
-      const measured = rowHeights[row.id];
-      const rowH = measured && measured > 0 ? measured : FALLBACK_ROW_H;
+      // Manual (drag bilan o'rnatilgan) va o'lchangan balandlikning kattasini olamiz.
+      // Manual'ni alohida hisobga olamiz, chunki qator yangi sahifaga ko'chganda
+      // <tr> qayta mount bo'ladi va eski ResizeObserver yangisini kuzatmaydi —
+      // manual qiymat esa state'da turg'un bo'lib paginatsiyani sinxron yangilaydi.
+      const measured = rowHeights[row.id] ?? 0;
+      const manual = rowManualHeights[row.id] ?? 0;
+      const rowH = Math.max(measured, manual) || FALLBACK_ROW_H;
       const isFirstPage = result.length === 0;
       const overhead = (isFirstPage ? headerH : 0) + TABLE_HEAD_H;
       const isLastRow = i === rows.length - 1;
@@ -219,7 +223,7 @@ function RequisitionPrintContent() {
 
     if (current.length || result.length === 0) result.push(current);
     return result;
-  }, [rows, rowHeights, headerH, signatureH]);
+  }, [rows, rowHeights, rowManualHeights, headerH, signatureH]);
 
   const [saving, setSaving] = useState(false);
   const [savingSystem, setSavingSystem] = useState(false);
