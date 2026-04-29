@@ -94,7 +94,7 @@ function RequisitionsContent() {
   );
 
   const filtered = useMemo(() => {
-    let res = list;
+    let res = list.filter(r => !r.parentRequisitionId);
     if (filterStatus !== "") res = res.filter(r => r.status === Number(filterStatus));
     if (search.trim()) {
       const q = search.toLowerCase();

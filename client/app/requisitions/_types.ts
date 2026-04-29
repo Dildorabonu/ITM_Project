@@ -35,6 +35,52 @@ export const SOURCE_STYLE: Record<RequisitionSource, { bg: string; color: string
   [RequisitionSource.Purchase]:  { bg: "var(--accent-dim)",  color: "var(--accent)",  border: "rgba(26,110,235,0.25)" },
 };
 
+// ─── Workflow ─────────────────────────────────────────────────────────────────
+
+export type WorkflowStepKey =
+  | RequisitionStatus.Draft
+  | RequisitionStatus.PendingWarehouseCheck
+  | RequisitionStatus.WarehouseChecked
+  | RequisitionStatus.PendingApproval
+  | "final";
+
+export const WORKFLOW_STEPS: { key: WorkflowStepKey; label: string; shortLabel: string }[] = [
+  { key: RequisitionStatus.Draft,                 label: "Talabnoma yaratildi",         shortLabel: "Yaratildi" },
+  { key: RequisitionStatus.PendingWarehouseCheck, label: "Ombor tekshiruvida",          shortLabel: "Tekshiruvda" },
+  { key: RequisitionStatus.WarehouseChecked,      label: "Ombor tekshiruvi yakunlandi", shortLabel: "Tekshirildi" },
+  { key: RequisitionStatus.PendingApproval,       label: "Tasdiqlash kutilmoqda",       shortLabel: "Tasdiqlash" },
+  { key: "final",                                  label: "Yakunlandi",                  shortLabel: "Yakuniy" },
+];
+
+export const STEP_COLORS: Record<Exclude<WorkflowStepKey, "final">, { active: string; text: string }> = {
+  [RequisitionStatus.Draft]:                 { active: "#6b7280", text: "#fff" },
+  [RequisitionStatus.PendingWarehouseCheck]: { active: "#e07b00", text: "#fff" },
+  [RequisitionStatus.WarehouseChecked]:      { active: "#0891b2", text: "#fff" },
+  [RequisitionStatus.PendingApproval]:       { active: "#db2777", text: "#fff" },
+};
+
+export function getWorkflowIndex(status: RequisitionStatus): number {
+  switch (status) {
+    case RequisitionStatus.Draft:                    return 0;
+    case RequisitionStatus.PendingWarehouseCheck:    return 1;
+    case RequisitionStatus.WarehouseChecked:         return 2;
+    case RequisitionStatus.PendingApproval:          return 3;
+    case RequisitionStatus.ReadyForWarehouseRelease: return 4;
+    case RequisitionStatus.ReadyForPurchase:         return 4;
+    default:                                         return -1;
+  }
+}
+
+export function getFinalStepInfo(source?: RequisitionSource): { label: string; shortLabel: string; color: string } {
+  if (source === RequisitionSource.Warehouse) {
+    return { label: "Ombordan olishga tayyor", shortLabel: "Ombordan", color: "#0f7b45" };
+  }
+  if (source === RequisitionSource.Purchase) {
+    return { label: "Sotib olishga tayyor", shortLabel: "Sotib olish", color: "#1a6eeb" };
+  }
+  return { label: "Yakunlandi", shortLabel: "Yakuniy", color: "#0f7b45" };
+}
+
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 export function fmtDate(d?: string) {
