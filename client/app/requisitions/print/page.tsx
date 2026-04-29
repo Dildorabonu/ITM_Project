@@ -525,31 +525,58 @@ function RequisitionPrintContent() {
       {/* Print styles */}
       <style>{`
         @media print {
-          /* Visibility hack: butun layoutni (sidebar/topbar/main wrappers)
-             ko'rinmas qilamiz, faqat .document-stack visible. Keyin uni
-             position:absolute bilan body'ning natural oqimiga ko'taramiz —
-             shunda parent overflow:hidden / height:100% / display:flex
-             paginatsiyaga aralashmaydi */
-          body * { visibility: hidden !important; }
-          .document-stack, .document-stack * { visibility: visible !important; }
-          .document-stack {
-            position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            display: block !important;
-            gap: 0 !important;
-            width: 210mm !important;
-            background: #fff !important;
-          }
+          /* Layout wrapperlarini (html / body / #app-root / main / main>div)
+             normal block oqimiga qaytaramiz. position:absolute ishlatib bo'lmaydi —
+             Chrome absolute container ichidagi page-break-after ni hurmat qilmaydi
+             va natijada faqat 1 sahifa chiqadi. Buning o'rniga sidebar/topbar ni
+             display:none bilan yashirib, .document-stack ni natural oqimda
+             qoldiramiz — shunda har page-sheet uchun page-break ishlaydi. */
           html, body {
             height: auto !important;
             min-height: 0 !important;
             overflow: visible !important;
             margin: 0 !important;
             padding: 0 !important;
+            background: #fff !important;
+            display: block !important;
+          }
+          #app-root {
+            display: block !important;
+            width: auto !important;
+            height: auto !important;
+            overflow: visible !important;
+          }
+          /* Sidebar (#app-root > aside) */
+          #app-root > aside { display: none !important; }
+          /* O'ng tomon container (#app-root > div) — flex column ni block ga */
+          #app-root > div {
+            display: block !important;
+            height: auto !important;
+            overflow: visible !important;
+          }
+          /* Topbar — o'ng tomonning birinchi farzandi */
+          #app-root > div > div:first-child { display: none !important; }
+          main {
+            display: block !important;
+            height: auto !important;
+            overflow: visible !important;
+            border: none !important;
+            background: transparent !important;
+          }
+          main > div {
+            display: block !important;
+            height: auto !important;
+            overflow: visible !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            gap: 0 !important;
+          }
+          .document-stack {
+            display: block !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            gap: 0 !important;
+            width: 210mm !important;
             background: #fff !important;
           }
           .page-sheet {
@@ -571,8 +598,36 @@ function RequisitionPrintContent() {
             break-after: auto !important;
           }
           .page-sheet table { font-size: 10px !important; }
-          .page-sheet table th { padding: 4px 5px !important; font-size: 10px !important; line-height: 1.3 !important; }
+          /* Header rang fonini print da saqlash — Chrome default da background
+             ranglarini olib tashlaydi, shuning uchun print-color-adjust: exact
+             majburlanadi. Aks holda oltin fon yo'qoladi va oq matn ko'rinmay qoladi. */
+          .page-sheet table thead tr,
+          .page-sheet table th {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+          }
+          .page-sheet table th {
+            padding: 6px 6px !important;
+            font-size: 11px !important;
+            line-height: 1.35 !important;
+            font-weight: 700 !important;
+            background: #b8860b !important;
+            color: #fff !important;
+          }
+          .page-sheet table th span { font-size: 9.5px !important; line-height: 1.3 !important; }
           .page-sheet table td { padding: 4px 5px !important; }
+          /* Grid chiziqlari — ekrandagi #ccc juda och, ko'p printerlarda
+             zo'rg'a chiqadi. Print da to'q kulrang qilib aniq ko'rinishini
+             ta'minlaymiz. borderCollapse: collapse holatida har tomonlamasini
+             ham aniq beramiz, aks holda ba'zi qirralar yo'qolib qoladi. */
+          .page-sheet table { border-collapse: collapse !important; border: 1px solid #333 !important; }
+          /* Header (oltin fonli) — to'q jigarrang chegara, ustun sarlavhalari
+             orasida aniq separator. Data (td) — to'q kulrang, oq fonda yaxshi
+             ko'rinadi. */
+          .page-sheet table th { border: 1px solid #5a3f00 !important; }
+          .page-sheet table td { border: 1px solid #333 !important; }
+          .page-sheet table tr { border: none !important; }
           input, textarea { border: none !important; background: transparent !important; resize: none !important; overflow: hidden !important; }
           .inline-editable { border: none !important; }
           [data-cell-select] button { border: none !important; background: transparent !important; padding: 0 !important; font-family: Times New Roman, serif !important; font-size: 12px !important; color: #000 !important; height: auto !important; }
@@ -967,7 +1022,7 @@ function RequisitionPrintContent() {
                   <col className="no-print" style={{ width: 36 }} />
                 </colgroup>
                 <thead>
-                  <tr style={{ background: "#b8860b", color: "#fff" }}>
+                  <tr>
                     <th style={th}>№<ColResizer idx={0} onStart={startColResize} /></th>
                     <th style={th}>Махсулот номи<br /><span style={{ fontWeight: 400, fontSize: 10 }}>(рус тилида кўрсатилган)</span><ColResizer idx={1} onStart={startColResize} /></th>
                     <th style={th}>Ўлчов<br />бирлиги<ColResizer idx={2} onStart={startColResize} /></th>
@@ -1215,12 +1270,17 @@ export default function RequisitionPrintPage() {
 
 const th: React.CSSProperties = {
   padding: "7px 8px",
-  border: "1px solid #a0720a",
+  // Background har th ga to'g'ridan-to'g'ri qo'yiladi (tr emas) — shunda
+  // border-collapse ostida tr fonidan kelib chiqadigan bo'yash artefaktlari
+  // bo'lmaydi. To'q jigarrang chegara oltin fonda yaqqol ko'rinadi.
+  background: "#b8860b",
+  border: "1px solid #5a3f00",
   fontWeight: 700,
   fontSize: 11,
   textAlign: "center",
   lineHeight: 1.35,
   position: "relative",
+  color: "#fff",
 };
 
 function ColResizer({ idx, onStart }: { idx: number; onStart: (i: number) => (e: React.MouseEvent) => void }) {
