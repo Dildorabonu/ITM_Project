@@ -1316,10 +1316,6 @@ export const requisitionService = {
     return (res.data?.result ?? []) as string[];
   },
 
-  delete: async (id: string): Promise<void> => {
-    await api.delete(`/api/requisition/${id}`);
-  },
-
   getFiles: async (id: string): Promise<AttachmentResponse[]> => {
     try {
       const res = await api.get(`/api/requisition/${id}/files`);

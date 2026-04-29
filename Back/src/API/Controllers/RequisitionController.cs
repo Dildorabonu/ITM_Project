@@ -109,18 +109,6 @@ public class RequisitionController : ControllerBase
         return Ok(result);
     }
 
-    [HasPermission("Requisitions.Delete")]
-    [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id)
-    {
-        var userId = GetUserId();
-        if (userId is null) return Unauthorized();
-
-        var result = await _requisitionService.DeleteAsync(id, userId.Value);
-        if (!result.Succeeded) return BadRequest(result);
-        return Ok(result);
-    }
-
     // ── Files ────────────────────────────────────────────────────────────────
 
     [HasPermission("Requisitions.View")]

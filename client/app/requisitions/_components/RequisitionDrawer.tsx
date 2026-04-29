@@ -20,7 +20,6 @@ interface Props {
   req: RequisitionResponse;
   onClose: () => void;
   onUpdate: (updated: RequisitionResponse) => void;
-  onDeleted?: () => void;
 }
 
 export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
