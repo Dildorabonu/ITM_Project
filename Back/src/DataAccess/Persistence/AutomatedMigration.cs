@@ -52,7 +52,7 @@ public static class AutomatedMigration
         [PermissionModule.WarehouseCheck]      = [PermissionAction.View],
         [PermissionModule.Tasks]              = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete, PermissionAction.ViewAll],
         [PermissionModule.Notifications]      = [PermissionAction.View, PermissionAction.ViewAll],
-        [PermissionModule.Requisitions]       = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete, PermissionAction.ViewAll, PermissionAction.Approve, PermissionAction.WarehouseCheck],
+        [PermissionModule.Requisitions]       = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.ViewAll, PermissionAction.Approve, PermissionAction.WarehouseCheck],
     };
 
     private static async System.Threading.Tasks.Task SeedPermissionsAsync(DatabaseContext context)
@@ -157,7 +157,6 @@ public static class AutomatedMigration
                     (PermissionModule.Requisitions, PermissionAction.View),
                     (PermissionModule.Requisitions, PermissionAction.Create),
                     (PermissionModule.Requisitions, PermissionAction.Update),
-                    (PermissionModule.Requisitions, PermissionAction.Delete),
                     (PermissionModule.Requisitions, PermissionAction.Approve),
                 }
             },
@@ -180,7 +179,6 @@ public static class AutomatedMigration
                     (PermissionModule.Requisitions, PermissionAction.View),
                     (PermissionModule.Requisitions, PermissionAction.Create),
                     (PermissionModule.Requisitions, PermissionAction.Update),
-                    (PermissionModule.Requisitions, PermissionAction.Delete),
                     (PermissionModule.Requisitions, PermissionAction.Approve),
                 }
             },
@@ -206,7 +204,6 @@ public static class AutomatedMigration
                     (PermissionModule.Requisitions, PermissionAction.View),
                     (PermissionModule.Requisitions, PermissionAction.Create),
                     (PermissionModule.Requisitions, PermissionAction.Update),
-                    (PermissionModule.Requisitions, PermissionAction.Delete),
                     (PermissionModule.Requisitions, PermissionAction.Approve),
                 }
             },
@@ -229,7 +226,6 @@ public static class AutomatedMigration
                     (PermissionModule.Requisitions, PermissionAction.View),
                     (PermissionModule.Requisitions, PermissionAction.Create),
                     (PermissionModule.Requisitions, PermissionAction.Update),
-                    (PermissionModule.Requisitions, PermissionAction.Delete),
                     (PermissionModule.Requisitions, PermissionAction.Approve),
                 }
             },
@@ -257,7 +253,6 @@ public static class AutomatedMigration
                     (PermissionModule.Requisitions, PermissionAction.View),
                     (PermissionModule.Requisitions, PermissionAction.Create),
                     (PermissionModule.Requisitions, PermissionAction.Update),
-                    (PermissionModule.Requisitions, PermissionAction.Delete),
                     (PermissionModule.Requisitions, PermissionAction.ViewAll),
                     (PermissionModule.Requisitions, PermissionAction.Approve),
                 }
@@ -297,7 +292,6 @@ public static class AutomatedMigration
                     (PermissionModule.Requisitions, PermissionAction.View),
                     (PermissionModule.Requisitions, PermissionAction.Create),
                     (PermissionModule.Requisitions, PermissionAction.Update),
-                    (PermissionModule.Requisitions, PermissionAction.Delete),
                     (PermissionModule.Requisitions, PermissionAction.Approve),
                 }
             },
