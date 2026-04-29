@@ -160,7 +160,7 @@ function RequisitionsContent() {
             </thead>
             <tbody>
               {filtered.map(r => (
-                <tr key={r.id}>
+                <tr key={r.id} onClick={() => setDrawerReq(r)} style={{ cursor: "pointer" }}>
                   <td style={{ fontFamily: "var(--font-inter)", textAlign: "center" }}>{r.requisitionNo}</td>
                   <td style={{ textAlign: "center" }}>{r.typeLabel}</td>
                   <td style={{ textAlign: "center" }}>{r.contractNo ?? r.departmentName ?? "—"}</td>
