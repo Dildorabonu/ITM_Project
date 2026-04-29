@@ -95,6 +95,50 @@ function RequisitionPrintContent() {
   const [rowManualHeights, setRowManualHeights] = useState<Record<number, number>>({});
   const dragRef = useRef<{ rowId: number; startY: number; startHeight: number } | null>(null);
 
+  // Column kengliklar — % da. 7 ta ko'rinadigan column (action col 36px alohida).
+  const [colWidthsPct, setColWidthsPct] = useState<number[]>([6, 23, 11, 9, 24, 12, 15]);
+
+  const startColResize = useCallback((colIdx: number) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const handleEl = e.currentTarget as HTMLElement;
+    const table = handleEl.closest("table") as HTMLTableElement | null;
+    if (!table) return;
+    // Action col 36px ni hisobga olib, % asosini hisoblaymiz.
+    const basis = Math.max(1, table.getBoundingClientRect().width - 36);
+    const startX = e.clientX;
+    let startA = 0, startB = 0;
+    setColWidthsPct(prev => { startA = prev[colIdx]; startB = prev[colIdx + 1]; return prev; });
+
+    document.body.style.cursor = "ew-resize";
+    document.body.style.userSelect = "none";
+
+    const minPct = 3;
+    const onMove = (ev: MouseEvent) => {
+      const dxPct = ((ev.clientX - startX) / basis) * 100;
+      const total = startA + startB;
+      let newA = startA + dxPct;
+      let newB = startB - dxPct;
+      if (newA < minPct) { newA = minPct; newB = total - minPct; }
+      if (newB < minPct) { newB = minPct; newA = total - minPct; }
+      setColWidthsPct(prev => {
+        if (prev[colIdx] === newA && prev[colIdx + 1] === newB) return prev;
+        const next = [...prev];
+        next[colIdx] = newA;
+        next[colIdx + 1] = newB;
+        return next;
+      });
+    };
+    const onUp = () => {
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, []);
+
   const startRowResize = useCallback((rowId: number) => (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -921,23 +965,17 @@ function RequisitionPrintContent() {
               {/* Table */}
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, tableLayout: "fixed" }}>
                 <colgroup>
-                  <col style={{ width: "6%" }} />
-                  <col style={{ width: "23%" }} />
-                  <col style={{ width: "11%" }} />
-                  <col style={{ width: "9%" }} />
-                  <col style={{ width: "24%" }} />
-                  <col style={{ width: "12%" }} />
-                  <col style={{ width: "15%" }} />
+                  {colWidthsPct.map((w, ci) => <col key={ci} style={{ width: `${w}%` }} />)}
                   <col className="no-print" style={{ width: 36 }} />
                 </colgroup>
                 <thead>
                   <tr style={{ background: "#b8860b", color: "#fff" }}>
-                    <th style={th}>№</th>
-                    <th style={th}>Махсулот номи<br /><span style={{ fontWeight: 400, fontSize: 10 }}>(рус тилида кўрсатилган)</span></th>
-                    <th style={th}>Ўлчов<br />бирлиги</th>
-                    <th style={th}>Миқдори</th>
-                    <th style={th}>Техник кўрсаткичи<br /><span style={{ fontWeight: 400, fontSize: 10 }}>(рус тилида кўрсатилди)</span></th>
-                    <th style={th}>Фотосурати</th>
+                    <th style={th}>№<ColResizer idx={0} onStart={startColResize} /></th>
+                    <th style={th}>Махсулот номи<br /><span style={{ fontWeight: 400, fontSize: 10 }}>(рус тилида кўрсатилган)</span><ColResizer idx={1} onStart={startColResize} /></th>
+                    <th style={th}>Ўлчов<br />бирлиги<ColResizer idx={2} onStart={startColResize} /></th>
+                    <th style={th}>Миқдори<ColResizer idx={3} onStart={startColResize} /></th>
+                    <th style={th}>Техник кўрсаткичи<br /><span style={{ fontWeight: 400, fontSize: 10 }}>(рус тилида кўрсатилди)</span><ColResizer idx={4} onStart={startColResize} /></th>
+                    <th style={th}>Фотосурати<ColResizer idx={5} onStart={startColResize} /></th>
                     <th style={th}>Изох</th>
                     <th className="no-print" style={{ ...th, background: "#9a6f00" }}></th>
                   </tr>
@@ -1184,7 +1222,27 @@ const th: React.CSSProperties = {
   fontSize: 11,
   textAlign: "center",
   lineHeight: 1.35,
+  position: "relative",
 };
+
+function ColResizer({ idx, onStart }: { idx: number; onStart: (i: number) => (e: React.MouseEvent) => void }) {
+  return (
+    <span
+      className="no-print"
+      onMouseDown={onStart(idx)}
+      style={{
+        position: "absolute",
+        top: 0,
+        bottom: 0,
+        right: -3,
+        width: 6,
+        cursor: "ew-resize",
+        zIndex: 5,
+        background: "transparent",
+      }}
+    />
+  );
+}
 
 const td: React.CSSProperties = {
   padding: "5px 7px",
@@ -1232,6 +1290,23 @@ function AutoTextarea({
     el.style.height = "auto";
     el.style.height = Math.max(el.scrollHeight, minHeight) + "px";
   }, [value, minHeight]);
+  // Column kengligi o'zgarganda matn boshqa darajada wrap bo'ladi — qayta o'lchaymiz.
+  // Faqat width o'zgarganda re-fit qilamiz, height o'zgarishini e'tiborsiz qoldiramiz
+  // (aks holda RO loop bo'lishi mumkin).
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let lastWidth = el.offsetWidth;
+    const ro = new ResizeObserver(() => {
+      if (el.offsetWidth !== lastWidth) {
+        lastWidth = el.offsetWidth;
+        el.style.height = "auto";
+        el.style.height = Math.max(el.scrollHeight, minHeight) + "px";
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [minHeight]);
   return (
     <textarea
       ref={ref}
