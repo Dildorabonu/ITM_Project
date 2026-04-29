@@ -420,17 +420,41 @@ function RequisitionPrintContent() {
 
   const generatePdfBlob = async (): Promise<Blob | null> => {
     if (!docRef.current) return null;
-    const el = docRef.current;
+    const original = docRef.current;
 
-    const noPrint = el.querySelectorAll<HTMLElement>(".no-print");
+    // Hujjatni ekrandan tashqari joyga klonlaymiz — barcha mutatsiyalar (no-print
+    // yashirish, print-image ochish, cell-select swap, generating-pdf klassi)
+    // klonda bajariladi, foydalanuvchining ko'zi oldidagi DOM tegilmaydi.
+    const wrapper = document.createElement("div");
+    wrapper.setAttribute("aria-hidden", "true");
+    wrapper.style.cssText = `position:fixed;top:0;left:-${A4_W + 200}px;width:${A4_W}px;pointer-events:none;`;
+    const clone = original.cloneNode(true) as HTMLElement;
+    wrapper.appendChild(clone);
+    document.body.appendChild(wrapper);
+
+    // cloneNode input/textarea ning live `.value` ini ko'chirmaydi — qo'lda sinxronlaymiz.
+    const origFields = original.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input, textarea");
+    const cloneFields = clone.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input, textarea");
+    origFields.forEach((orig, i) => {
+      const c = cloneFields[i];
+      if (!c) return;
+      if (c.tagName === "TEXTAREA") {
+        c.textContent = orig.value;
+        (c as HTMLTextAreaElement).value = orig.value;
+      } else if ((orig as HTMLInputElement).type !== "file") {
+        c.setAttribute("value", orig.value);
+        (c as HTMLInputElement).value = orig.value;
+      }
+    });
+
+    const noPrint = clone.querySelectorAll<HTMLElement>(".no-print");
     noPrint.forEach(e => (e.style.display = "none"));
-    const printImages = el.querySelectorAll<HTMLElement>(".print-image");
+    const printImages = clone.querySelectorAll<HTMLElement>(".print-image");
     printImages.forEach(e => (e.style.display = "block"));
-    const inlineEditables = el.querySelectorAll<HTMLElement>(".inline-editable");
+    const inlineEditables = clone.querySelectorAll<HTMLElement>(".inline-editable");
     inlineEditables.forEach(e => (e.style.borderBottom = "none"));
 
-    const cellSelects = el.querySelectorAll<HTMLElement>("[data-cell-select='true']");
-    const cellSelectReplacements: { el: HTMLElement; span: HTMLSpanElement }[] = [];
+    const cellSelects = clone.querySelectorAll<HTMLElement>("[data-cell-select='true']");
     cellSelects.forEach(wrap => {
       const btn = wrap.querySelector("button");
       const textSpan = btn?.querySelector("span");
@@ -439,11 +463,9 @@ function RequisitionPrintContent() {
       span.style.cssText = "font-family:Times New Roman,serif;font-size:12px;color:#000;";
       wrap.parentNode?.insertBefore(span, wrap);
       wrap.style.display = "none";
-      cellSelectReplacements.push({ el: wrap, span });
     });
 
-    // Multi-page sahifalar orasidagi gap, shadow, border ni vaqtincha olib tashlash
-    el.classList.add("generating-pdf");
+    clone.classList.add("generating-pdf");
 
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -456,19 +478,12 @@ function RequisitionPrintContent() {
           html2canvas: { scale: 2, useCORS: true, width: A4_W, windowWidth: A4_W },
           jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
         })
-        .from(el)
+        .from(clone)
         .toPdf()
         .output("blob");
       return blob;
     } finally {
-      el.classList.remove("generating-pdf");
-      noPrint.forEach(e => e.style.removeProperty("display"));
-      printImages.forEach(e => e.style.removeProperty("display"));
-      inlineEditables.forEach(e => e.style.removeProperty("border-bottom"));
-      cellSelectReplacements.forEach(({ el, span }) => {
-        el.style.removeProperty("display");
-        span.parentNode?.removeChild(span);
-      });
+      wrapper.parentNode?.removeChild(wrapper);
     }
   };
 
