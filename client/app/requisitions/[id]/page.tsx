@@ -147,7 +147,11 @@ export default function RequisitionDetailPage() {
 
         {/* Workflow diagram */}
         <div className="itm-card" style={{ padding: 22 }}>
-          <WorkflowDiagram status={req.status} source={req.source} />
+          <WorkflowDiagram
+            status={req.status}
+            source={req.source}
+            splitChildren={req.children}
+          />
         </div>
 
         {/* Parent / Children */}
@@ -172,22 +176,36 @@ export default function RequisitionDetailPage() {
               <div>
                 <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 6 }}>Bo&apos;lingan talabnomalar</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {req.children.map(ch => (
-                    <button
-                      key={ch.id}
-                      onClick={() => router.push(`/requisitions/${ch.id}`)}
-                      style={{ padding: "10px 14px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", background: "var(--bg3)", display: "flex", alignItems: "center", gap: 12, cursor: "pointer", textAlign: "left", transition: "border-color 0.15s" }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--accent)"; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border)"; }}
-                    >
-                      <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 12,
-                        background: ch.source === RequisitionSource.Warehouse ? "var(--success-dim)" : "var(--accent-dim)",
-                        color: ch.source === RequisitionSource.Warehouse ? "var(--success)" : "var(--accent)" }}>{ch.sourceLabel}</span>
-                      <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, color: "var(--text)", flex: 1 }}>{ch.requisitionNo}</span>
-                      <span style={{ fontSize: 11, color: "var(--text3)" }}>{ch.itemCount} ta material</span>
-                      <RequisitionStatusBadge status={ch.status} small />
-                    </button>
-                  ))}
+                  {req.children.map(ch => {
+                    const isWh = ch.source === RequisitionSource.Warehouse;
+                    const destColor = isWh ? "var(--success)" : "var(--accent)";
+                    const destLabel = isWh ? "Ombordan olishga" : "Sotib olishga";
+                    return (
+                      <div
+                        key={ch.id}
+                        style={{ padding: "10px 14px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", background: "var(--bg3)", display: "flex", alignItems: "center", gap: 12, textAlign: "left" }}
+                      >
+                        <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, color: "var(--text)", flex: 1 }}>{ch.requisitionNo}</span>
+                        <span style={{ fontSize: 11, color: "var(--text3)" }}>{ch.itemCount} ta material</span>
+                        <RequisitionStatusBadge status={ch.status} small />
+                        <span style={{
+                          display: "inline-flex", alignItems: "center", gap: 4,
+                          padding: "3px 10px", borderRadius: 20,
+                          fontSize: 11, fontWeight: 600,
+                          background: isWh ? "var(--success-dim)" : "var(--accent-dim)",
+                          color: destColor,
+                          border: `1px solid ${isWh ? "rgba(15,123,69,0.25)" : "rgba(26,110,235,0.3)"}`,
+                          whiteSpace: "nowrap",
+                        }}>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                            <polyline points="13 6 19 12 13 18"/>
+                          </svg>
+                          {destLabel}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
