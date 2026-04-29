@@ -92,7 +92,7 @@ function RequisitionsContent() {
   }, [list, search, filterStatus]);
 
   return (
-    <div>
+    <div className="page-transition">
       {/* Toolbar */}
       <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px", flexWrap: "wrap", overflow: "visible" }}>
         <div className="search-wrap" style={{ maxWidth: "none", flex: 1 }}>
