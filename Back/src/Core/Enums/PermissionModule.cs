@@ -39,4 +39,7 @@ public enum PermissionModule
 
     [Display(Name = "Talabnomalar", Description = "clipboard")]
     Requisitions = 12,
+
+    [Display(Name = "Ishlab chiqarilgan mahsulotlar", Description = "factory")]
+    ManufacturedProducts = 13,
 }
