@@ -15,6 +15,11 @@ public class CostNormConfiguration : IEntityTypeConfiguration<CostNorm>
             .HasForeignKey(c => c.ContractId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        builder.HasOne(c => c.ContractProduct)
+            .WithMany(p => p.CostNorms)
+            .HasForeignKey(c => c.ContractProductId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         builder.HasOne(c => c.Creator)
             .WithMany()
             .HasForeignKey(c => c.CreatedBy)

@@ -375,12 +375,26 @@ export interface ContractDepartmentInfo {
   type: DepartmentType;
 }
 
-export interface ContractResponse {
-  id: string;
-  contractNo: string;
+export interface ContractProductPayload {
   productType: string;
   quantity: number;
   unit: string;
+  notes?: string | null;
+}
+
+export interface ContractProductResponse {
+  id: string;
+  contractId: string;
+  productType: string;
+  quantity: number;
+  unit: string;
+  orderIndex: number;
+  notes: string | null;
+}
+
+export interface ContractResponse {
+  id: string;
+  contractNo: string;
   startDate: string;
   endDate: string;
   departments: ContractDepartmentInfo[];
@@ -392,32 +406,29 @@ export interface ContractResponse {
   createdBy: string;
   createdByFullName: string | null;
   createdAt: string;
+  products: ContractProductResponse[];
 }
 
 export interface ContractCreatePayload {
   contractNo: string;
-  productType?: string;
-  quantity?: number;
-  unit?: string;
   startDate: string;
   endDate: string;
   departmentIds?: string[];
   priority: Priority;
   contractParty?: string;
   notes?: string | null;
+  products?: ContractProductPayload[];
 }
 
 export interface ContractUpdatePayload {
   contractNo?: string;
-  productType?: string;
-  quantity?: number;
-  unit?: string;
   startDate?: string;
   endDate?: string;
   departmentIds?: string[];
   priority?: Priority;
   contractParty?: string;
   notes?: string | null;
+  products?: ContractProductPayload[];
 }
 
 export const ContractUserRole = { Responsible: 0, Supervisor: 1, Observer: 2 } as const;
@@ -606,6 +617,8 @@ export interface TechProcessResponse {
   id: string;
   contractId: string;
   contractNo: string;
+  contractProductId: string | null;
+  productType: string | null;
   title: string;
   notes: string | null;
   status: ProcessStatus;
@@ -619,6 +632,7 @@ export interface TechProcessResponse {
 
 export interface TechProcessCreatePayload {
   contractId: string;
+  contractProductId?: string | null;
   title: string;
   notes?: string | null;
 }
@@ -626,6 +640,8 @@ export interface TechProcessCreatePayload {
 export interface TechProcessUpdatePayload {
   title?: string;
   notes?: string | null;
+  contractProductId?: string | null;
+  clearContractProduct?: boolean;
 }
 
 
@@ -806,6 +822,8 @@ export interface TechnicalDrawingResponse {
   id: string;
   contractId: string;
   contractNo: string;
+  contractProductId: string | null;
+  productType: string | null;
   title: string;
   notes: string | null;
   status: DrawingStatus;
@@ -817,6 +835,7 @@ export interface TechnicalDrawingResponse {
 
 export interface TechnicalDrawingCreatePayload {
   contractId: string;
+  contractProductId?: string | null;
   title: string;
   notes?: string | null;
 }
@@ -824,6 +843,8 @@ export interface TechnicalDrawingCreatePayload {
 export interface TechnicalDrawingUpdatePayload {
   title?: string;
   notes?: string | null;
+  contractProductId?: string | null;
+  clearContractProduct?: boolean;
 }
 
 export const technicalDrawingService = {
@@ -912,6 +933,8 @@ export interface CostNormItemResponse {
 export interface CostNormResponse {
   id: string;
   contractId: string;
+  contractProductId: string | null;
+  productType: string | null;
   contractQuantity: number;
   status: DrawingStatus;
   contractNo: string;
@@ -941,6 +964,7 @@ export interface CostNormItemCreatePayload {
 
 export interface CostNormCreatePayload {
   contractId: string;
+  contractProductId?: string | null;
   title: string;
   notes?: string | null;
   items: CostNormItemCreatePayload[];
@@ -1016,6 +1040,8 @@ export const costNormService = {
 export interface ContractTaskResponse {
   id: string;
   contractId: string;
+  contractProductId: string | null;
+  productType: string | null;
   orderNo: number;
   name: string;
   completedAmount: number;
@@ -1029,6 +1055,7 @@ export interface ContractTaskResponse {
 
 export interface ContractTaskCreatePayload {
   contractId: string;
+  contractProductId?: string | null;
   name: string;
   completedAmount: number;
   totalAmount: number;
@@ -1041,6 +1068,8 @@ export interface ContractTaskUpdatePayload {
   totalAmount?: number;
   importance?: number;
   orderNo?: number;
+  contractProductId?: string | null;
+  clearContractProduct?: boolean;
 }
 
 export interface ContractTaskLogCreatePayload {

@@ -53,7 +53,7 @@ export default function TechProductionPage() {
 
   // TP create form
   const [tpShowForm, setTpShowForm] = useState(false);
-  const [tpForm, setTpForm] = useState({ contractId:"", title:"", notes:"" });
+  const [tpForm, setTpForm] = useState({ contractId:"", contractProductId:"", title:"", notes:"" });
   const [tpSubmitted, setTpSubmitted] = useState(false);
   const [tpSaving, setTpSaving] = useState(false);
   const [tpFormError, setTpFormError] = useState("");
@@ -89,7 +89,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
   const [cnActiveTab, setCnActiveTab] = useState(0);
   const [cnDetailFiles, setCnDetailFiles] = useState<AttachmentResponse[]>([]);
   const [cnDetailItems, setCnDetailItems] = useState<CostNormItemResponse[]>([]);
-  const [cnForm, setCnForm] = useState({ contractId:"", title:"", notes:"" });
+  const [cnForm, setCnForm] = useState({ contractId:"", contractProductId:"", title:"", notes:"" });
   const [cnSubmitted, setCnSubmitted] = useState(false);
   const [cnSaving, setCnSaving] = useState(false);
   const [cnCreateTab, setCnCreateTab] = useState<"form"|"table">("form");
@@ -209,7 +209,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
   // ── TP Create ──────────────────────────────────────────────────────────────
 
   const openTpCreate = async (prefilledContractId?: string) => {
-    setTpForm({contractId:prefilledContractId||"",title:"",notes:""}); setTpSubmitted(false); setTpFormError(""); setFinalFile(null); setTpFileError("");
+    setTpForm({contractId:prefilledContractId||"",contractProductId:"",title:"",notes:""}); setTpSubmitted(false); setTpFormError(""); setFinalFile(null); setTpFileError("");
     window.history.pushState({showForm:true},"");
     setTpShowForm(true);
   };
@@ -226,7 +226,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
   const handleTpSaveConfirm = async () => {
     setTpSaving(true);
     try {
-      const dto: TechProcessCreatePayload = { contractId:tpForm.contractId, title:tpForm.title.trim()||finalFile!.name.replace(/\.[^.]+$/,""), notes:tpForm.notes||null };
+      const dto: TechProcessCreatePayload = { contractId:tpForm.contractId, contractProductId: tpForm.contractProductId || null, title:tpForm.title.trim()||finalFile!.name.replace(/\.[^.]+$/,""), notes:tpForm.notes||null };
       const newId = await techProcessService.create(dto);
       await techProcessService.uploadFile(newId, finalFile!);
       const fresh = await techProcessService.getById(newId);
@@ -261,7 +261,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
   }
 
   async function openCnCreate(prefilledContractId?: string) {
-    setCnForm({contractId:prefilledContractId||"",title:"",notes:""}); setCnFormFile(null); setCnParsedTables([]); setCnParseError(null); setCnSaveError(null); setCnSubmitted(false); setCnActiveTab(0); setCnCreateTab("form");
+    setCnForm({contractId:prefilledContractId||"",contractProductId:"",title:"",notes:""}); setCnFormFile(null); setCnParsedTables([]); setCnParseError(null); setCnSaveError(null); setCnSubmitted(false); setCnActiveTab(0); setCnCreateTab("form");
     window.history.pushState({mode:"create"},"");
     setCnMode("create");
   }
@@ -280,7 +280,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
     try {
       const allRows=cnParsedTables.flatMap(t=>t.rows);
       const items=allRows.map((row,idx)=>({ isSection:row.isSection,sectionName:row.isSection?row.sectionName:null,no:row.no||null,name:row.name||null,unit:row.unit||null,readyQty:row.readyQty||null,wasteQty:row.wasteQty||null,totalQty:row.totalQty||null,photoRaw:row.photoRaw||null,photoSemi:row.photoSemi||null,importType:row.importType||null,sortOrder:idx }));
-      const newId=await costNormService.create({contractId:cnForm.contractId,title:cnForm.title||cnFormFile?.name?.replace(/\.docx$/i,"")||"",notes:cnForm.notes||null,items});
+      const newId=await costNormService.create({contractId:cnForm.contractId,contractProductId:cnForm.contractProductId||null,title:cnForm.title||cnFormFile?.name?.replace(/\.docx$/i,"")||"",notes:cnForm.notes||null,items});
       if(cnFormFile&&newId) await costNormService.uploadFile(newId,cnFormFile);
       await loadCn(); setCnDraftWarning(null); setCnMode("list");
       showToast("Me'yoriy sarf muvaffaqiyatli yaratildi!");
@@ -390,6 +390,29 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
         </div>
         <div className="itm-card" style={{ padding:28 }}>
           <div style={{ display:"flex",flexDirection:"column",gap:20 }}>
+            {/* Mahsulot — Umumiy yoki shartnomadagi mahsulot */}
+            {(() => {
+              const tpContract = contractList.find(c => c.id === tpForm.contractId);
+              const tpProducts = tpContract?.products ?? [];
+              return (
+                <div>
+                  <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:"var(--text2)" }}>Mahsulot</label>
+                  <select
+                    className="form-input"
+                    value={tpForm.contractProductId}
+                    onChange={e=>setTpForm(f=>({...f,contractProductId:e.target.value}))}
+                  >
+                    <option value="">Umumiy (butun shartnoma uchun)</option>
+                    {tpProducts.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.productType} — {p.quantity.toLocaleString()} {p.unit}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })()}
+
             {/* Sarlavha — full width */}
             <div>
               <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:tpSubmitted&&!tpForm.title.trim()&&!finalFile?"var(--danger)":"var(--text2)" }}>Nomi <span style={{ color:"var(--danger)" }}>*</span></label>
@@ -523,6 +546,29 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
           <div className="itm-card" style={{ padding:28,flexShrink:0 }}>
             {cnSaveError&&<div style={{ padding:"10px 14px",borderRadius:8,background:"var(--danger-dim)",border:"1px solid var(--danger)44",color:"var(--danger)",fontSize:13,marginBottom:16 }}>{cnSaveError}</div>}
             <div style={{ display:"flex",flexDirection:"column",gap:20 }}>
+              {/* Mahsulot dropdown */}
+              {(() => {
+                const cnContract = contractList.find(c => c.id === cnForm.contractId);
+                const cnProducts = cnContract?.products ?? [];
+                return (
+                  <div>
+                    <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:"var(--text2)" }}>Mahsulot</label>
+                    <select
+                      className="form-input"
+                      value={cnForm.contractProductId}
+                      onChange={e=>setCnForm(f=>({...f,contractProductId:e.target.value}))}
+                    >
+                      <option value="">Umumiy (butun shartnoma uchun)</option>
+                      {cnProducts.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.productType} — {p.quantity.toLocaleString()} {p.unit}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })()}
+
               {/* Nomi — full width */}
               <div>
                 <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:cnSubmitted&&!cnForm.title.trim()&&!cnFormFile?"var(--danger)":"var(--text2)" }}>
@@ -673,6 +719,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
             <div>
               <div style={{ fontSize:11,color:"var(--text3)",marginBottom:4,fontWeight:500 }}>Shartnoma</div>
               <div style={{ fontSize:14,fontWeight:700,color:"var(--accent)" }}>{tpSelected.contractNo}</div>
+              <div style={{ fontSize:11,color:"var(--text3)",marginTop:2 }}>{tpSelected.productType ? `📦 ${tpSelected.productType}` : "📋 Umumiy"}</div>
             </div>
             <div style={{ gridColumn:"span 2" }}>
               <div style={{ fontSize:11,color:"var(--text3)",marginBottom:4,fontWeight:500 }}>Nomi</div>
@@ -797,6 +844,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
             <div>
               <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Shartnoma</div>
               <div style={{ fontWeight:700,fontSize:15,color:"var(--accent)" }}>{cnSelected.contractNo}</div>
+              <div style={{ fontSize:11,color:"var(--text3)",marginTop:2 }}>{cnSelected.productType ? `📦 ${cnSelected.productType}` : "📋 Umumiy"}</div>
             </div>
             <div style={{ gridColumn:"span 2" }}>
               <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Nomi</div>

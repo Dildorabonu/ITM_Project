@@ -4,6 +4,7 @@ public class ContractTask
 {
     public Guid Id { get; set; }
     public Guid ContractId { get; set; }
+    public Guid? ContractProductId { get; set; }
     public int OrderNo { get; set; }
     public string Name { get; set; } = string.Empty;
     public decimal CompletedAmount { get; set; }
@@ -15,6 +16,7 @@ public class ContractTask
 
     // Navigation properties
     public Contract? Contract { get; set; }
+    public ContractProduct? ContractProduct { get; set; }
     public User? Creator { get; set; }
     public ICollection<ContractTaskDailyLog> DailyLogs { get; set; } = [];
 }
