@@ -26,6 +26,7 @@ export const STATUS_STYLE: Partial<Record<RequisitionStatus, { bg: string; color
   [RequisitionStatus.PendingWarehouseCheck]:    { bg: "var(--warn-dim)",    color: "var(--warn)",    border: "rgba(224,123,0,0.25)" },
   [RequisitionStatus.WarehouseChecked]:         { bg: "var(--teal-dim)",    color: "var(--teal)",    border: "rgba(8,145,178,0.25)" },
   [RequisitionStatus.PendingApproval]:          { bg: "var(--pink-dim)",    color: "var(--pink)",    border: "rgba(219,39,119,0.25)" },
+  [RequisitionStatus.Split]:                    { bg: "var(--purple-dim)",  color: "var(--purple)",  border: "rgba(124,58,237,0.25)" },
   [RequisitionStatus.ReadyForWarehouseRelease]: { bg: "var(--success-dim)", color: "var(--success)", border: "rgba(15,123,69,0.2)" },
   [RequisitionStatus.ReadyForPurchase]:         { bg: "var(--accent-dim)",  color: "var(--accent)",  border: "rgba(26,110,235,0.25)" },
 };
