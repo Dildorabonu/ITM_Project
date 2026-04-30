@@ -124,9 +124,6 @@ function buildHeaderHtml(req: RequisitionResponse): string {
       <div style="text-align:center;font-weight:700;font-size:18px;letter-spacing:1px;margin:12px 0 18px;font-family:'Times New Roman',serif;">
         ТАЛАБНОМА
       </div>
-      <div style="font-size:13px;line-height:1.8;margin-bottom:6px;text-align:right;color:#444;font-family:'Times New Roman',serif;">
-        № ${escapeHtml(req.requisitionNo)}
-      </div>
       <div style="font-size:13px;line-height:1.8;margin-bottom:20px;font-family:'Times New Roman',serif;">
         ${buildIntroText(req)}
       </div>
