@@ -33,6 +33,7 @@ public class DatabaseContext : DbContext
     public DbSet<CostNormItem> CostNormItems { get; set; }
     public DbSet<Requisition> Requisitions { get; set; }
     public DbSet<RequisitionItem> RequisitionItems { get; set; }
+    public DbSet<ManufacturedProduct> ManufacturedProducts { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
