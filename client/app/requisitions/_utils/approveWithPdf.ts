@@ -19,8 +19,8 @@ export async function approveWithPdf(reqId: string): Promise<ApproveWithPdfResul
     const blob = await generateRequisitionPdfBlob(updated);
     if (!blob) return { pdfUploaded: false };
 
-    const baseName = buildPdfFileName(updated).replace(/\.pdf$/i, "");
-    const file = new File([blob], `${baseName}_approved.pdf`, { type: "application/pdf" });
+    const fileName = buildPdfFileName(updated);
+    const file = new File([blob], fileName, { type: "application/pdf" });
     await requisitionService.uploadFile(reqId, file, "approved");
     return { pdfUploaded: true };
   } catch {
