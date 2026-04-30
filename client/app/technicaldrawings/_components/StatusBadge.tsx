@@ -1,10 +1,11 @@
 import { DrawingStatus, DRAWING_STATUS_LABELS } from "@/lib/userService";
 import { STATUS_STYLE } from "../_types";
 
-export function StatusBadge({ status }: { status: DrawingStatus }) {
+export function StatusBadge({ status, className }: { status: DrawingStatus; className?: string }) {
   const style = STATUS_STYLE[status];
   return (
     <span
+      className={className}
       style={{
         display: "inline-flex",
         alignItems: "center",
