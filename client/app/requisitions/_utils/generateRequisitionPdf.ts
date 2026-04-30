@@ -24,8 +24,8 @@ const FALLBACK_FOOTER_H = 150;
 const FALLBACK_THEAD_H = 46;
 const FALLBACK_ROW_H = 90;
 
-// Ustun kengliklari foiz bo'yicha — eski buildHtml bilan bir xil
-const COL_WIDTHS = [4, 24, 10, 10, 30, 10, 12];
+// Ustun kengliklari foiz bo'yicha — print/page.tsx blank bilan bir xil
+const COL_WIDTHS = [6, 23, 11, 9, 24, 12, 15];
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -135,7 +135,7 @@ function buildColgroupHtml(): string {
 }
 
 function buildTableHeadHtml(): string {
-  const th = `padding:5px 6px;border:1px solid #a0720a;font-weight:700;font-size:11px;text-align:center;line-height:1.3;font-family:'Times New Roman',serif;color:#fff;background:#b8860b;-webkit-print-color-adjust:exact;print-color-adjust:exact;`;
+  const th = `padding:7px 8px;border:1px solid #5a3f00;font-weight:700;font-size:11px;text-align:center;line-height:1.35;font-family:'Times New Roman',serif;color:#fff;background:#b8860b;-webkit-print-color-adjust:exact;print-color-adjust:exact;`;
   return `
     <tr>
       <th style="${th}">№</th>
@@ -252,9 +252,11 @@ function buildPageSheet(opts: {
   const footerHtml = isLast ? buildFooterHtml(req) : "";
   const rowsHtml = items.map((it, i) => buildItemRow(it, startIndex + i)).join("");
 
-  const pageBreak = isLast ? "auto" : "always";
-  const breakAfter = isLast ? "auto" : "page";
-
+  // page-break-after:always inline + sheet height (1123px) sal kattaroq A4
+  // page'idan (~1122.5px) — bu juftlik html2pdf da har sheet'dan keyin
+  // bo'sh "zigzag" sahifa yaratardi. Print/page.tsx blank kabi: faqat
+  // page-break-inside:avoid qo'yib, html2pdf'ning `avoid: .page-sheet`
+  // konfiguratsiyasi tabiiy paginatsiyani amalga oshirsin.
   return `
     <div class="page-sheet" style="
       width:${A4_W}px;
@@ -267,8 +269,6 @@ function buildPageSheet(opts: {
       font-family:'Times New Roman',serif;
       font-size:13px;
       overflow:hidden;
-      page-break-after:${pageBreak};
-      break-after:${breakAfter};
       page-break-inside:avoid;
       break-inside:avoid;
       flex-shrink:0;
