@@ -20,6 +20,11 @@ public class ContractTaskConfiguration : IEntityTypeConfiguration<ContractTask>
             .HasForeignKey(t => t.ContractId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        builder.HasOne(t => t.ContractProduct)
+            .WithMany(p => p.ContractTasks)
+            .HasForeignKey(t => t.ContractProductId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         builder.HasOne(t => t.Creator)
             .WithMany()
             .HasForeignKey(t => t.CreatedBy)

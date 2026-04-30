@@ -7,4 +7,6 @@ public class ContractTaskUpdateDto
     public decimal? TotalAmount { get; set; }
     public decimal? Importance { get; set; }
     public int? OrderNo { get; set; }
+    public Guid? ContractProductId { get; set; }
+    public bool ClearContractProduct { get; set; }
 }

@@ -188,6 +188,7 @@ export default function TechnicalDrawingsPage() {
     try {
       const newId = await technicalDrawingService.create({
         contractId: createContract!.id,
+        contractProductId: createForm.contractProductId || null,
         title: createForm.title.trim(),
         notes: createForm.notes.trim() || null,
       });
@@ -235,7 +236,7 @@ export default function TechnicalDrawingsPage() {
 
   const openEdit = (item: TechnicalDrawingResponse) => {
     setEditTarget(item);
-    setEditForm({ title: item.title, notes: item.notes || "", files: [] });
+    setEditForm({ title: item.title, notes: item.notes || "", files: [], contractProductId: item.contractProductId ?? "" });
     setEditSubmitted(false);
     setDrawer(null);
     window.history.pushState(null, "");
@@ -250,6 +251,8 @@ export default function TechnicalDrawingsPage() {
       await technicalDrawingService.update(editTarget!.id, {
         title: editForm.title.trim(),
         notes: editForm.notes.trim() || null,
+        contractProductId: editForm.contractProductId || undefined,
+        clearContractProduct: !editForm.contractProductId,
       });
       if (editForm.files.length > 0) {
         await Promise.all(editForm.files.map((f) => technicalDrawingService.uploadFile(editTarget!.id, f)));
@@ -365,7 +368,12 @@ export default function TechnicalDrawingsPage() {
     return (
       <DrawingForm
         mode="edit"
-        contract={{ contractNo: editTarget.contractNo }}
+        contract={{
+          contractNo: editTarget.contractNo,
+          products: contracts.find(c => c.id === editTarget.contractId)?.products?.map(p => ({
+            id: p.id, productType: p.productType, quantity: p.quantity, unit: p.unit,
+          })) ?? [],
+        }}
         form={editForm}
         setForm={setEditForm}
         submitted={editSubmitted}
@@ -571,8 +579,11 @@ export default function TechnicalDrawingsPage() {
                               {item.contractNo}
                             </button>
                           </td>
-                          <td style={{ textAlign: "center", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text1)" }}>
-                            {item.title}
+                          <td style={{ textAlign: "center", maxWidth: 220, color: "var(--text1)" }}>
+                            <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
+                            <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {item.productType ? item.productType : "Umumiy"}
+                            </div>
                           </td>
                           <td style={{ textAlign: "center", fontSize: 13, color: "var(--text1)", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {item.createdByFullName ?? "—"}

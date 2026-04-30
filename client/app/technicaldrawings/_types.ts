@@ -20,6 +20,7 @@ export interface DrawingFormValues {
   title: string;
   notes: string;
   files: File[];
+  contractProductId: string;     // "" = Umumiy
 }
 
-export const emptyDrawingForm: DrawingFormValues = { title: "", notes: "", files: [] };
+export const emptyDrawingForm: DrawingFormValues = { title: "", notes: "", files: [], contractProductId: "" };

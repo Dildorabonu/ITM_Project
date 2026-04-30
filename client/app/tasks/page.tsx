@@ -120,8 +120,8 @@ function ContractBar({
       </div>
       <div className="tcb-sep" />
       <div className="tcb-meta">
-        <span className="tcb-product">{contract.productType}</span>
-        <span className="tcb-qty">{contract.quantity.toLocaleString()} {contract.unit}</span>
+        <span className="tcb-product">{contract.products?.map(p => p.productType).filter(Boolean).join(", ") || "—"}</span>
+        <span className="tcb-qty">{contract.products?.length ? `${contract.products.length} ta mahsulot` : ""}</span>
         <span className={`status ${PRIORITY_COLORS[contract.priority]}`}>
           {PRIORITY_LABELS[contract.priority]}
         </span>
@@ -218,12 +218,16 @@ function ContractCard({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="tcc-rows">
             <div className="tcc-row">
-              <span className="tcc-label">Mahsulot</span>
-              <span className="tcc-value">{contract.productType}</span>
+              <span className="tcc-label">Mahsulotlar</span>
+              <span className="tcc-value">{contract.products?.length ?? 0} ta</span>
             </div>
             <div className="tcc-row">
-              <span className="tcc-label">Miqdor</span>
-              <span className="tcc-value accent">{contract.quantity.toLocaleString()} {contract.unit}</span>
+              <span className="tcc-label">Birinchi</span>
+              <span className="tcc-value accent">
+                {contract.products?.[0]
+                  ? `${contract.products[0].productType} — ${contract.products[0].quantity.toLocaleString()} ${contract.products[0].unit}`
+                  : "—"}
+              </span>
             </div>
             <div className="tcc-row">
               <span className="tcc-label">Ustuvorlik</span>
@@ -373,7 +377,12 @@ function TaskRow({
           <div style={{ width: 20, flexShrink: 0 }} />
         )}
         <div className={`task-order-badge${done ? " done" : ""}`}>{task.orderNo}</div>
-        <div className="task-name">{task.name}</div>
+        <div className="task-name" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <span>{task.name}</span>
+          <span style={{ fontSize: 11, color: "var(--text3)" }}>
+            {task.productType ? `📦 ${task.productType}` : "📋 Umumiy"}
+          </span>
+        </div>
         <span className={`task-pct${done ? " done" : ""}`}>{pct.toFixed(1)}%</span>
         <button className="btn-icon" onClick={() => onLog(task.id)} title="Kunlik kiritish"
           style={{ color: "#3b82f6", borderColor: "#3b82f633", background: "#3b82f612" }}>
@@ -1069,15 +1078,17 @@ interface NewTaskForm {
   name: string;
   totalAmount: string;
   importance: string;
+  contractProductId: string;   // "" = Umumiy (no specific product)
 }
 
-const EMPTY_FORM: NewTaskForm = { name: "", totalAmount: "0", importance: "" };
+const EMPTY_FORM: NewTaskForm = { name: "", totalAmount: "0", importance: "", contractProductId: "" };
 
 function AddTaskForm({
   onSave,
   onCancel,
   existingTasks,
   contractQuantity,
+  products,
 }: {
   onSave: (
     data: Omit<ContractTaskCreatePayload, "contractId">[],
@@ -1086,8 +1097,9 @@ function AddTaskForm({
   onCancel: () => void;
   existingTasks: ContractTaskResponse[];
   contractQuantity: number;
+  products: { id: string; productType: string; quantity: number; unit: string }[];
 }) {
-  const emptyForm = (): NewTaskForm => ({ name: "", totalAmount: String(contractQuantity), importance: "" });
+  const emptyForm = (): NewTaskForm => ({ name: "", totalAmount: String(contractQuantity), importance: "", contractProductId: "" });
   const [forms, setForms] = useState<NewTaskForm[]>([emptyForm()]);
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -1136,6 +1148,7 @@ function AddTaskForm({
         completedAmount: 0,
         totalAmount: parseFloat(f.totalAmount) || 0,
         importance: parseFloat(f.importance) || 0,
+        contractProductId: f.contractProductId || null,
       })),
       existingUpdates
     );
@@ -1164,6 +1177,29 @@ function AddTaskForm({
                 Olib tashlash
               </button>
             )}
+          </div>
+
+          <div className="atf-field">
+            <label className="atf-label">Mahsulot</label>
+            <select
+              className="form-input"
+              value={f.contractProductId}
+              onChange={e => {
+                const pid = e.target.value;
+                const prod = products.find(p => p.id === pid);
+                setForms(prev => prev.map((x, idx) => idx === i
+                  ? { ...x, contractProductId: pid, totalAmount: prod ? String(prod.quantity) : x.totalAmount }
+                  : x));
+              }}
+              style={{ width: "100%" }}
+            >
+              <option value="">Umumiy (butun shartnoma uchun)</option>
+              {products.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.productType} — {p.quantity.toLocaleString()} {p.unit}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="atf-field">
@@ -1352,7 +1388,7 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
           contractId: contract.id,
           name: WAREHOUSE_TASK_NAME,
           completedAmount: 0,
-          totalAmount: contract.quantity,
+          totalAmount: contract.products?.[0]?.quantity ?? 0,
           importance: 100,
         }]);
         if (ignore) return;
@@ -1584,7 +1620,9 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
           <div className="tp-contract-no mono">#{contract.contractNo}</div>
           <div className="tp-contract-party">{contract.contractParty}</div>
           <div className="tp-contract-sub">
-            {contract.productType} · {contract.quantity.toLocaleString()} {contract.unit}
+            {contract.products?.length
+              ? contract.products.map(p => `${p.productType} · ${p.quantity.toLocaleString()} ${p.unit}`).join(" • ")
+              : "—"}
           </div>
         </div>
         <span className={`status ${STATUS_COLORS[contract.status]}`}>
@@ -1677,7 +1715,8 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
             onSave={handleSave}
             onCancel={() => setShowForm(false)}
             existingTasks={tasks}
-            contractQuantity={contract.quantity}
+            contractQuantity={contract.products?.[0]?.quantity ?? 0}
+            products={contract.products ?? []}
           />
         </div>
       ) : (
@@ -1716,7 +1755,7 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
       {shipmentsTask && (
         <ShipmentsModal
           task={shipmentsTask}
-          unit={contract.unit}
+          unit={contract.products?.[0]?.unit ?? ""}
           initialBatches={shipments}
           onChange={handleShipmentsChange}
           onCancel={() => setShipmentsId(null)}
@@ -1782,7 +1821,7 @@ export default function TasksPage() {
       const matches =
         c.contractNo.toLowerCase().includes(q) ||
         c.contractParty.toLowerCase().includes(q) ||
-        c.productType.toLowerCase().includes(q);
+        (c.products?.some(p => p.productType.toLowerCase().includes(q)) ?? false);
       if (!matches) return false;
     }
     if (filterStatus !== "" && String(c.status) !== filterStatus) return false;
