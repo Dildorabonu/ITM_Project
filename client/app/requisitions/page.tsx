@@ -18,13 +18,26 @@ import { useAuthStore } from "@/lib/store/authStore";
 
 // ─── Status filter options ─────────────────────────────────────────────────────
 
+const COMPLETED_FILTER = "completed";
+
+const TERMINAL_STATUSES = new Set<RequisitionStatus>([
+  RequisitionStatus.ReadyForWarehouseRelease,
+  RequisitionStatus.ReadyForPurchase,
+  RequisitionStatus.Rejected,
+]);
+
+function isCompleted(r: RequisitionResponse): boolean {
+  if (r.children && r.children.length > 0) {
+    return r.children.every(c => TERMINAL_STATUSES.has(c.status));
+  }
+  return TERMINAL_STATUSES.has(r.status);
+}
+
 const STATUS_FILTER = [
   { value: "", label: "Barchasi" },
-  { value: String(RequisitionStatus.PendingWarehouseCheck),    label: REQUISITION_STATUS_LABELS[RequisitionStatus.PendingWarehouseCheck] },
-  { value: String(RequisitionStatus.PendingApproval),          label: REQUISITION_STATUS_LABELS[RequisitionStatus.PendingApproval] },
-  { value: String(RequisitionStatus.ReadyForWarehouseRelease), label: REQUISITION_STATUS_LABELS[RequisitionStatus.ReadyForWarehouseRelease] },
-  { value: String(RequisitionStatus.ReadyForPurchase),         label: REQUISITION_STATUS_LABELS[RequisitionStatus.ReadyForPurchase] },
-  { value: String(RequisitionStatus.Rejected),                 label: REQUISITION_STATUS_LABELS[RequisitionStatus.Rejected] },
+  { value: String(RequisitionStatus.PendingWarehouseCheck), label: REQUISITION_STATUS_LABELS[RequisitionStatus.PendingWarehouseCheck] },
+  { value: String(RequisitionStatus.Split),                 label: REQUISITION_STATUS_LABELS[RequisitionStatus.Split] },
+  { value: COMPLETED_FILTER,                                label: "Yakunlangan" },
 ];
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
@@ -95,7 +108,12 @@ function RequisitionsContent() {
 
   const filtered = useMemo(() => {
     let res = list.filter(r => !r.parentRequisitionId);
-    if (filterStatus !== "") res = res.filter(r => r.status === Number(filterStatus));
+    if (filterStatus === COMPLETED_FILTER) {
+      res = res.filter(isCompleted);
+    } else if (filterStatus !== "") {
+      const target = Number(filterStatus);
+      res = res.filter(r => r.status === target && !isCompleted(r));
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       res = res.filter(r =>
@@ -322,7 +340,7 @@ function RequisitionsContent() {
                   <td style={{ textAlign: "center" }}>{r.contractNo ?? r.departmentName ?? "—"}</td>
                   <td style={{ textAlign: "center" }}>{r.createdByName}</td>
                   <td style={{ textAlign: "center" }}>{fmtDate(r.createdAt)}</td>
-                  <td style={{ textAlign: "center" }}><RequisitionStatusBadge status={r.status} small /></td>
+                  <td style={{ textAlign: "center" }}><RequisitionStatusBadge status={r.status} completed={isCompleted(r)} small /></td>
                   <td className="td-actions" style={{ borderLeft: "2px solid var(--border)" }}
                     onClick={e => e.stopPropagation()}
                   >
