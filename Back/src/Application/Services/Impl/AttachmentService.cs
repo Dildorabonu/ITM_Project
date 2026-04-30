@@ -37,12 +37,12 @@ public class AttachmentService : IAttachmentService
         Stream fileStream, string fileName, string contentType, long fileSize,
         Guid uploadedBy, string? label = null)
     {
-        var ext = Path.GetExtension(fileName);
-        var storedName = $"{Guid.NewGuid()}{ext}";
-        var dir = Path.Combine(_options.UploadsPath, entityType, entityId.ToString());
+        var folderId = await ResolveFolderIdAsync(entityType, entityId);
+        var dir = Path.Combine(_options.UploadsPath, entityType, folderId.ToString());
 
         Directory.CreateDirectory(dir);
 
+        var storedName = ResolveUniqueStoredName(dir, SanitizeFileName(fileName));
         var fullPath = Path.Combine(dir, storedName);
         await using (var fs = File.Create(fullPath))
             await fileStream.CopyToAsync(fs);
@@ -80,9 +80,9 @@ public class AttachmentService : IAttachmentService
         if (attachment is null)
             return ApiResult<(string, string, string)>.Failure(["File not found."], 404);
 
-        var fullPath = Path.Combine(_options.UploadsPath, entityType, entityId.ToString(), attachment.StoredName);
+        var fullPath = await ResolveStoredPathAsync(entityType, entityId, attachment.StoredName);
 
-        if (!File.Exists(fullPath))
+        if (fullPath is null)
             return ApiResult<(string, string, string)>.Failure(["File not found on disk."], 404);
 
         return ApiResult<(string, string, string)>.Success((fullPath, attachment.ContentType, attachment.FileName));
@@ -96,8 +96,8 @@ public class AttachmentService : IAttachmentService
 
         foreach (var attachment in attachments)
         {
-            var fullPath = Path.Combine(_options.UploadsPath, entityType, entityId.ToString(), attachment.StoredName);
-            if (File.Exists(fullPath))
+            var fullPath = await ResolveStoredPathAsync(entityType, entityId, attachment.StoredName);
+            if (fullPath is not null && File.Exists(fullPath))
                 File.Delete(fullPath);
         }
 
@@ -113,14 +113,69 @@ public class AttachmentService : IAttachmentService
         if (attachment is null)
             return ApiResult<int>.Failure(["File not found."], 404);
 
-        var fullPath = Path.Combine(_options.UploadsPath, entityType, entityId.ToString(), attachment.StoredName);
-        if (File.Exists(fullPath))
+        var fullPath = await ResolveStoredPathAsync(entityType, entityId, attachment.StoredName);
+        if (fullPath is not null && File.Exists(fullPath))
             File.Delete(fullPath);
 
         _context.Attachments.Remove(attachment);
         await _context.SaveChangesAsync();
 
         return ApiResult<int>.Success(200);
+    }
+
+    // Requisitions uchun child fayllar parent papkasiga tushadi —
+    // bitta talabnoma + uning 2 ta child PDFi bir joyda turishi uchun.
+    private async Task<Guid> ResolveFolderIdAsync(string entityType, Guid entityId)
+    {
+        if (entityType != "requisitions") return entityId;
+        var parentId = await _context.Requisitions
+            .Where(r => r.Id == entityId)
+            .Select(r => r.ParentRequisitionId)
+            .FirstOrDefaultAsync();
+        return parentId ?? entityId;
+    }
+
+    // Yangi parent-folder sxemasini qo'llamasdan oldin yuklangan fayllar bor edi —
+    // ular hali ham child entityId nomli papkada turibdi. Avval yangi joyga qaraymiz,
+    // topilmasa eski joyga qaytamiz.
+    private async Task<string?> ResolveStoredPathAsync(string entityType, Guid entityId, string storedName)
+    {
+        var folderId = await ResolveFolderIdAsync(entityType, entityId);
+        var primary = Path.Combine(_options.UploadsPath, entityType, folderId.ToString(), storedName);
+        if (File.Exists(primary)) return primary;
+
+        if (folderId != entityId)
+        {
+            var legacy = Path.Combine(_options.UploadsPath, entityType, entityId.ToString(), storedName);
+            if (File.Exists(legacy)) return legacy;
+        }
+
+        return null;
+    }
+
+    private static string SanitizeFileName(string raw)
+    {
+        var name = Path.GetFileName(raw);
+        if (string.IsNullOrWhiteSpace(name))
+            return $"{Guid.NewGuid()}";
+
+        var invalid = Path.GetInvalidFileNameChars();
+        var clean = new string(name.Select(c => invalid.Contains(c) ? '_' : c).ToArray()).Trim();
+        return string.IsNullOrWhiteSpace(clean) ? $"{Guid.NewGuid()}" : clean;
+    }
+
+    private static string ResolveUniqueStoredName(string dir, string desired)
+    {
+        if (!File.Exists(Path.Combine(dir, desired))) return desired;
+
+        var stem = Path.GetFileNameWithoutExtension(desired);
+        var ext = Path.GetExtension(desired);
+        for (var n = 1; n < 10000; n++)
+        {
+            var candidate = $"{stem}_{n}{ext}";
+            if (!File.Exists(Path.Combine(dir, candidate))) return candidate;
+        }
+        return $"{Guid.NewGuid()}{ext}";
     }
 
     private static AttachmentResponseDto MapToResponse(Attachment a) => new()

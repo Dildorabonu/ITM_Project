@@ -534,8 +534,8 @@ function RequisitionPrintContent() {
       // PDF generatsiya qilib serverga yuklash
       const pdfBlob = await generatePdfBlob();
       if (pdfBlob) {
-        const dateStr = new Date().toISOString().slice(0, 10);
-        const pdfFile = new File([pdfBlob], `talabnoma_${dateStr}.pdf`, { type: "application/pdf" });
+        const safeNo = (reqNo.trim() || "talabnoma").replace(/[^A-Za-z0-9_-]+/g, "_");
+        const pdfFile = new File([pdfBlob], `talabnoma_${safeNo}.pdf`, { type: "application/pdf" });
         await requisitionService.uploadFile(reqId, pdfFile, "pdf");
       }
 

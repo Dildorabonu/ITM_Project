@@ -6,6 +6,27 @@ import {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5223";
 
+// ─── A4 geometry (print sahifasi bilan bir xil) ───────────────────────────────
+// 96dpi: 1mm ≈ 3.78px
+const A4_W = 794;                // 210mm
+const A4_H = 1123;               // 297mm
+const PAD_TOP = 45;              // 12mm
+const PAD_BOTTOM = 45;           // 12mm
+const PAD_LEFT = 57;             // 15mm
+const PAD_RIGHT = 57;            // 15mm
+const CONTENT_H = A4_H - PAD_TOP - PAD_BOTTOM; // 1033
+
+// Bin-packing safety buffers
+const PAGE_BOTTOM_PAD = 40;       // pastki marjnga yopishmaslik uchun nafas
+const FOOTER_BUFFER = 16;
+const FALLBACK_HEADER_H = 150;
+const FALLBACK_FOOTER_H = 150;
+const FALLBACK_THEAD_H = 46;
+const FALLBACK_ROW_H = 90;
+
+// Ustun kengliklari foiz bo'yicha — eski buildHtml bilan bir xil
+const COL_WIDTHS = [4, 24, 10, 10, 30, 10, 12];
+
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 function escapeHtml(s: string): string {
@@ -52,10 +73,8 @@ async function inlinePhotos(items: RequisitionItemResponse[]): Promise<Requisiti
 
 function formatSignDate(req: RequisitionResponse): string {
   if (req.signDate) return req.signDate;
-  // Fallback: use createdAt → DD.MM.YYYY
   try {
-    const dt = new Date(req.createdAt);
-    return formatDateDdMmYyyy(dt);
+    return formatDateDdMmYyyy(new Date(req.createdAt));
   } catch {
     return "";
   }
@@ -74,6 +93,12 @@ function formatIsoToDdMmYyyy(iso?: string | null): string {
   catch { return ""; }
 }
 
+function formatQuantity(q: number | string): string {
+  if (q == null) return "";
+  const s = String(q);
+  return s.endsWith(".0") || s.endsWith(",0") ? s.slice(0, -2) : s;
+}
+
 function buildIntroText(req: RequisitionResponse): string {
   const purpose = escapeHtml(req.purpose || "");
   const action = req.source === RequisitionSource.Purchase
@@ -85,7 +110,46 @@ function buildIntroText(req: RequisitionResponse): string {
   return `Ушбу оркали Сиздан, ${purposeHtml} ${action} учун рухсат беришингизни сўрайман.`;
 }
 
-// ─── Row HTML ──────────────────────────────────────────────────────────────────
+// ─── Section builders ─────────────────────────────────────────────────────────
+
+function buildHeaderHtml(req: RequisitionResponse): string {
+  return `
+    <div data-section="header">
+      <div style="text-align:center;margin-bottom:4px;">
+        <div style="font-weight:700;font-size:14px;font-family:'Times New Roman',serif;">
+          &quot;INNOVATSIYA TEXNOLOGIYALARI MARKAZI&quot; MChJ
+        </div>
+      </div>
+      <div style="text-align:center;margin-bottom:2px;font-size:13px;">Бош директорига</div>
+      <div style="text-align:center;font-weight:700;font-size:18px;letter-spacing:1px;margin:12px 0 18px;font-family:'Times New Roman',serif;">
+        ТАЛАБНОМА
+      </div>
+      <div style="font-size:13px;line-height:1.8;margin-bottom:6px;text-align:right;color:#444;font-family:'Times New Roman',serif;">
+        № ${escapeHtml(req.requisitionNo)}
+      </div>
+      <div style="font-size:13px;line-height:1.8;margin-bottom:20px;font-family:'Times New Roman',serif;">
+        ${buildIntroText(req)}
+      </div>
+    </div>`;
+}
+
+function buildColgroupHtml(): string {
+  return COL_WIDTHS.map(w => `<col style="width:${w}%;" />`).join("");
+}
+
+function buildTableHeadHtml(): string {
+  const th = `padding:5px 6px;border:1px solid #a0720a;font-weight:700;font-size:11px;text-align:center;line-height:1.3;font-family:'Times New Roman',serif;color:#fff;background:#b8860b;-webkit-print-color-adjust:exact;print-color-adjust:exact;`;
+  return `
+    <tr>
+      <th style="${th}">№</th>
+      <th style="${th}">Махсулот номи<br /><span style="font-weight:400;font-size:10px;">(рус тилида кўрсатилган)</span></th>
+      <th style="${th}">Ўлчов<br />бирлиги</th>
+      <th style="${th}">Миқдори</th>
+      <th style="${th}">Техник кўрсаткичи<br /><span style="font-weight:400;font-size:10px;">(рус тилида кўрсатилди)</span></th>
+      <th style="${th}">Фотосурати</th>
+      <th style="${th}">Изох</th>
+    </tr>`;
+}
 
 function buildItemRow(item: RequisitionItemResponse, index: number): string {
   const photoSrc = resolvePhoto(item.freeTextPhoto);
@@ -108,14 +172,6 @@ function buildItemRow(item: RequisitionItemResponse, index: number): string {
     </tr>`;
 }
 
-function formatQuantity(q: number | string): string {
-  if (q == null) return "";
-  const s = String(q);
-  return s.endsWith(".0") || s.endsWith(",0") ? s.slice(0, -2) : s;
-}
-
-// ─── Document HTML ─────────────────────────────────────────────────────────────
-
 function buildSignatureBlock(opts: {
   label: string;
   name: string;
@@ -137,10 +193,7 @@ function buildSignatureBlock(opts: {
     </div>`;
 }
 
-function buildHtml(req: RequisitionResponse): string {
-  const th = `padding:5px 6px;border:1px solid #a0720a;font-weight:700;font-size:11px;text-align:center;line-height:1.3;font-family:'Times New Roman',serif;color:#fff;`;
-  const introHtml = buildIntroText(req);
-  const rowsHtml = req.items.map((it, i) => buildItemRow(it, i)).join("");
+function buildFooterHtml(req: RequisitionResponse): string {
   const signDate = formatSignDate(req);
   const signerTitle = escapeHtml(req.signerTitle || "");
   const signerName = escapeHtml(req.signerName || "");
@@ -163,48 +216,12 @@ function buildHtml(req: RequisitionResponse): string {
       })
     : "";
 
+  const signaturesWrapper = warehouseBlock || approverBlock
+    ? `<div style="margin-top:18px;">${warehouseBlock}${approverBlock}</div>`
+    : "";
+
   return `
-    <div style="background:#fff;color:#000;font-family:'Times New Roman',serif;font-size:13px;padding:28px 36px;width:794px;box-sizing:border-box;">
-      <div style="text-align:center;margin-bottom:4px;">
-        <div style="font-weight:700;font-size:14px;font-family:'Times New Roman',serif;">
-          &quot;INNOVATSIYA TEXNOLOGIYALARI MARKAZI&quot; MChJ
-        </div>
-      </div>
-      <div style="text-align:center;margin-bottom:2px;font-size:13px;">Бош директорига</div>
-      <div style="text-align:center;font-weight:700;font-size:18px;letter-spacing:1px;margin:12px 0 18px;font-family:'Times New Roman',serif;">
-        ТАЛАБНОМА
-      </div>
-      <div style="font-size:13px;line-height:1.8;margin-bottom:6px;text-align:right;color:#444;font-family:'Times New Roman',serif;">
-        № ${escapeHtml(req.requisitionNo)}
-      </div>
-      <div style="font-size:13px;line-height:1.8;margin-bottom:20px;font-family:'Times New Roman',serif;">
-        ${introHtml}
-      </div>
-      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:24px;table-layout:fixed;font-family:'Times New Roman',serif;">
-        <colgroup>
-          <col style="width:4%;" />
-          <col style="width:24%;" />
-          <col style="width:10%;" />
-          <col style="width:10%;" />
-          <col style="width:30%;" />
-          <col style="width:10%;" />
-          <col style="width:12%;" />
-        </colgroup>
-        <thead>
-          <tr style="background:#b8860b;color:#fff;">
-            <th style="${th}">№</th>
-            <th style="${th}">Махсулот номи<br /><span style="font-weight:400;font-size:10px;">(рус тилида кўрсатилган)</span></th>
-            <th style="${th}">Ўлчов<br />бирлиги</th>
-            <th style="${th}">Миқдори</th>
-            <th style="${th}">Техник кўрсаткичи<br /><span style="font-weight:400;font-size:10px;">(рус тилида кўрсатилди)</span></th>
-            <th style="${th}">Фотосурати</th>
-            <th style="${th}">Изох</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rowsHtml}
-        </tbody>
-      </table>
+    <div data-section="footer">
       <div style="display:flex;gap:40px;align-items:flex-start;margin-top:16px;font-family:'Times New Roman',serif;">
         <div style="flex:1;border-bottom:1px solid #999;padding:2px 4px;text-transform:uppercase;font-weight:700;font-size:12px;min-height:20px;">
           ${signerTitle}
@@ -219,12 +236,64 @@ function buildHtml(req: RequisitionResponse): string {
         </span>
         <span style="font-size:12px;white-space:nowrap;">йил</span>
       </div>
-      ${warehouseBlock || approverBlock ? `<div style="margin-top:18px;">${warehouseBlock}${approverBlock}</div>` : ""}
-    </div>
-  `;
+      ${signaturesWrapper}
+    </div>`;
 }
 
-// ─── PDF generator ─────────────────────────────────────────────────────────────
+// ─── Page sheet (A4 fixed-height container) ───────────────────────────────────
+
+function buildPageSheet(opts: {
+  req: RequisitionResponse;
+  items: RequisitionItemResponse[];
+  startIndex: number;
+  isFirst: boolean;
+  isLast: boolean;
+}): string {
+  const { req, items, startIndex, isFirst, isLast } = opts;
+
+  const headerHtml = isFirst ? buildHeaderHtml(req) : "";
+  const footerHtml = isLast ? buildFooterHtml(req) : "";
+  const rowsHtml = items.map((it, i) => buildItemRow(it, startIndex + i)).join("");
+
+  const pageBreak = isLast ? "auto" : "always";
+  const breakAfter = isLast ? "auto" : "page";
+
+  return `
+    <div class="page-sheet" style="
+      width:${A4_W}px;
+      height:${A4_H}px;
+      min-height:${A4_H}px;
+      padding:${PAD_TOP}px ${PAD_RIGHT}px ${PAD_BOTTOM}px ${PAD_LEFT}px;
+      box-sizing:border-box;
+      background:#fff;
+      color:#000;
+      font-family:'Times New Roman',serif;
+      font-size:13px;
+      overflow:hidden;
+      page-break-after:${pageBreak};
+      break-after:${breakAfter};
+      page-break-inside:avoid;
+      break-inside:avoid;
+      flex-shrink:0;
+    ">
+      ${headerHtml}
+      <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;font-family:'Times New Roman',serif;">
+        <colgroup>${buildColgroupHtml()}</colgroup>
+        <thead>${buildTableHeadHtml()}</thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      ${footerHtml}
+    </div>`;
+}
+
+// ─── Probe + bin-packing ──────────────────────────────────────────────────────
+
+interface PageMeasurements {
+  headerH: number;
+  footerH: number;
+  theadH: number;
+  rowHs: number[];
+}
 
 async function waitForImages(container: HTMLElement): Promise<void> {
   const imgs = Array.from(container.querySelectorAll("img"));
@@ -238,24 +307,123 @@ async function waitForImages(container: HTMLElement): Promise<void> {
   );
 }
 
+async function measure(
+  hostWrapper: HTMLElement,
+  req: RequisitionResponse,
+  items: RequisitionItemResponse[],
+): Promise<PageMeasurements> {
+  // Hammasini bitta tabiiy oqim ichida render qilamiz va o'lchaymiz.
+  // page-sheet ichidagi bilan bir xil padding va col widths ishlatiladi —
+  // shunda keyinchalik chunklab joylashtirganda balandliklar mos keladi.
+  const probeHtml = `
+    <div id="probe-doc" style="
+      width:${A4_W}px;
+      padding:${PAD_TOP}px ${PAD_RIGHT}px ${PAD_BOTTOM}px ${PAD_LEFT}px;
+      box-sizing:border-box;
+      background:#fff;color:#000;
+      font-family:'Times New Roman',serif;font-size:13px;
+    ">
+      <div id="probe-header">${buildHeaderHtml(req)}</div>
+      <table id="probe-table" style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;font-family:'Times New Roman',serif;">
+        <colgroup>${buildColgroupHtml()}</colgroup>
+        <thead id="probe-thead">${buildTableHeadHtml()}</thead>
+        <tbody id="probe-tbody">
+          ${items.map((it, i) => buildItemRow(it, i)).join("")}
+        </tbody>
+      </table>
+      <div id="probe-footer">${buildFooterHtml(req)}</div>
+    </div>
+  `;
+  hostWrapper.innerHTML = probeHtml;
+
+  // Layout va imagelar to'liq render bo'lishini kutamiz
+  await new Promise<void>(res => requestAnimationFrame(() => requestAnimationFrame(() => res())));
+  await waitForImages(hostWrapper);
+
+  const headerEl = hostWrapper.querySelector("#probe-header") as HTMLElement | null;
+  const theadEl = hostWrapper.querySelector("#probe-thead") as HTMLElement | null;
+  const footerEl = hostWrapper.querySelector("#probe-footer") as HTMLElement | null;
+  const rowEls = Array.from(hostWrapper.querySelectorAll("#probe-tbody > tr")) as HTMLElement[];
+
+  return {
+    headerH: headerEl ? Math.ceil(headerEl.getBoundingClientRect().height) : FALLBACK_HEADER_H,
+    theadH: theadEl ? Math.ceil(theadEl.getBoundingClientRect().height) : FALLBACK_THEAD_H,
+    footerH: footerEl ? Math.ceil(footerEl.getBoundingClientRect().height) : FALLBACK_FOOTER_H,
+    rowHs: rowEls.map(el => {
+      const h = Math.ceil(el.getBoundingClientRect().height);
+      return h > 0 ? h : FALLBACK_ROW_H;
+    }),
+  };
+}
+
+function planPages(itemCount: number, m: PageMeasurements): number[][] {
+  // O'lchamlarga asoslanib, qatorlarni A4 page'larga taqsimlaymiz.
+  // First page'da header bor; last page'da footer bor.
+  const pages: number[][] = [];
+  let current: number[] = [];
+  let used = 0;
+
+  for (let i = 0; i < itemCount; i++) {
+    const isFirstPage = pages.length === 0;
+    const isLastRow = i === itemCount - 1;
+    const overhead = (isFirstPage ? m.headerH : 0) + m.theadH;
+    const footer = isLastRow ? m.footerH + FOOTER_BUFFER : 0;
+    const available = Math.max(100, CONTENT_H - overhead - footer - PAGE_BOTTOM_PAD);
+    const rowH = m.rowHs[i] ?? FALLBACK_ROW_H;
+
+    if (used + rowH > available && current.length > 0) {
+      pages.push(current);
+      current = [];
+      used = 0;
+    }
+    current.push(i);
+    used += rowH;
+  }
+  if (current.length || pages.length === 0) pages.push(current);
+  return pages;
+}
+
+// ─── Public API ───────────────────────────────────────────────────────────────
+
 export async function generateRequisitionPdfBlob(req: RequisitionResponse): Promise<Blob | null> {
-  // Photolarni base64 data URL'ga aylantiramiz — CORS muammosi bo'lmasligi uchun
   const items = await inlinePhotos(req.items);
   const reqWithInlined: RequisitionResponse = { ...req, items };
 
-  // docEl normal flow'da bo'lishi kerak — html2pdf ichki overlay'ga clone qiladi,
-  // agar manba `position:absolute` bo'lsa clone'ning layout'i buziladi va PDF bo'sh chiqadi.
-  // Shuning uchun foydalanuvchidan yashirish uchun tashqi wrapper'ni offscreen joylaymiz,
-  // docEl o'zi esa hech qanday position transformatsiyasiz ichida tabiiy ravishda joylashadi.
+  // Wrapper foydalanuvchidan yashiringan, lekin docEl ichida tabiiy block oqimda joylashadi —
+  // html2pdf clone qilganda layout buzilmasligi uchun docEl o'zi position transformatsiyasiz turadi.
   const wrapper = document.createElement("div");
-  wrapper.style.cssText = "position:fixed;left:-100000px;top:0;width:794px;background:#fff;pointer-events:none;";
-  wrapper.innerHTML = buildHtml(reqWithInlined);
-  const docEl = wrapper.firstElementChild as HTMLElement | null;
-  if (!docEl) return null;
+  wrapper.setAttribute("aria-hidden", "true");
+  wrapper.style.cssText = `position:fixed;top:0;left:-${A4_W + 200}px;width:${A4_W}px;background:#fff;pointer-events:none;`;
   document.body.appendChild(wrapper);
 
   try {
-    // Layout va imagelar to'liq render bo'lishini kutamiz (2 frame xavfsizroq)
+    // 1-bosqich: O'lchovlar uchun probe render
+    const measurements = await measure(wrapper, reqWithInlined, items);
+
+    // Edge case: items bo'sh — kamida bitta sahifa kerak (header + footer)
+    const itemCount = items.length;
+    const pageBins: number[][] = itemCount === 0
+      ? [[]]
+      : planPages(itemCount, measurements);
+
+    // 2-bosqich: Page-sheet'larni ketma-ket joylab, html2pdf uchun yakuniy DOM yasaymiz
+    const sheetsHtml = pageBins.map((bin, pi) => buildPageSheet({
+      req: reqWithInlined,
+      items: bin.map(i => items[i]),
+      startIndex: bin[0] ?? 0,
+      isFirst: pi === 0,
+      isLast: pi === pageBins.length - 1,
+    })).join("");
+
+    wrapper.innerHTML = `
+      <div class="generating-pdf" style="display:block;width:${A4_W}px;background:#fff;">
+        ${sheetsHtml}
+      </div>
+    `;
+    const docEl = wrapper.firstElementChild as HTMLElement | null;
+    if (!docEl) return null;
+
+    // Layout va rasmlarni yana kutamiz (page-sheet ichida qayta render bo'ldi)
     await new Promise<void>(res => requestAnimationFrame(() => requestAnimationFrame(() => res())));
     await waitForImages(docEl);
 
@@ -264,8 +432,9 @@ export async function generateRequisitionPdfBlob(req: RequisitionResponse): Prom
     const blob: Blob = await html2pdf()
       .set({
         margin: 0,
+        pagebreak: { mode: ["css"], avoid: ".page-sheet" },
         image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, width: 794 },
+        html2canvas: { scale: 2, useCORS: true, width: A4_W, windowWidth: A4_W },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
       })
       .from(docEl)
@@ -281,6 +450,15 @@ export async function generateRequisitionPdfBlob(req: RequisitionResponse): Prom
 }
 
 export function buildPdfFileName(req: RequisitionResponse): string {
-  const safeNo = (req.requisitionNo || "talabnoma").replace(/[^A-Za-z0-9_-]+/g, "_");
-  return `talabnoma_${safeNo}.pdf`;
+  // Child talabnomada parent raqamiga + source-ga qarab nom beriladi —
+  // bitta ota-talabnoma ichidagi 3 PDF (parent + ombordan + sotib) bir-biridan
+  // farqli, lekin tushunarli nomlar bilan saqlanadi.
+  const parentNo = req.parentRequisitionNo || req.requisitionNo || "talabnoma";
+  const safeNo = parentNo.replace(/[^A-Za-z0-9_-]+/g, "_");
+
+  let suffix = "";
+  if (req.source === RequisitionSource.Warehouse) suffix = "_ombordan_olishga";
+  else if (req.source === RequisitionSource.Purchase) suffix = "_sotib_olishga";
+
+  return `talabnoma_${safeNo}${suffix}.pdf`;
 }
