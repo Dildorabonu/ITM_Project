@@ -101,7 +101,7 @@ export default function TechnicalDrawingsPage() {
 
   const filtered = useMemo((): MergedRow[] => {
     const q = search.trim().toLowerCase();
-    return mergedRows.filter((row) => {
+    const matched = mergedRows.filter((row) => {
       const contractNo = row.kind === "drawing"
         ? row.drawing.contractNo.toLowerCase()
         : row.contract.contractNo.toLowerCase();
@@ -118,7 +118,38 @@ export default function TechnicalDrawingsPage() {
 
       return matchSearch && matchStatus;
     });
+
+    const rank = (row: MergedRow) => {
+      if (row.kind === "empty") return 0;
+      if (row.drawing.status === DrawingStatus.Draft) return 1;
+      return 2;
+    };
+    return matched.sort((a, b) => rank(a) - rank(b));
   }, [mergedRows, search, filterStatus]);
+
+  useEffect(() => {
+    if (loading) return;
+    const id = requestAnimationFrame(() => {
+      const els = document.querySelectorAll<HTMLElement>(
+        ".td-row-empty > td, .td-row-draft > td, .td-empty-badge, .td-row-draft .td-status-badge"
+      );
+      let anchor: number | null = null;
+      els.forEach((el) => {
+        for (const anim of el.getAnimations()) {
+          const st = anim.startTime as number | null;
+          if (anchor === null && typeof st === "number") anchor = st;
+        }
+      });
+      if (anchor === null) return;
+      const anchorTime = anchor;
+      els.forEach((el) => {
+        for (const anim of el.getAnimations()) {
+          anim.startTime = anchorTime;
+        }
+      });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [loading, filtered]);
 
   // ── Drawer ────────────────────────────────────────────────────────────────
 
@@ -349,6 +380,64 @@ export default function TechnicalDrawingsPage() {
 
   return (
     <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+      <style>{`
+        @keyframes td-row-pulse {
+          0%, 100% { background-color: var(--td-row-dim); }
+          50%      { background-color: var(--td-row-bright); }
+        }
+        @keyframes td-badge-pulse {
+          0%, 100% {
+            background: var(--td-badge-dim-bg);
+            color: var(--td-badge-dim-fg);
+            box-shadow: 0 0 0 0 var(--td-badge-ring);
+          }
+          50% {
+            background: var(--td-badge-bright-bg);
+            color: #fff;
+            box-shadow: 0 0 0 6px transparent;
+          }
+        }
+
+        .td-row-empty {
+          --td-row-dim: rgba(217,48,37,0.06);
+          --td-row-bright: rgba(217,48,37,0.20);
+          --td-badge-dim-bg: var(--danger-dim);
+          --td-badge-dim-fg: var(--danger);
+          --td-badge-bright-bg: var(--danger);
+          --td-badge-ring: rgba(217,48,37,0.55);
+        }
+        .td-row-draft {
+          --td-row-dim: rgba(224,123,0,0.06);
+          --td-row-bright: rgba(224,123,0,0.20);
+          --td-badge-dim-bg: var(--warn-dim);
+          --td-badge-dim-fg: var(--warn);
+          --td-badge-bright-bg: var(--warn);
+          --td-badge-ring: rgba(224,123,0,0.55);
+        }
+
+        .td-row-empty > td,
+        .td-row-draft > td {
+          animation: td-row-pulse 1.6s ease-in-out infinite;
+        }
+        .td-row-empty:hover > td {
+          animation-play-state: paused;
+          background-color: rgba(217,48,37,0.22) !important;
+        }
+        .td-row-draft:hover > td {
+          animation-play-state: paused;
+          background-color: rgba(224,123,0,0.22) !important;
+        }
+        .td-empty-badge,
+        .td-row-draft .td-status-badge {
+          animation: td-badge-pulse 1.6s ease-in-out infinite;
+        }
+        .td-empty-badge {
+          border: 1px solid rgba(217,48,37,0.4) !important;
+        }
+        .td-row-draft .td-status-badge {
+          border: 1px solid rgba(224,123,0,0.45) !important;
+        }
+      `}</style>
       <div style={{ display: "flex", flexDirection: "column", flex: 1, gap: 16, fontFamily: "Inter, sans-serif" }}>
 
         {/* Filter bar */}
@@ -424,20 +513,26 @@ export default function TechnicalDrawingsPage() {
                       if (row.kind === "empty") {
                         const c = row.contract;
                         return (
-                          <tr key={`empty-${c.id}`}>
-                            <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>
+                          <tr key={`empty-${c.id}`} className="td-row-empty">
+                            <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px", color: "var(--danger)", fontWeight: 700 }}>
                               {String(i + 1).padStart(2, "0")}
                             </td>
-                            <td style={{ textAlign: "center", fontSize: 13, color: "var(--text1)" }}>{c.contractNo}</td>
+                            <td style={{ textAlign: "center", fontSize: 13, color: "var(--text1)", fontWeight: 600 }}>{c.contractNo}</td>
                             <td style={{ textAlign: "center", color: "var(--text3)", fontSize: 13 }}>—</td>
                             <td style={{ textAlign: "center", color: "var(--text3)", fontSize: 13 }}>—</td>
                             <td style={{ textAlign: "center" }}>
-                              <span style={{
-                                display: "inline-flex", alignItems: "center", padding: "2px 10px",
-                                borderRadius: 20, fontSize: 12, fontWeight: 600,
-                                background: "var(--danger-dim)", color: "var(--danger)",
-                                border: "1px solid var(--danger)33",
-                              }}>
+                              <span
+                                className="td-empty-badge"
+                                style={{
+                                  display: "inline-flex", alignItems: "center", gap: 6,
+                                  padding: "3px 12px",
+                                  borderRadius: 20, fontSize: 12, fontWeight: 700,
+                                }}
+                              >
+                                <span style={{
+                                  width: 6, height: 6, borderRadius: "50%",
+                                  background: "currentColor",
+                                }} />
                                 Chizma yo&apos;q
                               </span>
                             </td>
@@ -462,9 +557,10 @@ export default function TechnicalDrawingsPage() {
                       }
 
                       const item = row.drawing;
+                      const isDraft = item.status === DrawingStatus.Draft;
                       return (
-                        <tr key={item.id}>
-                          <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>
+                        <tr key={item.id} className={isDraft ? "td-row-draft" : undefined}>
+                          <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px", color: isDraft ? "var(--warn)" : undefined, fontWeight: isDraft ? 700 : undefined }}>
                             {String(i + 1).padStart(2, "0")}
                           </td>
                           <td style={{ textAlign: "center" }}>
@@ -482,7 +578,7 @@ export default function TechnicalDrawingsPage() {
                             {item.createdByFullName ?? "—"}
                           </td>
                           <td style={{ textAlign: "center" }}>
-                            <StatusBadge status={item.status} />
+                            <StatusBadge status={item.status} className="td-status-badge" />
                           </td>
                           <td style={{ textAlign: "center", fontSize: 13, color: "var(--text1)", fontFamily: "Inter, sans-serif" }}>
                             {fmtDate(item.createdAt)}
