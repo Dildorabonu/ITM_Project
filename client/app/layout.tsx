@@ -28,6 +28,7 @@ const navGroups: NavGroup[] = [
       { name: "Texnik chizmalar",       href: "/technicaldrawings",icon: "file",         permission: ["TechnicalDrawings.View", "TechnicalDrawings.ViewAll"] },
       { name: "Tex jarayon & Normalar", href: "/techprocess",      icon: "activity",     permission: ["TechProcess.View", "TechProcess.ViewAll", "CostNorm.View", "CostNorm.ViewAll"] },
       { name: "Vazifalar",              href: "/tasks",            icon: "check-square", permission: ["Tasks.View", "Tasks.ViewAll"] },
+      { name: "Tayyor mahsulotlar",     href: "/manufactured",     icon: "factory",      permission: "ManufacturedProducts.View" },
     ],
   },
   {
@@ -101,6 +102,7 @@ function NavIcon({ type, size = 16, strokeWidth = 2, color }: { type: string; si
   if (type === "settings")     return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
   if (type === "shopping-bag") return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>;
   if (type === "layers")      return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><polygon points="12,2 2,7 12,12 22,7"/><polyline points="2,17 12,22 22,17"/><polyline points="2,12 12,17 22,12"/></svg>;
+  if (type === "factory")     return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><path d="M2 20V8l6 4V8l6 4V8l6 4v8z"/><line x1="2" y1="20" x2="22" y2="20"/><line x1="7" y1="16" x2="7" y2="16.01"/><line x1="12" y1="16" x2="12" y2="16.01"/><line x1="17" y1="16" x2="17" y2="16.01"/></svg>;
   return null;
 }
 
@@ -140,7 +142,7 @@ function applyAppearanceFont(family: string, scale: number) {
 }
 
 // Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
-const readyRoutes = new Set(["/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions", "/requisitions/approvals"]);
+const readyRoutes = new Set(["/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions", "/requisitions/approvals", "/manufactured"]);
 const readyPrefixes = ["/requisitions/", "/contracts/", "/techprocess/", "/technicaldrawings/", "/requisitions/print"];
 
 const pageTitles: Record<string, string> = {
@@ -151,6 +153,7 @@ const pageTitles: Record<string, string> = {
   "/technicaldrawings": "Texnik chizmalar",
   "/warehouse":     "Ombor Zaxirasi",
   "/tasks":         "Vazifalar",
+  "/manufactured":  "Tayyor mahsulotlar",
   "/users":         "Foydalanuvchilar",
   "/roles":         "Rollar",
   "/departments":   "Tuzilma",
