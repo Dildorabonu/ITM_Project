@@ -325,7 +325,7 @@ function RequisitionsContent() {
           <table className="itm-table" style={{ tableLayout: "auto" }}>
             <thead>
               <tr>
-                {["Raqam", "Turi", "Shartnoma / Bo'lim", "Yaratuvchi", "Sana"].map(h => (
+                {["Nomi", "Turi", "Shartnoma / Bo'lim", "Yaratuvchi", "Sana"].map(h => (
                   <th key={h} style={{ textAlign: "center", color: "var(--text1)" }}>{h}</th>
                 ))}
                 <th style={{ minWidth: 160, textAlign: "center", color: "var(--text1)" }}>Holat</th>
