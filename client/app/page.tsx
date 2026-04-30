@@ -500,7 +500,7 @@ export default function DashboardPage() {
                         <div className={`nd-deadline-urgency-dot dl-dot-${urgency}`} />
                         <div className="nd-deadline-info">
                           <div className="nd-deadline-contract">{c.contractNo}</div>
-                          <div className="nd-deadline-product">{c.productType} — {c.contractParty}</div>
+                          <div className="nd-deadline-product">{(c.products?.[0]?.productType ?? "—")} — {c.contractParty}</div>
                         </div>
                       </div>
                       <div className="nd-deadline-right">
@@ -671,7 +671,7 @@ export default function DashboardPage() {
                         <td className="pm-td pm-td-contract">
                           <div className="pm-contract-info">
                             <span className="pm-contract-no">{contract.contractNo}</span>
-                            <span className="pm-contract-product">{contract.productType}</span>
+                            <span className="pm-contract-product">{contract.products?.map(p => p.productType).filter(Boolean).join(", ") || "—"}</span>
                             <span className="pm-contract-party">{contract.contractParty}</span>
                           </div>
                         </td>

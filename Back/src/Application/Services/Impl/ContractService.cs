@@ -23,6 +23,7 @@ public class ContractService : IContractService
         var query = _context.Contracts
             .Include(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
             .Include(c => c.Creator)
+            .Include(c => c.Products)
             .AsNoTracking()
             .AsQueryable();
 
@@ -53,6 +54,7 @@ public class ContractService : IContractService
             .Include(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
             .Include(c => c.Creator)
             .Include(c => c.ContractUsers).ThenInclude(cu => cu.User).ThenInclude(u => u.Role)
+            .Include(c => c.Products)
             .AsNoTracking()
             .FirstOrDefaultAsync(c => c.Id == id);
 
@@ -71,9 +73,6 @@ public class ContractService : IContractService
         {
             Id = Guid.NewGuid(),
             ContractNo = dto.ContractNo,
-            ProductType = dto.ProductType,
-            Quantity = dto.Quantity,
-            Unit = dto.Unit,
             StartDate = dto.StartDate,
             EndDate = dto.EndDate,
             Priority = dto.Priority,
@@ -95,15 +94,22 @@ public class ContractService : IContractService
             });
         }
 
-        _context.TechProcesses.Add(new TechProcess
+        var orderIdx = 0;
+        foreach (var p in dto.Products)
         {
-            Id = Guid.NewGuid(),
-            ContractId = contract.Id,
-            Title = contract.ProductType,
-            Status = ProcessStatus.Pending,
-            CurrentStep = 0,
-            CreatedAt = DateTime.UtcNow,
-        });
+            if (string.IsNullOrWhiteSpace(p.ProductType)) continue;
+            _context.ContractProducts.Add(new ContractProduct
+            {
+                Id = Guid.NewGuid(),
+                ContractId = contract.Id,
+                ProductType = p.ProductType.Trim(),
+                Quantity = p.Quantity,
+                Unit = p.Unit ?? string.Empty,
+                Notes = p.Notes,
+                OrderIndex = orderIdx++,
+                CreatedAt = DateTime.UtcNow,
+            });
+        }
 
         await _context.SaveChangesAsync();
 
@@ -121,6 +127,7 @@ public class ContractService : IContractService
         var contract = await _context.Contracts
             .Include(c => c.ContractDepartments)
             .Include(c => c.ContractUsers)
+            .Include(c => c.Products)
             .FirstOrDefaultAsync(c => c.Id == id);
 
         if (contract is null)
@@ -134,9 +141,6 @@ public class ContractService : IContractService
             contract.ContractNo = dto.ContractNo;
         }
 
-        if (dto.ProductType is not null) contract.ProductType = dto.ProductType;
-        if (dto.Quantity.HasValue) contract.Quantity = dto.Quantity.Value;
-        if (dto.Unit is not null) contract.Unit = dto.Unit;
         if (dto.StartDate.HasValue) contract.StartDate = dto.StartDate.Value;
         if (dto.EndDate.HasValue) contract.EndDate = dto.EndDate.Value;
         if (dto.Priority.HasValue) contract.Priority = dto.Priority.Value;
@@ -152,6 +156,27 @@ public class ContractService : IContractService
                 {
                     ContractId = contract.Id,
                     DepartmentId = deptId,
+                });
+            }
+        }
+
+        if (dto.Products is not null)
+        {
+            _context.ContractProducts.RemoveRange(contract.Products);
+            var orderIdx = 0;
+            foreach (var p in dto.Products)
+            {
+                if (string.IsNullOrWhiteSpace(p.ProductType)) continue;
+                _context.ContractProducts.Add(new ContractProduct
+                {
+                    Id = Guid.NewGuid(),
+                    ContractId = contract.Id,
+                    ProductType = p.ProductType.Trim(),
+                    Quantity = p.Quantity,
+                    Unit = p.Unit ?? string.Empty,
+                    Notes = p.Notes,
+                    OrderIndex = orderIdx++,
+                    CreatedAt = DateTime.UtcNow,
                 });
             }
         }
@@ -431,6 +456,7 @@ public class ContractService : IContractService
                 .Include(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
                 .Include(c => c.Creator)
                 .Include(c => c.ContractUsers).ThenInclude(cu => cu.User).ThenInclude(u => u.Role)
+                .Include(c => c.Products)
                 .AsNoTracking()
                 .OrderByDescending(c => c.CreatedAt)
                 .ToListAsync();
@@ -453,6 +479,7 @@ public class ContractService : IContractService
             .Where(cu => cu.UserId == userId)
             .Include(cu => cu.Contract).ThenInclude(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
             .Include(cu => cu.Contract).ThenInclude(c => c.Creator)
+            .Include(cu => cu.Contract).ThenInclude(c => c.Products)
             .Include(cu => cu.Contract).ThenInclude(c => c.ContractUsers).ThenInclude(cu2 => cu2.User).ThenInclude(u => u.Role)
             .AsNoTracking()
             .Select(cu => cu.Contract)
@@ -466,9 +493,6 @@ public class ContractService : IContractService
     {
         Id = contract.Id,
         ContractNo = contract.ContractNo,
-        ProductType = contract.ProductType,
-        Quantity = contract.Quantity,
-        Unit = contract.Unit,
         StartDate = contract.StartDate,
         EndDate = contract.EndDate,
         Departments = contract.ContractDepartments
@@ -496,6 +520,18 @@ public class ContractService : IContractService
                 FullName       = $"{cu.User!.FirstName} {cu.User.LastName}",
                 DepartmentName = cu.User.Department?.Name,
                 Role           = cu.Role,
+            }).ToList(),
+        Products = contract.Products
+            .OrderBy(p => p.OrderIndex)
+            .Select(p => new ContractProductResponseDto
+            {
+                Id          = p.Id,
+                ContractId  = p.ContractId,
+                ProductType = p.ProductType,
+                Quantity    = p.Quantity,
+                Unit        = p.Unit,
+                OrderIndex  = p.OrderIndex,
+                Notes       = p.Notes,
             }).ToList(),
     };
 }

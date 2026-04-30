@@ -18,6 +18,11 @@ public class TechnicalDrawingConfiguration : IEntityTypeConfiguration<TechnicalD
             .HasForeignKey(d => d.ContractId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        builder.HasOne(d => d.ContractProduct)
+            .WithMany(p => p.TechnicalDrawings)
+            .HasForeignKey(d => d.ContractProductId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         builder.HasOne(d => d.Creator)
             .WithMany(u => u.CreatedTechnicalDrawings)
             .HasForeignKey(d => d.CreatedBy)

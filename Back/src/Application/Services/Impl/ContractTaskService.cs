@@ -23,6 +23,7 @@ public class ContractTaskService : IContractTaskService
 
         var tasks = await _context.ContractTasks
             .Include(t => t.Creator)
+            .Include(t => t.ContractProduct)
             .AsNoTracking()
             .Where(t => t.ContractId == contractId)
             .OrderBy(t => t.OrderNo)
@@ -35,6 +36,7 @@ public class ContractTaskService : IContractTaskService
     {
         var task = await _context.ContractTasks
             .Include(t => t.Creator)
+            .Include(t => t.ContractProduct)
             .AsNoTracking()
             .FirstOrDefaultAsync(t => t.Id == id);
 
@@ -50,6 +52,14 @@ public class ContractTaskService : IContractTaskService
         if (!contractExists)
             return ApiResult<Guid>.Failure([$"Contract with id '{dto.ContractId}' not found."], 404);
 
+        if (dto.ContractProductId.HasValue)
+        {
+            var productOk = await _context.ContractProducts
+                .AnyAsync(p => p.Id == dto.ContractProductId.Value && p.ContractId == dto.ContractId);
+            if (!productOk)
+                return ApiResult<Guid>.Failure(["Tanlangan mahsulot ushbu shartnomaga tegishli emas."]);
+        }
+
         var nextOrder = await _context.ContractTasks
             .Where(t => t.ContractId == dto.ContractId)
             .MaxAsync(t => (int?)t.OrderNo) ?? 0;
@@ -58,6 +68,7 @@ public class ContractTaskService : IContractTaskService
         {
             Id = Guid.NewGuid(),
             ContractId = dto.ContractId,
+            ContractProductId = dto.ContractProductId,
             OrderNo = nextOrder + 1,
             Name = dto.Name,
             CompletedAmount = dto.CompletedAmount,
@@ -84,6 +95,17 @@ public class ContractTaskService : IContractTaskService
         if (!contractExists)
             return ApiResult<int>.Failure([$"Contract with id '{contractId}' not found."], 404);
 
+        var validProductIds = await _context.ContractProducts
+            .Where(p => p.ContractId == contractId)
+            .Select(p => p.Id)
+            .ToListAsync();
+
+        foreach (var dto in dtoList)
+        {
+            if (dto.ContractProductId.HasValue && !validProductIds.Contains(dto.ContractProductId.Value))
+                return ApiResult<int>.Failure(["Tanlangan mahsulot ushbu shartnomaga tegishli emas."]);
+        }
+
         var nextOrder = await _context.ContractTasks
             .Where(t => t.ContractId == contractId)
             .MaxAsync(t => (int?)t.OrderNo) ?? 0;
@@ -92,6 +114,7 @@ public class ContractTaskService : IContractTaskService
         {
             Id = Guid.NewGuid(),
             ContractId = dto.ContractId,
+            ContractProductId = dto.ContractProductId,
             OrderNo = nextOrder + i + 1,
             Name = dto.Name,
             CompletedAmount = dto.CompletedAmount,
@@ -118,6 +141,19 @@ public class ContractTaskService : IContractTaskService
         if (dto.TotalAmount.HasValue) task.TotalAmount = dto.TotalAmount.Value;
         if (dto.Importance.HasValue) task.Importance = dto.Importance.Value;
         if (dto.OrderNo.HasValue) task.OrderNo = dto.OrderNo.Value;
+
+        if (dto.ClearContractProduct)
+        {
+            task.ContractProductId = null;
+        }
+        else if (dto.ContractProductId.HasValue)
+        {
+            var productOk = await _context.ContractProducts
+                .AnyAsync(p => p.Id == dto.ContractProductId.Value && p.ContractId == task.ContractId);
+            if (!productOk)
+                return ApiResult<int>.Failure(["Tanlangan mahsulot ushbu shartnomaga tegishli emas."]);
+            task.ContractProductId = dto.ContractProductId.Value;
+        }
 
         await _context.SaveChangesAsync();
 
@@ -198,6 +234,8 @@ public class ContractTaskService : IContractTaskService
         {
             Id = t.Id,
             ContractId = t.ContractId,
+            ContractProductId = t.ContractProductId,
+            ProductType = t.ContractProduct?.ProductType,
             OrderNo = t.OrderNo,
             Name = t.Name,
             CompletedAmount = t.CompletedAmount,

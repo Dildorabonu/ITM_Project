@@ -6,6 +6,7 @@ public class TechProcess
 {
     public Guid Id { get; set; }
     public Guid ContractId { get; set; }
+    public Guid? ContractProductId { get; set; }
     public string Title { get; set; } = string.Empty;
     public ProcessStatus Status { get; set; }
     public int CurrentStep { get; set; }
@@ -16,5 +17,6 @@ public class TechProcess
 
     // Navigation properties
     public Contract? Contract { get; set; }
+    public ContractProduct? ContractProduct { get; set; }
     public User? Approver { get; set; }
 }

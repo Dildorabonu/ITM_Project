@@ -148,36 +148,6 @@ export function ContractForm({
             {endDateErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Tugash sanasini tanlang</div>}
           </div>
 
-          {/* Mahsulot turi */}
-          <div>
-            <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Mahsulot turi</label>
-            <input className="form-input" value={form.productType}
-              onChange={e => setForm(f => ({ ...f, productType: e.target.value }))}
-              placeholder="Masalan: Detal, Konstruktsiya..."
-            />
-          </div>
-
-          {/* Miqdor */}
-          <div>
-            <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Miqdor</label>
-            <input className="form-input" type="number" min="0" value={form.quantity}
-              onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))}
-              onWheel={e => (e.target as HTMLInputElement).blur()}
-              placeholder="0"
-            />
-          </div>
-
-          {/* O'lchov birligi */}
-          <div>
-            <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>O&apos;lchov birligi</label>
-            <CheckSelect
-              value={form.unit}
-              onChange={v => setForm(f => ({ ...f, unit: v }))}
-              options={UNIT_OPTIONS.filter(o => o.value !== "").map(o => ({ id: o.value, name: o.label, icon: o.icon }))}
-              placeholder="— Tanlang —"
-            />
-          </div>
-
           {/* Muhimlik */}
           <div>
             <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Muhimlik</label>
@@ -202,6 +172,106 @@ export function ContractForm({
               hasError={deptErr}
             />
             {deptErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Kamida bitta bo&apos;limni tanlang</div>}
+          </div>
+
+          {/* Mahsulotlar — bir nechta qatorda */}
+          <div style={{ gridColumn: "1 / -1" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)" }}>
+                Mahsulotlar <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text3)" }}>(shartnoma bo&apos;yicha bir nechta mahsulot kiritishingiz mumkin)</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setForm(f => ({ ...f, products: [...f.products, { productType: "", quantity: "", unit: "", notes: "" }] }))}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  padding: "6px 12px", border: "1.5px solid var(--accent)",
+                  background: "var(--accent-dim)", color: "var(--accent)",
+                  borderRadius: "var(--radius)", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                  transition: "background 0.15s",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = "var(--accent-mid)")}
+                onMouseLeave={e => (e.currentTarget.style.background = "var(--accent-dim)")}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                Mahsulot qo&apos;shish
+              </button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {form.products.map((p, idx) => (
+                <div key={idx} style={{
+                  border: "1.5px solid var(--border)", borderRadius: 10, padding: 14,
+                  background: "var(--bg2)", position: "relative",
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{
+                        width: 24, height: 24, borderRadius: 6, background: "var(--accent)",
+                        color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 12, fontWeight: 700,
+                      }}>{idx + 1}</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text2)" }}>Mahsulot #{idx + 1}</span>
+                    </div>
+                    {form.products.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setForm(f => ({ ...f, products: f.products.filter((_, i) => i !== idx) }))}
+                        style={{
+                          background: "var(--danger-dim)", border: "1px solid var(--danger)",
+                          color: "var(--danger)", borderRadius: 6, cursor: "pointer",
+                          padding: "4px 10px", fontSize: 11, fontWeight: 600,
+                        }}
+                      >
+                        ✕ O&apos;chirish
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 12 }}>
+                    <div>
+                      <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4, color: "var(--text2)" }}>Mahsulot turi</label>
+                      <input
+                        className="form-input"
+                        value={p.productType}
+                        onChange={e => setForm(f => ({ ...f, products: f.products.map((x, i) => i === idx ? { ...x, productType: e.target.value } : x) }))}
+                        placeholder="Masalan: Detal, Konstruktsiya..."
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4, color: "var(--text2)" }}>Miqdor</label>
+                      <input
+                        className="form-input"
+                        type="number"
+                        min="0"
+                        value={p.quantity}
+                        onChange={e => setForm(f => ({ ...f, products: f.products.map((x, i) => i === idx ? { ...x, quantity: e.target.value } : x) }))}
+                        onWheel={e => (e.target as HTMLInputElement).blur()}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4, color: "var(--text2)" }}>O&apos;lchov birligi</label>
+                      <CheckSelect
+                        value={p.unit}
+                        onChange={v => setForm(f => ({ ...f, products: f.products.map((x, i) => i === idx ? { ...x, unit: v } : x) }))}
+                        options={UNIT_OPTIONS.filter(o => o.value !== "").map(o => ({ id: o.value, name: o.label, icon: o.icon }))}
+                        placeholder="— Tanlang —"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {form.products.length === 0 && (
+                <div style={{
+                  padding: "20px", textAlign: "center", fontSize: 13, color: "var(--text3)",
+                  border: "1.5px dashed var(--border)", borderRadius: 10,
+                }}>
+                  Hali mahsulot qo&apos;shilmagan. &quot;Mahsulot qo&apos;shish&quot; tugmasini bosing.
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Izoh */}

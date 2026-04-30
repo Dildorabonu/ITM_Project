@@ -25,6 +25,7 @@ public class TechProcessService : ITechProcessService
     {
         var query = _context.TechProcesses
             .Include(t => t.Contract)
+            .Include(t => t.ContractProduct)
             .Include(t => t.Approver)
             .AsNoTracking()
             .AsQueryable();
@@ -48,6 +49,7 @@ public class TechProcessService : ITechProcessService
     {
         var tp = await _context.TechProcesses
             .Include(t => t.Contract)
+            .Include(t => t.ContractProduct)
             .Include(t => t.Approver)
             .AsNoTracking()
             .FirstOrDefaultAsync(t => t.Id == id);
@@ -62,6 +64,7 @@ public class TechProcessService : ITechProcessService
     {
         var list = await _context.TechProcesses
             .Include(t => t.Contract)
+            .Include(t => t.ContractProduct)
             .Include(t => t.Approver)
             .AsNoTracking()
             .Where(t => t.ContractId == contractId)
@@ -77,10 +80,19 @@ public class TechProcessService : ITechProcessService
         if (!contractExists)
             return ApiResult<Guid>.Failure([$"Shartnoma '{dto.ContractId}' topilmadi."]);
 
+        if (dto.ContractProductId.HasValue)
+        {
+            var productOk = await _context.ContractProducts
+                .AnyAsync(p => p.Id == dto.ContractProductId.Value && p.ContractId == dto.ContractId);
+            if (!productOk)
+                return ApiResult<Guid>.Failure(["Tanlangan mahsulot ushbu shartnomaga tegishli emas."]);
+        }
+
         var tp = new TechProcess
         {
             Id = Guid.NewGuid(),
             ContractId = dto.ContractId,
+            ContractProductId = dto.ContractProductId,
             Title = dto.Title,
             Status = ProcessStatus.InProgress,
             CurrentStep = 0,
@@ -161,6 +173,19 @@ public class TechProcessService : ITechProcessService
 
         if (dto.Title is not null) tp.Title = dto.Title;
 
+        if (dto.ClearContractProduct)
+        {
+            tp.ContractProductId = null;
+        }
+        else if (dto.ContractProductId.HasValue)
+        {
+            var productOk = await _context.ContractProducts
+                .AnyAsync(p => p.Id == dto.ContractProductId.Value && p.ContractId == tp.ContractId);
+            if (!productOk)
+                return ApiResult<int>.Failure(["Tanlangan mahsulot ushbu shartnomaga tegishli emas."]);
+            tp.ContractProductId = dto.ContractProductId.Value;
+        }
+
         await _context.SaveChangesAsync();
         return ApiResult<int>.Success(1);
     }
@@ -238,6 +263,8 @@ public class TechProcessService : ITechProcessService
         Id = tp.Id,
         ContractId = tp.ContractId,
         ContractNo = tp.Contract?.ContractNo ?? string.Empty,
+        ContractProductId = tp.ContractProductId,
+        ProductType = tp.ContractProduct?.ProductType,
         Title = tp.Title,
         Status = tp.Status,
         CurrentStep = tp.CurrentStep,

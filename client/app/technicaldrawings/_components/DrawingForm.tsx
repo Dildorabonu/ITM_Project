@@ -4,7 +4,7 @@ import type { DrawingFormValues } from "../_types";
 
 interface DrawingFormProps {
   mode: "create" | "edit";
-  contract: ContractResponse | { contractNo: string };
+  contract: ContractResponse | { contractNo: string; products?: { id: string; productType: string; quantity: number; unit: string }[] };
   form: DrawingFormValues;
   setForm: React.Dispatch<React.SetStateAction<DrawingFormValues>>;
   submitted: boolean;
@@ -85,6 +85,25 @@ export function DrawingForm({
               }}>
                 {contract.contractNo}
               </div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: "var(--text2)" }}>
+                Mahsulot
+              </label>
+              <select
+                className="form-input"
+                value={form.contractProductId}
+                onChange={(e) => setForm((f) => ({ ...f, contractProductId: e.target.value }))}
+                style={{ height: 44, fontSize: 14, width: "100%" }}
+              >
+                <option value="">Umumiy (butun shartnoma uchun)</option>
+                {(contract.products ?? []).map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.productType} — {p.quantity.toLocaleString()} {p.unit}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>

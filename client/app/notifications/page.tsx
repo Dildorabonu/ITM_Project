@@ -19,9 +19,6 @@ type Notif = {
 type ContractDetail = {
   id: string;
   contractNo: string;
-  productType: string;
-  quantity: number;
-  unit: string;
   startDate: string;
   endDate: string;
   priority: Priority;
@@ -32,6 +29,7 @@ type ContractDetail = {
   createdAt: string;
   departments: { id: string; name: string }[];
   assignedUsers: { userId: string; fullName: string; role: string }[];
+  products?: { productType: string; quantity: number; unit: string }[];
 };
 
 const typeMap: Record<number, "blue" | "warn" | "danger" | "green"> = {
@@ -355,8 +353,12 @@ export default function NotificationsPage() {
                     }}>
                       {infoRow("Shartnoma raqami", contractDetail.contractNo)}
                       {infoRow("Shartnoma tomoni", contractDetail.contractParty)}
-                      {infoRow("Mahsulot turi", contractDetail.productType)}
-                      {infoRow("Miqdori", `${contractDetail.quantity} ${contractDetail.unit}`)}
+                      {(contractDetail.products && contractDetail.products.length > 0) && (
+                        infoRow(
+                          contractDetail.products.length > 1 ? `Mahsulotlar (${contractDetail.products.length})` : "Mahsulot",
+                          contractDetail.products.map(p => `${p.productType} — ${p.quantity} ${p.unit}`).join("; ")
+                        )
+                      )}
                       {infoRow("Holati", statusLabels[contractDetail.status] || String(contractDetail.status))}
                       {infoRow("Muhimlik darajasi", priorityLabels[contractDetail.priority] || String(contractDetail.priority), priorityColors[contractDetail.priority])}
                       {infoRow("Boshlanish sanasi", formatDate(contractDetail.startDate))}

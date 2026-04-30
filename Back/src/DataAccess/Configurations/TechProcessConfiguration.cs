@@ -19,5 +19,10 @@ public class TechProcessConfiguration : IEntityTypeConfiguration<TechProcess>
             .WithMany(c => c.TechProcesses)
             .HasForeignKey(t => t.ContractId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(t => t.ContractProduct)
+            .WithMany(p => p.TechProcesses)
+            .HasForeignKey(t => t.ContractProductId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }
