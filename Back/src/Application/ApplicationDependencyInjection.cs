@@ -29,6 +29,7 @@ public static class ApplicationDependencyInjection
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IRequisitionService, RequisitionService>();
         services.AddScoped<IFileStorageService, FileStorageService>();
+        services.AddScoped<IManufacturedProductService, ManufacturedProductService>();
 
         return services;
     }

@@ -1362,3 +1362,111 @@ export const requisitionService = {
     await api.delete(`/api/requisition/${id}/files/${fileId}`);
   },
 };
+
+// ─── Manufactured Products ───────────────────────────────────────────────────
+
+export enum ManufacturingStatus {
+  InProgress = 0,
+  Completed = 1,
+}
+
+export const MANUFACTURING_STATUS_LABELS: Record<ManufacturingStatus, string> = {
+  [ManufacturingStatus.InProgress]: "Ishlab chiqarilmoqda",
+  [ManufacturingStatus.Completed]: "Ishlab chiqarilgan",
+};
+
+export interface ManufacturedProductResponse {
+  id: string;
+  name: string;
+  code: string | null;
+  description: string | null;
+  quantity: number;
+  producedQuantity: number;
+  unit: ProductUnit;
+  status: ManufacturingStatus;
+  departmentId: string;
+  departmentName: string;
+  contractId: string | null;
+  contractNo: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  notes: string | null;
+  createdBy: string;
+  createdByFullName: string | null;
+  createdAt: string;
+}
+
+export interface ManufacturedProductCreatePayload {
+  name: string;
+  code?: string | null;
+  description?: string | null;
+  quantity: number;
+  producedQuantity: number;
+  unit: ProductUnit;
+  status: ManufacturingStatus;
+  departmentId: string;
+  contractId?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  notes?: string | null;
+}
+
+export interface ManufacturedProductUpdatePayload {
+  name?: string;
+  code?: string | null;
+  description?: string | null;
+  quantity?: number;
+  producedQuantity?: number;
+  unit?: ProductUnit;
+  status?: ManufacturingStatus;
+  departmentId?: string;
+  contractId?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  notes?: string | null;
+}
+
+export interface ManufacturedProductStats {
+  total: number;
+  inProgress: number;
+  completed: number;
+}
+
+export const manufacturedProductService = {
+  getAll: async (
+    page = 1,
+    pageSize = 50,
+    search?: string,
+    departmentId?: string,
+    status?: ManufacturingStatus,
+  ): Promise<PagedResult<ManufacturedProductResponse>> => {
+    const params: Record<string, unknown> = { page, pageSize };
+    if (search) params.search = search;
+    if (departmentId) params.departmentId = departmentId;
+    if (status !== undefined) params.status = status;
+    const res = await api.get("/api/manufacturedproduct", { params });
+    return res.data?.result ?? res.data;
+  },
+
+  getStats: async (): Promise<ManufacturedProductStats> => {
+    const res = await api.get("/api/manufacturedproduct/stats");
+    return res.data?.result ?? res.data;
+  },
+
+  getById: async (id: string): Promise<ManufacturedProductResponse> => {
+    const res = await api.get(`/api/manufacturedproduct/${id}`);
+    return res.data?.result ?? res.data;
+  },
+
+  create: async (dto: ManufacturedProductCreatePayload): Promise<void> => {
+    await api.post("/api/manufacturedproduct", dto);
+  },
+
+  update: async (id: string, dto: ManufacturedProductUpdatePayload): Promise<void> => {
+    await api.put(`/api/manufacturedproduct/${id}`, dto);
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/api/manufacturedproduct/${id}`);
+  },
+};
