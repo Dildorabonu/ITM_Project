@@ -1,24 +1,34 @@
 import { ContractStatus, Priority, CONTRACT_STATUS_LABELS, PRIORITY_LABELS } from "@/lib/userService";
 
-// ─── Form type ────────────────────────────────────────────────────────────────
+// ─── Form types ───────────────────────────────────────────────────────────────
 
-export interface ContractForm {
-  contractNo: string;
+export interface ContractProductForm {
   productType: string;
   quantity: string;
   unit: string;
+  notes: string;
+}
+
+export const emptyProduct: ContractProductForm = {
+  productType: "", quantity: "", unit: "", notes: "",
+};
+
+export interface ContractForm {
+  contractNo: string;
   departmentIds: string[];
   startDate: string;
   endDate: string;
   priority: string;
   contractParty: string;
   notes: string;
+  products: ContractProductForm[];
 }
 
 export const emptyForm: ContractForm = {
-  contractNo: "", productType: "", quantity: "", unit: "",
+  contractNo: "",
   departmentIds: [], startDate: "", endDate: "",
   priority: String(Priority.Medium), contractParty: "", notes: "",
+  products: [{ ...emptyProduct }],
 };
 
 // ─── Status / Priority styles ─────────────────────────────────────────────────

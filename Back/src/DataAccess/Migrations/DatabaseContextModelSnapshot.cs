@@ -104,22 +104,11 @@ namespace DataAccess.Migrations
                     b.Property<int>("Priority")
                         .HasColumnType("integer");
 
-                    b.Property<string>("ProductType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("Quantity")
-                        .HasColumnType("integer");
-
                     b.Property<DateOnly>("StartDate")
                         .HasColumnType("date");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
-
-                    b.Property<string>("Unit")
-                        .IsRequired()
-                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -146,6 +135,47 @@ namespace DataAccess.Migrations
                     b.ToTable("ContractDepartments");
                 });
 
+            modelBuilder.Entity("Core.Entities.ContractProduct", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ContractId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<int>("OrderIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ProductType")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContractId");
+
+                    b.ToTable("ContractProducts");
+                });
+
             modelBuilder.Entity("Core.Entities.ContractTask", b =>
                 {
                     b.Property<Guid>("Id")
@@ -157,6 +187,9 @@ namespace DataAccess.Migrations
                         .HasColumnType("numeric(18,2)");
 
                     b.Property<Guid>("ContractId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ContractProductId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
@@ -187,6 +220,8 @@ namespace DataAccess.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ContractId");
+
+                    b.HasIndex("ContractProductId");
 
                     b.HasIndex("CreatedBy");
 
@@ -261,6 +296,9 @@ namespace DataAccess.Migrations
                     b.Property<Guid>("ContractId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("ContractProductId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -283,6 +321,8 @@ namespace DataAccess.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ContractId");
+
+                    b.HasIndex("ContractProductId");
 
                     b.HasIndex("CreatedBy");
 
@@ -937,6 +977,9 @@ namespace DataAccess.Migrations
                     b.Property<Guid>("ContractId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("ContractProductId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -959,6 +1002,8 @@ namespace DataAccess.Migrations
 
                     b.HasIndex("ContractId");
 
+                    b.HasIndex("ContractProductId");
+
                     b.ToTable("TechProcesses");
                 });
 
@@ -969,6 +1014,9 @@ namespace DataAccess.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("ContractId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ContractProductId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
@@ -995,6 +1043,8 @@ namespace DataAccess.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ContractId");
+
+                    b.HasIndex("ContractProductId");
 
                     b.HasIndex("CreatedBy");
 
@@ -1088,6 +1138,17 @@ namespace DataAccess.Migrations
                     b.Navigation("Department");
                 });
 
+            modelBuilder.Entity("Core.Entities.ContractProduct", b =>
+                {
+                    b.HasOne("Core.Entities.Contract", "Contract")
+                        .WithMany("Products")
+                        .HasForeignKey("ContractId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Contract");
+                });
+
             modelBuilder.Entity("Core.Entities.ContractTask", b =>
                 {
                     b.HasOne("Core.Entities.Contract", "Contract")
@@ -1096,6 +1157,11 @@ namespace DataAccess.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Core.Entities.ContractProduct", "ContractProduct")
+                        .WithMany("ContractTasks")
+                        .HasForeignKey("ContractProductId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Core.Entities.User", "Creator")
                         .WithMany()
                         .HasForeignKey("CreatedBy")
@@ -1103,6 +1169,8 @@ namespace DataAccess.Migrations
                         .IsRequired();
 
                     b.Navigation("Contract");
+
+                    b.Navigation("ContractProduct");
 
                     b.Navigation("Creator");
                 });
@@ -1153,6 +1221,11 @@ namespace DataAccess.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Core.Entities.ContractProduct", "ContractProduct")
+                        .WithMany("CostNorms")
+                        .HasForeignKey("ContractProductId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Core.Entities.User", "Creator")
                         .WithMany()
                         .HasForeignKey("CreatedBy")
@@ -1160,6 +1233,8 @@ namespace DataAccess.Migrations
                         .IsRequired();
 
                     b.Navigation("Contract");
+
+                    b.Navigation("ContractProduct");
 
                     b.Navigation("Creator");
                 });
@@ -1423,9 +1498,16 @@ namespace DataAccess.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Core.Entities.ContractProduct", "ContractProduct")
+                        .WithMany("TechProcesses")
+                        .HasForeignKey("ContractProductId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Approver");
 
                     b.Navigation("Contract");
+
+                    b.Navigation("ContractProduct");
                 });
 
             modelBuilder.Entity("Core.Entities.TechnicalDrawing", b =>
@@ -1436,6 +1518,11 @@ namespace DataAccess.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Core.Entities.ContractProduct", "ContractProduct")
+                        .WithMany("TechnicalDrawings")
+                        .HasForeignKey("ContractProductId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Core.Entities.User", "Creator")
                         .WithMany("CreatedTechnicalDrawings")
                         .HasForeignKey("CreatedBy")
@@ -1443,6 +1530,8 @@ namespace DataAccess.Migrations
                         .IsRequired();
 
                     b.Navigation("Contract");
+
+                    b.Navigation("ContractProduct");
 
                     b.Navigation("Creator");
                 });
@@ -1474,9 +1563,22 @@ namespace DataAccess.Migrations
 
                     b.Navigation("CostNorms");
 
+                    b.Navigation("Products");
+
                     b.Navigation("StockIns");
 
                     b.Navigation("StockOuts");
+
+                    b.Navigation("TechProcesses");
+
+                    b.Navigation("TechnicalDrawings");
+                });
+
+            modelBuilder.Entity("Core.Entities.ContractProduct", b =>
+                {
+                    b.Navigation("ContractTasks");
+
+                    b.Navigation("CostNorms");
 
                     b.Navigation("TechProcesses");
 

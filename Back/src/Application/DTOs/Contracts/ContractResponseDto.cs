@@ -13,9 +13,6 @@ public class ContractResponseDto
 {
     public Guid Id { get; set; }
     public string ContractNo { get; set; } = string.Empty;
-    public string ProductType { get; set; } = string.Empty;
-    public int Quantity { get; set; }
-    public string Unit { get; set; } = string.Empty;
     public DateOnly StartDate { get; set; }
     public DateOnly EndDate { get; set; }
     public List<ContractDepartmentDto> Departments { get; set; } = [];
@@ -28,4 +25,5 @@ public class ContractResponseDto
     public string? CreatedByFullName { get; set; }
     public DateTime CreatedAt { get; set; }
     public List<ContractUserDto> AssignedUsers { get; set; } = [];
+    public List<ContractProductResponseDto> Products { get; set; } = [];
 }

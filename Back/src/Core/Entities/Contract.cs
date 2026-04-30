@@ -6,9 +6,6 @@ public class Contract
 {
     public Guid Id { get; set; }
     public string ContractNo { get; set; } = string.Empty;
-    public string ProductType { get; set; } = string.Empty;
-    public int Quantity { get; set; }
-    public string Unit { get; set; } = string.Empty;
     public DateOnly StartDate { get; set; }
     public DateOnly EndDate { get; set; }
     public Priority Priority { get; set; }
@@ -21,6 +18,7 @@ public class Contract
 
     // Navigation properties
     public User? Creator { get; set; }
+    public ICollection<ContractProduct> Products { get; set; } = [];
     public ICollection<ContractDepartment> ContractDepartments { get; set; } = [];
     public ICollection<ContractUser> ContractUsers { get; set; } = [];
     public ICollection<TechProcess> TechProcesses { get; set; } = [];

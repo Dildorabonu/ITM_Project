@@ -252,15 +252,20 @@ export default function ContractsPage() {
     setEditTarget(c);
     setForm({
       contractNo:    c.contractNo,
-      productType:   c.productType ?? "",
-      quantity:      c.quantity != null ? String(c.quantity) : "",
-      unit:          c.unit ?? "",
       departmentIds: c.departments?.map(d => d.id) ?? [],
       startDate:     c.startDate ? c.startDate.slice(0, 10) : "",
       endDate:       c.endDate ? c.endDate.slice(0, 10) : "",
       priority:      String(c.priority),
       contractParty: c.contractParty ?? "",
       notes:         c.notes ?? "",
+      products:      (c.products && c.products.length > 0)
+        ? c.products.map(p => ({
+            productType: p.productType ?? "",
+            quantity:    p.quantity != null ? String(p.quantity) : "",
+            unit:        p.unit ?? "",
+            notes:       p.notes ?? "",
+          }))
+        : [{ productType: "", quantity: "", unit: "", notes: "" }],
     });
     setStartDateDisp(c.startDate ? isoToDisplayDate(c.startDate.slice(0, 10)) : "");
     setEndDateDisp(c.endDate ? isoToDisplayDate(c.endDate.slice(0, 10)) : "");
@@ -293,18 +298,24 @@ export default function ContractsPage() {
     setSaving(true);
     setFormError("");
     try {
+      const productsPayload = form.products
+        .filter(p => p.productType.trim())
+        .map(p => ({
+          productType: p.productType.trim(),
+          quantity:    p.quantity ? Number(p.quantity) : 0,
+          unit:        p.unit || "",
+          notes:       p.notes || null,
+        }));
       if (editTarget) {
         const dto: ContractUpdatePayload = {
           contractNo:    form.contractNo,
-          productType:   form.productType || undefined,
-          quantity:      form.quantity ? Number(form.quantity) : undefined,
-          unit:          form.unit || undefined,
           departmentIds: form.departmentIds,
           startDate:     startDateIso,
           endDate:       endDateIso,
           priority:      Number(form.priority) as Priority,
           contractParty: form.contractParty || undefined,
           notes:         form.notes || null,
+          products:      productsPayload,
         };
         await contractService.update(editTarget.id, dto);
         // sync users by role
@@ -323,15 +334,13 @@ export default function ContractsPage() {
       } else {
         const dto: ContractCreatePayload = {
           contractNo:    form.contractNo,
-          productType:   form.productType || undefined,
-          quantity:      form.quantity ? Number(form.quantity) : undefined,
-          unit:          form.unit || undefined,
           departmentIds: form.departmentIds.length > 0 ? form.departmentIds : undefined,
           startDate:     startDateIso,
           endDate:       endDateIso,
           priority:      Number(form.priority) as Priority,
           contractParty: form.contractParty || undefined,
           notes:         form.notes || null,
+          products:      productsPayload.length > 0 ? productsPayload : undefined,
         };
         const newId = await contractService.create(dto);
         if (newId) {

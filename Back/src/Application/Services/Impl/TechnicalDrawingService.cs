@@ -24,6 +24,7 @@ public class TechnicalDrawingService : ITechnicalDrawingService
     {
         var query = _context.TechnicalDrawings
             .Include(d => d.Contract)
+            .Include(d => d.ContractProduct)
             .Include(d => d.Creator)
             .AsNoTracking()
             .AsQueryable();
@@ -47,6 +48,7 @@ public class TechnicalDrawingService : ITechnicalDrawingService
     {
         var drawing = await _context.TechnicalDrawings
             .Include(d => d.Contract)
+            .Include(d => d.ContractProduct)
             .Include(d => d.Creator)
             .AsNoTracking()
             .FirstOrDefaultAsync(d => d.Id == id);
@@ -63,10 +65,19 @@ public class TechnicalDrawingService : ITechnicalDrawingService
         if (contract is null)
             return ApiResult<Guid>.Failure([$"Shartnoma '{dto.ContractId}' topilmadi."]);
 
+        if (dto.ContractProductId.HasValue)
+        {
+            var productOk = await _context.ContractProducts
+                .AnyAsync(p => p.Id == dto.ContractProductId.Value && p.ContractId == dto.ContractId);
+            if (!productOk)
+                return ApiResult<Guid>.Failure(["Tanlangan mahsulot ushbu shartnomaga tegishli emas."]);
+        }
+
         var drawing = new TechnicalDrawing
         {
             Id = Guid.NewGuid(),
             ContractId = dto.ContractId,
+            ContractProductId = dto.ContractProductId,
             Title = dto.Title,
             Notes = dto.Notes,
             Status = DrawingStatus.Draft,
@@ -101,6 +112,19 @@ public class TechnicalDrawingService : ITechnicalDrawingService
 
         if (dto.Title is not null) drawing.Title = dto.Title;
         if (dto.Notes is not null) drawing.Notes = dto.Notes;
+
+        if (dto.ClearContractProduct)
+        {
+            drawing.ContractProductId = null;
+        }
+        else if (dto.ContractProductId.HasValue)
+        {
+            var productOk = await _context.ContractProducts
+                .AnyAsync(p => p.Id == dto.ContractProductId.Value && p.ContractId == drawing.ContractId);
+            if (!productOk)
+                return ApiResult<int>.Failure(["Tanlangan mahsulot ushbu shartnomaga tegishli emas."]);
+            drawing.ContractProductId = dto.ContractProductId.Value;
+        }
 
         await _context.SaveChangesAsync();
         return ApiResult<int>.Success(200);
@@ -174,6 +198,8 @@ public class TechnicalDrawingService : ITechnicalDrawingService
         Id = d.Id,
         ContractId = d.ContractId,
         ContractNo = d.Contract?.ContractNo ?? "",
+        ContractProductId = d.ContractProductId,
+        ProductType = d.ContractProduct?.ProductType,
         Title = d.Title,
         Notes = d.Notes,
         Status = d.Status,

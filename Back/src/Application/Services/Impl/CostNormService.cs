@@ -26,6 +26,7 @@ public class CostNormService : ICostNormService
     {
         var query = _context.CostNorms
             .Include(c => c.Contract)
+            .Include(c => c.ContractProduct)
             .Include(c => c.Creator)
             .Include(c => c.Items.OrderBy(i => i.SortOrder))
             .AsNoTracking()
@@ -53,6 +54,7 @@ public class CostNormService : ICostNormService
     {
         var costNorm = await _context.CostNorms
             .Include(c => c.Contract)
+            .Include(c => c.ContractProduct)
             .Include(c => c.Creator)
             .Include(c => c.Items.OrderBy(i => i.SortOrder))
             .AsNoTracking()
@@ -79,10 +81,19 @@ public class CostNormService : ICostNormService
         if (!contractExists)
             return ApiResult<Guid>.Failure([$"Contract with id '{dto.ContractId}' not found."], 404);
 
+        if (dto.ContractProductId.HasValue)
+        {
+            var productOk = await _context.ContractProducts
+                .AnyAsync(p => p.Id == dto.ContractProductId.Value && p.ContractId == dto.ContractId);
+            if (!productOk)
+                return ApiResult<Guid>.Failure(["Tanlangan mahsulot ushbu shartnomaga tegishli emas."]);
+        }
+
         var costNorm = new CostNorm
         {
             Id = Guid.NewGuid(),
             ContractId = dto.ContractId,
+            ContractProductId = dto.ContractProductId,
             Title = dto.Title,
             Notes = dto.Notes,
             Status = DrawingStatus.InProgress,
@@ -165,6 +176,19 @@ public class CostNormService : ICostNormService
         if (dto.Title is not null) costNorm.Title = dto.Title;
         if (dto.Notes is not null) costNorm.Notes = dto.Notes;
 
+        if (dto.ClearContractProduct)
+        {
+            costNorm.ContractProductId = null;
+        }
+        else if (dto.ContractProductId.HasValue)
+        {
+            var productOk = await _context.ContractProducts
+                .AnyAsync(p => p.Id == dto.ContractProductId.Value && p.ContractId == costNorm.ContractId);
+            if (!productOk)
+                return ApiResult<int>.Failure(["Tanlangan mahsulot ushbu shartnomaga tegishli emas."]);
+            costNorm.ContractProductId = dto.ContractProductId.Value;
+        }
+
         if (dto.Items is not null)
         {
             var oldItems = costNorm.Items.ToList();
@@ -228,7 +252,9 @@ public class CostNormService : ICostNormService
         Id = c.Id,
         ContractId = c.ContractId,
         ContractNo = c.Contract?.ContractNo ?? string.Empty,
-        ContractQuantity = c.Contract?.Quantity > 0 ? c.Contract.Quantity : 1,
+        ContractProductId = c.ContractProductId,
+        ProductType = c.ContractProduct?.ProductType,
+        ContractQuantity = c.ContractProduct?.Quantity > 0 ? c.ContractProduct.Quantity : 1,
         Title = c.Title,
         Notes = c.Notes,
         Status = c.Status,

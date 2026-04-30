@@ -114,59 +114,58 @@ export function ContractDrawer({
           )}
         </div>
 
-        {/* ── Buyurtma qilingan mahsulot ── */}
-        {(viewContract.productType || viewContract.quantity != null || viewContract.unit) && (
+        {/* ── Buyurtma qilingan mahsulotlar ── */}
+        {viewContract.products && viewContract.products.length > 0 && (
           <div style={{ marginBottom: 22 }}>
-            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>Buyurtma qilingan mahsulot</div>
-            <div style={{
-              border: "1.5px solid var(--border)", borderRadius: 12, overflow: "hidden",
-              background: "var(--bg2)",
-            }}>
-              {/* Header */}
-              <div style={{
-                display: "flex", alignItems: "center", gap: 10,
-                padding: "12px 18px", background: "var(--bg3)",
-                borderBottom: "1.5px solid var(--border)",
-              }}>
-                <div style={{
-                  width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-                  background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center",
+            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>
+              Mahsulotlar ({viewContract.products.length})
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {viewContract.products.map((p, i) => (
+                <div key={p.id} style={{
+                  border: "1.5px solid var(--border)", borderRadius: 12, overflow: "hidden",
+                  background: "var(--bg2)",
                 }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">
-                    <path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z" />
-                    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-                  </svg>
-                </div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text1)" }}>
-                    {viewContract.productType || "—"}
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    padding: "10px 16px", background: "var(--bg3)",
+                    borderBottom: "1.5px solid var(--border)",
+                  }}>
+                    <div style={{
+                      width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+                      background: "var(--accent)", color: "#fff",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 12, fontWeight: 700,
+                    }}>{i + 1}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {p.productType || "—"}
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 1 }}>Mahsulot turi</div>
+                    </div>
                   </div>
-                  <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 1 }}>Mahsulot turi</div>
-                </div>
-              </div>
-              {/* Stats */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
-                <div style={{
-                  padding: "14px 20px",
-                  borderRight: "1.5px solid var(--border)",
-                }}>
-                  <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4 }}>Miqdori</div>
-                  <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                    <span style={{ fontSize: 24, fontWeight: 800, color: "var(--accent)", fontFamily: "var(--font-inter)" }}>
-                      {viewContract.quantity != null ? viewContract.quantity.toLocaleString() : "—"}
-                    </span>
-                    {viewContract.unit && (
-                      <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text3)" }}>{viewContract.unit}</span>
-                    )}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
+                    <div style={{ padding: "12px 18px", borderRight: "1.5px solid var(--border)" }}>
+                      <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4 }}>Miqdori</div>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                        <span style={{ fontSize: 22, fontWeight: 800, color: "var(--accent)", fontFamily: "var(--font-inter)" }}>
+                          {p.quantity != null ? p.quantity.toLocaleString() : "—"}
+                        </span>
+                        {p.unit && <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text3)" }}>{p.unit}</span>}
+                      </div>
+                    </div>
+                    <div style={{ padding: "12px 18px" }}>
+                      <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4 }}>O&apos;lchov birligi</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text1)" }}>{p.unit || "—"}</div>
+                    </div>
                   </div>
+                  {p.notes && (
+                    <div style={{ padding: "10px 18px", borderTop: "1.5px solid var(--border)", fontSize: 12, color: "var(--text2)" }}>
+                      {p.notes}
+                    </div>
+                  )}
                 </div>
-                <div style={{ padding: "14px 20px" }}>
-                  <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4 }}>O&apos;lchov birligi</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text1)" }}>
-                    {viewContract.unit || "—"}
-                  </div>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         )}
