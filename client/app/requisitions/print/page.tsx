@@ -464,6 +464,37 @@ function RequisitionPrintContent() {
       }
     });
 
+    // html2canvas <textarea> ichidagi matnni ekrandagi kabi o'ramaydi — metrikalar
+    // farq qiladi va uzun matn bir qatorga "ezilib" qolib, qatorni pastga
+    // tushirmaydi. Har bir textarea'ni shu uslublarga ega <div> bilan almashtiramiz,
+    // shunda html2pdf matnni oddiy DOM matnidek render qiladi va o'rash to'g'ri ishlaydi.
+    const cloneTextareas = clone.querySelectorAll<HTMLTextAreaElement>("textarea");
+    const origTextareas = original.querySelectorAll<HTMLTextAreaElement>("textarea");
+    cloneTextareas.forEach((c, i) => {
+      const orig = origTextareas[i];
+      if (!orig) return;
+      const cs = window.getComputedStyle(orig);
+      const div = document.createElement("div");
+      div.textContent = orig.value;
+      div.style.cssText = [
+        "width:100%",
+        `min-height:${orig.style.height || cs.height}`,
+        `font-family:${cs.fontFamily}`,
+        `font-size:${cs.fontSize}`,
+        `line-height:${cs.lineHeight}`,
+        `font-weight:${cs.fontWeight}`,
+        `text-transform:${cs.textTransform}`,
+        `color:${cs.color}`,
+        `padding:${cs.padding}`,
+        "margin:0",
+        "white-space:pre-wrap",
+        "word-break:break-word",
+        "overflow-wrap:break-word",
+        "box-sizing:border-box",
+      ].join(";");
+      c.parentNode?.replaceChild(div, c);
+    });
+
     const noPrint = clone.querySelectorAll<HTMLElement>(".no-print");
     noPrint.forEach(e => (e.style.display = "none"));
     const printImages = clone.querySelectorAll<HTMLElement>(".print-image");
@@ -531,7 +562,9 @@ function RequisitionPrintContent() {
         })),
       });
 
-      // PDF generatsiya qilib serverga yuklash
+      // PDF generatsiya qilib serverga yuklash — "PDF saqlash" tugmasi bilan
+      // bir xil mexanizm: forma DOM'ini klonlab, html2pdf orqali aynan o'sha
+      // ko'rinishni saqlaymiz.
       const pdfBlob = await generatePdfBlob();
       if (pdfBlob) {
         const safeNo = (reqNo.trim() || "talabnoma").replace(/[^A-Za-z0-9_-]+/g, "_");
@@ -670,22 +703,16 @@ function RequisitionPrintContent() {
           .print-image { display: block !important; }
           .no-print { display: none !important; }
         }
-        /* PDF generatsiyasi vaqtidagi normallashtirish — har page-sheet
-           o'z PDF sahifasida bo'lishi uchun aniq break qoidalari */
+        /* PDF generatsiyasi vaqtidagi normallashtirish — page-break qoidalari
+           inline style orqali per-sheet beriladi (isLastPage bo'yicha), shu
+           tufayli html2pdf'ning :last-child evaluatsiyasiga bog'liq emasmiz —
+           aks holda oxirgi varaqdan keyin bo'sh PDF sahifa qo'shilib qolardi. */
         .generating-pdf { display: block !important; gap: 0 !important; }
         .generating-pdf .page-sheet {
           box-shadow: none !important;
           border: none !important;
           border-radius: 0 !important;
           margin: 0 !important;
-          page-break-after: always !important;
-          break-after: page !important;
-          page-break-inside: avoid !important;
-          break-inside: avoid !important;
-        }
-        .generating-pdf .page-sheet:last-child {
-          page-break-after: auto !important;
-          break-after: auto !important;
         }
         @page { margin: 0; size: A4 portrait; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -1004,6 +1031,8 @@ function RequisitionPrintContent() {
                 border: "1px solid var(--border)",
                 position: "relative",
                 overflow: "hidden",
+                pageBreakInside: "avoid",
+                breakInside: "avoid",
               }}
             >
               {isFirstPage && (
@@ -1019,9 +1048,6 @@ function RequisitionPrintContent() {
                   </div>
                   <div style={{ textAlign: "center", margin: "12px 0 18px", fontFamily: "Times New Roman, serif" }}>
                     <div style={{ fontWeight: 700, fontSize: 18, letterSpacing: 1 }}>ТАЛАБНОМА</div>
-                    {reqNo.trim() && (
-                      <div style={{ fontSize: 13, fontStyle: "italic", marginTop: 4 }}>«{reqNo.trim()}»</div>
-                    )}
                   </div>
 
                   {/* Intro text with editable box */}
