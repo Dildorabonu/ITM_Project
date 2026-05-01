@@ -14,11 +14,16 @@ public class TechProcessService : ITechProcessService
 {
     private readonly DatabaseContext _context;
     private readonly INotificationService _notificationService;
+    private readonly IManufacturedProductService _manufacturedProductService;
 
-    public TechProcessService(DatabaseContext context, INotificationService notificationService)
+    public TechProcessService(
+        DatabaseContext context,
+        INotificationService notificationService,
+        IManufacturedProductService manufacturedProductService)
     {
         _context = context;
         _notificationService = notificationService;
+        _manufacturedProductService = manufacturedProductService;
     }
 
     public async Task<ApiResult<IEnumerable<TechProcessResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, ProcessStatus? status = null)
@@ -126,7 +131,7 @@ public class TechProcessService : ITechProcessService
         return ApiResult<Guid>.Success(tp.Id, 201);
     }
 
-    private async SysTask TryAdvanceToWarehouseCheckAsync(Guid contractId)
+    private async SysTask TryAdvanceToProductionAsync(Guid contractId)
     {
         var contract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == contractId);
         if (contract is null || contract.Status != ContractStatus.TechProcessing)
@@ -139,7 +144,7 @@ public class TechProcessService : ITechProcessService
 
         if (techProcessApproved && costNormApproved)
         {
-            contract.Status = ContractStatus.WarehouseCheck;
+            contract.Status = ContractStatus.InProduction;
             await _context.SaveChangesAsync();
 
             var deptUserIds = await _context.Users
@@ -155,8 +160,8 @@ public class TechProcessService : ITechProcessService
 
             await _notificationService.NotifyUsersAndSuperAdminsAsync(
                 deptUserIds.Union(contractUserIds).Distinct(),
-                $"Shartnoma ombor tekshiruviga o'tdi: {contract.ContractNo}",
-                $"«{contract.ContractNo}» shartnomasi tex jarayon va xarajat normalari tasdiqlandi. Ombor tekshiruvi bosqichiga o'tildi.",
+                $"Shartnoma ishlab chiqarishga o'tdi: {contract.ContractNo}",
+                $"«{contract.ContractNo}» shartnomasi tex jarayon va xarajat normalari tasdiqlandi. Ishlab chiqarish bosqichiga o'tildi.",
                 NotificationType.Task,
                 contract.Id);
         }
@@ -204,7 +209,8 @@ public class TechProcessService : ITechProcessService
         tp.ApprovedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
-        await TryAdvanceToWarehouseCheckAsync(tp.ContractId);
+        await TryAdvanceToProductionAsync(tp.ContractId);
+        await _manufacturedProductService.SyncForContractAsync(tp.ContractId);
 
         var approveContract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == tp.ContractId);
         if (approveContract is not null)

@@ -427,6 +427,9 @@ namespace DataAccess.Migrations
                     b.Property<Guid?>("ContractId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("ContractProductId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -467,6 +470,9 @@ namespace DataAccess.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ContractId");
+
+                    b.HasIndex("ContractProductId")
+                        .IsUnique();
 
                     b.HasIndex("CreatedBy");
 
@@ -1257,6 +1263,11 @@ namespace DataAccess.Migrations
                         .HasForeignKey("ContractId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("Core.Entities.ContractProduct", "ContractProduct")
+                        .WithMany()
+                        .HasForeignKey("ContractProductId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.HasOne("Core.Entities.User", "Creator")
                         .WithMany()
                         .HasForeignKey("CreatedBy")
@@ -1270,6 +1281,8 @@ namespace DataAccess.Migrations
                         .IsRequired();
 
                     b.Navigation("Contract");
+
+                    b.Navigation("ContractProduct");
 
                     b.Navigation("Creator");
 
