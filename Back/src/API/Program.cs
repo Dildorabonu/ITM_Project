@@ -73,8 +73,17 @@ namespace API
             {
                 options.AddDefaultPolicy(policy =>
                 {
-                    policy.WithOrigins("http://localhost:3000", "https://localhost:3000",
-                                      "http://localhost:3001", "https://localhost:3001")
+                    policy.SetIsOriginAllowed(origin =>
+                          {
+                              if (string.IsNullOrEmpty(origin)) return false;
+                              if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri)) return false;
+                              var host = uri.Host;
+                              return host == "localhost"
+                                  || host == "127.0.0.1"
+                                  || host.StartsWith("192.168.")
+                                  || host.StartsWith("10.")
+                                  || host.StartsWith("172.");
+                          })
                           .AllowAnyHeader()
                           .AllowAnyMethod()
                           .AllowCredentials();
