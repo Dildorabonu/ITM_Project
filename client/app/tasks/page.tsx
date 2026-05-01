@@ -92,6 +92,16 @@ const STATUS_LABELS: Record<ContractStatus, string> = {
   [ContractStatus.Cancelled]:           "Bekor qilindi",
 };
 
+const STATUS_DESCRIPTIONS: Record<ContractStatus, string> = {
+  [ContractStatus.Draft]:               "Shartnoma yangi yaratilgan, lekin hali rasmiylashtirilmagan. Ma'lumotlar to'ldirilmoqda.",
+  [ContractStatus.DrawingPending]:      "Konstruktor mahsulot uchun texnik chizmani tayyorlamoqda.",
+  [ContractStatus.TechProcessing]:      "Texnolog ishlab chiqarish bosqichlarini va xarajat normalarini hisoblamoqda.",
+  [ContractStatus.WarehouseCheck]:      "Ombor xom-ashyo va materiallar yetarliligini tekshirmoqda.",
+  [ContractStatus.InProduction]:        "Sex mahsulotni tayyorlamoqda — vazifalar bajarilish jarayonida.",
+  [ContractStatus.Completed]:           "Mahsulot tayyor va mijozga topshirilgan. Shartnoma yopildi.",
+  [ContractStatus.Cancelled]:           "Shartnoma to'xtatildi yoki bekor qilindi.",
+};
+
 const PRIORITY_COLORS: Record<Priority, string> = {
   [Priority.Low]:    "s-gray",
   [Priority.Medium]: "s-warn",
@@ -1811,6 +1821,11 @@ export default function TasksPage() {
   const filterBtnRef = useRef<HTMLButtonElement>(null);
   const filterPanelRef = useRef<HTMLDivElement>(null);
 
+  // ─── Holatlar legend ────────────────────────────────────────────────────────
+  const [legendOpen, setLegendOpen] = useState(false);
+  const legendBtnRef = useRef<HTMLButtonElement>(null);
+  const legendPanelRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!filterPanelOpen) return;
     const handler = (e: MouseEvent) => {
@@ -1822,6 +1837,18 @@ export default function TasksPage() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [filterPanelOpen]);
+
+  useEffect(() => {
+    if (!legendOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        legendBtnRef.current && !legendBtnRef.current.contains(e.target as Node) &&
+        legendPanelRef.current && !legendPanelRef.current.contains(e.target as Node)
+      ) setLegendOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [legendOpen]);
 
   const filteredContracts = contracts.filter(c => {
     if (filterStatus !== "" && String(c.status) !== filterStatus) return false;
@@ -1967,6 +1994,78 @@ export default function TasksPage() {
             <span style={{ fontSize: 12, color: "var(--text3)", fontWeight: 600, fontFamily: "var(--font-mono)", flexShrink: 0 }}>
               {filteredScopes.length} / {allScopes.length}
             </span>
+
+            {/* Holatlar legend dropdown trigger */}
+            <div style={{ position: "relative", flexShrink: 0 }}>
+              <button
+                ref={legendBtnRef}
+                onClick={() => setLegendOpen(o => !o)}
+                title="Holatlar nimani anglatadi?"
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  padding: "6px 12px", borderRadius: "var(--radius)",
+                  border: `1px solid ${legendOpen ? "var(--accent)" : "var(--border2)"}`,
+                  background: legendOpen ? "var(--accent-dim)" : "var(--surface)",
+                  color: legendOpen ? "var(--accent)" : "var(--text2)",
+                  fontSize: 13, fontWeight: 500, cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+                onMouseEnter={e => { if (!legendOpen) (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--accent)"; }}
+                onMouseLeave={e => { if (!legendOpen) (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border2)"; }}
+              >
+                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="16" x2="12" y2="12"/>
+                  <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+                Holatlar
+                <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
+                  style={{ transition: "transform 0.2s", transform: legendOpen ? "rotate(180deg)" : "rotate(0deg)" }}>
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </button>
+
+              {legendOpen && (
+                <div
+                  ref={legendPanelRef}
+                  style={{
+                    position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 100,
+                    width: 340,
+                    background: "var(--surface)", border: "1px solid var(--border)",
+                    borderRadius: "var(--radius2)",
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+                    animation: "panel-appear 0.18s ease",
+                  }}
+                >
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 7,
+                    padding: "12px 14px 10px",
+                    borderBottom: "1px solid var(--border)",
+                    fontSize: 13, fontWeight: 600, color: "var(--text)",
+                  }}>
+                    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="10"/>
+                      <line x1="12" y1="16" x2="12" y2="12"/>
+                      <line x1="12" y1="8" x2="12.01" y2="8"/>
+                    </svg>
+                    Shartnoma holatlari
+                  </div>
+
+                  <div style={{ padding: "10px 14px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+                    {(Object.entries(STATUS_LABELS) as unknown as [ContractStatus, string][]).map(([val, label]) => (
+                      <div key={val} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <span className={`status ${STATUS_COLORS[val]}`} style={{ alignSelf: "flex-start" }}>
+                          {label}
+                        </span>
+                        <p style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.5, margin: 0, paddingLeft: 2 }}>
+                          {STATUS_DESCRIPTIONS[val]}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Filter dropdown trigger */}
             <div style={{ position: "relative", flexShrink: 0 }}>
