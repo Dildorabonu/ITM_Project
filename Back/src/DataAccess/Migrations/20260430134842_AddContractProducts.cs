@@ -12,6 +12,11 @@ namespace DataAccess.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             // Wipe all existing contracts (and cascading children) so the new product-based schema starts clean.
+            // Null out non-cascading FK references first — some local DBs have RESTRICT on these columns
+            // even though the model declares SetNull, so DELETE would otherwise fail.
+            migrationBuilder.Sql("UPDATE \"Requisitions\" SET \"ContractId\" = NULL WHERE \"ContractId\" IS NOT NULL;");
+            migrationBuilder.Sql("UPDATE \"ManufacturedProducts\" SET \"ContractId\" = NULL WHERE \"ContractId\" IS NOT NULL;");
+            migrationBuilder.Sql("UPDATE \"Notifications\" SET \"ContractId\" = NULL WHERE \"ContractId\" IS NOT NULL;");
             migrationBuilder.Sql("DELETE FROM \"Contracts\";");
 
             migrationBuilder.DropColumn(
