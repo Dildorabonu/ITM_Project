@@ -12,7 +12,6 @@ interface DrawingFormProps {
   onSave: () => void;
   onCancel: () => void;
   usedProductIds?: Set<string>;
-  hideUmumiy?: boolean;
 }
 
 export function DrawingForm({
@@ -25,8 +24,8 @@ export function DrawingForm({
   onSave,
   onCancel,
   usedProductIds,
-  hideUmumiy,
 }: DrawingFormProps) {
+  const hasProducts = (contract.products ?? []).length > 0;
   const title = mode === "create" ? "Yangi texnik chizma" : "Texnik chizmani tahrirlash";
   const hasError = submitted && !form.title.trim();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -119,7 +118,7 @@ export function DrawingForm({
                 onChange={(e) => setForm((f) => ({ ...f, contractProductId: e.target.value }))}
                 style={{ height: 44, fontSize: 14, width: "100%" }}
               >
-                {!hideUmumiy && <option value="">Umumiy (butun shartnoma uchun)</option>}
+                {!hasProducts && <option value="">Umumiy (butun shartnoma uchun)</option>}
                 {(contract.products ?? [])
                   .filter((p) => mode === "edit" ? true : !usedProductIds?.has(p.id))
                   .map(p => (
