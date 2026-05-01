@@ -119,9 +119,8 @@ export default function TechProductionPage() {
   useDraft("draft_costnorm", cnMode==="create", cnForm, (d)=>{ if(d.contractId) { setCnForm(d); setCnMode("create"); } else { sessionStorage.removeItem("draft_costnorm"); } });
 
   // ── Contract readiness ─────────────────────────────────────────────────────
-  // Har bir qator = bitta scope (contract + mahsulot, yoki contract + Umumiy).
-  // Texnik chizmalar logikasiga mos: agar Umumiy mavjud bo'lsa — bitta Umumiy qator,
-  // aks holda har bir mahsulot uchun alohida qator.
+  // Har bir qator = bitta scope. Mahsulotlari bor shartnoma uchun har mahsulotga alohida
+  // scope ochiladi (Umumiy varianti yo'q). Mahsulotsiz shartnoma uchun bitta Umumiy scope.
   const readinessItems = useMemo<ContractReadinessScope[]>(()=>{
     type ContractMeta = {
       contractId: string;
@@ -155,11 +154,6 @@ export default function TechProductionPage() {
       const myTps      = tpList.filter(t => t.contractId === meta.contractId);
       const myCns      = cnList.filter(n => n.contractId === meta.contractId);
 
-      const hasUmumiy =
-        myDrawings.some(d => !d.contractProductId) ||
-        myTps.some(t => !t.contractProductId) ||
-        myCns.some(n => !n.contractProductId);
-
       const buildScope = (productId: string | null, productInfo: ContractMeta["products"][number] | null): ContractReadinessScope => {
         const drawingsForScope = myDrawings.filter(d => (d.contractProductId ?? null) === productId);
         const tpsForScope      = myTps.filter(t => (t.contractProductId ?? null) === productId);
@@ -190,7 +184,7 @@ export default function TechProductionPage() {
         };
       };
 
-      if (hasUmumiy || meta.products.length === 0) {
+      if (meta.products.length === 0) {
         scopes.push(buildScope(null, null));
       } else {
         for (const p of meta.products) {
@@ -453,10 +447,11 @@ export default function TechProductionPage() {
         </div>
         <div className="itm-card" style={{ padding:28 }}>
           <div style={{ display:"flex",flexDirection:"column",gap:20 }}>
-            {/* Mahsulot — Umumiy yoki shartnomadagi mahsulot */}
+            {/* Mahsulot — mahsulotsiz shartnoma uchun Umumiy, aks holda har biriga alohida */}
             {(() => {
               const tpContract = contractList.find(c => c.id === tpForm.contractId);
               const tpProducts = tpContract?.products ?? [];
+              const tpHasProducts = tpProducts.length > 0;
               return (
                 <div>
                   <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:"var(--text2)" }}>Mahsulot</label>
@@ -465,7 +460,7 @@ export default function TechProductionPage() {
                     value={tpForm.contractProductId}
                     onChange={e=>setTpForm(f=>({...f,contractProductId:e.target.value}))}
                   >
-                    <option value="">Umumiy (butun shartnoma uchun)</option>
+                    {!tpHasProducts && <option value="">Umumiy (butun shartnoma uchun)</option>}
                     {tpProducts.map(p => (
                       <option key={p.id} value={p.id}>
                         {p.productType} — {p.quantity.toLocaleString()} {p.unit}
@@ -609,10 +604,11 @@ export default function TechProductionPage() {
           <div className="itm-card" style={{ padding:28,flexShrink:0 }}>
             {cnSaveError&&<div style={{ padding:"10px 14px",borderRadius:8,background:"var(--danger-dim)",border:"1px solid var(--danger)44",color:"var(--danger)",fontSize:13,marginBottom:16 }}>{cnSaveError}</div>}
             <div style={{ display:"flex",flexDirection:"column",gap:20 }}>
-              {/* Mahsulot dropdown */}
+              {/* Mahsulot dropdown — mahsulotsiz shartnoma uchun Umumiy */}
               {(() => {
                 const cnContract = contractList.find(c => c.id === cnForm.contractId);
                 const cnProducts = cnContract?.products ?? [];
+                const cnHasProducts = cnProducts.length > 0;
                 return (
                   <div>
                     <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:"var(--text2)" }}>Mahsulot</label>
@@ -621,7 +617,7 @@ export default function TechProductionPage() {
                       value={cnForm.contractProductId}
                       onChange={e=>setCnForm(f=>({...f,contractProductId:e.target.value}))}
                     >
-                      <option value="">Umumiy (butun shartnoma uchun)</option>
+                      {!cnHasProducts && <option value="">Umumiy (butun shartnoma uchun)</option>}
                       {cnProducts.map(p => (
                         <option key={p.id} value={p.id}>
                           {p.productType} — {p.quantity.toLocaleString()} {p.unit}
