@@ -85,13 +85,15 @@ export default function TechnicalDrawingsPage() {
     const rows: MergedRow[] = [];
     for (const contract of contracts) {
       const drawings = list.filter((d) => d.contractId === contract.id);
-      const hasUmumiy = drawings.some((d) => !d.contractProductId);
+      const products = contract.products ?? [];
       const usedProductIds = new Set(
         drawings.map((d) => d.contractProductId).filter((id): id is string => !!id)
       );
-      const products = contract.products ?? [];
-      const allProductsCovered = products.length > 0 && products.every((p) => usedProductIds.has(p.id));
-      const fullyCovered = hasUmumiy || allProductsCovered || (products.length === 0 && drawings.length > 0);
+      // Mahsulotlar bor → har biri uchun chizma kerak, Umumiy variant yo'q.
+      // Mahsulotsiz shartnoma → bitta Umumiy chizma yetadi.
+      const fullyCovered = products.length > 0
+        ? products.every((p) => usedProductIds.has(p.id))
+        : drawings.length > 0;
 
       for (const d of drawings) {
         rows.push({ kind: "drawing", drawing: d });
@@ -178,20 +180,21 @@ export default function TechnicalDrawingsPage() {
 
   const openCreate = (contract: ContractResponse) => {
     const drawings = list.filter((d) => d.contractId === contract.id);
-    const hasUmumiy = drawings.some((d) => !d.contractProductId);
-    if (hasUmumiy) return;
-
     const usedIds = new Set(
       drawings.map((d) => d.contractProductId).filter((id): id is string => !!id)
     );
     const products = contract.products ?? [];
     const remaining = products.filter((p) => !usedIds.has(p.id));
-    if (drawings.length > 0 && remaining.length === 0) return;
+
+    // Mahsulotlar bor va hammasi qoplangan → yangi yaratish kerak emas.
+    // Mahsulotsiz shartnoma uchun bitta Umumiy chizma yetadi.
+    if (products.length > 0 && remaining.length === 0) return;
+    if (products.length === 0 && drawings.length > 0) return;
 
     setCreateContract(contract);
     setCreateForm({
       ...emptyDrawingForm,
-      contractProductId: drawings.length > 0 && remaining.length > 0 ? remaining[0].id : "",
+      contractProductId: products.length > 0 ? remaining[0].id : "",
     });
     setCreateSubmitted(false);
     window.history.pushState(null, "");
@@ -381,7 +384,6 @@ export default function TechnicalDrawingsPage() {
           onSave={handleCreateSave}
           onCancel={() => setShowCreateForm(false)}
           usedProductIds={usedProductIds}
-          hideUmumiy={contractDrawings.length > 0}
         />
         {draftWarningModal}
         {approveConfirmModal}

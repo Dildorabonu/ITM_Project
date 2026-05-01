@@ -1862,14 +1862,14 @@ export default function TasksPage() {
       costNormService.getAll(s.contract.id).catch(() => []),
     ]);
 
-    // Scope tasdiqlangan hisoblanadi: TP per-product yoki Umumiy va CN per-product yoki Umumiy.
+    // Scope mahsulotga aniq mos kelishi kerak — mahsulot tanlangan shartnomalarda Umumiy variant yo'q.
     const targetId = s.product?.id ?? null;
     const tpOk = tpList.some(t =>
-      ((t.contractProductId ?? null) === targetId || (t.contractProductId ?? null) === null) &&
+      (t.contractProductId ?? null) === targetId &&
       (t.status === ProcessStatus.Approved || t.status === ProcessStatus.Completed)
     );
     const cnOk = cnList.some(n =>
-      ((n.contractProductId ?? null) === targetId || (n.contractProductId ?? null) === null) &&
+      (n.contractProductId ?? null) === targetId &&
       n.status === DrawingStatus.Approved &&
       (n.items?.length ?? 0) > 0
     );
