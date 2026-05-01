@@ -584,7 +584,7 @@ export default function TechnicalDrawingsPage() {
                                 Chizma yo&apos;q
                               </span>
                             </td>
-                            <td style={{ textAlign: "center", fontSize: 13, color: "var(--text1)" }}>{fmtDate(c.createdAt)}</td>
+                            <td style={{ textAlign: "center", color: "var(--text3)", fontSize: 13 }}>—</td>
                             <td style={{ textAlign: "center", color: "var(--text3)", fontSize: 13 }}>—</td>
                             <td style={{ borderLeft: "2px solid var(--border)" }}>
                               <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
