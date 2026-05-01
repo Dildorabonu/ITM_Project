@@ -1810,6 +1810,9 @@ export default function TasksPage() {
   const [selected, setSelected] = useState<Scope | null>(null);
   const [phase, setPhase] = useState<Phase>("grid");
   const [blockModal, setBlockModal] = useState<Scope | null>(null);
+  // Har bir scope (contract+product) uchun tex jarayon va xarajat normasi tasdiqlangan/yo'qligi.
+  // Kontrakt statusi WarehouseCheck/InProduction bo'lishi yetarli emas — har mahsulot alohida tekshiriladi.
+  const [scopeReady, setScopeReady] = useState<Record<string, boolean>>({});
 
   // ─── Filters ────────────────────────────────────────────────────────────────
   const [search, setSearch] = useState("");
@@ -1925,6 +1928,54 @@ export default function TasksPage() {
       setLoading(false);
     });
   }, [canView]);
+
+  // Har bir scope uchun tex jarayon + xarajat normasi tasdiqlanganini oldindan yuklash.
+  // Visual `isActionable` shu ma'lumot bilan gate qilinadi, aks holda bitta mahsulot tasdiqlansa
+  // kontraktdagi tasdiqlanmagan mahsulotlar ham aktiv ko'rinib qoladi.
+  useEffect(() => {
+    if (contracts.length === 0) {
+      setScopeReady({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const uniqueIds = Array.from(new Set(contracts.map(c => c.id)));
+      const results = await Promise.all(uniqueIds.map(async cid => {
+        const [tps, cns] = await Promise.all([
+          techProcessService.getByContract(cid).catch(() => []),
+          costNormService.getAll(cid).catch(() => []),
+        ]);
+        return { cid, tps, cns };
+      }));
+      if (cancelled) return;
+      const byContract = new Map(results.map(r => [r.cid, r]));
+      const next: Record<string, boolean> = {};
+      for (const c of contracts) {
+        const r = byContract.get(c.id);
+        if (!r) continue;
+        const checkScope = (productId: string | null) => {
+          const tpOk = r.tps.some(t =>
+            (t.contractProductId ?? null) === productId &&
+            (t.status === ProcessStatus.Approved || t.status === ProcessStatus.Completed)
+          );
+          const cnOk = r.cns.some(n =>
+            (n.contractProductId ?? null) === productId &&
+            n.status === DrawingStatus.Approved &&
+            (n.items?.length ?? 0) > 0
+          );
+          return tpOk && cnOk;
+        };
+        const products = c.products ?? [];
+        if (products.length === 0) {
+          next[`${c.id}::umumiy`] = checkScope(null);
+        } else {
+          for (const p of products) next[`${c.id}::${p.id}`] = checkScope(p.id);
+        }
+      }
+      setScopeReady(next);
+    })();
+    return () => { cancelled = true; };
+  }, [contracts]);
 
   if (!canView) {
     return (
@@ -2220,8 +2271,8 @@ export default function TasksPage() {
             <div className="tasks-contract-grid">
               {[...filteredScopes]
                 .sort((a, b) => {
-                  const aOk = ACTIONABLE_STATUSES.has(a.contract.status) ? 0 : 1;
-                  const bOk = ACTIONABLE_STATUSES.has(b.contract.status) ? 0 : 1;
+                  const aOk = ACTIONABLE_STATUSES.has(a.contract.status) && scopeReady[scopeKey(a)] === true ? 0 : 1;
+                  const bOk = ACTIONABLE_STATUSES.has(b.contract.status) && scopeReady[scopeKey(b)] === true ? 0 : 1;
                   if (aOk !== bOk) return aOk - bOk;
                   // Bir kontrakt ichida — Umumiy oxirida, mahsulotlar productType bo'yicha
                   if (a.contract.id === b.contract.id) {
@@ -2238,7 +2289,7 @@ export default function TasksPage() {
                       key={key}
                       scope={s}
                       selected={selected ? scopeKey(selected) === key : false}
-                      isActionable={ACTIONABLE_STATUSES.has(s.contract.status)}
+                      isActionable={ACTIONABLE_STATUSES.has(s.contract.status) && scopeReady[key] === true}
                       onClick={() => handleSelect(s)}
                     />
                   );
