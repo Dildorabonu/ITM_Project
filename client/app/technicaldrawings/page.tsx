@@ -572,8 +572,8 @@ export default function TechnicalDrawingsPage() {
                               <span
                                 className="td-empty-badge"
                                 style={{
-                                  display: "inline-flex", alignItems: "center", gap: 6,
-                                  padding: "3px 12px",
+                                  display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+                                  padding: "3px 12px", minWidth: 120,
                                   borderRadius: 20, fontSize: 12, fontWeight: 700,
                                 }}
                               >
