@@ -23,7 +23,6 @@ import {
   ContractForm as ContractFormType,
   emptyForm,
   STATUS_FILTER_OPTIONS,
-  STATUS_CHANGE_OPTIONS,
   PRIORITY_OPTIONS,
 } from "./_types";
 import { isoToDisplayDate } from "./_components/DatePickerField";
@@ -112,11 +111,6 @@ export default function ContractsPage() {
   // Activate confirm
   const [activateId, setActivateId]     = useState<string | null>(null);
   const [activating, setActivating]     = useState(false);
-
-  // Status change
-  const [statusTarget, setStatusTarget] = useState<ContractResponse | null>(null);
-  const [newStatus, setNewStatus]       = useState<string>("");
-  const [changingStatus, setChangingStatus] = useState(false);
 
   useDraft(
     "draft_contracts",
@@ -455,25 +449,6 @@ export default function ContractsPage() {
     }
   };
 
-  // ── Status Change ─────────────────────────────────────────────────────────
-
-  const handleStatusChange = async () => {
-    if (!statusTarget || newStatus === "") return;
-    setChangingStatus(true);
-    try {
-      await contractService.updateStatus(statusTarget.id, Number(newStatus) as ContractStatus);
-      setContracts(prev =>
-        prev.map(c => c.id === statusTarget.id ? { ...c, status: Number(newStatus) as ContractStatus } : c)
-      );
-      setStatusTarget(null);
-      window.dispatchEvent(new Event("notif-read"));
-    } catch {
-      // stay open
-    } finally {
-      setChangingStatus(false);
-    }
-  };
-
   // ── Render: Form ──────────────────────────────────────────────────────────
 
   if (showForm) {
@@ -767,16 +742,9 @@ export default function ContractsPage() {
                     </td>
                     <td style={{ textAlign: "center", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><PriorityBadge priority={c.priority} /></td>
                     <td style={{ textAlign: "center", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {canUpdate ? (
-                        <button onClick={() => { setStatusTarget(c); setNewStatus(String(c.status)); }}
-                          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", maxWidth: 140, display: "flex", justifyContent: "center", overflow: "hidden", margin: "0 auto" }}>
-                          <StatusBadge status={c.status} />
-                        </button>
-                      ) : (
-                        <div style={{ maxWidth: 140, overflow: "hidden", display: "inline-flex", justifyContent: "center" }}>
-                          <StatusBadge status={c.status} />
-                        </div>
-                      )}
+                      <div style={{ maxWidth: 140, overflow: "hidden", display: "inline-flex", justifyContent: "center" }}>
+                        <StatusBadge status={c.status} />
+                      </div>
                     </td>
                     <td style={{ textAlign: "center" }}>
                       <span style={{
@@ -846,36 +814,6 @@ export default function ContractsPage() {
           tzFilesLoading={tzFilesLoading}
           usersLoading={usersLoading}
         />
-      )}
-
-      {/* ── Status Change Modal ── */}
-      {statusTarget && (
-        <div className="modal-overlay" onClick={() => setStatusTarget(null)}>
-          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 400 }}>
-            <div className="modal-header" style={{ borderBottom: "1px solid var(--border)" }}>
-              <span>Holat o&apos;zgartirish</span>
-            </div>
-            <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
-              <div style={{ fontSize: 13, color: "var(--text2)" }}>
-                <b>{statusTarget.contractNo}</b> — holat tanlang:
-              </div>
-              <CheckSelect
-                value={newStatus}
-                onChange={setNewStatus}
-                options={STATUS_CHANGE_OPTIONS.map(o => ({ id: o.value, name: o.label, color: o.color }))}
-                placeholder="— Holat tanlang —"
-              />
-              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                <button className="btn btn-outline" onClick={() => setStatusTarget(null)}>
-                  Bekor qilish
-                </button>
-                <button className="btn btn-primary" onClick={handleStatusChange} disabled={changingStatus}>
-                  {changingStatus ? "Saqlanmoqda..." : "Saqlash"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* ── Scan Modal ── */}
