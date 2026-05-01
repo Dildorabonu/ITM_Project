@@ -207,7 +207,7 @@ export default function TechProductionPage() {
 
   const loadContracts = useCallback(async()=>{
     try {
-      const statuses = [ContractStatus.DrawingPending, ContractStatus.TechProcessing, ContractStatus.WarehouseCheck];
+      const statuses = [ContractStatus.DrawingPending, ContractStatus.TechProcessing];
       const results = await Promise.all(statuses.map(s=>contractService.getAll(s)));
       const all = results.flat();
       // Dublikatlarni olib tashlash

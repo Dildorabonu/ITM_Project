@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store/authStore";
 import { ConfirmModal } from "@/app/_components/ConfirmModal";
 import { CheckSelect } from "@/app/_components/CheckSelect";
@@ -76,7 +75,6 @@ const STATUS_COLORS: Record<ContractStatus, string> = {
   [ContractStatus.Draft]:               "s-gray",
   [ContractStatus.DrawingPending]:      "s-purple",
   [ContractStatus.TechProcessing]:      "s-teal",
-  [ContractStatus.WarehouseCheck]:      "s-warn",
   [ContractStatus.InProduction]:        "s-blue",
   [ContractStatus.Completed]:           "s-green",
   [ContractStatus.Cancelled]:           "s-danger",
@@ -86,7 +84,6 @@ const STATUS_LABELS: Record<ContractStatus, string> = {
   [ContractStatus.Draft]:               "Qoralama",
   [ContractStatus.DrawingPending]:      "Chizma tayyorlanmoqda",
   [ContractStatus.TechProcessing]:      "Tex jarayon",
-  [ContractStatus.WarehouseCheck]:      "Ombor tekshiruvi",
   [ContractStatus.InProduction]:        "Ishlab chiqarishda",
   [ContractStatus.Completed]:           "Yakunlandi",
   [ContractStatus.Cancelled]:           "Bekor qilindi",
@@ -96,7 +93,6 @@ const STATUS_DESCRIPTIONS: Record<ContractStatus, string> = {
   [ContractStatus.Draft]:               "Shartnoma yangi yaratilgan, lekin hali rasmiylashtirilmagan. Ma'lumotlar to'ldirilmoqda.",
   [ContractStatus.DrawingPending]:      "Konstruktor mahsulot uchun texnik chizmani tayyorlamoqda.",
   [ContractStatus.TechProcessing]:      "Texnolog ishlab chiqarish bosqichlarini va xarajat normalarini hisoblamoqda.",
-  [ContractStatus.WarehouseCheck]:      "Ombor xom-ashyo va materiallar yetarliligini tekshirmoqda.",
   [ContractStatus.InProduction]:        "Sex mahsulotni tayyorlamoqda — vazifalar bajarilish jarayonida.",
   [ContractStatus.Completed]:           "Mahsulot tayyor va mijozga topshirilgan. Shartnoma yopildi.",
   [ContractStatus.Cancelled]:           "Shartnoma to'xtatildi yoki bekor qilindi.",
@@ -175,7 +171,7 @@ function ContractBar({
 
 // ─── Contract card ────────────────────────────────────────────────────────────
 
-const ACTIONABLE_STATUSES = new Set([ContractStatus.WarehouseCheck, ContractStatus.InProduction]);
+const ACTIONABLE_STATUSES = new Set([ContractStatus.InProduction]);
 
 function ContractCard({
   scope,
@@ -1365,7 +1361,6 @@ function sortTasksWithWarehouseLast(data: ContractTaskResponse[]): ContractTaskR
 function TaskPanel({ scope, hideHeader }: { scope: Scope; hideHeader?: boolean }) {
   const { contract, product } = scope;
   const productScopeId = product?.id ?? null;
-  const router = useRouter();
   const [tasks, setTasks] = useState<ContractTaskResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -1649,35 +1644,6 @@ function TaskPanel({ scope, hideHeader }: { scope: Scope; hideHeader?: boolean }
         </span>
       </div>}
 
-      {/* Requisition reminder banner */}
-      {contract.status === ContractStatus.WarehouseCheck && (
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          gap: 12, padding: "10px 14px", marginBottom: 12,
-          background: "var(--warn-dim, #fef3c7)", border: "1.5px solid #f59e0b",
-          borderRadius: "var(--radius)", flexWrap: "wrap",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <svg width="16" height="16" fill="none" stroke="#f59e0b" strokeWidth="2" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-            </svg>
-            <span style={{ fontSize: 13, color: "#92400e", fontWeight: 600 }}>
-              Ishlab chiqarish materiallari uchun talabnoma yozilmagan
-            </span>
-          </div>
-          <button
-            onClick={() => router.push(`/requisitions/print?contractId=${contract.id}&contractNo=${encodeURIComponent(contract.contractNo)}`)}
-            style={{
-              padding: "6px 14px", borderRadius: "var(--radius)", fontSize: 12, fontWeight: 700,
-              background: "#f59e0b", color: "#fff", border: "none", cursor: "pointer",
-              flexShrink: 0,
-            }}
-          >
-            Talabnoma yozish →
-          </button>
-        </div>
-      )}
-
       {/* Tasks list */}
       {loading ? (
         <div className="tp-empty">Yuklanmoqda…</div>
@@ -1811,7 +1777,7 @@ export default function TasksPage() {
   const [phase, setPhase] = useState<Phase>("grid");
   const [blockModal, setBlockModal] = useState<Scope | null>(null);
   // Har bir scope (contract+product) uchun tex jarayon va xarajat normasi tasdiqlangan/yo'qligi.
-  // Kontrakt statusi WarehouseCheck/InProduction bo'lishi yetarli emas — har mahsulot alohida tekshiriladi.
+  // Kontrakt statusi InProduction bo'lishi yetarli emas — har mahsulot alohida tekshiriladi.
   const [scopeReady, setScopeReady] = useState<Record<string, boolean>>({});
 
   // ─── Filters ────────────────────────────────────────────────────────────────

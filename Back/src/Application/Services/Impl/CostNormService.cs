@@ -14,12 +14,18 @@ public class CostNormService : ICostNormService
     private readonly DatabaseContext _context;
     private readonly INotificationService _notificationService;
     private readonly IAttachmentService _attachmentService;
+    private readonly IManufacturedProductService _manufacturedProductService;
 
-    public CostNormService(DatabaseContext context, INotificationService notificationService, IAttachmentService attachmentService)
+    public CostNormService(
+        DatabaseContext context,
+        INotificationService notificationService,
+        IAttachmentService attachmentService,
+        IManufacturedProductService manufacturedProductService)
     {
         _context = context;
         _notificationService = notificationService;
         _attachmentService = attachmentService;
+        _manufacturedProductService = manufacturedProductService;
     }
 
     public async Task<ApiResult<IEnumerable<CostNormResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, Guid? contractId = null)
@@ -141,12 +147,12 @@ public class CostNormService : ICostNormService
             NotificationType.Info,
             dto.ContractId);
 
-        await TryAdvanceToWarehouseCheckAsync(dto.ContractId);
+        await TryAdvanceToProductionAsync(dto.ContractId);
 
         return ApiResult<Guid>.Success(costNorm.Id, 201);
     }
 
-    private async SysTask TryAdvanceToWarehouseCheckAsync(Guid contractId)
+    private async SysTask TryAdvanceToProductionAsync(Guid contractId)
     {
         var contract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == contractId);
         if (contract is null || contract.Status != ContractStatus.TechProcessing)
@@ -159,7 +165,7 @@ public class CostNormService : ICostNormService
 
         if (techProcessApproved && costNormApproved)
         {
-            contract.Status = ContractStatus.WarehouseCheck;
+            contract.Status = ContractStatus.InProduction;
             await _context.SaveChangesAsync();
         }
     }
@@ -229,7 +235,8 @@ public class CostNormService : ICostNormService
 
         costNorm.Status = DrawingStatus.Approved;
         await _context.SaveChangesAsync();
-        await TryAdvanceToWarehouseCheckAsync(costNorm.ContractId);
+        await TryAdvanceToProductionAsync(costNorm.ContractId);
+        await _manufacturedProductService.SyncForContractAsync(costNorm.ContractId);
         return ApiResult<int>.Success(1);
     }
 

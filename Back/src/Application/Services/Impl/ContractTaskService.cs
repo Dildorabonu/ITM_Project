@@ -9,10 +9,16 @@ namespace Application.Services.Impl;
 public class ContractTaskService : IContractTaskService
 {
     private readonly DatabaseContext _context;
+    private readonly IManufacturedProductService _manufacturedProductService;
 
-    public ContractTaskService(DatabaseContext context)
+    private const string WarehouseTaskName = "Tayyor mahsulotni omborga topshirish";
+
+    public ContractTaskService(
+        DatabaseContext context,
+        IManufacturedProductService manufacturedProductService)
     {
         _context = context;
+        _manufacturedProductService = manufacturedProductService;
     }
 
     public async Task<ApiResult<IEnumerable<ContractTaskResponseDto>>> GetByContractIdAsync(Guid contractId)
@@ -196,6 +202,10 @@ public class ContractTaskService : IContractTaskService
 
         _context.ContractTaskDailyLogs.Add(log);
         await _context.SaveChangesAsync();
+
+        // Ombor vazifasi progress logi qo'shilsa — tayyor mahsulot qatorining miqdorini yangilaymiz.
+        if (task.Name == WarehouseTaskName && task.ContractProductId.HasValue)
+            await _manufacturedProductService.UpdateProducedQuantityAsync(task.ContractId, task.ContractProductId);
 
         return ApiResult<Guid>.Success(log.Id, 201);
     }

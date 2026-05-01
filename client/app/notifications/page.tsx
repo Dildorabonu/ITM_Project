@@ -54,7 +54,6 @@ const statusLabels: Record<number, string> = {
   [ContractStatus.Draft]: "Shartnoma yaratilindi",
   [ContractStatus.DrawingPending]: "Chizmasi tayyorlanmoqda",
   [ContractStatus.TechProcessing]: "Tex jarayon tayyorlanmoqda",
-  [ContractStatus.WarehouseCheck]: "Ombor tekshiruvi",
   [ContractStatus.InProduction]: "Ishlab chiqarish jarayonida",
   [ContractStatus.Completed]: "Yakunlandi",
   [ContractStatus.Cancelled]: "Bekor qilindi",
