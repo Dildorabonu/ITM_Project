@@ -53,6 +53,9 @@ export default function TechnicalDrawingsPage() {
   // Draft warning banner
   const [draftWarning, setDraftWarning] = useState<string | null>(null);
 
+  // Sana column info tooltip
+  const [sanaTipPos, setSanaTipPos] = useState<{ x: number; y: number } | null>(null);
+
   // Approve
   const [approving, setApproving] = useState(false);
   const [approveConfirmTarget, setApproveConfirmTarget] = useState<TechnicalDrawingResponse | null>(null);
@@ -481,6 +484,77 @@ export default function TechnicalDrawingsPage() {
         .td-row-draft .td-status-badge {
           border: 1px solid rgba(224,123,0,0.45) !important;
         }
+
+        .td-th-info-wrap {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+        }
+        .td-th-info {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          border: 1px solid var(--text3);
+          color: var(--text3);
+          font-size: 10px;
+          font-weight: 700;
+          font-style: italic;
+          font-family: Georgia, serif;
+          line-height: 1;
+          cursor: default;
+          transition: color 0.15s, border-color 0.15s;
+        }
+        .td-th-info-wrap:hover .td-th-info {
+          color: var(--accent);
+          border-color: var(--accent);
+        }
+        .td-th-info-tip {
+          position: fixed;
+          transform: translateX(-50%);
+          background: var(--surface);
+          color: var(--text);
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          padding: 10px 12px;
+          width: 240px;
+          font-family: Inter, sans-serif;
+          font-size: 12px;
+          font-weight: 400;
+          font-style: normal;
+          text-transform: none;
+          letter-spacing: 0;
+          line-height: 1.55;
+          text-align: left;
+          white-space: normal;
+          box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+          pointer-events: none;
+          z-index: 1000;
+          animation: td-tip-fade 0.15s ease-out;
+        }
+        @keyframes td-tip-fade {
+          from { opacity: 0; transform: translateX(-50%) translateY(-4px); }
+          to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        .td-th-info-tip::before,
+        .td-th-info-tip::after {
+          content: "";
+          position: absolute;
+          left: 50%;
+          bottom: 100%;
+          border: 6px solid transparent;
+          border-bottom-color: var(--border);
+          transform: translateX(-50%);
+        }
+        .td-th-info-tip::after {
+          border-width: 5px;
+          border-bottom-color: var(--surface);
+          transform: translateX(-50%) translateY(1px);
+        }
       `}</style>
       <div style={{ display: "flex", flexDirection: "column", flex: 1, gap: 16, fontFamily: "Inter, sans-serif" }}>
 
@@ -540,7 +614,21 @@ export default function TechnicalDrawingsPage() {
                     <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Mahsulot</th>
                     <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Yaratuvchi</th>
                     <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Status</th>
-                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Sana</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>
+                      <span className="td-th-info-wrap">
+                        Sana
+                        <span
+                          className="td-th-info"
+                          onMouseEnter={(e) => {
+                            const r = e.currentTarget.getBoundingClientRect();
+                            setSanaTipPos({ x: r.left + r.width / 2, y: r.bottom + 8 });
+                          }}
+                          onMouseLeave={() => setSanaTipPos(null)}
+                        >
+                          i
+                        </span>
+                      </span>
+                    </th>
                     <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Faollik</th>
                     <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>Amal</th>
                   </tr>
@@ -706,6 +794,13 @@ export default function TechnicalDrawingsPage() {
 
       {draftWarningModal}
       {approveConfirmModal}
+
+      {sanaTipPos && createPortal(
+        <div className="td-th-info-tip" style={{ left: sanaTipPos.x, top: sanaTipPos.y }}>
+          Texnik chizma yaratilgan sana ko&apos;rsatiladi. Chizma yaratilmagan bo&apos;lsa — chiziqcha chiqadi.
+        </div>,
+        document.body
+      )}
 
     </div>
   );
