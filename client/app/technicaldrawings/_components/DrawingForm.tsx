@@ -11,7 +11,6 @@ interface DrawingFormProps {
   saving: boolean;
   onSave: () => void;
   onCancel: () => void;
-  usedProductIds?: Set<string>;
 }
 
 export function DrawingForm({
@@ -23,9 +22,17 @@ export function DrawingForm({
   saving,
   onSave,
   onCancel,
-  usedProductIds,
 }: DrawingFormProps) {
-  const hasProducts = (contract.products ?? []).length > 0;
+  const products = contract.products ?? [];
+  const hasProducts = products.length > 0;
+  const selectedProduct = form.contractProductId
+    ? products.find((p) => p.id === form.contractProductId) ?? null
+    : null;
+  const productLabel = selectedProduct
+    ? `${selectedProduct.productType} — ${selectedProduct.quantity.toLocaleString()} ${selectedProduct.unit}`
+    : hasProducts
+      ? "—"
+      : "Umumiy (butun shartnoma uchun)";
   const title = mode === "create" ? "Yangi texnik chizma" : "Texnik chizmani tahrirlash";
   const hasError = submitted && !form.title.trim();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -112,21 +119,13 @@ export function DrawingForm({
               <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: "var(--text2)" }}>
                 Mahsulot
               </label>
-              <select
-                className="form-input"
-                value={form.contractProductId}
-                onChange={(e) => setForm((f) => ({ ...f, contractProductId: e.target.value }))}
-                style={{ height: 44, fontSize: 14, width: "100%" }}
-              >
-                {!hasProducts && <option value="">Umumiy (butun shartnoma uchun)</option>}
-                {(contract.products ?? [])
-                  .filter((p) => mode === "edit" ? true : !usedProductIds?.has(p.id))
-                  .map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.productType} — {p.quantity.toLocaleString()} {p.unit}
-                    </option>
-                  ))}
-              </select>
+              <div style={{
+                height: 44, display: "flex", alignItems: "center", padding: "0 14px",
+                background: "var(--bg2)", border: "1px solid var(--border)",
+                borderRadius: "var(--radius)", fontSize: 14, color: "var(--text1)", fontWeight: 600,
+              }}>
+                {productLabel}
+              </div>
             </div>
 
             <div>
