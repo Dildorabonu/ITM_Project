@@ -619,13 +619,8 @@ export default function TechnicalDrawingsPage() {
                               {item.contractNo}
                             </button>
                           </td>
-                          <td style={{ textAlign: "center", maxWidth: 220, color: "var(--text1)" }}>
-                            <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13 }}>
-                              {item.productType ? item.productType : "Umumiy"}
-                            </div>
-                            <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {item.title}
-                            </div>
+                          <td style={{ textAlign: "center", maxWidth: 220, color: "var(--text1)", fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {item.productType ? item.productType : "Umumiy"}
                           </td>
                           <td style={{ textAlign: "center", fontSize: 13, color: "var(--text1)", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {item.createdByFullName ?? "—"}
