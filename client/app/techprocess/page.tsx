@@ -22,13 +22,14 @@ import {
   type ParsedTable,
   type TpMode,
   type CnMode,
-  type ContractReadinessItem,
+  type ContractReadinessScope,
   type TechProcessResponse,
   type CostNormResponse,
   type CostNormItemResponse,
   type TechnicalDrawingResponse,
   parseMainTables,
   fmt,
+  scopeKey,
 } from "./_types";
 import { TpBadge } from "./_components/TpBadge";
 import { CnBadge } from "./_components/CnBadge";
@@ -72,9 +73,6 @@ export default function TechProductionPage() {
   const [tpApproving, setTpApproving] = useState(false);
   const [cnApproving, setCnApproving] = useState(false);
 
-  // TP actions
-const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
-
   // ── Toast ──────────────────────────────────────────────────────────────────
   const showToast = useToastStore((s) => s.show);
 
@@ -94,7 +92,6 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
   const [cnSaving, setCnSaving] = useState(false);
   const [cnCreateTab, setCnCreateTab] = useState<"form"|"table">("form");
   const [cnSaveError, setCnSaveError] = useState<string|null>(null);
-  const [cnApprovingId, setCnApprovingId] = useState<string|null>(null);
   const [cnEditingNorm, setCnEditingNorm] = useState<CostNormResponse|null>(null);
   const [cnEditForm, setCnEditForm] = useState({ title:"", notes:"" });
   const [cnEditItems, setCnEditItems] = useState<MaterialRow[]>([]);
@@ -112,8 +109,8 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
   const [cnFileParseReady, setCnFileParseReady] = useState(false);
   const cnPendingParseResult = useRef<{tables:ParsedTable[];error:string|null;fileName:string}|null>(null);
 
-  // ── Selected contract for inline detail panel ──────────────────────────────
-  const [selectedContractId, setSelectedContractId] = useState<string|null>(null);
+  // ── Selected scope (contract + product) for inline detail panel ─────────────
+  const [selectedScopeKey, setSelectedScopeKey] = useState<string|null>(null);
   const [tpInlineEditing, setTpInlineEditing] = useState(false);
   const [drawingWarningNo, setDrawingWarningNo] = useState<string|null>(null);
   const [contractList, setContractList] = useState<ContractResponse[]>([]);
@@ -122,28 +119,94 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
   useDraft("draft_costnorm", cnMode==="create", cnForm, (d)=>{ if(d.contractId) { setCnForm(d); setCnMode("create"); } else { sessionStorage.removeItem("draft_costnorm"); } });
 
   // ── Contract readiness ─────────────────────────────────────────────────────
-  const readinessItems = useMemo<ContractReadinessItem[]>(()=>{
-    const map = new Map<string, ContractReadinessItem>();
+  // Har bir qator = bitta scope (contract + mahsulot, yoki contract + Umumiy).
+  // Texnik chizmalar logikasiga mos: agar Umumiy mavjud bo'lsa — bitta Umumiy qator,
+  // aks holda har bir mahsulot uchun alohida qator.
+  const readinessItems = useMemo<ContractReadinessScope[]>(()=>{
+    type ContractMeta = {
+      contractId: string;
+      contractNo: string;
+      products: { id: string; productType: string; quantity: number; unit: string }[];
+    };
+    const contractsMeta = new Map<string, ContractMeta>();
     for (const c of contractList) {
-      if (!map.has(c.id)) map.set(c.id, { contractId:c.id, contractNo:c.contractNo, drawing:null, tp:null, cn:null });
+      contractsMeta.set(c.id, {
+        contractId: c.id,
+        contractNo: c.contractNo,
+        products: (c.products ?? []).map(p => ({
+          id: p.id, productType: p.productType, quantity: p.quantity, unit: p.unit,
+        })),
+      });
     }
-    for (const tp of tpList) {
-      if (!map.has(tp.contractId)) map.set(tp.contractId, { contractId:tp.contractId, contractNo:tp.contractNo, drawing:null, tp:null, cn:null });
-      const entry = map.get(tp.contractId)!;
-      if (!entry.tp || tp.status > entry.tp.status) entry.tp = tp;
+    // Contract listga tushmagan, lekin entity-larda uchragan shartnomalar
+    const ensureMeta = (contractId: string, contractNo: string) => {
+      if (!contractsMeta.has(contractId)) {
+        contractsMeta.set(contractId, { contractId, contractNo, products: [] });
+      }
+    };
+    for (const tp of tpList) ensureMeta(tp.contractId, tp.contractNo);
+    for (const cn of cnList) ensureMeta(cn.contractId, cn.contractNo);
+    for (const d of drawingList) ensureMeta(d.contractId, d.contractNo);
+
+    const scopes: ContractReadinessScope[] = [];
+
+    for (const meta of contractsMeta.values()) {
+      const myDrawings = drawingList.filter(d => d.contractId === meta.contractId);
+      const myTps      = tpList.filter(t => t.contractId === meta.contractId);
+      const myCns      = cnList.filter(n => n.contractId === meta.contractId);
+
+      const hasUmumiy =
+        myDrawings.some(d => !d.contractProductId) ||
+        myTps.some(t => !t.contractProductId) ||
+        myCns.some(n => !n.contractProductId);
+
+      const buildScope = (productId: string | null, productInfo: ContractMeta["products"][number] | null): ContractReadinessScope => {
+        const drawingsForScope = myDrawings.filter(d => (d.contractProductId ?? null) === productId);
+        const tpsForScope      = myTps.filter(t => (t.contractProductId ?? null) === productId);
+        const cnsForScope      = myCns.filter(n => (n.contractProductId ?? null) === productId);
+
+        // Eng yuqori statusdagi chizmani / TP ni / mazmunli (items > 0) CN ni tanlaymiz
+        let drawing: TechnicalDrawingResponse | null = null;
+        for (const d of drawingsForScope) {
+          if (!drawing || d.status > drawing.status) drawing = d;
+        }
+        let tp: TechProcessResponse | null = null;
+        for (const t of tpsForScope) {
+          if (!tp || t.status > tp.status) tp = t;
+        }
+        let cn: CostNormResponse | null = null;
+        for (const n of cnsForScope) {
+          if (!cn || (cn.items.length === 0 && n.items.length > 0)) cn = n;
+        }
+
+        return {
+          contractId: meta.contractId,
+          contractNo: meta.contractNo,
+          contractProductId: productId,
+          productType: productInfo?.productType ?? null,
+          productQuantity: productInfo?.quantity ?? null,
+          productUnit: productInfo?.unit ?? null,
+          drawing, tp, cn,
+        };
+      };
+
+      if (hasUmumiy || meta.products.length === 0) {
+        scopes.push(buildScope(null, null));
+      } else {
+        for (const p of meta.products) {
+          scopes.push(buildScope(p.id, p));
+        }
+      }
     }
-    for (const cn of cnList) {
-      if (!map.has(cn.contractId)) map.set(cn.contractId, { contractId:cn.contractId, contractNo:cn.contractNo, drawing:null, tp:null, cn:null });
-      const entry = map.get(cn.contractId)!;
-      if (!entry.cn || (entry.cn.items.length === 0 && cn.items.length > 0)) entry.cn = cn;
-    }
-    for (const d of drawingList) {
-      if (!map.has(d.contractId)) continue;
-      const entry = map.get(d.contractId)!;
-      // Tasdiqlangan chizmani ustun ko'r, bo'lmasa eng so'nggi
-      if (!entry.drawing || d.status > entry.drawing.status) entry.drawing = d;
-    }
-    return Array.from(map.values()).sort((a,b)=>a.contractNo.localeCompare(b.contractNo));
+
+    return scopes.sort((a, b) => {
+      const c = a.contractNo.localeCompare(b.contractNo);
+      if (c !== 0) return c;
+      // Umumiy birinchi
+      if (a.contractProductId === null) return -1;
+      if (b.contractProductId === null) return 1;
+      return (a.productType ?? "").localeCompare(b.productType ?? "");
+    });
   },[contractList, tpList, cnList, drawingList]);
 
   // ── Loaders ────────────────────────────────────────────────────────────────
@@ -208,8 +271,8 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
 
   // ── TP Create ──────────────────────────────────────────────────────────────
 
-  const openTpCreate = async (prefilledContractId?: string) => {
-    setTpForm({contractId:prefilledContractId||"",contractProductId:"",title:"",notes:""}); setTpSubmitted(false); setTpFormError(""); setFinalFile(null); setTpFileError("");
+  const openTpCreate = async (prefilledContractId?: string, prefilledContractProductId?: string | null) => {
+    setTpForm({contractId:prefilledContractId||"",contractProductId:prefilledContractProductId??"",title:"",notes:""}); setTpSubmitted(false); setTpFormError(""); setFinalFile(null); setTpFileError("");
     window.history.pushState({showForm:true},"");
     setTpShowForm(true);
   };
@@ -260,8 +323,8 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
     setCnFileParseReady(true);
   }
 
-  async function openCnCreate(prefilledContractId?: string) {
-    setCnForm({contractId:prefilledContractId||"",contractProductId:"",title:"",notes:""}); setCnFormFile(null); setCnParsedTables([]); setCnParseError(null); setCnSaveError(null); setCnSubmitted(false); setCnActiveTab(0); setCnCreateTab("form");
+  async function openCnCreate(prefilledContractId?: string, prefilledContractProductId?: string | null) {
+    setCnForm({contractId:prefilledContractId||"",contractProductId:prefilledContractProductId??"",title:"",notes:""}); setCnFormFile(null); setCnParsedTables([]); setCnParseError(null); setCnSaveError(null); setCnSubmitted(false); setCnActiveTab(0); setCnCreateTab("form");
     window.history.pushState({mode:"create"},"");
     setCnMode("create");
   }
@@ -938,7 +1001,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
 
   // ── Main view: contracts table + detail page ─────────────────────────────────
 
-  const selectedItem = readinessItems.find(i => i.contractId === selectedContractId) ?? null;
+  const selectedItem = readinessItems.find(i => scopeKey(i.contractId, i.contractProductId) === selectedScopeKey) ?? null;
   const filteredItems = !tpSearch.trim()
     ? readinessItems
     : readinessItems.filter(i => i.contractNo.toLowerCase().includes(tpSearch.trim().toLowerCase()));
@@ -946,7 +1009,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
   // ── Detail full-page view ──────────────────────────────────────────────────
 
   if (selectedItem) {
-    const closeDetail = () => { setSelectedContractId(null); setTpInlineEditing(false); };
+    const closeDetail = () => { setSelectedScopeKey(null); setTpInlineEditing(false); };
     const drawingApproved = selectedItem.drawing?.status === DrawingStatus.Approved;
     const tpEffective = selectedItem.tp?.status !== ProcessStatus.Pending ? selectedItem.tp : null;
     const cnEffective = selectedItem.cn && selectedItem.cn.items.length > 0 ? selectedItem.cn : null;
@@ -956,7 +1019,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
     return (
       <>
       <div style={{ display:"flex",flexDirection:"column",flex:1,gap:16 }}>
-        <div style={{ display:"flex",alignItems:"center",gap:12 }}>
+        <div style={{ display:"flex",alignItems:"center",gap:12,flexWrap:"wrap" }}>
           <button onClick={closeDetail}
             style={{ display:"inline-flex",alignItems:"center",gap:6,background:"var(--bg3)",border:"1.5px solid var(--border)",borderRadius:"var(--radius)",cursor:"pointer",padding:"7px 14px",color:"var(--text2)",fontSize:13,fontWeight:500 }}
             onMouseEnter={e=>{ e.currentTarget.style.borderColor="var(--accent)"; e.currentTarget.style.color="var(--accent)"; }}
@@ -964,6 +1027,21 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
             Orqaga
           </button>
+          <span style={{ color:"var(--border)" }}>|</span>
+          <span style={{ fontWeight:700,fontSize:15,color:"var(--accent)" }}>{selectedItem.contractNo}</span>
+          <span style={{ color:"var(--border)" }}>·</span>
+          {selectedItem.contractProductId === null ? (
+            <span style={{ fontSize:12,fontWeight:600,color:"var(--text2)",background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:20,padding:"2px 10px" }}>📋 Umumiy</span>
+          ) : (
+            <span style={{ fontSize:13,fontWeight:600,color:"var(--text1)" }}>
+              📦 {selectedItem.productType}
+              {selectedItem.productQuantity !== null && (
+                <span style={{ color:"var(--text3)",fontWeight:500,marginLeft:6 }}>
+                  · {selectedItem.productQuantity.toLocaleString()} {selectedItem.productUnit ?? ""}
+                </span>
+              )}
+            </span>
+          )}
         </div>
 
         {/* ── Workflow pipeline: 3 qadam ── */}
@@ -1094,7 +1172,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
                 <div style={{ textAlign:"center",padding:"20px 0" }}>
                   <div style={{ fontSize:13,color:"var(--text3)",marginBottom:12 }}>Texnologik jarayon yaratilmagan</div>
                   {drawingApproved&&(
-                  <button onClick={()=>openTpCreate(selectedItem.contractId)} className="btn-create-accent"
+                  <button onClick={()=>openTpCreate(selectedItem.contractId, selectedItem.contractProductId)} className="btn-create-accent"
                     style={{ display:"inline-flex",alignItems:"center",gap:6,fontSize:12,padding:"7px 14px",fontWeight:600,borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer",transition:"border-color 0.2s,box-shadow 0.2s,background 0.2s,color 0.2s" }}
                     onMouseEnter={e=>{const b=e.currentTarget;b.style.borderColor="var(--accent)";b.style.boxShadow="0 0 0 2px var(--accent-mid),0 0 8px rgba(26,110,235,0.35)";b.style.background="var(--accent-dim)";b.style.color="var(--accent)"}}
                     onMouseLeave={e=>{const b=e.currentTarget;b.style.borderColor="var(--border)";b.style.boxShadow="";b.style.background="var(--bg3)";b.style.color="var(--text2)"}}>
@@ -1199,7 +1277,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
               {!cnEffective?(
                 <div style={{ textAlign:"center",padding:"20px 0" }}>
                   <div style={{ fontSize:13,color:"var(--text3)",marginBottom:12 }}>Me&apos;yoriy sarf yaratilmagan</div>
-                  <button onClick={()=>openCnCreate(selectedItem.contractId)} className="btn-create-accent"
+                  <button onClick={()=>openCnCreate(selectedItem.contractId, selectedItem.contractProductId)} className="btn-create-accent"
                     style={{ display:"inline-flex",alignItems:"center",gap:6,fontSize:12,padding:"7px 14px",fontWeight:600,borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer",transition:"border-color 0.2s,box-shadow 0.2s,background 0.2s,color 0.2s" }}
                     onMouseEnter={e=>{const b=e.currentTarget;b.style.borderColor="var(--accent)";b.style.boxShadow="0 0 0 2px var(--accent-mid),0 0 8px rgba(26,110,235,0.35)";b.style.background="var(--accent-dim)";b.style.color="var(--accent)"}}
                     onMouseLeave={e=>{const b=e.currentTarget;b.style.borderColor="var(--border)";b.style.boxShadow="";b.style.background="var(--bg3)";b.style.color="var(--text2)"}}>
@@ -1309,6 +1387,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
                 <tr>
                   <th style={{ width:52,textAlign:"center",borderRight:"2px solid var(--border)",color:"var(--text1)",textTransform:"none" }}>T/r</th>
                   <th style={{ textAlign:"center",color:"var(--text1)" }}>Shartnoma №</th>
+                  <th style={{ textAlign:"center",color:"var(--text1)" }}>Mahsulot</th>
                   <th style={{ textAlign:"center",color:"var(--text1)" }}>Texnik chizma</th>
                   <th style={{ textAlign:"center",color:"var(--text1)" }}>Texnologik jarayon</th>
                   <th style={{ textAlign:"center",color:"var(--text1)" }}>Me&apos;yoriy sarf</th>
@@ -1317,7 +1396,7 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
               </thead>
               <tbody>
                 {filteredItems.length===0?(
-                  <tr><td colSpan={6} style={{ textAlign:"center",color:"var(--text2)",padding:32 }}>Ma&apos;lumot topilmadi</td></tr>
+                  <tr><td colSpan={7} style={{ textAlign:"center",color:"var(--text2)",padding:32 }}>Ma&apos;lumot topilmadi</td></tr>
                 ):filteredItems.map((item,i)=>{
                   const drawingOk=item.drawing?.status===DrawingStatus.Approved;
                   const tpEffective=item.tp?.status!==ProcessStatus.Pending?item.tp:null;
@@ -1325,12 +1404,27 @@ const [tpApprovingId, setTpApprovingId] = useState<string|null>(null);
                   const tpOk=tpEffective&&(tpEffective.status===ProcessStatus.Approved||tpEffective.status===ProcessStatus.Completed);
                   const cnOk=cnEffective&&cnEffective.status===DrawingStatus.Approved;
                   const nothingStarted=!item.drawing&&!tpEffective&&!cnEffective;
+                  const rowKey = scopeKey(item.contractId, item.contractProductId);
                   return (
-                    <tr key={item.contractId}
-                      onClick={()=>{ if(!drawingOk){ setDrawingWarningNo(item.contractNo); } else { setSelectedContractId(item.contractId); setTpInlineEditing(false); } }}
+                    <tr key={rowKey}
+                      onClick={()=>{ if(!drawingOk){ setDrawingWarningNo(item.contractNo); } else { setSelectedScopeKey(rowKey); setTpInlineEditing(false); } }}
                       style={{ cursor:"pointer",transition:"background 0.12s" }}>
                       <td style={{ textAlign:"center",borderRight:"2px solid var(--border)",padding:"0 8px",fontSize:13 }}>{String(i+1).padStart(2,"0")}</td>
                       <td style={{ textAlign:"center",fontSize:13,color:"var(--text1)",fontFamily:"var(--font-inter,Inter,sans-serif)" }}>{item.contractNo}</td>
+                      <td style={{ textAlign:"center",fontSize:13,color:"var(--text1)" }}>
+                        {item.contractProductId === null ? (
+                          <span style={{ fontSize:11,fontWeight:600,color:"var(--text2)",background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:20,padding:"2px 10px" }}>📋 Umumiy</span>
+                        ) : (
+                          <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:1 }}>
+                            <span style={{ fontWeight:600 }}>{item.productType}</span>
+                            {item.productQuantity !== null && (
+                              <span style={{ fontSize:11,color:"var(--text3)" }}>
+                                {item.productQuantity.toLocaleString()} {item.productUnit ?? ""}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </td>
                       <td style={{ textAlign:"center" }}>
                         {!item.drawing?(
                           <span style={{ fontSize:12,color:"var(--text3)",fontStyle:"italic" }}>Yaratilmagan</span>
