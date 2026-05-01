@@ -1002,6 +1002,22 @@ export default function TechProductionPage() {
     ? readinessItems
     : readinessItems.filter(i => i.contractNo.toLowerCase().includes(tpSearch.trim().toLowerCase()));
 
+  const isDrawingReadyPending = (item: typeof readinessItems[number]) => {
+    if (item.drawing?.status !== DrawingStatus.Approved) return false;
+    const tpEff = item.tp?.status !== ProcessStatus.Pending ? item.tp : null;
+    const cnEff = item.cn && item.cn.items.length > 0 ? item.cn : null;
+    const tpDoneLocal = !!tpEff && (tpEff.status === ProcessStatus.Approved || tpEff.status === ProcessStatus.Completed);
+    const cnDoneLocal = !!cnEff && cnEff.status === DrawingStatus.Approved;
+    return !(tpDoneLocal && cnDoneLocal);
+  };
+
+  const sortedFilteredItems = [...filteredItems].sort((a, b) => {
+    const aReady = isDrawingReadyPending(a);
+    const bReady = isDrawingReadyPending(b);
+    if (aReady === bReady) return 0;
+    return aReady ? -1 : 1;
+  });
+
   // ── Detail full-page view ──────────────────────────────────────────────────
 
   if (selectedItem) {
@@ -1358,6 +1374,69 @@ export default function TechProductionPage() {
   return (
     <>
     <div className="page-transition" style={{ display:"flex",flexDirection:"column",flex:1,gap:16 }}>
+      <style>{`
+        @keyframes tp-row-pulse {
+          0%, 100% { background-color: rgba(217,48,37,0.06); }
+          50%      { background-color: rgba(217,48,37,0.20); }
+        }
+        .tp-row-ready > td {
+          animation: tp-row-pulse 1.6s ease-in-out infinite;
+        }
+        .tp-row-ready:hover > td {
+          animation-play-state: paused;
+          background-color: rgba(217,48,37,0.22) !important;
+        }
+
+        .tp-empty-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 3px 12px;
+          border-radius: 20px;
+          font-size: 12px;
+          font-weight: 700;
+          background: var(--danger-dim);
+          color: var(--danger);
+          border: 1px solid rgba(217,48,37,0.4);
+        }
+        .tp-empty-badge::before {
+          content: "";
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: currentColor;
+        }
+        @keyframes tp-badge-pulse {
+          0%, 100% {
+            background: var(--danger-dim);
+            color: var(--danger);
+          }
+          50% {
+            background: var(--danger);
+            color: #fff;
+          }
+        }
+        .tp-row-ready .tp-empty-badge {
+          animation: tp-badge-pulse 1.6s ease-in-out infinite;
+        }
+
+        @keyframes tp-approved-pulse {
+          0%, 100% {
+            background: var(--success-dim);
+            color: var(--success);
+            box-shadow: 0 0 0 0 rgba(15,123,69,0);
+          }
+          50% {
+            background: var(--success);
+            color: #fff;
+            box-shadow: 0 0 0 6px rgba(15,123,69,0);
+          }
+        }
+        .tp-row-ready .tp-approved-badge {
+          animation: tp-approved-pulse 1.6s ease-in-out infinite;
+          border-color: rgba(15,123,69,0.45) !important;
+        }
+      `}</style>
 
       {/* ── Toolbar ── */}
       <div className="itm-card" style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 14px",flexWrap:"wrap" }}>
@@ -1391,21 +1470,23 @@ export default function TechProductionPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredItems.length===0?(
+                {sortedFilteredItems.length===0?(
                   <tr><td colSpan={7} style={{ textAlign:"center",color:"var(--text2)",padding:32 }}>Ma&apos;lumot topilmadi</td></tr>
-                ):filteredItems.map((item,i)=>{
+                ):sortedFilteredItems.map((item,i)=>{
                   const drawingOk=item.drawing?.status===DrawingStatus.Approved;
                   const tpEffective=item.tp?.status!==ProcessStatus.Pending?item.tp:null;
                   const cnEffective=item.cn&&item.cn.items.length>0?item.cn:null;
                   const tpOk=tpEffective&&(tpEffective.status===ProcessStatus.Approved||tpEffective.status===ProcessStatus.Completed);
                   const cnOk=cnEffective&&cnEffective.status===DrawingStatus.Approved;
                   const nothingStarted=!item.drawing&&!tpEffective&&!cnEffective;
+                  const drawingReadyPending = drawingOk && !(tpOk && cnOk);
                   const rowKey = scopeKey(item.contractId, item.contractProductId);
                   return (
                     <tr key={rowKey}
+                      className={drawingReadyPending ? "tp-row-ready" : undefined}
                       onClick={()=>{ if(!drawingOk){ setDrawingWarningNo(item.contractNo); } else { setSelectedScopeKey(rowKey); setTpInlineEditing(false); } }}
                       style={{ cursor:"pointer",transition:"background 0.12s" }}>
-                      <td style={{ textAlign:"center",borderRight:"2px solid var(--border)",padding:"0 8px",fontSize:13 }}>{String(i+1).padStart(2,"0")}</td>
+                      <td style={{ textAlign:"center",borderRight:"2px solid var(--border)",padding:"0 8px",fontSize:13, color: drawingReadyPending ? "var(--danger)" : undefined, fontWeight: drawingReadyPending ? 700 : undefined }}>{String(i+1).padStart(2,"0")}</td>
                       <td style={{ textAlign:"center",fontSize:13,color:"var(--text1)",fontFamily:"var(--font-inter,Inter,sans-serif)" }}>{item.contractNo}</td>
                       <td style={{ textAlign:"center",fontSize:13,color:"var(--text1)" }}>
                         {item.contractProductId === null ? (
@@ -1423,9 +1504,9 @@ export default function TechProductionPage() {
                       </td>
                       <td style={{ textAlign:"center" }}>
                         {!item.drawing?(
-                          <span style={{ fontSize:12,color:"var(--text3)",fontStyle:"italic" }}>Yaratilmagan</span>
+                          <span className="tp-empty-badge">Yaratilmagan</span>
                         ):drawingOk?(
-                          <span style={{ display:"inline-flex",alignItems:"center",fontSize:12,fontWeight:600,color:"var(--success)",background:"var(--success-dim)",borderRadius:20,padding:"2px 10px",border:"1px solid rgba(15,123,69,0.2)" }}>
+                          <span className="tp-approved-badge" style={{ display:"inline-flex",alignItems:"center",fontSize:12,fontWeight:600,color:"var(--success)",background:"var(--success-dim)",borderRadius:20,padding:"2px 10px",border:"1px solid rgba(15,123,69,0.2)" }}>
                             Tasdiqlangan
                           </span>
                         ):(
@@ -1433,10 +1514,10 @@ export default function TechProductionPage() {
                         )}
                       </td>
                       <td style={{ textAlign:"center" }}>
-                        {tpEffective?<TpBadge status={tpEffective.status}/>:<span style={{ fontSize:12,color:"var(--text3)",fontStyle:"italic" }}>Yaratilmagan</span>}
+                        {tpEffective?<TpBadge status={tpEffective.status}/>:<span className="tp-empty-badge">Yaratilmagan</span>}
                       </td>
                       <td style={{ textAlign:"center" }}>
-                        {cnEffective?<CnBadge status={cnEffective.status}/>:<span style={{ fontSize:12,color:"var(--text3)",fontStyle:"italic" }}>Yaratilmagan</span>}
+                        {cnEffective?<CnBadge status={cnEffective.status}/>:<span className="tp-empty-badge">Yaratilmagan</span>}
                       </td>
                       <td style={{ textAlign:"center" }}>
                         {tpOk&&cnOk?(
