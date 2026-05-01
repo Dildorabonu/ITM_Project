@@ -10,9 +10,11 @@ export const STATUS_STYLE: Record<DrawingStatus, { bg: string; color: string; bo
 
 // ─── Row type ──────────────────────────────────────────────────────────────────
 
+export type EmptyRowProduct = { id: string; productType: string; quantity: number; unit: string };
+
 export type MergedRow =
   | { kind: "drawing"; drawing: TechnicalDrawingResponse }
-  | { kind: "empty"; contract: ContractResponse; existingCount: number };
+  | { kind: "empty"; contract: ContractResponse; existingCount: number; product: EmptyRowProduct | null };
 
 // ─── Form ──────────────────────────────────────────────────────────────────────
 
