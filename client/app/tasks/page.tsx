@@ -9,6 +9,7 @@ import { CheckSelect } from "@/app/_components/CheckSelect";
 import {
   contractService,
   ContractResponse,
+  ContractProductResponse,
   ContractStatus,
   Priority,
   PRIORITY_LABELS,
@@ -22,6 +23,16 @@ import {
   costNormService,
   DrawingStatus,
 } from "@/lib/userService";
+
+// ─── Scope ────────────────────────────────────────────────────────────────────
+// Bitta scope = (contract, mahsulot) yoki (contract, Umumiy).
+// Tasks sahifasidagi har bir card va panel scope bilan bog'liq.
+
+type Scope = { contract: ContractResponse; product: ContractProductResponse | null };
+
+function scopeKey(s: Scope): string {
+  return `${s.contract.id}::${s.product?.id ?? "umumiy"}`;
+}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -100,12 +111,13 @@ function formatDate(dateStr: string) {
 // ─── Contract bar (compact, shown when selected) ──────────────────────────────
 
 function ContractBar({
-  contract,
+  scope,
   onClick,
 }: {
-  contract: ContractResponse;
+  scope: Scope;
   onClick: () => void;
 }) {
+  const { contract, product } = scope;
   return (
     <div className="tasks-contract-bar" onClick={onClick}>
       <div className="tcb-back" title="Orqaga">
@@ -120,8 +132,12 @@ function ContractBar({
       </div>
       <div className="tcb-sep" />
       <div className="tcb-meta">
-        <span className="tcb-product">{contract.products?.map(p => p.productType).filter(Boolean).join(", ") || "—"}</span>
-        <span className="tcb-qty">{contract.products?.length ? `${contract.products.length} ta mahsulot` : ""}</span>
+        <span className="tcb-product">
+          {product ? `📦 ${product.productType}` : "📋 Umumiy"}
+        </span>
+        <span className="tcb-qty">
+          {product ? `${product.quantity.toLocaleString()} ${product.unit}` : ""}
+        </span>
         <span className={`status ${PRIORITY_COLORS[contract.priority]}`}>
           {PRIORITY_LABELS[contract.priority]}
         </span>
@@ -152,21 +168,25 @@ function ContractBar({
 const ACTIONABLE_STATUSES = new Set([ContractStatus.WarehouseCheck, ContractStatus.InProduction]);
 
 function ContractCard({
-  contract,
+  scope,
   selected,
   isActionable,
   onClick,
 }: {
-  contract: ContractResponse;
+  scope: Scope;
   selected: boolean;
   isActionable: boolean;
   onClick: () => void;
 }) {
-  const [tasks, setTasks] = useState<ContractTaskResponse[]>([]);
+  const { contract, product } = scope;
+  const [allTasks, setAllTasks] = useState<ContractTaskResponse[]>([]);
 
   useEffect(() => {
-    contractTaskService.getByContract(contract.id).then(setTasks);
+    contractTaskService.getByContract(contract.id).then(setAllTasks);
   }, [contract.id]);
+
+  // Faqat shu scope-ga tegishli vazifalar (per-product yoki Umumiy)
+  const tasks = allTasks.filter(t => (t.contractProductId ?? null) === (product?.id ?? null));
 
   const overallPct = tasks.length === 0
     ? 0
@@ -175,7 +195,7 @@ function ContractCard({
   const r = 34, cx = 44, cy = 44, sw = 7;
   const circumference = 2 * Math.PI * r;
   const filled = (overallPct / 100) * circumference;
-  const gradId = `dg-${contract.id}`;
+  const gradId = `dg-${contract.id}-${product?.id ?? "umumiy"}`;
 
   const now = Date.now();
   const start = new Date(contract.startDate).getTime();
@@ -218,14 +238,18 @@ function ContractCard({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="tcc-rows">
             <div className="tcc-row">
-              <span className="tcc-label">Mahsulotlar</span>
-              <span className="tcc-value">{contract.products?.length ?? 0} ta</span>
+              <span className="tcc-label">Mahsulot</span>
+              <span className="tcc-value accent">
+                {product
+                  ? `${product.productType}`
+                  : "Umumiy"}
+              </span>
             </div>
             <div className="tcc-row">
-              <span className="tcc-label">Birinchi</span>
-              <span className="tcc-value accent">
-                {contract.products?.[0]
-                  ? `${contract.products[0].productType} — ${contract.products[0].quantity.toLocaleString()} ${contract.products[0].unit}`
+              <span className="tcc-label">Miqdor</span>
+              <span className="tcc-value">
+                {product
+                  ? `${product.quantity.toLocaleString()} ${product.unit}`
                   : "—"}
               </span>
             </div>
@@ -1078,17 +1102,13 @@ interface NewTaskForm {
   name: string;
   totalAmount: string;
   importance: string;
-  contractProductId: string;   // "" = Umumiy (no specific product)
 }
-
-const EMPTY_FORM: NewTaskForm = { name: "", totalAmount: "0", importance: "", contractProductId: "" };
 
 function AddTaskForm({
   onSave,
   onCancel,
   existingTasks,
-  contractQuantity,
-  products,
+  scopeQuantity,
 }: {
   onSave: (
     data: Omit<ContractTaskCreatePayload, "contractId">[],
@@ -1096,10 +1116,9 @@ function AddTaskForm({
   ) => Promise<void>;
   onCancel: () => void;
   existingTasks: ContractTaskResponse[];
-  contractQuantity: number;
-  products: { id: string; productType: string; quantity: number; unit: string }[];
+  scopeQuantity: number;
 }) {
-  const emptyForm = (): NewTaskForm => ({ name: "", totalAmount: String(contractQuantity), importance: "", contractProductId: "" });
+  const emptyForm = (): NewTaskForm => ({ name: "", totalAmount: String(scopeQuantity), importance: "" });
   const [forms, setForms] = useState<NewTaskForm[]>([emptyForm()]);
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -1142,13 +1161,13 @@ function AddTaskForm({
       id: t.id,
       importance: parseFloat(existingImportanceMap[t.id]) || 0,
     }));
+    // contractProductId — ota TaskPanel onSave ichida scope-dan to'ldiradi.
     await onSave(
       forms.map(f => ({
         name: f.name.trim(),
         completedAmount: 0,
         totalAmount: parseFloat(f.totalAmount) || 0,
         importance: parseFloat(f.importance) || 0,
-        contractProductId: f.contractProductId || null,
       })),
       existingUpdates
     );
@@ -1177,29 +1196,6 @@ function AddTaskForm({
                 Olib tashlash
               </button>
             )}
-          </div>
-
-          <div className="atf-field">
-            <label className="atf-label">Mahsulot</label>
-            <select
-              className="form-input"
-              value={f.contractProductId}
-              onChange={e => {
-                const pid = e.target.value;
-                const prod = products.find(p => p.id === pid);
-                setForms(prev => prev.map((x, idx) => idx === i
-                  ? { ...x, contractProductId: pid, totalAmount: prod ? String(prod.quantity) : x.totalAmount }
-                  : x));
-              }}
-              style={{ width: "100%" }}
-            >
-              <option value="">Umumiy (butun shartnoma uchun)</option>
-              {products.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.productType} — {p.quantity.toLocaleString()} {p.unit}
-                </option>
-              ))}
-            </select>
           </div>
 
           <div className="atf-field">
@@ -1356,7 +1352,9 @@ function sortTasksWithWarehouseLast(data: ContractTaskResponse[]): ContractTaskR
   return sorted.map((t, i) => ({ ...t, orderNo: i + 1 }));
 }
 
-function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideHeader?: boolean }) {
+function TaskPanel({ scope, hideHeader }: { scope: Scope; hideHeader?: boolean }) {
+  const { contract, product } = scope;
+  const productScopeId = product?.id ?? null;
   const router = useRouter();
   const [tasks, setTasks] = useState<ContractTaskResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1380,28 +1378,32 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
     setLoading(true);
     setShowForm(false);
     setEditingId(null);
+
+    // Bu scope uchun warehouse vazifasi mavjud bo'lmasa — avtomatik yaratamiz.
     contractTaskService.getByContract(contract.id).then(async data => {
       if (ignore) return;
-      const hasWarehouseTask = data.some(t => t.name === WAREHOUSE_TASK_NAME);
+      const scopeTasks = data.filter(t => (t.contractProductId ?? null) === productScopeId);
+      const hasWarehouseTask = scopeTasks.some(t => t.name === WAREHOUSE_TASK_NAME);
       if (!hasWarehouseTask) {
         await contractTaskService.createBulk([{
           contractId: contract.id,
           name: WAREHOUSE_TASK_NAME,
           completedAmount: 0,
-          totalAmount: contract.products?.[0]?.quantity ?? 0,
+          totalAmount: product?.quantity ?? contract.products?.[0]?.quantity ?? 0,
           importance: 100,
+          contractProductId: productScopeId,
         }]);
         if (ignore) return;
         const updated = await contractTaskService.getByContract(contract.id);
         if (ignore) return;
-        setTasks(sortTasksWithWarehouseLast(updated));
+        setTasks(sortTasksWithWarehouseLast(updated.filter(t => (t.contractProductId ?? null) === productScopeId)));
       } else {
-        setTasks(sortTasksWithWarehouseLast(data));
+        setTasks(sortTasksWithWarehouseLast(scopeTasks));
       }
       setLoading(false);
     });
     return () => { ignore = true; };
-  }, [contract.id]);
+  }, [contract.id, productScopeId, product?.quantity, contract.products]);
 
   // Load shipments for this contract from localStorage
   useEffect(() => {
@@ -1413,14 +1415,24 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
     saveShipments(contract.id, next);
   };
 
+  // Faqat shu scope-ga tegishli vazifalarni qaytaradi.
+  const refreshScopeTasks = async () => {
+    const updated = await contractTaskService.getByContract(contract.id);
+    setTasks(sortTasksWithWarehouseLast(updated.filter(t => (t.contractProductId ?? null) === productScopeId)));
+  };
+
   const handleSave = async (
     dataList: Omit<ContractTaskCreatePayload, "contractId">[],
     existingUpdates: { id: string; importance: number }[]
   ) => {
     await Promise.all(existingUpdates.map(u => contractTaskService.update(u.id, { importance: u.importance })));
-    await contractTaskService.createBulk(dataList.map(d => ({ contractId: contract.id, ...d })));
-    const updated = await contractTaskService.getByContract(contract.id);
-    setTasks(sortTasksWithWarehouseLast(updated));
+    // Yangi vazifalar majburan shu scope-ga bog'lanadi.
+    await contractTaskService.createBulk(dataList.map(d => ({
+      ...d,
+      contractId: contract.id,
+      contractProductId: productScopeId,
+    })));
+    await refreshScopeTasks();
     setShowForm(false);
   };
 
@@ -1428,8 +1440,7 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
     const taskToDelete = tasks.find(t => t.id === id);
     if (taskToDelete?.name === WAREHOUSE_TASK_NAME) return;
     await contractTaskService.delete(id);
-    const updated = await contractTaskService.getByContract(contract.id);
-    setTasks(sortTasksWithWarehouseLast(updated));
+    await refreshScopeTasks();
   };
 
   const handleUpdate = async (
@@ -1439,16 +1450,14 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
   ) => {
     await contractTaskService.update(id, dto);
     await Promise.all(otherUpdates.map(u => contractTaskService.update(u.id, { importance: u.importance })));
-    const updated = await contractTaskService.getByContract(contract.id);
-    setTasks(sortTasksWithWarehouseLast(updated));
+    await refreshScopeTasks();
     setEditingId(null);
   };
 
   const handleLogProgress = async (taskId: string, amount: number, note: string) => {
     const today = new Date().toISOString().slice(0, 10);
     await contractTaskService.logProgress(taskId, { amount, note: note || undefined, date: today });
-    const updated = await contractTaskService.getByContract(contract.id);
-    setTasks(sortTasksWithWarehouseLast(updated));
+    await refreshScopeTasks();
     setLoggingId(null);
   };
 
@@ -1715,8 +1724,7 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
             onSave={handleSave}
             onCancel={() => setShowForm(false)}
             existingTasks={tasks}
-            contractQuantity={contract.products?.[0]?.quantity ?? 0}
-            products={contract.products ?? []}
+            scopeQuantity={product?.quantity ?? contract.products?.[0]?.quantity ?? 0}
           />
         </div>
       ) : (
@@ -1755,7 +1763,7 @@ function TaskPanel({ contract, hideHeader }: { contract: ContractResponse; hideH
       {shipmentsTask && (
         <ShipmentsModal
           task={shipmentsTask}
-          unit={contract.products?.[0]?.unit ?? ""}
+          unit={product?.unit ?? contract.products?.[0]?.unit ?? ""}
           initialBatches={shipments}
           onChange={handleShipmentsChange}
           onCancel={() => setShipmentsId(null)}
@@ -1789,9 +1797,9 @@ export default function TasksPage() {
   const hasPermission = useAuthStore(s => s.hasPermission);
   const [contracts, setContracts] = useState<ContractResponse[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<ContractResponse | null>(null);
+  const [selected, setSelected] = useState<Scope | null>(null);
   const [phase, setPhase] = useState<Phase>("grid");
-  const [blockModal, setBlockModal] = useState<ContractResponse | null>(null);
+  const [blockModal, setBlockModal] = useState<Scope | null>(null);
 
   // ─── Filters ────────────────────────────────────────────────────────────────
   const [search, setSearch] = useState("");
@@ -1816,34 +1824,61 @@ export default function TasksPage() {
   }, [filterPanelOpen]);
 
   const filteredContracts = contracts.filter(c => {
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      const matches =
-        c.contractNo.toLowerCase().includes(q) ||
-        c.contractParty.toLowerCase().includes(q) ||
-        (c.products?.some(p => p.productType.toLowerCase().includes(q)) ?? false);
-      if (!matches) return false;
-    }
     if (filterStatus !== "" && String(c.status) !== filterStatus) return false;
     if (filterPriority !== "" && String(c.priority) !== filterPriority) return false;
     return true;
   });
 
-  const handleSelect = async (c: ContractResponse) => {
+  // Har bir kontrakt → 1 yoki bir nechta scope (har bir mahsulot uchun alohida).
+  // Mahsulotsiz kontraktlar → 1 ta Umumiy scope.
+  const allScopes: Scope[] = [];
+  for (const c of filteredContracts) {
+    const products = c.products ?? [];
+    if (products.length === 0) {
+      allScopes.push({ contract: c, product: null });
+    } else {
+      for (const p of products) {
+        allScopes.push({ contract: c, product: p });
+      }
+    }
+  }
+
+  const filteredScopes = allScopes.filter(s => {
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      const matches =
+        s.contract.contractNo.toLowerCase().includes(q) ||
+        s.contract.contractParty.toLowerCase().includes(q) ||
+        (s.product?.productType.toLowerCase().includes(q) ?? false);
+      if (!matches) return false;
+    }
+    return true;
+  });
+
+  const handleSelect = async (s: Scope) => {
     if (phase !== "grid") return;
     const [tpList, cnList] = await Promise.all([
-      techProcessService.getByContract(c.id).catch(() => []),
-      costNormService.getAll(c.id).catch(() => []),
+      techProcessService.getByContract(s.contract.id).catch(() => []),
+      costNormService.getAll(s.contract.id).catch(() => []),
     ]);
-    const tpEffective = tpList.find(tp => tp.status !== ProcessStatus.Pending) ?? null;
-    const tpOk = !!tpEffective && (tpEffective.status === ProcessStatus.Approved || tpEffective.status === ProcessStatus.Completed);
-    const cnEffective = cnList.find(cn => cn.items && cn.items.length > 0) ?? cnList[0] ?? null;
-    const cnOk = !!cnEffective && cnEffective.status === DrawingStatus.Approved;
+
+    // Scope tasdiqlangan hisoblanadi: TP per-product yoki Umumiy va CN per-product yoki Umumiy.
+    const targetId = s.product?.id ?? null;
+    const tpOk = tpList.some(t =>
+      ((t.contractProductId ?? null) === targetId || (t.contractProductId ?? null) === null) &&
+      (t.status === ProcessStatus.Approved || t.status === ProcessStatus.Completed)
+    );
+    const cnOk = cnList.some(n =>
+      ((n.contractProductId ?? null) === targetId || (n.contractProductId ?? null) === null) &&
+      n.status === DrawingStatus.Approved &&
+      (n.items?.length ?? 0) > 0
+    );
+
     if (!tpOk || !cnOk) {
-      setBlockModal(c);
+      setBlockModal(s);
       return;
     }
-    setSelected(c);
+    setSelected(s);
     setPhase("grid-exit");
     setTimeout(() => setPhase("panel"), 280);
   };
@@ -1930,7 +1965,7 @@ export default function TasksPage() {
             </div>
 
             <span style={{ fontSize: 12, color: "var(--text3)", fontWeight: 600, fontFamily: "var(--font-mono)", flexShrink: 0 }}>
-              {filteredContracts.length} / {contracts.length}
+              {filteredScopes.length} / {allScopes.length}
             </span>
 
             {/* Filter dropdown trigger */}
@@ -2075,38 +2110,48 @@ export default function TasksPage() {
             </div>
           </div>
 
-          {filteredContracts.length === 0 ? (
+          {filteredScopes.length === 0 ? (
             <div className="itm-card" style={{ textAlign: "center", padding: 48, color: "var(--text3)" }}>
               <svg width="32" height="32" fill="none" stroke="var(--text3)" strokeWidth="1.5" viewBox="0 0 24 24" style={{ marginBottom: 10 }}>
                 <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
               </svg>
-              <div>Filter bo&apos;yicha shartnoma topilmadi.</div>
+              <div>Filter bo&apos;yicha mahsulot topilmadi.</div>
             </div>
           ) : (
             <div className="tasks-contract-grid">
-              {[...filteredContracts]
+              {[...filteredScopes]
                 .sort((a, b) => {
-                  const aOk = ACTIONABLE_STATUSES.has(a.status) ? 0 : 1;
-                  const bOk = ACTIONABLE_STATUSES.has(b.status) ? 0 : 1;
-                  return aOk - bOk;
+                  const aOk = ACTIONABLE_STATUSES.has(a.contract.status) ? 0 : 1;
+                  const bOk = ACTIONABLE_STATUSES.has(b.contract.status) ? 0 : 1;
+                  if (aOk !== bOk) return aOk - bOk;
+                  // Bir kontrakt ichida — Umumiy oxirida, mahsulotlar productType bo'yicha
+                  if (a.contract.id === b.contract.id) {
+                    if (a.product === null && b.product !== null) return 1;
+                    if (b.product === null && a.product !== null) return -1;
+                    return (a.product?.productType ?? "").localeCompare(b.product?.productType ?? "");
+                  }
+                  return 0;
                 })
-                .map(c => (
-                <ContractCard
-                  key={c.id}
-                  contract={c}
-                  selected={selected?.id === c.id}
-                  isActionable={ACTIONABLE_STATUSES.has(c.status)}
-                  onClick={() => handleSelect(c)}
-                />
-              ))}
+                .map(s => {
+                  const key = scopeKey(s);
+                  return (
+                    <ContractCard
+                      key={key}
+                      scope={s}
+                      selected={selected ? scopeKey(selected) === key : false}
+                      isActionable={ACTIONABLE_STATUSES.has(s.contract.status)}
+                      onClick={() => handleSelect(s)}
+                    />
+                  );
+                })}
             </div>
           )}
         </div>
       ) : (
         /* Panel view (bar + tasks) */
         <div className={`tasks-selected-layout${phase === "panel-exit" ? " tsl-exiting" : ""}`}>
-          <ContractBar contract={selected!} onClick={handleBack} />
-          <TaskPanel key={selected!.id} contract={selected!} hideHeader />
+          <ContractBar scope={selected!} onClick={handleBack} />
+          <TaskPanel key={scopeKey(selected!)} scope={selected!} hideHeader />
         </div>
       )}
 
@@ -2124,7 +2169,10 @@ export default function TasksPage() {
             </div>
             <div className="modal-body">
               <p style={{ fontSize: 14, color: "var(--text2)", marginBottom: 8 }}>
-                <strong style={{ color: "var(--text1)" }}>#{blockModal.contractNo} — {blockModal.contractParty}</strong>
+                <strong style={{ color: "var(--text1)" }}>
+                  #{blockModal.contract.contractNo} — {blockModal.contract.contractParty}
+                  {blockModal.product ? ` · ${blockModal.product.productType}` : " · Umumiy"}
+                </strong>
               </p>
               <p style={{ fontSize: 14, color: "var(--text)", lineHeight: 1.65 }}>
                 Bu shartnoma bo&apos;yicha tex jarayon bo&apos;limidagi umumiy holat hali yakunlanmagan. Vazifalar bo&apos;limiga kirish uchun umumiy holat &ldquo;Yakunlangan&rdquo; bo&apos;lishi kerak.
