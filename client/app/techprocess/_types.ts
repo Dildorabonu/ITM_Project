@@ -31,12 +31,22 @@ export type ColField = "no"|"name"|"unit"|"readyQty"|"wasteQty"|"totalQty"|"phot
 
 // ─── Contract readiness ───────────────────────────────────────────────────────
 
-export interface ContractReadinessItem {
+// Bitta scope = (contract, mahsulot) yoki (contract, Umumiy).
+// contractProductId === null bo'lsa — Umumiy (butun shartnoma uchun).
+export interface ContractReadinessScope {
   contractId: string;
   contractNo: string;
+  contractProductId: string | null;
+  productType: string | null;
+  productQuantity: number | null;
+  productUnit: string | null;
   drawing: TechnicalDrawingResponse | null;
   tp: TechProcessResponse | null;
   cn: CostNormResponse | null;
+}
+
+export function scopeKey(contractId: string, contractProductId: string | null): string {
+  return `${contractId}::${contractProductId ?? "umumiy"}`;
 }
 
 // ─── DOCX column definitions ──────────────────────────────────────────────────
