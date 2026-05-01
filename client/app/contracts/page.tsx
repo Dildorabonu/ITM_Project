@@ -65,6 +65,7 @@ export default function ContractsPage() {
   const [endDateDisp,   setEndDateDisp]   = useState("");
   const [submitted, setSubmitted]       = useState(false);
   const [saving, setSaving]             = useState(false);
+  const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
   const [formError, setFormError]       = useState("");
   const [pendingContractFiles, setPendingContractFiles] = useState<File[]>([]);
   const [pendingTzFiles, setPendingTzFiles]             = useState<File[]>([]);
@@ -373,6 +374,13 @@ export default function ContractsPage() {
     }
   };
 
+  const requestSave = () => {
+    setSubmitted(true);
+    if (!isValid()) return;
+    setFormError("");
+    setConfirmSaveOpen(true);
+  };
+
   // ── Scan ──────────────────────────────────────────────────────────────────
 
   const openScanModal = async (target: "contract" | "tz" = "contract") => {
@@ -470,38 +478,55 @@ export default function ContractsPage() {
 
   if (showForm) {
     return (
-      <ContractForm
-        form={form}
-        setForm={setForm}
-        editTarget={editTarget}
-        startDateDisp={startDateDisp}
-        setStartDateDisp={setStartDateDisp}
-        endDateDisp={endDateDisp}
-        setEndDateDisp={setEndDateDisp}
-        submitted={submitted}
-        saving={saving}
-        formError={formError}
-        pendingContractFiles={pendingContractFiles}
-        setPendingContractFiles={setPendingContractFiles}
-        pendingTzFiles={pendingTzFiles}
-        setPendingTzFiles={setPendingTzFiles}
-        formUsers={formUsers}
-        setFormUsers={setFormUsers}
-        formSupervisors={formSupervisors}
-        setFormSupervisors={setFormSupervisors}
-        formObservers={formObservers}
-        setFormObservers={setFormObservers}
-        openPickerIdx={openPickerIdx}
-        setOpenPickerIdx={setOpenPickerIdx}
-        pickerRef={pickerRef}
-        allUsers={allUsers}
-        departments={departments}
-        handleSave={handleSave}
-        openScanModal={openScanModal}
-        onCancel={() => { setShowForm(false); setPendingContractFiles([]); setPendingTzFiles([]); setFormUsers([]); }}
-        canCreate={canCreate}
-        canUpdate={canUpdate}
-      />
+      <>
+        <ContractForm
+          form={form}
+          setForm={setForm}
+          editTarget={editTarget}
+          startDateDisp={startDateDisp}
+          setStartDateDisp={setStartDateDisp}
+          endDateDisp={endDateDisp}
+          setEndDateDisp={setEndDateDisp}
+          submitted={submitted}
+          saving={saving}
+          formError={formError}
+          pendingContractFiles={pendingContractFiles}
+          setPendingContractFiles={setPendingContractFiles}
+          pendingTzFiles={pendingTzFiles}
+          setPendingTzFiles={setPendingTzFiles}
+          formUsers={formUsers}
+          setFormUsers={setFormUsers}
+          formSupervisors={formSupervisors}
+          setFormSupervisors={setFormSupervisors}
+          formObservers={formObservers}
+          setFormObservers={setFormObservers}
+          openPickerIdx={openPickerIdx}
+          setOpenPickerIdx={setOpenPickerIdx}
+          pickerRef={pickerRef}
+          allUsers={allUsers}
+          departments={departments}
+          handleSave={requestSave}
+          openScanModal={openScanModal}
+          onCancel={() => { setShowForm(false); setPendingContractFiles([]); setPendingTzFiles([]); setFormUsers([]); }}
+          canCreate={canCreate}
+          canUpdate={canUpdate}
+        />
+        <ConfirmModal
+          open={confirmSaveOpen}
+          variant="warn"
+          title="Shartnomani saqlash"
+          message={
+            editTarget
+              ? "Shartnomadagi o'zgarishlarni saqlashni tasdiqlaysizmi?"
+              : "Yangi shartnoma yaratilsinmi? Maydonlarni qaytadan tekshirib chiqing."
+          }
+          confirmLabel="Saqlash"
+          loadingLabel="Saqlanmoqda..."
+          loading={saving}
+          onConfirm={async () => { await handleSave(); setConfirmSaveOpen(false); }}
+          onCancel={() => { if (!saving) setConfirmSaveOpen(false); }}
+        />
+      </>
     );
   }
 

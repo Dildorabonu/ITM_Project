@@ -159,21 +159,6 @@ export function ContractForm({
             />
           </div>
 
-          {/* Bo'limlar */}
-          <div style={{ gridColumn: "1 / -1" }}>
-            <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: deptErr ? "var(--danger)" : "var(--text2)" }}>
-              Bo&apos;limlar <span style={{ color: "var(--danger)" }}>*</span>
-            </label>
-            <CustomGroupedMultiSelect
-              values={form.departmentIds}
-              onChange={v => setForm(f => ({ ...f, departmentIds: v }))}
-              departments={departments}
-              placeholder="— Bo'limlar tanlang (bir nechta) —"
-              hasError={deptErr}
-            />
-            {deptErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Kamida bitta bo&apos;limni tanlang</div>}
-          </div>
-
           {/* Mahsulotlar — bir nechta qatorda */}
           <div style={{ gridColumn: "1 / -1" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
@@ -274,12 +259,19 @@ export function ContractForm({
             </div>
           </div>
 
-          {/* Izoh */}
+          {/* Bo'limlar */}
           <div style={{ gridColumn: "1 / -1" }}>
-            <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Izoh</label>
-            <textarea className="form-input" value={form.notes}
-              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-              placeholder="Qo'shimcha izoh (ixtiyoriy)" rows={2} style={{ resize: "none" }} />
+            <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: deptErr ? "var(--danger)" : "var(--text2)" }}>
+              Bo&apos;limlar <span style={{ color: "var(--danger)" }}>*</span>
+            </label>
+            <CustomGroupedMultiSelect
+              values={form.departmentIds}
+              onChange={v => setForm(f => ({ ...f, departmentIds: v }))}
+              departments={departments}
+              placeholder="— Bo'limlar tanlang (bir nechta) —"
+              hasError={deptErr}
+            />
+            {deptErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Kamida bitta bo&apos;limni tanlang</div>}
           </div>
 
           {/* Xodimlar - 3 ta toifa */}
@@ -552,6 +544,14 @@ export function ContractForm({
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Izoh */}
+          <div style={{ gridColumn: "1 / -1" }}>
+            <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Izoh</label>
+            <textarea className="form-input" value={form.notes}
+              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+              placeholder="Qo'shimcha izoh (ixtiyoriy)" rows={2} style={{ resize: "none" }} />
           </div>
         </div>
       </div>
