@@ -2,59 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { useDraft } from "@/lib/useDraft";
 import {
   manufacturedProductService,
   departmentService,
-  contractService,
   ManufacturingStatus,
   MANUFACTURING_STATUS_LABELS,
-  ProductUnit,
   PRODUCT_UNIT_LABELS,
   type ManufacturedProductResponse,
-  type ManufacturedProductCreatePayload,
-  type ManufacturedProductUpdatePayload,
   type ManufacturedProductStats,
   type DepartmentOption,
-  type ContractResponse,
 } from "@/lib/userService";
-import { useAuthStore } from "@/lib/store/authStore";
-import { ConfirmModal } from "@/app/_components/ConfirmModal";
 import { CheckSelect } from "@/app/_components/CheckSelect";
-
-interface ProductForm {
-  name: string;
-  code: string;
-  description: string;
-  quantity: string;
-  producedQuantity: string;
-  unit: string;
-  status: string;
-  departmentId: string;
-  contractId: string;
-  notes: string;
-}
-
-const emptyForm: ProductForm = {
-  name: "", code: "", description: "",
-  quantity: "", producedQuantity: "",
-  unit: String(ProductUnit.Dona), status: String(ManufacturingStatus.InProgress),
-  departmentId: "", contractId: "", notes: "",
-};
-
-const UNIT_OPTIONS = (Object.keys(PRODUCT_UNIT_LABELS) as unknown as ProductUnit[]).map(key => ({
-  id: String(key),
-  name: PRODUCT_UNIT_LABELS[key],
-}));
-
-const STATUS_OPTIONS = [
-  { id: String(ManufacturingStatus.InProgress), name: MANUFACTURING_STATUS_LABELS[ManufacturingStatus.InProgress] },
-  { id: String(ManufacturingStatus.Completed),  name: MANUFACTURING_STATUS_LABELS[ManufacturingStatus.Completed] },
-];
 
 const STATUS_FILTER_OPTIONS = [
   { id: "", name: "Barcha holatlar" },
-  ...STATUS_OPTIONS,
+  { id: String(ManufacturingStatus.InProgress), name: MANUFACTURING_STATUS_LABELS[ManufacturingStatus.InProgress] },
+  { id: String(ManufacturingStatus.Completed),  name: MANUFACTURING_STATUS_LABELS[ManufacturingStatus.Completed] },
 ];
 
 function StatusBadge({ status }: { status: ManufacturingStatus }) {
@@ -101,11 +64,6 @@ function ProgressBar({ produced, total }: { produced: number; total: number }) {
 }
 
 export default function ManufacturedProductsPage() {
-  const hasPermission = useAuthStore(s => s.hasPermission);
-  const canCreate = hasPermission("ManufacturedProducts.Create");
-  const canUpdate = hasPermission("ManufacturedProducts.Update");
-  const canDelete = hasPermission("ManufacturedProducts.Delete");
-
   const [products, setProducts] = useState<ManufacturedProductResponse[]>([]);
   const [stats, setStats] = useState<ManufacturedProductStats>({ total: 0, inProgress: 0, completed: 0 });
   const [page, setPage] = useState(1);
@@ -117,29 +75,9 @@ export default function ManufacturedProductsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [departments, setDepartments] = useState<DepartmentOption[]>([]);
-  const [contracts, setContracts] = useState<ContractResponse[]>([]);
-
-  // Form state
-  const [showForm, setShowForm] = useState(false);
-  const [editTarget, setEditTarget] = useState<ManufacturedProductResponse | null>(null);
-  const [form, setForm] = useState<ProductForm>(emptyForm);
-  const [formSubmitted, setFormSubmitted] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState("");
 
   // View drawer
   const [viewProduct, setViewProduct] = useState<ManufacturedProductResponse | null>(null);
-
-  // Delete confirm
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
-
-  useDraft(
-    "draft_manufactured",
-    showForm,
-    { form, editTarget },
-    (d) => { setForm(d.form); setEditTarget(d.editTarget); setShowForm(true); },
-  );
 
   useEffect(() => {
     if (viewProduct) document.body.style.overflow = "hidden";
@@ -179,256 +117,11 @@ export default function ManufacturedProductsPage() {
     load();
     loadStats();
     departmentService.getAll().then(setDepartments).catch(() => {});
-    contractService.getAll().then(setContracts).catch(() => setContracts([]));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [page, search, filterDept, filterStatus]);
-
-  useEffect(() => {
-    if (!showForm) return;
-    const handlePopState = () => setShowForm(false);
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, [showForm]);
-
-  const openCreate = () => {
-    setEditTarget(null);
-    setForm(emptyForm);
-    setFormSubmitted(false);
-    setFormError("");
-    window.history.pushState({ showForm: true }, "");
-    setShowForm(true);
-  };
-
-  const openEdit = (p: ManufacturedProductResponse) => {
-    setEditTarget(p);
-    setForm({
-      name: p.name,
-      code: p.code ?? "",
-      description: p.description ?? "",
-      quantity: String(p.quantity),
-      producedQuantity: String(p.producedQuantity),
-      unit: String(p.unit),
-      status: String(p.status),
-      departmentId: p.departmentId,
-      contractId: p.contractId ?? "",
-      notes: p.notes ?? "",
-    });
-    setFormSubmitted(false);
-    setFormError("");
-    window.history.pushState({ showForm: true }, "");
-    setShowForm(true);
-  };
-
-  const handleSave = async () => {
-    setFormSubmitted(true);
-    setFormError("");
-
-    if (!form.name.trim() || !form.departmentId || form.quantity === "") return;
-
-    const qty = Number(form.quantity);
-    const produced = form.producedQuantity !== "" ? Number(form.producedQuantity) : 0;
-
-    if (Number.isNaN(qty) || qty < 0) { setFormError("Umumiy miqdor noto'g'ri."); return; }
-    if (Number.isNaN(produced) || produced < 0) { setFormError("Ishlab chiqarilgan soni noto'g'ri."); return; }
-    if (produced > qty) { setFormError("Ishlab chiqarilgan soni umumiy miqdordan ko'p bo'lishi mumkin emas."); return; }
-
-    setSaving(true);
-    try {
-      const status = Number(form.status) as ManufacturingStatus;
-      const unit = Number(form.unit) as ProductUnit;
-
-      if (editTarget) {
-        const payload: ManufacturedProductUpdatePayload = {
-          name: form.name,
-          code: form.code || null,
-          description: form.description || null,
-          quantity: qty,
-          producedQuantity: produced,
-          unit,
-          status,
-          departmentId: form.departmentId,
-          contractId: form.contractId || null,
-          notes: form.notes || null,
-        };
-        await manufacturedProductService.update(editTarget.id, payload);
-      } else {
-        const payload: ManufacturedProductCreatePayload = {
-          name: form.name,
-          code: form.code || null,
-          description: form.description || null,
-          quantity: qty,
-          producedQuantity: produced,
-          unit,
-          status,
-          departmentId: form.departmentId,
-          contractId: form.contractId || null,
-          notes: form.notes || null,
-        };
-        await manufacturedProductService.create(payload);
-      }
-
-      setShowForm(false);
-      await Promise.all([load(), loadStats()]);
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
-      setFormError(msg ?? "Saqlashda xatolik yuz berdi.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    setDeleting(true);
-    try {
-      await manufacturedProductService.delete(deleteId);
-      setDeleteId(null);
-      await Promise.all([load(), loadStats()]);
-    } catch {
-      // stay open on error
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  /* ===== Form view ===== */
-  if (showForm) {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>
-            {editTarget ? "Mahsulotni tahrirlash" : "Yangi mahsulot"}
-          </span>
-        </div>
-
-        <div className="itm-card" style={{ padding: 28 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-            <div style={{ gridColumn: "1 / -1" }}>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !form.name.trim() ? "var(--danger)" : "var(--text2)" }}>
-                Mahsulot nomi <span style={{ color: "var(--danger)" }}>*</span>
-              </label>
-              <input className="form-input" value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="Mahsulot nomini kiriting"
-                style={formSubmitted && !form.name.trim() ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : undefined}
-              />
-              {formSubmitted && !form.name.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Mahsulot nomini kiriting</div>}
-            </div>
-
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Artikul / Kod</label>
-              <input className="form-input" value={form.code}
-                onChange={e => setForm(f => ({ ...f, code: e.target.value }))}
-                placeholder="ITM-2026-001 (ixtiyoriy)" />
-            </div>
-
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !form.departmentId ? "var(--danger)" : "var(--text2)" }}>
-                Sex / Bo&apos;lim <span style={{ color: "var(--danger)" }}>*</span>
-              </label>
-              <CheckSelect
-                value={form.departmentId}
-                onChange={v => setForm(f => ({ ...f, departmentId: v }))}
-                options={departments.map(d => ({ id: d.id, name: d.name }))}
-                placeholder="— Bo'lim tanlang —"
-                error={formSubmitted && !form.departmentId}
-              />
-              {formSubmitted && !form.departmentId && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Bo&apos;limni tanlang</div>}
-            </div>
-
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && form.quantity === "" ? "var(--danger)" : "var(--text2)" }}>
-                Umumiy miqdor <span style={{ color: "var(--danger)" }}>*</span>
-              </label>
-              <input className="form-input" type="number" min="0" step="any" value={form.quantity}
-                onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))}
-                onWheel={e => (e.target as HTMLInputElement).blur()} placeholder="0"
-                style={formSubmitted && form.quantity === "" ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : undefined}
-              />
-            </div>
-
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Ishlab chiqarilgan soni</label>
-              <input className="form-input" type="number" min="0" step="any" value={form.producedQuantity}
-                onChange={e => setForm(f => ({ ...f, producedQuantity: e.target.value }))}
-                onWheel={e => (e.target as HTMLInputElement).blur()} placeholder="0" />
-            </div>
-
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>O&apos;lchov birligi</label>
-              <CheckSelect
-                value={form.unit}
-                onChange={v => setForm(f => ({ ...f, unit: v }))}
-                options={UNIT_OPTIONS}
-                placeholder="— Tanlang —"
-              />
-            </div>
-
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Holati</label>
-              <CheckSelect
-                value={form.status}
-                onChange={v => setForm(f => ({ ...f, status: v }))}
-                options={STATUS_OPTIONS}
-                placeholder="— Tanlang —"
-              />
-            </div>
-
-            <div style={{ gridColumn: "1 / -1" }}>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Bog&apos;liq shartnoma</label>
-              <CheckSelect
-                value={form.contractId}
-                onChange={v => setForm(f => ({ ...f, contractId: v }))}
-                options={[
-                  { id: "", name: "— Yo'q —" },
-                  ...contracts.map(c => ({ id: c.id, name: `${c.contractNo} — ${c.contractParty}` })),
-                ]}
-                placeholder="— Tanlang —"
-              />
-            </div>
-
-            <div style={{ gridColumn: "1 / -1" }}>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Tavsif</label>
-              <textarea className="form-input" value={form.description}
-                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                placeholder="Mahsulot tavsifini kiriting (ixtiyoriy)" rows={2} style={{ resize: "vertical" }} />
-            </div>
-
-            <div style={{ gridColumn: "1 / -1" }}>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Izoh</label>
-              <textarea className="form-input" value={form.notes}
-                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-                placeholder="Qo'shimcha izoh (ixtiyoriy)" rows={2} style={{ resize: "vertical" }} />
-            </div>
-          </div>
-        </div>
-
-        {formError && (
-          <div style={{ padding: "10px 14px", borderRadius: 8, background: "var(--danger-dim)", border: "1px solid var(--danger)44", color: "var(--danger)", fontSize: 13 }}>
-            {formError}
-          </div>
-        )}
-
-        <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 8 }}>
-          <button onClick={() => setShowForm(false)} style={{ background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", padding: "10px 24px", color: "var(--text2)", fontSize: 14, fontWeight: 500 }}>
-            Bekor qilish
-          </button>
-          <button className="btn-primary" onClick={handleSave} disabled={saving}
-            style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-              <polyline points="17 21 17 13 7 13 7 21" />
-              <polyline points="7 3 7 8 15 8" />
-            </svg>
-            {saving ? "Saqlanmoqda..." : "Saqlash"}
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   /* ===== List view ===== */
   return (
@@ -509,18 +202,23 @@ export default function ManufacturedProductsPage() {
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
           </svg>
         </button>
-        {canCreate && (
-          <button
-            className="btn-primary"
-            onClick={openCreate}
-            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "none", cursor: "pointer" }}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            Yaratish
-          </button>
-        )}
+      </div>
+
+      {/* Info banner — explains auto-derivation */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 10,
+        padding: "10px 14px", marginBottom: 12,
+        background: "var(--accent-dim)", border: "1px solid var(--accent)33",
+        borderRadius: "var(--radius)", fontSize: 12, color: "var(--text2)",
+      }}>
+        <svg width="14" height="14" fill="none" stroke="var(--accent)" strokeWidth="2" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+        <span>
+          Ushbu ro&apos;yxat avtomatik tarzda shartnoma vazifalaridan to&apos;ldiriladi.
+          Vazifalarda ishlab chiqarish jarayoni boshlangan mahsulotlar shu yerda paydo bo&apos;ladi;
+          shartnoma yakunlangan yoki bekor qilinganda ro&apos;yxatdan chiqib ketadi.
+        </span>
       </div>
 
       {/* Table */}
@@ -578,27 +276,6 @@ export default function ManufacturedProductsPage() {
                             <circle cx="12" cy="12" r="3" />
                           </svg>
                         </button>
-                        {canUpdate && (
-                          <button className="btn-icon" title="Tahrirlash" onClick={() => openEdit(p)}
-                            style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                            </svg>
-                          </button>
-                        )}
-                        {canDelete && (
-                          <button className="btn-icon btn-icon-danger" title="O'chirish"
-                            style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}
-                            onClick={() => setDeleteId(p.id)}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <polyline points="3 6 5 6 21 6" />
-                              <path d="M19 6l-1 14H6L5 6" />
-                              <path d="M10 11v6M14 11v6" />
-                              <path d="M9 6V4h6v2" />
-                            </svg>
-                          </button>
-                        )}
                       </div>
                     </td>
                   </tr>
@@ -764,16 +441,6 @@ export default function ManufacturedProductsPage() {
         </div>,
         document.body
       )}
-
-      {/* Delete confirm */}
-      <ConfirmModal
-        open={!!deleteId}
-        title="Mahsulotni o'chirish"
-        message="Ushbu ishlab chiqarilgan mahsulot yozuvi o'chiriladi. Davom etasizmi?"
-        loading={deleting}
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteId(null)}
-      />
     </div>
   );
 }
