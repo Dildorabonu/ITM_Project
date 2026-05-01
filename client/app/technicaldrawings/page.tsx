@@ -89,17 +89,26 @@ export default function TechnicalDrawingsPage() {
       const usedProductIds = new Set(
         drawings.map((d) => d.contractProductId).filter((id): id is string => !!id)
       );
-      // Mahsulotlar bor → har biri uchun chizma kerak, Umumiy variant yo'q.
-      // Mahsulotsiz shartnoma → bitta Umumiy chizma yetadi.
-      const fullyCovered = products.length > 0
-        ? products.every((p) => usedProductIds.has(p.id))
-        : drawings.length > 0;
 
       for (const d of drawings) {
         rows.push({ kind: "drawing", drawing: d });
       }
-      if (!fullyCovered) {
-        rows.push({ kind: "empty", contract, existingCount: drawings.length });
+
+      // Mahsulotlar bor → har bir qoplanmagan mahsulot uchun alohida bo'sh qator.
+      // Mahsulotsiz shartnoma → bitta Umumiy bo'sh qator (chizma yo'q bo'lsa).
+      if (products.length > 0) {
+        for (const p of products) {
+          if (!usedProductIds.has(p.id)) {
+            rows.push({
+              kind: "empty",
+              contract,
+              existingCount: drawings.length,
+              product: { id: p.id, productType: p.productType, quantity: p.quantity, unit: p.unit },
+            });
+          }
+        }
+      } else if (drawings.length === 0) {
+        rows.push({ kind: "empty", contract, existingCount: 0, product: null });
       }
     }
     for (const d of list) {
@@ -119,7 +128,9 @@ export default function TechnicalDrawingsPage() {
       const matchSearch =
         q.length === 0 ||
         contractNo.includes(q) ||
-        (row.kind === "drawing" && row.drawing.title.toLowerCase().includes(q));
+        (row.kind === "drawing" && row.drawing.title.toLowerCase().includes(q)) ||
+        (row.kind === "drawing" && (row.drawing.productType ?? "").toLowerCase().includes(q)) ||
+        (row.kind === "empty" && (row.product?.productType ?? "").toLowerCase().includes(q));
 
       if (filterStatus === "no_drawing") return matchSearch && row.kind === "empty";
 
@@ -178,23 +189,24 @@ export default function TechnicalDrawingsPage() {
 
   // ── Create ────────────────────────────────────────────────────────────────
 
-  const openCreate = (contract: ContractResponse) => {
+  const openCreate = (contract: ContractResponse, productId: string | null) => {
     const drawings = list.filter((d) => d.contractId === contract.id);
     const usedIds = new Set(
       drawings.map((d) => d.contractProductId).filter((id): id is string => !!id)
     );
     const products = contract.products ?? [];
-    const remaining = products.filter((p) => !usedIds.has(p.id));
 
-    // Mahsulotlar bor va hammasi qoplangan → yangi yaratish kerak emas.
-    // Mahsulotsiz shartnoma uchun bitta Umumiy chizma yetadi.
-    if (products.length > 0 && remaining.length === 0) return;
-    if (products.length === 0 && drawings.length > 0) return;
+    if (productId) {
+      if (!products.some((p) => p.id === productId) || usedIds.has(productId)) return;
+    } else {
+      if (products.length > 0) return;
+      if (drawings.length > 0) return;
+    }
 
     setCreateContract(contract);
     setCreateForm({
       ...emptyDrawingForm,
-      contractProductId: products.length > 0 ? remaining[0].id : "",
+      contractProductId: productId ?? "",
     });
     setCreateSubmitted(false);
     window.history.pushState(null, "");
@@ -368,10 +380,6 @@ export default function TechnicalDrawingsPage() {
   // ── Render: Create form ───────────────────────────────────────────────────
 
   if (showCreateForm && createContract) {
-    const contractDrawings = list.filter((d) => d.contractId === createContract.id);
-    const usedProductIds = new Set(
-      contractDrawings.map((d) => d.contractProductId).filter((id): id is string => !!id)
-    );
     return (
       <>
         <DrawingForm
@@ -383,7 +391,6 @@ export default function TechnicalDrawingsPage() {
           saving={createSaving}
           onSave={handleCreateSave}
           onCancel={() => setShowCreateForm(false)}
-          usedProductIds={usedProductIds}
         />
         {draftWarningModal}
         {approveConfirmModal}
@@ -530,7 +537,7 @@ export default function TechnicalDrawingsPage() {
                   <tr>
                     <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
                     <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Shartnoma</th>
-                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Nomi</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Mahsulot</th>
                     <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Yaratuvchi</th>
                     <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Status</th>
                     <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Sana</th>
@@ -549,14 +556,17 @@ export default function TechnicalDrawingsPage() {
                     filtered.map((row, i) => {
                       if (row.kind === "empty") {
                         const c = row.contract;
-                        const badgeText = row.existingCount > 0 ? "Yana chizma kerak" : "Chizma yo'q";
+                        const product = row.product;
+                        const rowKey = `empty-${c.id}-${product?.id ?? "general"}`;
                         return (
-                          <tr key={`empty-${c.id}`} className="td-row-empty">
+                          <tr key={rowKey} className="td-row-empty">
                             <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px", color: "var(--danger)", fontWeight: 700 }}>
                               {String(i + 1).padStart(2, "0")}
                             </td>
                             <td style={{ textAlign: "center", fontSize: 13, color: "var(--text1)", fontWeight: 600 }}>{c.contractNo}</td>
-                            <td style={{ textAlign: "center", color: "var(--text3)", fontSize: 13 }}>—</td>
+                            <td style={{ textAlign: "center", maxWidth: 220, color: "var(--text1)", fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {product ? product.productType : "Umumiy"}
+                            </td>
                             <td style={{ textAlign: "center", color: "var(--text3)", fontSize: 13 }}>—</td>
                             <td style={{ textAlign: "center" }}>
                               <span
@@ -571,7 +581,7 @@ export default function TechnicalDrawingsPage() {
                                   width: 6, height: 6, borderRadius: "50%",
                                   background: "currentColor",
                                 }} />
-                                {badgeText}
+                                Chizma yo&apos;q
                               </span>
                             </td>
                             <td style={{ textAlign: "center", fontSize: 13, color: "var(--text1)" }}>{fmtDate(c.createdAt)}</td>
@@ -581,7 +591,7 @@ export default function TechnicalDrawingsPage() {
                                 {canCreate && (
                                   <button
                                     className="btn-icon"
-                                    onClick={() => openCreate(c)}
+                                    onClick={() => openCreate(c, product?.id ?? null)}
                                     title="Chizma yaratish"
                                     style={{ color: "var(--accent)", borderColor: "var(--accent)33", background: "var(--accent-dim)", width: 28, height: 28, fontSize: 18, fontWeight: 400, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
                                   >
@@ -610,9 +620,11 @@ export default function TechnicalDrawingsPage() {
                             </button>
                           </td>
                           <td style={{ textAlign: "center", maxWidth: 220, color: "var(--text1)" }}>
-                            <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
-                            <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13 }}>
                               {item.productType ? item.productType : "Umumiy"}
+                            </div>
+                            <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {item.title}
                             </div>
                           </td>
                           <td style={{ textAlign: "center", fontSize: 13, color: "var(--text1)", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
