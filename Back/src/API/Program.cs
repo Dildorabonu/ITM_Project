@@ -150,6 +150,24 @@ namespace API
 
             await app.Services.ApplyMigrationsAsync();
 
+            // Mavjud ishlab chiqarishdagi shartnomalar uchun ManufacturedProducts jadvalini
+            // bir martalik sinxronlash — yangi sync logikasi ishga tushishidan oldin tasdiqlangan
+            // mahsulotlar uchun yozuv yo'q bo'lishi mumkin.
+            using (var scope = app.Services.CreateScope())
+            {
+                var ctx = scope.ServiceProvider.GetRequiredService<DatabaseContext>();
+                var syncService = scope.ServiceProvider.GetRequiredService<IManufacturedProductService>();
+
+                var contractIds = await ctx.Contracts
+                    .Where(c => c.IsActive &&
+                                (c.Status == ContractStatus.InProduction || c.Status == ContractStatus.Completed))
+                    .Select(c => c.Id)
+                    .ToListAsync();
+
+                foreach (var cid in contractIds)
+                    await syncService.SyncForContractAsync(cid);
+            }
+
             // Pre-warm user lookup cache so first request is instant
             using (var scope = app.Services.CreateScope())
             {

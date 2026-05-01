@@ -17,6 +17,7 @@ public class ManufacturedProductConfiguration : IEntityTypeConfiguration<Manufac
 
         builder.HasIndex(p => p.Status);
         builder.HasIndex(p => p.DepartmentId);
+        builder.HasIndex(p => p.ContractProductId).IsUnique();
 
         builder.HasOne(p => p.Department)
             .WithMany()
@@ -27,6 +28,11 @@ public class ManufacturedProductConfiguration : IEntityTypeConfiguration<Manufac
             .WithMany()
             .HasForeignKey(p => p.ContractId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne(p => p.ContractProduct)
+            .WithMany()
+            .HasForeignKey(p => p.ContractProductId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasOne(p => p.Creator)
             .WithMany()

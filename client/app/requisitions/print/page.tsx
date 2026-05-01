@@ -14,7 +14,9 @@ import {
   ProductUnit,
   PRODUCT_UNIT_LABELS_CYR,
   type ContractResponse,
+  type ContractProductResponse,
   type DepartmentResponse,
+  type CostNormResponse,
 } from "@/lib/userService";
 import { CheckSelect } from "../_components/CheckSelect";
 
@@ -283,41 +285,73 @@ function RequisitionPrintContent() {
   const [tzFile, setTzFile] = useState<File | null>(null);
   const tzInputRef = useRef<HTMLInputElement>(null);
 
-  const fillFromNorm = async () => {
+  const [normPickerOpen, setNormPickerOpen] = useState(false);
+
+  const applyNorm = (norm: CostNormResponse) => {
+    const qty = norm.contractQuantity;
+    // Bo'lim sarlavhalarini va butunlay bo'sh qatorlarni chiqaramiz; totalQty
+    // to'ldirilmagan bo'lsa ham, agar nom yoki raqami bo'lsa qator ko'chiriladi.
+    const lines = norm.items.filter(i => !i.isSection && (i.name || i.no));
+    if (!lines.length) { showToast("Me'yoriy sarfda material qatorlari topilmadi", "Xatolik"); return; }
+    const newRows = lines.map((ni, idx) => {
+      const totalQtyNum = ni.totalQty ? parseFloat(ni.totalQty.replace(",", ".")) : NaN;
+      return {
+        id: Date.now() + idx,
+        name: ni.name ?? ni.no ?? "",
+        unit: ni.unit ?? "",
+        quantity: Number.isFinite(totalQtyNum) ? String(totalQtyNum * qty) : "",
+        spec: "",
+        notes: "",
+        image: ni.photoRaw ?? ni.photoSemi ?? "",
+        imageFile: null,
+      };
+    });
+    setRows(newRows);
+    showToast(`Me'yoriy sarfdan ${newRows.length} ta qator to'ldirildi`, "success");
+  };
+
+  const fetchAndApplyNorm = async (productId?: string, productLabel?: string) => {
     if (!contractId) return;
     setNormLoading(true);
     try {
       const norms = await costNormService.getAll(contractId);
+      const candidates = productId
+        ? norms.filter(n => n.contractProductId === productId)
+        : norms;
+      if (!candidates.length) {
+        const target = productLabel ? `"${productLabel}"` : "Bu shartnoma";
+        showToast(`${target} uchun me'yoriy sarf topilmadi`, "Xatolik");
+        return;
+      }
       const norm =
-        norms.find(n => n.isActive && n.status === DrawingStatus.Approved) ??
-        norms.find(n => n.isActive) ??
-        norms[0];
-      if (!norm) { showToast("Bu shartnoma uchun me'yoriy sarf topilmadi", "Xatolik"); return; }
-      const qty = norm.contractQuantity;
-      // Bo'lim sarlavhalarini va butunlay bo'sh qatorlarni chiqaramiz; totalQty
-      // to'ldirilmagan bo'lsa ham, agar nom yoki raqami bo'lsa qator ko'chiriladi.
-      const lines = norm.items.filter(i => !i.isSection && (i.name || i.no));
-      if (!lines.length) { showToast("Me'yoriy sarfda material qatorlari topilmadi", "Xatolik"); return; }
-      const newRows = lines.map((ni, idx) => {
-        const totalQtyNum = ni.totalQty ? parseFloat(ni.totalQty.replace(",", ".")) : NaN;
-        return {
-          id: Date.now() + idx,
-          name: ni.name ?? ni.no ?? "",
-          unit: ni.unit ?? "",
-          quantity: Number.isFinite(totalQtyNum) ? String(totalQtyNum * qty) : "",
-          spec: "",
-          notes: "",
-          image: ni.photoRaw ?? ni.photoSemi ?? "",
-          imageFile: null,
-        };
-      });
-      setRows(newRows);
-      showToast(`Me'yoriy sarfdan ${newRows.length} ta qator to'ldirildi`, "success");
+        candidates.find(n => n.isActive && n.status === DrawingStatus.Approved) ??
+        candidates.find(n => n.isActive) ??
+        candidates[0];
+      applyNorm(norm);
     } catch {
       showToast("Me'yoriy sarf yuklanmadi", "Xatolik");
     } finally {
       setNormLoading(false);
     }
+  };
+
+  const fillFromNorm = async () => {
+    if (!contractId) return;
+    const contract = contracts.find(c => c.id === contractId);
+    const products = contract?.products ?? [];
+    if (products.length >= 2) {
+      // Ko'p mahsulotli shartnoma — qaysi mahsulot bo'yicha to'ldirishni
+      // foydalanuvchi tanlaydi. Me'yor mavjud-mavjud emasligi tanlovdan keyin
+      // tekshiriladi (yo'q bo'lsa toast ko'rsatamiz).
+      setNormPickerOpen(true);
+      return;
+    }
+    await fetchAndApplyNorm();
+  };
+
+  const handleProductPick = (product: ContractProductResponse) => {
+    setNormPickerOpen(false);
+    fetchAndApplyNorm(product.id, product.productType);
   };
 
   useEffect(() => {
@@ -981,7 +1015,7 @@ function RequisitionPrintContent() {
           {/* — Yakuniy amal (yagona primary purple) — */}
           <button
             onClick={handleSaveSystem}
-            disabled={savingSystem || confirmOpen || nameModalOpen}
+            disabled={savingSystem || confirmOpen || nameModalOpen || normPickerOpen}
             onMouseEnter={e => { if (!savingSystem) e.currentTarget.style.opacity = "0.85"; }}
             onMouseLeave={e => { e.currentTarget.style.opacity = savingSystem ? "0.7" : "1"; }}
             style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: savingSystem ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, opacity: savingSystem ? 0.7 : 1, transition: "opacity 0.15s" }}
@@ -1290,6 +1324,51 @@ function RequisitionPrintContent() {
           );
         })}
       </div>
+      {normPickerOpen && createPortal(
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 99999 }}>
+          <div style={{ background: "var(--bg2)", borderRadius: 14, padding: 24, width: 520, maxWidth: "90vw", maxHeight: "80vh", boxShadow: "var(--shadow2)", display: "flex", flexDirection: "column" }}>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6, color: "var(--text1)" }}>Mahsulotni tanlang</div>
+            <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 16, lineHeight: 1.5 }}>
+              Bu shartnomada bir nechta mahsulot bor. Qaysi mahsulot bo&apos;yicha me&apos;yoriy sarfdan to&apos;ldirishni tanlang.
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, overflowY: "auto", paddingRight: 4 }}>
+              {(contracts.find(c => c.id === contractId)?.products ?? []).map(product => (
+                <button
+                  key={product.id}
+                  onClick={() => handleProductPick(product)}
+                  style={{
+                    display: "flex", flexDirection: "column", gap: 6, alignItems: "stretch",
+                    padding: "12px 14px", textAlign: "left", cursor: "pointer",
+                    background: "var(--bg3)", border: "1.5px solid var(--border)",
+                    borderRadius: "var(--radius)", transition: "border-color 0.15s, background 0.15s",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.background = "var(--accent-dim)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "var(--bg3)"; }}
+                >
+                  <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text)" }}>
+                    {product.productType}
+                  </div>
+                  <div style={{ display: "flex", gap: 14, fontSize: 12, color: "var(--text3)", fontFamily: "var(--font-mono)" }}>
+                    <span>Soni: {product.quantity} {product.unit}</span>
+                    {product.notes && <><span>•</span><span>{product.notes}</span></>}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: "flex", marginTop: 18 }}>
+              <button
+                onClick={() => setNormPickerOpen(false)}
+                style={{ flex: 1, padding: "9px", background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, color: "var(--text2)" }}
+              >
+                Bekor
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
       {nameModalOpen && createPortal(
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 99999 }}>
           <div style={{ background: "var(--bg2)", borderRadius: 14, padding: 28, width: 460, maxWidth: "90vw", minHeight: 240, boxShadow: "var(--shadow2)", display: "flex", flexDirection: "column" }}>

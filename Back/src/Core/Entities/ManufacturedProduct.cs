@@ -14,6 +14,7 @@ public class ManufacturedProduct
     public ManufacturingStatus Status { get; set; } = ManufacturingStatus.InProgress;
     public Guid DepartmentId { get; set; }
     public Guid? ContractId { get; set; }
+    public Guid? ContractProductId { get; set; }
     public DateTime? StartedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public string? Notes { get; set; }
@@ -23,5 +24,6 @@ public class ManufacturedProduct
     // Navigation properties
     public Department? Department { get; set; }
     public Contract? Contract { get; set; }
+    public ContractProduct? ContractProduct { get; set; }
     public User? Creator { get; set; }
 }
