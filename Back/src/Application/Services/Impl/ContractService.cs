@@ -11,11 +11,16 @@ public class ContractService : IContractService
 {
     private readonly DatabaseContext _context;
     private readonly INotificationService _notificationService;
+    private readonly IManufacturedProductService _manufacturedProductService;
 
-    public ContractService(DatabaseContext context, INotificationService notificationService)
+    public ContractService(
+        DatabaseContext context,
+        INotificationService notificationService,
+        IManufacturedProductService manufacturedProductService)
     {
         _context = context;
         _notificationService = notificationService;
+        _manufacturedProductService = manufacturedProductService;
     }
 
     public async Task<ApiResult<IEnumerable<ContractResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, ContractStatus? status = null, Guid? departmentId = null)
@@ -228,12 +233,14 @@ public class ContractService : IContractService
         }
 
         if (status == ContractStatus.TechProcessing)
-            await TryAdvanceToWarehouseCheckAsync(contract);
+            await TryAdvanceToProductionAsync(contract);
+
+        await _manufacturedProductService.SyncForContractAsync(contract.Id);
 
         return ApiResult<int>.Success(200);
     }
 
-    private async System.Threading.Tasks.Task TryAdvanceToWarehouseCheckAsync(Contract contract)
+    private async System.Threading.Tasks.Task TryAdvanceToProductionAsync(Contract contract)
     {
         if (contract.Status != ContractStatus.TechProcessing)
             return;
@@ -243,7 +250,7 @@ public class ContractService : IContractService
 
         if (hasTechProcess && hasCostNorm)
         {
-            contract.Status = ContractStatus.WarehouseCheck;
+            contract.Status = ContractStatus.InProduction;
             await _context.SaveChangesAsync();
         }
     }
@@ -293,6 +300,8 @@ public class ContractService : IContractService
         await _notificationService.NotifyUsersAndSuperAdminsAsync(
             deactivateUserIds.Union(deactivateDeptUserIds), deactivateTitle, deactivateBody, NotificationType.Warning, contract.Id);
 
+        await _manufacturedProductService.SyncForContractAsync(contract.Id);
+
         return ApiResult<int>.Success(200);
     }
 
@@ -340,6 +349,8 @@ public class ContractService : IContractService
 
         await _notificationService.NotifyUsersAndSuperAdminsAsync(
             activateUserIds.Union(activateDeptUserIds), activateTitle, activateBody, NotificationType.Info, contract.Id);
+
+        await _manufacturedProductService.SyncForContractAsync(contract.Id);
 
         return ApiResult<int>.Success(200);
     }

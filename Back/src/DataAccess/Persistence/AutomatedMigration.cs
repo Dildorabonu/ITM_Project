@@ -19,6 +19,7 @@ public static class AutomatedMigration
         await SeedDefaultRolesAsync(context);
         await SeedDepartmentsAsync(context);
         await MigrateLegacyRequisitionStatusesAsync(context);
+        await MigrateLegacyContractStatusesAsync(context);
     }
 
     /// <summary>
@@ -37,6 +38,16 @@ public static class AutomatedMigration
         // alohida ma'noga ega bo'lmagan, hozir ReadyForWarehouseRelease/Purchase ishlatiladi).
         await context.Database.ExecuteSqlRawAsync(
             "UPDATE \"Requisitions\" SET \"Status\" = 5 WHERE \"Status\" = 2");
+    }
+
+    /// <summary>
+    /// Eski "WarehouseCheck" (3) kontrakt statusi olib tashlandi — yozuvlarni
+    /// to'g'ridan-to'g'ri "InProduction" (4) ga ko'chiramiz.
+    /// </summary>
+    private static async System.Threading.Tasks.Task MigrateLegacyContractStatusesAsync(DatabaseContext context)
+    {
+        await context.Database.ExecuteSqlRawAsync(
+            "UPDATE \"Contracts\" SET \"Status\" = 4 WHERE \"Status\" = 3");
     }
 
     private static readonly Dictionary<PermissionModule, PermissionAction[]> ModuleActions = new()
