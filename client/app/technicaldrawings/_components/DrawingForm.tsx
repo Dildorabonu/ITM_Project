@@ -28,11 +28,6 @@ export function DrawingForm({
   const selectedProduct = form.contractProductId
     ? products.find((p) => p.id === form.contractProductId) ?? null
     : null;
-  const productLabel = selectedProduct
-    ? `${selectedProduct.productType} — ${selectedProduct.quantity.toLocaleString()} ${selectedProduct.unit}`
-    : hasProducts
-      ? "—"
-      : "Umumiy (butun shartnoma uchun)";
   const title = mode === "create" ? "Yangi texnik chizma" : "Texnik chizmani tahrirlash";
   const hasError = submitted && !form.title.trim();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -120,11 +115,46 @@ export function DrawingForm({
                 Mahsulot
               </label>
               <div style={{
-                height: 44, display: "flex", alignItems: "center", padding: "0 14px",
+                minHeight: 44, display: "flex", alignItems: "center", justifyContent: "space-between",
+                gap: 12, padding: "0 14px",
                 background: "var(--bg2)", border: "1px solid var(--border)",
-                borderRadius: "var(--radius)", fontSize: 14, color: "var(--text1)", fontWeight: 600,
+                borderRadius: "var(--radius)",
               }}>
-                {productLabel}
+                {selectedProduct ? (
+                  <>
+                    <span style={{
+                      fontSize: 14, color: "var(--text1)", fontWeight: 600,
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>
+                      {selectedProduct.productType}
+                    </span>
+                    <span style={{
+                      display: "inline-flex", alignItems: "baseline", gap: 4, flexShrink: 0,
+                      background: "var(--accent-dim)", color: "var(--accent)",
+                      padding: "3px 10px", borderRadius: 999,
+                      fontFamily: "var(--font-mono)",
+                    }}>
+                      <span style={{ fontSize: 13, fontWeight: 700 }}>
+                        {selectedProduct.quantity.toLocaleString()}
+                      </span>
+                      <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.75 }}>
+                        {selectedProduct.unit}
+                      </span>
+                    </span>
+                  </>
+                ) : hasProducts ? (
+                  <span style={{ fontSize: 14, color: "var(--text3)" }}>—</span>
+                ) : (
+                  <span style={{
+                    display: "inline-flex", alignItems: "center", gap: 8,
+                    fontSize: 13, color: "var(--text2)",
+                  }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                    </svg>
+                    Umumiy — butun shartnoma uchun
+                  </span>
+                )}
               </div>
             </div>
 
