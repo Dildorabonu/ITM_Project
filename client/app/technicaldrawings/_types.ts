@@ -12,7 +12,7 @@ export const STATUS_STYLE: Record<DrawingStatus, { bg: string; color: string; bo
 
 export type MergedRow =
   | { kind: "drawing"; drawing: TechnicalDrawingResponse }
-  | { kind: "empty"; contract: ContractResponse };
+  | { kind: "empty"; contract: ContractResponse; existingCount: number };
 
 // ─── Form ──────────────────────────────────────────────────────────────────────
 

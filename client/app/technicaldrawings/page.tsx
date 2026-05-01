@@ -85,10 +85,19 @@ export default function TechnicalDrawingsPage() {
     const rows: MergedRow[] = [];
     for (const contract of contracts) {
       const drawings = list.filter((d) => d.contractId === contract.id);
-      if (drawings.length === 0) {
-        rows.push({ kind: "empty", contract });
-      } else {
-        rows.push({ kind: "drawing", drawing: drawings[0] });
+      const hasUmumiy = drawings.some((d) => !d.contractProductId);
+      const usedProductIds = new Set(
+        drawings.map((d) => d.contractProductId).filter((id): id is string => !!id)
+      );
+      const products = contract.products ?? [];
+      const allProductsCovered = products.length > 0 && products.every((p) => usedProductIds.has(p.id));
+      const fullyCovered = hasUmumiy || allProductsCovered || (products.length === 0 && drawings.length > 0);
+
+      for (const d of drawings) {
+        rows.push({ kind: "drawing", drawing: d });
+      }
+      if (!fullyCovered) {
+        rows.push({ kind: "empty", contract, existingCount: drawings.length });
       }
     }
     for (const d of list) {
@@ -168,10 +177,22 @@ export default function TechnicalDrawingsPage() {
   // ── Create ────────────────────────────────────────────────────────────────
 
   const openCreate = (contract: ContractResponse) => {
-    const alreadyExists = list.some((d) => d.contractId === contract.id);
-    if (alreadyExists) return;
+    const drawings = list.filter((d) => d.contractId === contract.id);
+    const hasUmumiy = drawings.some((d) => !d.contractProductId);
+    if (hasUmumiy) return;
+
+    const usedIds = new Set(
+      drawings.map((d) => d.contractProductId).filter((id): id is string => !!id)
+    );
+    const products = contract.products ?? [];
+    const remaining = products.filter((p) => !usedIds.has(p.id));
+    if (drawings.length > 0 && remaining.length === 0) return;
+
     setCreateContract(contract);
-    setCreateForm(emptyDrawingForm);
+    setCreateForm({
+      ...emptyDrawingForm,
+      contractProductId: drawings.length > 0 && remaining.length > 0 ? remaining[0].id : "",
+    });
     setCreateSubmitted(false);
     window.history.pushState(null, "");
     setShowCreateForm(true);
@@ -344,6 +365,10 @@ export default function TechnicalDrawingsPage() {
   // ── Render: Create form ───────────────────────────────────────────────────
 
   if (showCreateForm && createContract) {
+    const contractDrawings = list.filter((d) => d.contractId === createContract.id);
+    const usedProductIds = new Set(
+      contractDrawings.map((d) => d.contractProductId).filter((id): id is string => !!id)
+    );
     return (
       <>
         <DrawingForm
@@ -355,6 +380,8 @@ export default function TechnicalDrawingsPage() {
           saving={createSaving}
           onSave={handleCreateSave}
           onCancel={() => setShowCreateForm(false)}
+          usedProductIds={usedProductIds}
+          hideUmumiy={contractDrawings.length > 0}
         />
         {draftWarningModal}
         {approveConfirmModal}
@@ -520,6 +547,7 @@ export default function TechnicalDrawingsPage() {
                     filtered.map((row, i) => {
                       if (row.kind === "empty") {
                         const c = row.contract;
+                        const badgeText = row.existingCount > 0 ? "Yana chizma kerak" : "Chizma yo'q";
                         return (
                           <tr key={`empty-${c.id}`} className="td-row-empty">
                             <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px", color: "var(--danger)", fontWeight: 700 }}>
@@ -541,7 +569,7 @@ export default function TechnicalDrawingsPage() {
                                   width: 6, height: 6, borderRadius: "50%",
                                   background: "currentColor",
                                 }} />
-                                Chizma yo&apos;q
+                                {badgeText}
                               </span>
                             </td>
                             <td style={{ textAlign: "center", fontSize: 13, color: "var(--text1)" }}>{fmtDate(c.createdAt)}</td>
