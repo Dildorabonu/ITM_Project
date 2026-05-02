@@ -828,7 +828,7 @@ export default function ContractsPage() {
                             </svg>
                           </button>
                         )}
-                        {canUpdate && !c.isActive && (
+                        {canUpdate && !c.isActive && c.status !== ContractStatus.Completed && (
                           <button className="btn-icon" onClick={() => setActivateId(c.id)} title="Active qilish"
                             style={{ color: "#16a34a", borderColor: "#16a34a33", background: "#f0fdf4" }}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
