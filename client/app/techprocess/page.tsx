@@ -125,6 +125,7 @@ export default function TechProductionPage() {
     type ContractMeta = {
       contractId: string;
       contractNo: string;
+      isActive: boolean;
       products: { id: string; productType: string; quantity: number; unit: string }[];
     };
     const contractsMeta = new Map<string, ContractMeta>();
@@ -132,19 +133,20 @@ export default function TechProductionPage() {
       contractsMeta.set(c.id, {
         contractId: c.id,
         contractNo: c.contractNo,
+        isActive: c.isActive,
         products: (c.products ?? []).map(p => ({
           id: p.id, productType: p.productType, quantity: p.quantity, unit: p.unit,
         })),
       });
     }
-    const ensureMeta = (contractId: string, contractNo: string) => {
+    const ensureMeta = (contractId: string, contractNo: string, isActive: boolean) => {
       if (!contractsMeta.has(contractId)) {
-        contractsMeta.set(contractId, { contractId, contractNo, products: [] });
+        contractsMeta.set(contractId, { contractId, contractNo, isActive, products: [] });
       }
     };
-    for (const tp of tpList) ensureMeta(tp.contractId, tp.contractNo);
-    for (const cn of cnList) ensureMeta(cn.contractId, cn.contractNo);
-    for (const d of drawingList) ensureMeta(d.contractId, d.contractNo);
+    for (const tp of tpList) ensureMeta(tp.contractId, tp.contractNo, tp.isActive);
+    for (const cn of cnList) ensureMeta(cn.contractId, cn.contractNo, cn.isActive);
+    for (const d of drawingList) ensureMeta(d.contractId, d.contractNo, d.isActive);
 
     const scopes: ContractReadinessScope[] = [];
 
@@ -175,6 +177,7 @@ export default function TechProductionPage() {
         return {
           contractId: meta.contractId,
           contractNo: meta.contractNo,
+          contractIsActive: meta.isActive,
           contractProductId: productId,
           productType: productInfo?.productType ?? null,
           productQuantity: productInfo?.quantity ?? null,
@@ -1503,11 +1506,12 @@ export default function TechProductionPage() {
                   <th style={{ textAlign:"center",color:"var(--text1)" }}>Texnologik jarayon</th>
                   <th style={{ textAlign:"center",color:"var(--text1)" }}>Me&apos;yoriy sarf</th>
                   <th style={{ textAlign:"center",color:"var(--text1)" }}>Umumiy holat</th>
+                  <th style={{ textAlign:"center",color:"var(--text1)",textTransform:"none" }}>Faollik</th>
                 </tr>
               </thead>
               <tbody>
                 {sortedFilteredItems.length===0?(
-                  <tr><td colSpan={7} style={{ textAlign:"center",color:"var(--text2)",padding:32 }}>
+                  <tr><td colSpan={8} style={{ textAlign:"center",color:"var(--text2)",padding:32 }}>
                     {viewMode === "archive" ? "Arxivda yozuvlar yo'q" : "Ma'lumot topilmadi"}
                   </td></tr>
                 ):sortedFilteredItems.map((item,i)=>{
@@ -1565,6 +1569,17 @@ export default function TechProductionPage() {
                         ):(
                           <span style={{ fontSize:11,fontWeight:600,color:"var(--text2)",background:"var(--bg3)",borderRadius:20,padding:"2px 10px",border:"1px solid var(--border)",display:"inline-block" }}>Jarayonda</span>
                         )}
+                      </td>
+                      <td style={{ textAlign:"center" }}>
+                        <span style={{
+                          display:"inline-flex",alignItems:"center",padding:"2px 10px",
+                          borderRadius:20,fontSize:13,fontWeight:600,
+                          background: item.contractIsActive ? "#dcfce7" : "var(--danger-dim)",
+                          color: item.contractIsActive ? "#16a34a" : "var(--danger)",
+                          border: `1px solid ${item.contractIsActive ? "#86efac" : "var(--danger)"}`,
+                        }}>
+                          {item.contractIsActive ? "Faol" : "Nofaol"}
+                        </span>
                       </td>
                     </tr>
                   );

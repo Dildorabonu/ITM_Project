@@ -8,6 +8,7 @@ public class TechProcess
     public Guid ContractId { get; set; }
     public Guid? ContractProductId { get; set; }
     public string Title { get; set; } = string.Empty;
+    public string? Notes { get; set; }
     public ProcessStatus Status { get; set; }
     public int CurrentStep { get; set; }
     public Guid? ApprovedBy { get; set; }
