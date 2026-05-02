@@ -102,6 +102,7 @@ public class TechProcessService : ITechProcessService
             ContractId = dto.ContractId,
             ContractProductId = dto.ContractProductId,
             Title = dto.Title,
+            Notes = dto.Notes,
             Status = ProcessStatus.InProgress,
             CurrentStep = 0,
             CreatedAt = DateTime.UtcNow
@@ -180,6 +181,7 @@ public class TechProcessService : ITechProcessService
             return ApiResult<int>.Failure(["Tasdiqlangan jarayonni tahrirlash mumkin emas."]);
 
         if (dto.Title is not null) tp.Title = dto.Title;
+        if (dto.Notes is not null) tp.Notes = dto.Notes;
 
         if (dto.ClearContractProduct)
         {
@@ -275,6 +277,7 @@ public class TechProcessService : ITechProcessService
         ContractProductId = tp.ContractProductId,
         ProductType = tp.ContractProduct?.ProductType,
         Title = tp.Title,
+        Notes = tp.Notes,
         Status = tp.Status,
         CurrentStep = tp.CurrentStep,
         ApprovedBy = tp.ApprovedBy,
@@ -282,6 +285,6 @@ public class TechProcessService : ITechProcessService
             : $"{tp.Approver.FirstName} {tp.Approver.LastName}",
         ApprovedAt = tp.ApprovedAt,
         CreatedAt = tp.CreatedAt,
-        IsActive = tp.Contract?.IsActive ?? true,
+        IsActive = tp.IsActive,
     };
 }
