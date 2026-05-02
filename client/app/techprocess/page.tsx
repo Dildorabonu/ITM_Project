@@ -1507,11 +1507,12 @@ export default function TechProductionPage() {
                   <th style={{ textAlign:"center",color:"var(--text1)" }}>Me&apos;yoriy sarf</th>
                   <th style={{ textAlign:"center",color:"var(--text1)" }}>Umumiy holat</th>
                   <th style={{ textAlign:"center",color:"var(--text1)",textTransform:"none" }}>Faollik</th>
+                  <th style={{ textAlign:"center",borderLeft:"2px solid var(--border)",color:"var(--text1)",textTransform:"none" }}>Amal</th>
                 </tr>
               </thead>
               <tbody>
                 {sortedFilteredItems.length===0?(
-                  <tr><td colSpan={8} style={{ textAlign:"center",color:"var(--text2)",padding:32 }}>
+                  <tr><td colSpan={9} style={{ textAlign:"center",color:"var(--text2)",padding:32 }}>
                     {viewMode === "archive" ? "Arxivda yozuvlar yo'q" : "Ma'lumot topilmadi"}
                   </td></tr>
                 ):sortedFilteredItems.map((item,i)=>{
@@ -1580,6 +1581,21 @@ export default function TechProductionPage() {
                         }}>
                           {item.contractIsActive ? "Faol" : "Nofaol"}
                         </span>
+                      </td>
+                      <td style={{ borderLeft:"2px solid var(--border)" }} onClick={e=>e.stopPropagation()}>
+                        <div style={{ display:"flex",gap:6,justifyContent:"center" }}>
+                          <button
+                            className="btn-icon"
+                            onClick={()=>{ if(!drawingOk){ setDrawingWarningNo(item.contractNo); } else { setSelectedScopeKey(rowKey); setTpInlineEditing(false); } }}
+                            title="Ko'rish"
+                            style={{ color:"#0ea5e9",borderColor:"#0ea5e933",background:"#0ea5e912" }}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                              <circle cx="12" cy="12" r="3" />
+                            </svg>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
