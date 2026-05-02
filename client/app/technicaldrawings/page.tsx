@@ -786,7 +786,7 @@ export default function TechnicalDrawingsPage() {
                                   <circle cx="12" cy="12" r="3" />
                                 </svg>
                               </button>
-                              {canUpdate && (
+                              {canUpdate && item.status !== DrawingStatus.Approved && (
                                 <button
                                   className="btn-icon"
                                   onClick={() => openEdit(item)}
