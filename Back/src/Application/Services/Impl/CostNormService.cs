@@ -28,7 +28,7 @@ public class CostNormService : ICostNormService
         _manufacturedProductService = manufacturedProductService;
     }
 
-    public async Task<ApiResult<IEnumerable<CostNormResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, Guid? contractId = null)
+    public async Task<ApiResult<IEnumerable<CostNormResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, Guid? contractId = null, bool? isActive = null)
     {
         var query = _context.CostNorms
             .Include(c => c.Contract)
@@ -48,6 +48,9 @@ public class CostNormService : ICostNormService
 
         if (contractId.HasValue)
             query = query.Where(c => c.ContractId == contractId.Value);
+
+        if (isActive.HasValue)
+            query = query.Where(c => c.IsActive == isActive.Value);
 
         var list = await query
             .OrderByDescending(c => c.CreatedAt)

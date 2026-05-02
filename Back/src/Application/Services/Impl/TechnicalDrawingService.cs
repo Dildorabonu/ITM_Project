@@ -20,7 +20,7 @@ public class TechnicalDrawingService : ITechnicalDrawingService
         _notificationService = notificationService;
     }
 
-    public async Task<ApiResult<IEnumerable<TechnicalDrawingResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, DrawingStatus? status = null)
+    public async Task<ApiResult<IEnumerable<TechnicalDrawingResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, DrawingStatus? status = null, bool? isActive = null)
     {
         var query = _context.TechnicalDrawings
             .Include(d => d.Contract)
@@ -39,6 +39,9 @@ public class TechnicalDrawingService : ITechnicalDrawingService
 
         if (status.HasValue)
             query = query.Where(d => d.Status == status.Value);
+
+        if (isActive.HasValue)
+            query = query.Where(d => d.IsActive == isActive.Value);
 
         var list = await query.OrderByDescending(d => d.CreatedAt).ToListAsync();
         return ApiResult<IEnumerable<TechnicalDrawingResponseDto>>.Success(list.Select(MapToResponse));

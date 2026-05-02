@@ -47,6 +47,7 @@ export default function ContractsPage() {
   const [error, setError]               = useState("");
 
   // Filters
+  const [viewMode, setViewMode]           = useState<"active" | "archive">("active");
   const [search, setSearch]               = useState("");
   const [filterStatus, setFilterStatus]   = useState("");
   const [filterPriority, setFilterPriority] = useState("");
@@ -154,7 +155,7 @@ export default function ContractsPage() {
     try {
       setLoading(true);
       setError("");
-      const data = await contractService.getAll();
+      const data = await contractService.getAll(undefined, undefined, viewMode === "active");
       setContracts(data);
     } catch (err) {
       setContracts([]);
@@ -167,6 +168,9 @@ export default function ContractsPage() {
 
   useEffect(() => {
     load();
+  }, [viewMode]);
+
+  useEffect(() => {
     departmentService.getAllFull().then(d => setDepartments(d)).catch(() => {});
   }, []);
 
@@ -420,7 +424,7 @@ export default function ContractsPage() {
     setActivating(true);
     try {
       await contractService.activate(activateId);
-      setContracts(prev => prev.map(c => c.id === activateId ? { ...c, isActive: true } : c));
+      setContracts(prev => prev.filter(c => c.id !== activateId));
       setActivateId(null);
       window.dispatchEvent(new Event("notif-read"));
       showToast("Shartnoma muvaffaqiyatli active qilindi!");
@@ -438,7 +442,7 @@ export default function ContractsPage() {
     setDeactivating(true);
     try {
       await contractService.deactivate(deactivateId);
-      setContracts(prev => prev.map(c => c.id === deactivateId ? { ...c, isActive: false } : c));
+      setContracts(prev => prev.filter(c => c.id !== deactivateId));
       setDeactivateId(null);
       window.dispatchEvent(new Event("notif-read"));
       showToast("Shartnoma muvaffaqiyatli noactive qilindi!");
@@ -535,6 +539,44 @@ export default function ContractsPage() {
 
       {/* Filter bar */}
       <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px", flexWrap: "wrap", overflow: "visible" }}>
+        {/* Faol / Arxiv tab toggle */}
+        <div style={{ display: "inline-flex", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 2, gap: 2, flexShrink: 0 }}>
+          <button
+            onClick={() => setViewMode("active")}
+            style={{
+              padding: "6px 14px", borderRadius: "var(--radius)", border: "none",
+              background: viewMode === "active" ? "var(--accent)" : "transparent",
+              color: viewMode === "active" ? "#fff" : "var(--text2)",
+              fontSize: 13, fontWeight: 600, cursor: "pointer",
+              transition: "all 0.15s",
+              display: "inline-flex", alignItems: "center", gap: 6,
+            }}
+          >
+            <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            Faol
+          </button>
+          <button
+            onClick={() => setViewMode("archive")}
+            style={{
+              padding: "6px 14px", borderRadius: "var(--radius)", border: "none",
+              background: viewMode === "archive" ? "var(--text3)" : "transparent",
+              color: viewMode === "archive" ? "#fff" : "var(--text2)",
+              fontSize: 13, fontWeight: 600, cursor: "pointer",
+              transition: "all 0.15s",
+              display: "inline-flex", alignItems: "center", gap: 6,
+            }}
+          >
+            <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <polyline points="21 8 21 21 3 21 3 8"/>
+              <rect x="1" y="3" width="22" height="5"/>
+              <line x1="10" y1="12" x2="14" y2="12"/>
+            </svg>
+            Arxiv
+          </button>
+        </div>
+
         <div className="search-wrap" style={{ maxWidth: "none", flex: 1, minWidth: 180 }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -725,9 +767,11 @@ export default function ContractsPage() {
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
+                  <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>
+                    {viewMode === "archive" ? "Arxivda shartnomalar yo'q" : "Ma'lumot topilmadi"}
+                  </td></tr>
                 ) : filtered.map((c, i) => (
-                  <tr key={c.id} style={{ opacity: c.isActive ? 1 : 0.5 }}>
+                  <tr key={c.id}>
                     <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>{String(i + 1).padStart(2, "0")}</td>
                     <td style={{ textAlign: "center", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       <button onClick={() => openDrawer(c)}
