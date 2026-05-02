@@ -92,6 +92,15 @@ namespace DataAccess.Migrations
                     b.Property<Guid>("CreatedBy")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("DeactivatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeactivationNote")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("DeactivationReason")
+                        .HasColumnType("integer");
+
                     b.Property<DateOnly>("EndDate")
                         .HasColumnType("date");
 

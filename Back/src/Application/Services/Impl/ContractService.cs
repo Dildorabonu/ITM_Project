@@ -258,8 +258,15 @@ public class ContractService : IContractService
         }
     }
 
-    public async Task<ApiResult<int>> DeactivateAsync(Guid id)
+    public async Task<ApiResult<int>> DeactivateAsync(Guid id, ContractDeactivateDto dto)
     {
+        if (!Enum.IsDefined(typeof(ContractDeactivationReason), dto.Reason))
+            return ApiResult<int>.Failure(["Noto'g'ri sabab tanlandi."], 400);
+
+        var note = dto.Note?.Trim();
+        if (string.IsNullOrWhiteSpace(note))
+            return ApiResult<int>.Failure(["Sababni izohlab yozish majburiy."], 400);
+
         var contract = await _context.Contracts
             .Include(c => c.ContractDepartments)
             .Include(c => c.ContractUsers)
@@ -273,6 +280,9 @@ public class ContractService : IContractService
             return ApiResult<int>.Failure([$"Contract with id '{id}' not found."], 404);
 
         contract.IsActive = false;
+        contract.DeactivationReason = dto.Reason;
+        contract.DeactivationNote = note;
+        contract.DeactivatedAt = DateTime.UtcNow;
 
         foreach (var cd in contract.ContractDepartments) cd.IsActive = false;
         foreach (var cu in contract.ContractUsers) cu.IsActive = false;
@@ -326,6 +336,9 @@ public class ContractService : IContractService
             return ApiResult<int>.Failure(["Yakunlangan shartnomani qayta faollashtirib bo'lmaydi."], 400);
 
         contract.IsActive = true;
+        contract.DeactivationReason = null;
+        contract.DeactivationNote = null;
+        contract.DeactivatedAt = null;
 
         foreach (var cd in contract.ContractDepartments) cd.IsActive = true;
         foreach (var cu in contract.ContractUsers) cu.IsActive = true;
@@ -536,6 +549,9 @@ public class ContractService : IContractService
         Status = contract.Status,
         Notes = contract.Notes,
         IsActive = contract.IsActive,
+        DeactivationReason = contract.DeactivationReason,
+        DeactivationNote = contract.DeactivationNote,
+        DeactivatedAt = contract.DeactivatedAt,
         CreatedBy = contract.CreatedBy,
         CreatedByFullName = contract.Creator is not null
             ? $"{contract.Creator.FirstName} {contract.Creator.LastName}"
