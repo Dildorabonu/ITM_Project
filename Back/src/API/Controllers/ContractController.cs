@@ -96,12 +96,12 @@ public class ContractController : ControllerBase
 
     [HasPermission("Contracts.Update")]
     [HttpPatch("{id:guid}/deactivate")]
-    public async Task<IActionResult> Deactivate(Guid id)
+    public async Task<IActionResult> Deactivate(Guid id, [FromBody] ContractDeactivateDto dto)
     {
-        var result = await _contractService.DeactivateAsync(id);
+        var result = await _contractService.DeactivateAsync(id, dto);
 
         if (!result.Succeeded)
-            return NotFound(result);
+            return result.StatusCode == 404 ? NotFound(result) : BadRequest(result);
 
         return Ok(result);
     }
