@@ -23,7 +23,7 @@ public class CostNormController : ControllerBase
 
     // GET /api/costnorm
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] Guid? contractId = null)
+    public async Task<IActionResult> GetAll([FromQuery] Guid? contractId = null, [FromQuery] bool? isActive = null)
     {
         var canView = User.HasClaim("perm", "CostNorm.View");
         var viewAll = User.HasClaim("perm", "CostNorm.ViewAll");
@@ -32,7 +32,7 @@ public class CostNormController : ControllerBase
             return Forbid();
 
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var result = await _costNormService.GetAllAsync(userId, viewAll, contractId);
+        var result = await _costNormService.GetAllAsync(userId, viewAll, contractId, isActive);
         return StatusCode(result.StatusCode, result);
     }
 

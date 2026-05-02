@@ -357,7 +357,7 @@ function RequisitionPrintContent() {
   useEffect(() => {
     const urlContractId = searchParams.get("contractId");
     Promise.all([
-      contractService.getAll(),
+      contractService.getAll(undefined, undefined, true),
       departmentService.getAllFull(),
     ]).then(([contractsData, depsData]) => {
       setContracts(contractsData);

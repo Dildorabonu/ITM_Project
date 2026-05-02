@@ -115,6 +115,7 @@ export default function TechProductionPage() {
   const [drawingWarningNo, setDrawingWarningNo] = useState<string|null>(null);
   const [contractList, setContractList] = useState<ContractResponse[]>([]);
   const [drawingList, setDrawingList] = useState<TechnicalDrawingResponse[]>([]);
+  const [viewMode, setViewMode] = useState<"active" | "archive">("active");
 
   useDraft("draft_costnorm", cnMode==="create", cnForm, (d)=>{ if(d.contractId) { setCnForm(d); setCnMode("create"); } else { sessionStorage.removeItem("draft_costnorm"); } });
 
@@ -137,7 +138,6 @@ export default function TechProductionPage() {
         })),
       });
     }
-    // Contract listga tushmagan, lekin entity-larda uchragan shartnomalar
     const ensureMeta = (contractId: string, contractNo: string) => {
       if (!contractsMeta.has(contractId)) {
         contractsMeta.set(contractId, { contractId, contractNo, products: [] });
@@ -207,26 +207,33 @@ export default function TechProductionPage() {
 
   const loadContracts = useCallback(async()=>{
     try {
-      const statuses = [ContractStatus.DrawingPending, ContractStatus.TechProcessing];
-      const results = await Promise.all(statuses.map(s=>contractService.getAll(s)));
-      const all = results.flat();
-      // Dublikatlarni olib tashlash
-      const unique = Array.from(new Map(all.map(c=>[c.id,c])).values());
-      setContractList(unique);
+      const isActiveFlag = viewMode === "active";
+      if (isActiveFlag) {
+        // Faqat shu statusdagi shartnomalar TP/CN yaratish/tasdiqlash uchun talab qilinadi.
+        const statuses = [ContractStatus.DrawingPending, ContractStatus.TechProcessing];
+        const results = await Promise.all(statuses.map(s=>contractService.getAll(s, undefined, true)));
+        const all = results.flat();
+        const unique = Array.from(new Map(all.map(c=>[c.id,c])).values());
+        setContractList(unique);
+      } else {
+        // Arxiv: barcha statuslardagi nofaol shartnomalar.
+        const data = await contractService.getAll(undefined, undefined, false);
+        setContractList(data);
+      }
     } catch { setContractList([]); }
-  },[]);
+  },[viewMode]);
 
-  const loadTp = async () => {
-    try { setTpLoading(true); const data=await techProcessService.getAll(); setTpList(data); }
+  const loadTp = useCallback(async () => {
+    try { setTpLoading(true); const data=await techProcessService.getAll(undefined, viewMode === "active"); setTpList(data); }
     catch { /* ignore */ }
     finally { setTpLoading(false); }
-  };
+  },[viewMode]);
 
-  const loadCn = useCallback(async()=>{ setCnListLoading(true); const d=await costNormService.getAll(); setCnList(d); setCnListLoading(false); },[]);
+  const loadCn = useCallback(async()=>{ setCnListLoading(true); const d=await costNormService.getAll(undefined, viewMode === "active"); setCnList(d); setCnListLoading(false); },[viewMode]);
 
-  const loadDrawings = useCallback(async()=>{ try { const d=await technicalDrawingService.getAll(); setDrawingList(d); } catch { setDrawingList([]); } },[]);
+  const loadDrawings = useCallback(async()=>{ try { const d=await technicalDrawingService.getAll(undefined, viewMode === "active"); setDrawingList(d); } catch { setDrawingList([]); } },[viewMode]);
 
-  useEffect(()=>{ loadTp(); loadCn(); loadContracts(); loadDrawings(); },[loadCn, loadContracts, loadDrawings]);
+  useEffect(()=>{ loadTp(); loadCn(); loadContracts(); loadDrawings(); },[loadTp, loadCn, loadContracts, loadDrawings]);
 
   useEffect(()=>{ if(!tpShowForm) return; const h=()=>setTpShowForm(false); window.addEventListener("popstate",h); return ()=>window.removeEventListener("popstate",h); },[tpShowForm]);
 
@@ -1440,6 +1447,44 @@ export default function TechProductionPage() {
 
       {/* ── Toolbar ── */}
       <div className="itm-card" style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 14px",flexWrap:"wrap" }}>
+        {/* Faol / Arxiv tab toggle */}
+        <div style={{ display: "inline-flex", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 2, gap: 2, flexShrink: 0 }}>
+          <button
+            onClick={() => setViewMode("active")}
+            style={{
+              padding: "6px 14px", borderRadius: "var(--radius)", border: "none",
+              background: viewMode === "active" ? "var(--accent)" : "transparent",
+              color: viewMode === "active" ? "#fff" : "var(--text2)",
+              fontSize: 13, fontWeight: 600, cursor: "pointer",
+              transition: "all 0.15s",
+              display: "inline-flex", alignItems: "center", gap: 6,
+            }}
+          >
+            <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            Faol
+          </button>
+          <button
+            onClick={() => setViewMode("archive")}
+            style={{
+              padding: "6px 14px", borderRadius: "var(--radius)", border: "none",
+              background: viewMode === "archive" ? "var(--text3)" : "transparent",
+              color: viewMode === "archive" ? "#fff" : "var(--text2)",
+              fontSize: 13, fontWeight: 600, cursor: "pointer",
+              transition: "all 0.15s",
+              display: "inline-flex", alignItems: "center", gap: 6,
+            }}
+          >
+            <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <polyline points="21 8 21 21 3 21 3 8"/>
+              <rect x="1" y="3" width="22" height="5"/>
+              <line x1="10" y1="12" x2="14" y2="12"/>
+            </svg>
+            Arxiv
+          </button>
+        </div>
+
         <div className="search-wrap" style={{ flex:1,minWidth:180,maxWidth:"none" }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input className="search-input" placeholder="Shartnoma raqami bo'yicha qidirish..." value={tpSearch} onChange={e=>setTpSearch(e.target.value)}/>
@@ -1454,7 +1499,9 @@ export default function TechProductionPage() {
         {(tpLoading||cnListLoading)?(
           <div style={{ padding:40,textAlign:"center",color:"var(--text2)" }}>Yuklanmoqda...</div>
         ):readinessItems.length===0?(
-          <div style={{ padding:40,textAlign:"center",color:"var(--text2)" }}>Ma&apos;lumot topilmadi</div>
+          <div style={{ padding:40,textAlign:"center",color:"var(--text2)" }}>
+            {viewMode === "archive" ? "Arxivda yozuvlar yo'q" : "Ma'lumot topilmadi"}
+          </div>
         ):(
           <div style={{ overflowX:"auto" }}>
             <table className="itm-table">
@@ -1471,7 +1518,9 @@ export default function TechProductionPage() {
               </thead>
               <tbody>
                 {sortedFilteredItems.length===0?(
-                  <tr><td colSpan={7} style={{ textAlign:"center",color:"var(--text2)",padding:32 }}>Ma&apos;lumot topilmadi</td></tr>
+                  <tr><td colSpan={7} style={{ textAlign:"center",color:"var(--text2)",padding:32 }}>
+                    {viewMode === "archive" ? "Arxivda yozuvlar yo'q" : "Ma'lumot topilmadi"}
+                  </td></tr>
                 ):sortedFilteredItems.map((item,i)=>{
                   const drawingOk=item.drawing?.status===DrawingStatus.Approved;
                   const tpEffective=item.tp?.status!==ProcessStatus.Pending?item.tp:null;

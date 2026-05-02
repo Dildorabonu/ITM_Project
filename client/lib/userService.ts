@@ -439,10 +439,11 @@ export interface ContractUserResponse {
 }
 
 export const contractService = {
-  getAll: async (status?: ContractStatus, departmentId?: string): Promise<ContractResponse[]> => {
+  getAll: async (status?: ContractStatus, departmentId?: string, isActive?: boolean): Promise<ContractResponse[]> => {
     const params: Record<string, string> = {};
     if (status !== undefined) params.status = String(status);
     if (departmentId) params.departmentId = departmentId;
+    if (isActive !== undefined) params.isActive = String(isActive);
     try {
       const res = await api.get("/api/contract", { params });
       return res.data?.result ?? res.data ?? [];
@@ -551,9 +552,11 @@ export const contractService = {
     await api.delete(`/api/contract/${id}/users/${userId}`);
   },
 
-  getMyProductionTasks: async (): Promise<ContractResponse[]> => {
+  getMyProductionTasks: async (isActive?: boolean): Promise<ContractResponse[]> => {
     try {
-      const res = await api.get("/api/contract/my-tasks");
+      const params: Record<string, string> = {};
+      if (isActive !== undefined) params.isActive = String(isActive);
+      const res = await api.get("/api/contract/my-tasks", { params });
       return res.data?.result ?? res.data ?? [];
     } catch {
       return [];
@@ -644,9 +647,10 @@ export interface TechProcessUpdatePayload {
 
 
 export const techProcessService = {
-  getAll: async (status?: ProcessStatus): Promise<TechProcessResponse[]> => {
+  getAll: async (status?: ProcessStatus, isActive?: boolean): Promise<TechProcessResponse[]> => {
     const params: Record<string, string> = {};
     if (status !== undefined) params.status = String(status);
+    if (isActive !== undefined) params.isActive = String(isActive);
     const res = await api.get("/api/techprocess", { params });
     return res.data?.result ?? res.data ?? [];
   },
@@ -846,9 +850,10 @@ export interface TechnicalDrawingUpdatePayload {
 }
 
 export const technicalDrawingService = {
-  getAll: async (status?: DrawingStatus): Promise<TechnicalDrawingResponse[]> => {
+  getAll: async (status?: DrawingStatus, isActive?: boolean): Promise<TechnicalDrawingResponse[]> => {
     const params: Record<string, string> = {};
     if (status !== undefined) params.status = String(status);
+    if (isActive !== undefined) params.isActive = String(isActive);
     try {
       const res = await api.get("/api/technicaldrawing", { params });
       return res.data?.result ?? res.data ?? [];
@@ -969,9 +974,10 @@ export interface CostNormCreatePayload {
 }
 
 export const costNormService = {
-  getAll: async (contractId?: string): Promise<CostNormResponse[]> => {
+  getAll: async (contractId?: string, isActive?: boolean): Promise<CostNormResponse[]> => {
     const params: Record<string, string> = {};
     if (contractId) params.contractId = contractId;
+    if (isActive !== undefined) params.isActive = String(isActive);
     try {
       const res = await api.get("/api/costnorm", { params });
       return res.data?.result ?? res.data ?? [];
