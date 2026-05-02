@@ -2,8 +2,10 @@ using API.Authorization;
 using Application.DTOs.TechnicalDrawings;
 using Application.Services;
 using Core.Enums;
+using DataAccess.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
 namespace API.Controllers;
@@ -15,11 +17,13 @@ public class TechnicalDrawingController : ControllerBase
 {
     private readonly ITechnicalDrawingService _drawingService;
     private readonly IAttachmentService _attachmentService;
+    private readonly DatabaseContext _context;
 
-    public TechnicalDrawingController(ITechnicalDrawingService drawingService, IAttachmentService attachmentService)
+    public TechnicalDrawingController(ITechnicalDrawingService drawingService, IAttachmentService attachmentService, DatabaseContext context)
     {
         _drawingService = drawingService;
         _attachmentService = attachmentService;
+        _context = context;
     }
 
     [HttpGet]
@@ -96,6 +100,13 @@ public class TechnicalDrawingController : ControllerBase
     {
         if (file is null || file.Length == 0)
             return BadRequest("Fayl tanlanmagan.");
+
+        var status = await _context.TechnicalDrawings
+            .Where(d => d.Id == id)
+            .Select(d => (DrawingStatus?)d.Status)
+            .FirstOrDefaultAsync();
+        if (status == DrawingStatus.Approved)
+            return Conflict("Tasdiqlangan texnik chizmaga fayl qo'shib bo'lmaydi.");
 
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         await using var stream = file.OpenReadStream();
