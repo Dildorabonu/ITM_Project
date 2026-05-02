@@ -11,7 +11,7 @@ public interface IContractService
     Task<ApiResult<Guid>> CreateAsync(ContractCreateDto dto, Guid createdBy);
     Task<ApiResult<int>> UpdateAsync(Guid id, ContractUpdateDto dto);
     Task<ApiResult<int>> UpdateStatusAsync(Guid id, ContractStatus status);
-    Task<ApiResult<int>> DeactivateAsync(Guid id);
+    Task<ApiResult<int>> DeactivateAsync(Guid id, ContractDeactivateDto dto);
     Task<ApiResult<int>> ActivateAsync(Guid id);
     Task<ApiResult<IEnumerable<ContractUserDto>>> GetUsersAsync(Guid contractId);
     Task<ApiResult<int>> AssignUsersAsync(Guid contractId, List<ContractUserAssignItem> users);
