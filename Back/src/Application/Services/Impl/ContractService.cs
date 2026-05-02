@@ -322,6 +322,9 @@ public class ContractService : IContractService
         if (contract is null)
             return ApiResult<int>.Failure([$"Contract with id '{id}' not found."], 404);
 
+        if (contract.Status == ContractStatus.Completed)
+            return ApiResult<int>.Failure(["Yakunlangan shartnomani qayta faollashtirib bo'lmaydi."], 400);
+
         contract.IsActive = true;
 
         foreach (var cd in contract.ContractDepartments) cd.IsActive = true;
