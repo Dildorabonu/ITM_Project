@@ -36,6 +36,7 @@ export type ColField = "no"|"name"|"unit"|"readyQty"|"wasteQty"|"totalQty"|"phot
 export interface ContractReadinessScope {
   contractId: string;
   contractNo: string;
+  contractIsActive: boolean;
   contractProductId: string | null;
   productType: string | null;
   productQuantity: number | null;
