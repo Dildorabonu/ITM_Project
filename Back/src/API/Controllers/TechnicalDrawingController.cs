@@ -23,7 +23,7 @@ public class TechnicalDrawingController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] DrawingStatus? status = null)
+    public async Task<IActionResult> GetAll([FromQuery] DrawingStatus? status = null, [FromQuery] bool? isActive = null)
     {
         var canView = User.HasClaim("perm", "TechnicalDrawings.View");
         var viewAll = User.HasClaim("perm", "TechnicalDrawings.ViewAll");
@@ -32,7 +32,7 @@ public class TechnicalDrawingController : ControllerBase
             return Forbid();
 
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var result = await _drawingService.GetAllAsync(userId, viewAll, status);
+        var result = await _drawingService.GetAllAsync(userId, viewAll, status, isActive);
         return StatusCode(result.StatusCode, result);
     }
 

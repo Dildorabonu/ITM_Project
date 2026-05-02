@@ -6,7 +6,7 @@ namespace Application.Services;
 
 public interface ITechProcessService
 {
-    Task<ApiResult<IEnumerable<TechProcessResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, ProcessStatus? status = null);
+    Task<ApiResult<IEnumerable<TechProcessResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, ProcessStatus? status = null, bool? isActive = null);
     Task<ApiResult<TechProcessResponseDto>> GetByIdAsync(Guid id);
     Task<ApiResult<IEnumerable<TechProcessResponseDto>>> GetByContractIdAsync(Guid contractId);
     Task<ApiResult<Guid>> CreateAsync(TechProcessCreateDto dto, Guid createdBy);

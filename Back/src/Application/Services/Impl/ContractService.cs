@@ -23,7 +23,7 @@ public class ContractService : IContractService
         _manufacturedProductService = manufacturedProductService;
     }
 
-    public async Task<ApiResult<IEnumerable<ContractResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, ContractStatus? status = null, Guid? departmentId = null)
+    public async Task<ApiResult<IEnumerable<ContractResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, ContractStatus? status = null, Guid? departmentId = null, bool? isActive = null)
     {
         var query = _context.Contracts
             .Include(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
@@ -45,6 +45,9 @@ public class ContractService : IContractService
 
         if (departmentId.HasValue)
             query = query.Where(c => c.ContractDepartments.Any(cd => cd.DepartmentId == departmentId.Value));
+
+        if (isActive.HasValue)
+            query = query.Where(c => c.IsActive == isActive.Value);
 
         var contracts = await query
             .OrderByDescending(c => c.CreatedAt)
@@ -459,16 +462,22 @@ public class ContractService : IContractService
         return ApiResult<int>.Success(200);
     }
 
-    public async Task<ApiResult<IEnumerable<ContractResponseDto>>> GetMyProductionTasksAsync(Guid userId, bool viewAll)
+    public async Task<ApiResult<IEnumerable<ContractResponseDto>>> GetMyProductionTasksAsync(Guid userId, bool viewAll, bool? isActive = null)
     {
         if (viewAll)
         {
-            var allContracts = await _context.Contracts
+            var allContractsQuery = _context.Contracts
                 .Include(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
                 .Include(c => c.Creator)
                 .Include(c => c.ContractUsers).ThenInclude(cu => cu.User).ThenInclude(u => u.Role)
                 .Include(c => c.Products)
                 .AsNoTracking()
+                .AsQueryable();
+
+            if (isActive.HasValue)
+                allContractsQuery = allContractsQuery.Where(c => c.IsActive == isActive.Value);
+
+            var allContracts = await allContractsQuery
                 .OrderByDescending(c => c.CreatedAt)
                 .ToListAsync();
 
@@ -486,14 +495,19 @@ public class ContractService : IContractService
         if (user.Department is null || user.Department.Type != Core.Enums.DepartmentType.IshlabChiqarish)
             return ApiResult<IEnumerable<ContractResponseDto>>.Success(Enumerable.Empty<ContractResponseDto>());
 
-        var contracts = await _context.ContractUsers
+        var contractsQuery = _context.ContractUsers
             .Where(cu => cu.UserId == userId)
             .Include(cu => cu.Contract).ThenInclude(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
             .Include(cu => cu.Contract).ThenInclude(c => c.Creator)
             .Include(cu => cu.Contract).ThenInclude(c => c.Products)
             .Include(cu => cu.Contract).ThenInclude(c => c.ContractUsers).ThenInclude(cu2 => cu2.User).ThenInclude(u => u.Role)
             .AsNoTracking()
-            .Select(cu => cu.Contract)
+            .Select(cu => cu.Contract);
+
+        if (isActive.HasValue)
+            contractsQuery = contractsQuery.Where(c => c.IsActive == isActive.Value);
+
+        var contracts = await contractsQuery
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync();
 

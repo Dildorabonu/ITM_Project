@@ -24,7 +24,7 @@ public class TechProcessController : ControllerBase
 
     // GET /api/techprocess
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] ProcessStatus? status = null)
+    public async Task<IActionResult> GetAll([FromQuery] ProcessStatus? status = null, [FromQuery] bool? isActive = null)
     {
         var canView = User.HasClaim("perm", "TechProcess.View");
         var viewAll = User.HasClaim("perm", "TechProcess.ViewAll");
@@ -33,7 +33,7 @@ public class TechProcessController : ControllerBase
             return Forbid();
 
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var result = await _techProcessService.GetAllAsync(userId, viewAll, status);
+        var result = await _techProcessService.GetAllAsync(userId, viewAll, status, isActive);
         return StatusCode(result.StatusCode, result);
     }
 
