@@ -209,6 +209,6 @@ public class TechnicalDrawingService : ITechnicalDrawingService
         CreatedBy = d.CreatedBy,
         CreatedByFullName = d.Creator is not null ? $"{d.Creator.FirstName} {d.Creator.LastName}" : null,
         CreatedAt = d.CreatedAt,
-        IsActive = d.Contract?.IsActive ?? true,
+        IsActive = d.IsActive,
     };
 }
