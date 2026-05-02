@@ -10,7 +10,6 @@ import {
   contractService,
   costNormService,
   technicalDrawingService,
-  ContractStatus,
   ProcessStatus,
   DrawingStatus,
   type TechProcessCreatePayload,
@@ -208,18 +207,8 @@ export default function TechProductionPage() {
   const loadContracts = useCallback(async()=>{
     try {
       const isActiveFlag = viewMode === "active";
-      if (isActiveFlag) {
-        // Faqat shu statusdagi shartnomalar TP/CN yaratish/tasdiqlash uchun talab qilinadi.
-        const statuses = [ContractStatus.DrawingPending, ContractStatus.TechProcessing];
-        const results = await Promise.all(statuses.map(s=>contractService.getAll(s, undefined, true)));
-        const all = results.flat();
-        const unique = Array.from(new Map(all.map(c=>[c.id,c])).values());
-        setContractList(unique);
-      } else {
-        // Arxiv: barcha statuslardagi nofaol shartnomalar.
-        const data = await contractService.getAll(undefined, undefined, false);
-        setContractList(data);
-      }
+      const data = await contractService.getAll(undefined, undefined, isActiveFlag);
+      setContractList(data);
     } catch { setContractList([]); }
   },[viewMode]);
 
