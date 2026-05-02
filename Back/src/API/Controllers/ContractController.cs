@@ -25,7 +25,8 @@ public class ContractController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll(
         [FromQuery] ContractStatus? status = null,
-        [FromQuery] Guid? departmentId = null)
+        [FromQuery] Guid? departmentId = null,
+        [FromQuery] bool? isActive = null)
     {
         var canView    = User.HasClaim("perm", "Contracts.View");
         var viewAll    = User.HasClaim("perm", "Contracts.ViewAll");
@@ -37,7 +38,7 @@ public class ContractController : ControllerBase
         if (!Guid.TryParse(userIdClaim, out var userId))
             return Unauthorized();
 
-        var result = await _contractService.GetAllAsync(userId, viewAll, status, departmentId);
+        var result = await _contractService.GetAllAsync(userId, viewAll, status, departmentId, isActive);
         return Ok(result);
     }
 
@@ -121,7 +122,7 @@ public class ContractController : ControllerBase
 
     [HttpGet("my-tasks")]
     [Authorize]
-    public async Task<IActionResult> GetMyProductionTasks()
+    public async Task<IActionResult> GetMyProductionTasks([FromQuery] bool? isActive = null)
     {
         var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!Guid.TryParse(userIdClaim, out var userId))
@@ -133,7 +134,7 @@ public class ContractController : ControllerBase
         if (!viewAll && !hasView)
             return Forbid();
 
-        var result = await _contractService.GetMyProductionTasksAsync(userId, viewAll);
+        var result = await _contractService.GetMyProductionTasksAsync(userId, viewAll, isActive);
         return Ok(result);
     }
 

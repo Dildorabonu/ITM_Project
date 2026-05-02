@@ -26,7 +26,7 @@ public class TechProcessService : ITechProcessService
         _manufacturedProductService = manufacturedProductService;
     }
 
-    public async Task<ApiResult<IEnumerable<TechProcessResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, ProcessStatus? status = null)
+    public async Task<ApiResult<IEnumerable<TechProcessResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, ProcessStatus? status = null, bool? isActive = null)
     {
         var query = _context.TechProcesses
             .Include(t => t.Contract)
@@ -45,6 +45,9 @@ public class TechProcessService : ITechProcessService
 
         if (status.HasValue)
             query = query.Where(t => t.Status == status.Value);
+
+        if (isActive.HasValue)
+            query = query.Where(t => t.IsActive == isActive.Value);
 
         var list = await query.OrderByDescending(t => t.CreatedAt).ToListAsync();
         return ApiResult<IEnumerable<TechProcessResponseDto>>.Success(list.Select(MapToResponse));

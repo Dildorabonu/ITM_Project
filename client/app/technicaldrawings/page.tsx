@@ -35,6 +35,7 @@ export default function TechnicalDrawingsPage() {
   const [list, setList] = useState<TechnicalDrawingResponse[]>([]);
   const [contracts, setContracts] = useState<ContractResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<"active" | "archive">("active");
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
 
@@ -71,21 +72,23 @@ export default function TechnicalDrawingsPage() {
 
   const loadData = async () => {
     setLoading(true);
+    const isActiveFlag = viewMode === "active";
     const [drawings, contractList] = await Promise.all([
-      technicalDrawingService.getAll(),
-      contractService.getAll(),
+      technicalDrawingService.getAll(undefined, isActiveFlag),
+      contractService.getAll(undefined, undefined, isActiveFlag),
     ]);
     setList(drawings);
     setContracts(contractList);
     setLoading(false);
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [viewMode]);
 
   // ── Rows ──────────────────────────────────────────────────────────────────
 
   const mergedRows = useMemo((): MergedRow[] => {
     const rows: MergedRow[] = [];
+
     for (const contract of contracts) {
       const drawings = list.filter((d) => d.contractId === contract.id);
       const products = contract.products ?? [];
@@ -97,21 +100,23 @@ export default function TechnicalDrawingsPage() {
         rows.push({ kind: "drawing", drawing: d });
       }
 
-      // Mahsulotlar bor → har bir qoplanmagan mahsulot uchun alohida bo'sh qator.
-      // Mahsulotsiz shartnoma → bitta Umumiy bo'sh qator (chizma yo'q bo'lsa).
-      if (products.length > 0) {
-        for (const p of products) {
-          if (!usedProductIds.has(p.id)) {
-            rows.push({
-              kind: "empty",
-              contract,
-              existingCount: drawings.length,
-              product: { id: p.id, productType: p.productType, quantity: p.quantity, unit: p.unit },
-            });
+      // Empty placeholder rows — only meaningful in active view (encourage creating a drawing).
+      // Archive view should never show "+" buttons for missing drawings.
+      if (viewMode === "active") {
+        if (products.length > 0) {
+          for (const p of products) {
+            if (!usedProductIds.has(p.id)) {
+              rows.push({
+                kind: "empty",
+                contract,
+                existingCount: drawings.length,
+                product: { id: p.id, productType: p.productType, quantity: p.quantity, unit: p.unit },
+              });
+            }
           }
+        } else if (drawings.length === 0) {
+          rows.push({ kind: "empty", contract, existingCount: 0, product: null });
         }
-      } else if (drawings.length === 0) {
-        rows.push({ kind: "empty", contract, existingCount: 0, product: null });
       }
     }
     for (const d of list) {
@@ -120,7 +125,7 @@ export default function TechnicalDrawingsPage() {
       }
     }
     return rows;
-  }, [contracts, list]);
+  }, [contracts, list, viewMode]);
 
   const filtered = useMemo((): MergedRow[] => {
     const q = search.trim().toLowerCase();
@@ -560,6 +565,44 @@ export default function TechnicalDrawingsPage() {
 
         {/* Filter bar */}
         <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 2, padding: "10px 14px", flexWrap: "wrap" }}>
+          {/* Faol / Arxiv tab toggle */}
+          <div style={{ display: "inline-flex", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 2, gap: 2, flexShrink: 0 }}>
+            <button
+              onClick={() => setViewMode("active")}
+              style={{
+                padding: "6px 14px", borderRadius: "var(--radius)", border: "none",
+                background: viewMode === "active" ? "var(--accent)" : "transparent",
+                color: viewMode === "active" ? "#fff" : "var(--text2)",
+                fontSize: 13, fontWeight: 600, cursor: "pointer",
+                transition: "all 0.15s",
+                display: "inline-flex", alignItems: "center", gap: 6,
+              }}
+            >
+              <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Faol
+            </button>
+            <button
+              onClick={() => setViewMode("archive")}
+              style={{
+                padding: "6px 14px", borderRadius: "var(--radius)", border: "none",
+                background: viewMode === "archive" ? "var(--text3)" : "transparent",
+                color: viewMode === "archive" ? "#fff" : "var(--text2)",
+                fontSize: 13, fontWeight: 600, cursor: "pointer",
+                transition: "all 0.15s",
+                display: "inline-flex", alignItems: "center", gap: 6,
+              }}
+            >
+              <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <polyline points="21 8 21 21 3 21 3 8"/>
+                <rect x="1" y="3" width="22" height="5"/>
+                <line x1="10" y1="12" x2="14" y2="12"/>
+              </svg>
+              Arxiv
+            </button>
+          </div>
+
           <div className="search-wrap" style={{ maxWidth: "none", flex: 1, minWidth: 180 }}>
             <svg width="16" height="16" fill="none" stroke="var(--text3)" strokeWidth="2" viewBox="0 0 24 24">
               <circle cx="11" cy="11" r="8" />
@@ -637,7 +680,7 @@ export default function TechnicalDrawingsPage() {
                   {filtered.length === 0 ? (
                     <tr>
                       <td colSpan={8} style={{ textAlign: "center", padding: "32px 14px", color: "var(--text3)" }}>
-                        Ma&apos;lumot topilmadi
+                        {viewMode === "archive" ? "Arxivda chizmalar yo'q" : "Ma'lumot topilmadi"}
                       </td>
                     </tr>
                   ) : (
