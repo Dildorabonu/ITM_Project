@@ -113,6 +113,9 @@ public class TechnicalDrawingService : ITechnicalDrawingService
         if (drawing is null)
             return ApiResult<int>.Failure([$"Texnik chizma '{id}' topilmadi."], 404);
 
+        if (drawing.Status == DrawingStatus.Approved)
+            return ApiResult<int>.Failure(["Tasdiqlangan texnik chizmani tahrirlab bo'lmaydi."], 409);
+
         if (dto.Title is not null) drawing.Title = dto.Title;
         if (dto.Notes is not null) drawing.Notes = dto.Notes;
 
