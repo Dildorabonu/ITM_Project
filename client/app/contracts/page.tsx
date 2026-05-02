@@ -9,6 +9,7 @@ import {
   scanService,
   departmentService,
   ContractStatus,
+  ContractDeactivationReason,
   Priority,
   type ContractResponse,
   type ContractCreatePayload,
@@ -34,6 +35,14 @@ import { ScanModal } from "./_components/ScanModal";
 import { fmt } from "./_components/DatePickerField";
 import { useToastStore } from "@/lib/store/toastStore";
 import { ConfirmModal } from "@/app/_components/ConfirmModal";
+
+const DEACTIVATION_REASONS: { value: ContractDeactivationReason; label: string }[] = [
+  { value: ContractDeactivationReason.CustomerCancelled,      label: "Buyurtmachi bekor qildi" },
+  { value: ContractDeactivationReason.PaymentIssue,           label: "To'lov muammosi" },
+  { value: ContractDeactivationReason.TechnicalInfeasibility, label: "Texnik jihatdan amalga oshirib bo'lmaydi" },
+  { value: ContractDeactivationReason.MaterialUnavailable,    label: "Material yoki resurs yetishmasligi" },
+  { value: ContractDeactivationReason.DeadlineExpired,        label: "Muddati o'tib ketdi" },
+];
 
 export default function ContractsPage() {
   const hasPermission = useAuthStore((s) => s.hasPermission);
@@ -108,6 +117,9 @@ export default function ContractsPage() {
   // Deactivate confirm
   const [deactivateId, setDeactivateId] = useState<string | null>(null);
   const [deactivating, setDeactivating] = useState(false);
+  const [deactivateReason, setDeactivateReason] = useState<ContractDeactivationReason>(ContractDeactivationReason.CustomerCancelled);
+  const [deactivateNote, setDeactivateNote] = useState("");
+  const [deactivateError, setDeactivateError] = useState("");
 
   // Activate confirm
   const [activateId, setActivateId]     = useState<string | null>(null);
@@ -437,13 +449,26 @@ export default function ContractsPage() {
 
   // ── Deactivate ────────────────────────────────────────────────────────────
 
+  const closeDeactivate = () => {
+    setDeactivateId(null);
+    setDeactivateReason(ContractDeactivationReason.CustomerCancelled);
+    setDeactivateNote("");
+    setDeactivateError("");
+  };
+
   const handleDeactivate = async () => {
     if (!deactivateId) return;
+    const trimmed = deactivateNote.trim();
+    if (!trimmed) {
+      setDeactivateError("Iltimos, sababni izohlab yozing.");
+      return;
+    }
+    setDeactivateError("");
     setDeactivating(true);
     try {
-      await contractService.deactivate(deactivateId);
+      await contractService.deactivate(deactivateId, deactivateReason, trimmed);
       setContracts(prev => prev.filter(c => c.id !== deactivateId));
-      setDeactivateId(null);
+      closeDeactivate();
       window.dispatchEvent(new Event("notif-read"));
       showToast("Shartnoma muvaffaqiyatli noactive qilindi!");
     } catch {
@@ -820,7 +845,12 @@ export default function ContractsPage() {
                           </button>
                         )}
                         {canUpdate && c.isActive && (
-                          <button className="btn-icon btn-icon-danger" onClick={() => setDeactivateId(c.id)} title="Noaktiv qilish"
+                          <button className="btn-icon btn-icon-danger" onClick={() => {
+                            setDeactivateReason(ContractDeactivationReason.CustomerCancelled);
+                            setDeactivateNote("");
+                            setDeactivateError("");
+                            setDeactivateId(c.id);
+                          }} title="Noaktiv qilish"
                             style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                               <circle cx="12" cy="12" r="10" />
@@ -906,17 +936,82 @@ export default function ContractsPage() {
 
       {/* ── Deactivate Confirm Modal ── */}
       {deactivateId && (
-        <div className="modal-overlay" onClick={() => setDeactivateId(null)}>
-          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 400 }}>
+        <div className="modal-overlay" onClick={closeDeactivate}>
+          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 460 }}>
             <div className="modal-header" style={{ color: "var(--danger)", borderBottom: "1px solid var(--border)" }}>
               <span>Shartnomani noaktiv qilish</span>
             </div>
             <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
-              <p style={{ margin: 0, fontSize: 14, color: "var(--text2)", lineHeight: 1.6 }}>
-                Bu shartnoma va unga bog&apos;liq barcha ma&apos;lumotlar (texjarayon, xarajat normalari, vazifalar va boshqalar) noaktiv bo&apos;lib qoladi. Davom etasizmi?
+              <p style={{ margin: 0, fontSize: 13, color: "var(--text2)", lineHeight: 1.6 }}>
+                Bu shartnoma va unga bog&apos;liq barcha ma&apos;lumotlar (texjarayon, xarajat normalari, vazifalar va boshqalar) noaktiv bo&apos;lib qoladi.
               </p>
+
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-widest text-[--text3]" style={{ display: "block", marginBottom: 8 }}>
+                  Noaktiv qilish sababi
+                </label>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {DEACTIVATION_REASONS.map(opt => {
+                    const selected = deactivateReason === opt.value;
+                    return (
+                      <label
+                        key={opt.value}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 10,
+                          padding: "8px 12px",
+                          border: `1px solid ${selected ? "var(--danger)" : "var(--border)"}`,
+                          background: selected ? "var(--danger-dim)" : "var(--surface)",
+                          borderRadius: "var(--radius)",
+                          cursor: "pointer",
+                          transition: "all 0.15s",
+                          fontSize: 13,
+                          color: selected ? "var(--danger)" : "var(--text)",
+                          fontWeight: selected ? 600 : 400,
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name="deactivate-reason"
+                          checked={selected}
+                          onChange={() => setDeactivateReason(opt.value)}
+                          style={{ accentColor: "var(--danger)" }}
+                        />
+                        {opt.label}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-widest text-[--text3]" style={{ display: "block", marginBottom: 8 }}>
+                  Izoh <span style={{ color: "var(--danger)" }}>*</span>
+                </label>
+                <textarea
+                  value={deactivateNote}
+                  onChange={e => { setDeactivateNote(e.target.value); if (deactivateError) setDeactivateError(""); }}
+                  placeholder="Sababni qisqacha izohlab yozing..."
+                  rows={3}
+                  style={{
+                    width: "100%",
+                    background: "var(--surface)",
+                    border: `1px solid ${deactivateError ? "var(--danger)" : "var(--border)"}`,
+                    borderRadius: "var(--radius)",
+                    padding: "8px 12px",
+                    fontSize: 13,
+                    color: "var(--text)",
+                    resize: "vertical",
+                    fontFamily: "inherit",
+                    outline: "none",
+                  }}
+                />
+                {deactivateError && (
+                  <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--danger)" }}>{deactivateError}</p>
+                )}
+              </div>
+
               <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                <button className="btn btn-outline" onClick={() => setDeactivateId(null)}>
+                <button className="btn btn-outline" onClick={closeDeactivate} disabled={deactivating}>
                   Bekor qilish
                 </button>
                 <button className="btn btn-danger" onClick={handleDeactivate} disabled={deactivating}>

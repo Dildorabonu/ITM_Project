@@ -390,6 +390,16 @@ export interface ContractProductResponse {
   notes: string | null;
 }
 
+export const ContractDeactivationReason = {
+  CustomerCancelled: 0,
+  PaymentIssue: 1,
+  TechnicalInfeasibility: 2,
+  MaterialUnavailable: 3,
+  DeadlineExpired: 4,
+} as const;
+export type ContractDeactivationReason =
+  (typeof ContractDeactivationReason)[keyof typeof ContractDeactivationReason];
+
 export interface ContractResponse {
   id: string;
   contractNo: string;
@@ -401,6 +411,9 @@ export interface ContractResponse {
   status: ContractStatus;
   notes: string | null;
   isActive: boolean;
+  deactivationReason: ContractDeactivationReason | null;
+  deactivationNote: string | null;
+  deactivatedAt: string | null;
   createdBy: string;
   createdByFullName: string | null;
   createdAt: string;
@@ -471,8 +484,8 @@ export const contractService = {
     await api.put(`/api/contract/${id}/status`, { status });
   },
 
-  deactivate: async (id: string): Promise<void> => {
-    await api.patch(`/api/contract/${id}/deactivate`);
+  deactivate: async (id: string, reason: ContractDeactivationReason, note: string): Promise<void> => {
+    await api.patch(`/api/contract/${id}/deactivate`, { reason, note });
   },
 
   activate: async (id: string): Promise<void> => {

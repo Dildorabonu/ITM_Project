@@ -13,6 +13,9 @@ public class Contract
     public ContractStatus Status { get; set; }
     public string? Notes { get; set; }
     public bool IsActive { get; set; } = true;
+    public ContractDeactivationReason? DeactivationReason { get; set; }
+    public string? DeactivationNote { get; set; }
+    public DateTime? DeactivatedAt { get; set; }
     public Guid CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
