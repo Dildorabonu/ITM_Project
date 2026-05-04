@@ -11,5 +11,4 @@ public interface IUserService
     Task<ApiResult<UserResponseDto>> GetByIdAsync(Guid id);
     Task<ApiResult<int>> CreateAsync(UserCreateDto dto);
     Task<ApiResult<int>> UpdateAsync(Guid id, UserUpdateDto dto);
-    Task<ApiResult<int>> DeleteAsync(Guid id);
 }
