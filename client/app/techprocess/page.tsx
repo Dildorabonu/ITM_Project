@@ -1489,17 +1489,28 @@ export default function TechProductionPage() {
                       </td>
                       <td style={{ borderLeft:"2px solid var(--border)" }} onClick={e=>e.stopPropagation()}>
                         <div style={{ display:"flex",gap:6,justifyContent:"center" }}>
-                          <button
-                            className="btn-icon"
-                            onClick={()=>{ if(!drawingOk){ setDrawingWarningNo(item.contractNo); } else { setSelectedScopeKey(rowKey); setTpInlineEditing(false); } }}
-                            title="Ko'rish"
-                            style={{ color:"#0ea5e9",borderColor:"#0ea5e933",background:"#0ea5e912" }}
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                              <circle cx="12" cy="12" r="3" />
-                            </svg>
-                          </button>
+                          {drawingOk && viewMode === "active" && !tpEffective && !cnEffective ? (
+                            <button
+                              className="btn-icon"
+                              onClick={()=>{ setSelectedScopeKey(rowKey); setTpInlineEditing(false); }}
+                              title="Yaratish"
+                              style={{ color:"var(--accent)",borderColor:"var(--accent)33",background:"var(--accent-dim)",width:28,height:28,fontSize:18,fontWeight:400,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1 }}
+                            >
+                              +
+                            </button>
+                          ) : (
+                            <button
+                              className="btn-icon"
+                              onClick={()=>{ if(!drawingOk){ setDrawingWarningNo(item.contractNo); } else { setSelectedScopeKey(rowKey); setTpInlineEditing(false); } }}
+                              title="Ko'rish"
+                              style={{ color:"#0ea5e9",borderColor:"#0ea5e933",background:"#0ea5e912" }}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                <circle cx="12" cy="12" r="3" />
+                              </svg>
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
