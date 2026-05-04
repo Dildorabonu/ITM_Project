@@ -639,6 +639,17 @@ export const contractService = {
       return [];
     }
   },
+
+  getReadinessOverview: async (isActive?: boolean): Promise<unknown[]> => {
+    try {
+      const params: Record<string, string> = {};
+      if (isActive !== undefined) params.isActive = String(isActive);
+      const res = await api.get("/api/contract/readiness", { params });
+      return res.data?.result ?? res.data ?? [];
+    } catch {
+      return [];
+    }
+  },
 };
 
 export const departmentService = {
