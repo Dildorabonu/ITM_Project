@@ -33,6 +33,33 @@ export type ColField = "no"|"name"|"unit"|"readyQty"|"wasteQty"|"totalQty"|"phot
 
 // Bitta scope = (contract, mahsulot) yoki (contract, Umumiy).
 // contractProductId === null bo'lsa — Umumiy (butun shartnoma uchun).
+// Backend `/api/contract/readiness` endpointidan keladi; tartibni va prioritetni back hisoblaydi.
+export interface ReadinessDrawingSummary {
+  id: string;
+  title: string;
+  notes: string | null;
+  status: DrawingStatus;
+  createdAt: string;
+}
+
+export interface ReadinessTechProcessSummary {
+  id: string;
+  title: string;
+  notes: string | null;
+  status: ProcessStatus;
+  currentStep: number;
+  createdAt: string;
+}
+
+export interface ReadinessCostNormSummary {
+  id: string;
+  title: string;
+  notes: string | null;
+  status: DrawingStatus;
+  itemCount: number;
+  createdAt: string;
+}
+
 export interface ContractReadinessScope {
   contractId: string;
   contractNo: string;
@@ -41,9 +68,11 @@ export interface ContractReadinessScope {
   productType: string | null;
   productQuantity: number | null;
   productUnit: string | null;
-  drawing: TechnicalDrawingResponse | null;
-  tp: TechProcessResponse | null;
-  cn: CostNormResponse | null;
+  drawing: ReadinessDrawingSummary | null;
+  tp: ReadinessTechProcessSummary | null;
+  cn: ReadinessCostNormSummary | null;
+  /** Backend hisoblaydi: 0=chizma OK + TP/CN pending, 1=chizma tasdiqlanmagan, 2=chizma yaratilmagan, 3=yakunlangan */
+  priority: number;
 }
 
 export function scopeKey(contractId: string, contractProductId: string | null): string {
