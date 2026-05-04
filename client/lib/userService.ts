@@ -950,11 +950,6 @@ export const technicalDrawingService = {
     }
   },
 
-  getById: async (id: string): Promise<TechnicalDrawingResponse> => {
-    const res = await api.get(`/api/technicaldrawing/${id}`);
-    return res.data?.result ?? res.data;
-  },
-
   create: async (dto: TechnicalDrawingCreatePayload): Promise<string> => {
     const res = await api.post("/api/technicaldrawing", dto);
     return res.data?.result as string;
@@ -966,10 +961,6 @@ export const technicalDrawingService = {
 
   updateStatus: async (id: string, status: DrawingStatus): Promise<void> => {
     await api.put(`/api/technicaldrawing/${id}/status`, { status });
-  },
-
-  delete: async (id: string): Promise<void> => {
-    await api.delete(`/api/technicaldrawing/${id}`);
   },
 
   getFiles: async (id: string): Promise<AttachmentResponse[]> => {
@@ -984,10 +975,6 @@ export const technicalDrawingService = {
       headers: { "Content-Type": "multipart/form-data" },
     });
     return res.data?.result ?? res.data;
-  },
-
-  deleteFile: async (id: string, fileId: string): Promise<void> => {
-    await api.delete(`/api/technicaldrawing/${id}/files/${fileId}`);
   },
 
   downloadFile: async (id: string, fileId: string, fileName: string): Promise<void> => {
