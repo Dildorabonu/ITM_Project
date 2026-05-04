@@ -185,24 +185,6 @@ public class UserService : IUserService
         return ApiResult<int>.Success(200);
     }
 
-    public async Task<ApiResult<int>> DeleteAsync(Guid id)
-    {
-        if (id == SuperAdminId)
-            return ApiResult<int>.Failure(["SuperAdmin foydalanuvchisini o'chirish mumkin emas."], statusCode: 403);
-
-        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
-
-        if (user is null)
-            return ApiResult<int>.Failure([$"User with id '{id}' not found."]);
-
-        user.IsActive = false;
-        user.IsHead = false;
-        await _context.SaveChangesAsync();
-        _cache.Remove(LookupCacheKey);
-
-        return ApiResult<int>.Success(200);
-    }
-
     private static UserResponseDto MapToResponse(User user) => new()
     {
         Id = user.Id,
