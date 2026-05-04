@@ -146,34 +146,68 @@ public class TechProcessService : ITechProcessService
         if (contract is null || contract.Status != ContractStatus.TechProcessing)
             return;
 
-        var techProcessApproved = await _context.TechProcesses
-            .AnyAsync(t => t.ContractId == contractId && t.Status == ProcessStatus.Approved);
-        var costNormApproved = await _context.CostNorms
-            .AnyAsync(c => c.ContractId == contractId && c.Status == DrawingStatus.Approved);
+        if (!await IsContractFullyReadyForProductionAsync(contractId))
+            return;
 
-        if (techProcessApproved && costNormApproved)
+        contract.Status = ContractStatus.InProduction;
+        await _context.SaveChangesAsync();
+
+        var deptUserIds = await _context.Users
+            .Where(u => u.IsActive && _context.ContractDepartments
+                .Any(cd => cd.ContractId == contractId && cd.DepartmentId == u.DepartmentId))
+            .Select(u => u.Id)
+            .ToListAsync();
+
+        var contractUserIds = await _context.ContractUsers
+            .Where(cu => cu.ContractId == contractId)
+            .Select(cu => cu.UserId)
+            .ToListAsync();
+
+        await _notificationService.NotifyUsersAndSuperAdminsAsync(
+            deptUserIds.Union(contractUserIds).Distinct(),
+            $"Shartnoma ishlab chiqarishga o'tdi: {contract.ContractNo}",
+            $"«{contract.ContractNo}» shartnomasi tex jarayon va xarajat normalari tasdiqlandi. Ishlab chiqarish bosqichiga o'tildi.",
+            NotificationType.Task,
+            contract.Id);
+    }
+
+    // Kontrakt InProduction'ga o'tishi uchun har bir mahsulot alohida tasdiqlangan bo'lishi shart.
+    // Mahsulotsiz kontraktlarda esa kontrakt darajasidagi bitta Approved TP + Approved CN yetadi.
+    private async Task<bool> IsContractFullyReadyForProductionAsync(Guid contractId)
+    {
+        var productIds = await _context.ContractProducts
+            .Where(p => p.ContractId == contractId)
+            .Select(p => p.Id)
+            .ToListAsync();
+
+        if (productIds.Count == 0)
         {
-            contract.Status = ContractStatus.InProduction;
-            await _context.SaveChangesAsync();
-
-            var deptUserIds = await _context.Users
-                .Where(u => u.IsActive && _context.ContractDepartments
-                    .Any(cd => cd.ContractId == contractId && cd.DepartmentId == u.DepartmentId))
-                .Select(u => u.Id)
-                .ToListAsync();
-
-            var contractUserIds = await _context.ContractUsers
-                .Where(cu => cu.ContractId == contractId)
-                .Select(cu => cu.UserId)
-                .ToListAsync();
-
-            await _notificationService.NotifyUsersAndSuperAdminsAsync(
-                deptUserIds.Union(contractUserIds).Distinct(),
-                $"Shartnoma ishlab chiqarishga o'tdi: {contract.ContractNo}",
-                $"«{contract.ContractNo}» shartnomasi tex jarayon va xarajat normalari tasdiqlandi. Ishlab chiqarish bosqichiga o'tildi.",
-                NotificationType.Task,
-                contract.Id);
+            var tpOk = await _context.TechProcesses
+                .AnyAsync(t => t.ContractId == contractId && t.Status == ProcessStatus.Approved);
+            var cnOk = await _context.CostNorms
+                .AnyAsync(c => c.ContractId == contractId && c.Status == DrawingStatus.Approved);
+            return tpOk && cnOk;
         }
+
+        var approvedTpProductIds = await _context.TechProcesses
+            .Where(t => t.ContractId == contractId
+                && t.Status == ProcessStatus.Approved
+                && t.ContractProductId != null)
+            .Select(t => t.ContractProductId!.Value)
+            .Distinct()
+            .ToListAsync();
+
+        var approvedCnProductIds = await _context.CostNorms
+            .Where(c => c.ContractId == contractId
+                && c.Status == DrawingStatus.Approved
+                && c.ContractProductId != null)
+            .Select(c => c.ContractProductId!.Value)
+            .Distinct()
+            .ToListAsync();
+
+        var tpSet = approvedTpProductIds.ToHashSet();
+        var cnSet = approvedCnProductIds.ToHashSet();
+        return productIds.All(pid => tpSet.Contains(pid) && cnSet.Contains(pid));
     }
 
     public async Task<ApiResult<int>> UpdateAsync(Guid id, TechProcessUpdateDto dto)
