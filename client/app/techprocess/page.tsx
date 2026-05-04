@@ -9,7 +9,6 @@ import {
   techProcessService,
   contractService,
   costNormService,
-  technicalDrawingService,
   ProcessStatus,
   DrawingStatus,
   type TechProcessCreatePayload,
@@ -25,7 +24,6 @@ import {
   type TechProcessResponse,
   type CostNormResponse,
   type CostNormItemResponse,
-  type TechnicalDrawingResponse,
   parseMainTables,
   fmt,
   scopeKey,
@@ -113,97 +111,19 @@ export default function TechProductionPage() {
   const [tpInlineEditing, setTpInlineEditing] = useState(false);
   const [drawingWarningNo, setDrawingWarningNo] = useState<string|null>(null);
   const [contractList, setContractList] = useState<ContractResponse[]>([]);
-  const [drawingList, setDrawingList] = useState<TechnicalDrawingResponse[]>([]);
   const [viewMode, setViewMode] = useState<"active" | "archive">("active");
 
   useDraft("draft_costnorm", cnMode==="create", cnForm, (d)=>{ if(d.contractId) { setCnForm(d); setCnMode("create"); } else { sessionStorage.removeItem("draft_costnorm"); } });
 
   // ── Contract readiness ─────────────────────────────────────────────────────
-  // Har bir qator = bitta scope. Mahsulotlari bor shartnoma uchun har mahsulotga alohida
-  // scope ochiladi (Umumiy varianti yo'q). Mahsulotsiz shartnoma uchun bitta Umumiy scope.
-  const readinessItems = useMemo<ContractReadinessScope[]>(()=>{
-    type ContractMeta = {
-      contractId: string;
-      contractNo: string;
-      isActive: boolean;
-      products: { id: string; productType: string; quantity: number; unit: string }[];
-    };
-    const contractsMeta = new Map<string, ContractMeta>();
-    for (const c of contractList) {
-      contractsMeta.set(c.id, {
-        contractId: c.id,
-        contractNo: c.contractNo,
-        isActive: c.isActive,
-        products: (c.products ?? []).map(p => ({
-          id: p.id, productType: p.productType, quantity: p.quantity, unit: p.unit,
-        })),
-      });
-    }
-    const ensureMeta = (contractId: string, contractNo: string, isActive: boolean) => {
-      if (!contractsMeta.has(contractId)) {
-        contractsMeta.set(contractId, { contractId, contractNo, isActive, products: [] });
-      }
-    };
-    for (const tp of tpList) ensureMeta(tp.contractId, tp.contractNo, tp.isActive);
-    for (const cn of cnList) ensureMeta(cn.contractId, cn.contractNo, cn.isActive);
-    for (const d of drawingList) ensureMeta(d.contractId, d.contractNo, d.isActive);
-
-    const scopes: ContractReadinessScope[] = [];
-
-    for (const meta of contractsMeta.values()) {
-      const myDrawings = drawingList.filter(d => d.contractId === meta.contractId);
-      const myTps      = tpList.filter(t => t.contractId === meta.contractId);
-      const myCns      = cnList.filter(n => n.contractId === meta.contractId);
-
-      const buildScope = (productId: string | null, productInfo: ContractMeta["products"][number] | null): ContractReadinessScope => {
-        const drawingsForScope = myDrawings.filter(d => (d.contractProductId ?? null) === productId);
-        const tpsForScope      = myTps.filter(t => (t.contractProductId ?? null) === productId);
-        const cnsForScope      = myCns.filter(n => (n.contractProductId ?? null) === productId);
-
-        // Eng yuqori statusdagi chizmani / TP ni / mazmunli (items > 0) CN ni tanlaymiz
-        let drawing: TechnicalDrawingResponse | null = null;
-        for (const d of drawingsForScope) {
-          if (!drawing || d.status > drawing.status) drawing = d;
-        }
-        let tp: TechProcessResponse | null = null;
-        for (const t of tpsForScope) {
-          if (!tp || t.status > tp.status) tp = t;
-        }
-        let cn: CostNormResponse | null = null;
-        for (const n of cnsForScope) {
-          if (!cn || (cn.items.length === 0 && n.items.length > 0)) cn = n;
-        }
-
-        return {
-          contractId: meta.contractId,
-          contractNo: meta.contractNo,
-          contractIsActive: meta.isActive,
-          contractProductId: productId,
-          productType: productInfo?.productType ?? null,
-          productQuantity: productInfo?.quantity ?? null,
-          productUnit: productInfo?.unit ?? null,
-          drawing, tp, cn,
-        };
-      };
-
-      if (meta.products.length === 0) {
-        scopes.push(buildScope(null, null));
-      } else {
-        for (const p of meta.products) {
-          scopes.push(buildScope(p.id, p));
-        }
-      }
-    }
-
-    return scopes.sort((a, b) => {
-      const c = a.contractNo.localeCompare(b.contractNo);
-      if (c !== 0) return c;
-      // Umumiy birinchi
-      if (a.contractProductId === null) return -1;
-      if (b.contractProductId === null) return 1;
-      return (a.productType ?? "").localeCompare(b.productType ?? "");
-    });
-  },[contractList, tpList, cnList, drawingList]);
+  // Har bir qator = bitta scope. Backend (`/api/contract/readiness`) joinni va
+  // priority ni hisoblab, tartiblangan ro'yxat qaytaradi:
+  //   priority 0 — chizma tasdiqlangan, lekin TP yoki me'yoriy sarf tasdiqlanmagan
+  //   priority 1 — chizma yaratilgan, lekin tasdiqlanmagan
+  //   priority 2 — chizma yaratilmagan
+  //   priority 3 — to'liq yakunlangan
+  const [readinessItems, setReadinessItems] = useState<ContractReadinessScope[]>([]);
+  const [readinessLoading, setReadinessLoading] = useState(true);
 
   // ── Loaders ────────────────────────────────────────────────────────────────
 
@@ -223,9 +143,19 @@ export default function TechProductionPage() {
 
   const loadCn = useCallback(async()=>{ setCnListLoading(true); const d=await costNormService.getAll(undefined, viewMode === "active"); setCnList(d); setCnListLoading(false); },[viewMode]);
 
-  const loadDrawings = useCallback(async()=>{ try { const d=await technicalDrawingService.getAll(undefined, viewMode === "active"); setDrawingList(d); } catch { setDrawingList([]); } },[viewMode]);
+  const loadReadiness = useCallback(async()=>{
+    try {
+      setReadinessLoading(true);
+      const data = await contractService.getReadinessOverview(viewMode === "active");
+      setReadinessItems(data as ContractReadinessScope[]);
+    } catch {
+      setReadinessItems([]);
+    } finally {
+      setReadinessLoading(false);
+    }
+  },[viewMode]);
 
-  useEffect(()=>{ loadTp(); loadCn(); loadContracts(); loadDrawings(); },[loadTp, loadCn, loadContracts, loadDrawings]);
+  useEffect(()=>{ loadTp(); loadCn(); loadContracts(); loadReadiness(); },[loadTp, loadCn, loadContracts, loadReadiness]);
 
   useEffect(()=>{ if(!tpShowForm) return; const h=()=>setTpShowForm(false); window.addEventListener("popstate",h); return ()=>window.removeEventListener("popstate",h); },[tpShowForm]);
 
@@ -255,7 +185,7 @@ export default function TechProductionPage() {
       await techProcessService.update(tpSelected.id, { title: tpEditForm.title, notes: tpEditForm.notes||null });
       if(tpEditNewFile) await techProcessService.uploadFile(tpSelected.id, tpEditNewFile);
       await tpRefreshSelected(tpSelected.id);
-      await loadTp();
+      await Promise.all([loadTp(), loadReadiness()]);
     } catch(e: unknown) {
       const msg=(e as {response?:{data?:{errors?:string[]}}})?.response?.data?.errors?.[0];
       alert(msg??"Saqlashda xatolik yuz berdi. Qayta urinib ko'ring.");
@@ -287,6 +217,7 @@ export default function TechProductionPage() {
       await techProcessService.uploadFile(newId, finalFile!);
       const fresh = await techProcessService.getById(newId);
       setTpList(prev=>[fresh,...prev]);
+      await loadReadiness();
       setTpDraftWarning(null);
       setTpShowForm(false);
       showToast("Texnologik jarayon muvaffaqiyatli yaratildi!");
@@ -338,7 +269,8 @@ export default function TechProductionPage() {
       const items=allRows.map((row,idx)=>({ isSection:row.isSection,sectionName:row.isSection?row.sectionName:null,no:row.no||null,name:row.name||null,unit:row.unit||null,readyQty:row.readyQty||null,wasteQty:row.wasteQty||null,totalQty:row.totalQty||null,photoRaw:row.photoRaw||null,photoSemi:row.photoSemi||null,importType:row.importType||null,sortOrder:idx }));
       const newId=await costNormService.create({contractId:cnForm.contractId,contractProductId:cnForm.contractProductId||null,title:cnForm.title||cnFormFile?.name?.replace(/\.docx$/i,"")||"",notes:cnForm.notes||null,items});
       if(cnFormFile&&newId) await costNormService.uploadFile(newId,cnFormFile);
-      await loadCn(); setCnDraftWarning(null); setCnMode("list");
+      await Promise.all([loadCn(), loadReadiness()]);
+      setCnDraftWarning(null); setCnMode("list");
       showToast("Me'yoriy sarf muvaffaqiyatli yaratildi!");
     } catch(e: unknown) {
       const msg=(e as {response?:{data?:{errors?:string[]}}})?.response?.data?.errors?.[0];
@@ -348,7 +280,7 @@ export default function TechProductionPage() {
     finally { setCnSaving(false); }
   }
 
-  function handleCnApprove(norm: CostNormResponse) {
+  function handleCnApprove(norm: { id: string; title: string }) {
     setCnApproveTarget({ id: norm.id, title: norm.title });
   }
 
@@ -359,6 +291,7 @@ export default function TechProductionPage() {
       await costNormService.approve(cnApproveTarget.id);
       setCnList(prev=>prev.map(n=>n.id===cnApproveTarget.id?{...n,status:DrawingStatus.Approved}:n));
       if(cnSelected?.id===cnApproveTarget.id) setCnSelected(n=>n?{...n,status:DrawingStatus.Approved}:n);
+      await loadReadiness();
       setCnApproveTarget(null);
       showToast("Me'yoriy sarf tasdiqlandi!");
     } finally { setCnApproving(false); }
@@ -370,7 +303,7 @@ export default function TechProductionPage() {
     try {
       await techProcessService.approve(tpApproveTarget.id);
       if (tpSelected?.id === tpApproveTarget.id) await tpRefreshSelected(tpApproveTarget.id);
-      await loadTp();
+      await Promise.all([loadTp(), loadReadiness()]);
       setTpApproveTarget(null);
       showToast("Texnologik jarayon tasdiqlandi!");
     } finally { setTpApproving(false); }
@@ -410,7 +343,8 @@ export default function TechProductionPage() {
       const items=cnEditItems.map((row,idx)=>({isSection:row.isSection,sectionName:row.isSection?row.sectionName:null,no:row.no||null,name:row.name||null,unit:row.unit||null,readyQty:row.readyQty||null,wasteQty:row.wasteQty||null,totalQty:row.totalQty||null,photoRaw:row.photoRaw||null,photoSemi:row.photoSemi||null,importType:row.importType||null,sortOrder:idx}));
       await costNormService.update(cnEditingNorm.id,{title:cnEditForm.title,notes:cnEditForm.notes||null,items});
       if(cnEditNewFile) { for(const f of cnEditFiles) await costNormService.deleteFile(cnEditingNorm.id,f.id); await costNormService.uploadFile(cnEditingNorm.id,cnEditNewFile); }
-      await loadCn(); setCnMode("list"); setCnEditingNorm(null);
+      await Promise.all([loadCn(), loadReadiness()]);
+      setCnMode("list"); setCnEditingNorm(null);
     } catch { setCnEditSaveError("Saqlashda xatolik yuz berdi"); }
     finally { setCnEditSaving(false); }
   }
@@ -997,26 +931,13 @@ export default function TechProductionPage() {
   // ── Main view: contracts table + detail page ─────────────────────────────────
 
   const selectedItem = readinessItems.find(i => scopeKey(i.contractId, i.contractProductId) === selectedScopeKey) ?? null;
-  const filteredItems = !tpSearch.trim()
+
+  // Backend `/api/contract/readiness` endpointi qatorlarni priority bo'yicha tartiblab qaytaradi
+  // (0 — eng yuqori, 3 — yakunlangan). Bu yerda faqat shartnoma raqami bo'yicha qidiruvni
+  // qo'llaymiz; tartibni o'zgartirmaymiz.
+  const sortedFilteredItems = !tpSearch.trim()
     ? readinessItems
     : readinessItems.filter(i => i.contractNo.toLowerCase().includes(tpSearch.trim().toLowerCase()));
-
-  const isDrawingReadyPending = (item: typeof readinessItems[number]) => {
-    if (item.drawing?.status !== DrawingStatus.Approved) return false;
-    const tpEff = item.tp?.status !== ProcessStatus.Pending ? item.tp : null;
-    const cnEff = item.cn && item.cn.items.length > 0 ? item.cn : null;
-    const tpDoneLocal = !!tpEff && (tpEff.status === ProcessStatus.Approved || tpEff.status === ProcessStatus.Completed);
-    const cnDoneLocal = !!cnEff && cnEff.status === DrawingStatus.Approved;
-    return !(tpDoneLocal && cnDoneLocal);
-  };
-
-  const getRowPriority = (item: typeof readinessItems[number]) => {
-    if (isDrawingReadyPending(item)) return 0;
-    if (!item.drawing || item.drawing.status !== DrawingStatus.Approved) return 1;
-    return 2;
-  };
-
-  const sortedFilteredItems = [...filteredItems].sort((a, b) => getRowPriority(a) - getRowPriority(b));
 
   // ── Detail full-page view ──────────────────────────────────────────────────
 
@@ -1024,7 +945,7 @@ export default function TechProductionPage() {
     const closeDetail = () => { setSelectedScopeKey(null); setTpInlineEditing(false); };
     const drawingApproved = selectedItem.drawing?.status === DrawingStatus.Approved;
     const tpEffective = selectedItem.tp?.status !== ProcessStatus.Pending ? selectedItem.tp : null;
-    const cnEffective = selectedItem.cn && selectedItem.cn.items.length > 0 ? selectedItem.cn : null;
+    const cnEffective = selectedItem.cn && selectedItem.cn.itemCount > 0 ? selectedItem.cn : null;
     const drawingDone = drawingApproved;
     const tpDone = tpEffective && (tpEffective.status === ProcessStatus.Approved || tpEffective.status === ProcessStatus.Completed);
     const cnDone = cnEffective && cnEffective.status === DrawingStatus.Approved;
@@ -1154,12 +1075,12 @@ export default function TechProductionPage() {
                       {tpApproving?"...":"Tasdiqlash"}
                     </button>
                   )}
-                  <button onClick={()=>openTpDetail(tpEffective)}
+                  <button onClick={()=>{ const full=tpList.find(t=>t.id===tpEffective.id); if(full) openTpDetail(full); }}
                     style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"#e8f0fe",border:"1px solid #a4c0f4",color:"#1a56db",cursor:"pointer" }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                     Ko&apos;rish
                   </button>
-                  <button onClick={()=>{ setTpSelected(tpEffective); setTpEditForm({title:tpEffective.title,notes:tpEffective.notes||""}); setTpEditNewFile(null); setTpInlineEditing(true); }}
+                  <button onClick={()=>{ const full=tpList.find(t=>t.id===tpEffective.id); if(!full) return; setTpSelected(full); setTpEditForm({title:full.title,notes:full.notes||""}); setTpEditNewFile(null); setTpInlineEditing(true); }}
                     style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--text2)",cursor:"pointer" }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     Tahrirlash
@@ -1266,18 +1187,18 @@ export default function TechProductionPage() {
               {cnEffective&&(
                 <div style={{ display:"flex",gap:4 }}>
                   {cnEffective.status===DrawingStatus.InProgress&&(
-                    <button onClick={()=>handleCnApprove(cnEffective)} disabled={cnApproving}
+                    <button onClick={()=>handleCnApprove({ id: cnEffective.id, title: cnEffective.title })} disabled={cnApproving}
                       style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--success-dim)",border:"1px solid rgba(15,123,69,0.2)",color:"var(--success)",cursor:"pointer",opacity:cnApproving?0.6:1 }}>
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                       {cnApproving?"...":"Tasdiqlash"}
                     </button>
                   )}
-                  <button onClick={()=>openCnDetail(cnEffective)}
+                  <button onClick={()=>{ const full=cnList.find(n=>n.id===cnEffective.id); if(full) openCnDetail(full); }}
                     style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"#e8f0fe",border:"1px solid #a4c0f4",color:"#1a56db",cursor:"pointer" }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                     Ko&apos;rish
                   </button>
-                  <button onClick={()=>openCnEdit(cnEffective)}
+                  <button onClick={()=>{ const full=cnList.find(n=>n.id===cnEffective.id); if(full) openCnEdit(full); }}
                     style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--text2)",cursor:"pointer" }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     Tahrirlash
@@ -1466,14 +1387,14 @@ export default function TechProductionPage() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input className="search-input" placeholder="Shartnoma raqami bo'yicha qidirish..." value={tpSearch} onChange={e=>setTpSearch(e.target.value)}/>
         </div>
-        <button className="btn-icon" onClick={()=>{ loadTp(); loadCn(); loadContracts(); loadDrawings(); }} title="Yangilash" style={{ background:"var(--accent-dim)",borderColor:"var(--accent)",color:"var(--accent)",width:36,height:36 }}>
+        <button className="btn-icon" onClick={()=>{ loadTp(); loadCn(); loadContracts(); loadReadiness(); }} title="Yangilash" style={{ background:"var(--accent-dim)",borderColor:"var(--accent)",color:"var(--accent)",width:36,height:36 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
         </button>
       </div>
 
       {/* ── Contracts table ── */}
       <div className="itm-card" style={{ flex:1, overflow:"hidden" }}>
-        {(tpLoading||cnListLoading)?(
+        {(readinessLoading||tpLoading||cnListLoading)?(
           <div style={{ padding:40,textAlign:"center",color:"var(--text2)" }}>Yuklanmoqda...</div>
         ):readinessItems.length===0?(
           <div style={{ padding:40,textAlign:"center",color:"var(--text2)" }}>
@@ -1503,10 +1424,9 @@ export default function TechProductionPage() {
                 ):sortedFilteredItems.map((item,i)=>{
                   const drawingOk=item.drawing?.status===DrawingStatus.Approved;
                   const tpEffective=item.tp?.status!==ProcessStatus.Pending?item.tp:null;
-                  const cnEffective=item.cn&&item.cn.items.length>0?item.cn:null;
+                  const cnEffective=item.cn&&item.cn.itemCount>0?item.cn:null;
                   const tpOk=tpEffective&&(tpEffective.status===ProcessStatus.Approved||tpEffective.status===ProcessStatus.Completed);
                   const cnOk=cnEffective&&cnEffective.status===DrawingStatus.Approved;
-                  const nothingStarted=!item.drawing&&!tpEffective&&!cnEffective;
                   const drawingReadyPending = drawingOk && !(tpOk && cnOk);
                   const rowKey = scopeKey(item.contractId, item.contractProductId);
                   return (
@@ -1550,10 +1470,10 @@ export default function TechProductionPage() {
                       <td style={{ textAlign:"center" }}>
                         {tpOk&&cnOk?(
                           <span style={{ fontSize:11,fontWeight:600,color:"var(--purple)",background:"var(--purple-dim)",borderRadius:20,padding:"2px 10px",border:"1px solid rgba(109,74,173,0.2)",display:"inline-block" }}>Yakunlangan</span>
-                        ):nothingStarted?(
-                          <span style={{ fontSize:11,fontWeight:600,color:"var(--text3)",background:"var(--bg3)",borderRadius:20,padding:"2px 10px",border:"1px solid var(--border)",display:"inline-block",fontStyle:"italic" }}>Boshlanmagan</span>
-                        ):(
+                        ):drawingOk?(
                           <span style={{ fontSize:11,fontWeight:600,color:"var(--text2)",background:"var(--bg3)",borderRadius:20,padding:"2px 10px",border:"1px solid var(--border)",display:"inline-block" }}>Jarayonda</span>
+                        ):(
+                          <span style={{ fontSize:11,fontWeight:600,color:"var(--text3)",background:"var(--bg3)",borderRadius:20,padding:"2px 10px",border:"1px solid var(--border)",display:"inline-block",fontStyle:"italic" }}>Boshlanmagan</span>
                         )}
                       </td>
                       <td style={{ textAlign:"center" }}>
