@@ -171,7 +171,10 @@ function ContractBar({
 
 // ─── Contract card ────────────────────────────────────────────────────────────
 
-const ACTIONABLE_STATUSES = new Set([ContractStatus.InProduction]);
+// Bir shartnomada bir nechta mahsulot bo'lsa, hammasi tasdiqlanmaguncha kontrakt
+// status `TechProcessing` da qoladi. Mahsulot bo'yicha tasdiqlangan scope uchun
+// vazifaga kirishni ochiq qoldiramiz — per-scope tayyorlikni `scopeReady` tekshiradi.
+const ACTIONABLE_STATUSES = new Set([ContractStatus.TechProcessing, ContractStatus.InProduction]);
 
 function ContractCard({
   scope,
@@ -223,9 +226,17 @@ function ContractCard({
           <span className="tcc-party">{contract.contractParty}</span>
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <span className={`status ${STATUS_COLORS[contract.status]}`}>
-            {STATUS_LABELS[contract.status]}
-          </span>
+          {/* Mahsulot bo'yicha tayyor bo'lsa, kontrakt darajasidagi `Tex jarayon`
+              badge'i chalg'itadi — per-scope holatni "Ishlab chiqarishda" deb ko'rsatamiz. */}
+          {(() => {
+            const showAsProduction = isActionable && contract.status === ContractStatus.TechProcessing;
+            const status = showAsProduction ? ContractStatus.InProduction : contract.status;
+            return (
+              <span className={`status ${STATUS_COLORS[status]}`}>
+                {STATUS_LABELS[status]}
+              </span>
+            );
+          })()}
           {!contract.isActive && (
             <span style={{
               display: "inline-flex", alignItems: "center", padding: "2px 8px",
