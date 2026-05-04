@@ -121,6 +121,10 @@ namespace DataAccess.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ContractNo")
+                        .IsUnique()
+                        .HasFilter("\"IsActive\" = TRUE");
+
                     b.HasIndex("CreatedBy");
 
                     b.ToTable("Contracts");

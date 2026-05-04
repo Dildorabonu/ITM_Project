@@ -10,6 +10,10 @@ public class ContractConfiguration : IEntityTypeConfiguration<Contract>
     {
         builder.HasKey(c => c.Id);
 
+        builder.HasIndex(c => c.ContractNo)
+            .IsUnique()
+            .HasFilter("\"IsActive\" = TRUE");
+
         builder.HasOne(c => c.Creator)
             .WithMany(u => u.CreatedContracts)
             .HasForeignKey(c => c.CreatedBy)
