@@ -1010,12 +1010,13 @@ export default function TechProductionPage() {
     return !(tpDoneLocal && cnDoneLocal);
   };
 
-  const sortedFilteredItems = [...filteredItems].sort((a, b) => {
-    const aReady = isDrawingReadyPending(a);
-    const bReady = isDrawingReadyPending(b);
-    if (aReady === bReady) return 0;
-    return aReady ? -1 : 1;
-  });
+  const getRowPriority = (item: typeof readinessItems[number]) => {
+    if (isDrawingReadyPending(item)) return 0;
+    if (!item.drawing || item.drawing.status !== DrawingStatus.Approved) return 1;
+    return 2;
+  };
+
+  const sortedFilteredItems = [...filteredItems].sort((a, b) => getRowPriority(a) - getRowPriority(b));
 
   // ── Detail full-page view ──────────────────────────────────────────────────
 
@@ -1419,22 +1420,6 @@ export default function TechProductionPage() {
           animation: tp-badge-pulse 1.6s ease-in-out infinite;
         }
 
-        @keyframes tp-approved-pulse {
-          0%, 100% {
-            background: var(--success-dim);
-            color: var(--success);
-            box-shadow: 0 0 0 0 rgba(15,123,69,0);
-          }
-          50% {
-            background: var(--success);
-            color: #fff;
-            box-shadow: 0 0 0 6px rgba(15,123,69,0);
-          }
-        }
-        .tp-row-ready .tp-approved-badge {
-          animation: tp-approved-pulse 1.6s ease-in-out infinite;
-          border-color: rgba(15,123,69,0.45) !important;
-        }
       `}</style>
 
       {/* ── Toolbar ── */}
