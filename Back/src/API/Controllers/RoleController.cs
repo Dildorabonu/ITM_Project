@@ -33,23 +33,11 @@ public class RoleController : ControllerBase
         return Ok(result);
     }
 
-    [HasPermission("Roles.View")]
-    [HttpGet("{id:guid}")]
-    public async Task<IActionResult> GetById(Guid id)
-    {
-        var result = await _roleService.GetByIdAsync(id);
-        return StatusCode(result.StatusCode, result);
-    }
-
     [HasPermission("Roles.Create")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] RoleCreateDto dto)
     {
         var result = await _roleService.CreateAsync(dto);
-
-        if (!result.Succeeded)
-            return StatusCode(result.StatusCode, result);
-
         return StatusCode(result.StatusCode, result);
     }
 
