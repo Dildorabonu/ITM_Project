@@ -208,6 +208,8 @@ export function ContractForm({
               {form.products.map((p, idx) => {
                 const productDeptErr = submitted && p.productType.trim() !== "" && p.departmentIds.length === 0;
                 const productTypeErr = submitted && !p.productType.trim();
+                const quantityErr = submitted && (p.quantity.trim() === "" || !(Number(p.quantity) > 0));
+                const unitErr = submitted && !p.unit.trim();
                 return (
                   <div key={idx} style={{
                     border: "1.5px solid var(--border)", borderRadius: 12, padding: 16,
@@ -252,25 +254,37 @@ export function ContractForm({
                         />
                       </div>
                       <div>
-                        <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4, color: "var(--text2)" }}>Miqdor</label>
+                        <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4, color: quantityErr ? "var(--danger)" : "var(--text2)" }}>
+                          Miqdor <span style={{ color: "var(--danger)" }}>*</span>
+                        </label>
                         <input
                           className="form-input"
-                          type="number"
-                          min="0"
+                          type="text"
+                          inputMode="decimal"
                           value={p.quantity}
-                          onChange={e => updateProduct(idx, { quantity: e.target.value })}
+                          onChange={e => {
+                            const cleaned = e.target.value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1");
+                            updateProduct(idx, { quantity: cleaned });
+                          }}
                           onWheel={e => (e.target as HTMLInputElement).blur()}
                           placeholder="0"
+                          style={quantityErr ? { borderColor: "var(--danger)" } : undefined}
                         />
+                        {quantityErr && <div style={{ color: "var(--danger)", fontSize: 11, marginTop: 4 }}>Miqdorni kiriting</div>}
                       </div>
                       <div>
-                        <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4, color: "var(--text2)" }}>O&apos;lchov birligi</label>
-                        <CheckSelect
-                          value={p.unit}
-                          onChange={v => updateProduct(idx, { unit: v })}
-                          options={UNIT_OPTIONS.filter(o => o.value !== "").map(o => ({ id: o.value, name: o.label, icon: o.icon }))}
-                          placeholder="— Tanlang —"
-                        />
+                        <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4, color: unitErr ? "var(--danger)" : "var(--text2)" }}>
+                          O&apos;lchov birligi <span style={{ color: "var(--danger)" }}>*</span>
+                        </label>
+                        <div style={unitErr ? { borderRadius: "var(--radius)", boxShadow: "0 0 0 1.5px var(--danger)" } : undefined}>
+                          <CheckSelect
+                            value={p.unit}
+                            onChange={v => updateProduct(idx, { unit: v })}
+                            options={UNIT_OPTIONS.filter(o => o.value !== "").map(o => ({ id: o.value, name: o.label, icon: o.icon }))}
+                            placeholder="— Tanlang —"
+                          />
+                        </div>
+                        {unitErr && <div style={{ color: "var(--danger)", fontSize: 11, marginTop: 4 }}>Birlikni tanlang</div>}
                       </div>
                     </div>
 
