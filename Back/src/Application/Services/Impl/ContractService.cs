@@ -218,6 +218,18 @@ public class ContractService : IContractService
     private async Task<List<string>> ValidateProductsAsync(IEnumerable<ContractProductCreateDto> products)
     {
         var errors = new List<string>();
+
+        var idx = 0;
+        foreach (var p in products)
+        {
+            idx++;
+            if (string.IsNullOrWhiteSpace(p.ProductType)) continue;
+            if (p.Quantity <= 0)
+                errors.Add($"Mahsulot #{idx}: miqdorni kiriting (0 dan katta son).");
+            if (string.IsNullOrWhiteSpace(p.Unit))
+                errors.Add($"Mahsulot #{idx}: o'lchov birligini tanlang.");
+        }
+
         var deptIds = products.SelectMany(p => p.DepartmentIds).Distinct().ToList();
         var userIds = products.SelectMany(p => p.Users.Select(u => u.UserId)).Distinct().ToList();
 
