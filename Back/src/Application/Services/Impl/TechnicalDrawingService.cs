@@ -52,21 +52,6 @@ public class TechnicalDrawingService : ITechnicalDrawingService
         return ApiResult<IEnumerable<TechnicalDrawingResponseDto>>.Success(list.Select(MapToResponse));
     }
 
-    public async Task<ApiResult<TechnicalDrawingResponseDto>> GetByIdAsync(Guid id)
-    {
-        var drawing = await _context.TechnicalDrawings
-            .Include(d => d.Contract)
-            .Include(d => d.ContractProduct)
-            .Include(d => d.Creator)
-            .AsNoTracking()
-            .FirstOrDefaultAsync(d => d.Id == id);
-
-        if (drawing is null)
-            return ApiResult<TechnicalDrawingResponseDto>.Failure([$"Texnik chizma '{id}' topilmadi."], 404);
-
-        return ApiResult<TechnicalDrawingResponseDto>.Success(MapToResponse(drawing));
-    }
-
     public async Task<ApiResult<Guid>> CreateAsync(TechnicalDrawingCreateDto dto, Guid createdBy)
     {
         var contract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == dto.ContractId);
@@ -189,18 +174,6 @@ public class TechnicalDrawingService : ITechnicalDrawingService
             }
         }
 
-        return ApiResult<int>.Success(200);
-    }
-
-    public async Task<ApiResult<int>> DeleteAsync(Guid id)
-    {
-        var drawing = await _context.TechnicalDrawings.FirstOrDefaultAsync(d => d.Id == id);
-        if (drawing is null)
-            return ApiResult<int>.Failure([$"Texnik chizma '{id}' topilmadi."], 404);
-
-        await _attachmentService.DeleteAllAsync("technicaldrawings", id);
-        _context.TechnicalDrawings.Remove(drawing);
-        await _context.SaveChangesAsync();
         return ApiResult<int>.Success(200);
     }
 

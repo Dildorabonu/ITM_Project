@@ -35,18 +35,6 @@ public class RoleService : IRoleService
         return ApiResult<IEnumerable<RoleResponseDto>>.Success(roles.Select(MapToResponse));
     }
 
-    public async Task<ApiResult<RoleResponseDto>> GetByIdAsync(Guid id)
-    {
-        var role = await _context.Roles
-            .AsNoTracking()
-            .FirstOrDefaultAsync(r => r.Id == id);
-
-        if (role is null)
-            return ApiResult<RoleResponseDto>.Failure([$"Role with id '{id}' not found."], statusCode: 404);
-
-        return ApiResult<RoleResponseDto>.Success(MapToResponse(role));
-    }
-
     public async Task<ApiResult<object>> CreateAsync(RoleCreateDto dto)
     {
         if (await _context.Roles.AnyAsync(r => r.Name == dto.Name))
