@@ -4,7 +4,6 @@ using Core.Entities;
 using Core.Enums;
 using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
-using DrawingStatus = Core.Enums.DrawingStatus;
 using SysTask = System.Threading.Tasks.Task;
 
 
@@ -32,8 +31,7 @@ public class TechProcessService : ITechProcessService
             .Include(t => t.Contract)
             .Include(t => t.ContractProduct)
             .Include(t => t.Approver)
-            .AsNoTracking()
-            .AsQueryable();
+            .AsNoTracking();
 
         if (!viewAll)
         {
