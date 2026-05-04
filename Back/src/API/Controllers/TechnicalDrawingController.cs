@@ -40,14 +40,6 @@ public class TechnicalDrawingController : ControllerBase
         return StatusCode(result.StatusCode, result);
     }
 
-    [HasPermission("TechnicalDrawings.View")]
-    [HttpGet("{id:guid}")]
-    public async Task<IActionResult> GetById(Guid id)
-    {
-        var result = await _drawingService.GetByIdAsync(id);
-        return StatusCode(result.StatusCode, result);
-    }
-
     [HasPermission("TechnicalDrawings.Create")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] TechnicalDrawingCreateDto dto)
@@ -70,14 +62,6 @@ public class TechnicalDrawingController : ControllerBase
     public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] DrawingStatusUpdateDto dto)
     {
         var result = await _drawingService.UpdateStatusAsync(id, dto.Status);
-        return StatusCode(result.StatusCode, result);
-    }
-
-    [HasPermission("TechnicalDrawings.Delete")]
-    [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id)
-    {
-        var result = await _drawingService.DeleteAsync(id);
         return StatusCode(result.StatusCode, result);
     }
 
@@ -129,11 +113,4 @@ public class TechnicalDrawingController : ControllerBase
         return File(bytes, contentType, fileName);
     }
 
-    [HasPermission("TechnicalDrawings.Delete")]
-    [HttpDelete("{id:guid}/files/{fileId:guid}")]
-    public async Task<IActionResult> DeleteFile(Guid id, Guid fileId)
-    {
-        var result = await _attachmentService.DeleteAsync(EntityType, id, fileId);
-        return StatusCode(result.StatusCode, result);
-    }
 }
