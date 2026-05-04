@@ -780,6 +780,180 @@ public class ContractService : IContractService
         return ApiResult<IEnumerable<ContractResponseDto>>.Success(contracts.Select(MapToResponse));
     }
 
+    public async Task<ApiResult<IEnumerable<ContractReadinessDto>>> GetReadinessOverviewAsync(Guid currentUserId, bool viewAll, bool? isActive = null)
+    {
+        var query = _context.Contracts
+            .Include(c => c.Products).ThenInclude(p => p.ProductUsers)
+            .Include(c => c.Products).ThenInclude(p => p.ProductDepartments)
+            .Include(c => c.ContractUsers)
+            .Include(c => c.ContractDepartments)
+            .AsNoTracking()
+            .AsQueryable();
+
+        if (!viewAll)
+        {
+            query = query.Where(c =>
+                c.ContractUsers.Any(cu => cu.UserId == currentUserId) ||
+                c.Products.Any(p => p.ProductUsers.Any(pu => pu.UserId == currentUserId)) ||
+                c.ContractDepartments.Any(cd =>
+                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == cd.DepartmentId)) ||
+                c.Products.Any(p => p.ProductDepartments.Any(pd =>
+                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == pd.DepartmentId))));
+        }
+
+        if (isActive.HasValue)
+            query = query.Where(c => c.IsActive == isActive.Value);
+
+        var contracts = await query.ToListAsync();
+        if (!viewAll)
+            FilterVisibleProducts(contracts, currentUserId);
+
+        var contractIds = contracts.Select(c => c.Id).ToList();
+
+        var drawingsQuery = _context.TechnicalDrawings.AsNoTracking()
+            .Where(d => contractIds.Contains(d.ContractId));
+        var tpsQuery = _context.TechProcesses.AsNoTracking()
+            .Where(t => contractIds.Contains(t.ContractId));
+        var cnsQuery = _context.CostNorms.AsNoTracking()
+            .Where(n => contractIds.Contains(n.ContractId));
+
+        if (isActive.HasValue)
+        {
+            drawingsQuery = drawingsQuery.Where(d => d.IsActive == isActive.Value);
+            tpsQuery = tpsQuery.Where(t => t.IsActive == isActive.Value);
+            cnsQuery = cnsQuery.Where(n => n.IsActive == isActive.Value);
+        }
+
+        var drawings = await drawingsQuery
+            .Select(d => new ContractReadinessDrawingRow(d.Id, d.ContractId, d.ContractProductId, d.Title, d.Notes, d.Status, d.CreatedAt))
+            .ToListAsync();
+
+        var techProcesses = await tpsQuery
+            .Select(t => new ContractReadinessTechProcessRow(t.Id, t.ContractId, t.ContractProductId, t.Title, t.Notes, t.Status, t.CurrentStep, t.CreatedAt))
+            .ToListAsync();
+
+        var costNorms = await cnsQuery
+            .Select(n => new ContractReadinessCostNormRow(n.Id, n.ContractId, n.ContractProductId, n.Title, n.Notes, n.Status, n.Items.Count, n.CreatedAt))
+            .ToListAsync();
+
+        var scopes = new List<ContractReadinessDto>();
+        foreach (var contract in contracts)
+        {
+            if (contract.Products.Count == 0)
+            {
+                scopes.Add(BuildReadinessScope(contract, productId: null, productInfo: null, drawings, techProcesses, costNorms));
+            }
+            else
+            {
+                foreach (var product in contract.Products.OrderBy(p => p.OrderIndex))
+                {
+                    scopes.Add(BuildReadinessScope(contract, product.Id, product, drawings, techProcesses, costNorms));
+                }
+            }
+        }
+
+        var ordered = scopes
+            .OrderBy(s => s.Priority)
+            .ThenBy(s => s.ContractNo, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(s => s.ContractProductId == null ? 0 : 1)
+            .ThenBy(s => s.ProductType, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return ApiResult<IEnumerable<ContractReadinessDto>>.Success(ordered);
+    }
+
+    private record ContractReadinessDrawingRow(Guid Id, Guid ContractId, Guid? ContractProductId, string Title, string? Notes, DrawingStatus Status, DateTime CreatedAt);
+    private record ContractReadinessTechProcessRow(Guid Id, Guid ContractId, Guid? ContractProductId, string Title, string? Notes, ProcessStatus Status, int CurrentStep, DateTime CreatedAt);
+    private record ContractReadinessCostNormRow(Guid Id, Guid ContractId, Guid? ContractProductId, string Title, string? Notes, DrawingStatus Status, int ItemCount, DateTime CreatedAt);
+
+    private static ContractReadinessDto BuildReadinessScope(
+        Contract contract,
+        Guid? productId,
+        ContractProduct? productInfo,
+        List<ContractReadinessDrawingRow> allDrawings,
+        List<ContractReadinessTechProcessRow> allTechProcesses,
+        List<ContractReadinessCostNormRow> allCostNorms)
+    {
+        ContractReadinessDrawingRow? bestDrawing = null;
+        foreach (var d in allDrawings)
+        {
+            if (d.ContractId != contract.Id || d.ContractProductId != productId) continue;
+            if (bestDrawing is null || (int)d.Status > (int)bestDrawing.Status) bestDrawing = d;
+        }
+
+        ContractReadinessTechProcessRow? bestTp = null;
+        foreach (var t in allTechProcesses)
+        {
+            if (t.ContractId != contract.Id || t.ContractProductId != productId) continue;
+            if (bestTp is null || (int)t.Status > (int)bestTp.Status) bestTp = t;
+        }
+
+        ContractReadinessCostNormRow? bestCn = null;
+        foreach (var n in allCostNorms)
+        {
+            if (n.ContractId != contract.Id || n.ContractProductId != productId) continue;
+            if (bestCn is null || (bestCn.ItemCount == 0 && n.ItemCount > 0)) bestCn = n;
+        }
+
+        var dto = new ContractReadinessDto
+        {
+            ContractId = contract.Id,
+            ContractNo = contract.ContractNo,
+            ContractIsActive = contract.IsActive,
+            ContractProductId = productId,
+            ProductType = productInfo?.ProductType,
+            ProductQuantity = productInfo?.Quantity,
+            ProductUnit = productInfo?.Unit,
+            Drawing = bestDrawing is null ? null : new ContractReadinessDrawingDto
+            {
+                Id = bestDrawing.Id,
+                Title = bestDrawing.Title,
+                Notes = bestDrawing.Notes,
+                Status = bestDrawing.Status,
+                CreatedAt = bestDrawing.CreatedAt,
+            },
+            TechProcess = bestTp is null ? null : new ContractReadinessTechProcessDto
+            {
+                Id = bestTp.Id,
+                Title = bestTp.Title,
+                Notes = bestTp.Notes,
+                Status = bestTp.Status,
+                CurrentStep = bestTp.CurrentStep,
+                CreatedAt = bestTp.CreatedAt,
+            },
+            CostNorm = bestCn is null ? null : new ContractReadinessCostNormDto
+            {
+                Id = bestCn.Id,
+                Title = bestCn.Title,
+                Notes = bestCn.Notes,
+                Status = bestCn.Status,
+                ItemCount = bestCn.ItemCount,
+                CreatedAt = bestCn.CreatedAt,
+            },
+        };
+
+        dto.Priority = ComputeReadinessPriority(dto);
+        return dto;
+    }
+
+    private static int ComputeReadinessPriority(ContractReadinessDto s)
+    {
+        var drawingApproved = s.Drawing?.Status == DrawingStatus.Approved;
+        var tpEffective = s.TechProcess is { Status: not ProcessStatus.Pending } ? s.TechProcess : null;
+        var cnEffective = s.CostNorm is { ItemCount: > 0 } ? s.CostNorm : null;
+        var tpDone = tpEffective is { Status: ProcessStatus.Approved or ProcessStatus.Completed };
+        var cnDone = cnEffective is { Status: DrawingStatus.Approved };
+
+        // 0: chizma tasdiqlangan, lekin TP yoki CN tasdiqlanmagan
+        if (drawingApproved && !(tpDone && cnDone)) return 0;
+        // 1: chizma yaratilgan, lekin tasdiqlanmagan
+        if (s.Drawing is { } d && d.Status != DrawingStatus.Approved) return 1;
+        // 2: chizma yaratilmagan
+        if (s.Drawing is null) return 2;
+        // 3: to'liq yakunlangan
+        return 3;
+    }
+
     private static ContractResponseDto MapToResponse(Contract contract) => new()
     {
         Id = contract.Id,

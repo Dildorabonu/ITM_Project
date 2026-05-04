@@ -138,6 +138,25 @@ public class ContractController : ControllerBase
         return Ok(result);
     }
 
+    // ── Readiness Overview (texnik chizma + TP + me'yoriy sarf) ───────────────
+
+    [HttpGet("readiness")]
+    public async Task<IActionResult> GetReadinessOverview([FromQuery] bool? isActive = null)
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        var canView = User.HasClaim("perm", "TechProcess.View");
+        var viewAll = User.HasClaim("perm", "TechProcess.ViewAll");
+
+        if (!canView && !viewAll)
+            return Forbid();
+
+        var result = await _contractService.GetReadinessOverviewAsync(userId, viewAll, isActive);
+        return StatusCode(result.StatusCode, result);
+    }
+
     // ── Users ────────────────────────────────────────────────────────────────
 
     [HasPermission("Contracts.View")]
