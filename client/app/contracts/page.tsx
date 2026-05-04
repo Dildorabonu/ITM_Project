@@ -296,7 +296,13 @@ export default function ContractsPage() {
   const isValid = () =>
     !!form.contractNo.trim() && !!form.startDate && !!form.endDate &&
     form.products.length > 0 &&
-    form.products.every(p => p.productType.trim() !== "" && p.departmentIds.length > 0);
+    form.products.every(p =>
+      p.productType.trim() !== "" &&
+      p.departmentIds.length > 0 &&
+      p.quantity.trim() !== "" &&
+      Number(p.quantity) > 0 &&
+      p.unit.trim() !== ""
+    );
 
   const buildProductsPayload = (): ContractProductPayload[] => form.products
     .filter(p => p.productType.trim())
