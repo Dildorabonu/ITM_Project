@@ -1,16 +1,17 @@
 "use client";
 
-import { useRef } from "react";
 import {
   DepartmentType,
   type ContractResponse,
   type UserLookup,
   type DepartmentResponse,
 } from "@/lib/userService";
-import { ContractForm as ContractFormType, UNIT_OPTIONS, PRIORITY_OPTIONS } from "../_types";
+import { ContractForm as ContractFormType, UNIT_OPTIONS, PRIORITY_OPTIONS, emptyProduct } from "../_types";
 import { CheckSelect } from "@/app/_components/CheckSelect";
-import { DatePickerField, isoToDisplayDate } from "./DatePickerField";
+import { DatePickerField } from "./DatePickerField";
 import { CustomGroupedMultiSelect } from "./CustomGroupedMultiSelect";
+
+type PickerKey = `${number}:${0 | 1 | 2}` | null;
 
 interface Props {
   form: ContractFormType;
@@ -25,25 +26,23 @@ interface Props {
   formError: string;
   pendingContractFiles: File[];
   setPendingContractFiles: React.Dispatch<React.SetStateAction<File[]>>;
-  pendingTzFiles: File[];
-  setPendingTzFiles: React.Dispatch<React.SetStateAction<File[]>>;
-  formUsers: UserLookup[];
-  setFormUsers: React.Dispatch<React.SetStateAction<UserLookup[]>>;
-  formSupervisors: UserLookup[];
-  setFormSupervisors: React.Dispatch<React.SetStateAction<UserLookup[]>>;
-  formObservers: UserLookup[];
-  setFormObservers: React.Dispatch<React.SetStateAction<UserLookup[]>>;
-  openPickerIdx: number | null;
-  setOpenPickerIdx: (v: number | null) => void;
+  openPickerKey: PickerKey;
+  setOpenPickerKey: (k: PickerKey) => void;
   pickerRef: React.RefObject<HTMLDivElement | null>;
   allUsers: UserLookup[];
   departments: DepartmentResponse[];
   handleSave: () => void;
-  openScanModal: (target: "contract" | "tz") => void;
+  openScanModal: (target: { kind: "contract" } | { kind: "product-tz"; productIdx: number }) => void;
   onCancel: () => void;
   canCreate: boolean;
   canUpdate: boolean;
 }
+
+const USER_CATEGORIES = [
+  { idx: 0 as const, label: "Ma'sul xodimlar",  deptType: DepartmentType.IshlabChiqarish, color: "#c2410c", bg: "#fff7ed" },
+  { idx: 1 as const, label: "Ma'lumot uchun",   deptType: DepartmentType.Bolim,           color: "#1d4ed8", bg: "#eff6ff" },
+  { idx: 2 as const, label: "Kuzatuvchilar",    deptType: DepartmentType.Boshqaruv,       color: "#6d28d9", bg: "#f5f3ff" },
+] as const;
 
 export function ContractForm({
   form, setForm, editTarget,
@@ -51,11 +50,7 @@ export function ContractForm({
   endDateDisp, setEndDateDisp,
   submitted, saving, formError,
   pendingContractFiles, setPendingContractFiles,
-  pendingTzFiles, setPendingTzFiles,
-  formUsers, setFormUsers,
-  formSupervisors, setFormSupervisors,
-  formObservers, setFormObservers,
-  openPickerIdx, setOpenPickerIdx, pickerRef,
+  openPickerKey, setOpenPickerKey, pickerRef,
   allUsers, departments,
   handleSave, openScanModal, onCancel,
   canCreate, canUpdate,
@@ -63,7 +58,31 @@ export function ContractForm({
   const fieldErr = (val: string) => submitted && !val.trim();
   const startDateErr = submitted && !form.startDate;
   const endDateErr = submitted && !form.endDate;
-  const deptErr = submitted && form.departmentIds.length === 0;
+
+  const updateProduct = (idx: number, patch: Partial<ContractFormType["products"][number]>) =>
+    setForm(f => ({ ...f, products: f.products.map((x, i) => i === idx ? { ...x, ...patch } : x) }));
+
+  const addUserToProduct = (idx: number, cat: 0 | 1 | 2, user: UserLookup) => {
+    setForm(f => ({
+      ...f,
+      products: f.products.map((p, i) => {
+        if (i !== idx) return p;
+        const key = cat === 0 ? "responsibleUsers" : cat === 1 ? "supervisorUsers" : "observerUsers";
+        return { ...p, [key]: [...p[key], user] };
+      }),
+    }));
+  };
+
+  const removeUserFromProduct = (idx: number, cat: 0 | 1 | 2, userId: string) => {
+    setForm(f => ({
+      ...f,
+      products: f.products.map((p, i) => {
+        if (i !== idx) return p;
+        const key = cat === 0 ? "responsibleUsers" : cat === 1 ? "supervisorUsers" : "observerUsers";
+        return { ...p, [key]: p[key].filter(u => u.id !== userId) };
+      }),
+    }));
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -149,7 +168,7 @@ export function ContractForm({
           </div>
 
           {/* Muhimlik */}
-          <div>
+          <div style={{ gridColumn: "1 / -1" }}>
             <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Muhimlik</label>
             <CheckSelect
               value={form.priority}
@@ -159,15 +178,15 @@ export function ContractForm({
             />
           </div>
 
-          {/* Mahsulotlar — bir nechta qatorda */}
+          {/* ── Mahsulotlar ─────────────────────────────────────────────────── */}
           <div style={{ gridColumn: "1 / -1" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
               <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)" }}>
-                Mahsulotlar <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text3)" }}>(shartnoma bo&apos;yicha bir nechta mahsulot kiritishingiz mumkin)</span>
+                Mahsulotlar <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text3)" }}>(har bir mahsulotga bo&apos;lim, xodimlar va TZ fayllarini biriktiring)</span>
               </label>
               <button
                 type="button"
-                onClick={() => setForm(f => ({ ...f, products: [...f.products, { productType: "", quantity: "", unit: "", notes: "" }] }))}
+                onClick={() => setForm(f => ({ ...f, products: [...f.products, { ...emptyProduct, departmentIds: [], responsibleUsers: [], supervisorUsers: [], observerUsers: [], pendingTzFiles: [] }] }))}
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 6,
                   padding: "6px 12px", border: "1.5px solid var(--accent)",
@@ -185,69 +204,293 @@ export function ContractForm({
               </button>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {form.products.map((p, idx) => (
-                <div key={idx} style={{
-                  border: "1.5px solid var(--border)", borderRadius: 10, padding: 14,
-                  background: "var(--bg2)", position: "relative",
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{
-                        width: 24, height: 24, borderRadius: 6, background: "var(--accent)",
-                        color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 12, fontWeight: 700,
-                      }}>{idx + 1}</span>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text2)" }}>Mahsulot #{idx + 1}</span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {form.products.map((p, idx) => {
+                const productDeptErr = submitted && p.productType.trim() !== "" && p.departmentIds.length === 0;
+                const productTypeErr = submitted && !p.productType.trim();
+                return (
+                  <div key={idx} style={{
+                    border: "1.5px solid var(--border)", borderRadius: 12, padding: 16,
+                    background: "var(--bg2)", position: "relative",
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{
+                          width: 26, height: 26, borderRadius: 7, background: "var(--accent)",
+                          color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center",
+                          fontSize: 13, fontWeight: 700,
+                        }}>{idx + 1}</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)" }}>Mahsulot #{idx + 1}</span>
+                      </div>
+                      {form.products.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, products: f.products.filter((_, i) => i !== idx) }))}
+                          style={{
+                            background: "var(--danger-dim)", border: "1px solid var(--danger)",
+                            color: "var(--danger)", borderRadius: 6, cursor: "pointer",
+                            padding: "4px 10px", fontSize: 11, fontWeight: 600,
+                          }}
+                        >
+                          ✕ O&apos;chirish
+                        </button>
+                      )}
                     </div>
-                    {form.products.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => setForm(f => ({ ...f, products: f.products.filter((_, i) => i !== idx) }))}
-                        style={{
-                          background: "var(--danger-dim)", border: "1px solid var(--danger)",
-                          color: "var(--danger)", borderRadius: 6, cursor: "pointer",
-                          padding: "4px 10px", fontSize: 11, fontWeight: 600,
+
+                    {/* Asosiy fieldlar */}
+                    <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
+                      <div>
+                        <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4, color: productTypeErr ? "var(--danger)" : "var(--text2)" }}>
+                          Mahsulot turi <span style={{ color: "var(--danger)" }}>*</span>
+                        </label>
+                        <input
+                          className="form-input"
+                          value={p.productType}
+                          onChange={e => updateProduct(idx, { productType: e.target.value })}
+                          placeholder="Masalan: Detal, Konstruktsiya..."
+                          style={productTypeErr ? { borderColor: "var(--danger)" } : undefined}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4, color: "var(--text2)" }}>Miqdor</label>
+                        <input
+                          className="form-input"
+                          type="number"
+                          min="0"
+                          value={p.quantity}
+                          onChange={e => updateProduct(idx, { quantity: e.target.value })}
+                          onWheel={e => (e.target as HTMLInputElement).blur()}
+                          placeholder="0"
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4, color: "var(--text2)" }}>O&apos;lchov birligi</label>
+                        <CheckSelect
+                          value={p.unit}
+                          onChange={v => updateProduct(idx, { unit: v })}
+                          options={UNIT_OPTIONS.filter(o => o.value !== "").map(o => ({ id: o.value, name: o.label, icon: o.icon }))}
+                          placeholder="— Tanlang —"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Bo'limlar */}
+                    <div style={{ marginBottom: 14 }}>
+                      <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: productDeptErr ? "var(--danger)" : "var(--text2)" }}>
+                        Bo&apos;limlar <span style={{ color: "var(--danger)" }}>*</span>
+                      </label>
+                      <CustomGroupedMultiSelect
+                        values={p.departmentIds}
+                        onChange={v => updateProduct(idx, { departmentIds: v, responsibleUsers: [], supervisorUsers: [] })}
+                        departments={departments}
+                        placeholder="— Bo'limlar tanlang —"
+                        hasError={productDeptErr}
+                      />
+                      {productDeptErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Kamida bitta bo&apos;limni tanlang</div>}
+                    </div>
+
+                    {/* Xodimlar — 3 toifa */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
+                      {USER_CATEGORIES.map(({ idx: cat, label, deptType, color, bg }) => {
+                        const list = cat === 0 ? p.responsibleUsers : cat === 1 ? p.supervisorUsers : p.observerUsers;
+                        const key: PickerKey = `${idx}:${cat}`;
+                        const isOpen = openPickerKey === key;
+                        const noDeptOfType = deptType !== DepartmentType.Boshqaruv &&
+                          !departments.some(d => d.type === deptType && p.departmentIds.includes(d.id));
+                        const poolByType = noDeptOfType ? [] : allUsers.filter(u => {
+                          if (u.departmentType !== deptType) return false;
+                          if (deptType === DepartmentType.Boshqaruv) return true;
+                          return u.departmentId != null && p.departmentIds.includes(u.departmentId);
+                        });
+                        const available = poolByType.filter(u => !list.some(x => x.id === u.id));
+
+                        return (
+                          <div key={cat}>
+                            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text2)", display: "block", marginBottom: 6 }}>
+                              {label} <span style={{ fontSize: 10, fontWeight: 400, color: "var(--text3)" }}>(ixtiyoriy)</span>
+                            </label>
+                            <div ref={isOpen ? pickerRef : null} style={{ position: "relative" }}>
+                              <button type="button"
+                                onClick={() => setOpenPickerKey(isOpen ? null : key)}
+                                style={{
+                                  width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                                  padding: "8px 10px", background: "var(--bg1)",
+                                  border: isOpen ? "1.5px solid var(--accent)" : "1.5px solid var(--border)",
+                                  borderRadius: "var(--radius)", cursor: "pointer", fontSize: 12,
+                                  color: available.length ? "var(--text2)" : "var(--text3)",
+                                }}>
+                                <span>Xodim tanlang</span>
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+                                  style={{ transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s", flexShrink: 0 }}>
+                                  <polyline points="6 9 12 15 18 9" />
+                                </svg>
+                              </button>
+
+                              {isOpen && (
+                                <div style={{
+                                  position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 50,
+                                  background: "var(--bg2)", border: "1.5px solid var(--border)", borderRadius: 10,
+                                  boxShadow: "0 6px 24px rgba(0,0,0,0.13)",
+                                  maxHeight: 240, overflow: "auto",
+                                }}>
+                                  {allUsers.length === 0 ? (
+                                    <div style={{ padding: "12px", fontSize: 12, color: "var(--text3)", textAlign: "center" }}>
+                                      Yuklanmoqda...
+                                    </div>
+                                  ) : noDeptOfType ? (
+                                    <div style={{ padding: "12px", fontSize: 12, color: "var(--text3)", textAlign: "center" }}>
+                                      Avval bu turdagi bo&apos;limni tanlang
+                                    </div>
+                                  ) : poolByType.length === 0 ? (
+                                    <div style={{ padding: "12px", fontSize: 12, color: "var(--text3)", textAlign: "center" }}>
+                                      Bu toifada xodim yo&apos;q
+                                    </div>
+                                  ) : available.length === 0 ? (
+                                    <div style={{ padding: "12px", fontSize: 12, color: "var(--text3)", textAlign: "center" }}>
+                                      Barcha xodimlar tanlangan
+                                    </div>
+                                  ) : available.map(u => (
+                                    <button key={u.id} type="button"
+                                      onClick={() => { addUserToProduct(idx, cat, u); setOpenPickerKey(null); }}
+                                      style={{
+                                        width: "100%", display: "flex", alignItems: "center", gap: 8,
+                                        padding: "8px 12px", border: "none", background: "transparent",
+                                        cursor: "pointer", textAlign: "left", borderBottom: "1px solid var(--border)",
+                                      }}
+                                      onMouseEnter={e => (e.currentTarget.style.background = "var(--bg3)")}
+                                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                                    >
+                                      <div style={{
+                                        width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+                                        background: "var(--accent-dim)", display: "flex", alignItems: "center",
+                                        justifyContent: "center", fontSize: 12, fontWeight: 700, color: "var(--accent)",
+                                      }}>
+                                        {u.firstName.charAt(0).toUpperCase()}
+                                      </div>
+                                      <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                          {u.firstName} {u.lastName}
+                                        </div>
+                                        {u.departmentName && (
+                                          <div style={{ fontSize: 10, color: "var(--text3)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                            {u.departmentName}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            {list.length > 0 && (
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
+                                {list.map(u => (
+                                  <div key={u.id} style={{
+                                    display: "inline-flex", alignItems: "center", gap: 5,
+                                    background: bg, border: `1.5px solid ${color}44`,
+                                    borderRadius: 16, padding: "3px 8px 3px 6px", fontSize: 11, color,
+                                  }}>
+                                    <span style={{ width: 16, height: 16, borderRadius: "50%", background: color, color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, flexShrink: 0 }}>
+                                      {u.firstName.charAt(0).toUpperCase()}
+                                    </span>
+                                    <span style={{ fontWeight: 600 }}>{u.firstName} {u.lastName}</span>
+                                    <button type="button" onClick={() => removeUserFromProduct(idx, cat, u.id)}
+                                      style={{ background: "none", border: "none", cursor: "pointer", color, padding: 0, lineHeight: 1, fontSize: 12, opacity: 0.7 }}>✕</button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* TZ fayl */}
+                    <div style={{ marginBottom: 12 }}>
+                      <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>
+                        Texnik topshiriq (TZ) <span style={{ fontSize: 10, fontWeight: 400, color: "var(--text3)" }}>(ixtiyoriy)</span>
+                      </label>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <label style={{
+                          flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+                          gap: 8, cursor: "pointer", border: "2px dashed var(--border)", borderRadius: 8,
+                          padding: "10px", background: "var(--bg1)", transition: "border-color 0.15s",
+                          fontSize: 12,
                         }}
-                      >
-                        ✕ O&apos;chirish
-                      </button>
-                    )}
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 12 }}>
+                          onMouseEnter={e => (e.currentTarget.style.borderColor = "var(--accent)")}
+                          onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border)")}
+                          onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = "var(--accent)"; }}
+                          onDragLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                          onDrop={e => {
+                            e.preventDefault();
+                            e.currentTarget.style.borderColor = "var(--border)";
+                            const files = Array.from(e.dataTransfer.files);
+                            if (files.length) updateProduct(idx, { pendingTzFiles: [...p.pendingTzFiles, ...files] });
+                          }}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.8">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+                          </svg>
+                          <span style={{ fontWeight: 600, color: "var(--accent)" }}>TZ fayl tanlash yoki tashlash</span>
+                          <input type="file" multiple style={{ display: "none" }}
+                            onChange={e => {
+                              const files = Array.from(e.target.files ?? []);
+                              if (files.length) updateProduct(idx, { pendingTzFiles: [...p.pendingTzFiles, ...files] });
+                              e.target.value = "";
+                            }} />
+                        </label>
+                        <button type="button" onClick={() => openScanModal({ kind: "product-tz", productIdx: idx })} style={{
+                          display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+                          cursor: "pointer", border: "2px dashed var(--border)", borderRadius: 8,
+                          padding: "10px 14px", background: "var(--bg1)", transition: "border-color 0.15s",
+                          fontSize: 12, fontWeight: 600, color: "var(--accent)",
+                        }}
+                          onMouseEnter={e => (e.currentTarget.style.borderColor = "var(--accent)")}
+                          onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border)")}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.8">
+                            <rect x="2" y="7" width="20" height="10" rx="2" />
+                            <path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2" />
+                            <path d="M7 17v2a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2" />
+                          </svg>
+                          Skaner
+                        </button>
+                      </div>
+                      {p.pendingTzFiles.length > 0 && (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+                          {p.pendingTzFiles.map((f, fi) => (
+                            <div key={fi} style={{
+                              display: "inline-flex", alignItems: "center", gap: 5,
+                              background: "var(--bg3)", border: "1.5px solid var(--border)",
+                              borderRadius: 6, padding: "4px 8px", fontSize: 11, color: "var(--text1)", maxWidth: 200,
+                            }}>
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+                              </svg>
+                              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
+                              <button type="button" onClick={() => updateProduct(idx, { pendingTzFiles: p.pendingTzFiles.filter((_, j) => j !== fi) })}
+                                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", padding: 0, lineHeight: 1, fontSize: 13 }}>✕</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Mahsulot izohi */}
                     <div>
-                      <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4, color: "var(--text2)" }}>Mahsulot turi</label>
+                      <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4, color: "var(--text2)" }}>Izoh</label>
                       <input
                         className="form-input"
-                        value={p.productType}
-                        onChange={e => setForm(f => ({ ...f, products: f.products.map((x, i) => i === idx ? { ...x, productType: e.target.value } : x) }))}
-                        placeholder="Masalan: Detal, Konstruktsiya..."
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4, color: "var(--text2)" }}>Miqdor</label>
-                      <input
-                        className="form-input"
-                        type="number"
-                        min="0"
-                        value={p.quantity}
-                        onChange={e => setForm(f => ({ ...f, products: f.products.map((x, i) => i === idx ? { ...x, quantity: e.target.value } : x) }))}
-                        onWheel={e => (e.target as HTMLInputElement).blur()}
-                        placeholder="0"
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4, color: "var(--text2)" }}>O&apos;lchov birligi</label>
-                      <CheckSelect
-                        value={p.unit}
-                        onChange={v => setForm(f => ({ ...f, products: f.products.map((x, i) => i === idx ? { ...x, unit: v } : x) }))}
-                        options={UNIT_OPTIONS.filter(o => o.value !== "").map(o => ({ id: o.value, name: o.label, icon: o.icon }))}
-                        placeholder="— Tanlang —"
+                        value={p.notes}
+                        onChange={e => updateProduct(idx, { notes: e.target.value })}
+                        placeholder="Mahsulot bo'yicha qo'shimcha izoh"
                       />
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {form.products.length === 0 && (
                 <div style={{
                   padding: "20px", textAlign: "center", fontSize: 13, color: "var(--text3)",
@@ -259,142 +502,10 @@ export function ContractForm({
             </div>
           </div>
 
-          {/* Bo'limlar */}
-          <div style={{ gridColumn: "1 / -1" }}>
-            <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: deptErr ? "var(--danger)" : "var(--text2)" }}>
-              Bo&apos;limlar <span style={{ color: "var(--danger)" }}>*</span>
-            </label>
-            <CustomGroupedMultiSelect
-              values={form.departmentIds}
-              onChange={v => setForm(f => ({ ...f, departmentIds: v }))}
-              departments={departments}
-              placeholder="— Bo'limlar tanlang (bir nechta) —"
-              hasError={deptErr}
-            />
-            {deptErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Kamida bitta bo&apos;limni tanlang</div>}
-          </div>
-
-          {/* Xodimlar - 3 ta toifa */}
-          <div style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
-            {([
-              { label: "Ma'sul xodimlar",   list: formUsers,       setList: setFormUsers,       deptType: DepartmentType.IshlabChiqarish, color: "#c2410c", bg: "#fff7ed" },
-              { label: "Ma'lumot uchun",    list: formSupervisors, setList: setFormSupervisors, deptType: DepartmentType.Bolim,            color: "#1d4ed8", bg: "#eff6ff" },
-              { label: "Kuzatuvchilar",     list: formObservers,   setList: setFormObservers,   deptType: DepartmentType.Boshqaruv,        color: "#6d28d9", bg: "#f5f3ff" },
-            ] as const).map(({ label, list, setList, deptType, color, bg }, idx) => {
-              const isOpen = openPickerIdx === idx;
-              const noDeptOfType = deptType !== DepartmentType.Boshqaruv &&
-                !departments.some(d => d.type === deptType && form.departmentIds.includes(d.id));
-              const poolByType = noDeptOfType ? [] : allUsers.filter(u => {
-                if (u.departmentType !== deptType) return false;
-                if (deptType === DepartmentType.Boshqaruv) return true;
-                return u.departmentId != null && form.departmentIds.includes(u.departmentId);
-              });
-              const available = poolByType.filter(u => !list.some(x => x.id === u.id));
-              return (
-                <div key={label}>
-                  <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", display: "block", marginBottom: 8 }}>
-                    {label} <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text3)" }}>(ixtiyoriy)</span>
-                  </label>
-
-                  <div ref={isOpen ? pickerRef : null} style={{ position: "relative" }}>
-                    <button type="button"
-                      onClick={() => setOpenPickerIdx(isOpen ? null : idx)}
-                      style={{
-                        width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-                        padding: "9px 12px", background: "var(--bg1)", border: isOpen ? "1.5px solid var(--accent)" : "1.5px solid var(--border)",
-                        borderRadius: "var(--radius)", cursor: "pointer", fontSize: 13, color: available.length ? "var(--text2)" : "var(--text3)",
-                      }}>
-                      <span>Xodim tanlang</span>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-                        style={{ transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s", flexShrink: 0 }}>
-                        <polyline points="6 9 12 15 18 9" />
-                      </svg>
-                    </button>
-
-                    {isOpen && (
-                      <div style={{
-                        position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 50,
-                        background: "var(--bg2)", border: "1.5px solid var(--border)", borderRadius: 10,
-                        boxShadow: "0 6px 24px rgba(0,0,0,0.13)",
-                        maxHeight: 260, overflow: "auto",
-                      }}>
-                        {allUsers.length === 0 ? (
-                          <div style={{ padding: "14px 14px", fontSize: 13, color: "var(--text3)", textAlign: "center" }}>
-                            Yuklanmoqda...
-                          </div>
-                        ) : noDeptOfType ? (
-                          <div style={{ padding: "14px 14px", fontSize: 13, color: "var(--text3)", textAlign: "center" }}>
-                            Avval ushbu tuzilmadan bo&apos;lim tanlang
-                          </div>
-                        ) : poolByType.length === 0 ? (
-                          <div style={{ padding: "14px 14px", fontSize: 13, color: "var(--text3)", textAlign: "center" }}>
-                            Bu toifada xodim yo&apos;q
-                          </div>
-                        ) : available.length === 0 ? (
-                          <div style={{ padding: "14px 14px", fontSize: 13, color: "var(--text3)", textAlign: "center" }}>
-                            Barcha xodimlar tanlangan
-                          </div>
-                        ) : available.map(u => (
-                          <button key={u.id} type="button"
-                            onClick={() => { setList((prev: UserLookup[]) => [...prev, u]); setOpenPickerIdx(null); }}
-                            style={{
-                              width: "100%", display: "flex", alignItems: "center", gap: 10,
-                              padding: "10px 14px", border: "none", background: "transparent",
-                              cursor: "pointer", textAlign: "left", borderBottom: "1px solid var(--border)",
-                            }}
-                            onMouseEnter={e => (e.currentTarget.style.background = "var(--bg3)")}
-                            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                          >
-                            <div style={{
-                              width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
-                              background: "var(--accent-dim)", display: "flex", alignItems: "center",
-                              justifyContent: "center", fontSize: 13, fontWeight: 700, color: "var(--accent)",
-                            }}>
-                              {u.firstName.charAt(0).toUpperCase()}
-                            </div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {u.firstName} {u.lastName}
-                              </div>
-                              {u.departmentName && (
-                                <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                  {u.departmentName}
-                                </div>
-                              )}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {list.length > 0 && (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-                      {list.map(u => (
-                        <div key={u.id} style={{
-                          display: "inline-flex", alignItems: "center", gap: 6,
-                          background: bg, border: `1.5px solid ${color}44`,
-                          borderRadius: 20, padding: "4px 10px 4px 8px", fontSize: 12, color,
-                        }}>
-                          <span style={{ width: 20, height: 20, borderRadius: "50%", background: color, color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
-                            {u.firstName.charAt(0).toUpperCase()}
-                          </span>
-                          <span style={{ fontWeight: 600 }}>{u.firstName} {u.lastName}</span>
-                          <button type="button" onClick={() => setList((prev: UserLookup[]) => prev.filter(x => x.id !== u.id))}
-                            style={{ background: "none", border: "none", cursor: "pointer", color, padding: 0, lineHeight: 1, fontSize: 14, opacity: 0.7 }}>✕</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Shartnoma fayli */}
+          {/* Shartnoma fayli (umumiy) */}
           <div style={{ gridColumn: "1 / -1" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <span style={{ width: 20, height: 20, borderRadius: "50%", background: "var(--accent)", color: "#fff", fontSize: 11, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>1</span>
+              <span style={{ width: 20, height: 20, borderRadius: "50%", background: "var(--accent)", color: "#fff", fontSize: 11, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>📄</span>
               <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)" }}>
                 Shartnoma fayli <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text3)" }}>(ixtiyoriy)</span>
               </label>
@@ -429,7 +540,7 @@ export function ContractForm({
                     e.target.value = "";
                   }} />
               </label>
-              <button type="button" onClick={() => openScanModal("contract")} style={{
+              <button type="button" onClick={() => openScanModal({ kind: "contract" })} style={{
                 display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
                 gap: 8, cursor: "pointer", border: "2px dashed var(--border)", borderRadius: 10,
                 padding: "16px 20px", background: "var(--bg1)", transition: "border-color 0.15s",
@@ -470,85 +581,9 @@ export function ContractForm({
             )}
           </div>
 
-          {/* TZ fayli */}
+          {/* Izoh (umumiy) */}
           <div style={{ gridColumn: "1 / -1" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <span style={{ width: 20, height: 20, borderRadius: "50%", background: "var(--accent)", color: "#fff", fontSize: 11, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>2</span>
-              <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)" }}>
-                TZ fayli <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text3)" }}>(texnik topshiriq, ixtiyoriy)</span>
-              </label>
-            </div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <label style={{
-                flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                gap: 8, cursor: "pointer", border: "2px dashed var(--border)", borderRadius: 10,
-                padding: "16px", background: "var(--bg1)", transition: "border-color 0.15s",
-              }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = "var(--accent)")}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border)")}
-                onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = "var(--accent)"; }}
-                onDragLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; }}
-                onDrop={e => {
-                  e.preventDefault();
-                  e.currentTarget.style.borderColor = "var(--border)";
-                  const files = Array.from(e.dataTransfer.files);
-                  if (files.length) setPendingTzFiles(prev => [...prev, ...files]);
-                }}
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.6">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)" }}>TZ faylini tanlash yoki tashlash</span>
-                <span style={{ fontSize: 11, color: "var(--text3)" }}>PDF, Word, Excel — har qanday format</span>
-                <input type="file" multiple style={{ display: "none" }}
-                  onChange={e => {
-                    const files = Array.from(e.target.files ?? []);
-                    if (files.length) setPendingTzFiles(prev => [...prev, ...files]);
-                    e.target.value = "";
-                  }} />
-              </label>
-              <button type="button" onClick={() => openScanModal("tz")} style={{
-                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                gap: 8, cursor: "pointer", border: "2px dashed var(--border)", borderRadius: 10,
-                padding: "16px 20px", background: "var(--bg1)", transition: "border-color 0.15s",
-              }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = "var(--accent)")}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border)")}
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.6">
-                  <rect x="2" y="7" width="20" height="10" rx="2" />
-                  <path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2" />
-                  <line x1="12" y1="12" x2="12" y2="12" strokeWidth="3" strokeLinecap="round" />
-                  <path d="M7 17v2a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2" />
-                </svg>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)", whiteSpace: "nowrap" }}>Skaner qilish</span>
-                <span style={{ fontSize: 11, color: "var(--text3)", whiteSpace: "nowrap" }}>Printerdan skanerlash</span>
-              </button>
-            </div>
-            {pendingTzFiles.length > 0 && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-                {pendingTzFiles.map((f, i) => (
-                  <div key={i} style={{
-                    display: "inline-flex", alignItems: "center", gap: 6,
-                    background: "var(--bg3)", border: "1.5px solid var(--border)",
-                    borderRadius: 6, padding: "5px 10px", fontSize: 12, color: "var(--text1)", maxWidth: 240,
-                  }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
-                    </svg>
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
-                    <button type="button" onClick={() => setPendingTzFiles(prev => prev.filter((_, j) => j !== i))}
-                      style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", padding: 0, lineHeight: 1, fontSize: 14 }}>✕</button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Izoh */}
-          <div style={{ gridColumn: "1 / -1" }}>
-            <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Izoh</label>
+            <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Shartnoma izohi</label>
             <textarea className="form-input" value={form.notes}
               onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
               placeholder="Qo'shimcha izoh (ixtiyoriy)" rows={2} style={{ resize: "none" }} />

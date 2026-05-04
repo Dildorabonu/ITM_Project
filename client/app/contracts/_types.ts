@@ -1,4 +1,4 @@
-import { ContractStatus, Priority, CONTRACT_STATUS_LABELS, PRIORITY_LABELS } from "@/lib/userService";
+import { ContractStatus, Priority, CONTRACT_STATUS_LABELS, PRIORITY_LABELS, type UserLookup } from "@/lib/userService";
 
 // ─── Form types ───────────────────────────────────────────────────────────────
 
@@ -7,15 +7,21 @@ export interface ContractProductForm {
   quantity: string;
   unit: string;
   notes: string;
+  departmentIds: string[];
+  responsibleUsers: UserLookup[];
+  supervisorUsers: UserLookup[];
+  observerUsers: UserLookup[];
+  pendingTzFiles: File[];
 }
 
 export const emptyProduct: ContractProductForm = {
   productType: "", quantity: "", unit: "", notes: "",
+  departmentIds: [], responsibleUsers: [], supervisorUsers: [], observerUsers: [],
+  pendingTzFiles: [],
 };
 
 export interface ContractForm {
   contractNo: string;
-  departmentIds: string[];
   startDate: string;
   endDate: string;
   priority: string;
@@ -26,9 +32,9 @@ export interface ContractForm {
 
 export const emptyForm: ContractForm = {
   contractNo: "",
-  departmentIds: [], startDate: "", endDate: "",
+  startDate: "", endDate: "",
   priority: String(Priority.Medium), contractParty: "", notes: "",
-  products: [{ ...emptyProduct }],
+  products: [{ ...emptyProduct, departmentIds: [], responsibleUsers: [], supervisorUsers: [], observerUsers: [], pendingTzFiles: [] }],
 };
 
 // ─── Status / Priority styles ─────────────────────────────────────────────────
