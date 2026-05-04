@@ -264,8 +264,8 @@ public class ContractService : IContractService
             return ApiResult<int>.Failure(["Noto'g'ri sabab tanlandi."], 400);
 
         var note = dto.Note?.Trim();
-        if (string.IsNullOrWhiteSpace(note))
-            return ApiResult<int>.Failure(["Sababni izohlab yozish majburiy."], 400);
+        if (dto.Reason == ContractDeactivationReason.Other && string.IsNullOrWhiteSpace(note))
+            return ApiResult<int>.Failure(["Iltimos, sababni qo'lda yozib qoldiring."], 400);
 
         var contract = await _context.Contracts
             .Include(c => c.ContractDepartments)
