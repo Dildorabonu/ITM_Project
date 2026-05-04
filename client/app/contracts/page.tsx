@@ -42,6 +42,7 @@ const DEACTIVATION_REASONS: { value: ContractDeactivationReason; label: string }
   { value: ContractDeactivationReason.TechnicalInfeasibility, label: "Texnik jihatdan amalga oshirib bo'lmaydi" },
   { value: ContractDeactivationReason.MaterialUnavailable,    label: "Material yoki resurs yetishmasligi" },
   { value: ContractDeactivationReason.DeadlineExpired,        label: "Muddati o'tib ketdi" },
+  { value: ContractDeactivationReason.Other,                  label: "Boshqa (qo'lda kiriting)" },
 ];
 
 export default function ContractsPage() {
@@ -459,8 +460,8 @@ export default function ContractsPage() {
   const handleDeactivate = async () => {
     if (!deactivateId) return;
     const trimmed = deactivateNote.trim();
-    if (!trimmed) {
-      setDeactivateError("Iltimos, sababni izohlab yozing.");
+    if (deactivateReason === ContractDeactivationReason.Other && !trimmed) {
+      setDeactivateError("Iltimos, sababni qo'lda yozib qoldiring.");
       return;
     }
     setDeactivateError("");
@@ -973,7 +974,13 @@ export default function ContractsPage() {
                           type="radio"
                           name="deactivate-reason"
                           checked={selected}
-                          onChange={() => setDeactivateReason(opt.value)}
+                          onChange={() => {
+                            setDeactivateReason(opt.value);
+                            if (opt.value !== ContractDeactivationReason.Other) {
+                              setDeactivateNote("");
+                              setDeactivateError("");
+                            }
+                          }}
                           style={{ accentColor: "var(--danger)" }}
                         />
                         {opt.label}
@@ -983,32 +990,35 @@ export default function ContractsPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="text-[10px] font-semibold uppercase tracking-widest text-[--text3]" style={{ display: "block", marginBottom: 8 }}>
-                  Izoh <span style={{ color: "var(--danger)" }}>*</span>
-                </label>
-                <textarea
-                  value={deactivateNote}
-                  onChange={e => { setDeactivateNote(e.target.value); if (deactivateError) setDeactivateError(""); }}
-                  placeholder="Sababni qisqacha izohlab yozing..."
-                  rows={3}
-                  style={{
-                    width: "100%",
-                    background: "var(--surface)",
-                    border: `1px solid ${deactivateError ? "var(--danger)" : "var(--border)"}`,
-                    borderRadius: "var(--radius)",
-                    padding: "8px 12px",
-                    fontSize: 13,
-                    color: "var(--text)",
-                    resize: "vertical",
-                    fontFamily: "inherit",
-                    outline: "none",
-                  }}
-                />
-                {deactivateError && (
-                  <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--danger)" }}>{deactivateError}</p>
-                )}
-              </div>
+              {deactivateReason === ContractDeactivationReason.Other && (
+                <div>
+                  <label className="text-[10px] font-semibold uppercase tracking-widest text-[--text3]" style={{ display: "block", marginBottom: 8 }}>
+                    Sabab <span style={{ color: "var(--danger)" }}>*</span>
+                  </label>
+                  <textarea
+                    value={deactivateNote}
+                    onChange={e => { setDeactivateNote(e.target.value); if (deactivateError) setDeactivateError(""); }}
+                    placeholder="Sababni qisqacha yozib qoldiring..."
+                    rows={3}
+                    autoFocus
+                    style={{
+                      width: "100%",
+                      background: "var(--surface)",
+                      border: `1px solid ${deactivateError ? "var(--danger)" : "var(--border)"}`,
+                      borderRadius: "var(--radius)",
+                      padding: "8px 12px",
+                      fontSize: 13,
+                      color: "var(--text)",
+                      resize: "vertical",
+                      fontFamily: "inherit",
+                      outline: "none",
+                    }}
+                  />
+                  {deactivateError && (
+                    <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--danger)" }}>{deactivateError}</p>
+                  )}
+                </div>
+              )}
 
               <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
                 <button className="btn btn-outline" onClick={closeDeactivate} disabled={deactivating}>

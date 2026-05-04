@@ -396,6 +396,7 @@ export const ContractDeactivationReason = {
   TechnicalInfeasibility: 2,
   MaterialUnavailable: 3,
   DeadlineExpired: 4,
+  Other: 5,
 } as const;
 export type ContractDeactivationReason =
   (typeof ContractDeactivationReason)[keyof typeof ContractDeactivationReason];
