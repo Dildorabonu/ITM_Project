@@ -28,21 +28,4 @@ public class FileStorageService : IFileStorageService
         // "/uploads/req-items/abc123.jpg" ko'rinishida qaytaradi
         return $"/uploads/{subFolder}/{fileName}";
     }
-
-    public void Delete(string? relativePath)
-    {
-        if (string.IsNullOrWhiteSpace(relativePath)) return;
-
-        // "/uploads/..." → absolute path
-        var relative = relativePath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
-        // _root = ".../uploads", relative = "uploads/req-items/abc.jpg"
-        // uploads papkasini ikki marta qo'shmaslik uchun:
-        var uploadsSegment = "uploads" + Path.DirectorySeparatorChar;
-        if (relative.StartsWith(uploadsSegment, StringComparison.OrdinalIgnoreCase))
-            relative = relative[uploadsSegment.Length..];
-
-        var fullPath = Path.Combine(_root, relative);
-        if (File.Exists(fullPath))
-            File.Delete(fullPath);
-    }
 }
