@@ -34,7 +34,12 @@ public class TechnicalDrawingService : ITechnicalDrawingService
             query = query.Where(d =>
                 _context.ContractUsers.Any(cu => cu.ContractId == d.ContractId && cu.UserId == currentUserId) ||
                 _context.ContractDepartments.Any(cd => cd.ContractId == d.ContractId &&
-                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == cd.DepartmentId)));
+                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == cd.DepartmentId)) ||
+                (d.ContractProductId != null && (
+                    _context.ContractProductUsers.Any(pu => pu.ContractProductId == d.ContractProductId && pu.UserId == currentUserId) ||
+                    _context.ContractProductDepartments.Any(pd => pd.ContractProductId == d.ContractProductId &&
+                        _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == pd.DepartmentId))
+                )));
         }
 
         if (status.HasValue)
