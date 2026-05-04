@@ -107,8 +107,8 @@ public class ContractService : IContractService
 
     public async Task<ApiResult<ContractCreateResultDto>> CreateAsync(ContractCreateDto dto, Guid createdBy)
     {
-        if (await _context.Contracts.AnyAsync(c => c.ContractNo == dto.ContractNo))
-            return ApiResult<ContractCreateResultDto>.Failure([$"Contract with number '{dto.ContractNo}' already exists."]);
+        if (await _context.Contracts.AnyAsync(c => c.ContractNo == dto.ContractNo && c.IsActive))
+            return ApiResult<ContractCreateResultDto>.Failure([$"«{dto.ContractNo}» raqamli aktiv shartnoma allaqachon mavjud."]);
 
         var validationErrors = await ValidateProductsAsync(dto.Products);
         if (validationErrors.Count > 0)
@@ -286,8 +286,8 @@ public class ContractService : IContractService
 
         if (dto.ContractNo is not null && dto.ContractNo != contract.ContractNo)
         {
-            if (await _context.Contracts.AnyAsync(c => c.ContractNo == dto.ContractNo))
-                return ApiResult<ContractCreateResultDto>.Failure([$"Contract with number '{dto.ContractNo}' already exists."]);
+            if (await _context.Contracts.AnyAsync(c => c.ContractNo == dto.ContractNo && c.IsActive && c.Id != contract.Id))
+                return ApiResult<ContractCreateResultDto>.Failure([$"«{dto.ContractNo}» raqamli aktiv shartnoma allaqachon mavjud."]);
 
             contract.ContractNo = dto.ContractNo;
         }
@@ -572,6 +572,11 @@ public class ContractService : IContractService
 
         if (contract.Status == ContractStatus.Completed)
             return ApiResult<int>.Failure(["Yakunlangan shartnomani qayta faollashtirib bo'lmaydi."], 400);
+
+        if (await _context.Contracts.AnyAsync(c => c.ContractNo == contract.ContractNo && c.IsActive && c.Id != contract.Id))
+            return ApiResult<int>.Failure(
+                [$"«{contract.ContractNo}» raqamli aktiv shartnoma allaqachon mavjud. Avval uni arxivga o'tkazing yoki bu shartnoma raqamini o'zgartiring."],
+                409);
 
         contract.IsActive = true;
         contract.DeactivationReason = null;
