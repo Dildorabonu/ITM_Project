@@ -373,11 +373,31 @@ export interface ContractDepartmentInfo {
   type: DepartmentType;
 }
 
+export interface ContractProductUserPayload {
+  userId: string;
+  role: number;
+}
+
 export interface ContractProductPayload {
   productType: string;
   quantity: number;
   unit: string;
   notes?: string | null;
+  departmentIds?: string[];
+  users?: ContractProductUserPayload[];
+}
+
+export interface ContractProductDepartmentInfo {
+  id: string;
+  name: string;
+  type: DepartmentType;
+}
+
+export interface ContractProductUserInfo {
+  userId: string;
+  fullName: string;
+  departmentName: string | null;
+  role: number;
 }
 
 export interface ContractProductResponse {
@@ -388,6 +408,18 @@ export interface ContractProductResponse {
   unit: string;
   orderIndex: number;
   notes: string | null;
+  departments: ContractProductDepartmentInfo[];
+  assignedUsers: ContractProductUserInfo[];
+}
+
+export interface ContractProductIdResult {
+  id: string;
+  orderIndex: number;
+}
+
+export interface ContractCreateResult {
+  id: string;
+  products: ContractProductIdResult[];
 }
 
 export const ContractDeactivationReason = {
@@ -472,13 +504,14 @@ export const contractService = {
     return res.data?.result ?? res.data;
   },
 
-  create: async (dto: ContractCreatePayload): Promise<string> => {
+  create: async (dto: ContractCreatePayload): Promise<ContractCreateResult> => {
     const res = await api.post("/api/contract", dto);
-    return res.data?.result as string;
+    return res.data?.result as ContractCreateResult;
   },
 
-  update: async (id: string, dto: ContractUpdatePayload): Promise<void> => {
-    await api.put(`/api/contract/${id}`, dto);
+  update: async (id: string, dto: ContractUpdatePayload): Promise<ContractCreateResult> => {
+    const res = await api.put(`/api/contract/${id}`, dto);
+    return res.data?.result as ContractCreateResult;
   },
 
   updateStatus: async (id: string, status: ContractStatus): Promise<void> => {
@@ -551,6 +584,36 @@ export const contractService = {
 
   deleteTzFile: async (id: string, fileId: string): Promise<void> => {
     await api.delete(`/api/contract/${id}/tz-files/${fileId}`);
+  },
+
+  getProductTzFiles: async (id: string, productId: string): Promise<AttachmentResponse[]> => {
+    const res = await api.get(`/api/contract/${id}/products/${productId}/tz-files`);
+    return res.data?.result ?? res.data ?? [];
+  },
+
+  uploadProductTzFile: async (id: string, productId: string, file: File): Promise<AttachmentResponse> => {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await api.post(`/api/contract/${id}/products/${productId}/tz-files`, form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data?.result ?? res.data;
+  },
+
+  downloadProductTzFile: async (id: string, productId: string, fileId: string, fileName: string): Promise<void> => {
+    const res = await api.get(`/api/contract/${id}/products/${productId}/tz-files/${fileId}/download`, { responseType: "blob" });
+    const url = URL.createObjectURL(res.data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  },
+
+  deleteProductTzFile: async (id: string, productId: string, fileId: string): Promise<void> => {
+    await api.delete(`/api/contract/${id}/products/${productId}/tz-files/${fileId}`);
   },
 
   getUsers: async (id: string): Promise<ContractUserResponse[]> => {

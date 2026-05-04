@@ -43,7 +43,12 @@ public class CostNormService : ICostNormService
             query = query.Where(c =>
                 _context.ContractUsers.Any(cu => cu.ContractId == c.ContractId && cu.UserId == currentUserId) ||
                 _context.ContractDepartments.Any(cd => cd.ContractId == c.ContractId &&
-                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == cd.DepartmentId)));
+                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == cd.DepartmentId)) ||
+                (c.ContractProductId != null && (
+                    _context.ContractProductUsers.Any(pu => pu.ContractProductId == c.ContractProductId && pu.UserId == currentUserId) ||
+                    _context.ContractProductDepartments.Any(pd => pd.ContractProductId == c.ContractProductId &&
+                        _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == pd.DepartmentId))
+                )));
         }
 
         if (contractId.HasValue)
