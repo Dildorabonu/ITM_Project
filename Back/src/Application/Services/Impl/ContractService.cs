@@ -28,7 +28,8 @@ public class ContractService : IContractService
         var query = _context.Contracts
             .Include(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
             .Include(c => c.Creator)
-            .Include(c => c.Products)
+            .Include(c => c.Products).ThenInclude(p => p.ProductDepartments).ThenInclude(pd => pd.Department)
+            .Include(c => c.Products).ThenInclude(p => p.ProductUsers).ThenInclude(pu => pu.User).ThenInclude(u => u.Department)
             .AsNoTracking()
             .AsQueryable();
 
@@ -36,15 +37,20 @@ public class ContractService : IContractService
         {
             query = query.Where(c =>
                 c.ContractUsers.Any(cu => cu.UserId == currentUserId) ||
+                c.Products.Any(p => p.ProductUsers.Any(pu => pu.UserId == currentUserId)) ||
                 c.ContractDepartments.Any(cd =>
-                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == cd.DepartmentId)));
+                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == cd.DepartmentId)) ||
+                c.Products.Any(p => p.ProductDepartments.Any(pd =>
+                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == pd.DepartmentId))));
         }
 
         if (status.HasValue)
             query = query.Where(c => c.Status == status.Value);
 
         if (departmentId.HasValue)
-            query = query.Where(c => c.ContractDepartments.Any(cd => cd.DepartmentId == departmentId.Value));
+            query = query.Where(c =>
+                c.ContractDepartments.Any(cd => cd.DepartmentId == departmentId.Value) ||
+                c.Products.Any(p => p.ProductDepartments.Any(pd => pd.DepartmentId == departmentId.Value)));
 
         if (isActive.HasValue)
             query = query.Where(c => c.IsActive == isActive.Value);
@@ -53,7 +59,33 @@ public class ContractService : IContractService
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync();
 
+        // For non-admin users, hide products they aren't assigned to (by user-role or department-of-user).
+        if (!viewAll)
+            FilterVisibleProducts(contracts, currentUserId);
+
         return ApiResult<IEnumerable<ContractResponseDto>>.Success(contracts.Select(MapToResponse));
+    }
+
+    private void FilterVisibleProducts(List<Contract> contracts, Guid currentUserId)
+    {
+        var userDeptId = _context.Users.AsNoTracking()
+            .Where(u => u.Id == currentUserId)
+            .Select(u => u.DepartmentId)
+            .FirstOrDefault();
+
+        foreach (var c in contracts)
+        {
+            // If the user is directly attached to the contract (legacy or contract-wide role), show all products.
+            var directContractAccess = c.ContractUsers.Any(cu => cu.UserId == currentUserId)
+                || (userDeptId.HasValue && c.ContractDepartments.Any(cd => cd.DepartmentId == userDeptId.Value));
+            if (directContractAccess) continue;
+
+            c.Products = c.Products
+                .Where(p =>
+                    p.ProductUsers.Any(pu => pu.UserId == currentUserId) ||
+                    (userDeptId.HasValue && p.ProductDepartments.Any(pd => pd.DepartmentId == userDeptId.Value)))
+                .ToList();
+        }
     }
 
     public async Task<ApiResult<ContractResponseDto>> GetByIdAsync(Guid id)
@@ -61,8 +93,9 @@ public class ContractService : IContractService
         var contract = await _context.Contracts
             .Include(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
             .Include(c => c.Creator)
-            .Include(c => c.ContractUsers).ThenInclude(cu => cu.User).ThenInclude(u => u.Role)
-            .Include(c => c.Products)
+            .Include(c => c.ContractUsers).ThenInclude(cu => cu.User).ThenInclude(u => u!.Department)
+            .Include(c => c.Products).ThenInclude(p => p.ProductDepartments).ThenInclude(pd => pd.Department)
+            .Include(c => c.Products).ThenInclude(p => p.ProductUsers).ThenInclude(pu => pu.User).ThenInclude(u => u!.Department)
             .AsNoTracking()
             .FirstOrDefaultAsync(c => c.Id == id);
 
@@ -72,10 +105,14 @@ public class ContractService : IContractService
         return ApiResult<ContractResponseDto>.Success(MapToResponse(contract));
     }
 
-    public async Task<ApiResult<Guid>> CreateAsync(ContractCreateDto dto, Guid createdBy)
+    public async Task<ApiResult<ContractCreateResultDto>> CreateAsync(ContractCreateDto dto, Guid createdBy)
     {
         if (await _context.Contracts.AnyAsync(c => c.ContractNo == dto.ContractNo))
-            return ApiResult<Guid>.Failure([$"Contract with number '{dto.ContractNo}' already exists."]);
+            return ApiResult<ContractCreateResultDto>.Failure([$"Contract with number '{dto.ContractNo}' already exists."]);
+
+        var validationErrors = await ValidateProductsAsync(dto.Products);
+        if (validationErrors.Count > 0)
+            return ApiResult<ContractCreateResultDto>.Failure(validationErrors, 400);
 
         var contract = new Contract
         {
@@ -93,7 +130,14 @@ public class ContractService : IContractService
 
         _context.Contracts.Add(contract);
 
-        foreach (var deptId in dto.DepartmentIds.Distinct())
+        // Contract-level departments stay supported for legacy callers; if
+        // a product carries its own departments, the contract row mirrors the union
+        // so existing visibility rules keep working.
+        var contractDeptIds = dto.DepartmentIds
+            .Concat(dto.Products.SelectMany(p => p.DepartmentIds))
+            .Distinct()
+            .ToList();
+        foreach (var deptId in contractDeptIds)
         {
             _context.ContractDepartments.Add(new ContractDepartment
             {
@@ -102,21 +146,47 @@ public class ContractService : IContractService
             });
         }
 
+        var assignedUserIds = new HashSet<Guid>();
+        var productResults = new List<ContractProductIdResultDto>();
         var orderIdx = 0;
         foreach (var p in dto.Products)
         {
             if (string.IsNullOrWhiteSpace(p.ProductType)) continue;
+
+            var productId = Guid.NewGuid();
+            var thisOrderIdx = orderIdx++;
             _context.ContractProducts.Add(new ContractProduct
             {
-                Id = Guid.NewGuid(),
+                Id = productId,
                 ContractId = contract.Id,
                 ProductType = p.ProductType.Trim(),
                 Quantity = p.Quantity,
                 Unit = p.Unit ?? string.Empty,
                 Notes = p.Notes,
-                OrderIndex = orderIdx++,
+                OrderIndex = thisOrderIdx,
                 CreatedAt = DateTime.UtcNow,
             });
+            productResults.Add(new ContractProductIdResultDto { Id = productId, OrderIndex = thisOrderIdx });
+
+            foreach (var dId in p.DepartmentIds.Distinct())
+            {
+                _context.ContractProductDepartments.Add(new ContractProductDepartment
+                {
+                    ContractProductId = productId,
+                    DepartmentId = dId,
+                });
+            }
+
+            foreach (var u in p.Users.DistinctBy(x => new { x.UserId, x.Role }))
+            {
+                _context.ContractProductUsers.Add(new ContractProductUser
+                {
+                    ContractProductId = productId,
+                    UserId = u.UserId,
+                    Role = u.Role,
+                });
+                assignedUserIds.Add(u.UserId);
+            }
         }
 
         await _context.SaveChangesAsync();
@@ -127,24 +197,85 @@ public class ContractService : IContractService
             NotificationType.Info,
             contract.Id);
 
-        return ApiResult<Guid>.Success(contract.Id, 201);
+        foreach (var uid in assignedUserIds)
+        {
+            await _notificationService.CreateAsync(
+                uid,
+                $"Shartnomaga tayinlandingiz: {contract.ContractNo}",
+                $"Sizga «{contract.ContractNo}» shartnomasi bo'yicha vazifa berildi.",
+                NotificationType.Task,
+                contract.Id);
+        }
+
+        var createResult = new ContractCreateResultDto
+        {
+            Id = contract.Id,
+            Products = productResults,
+        };
+        return ApiResult<ContractCreateResultDto>.Success(createResult, 201);
     }
 
-    public async Task<ApiResult<int>> UpdateAsync(Guid id, ContractUpdateDto dto)
+    private async Task<List<string>> ValidateProductsAsync(IEnumerable<ContractProductCreateDto> products)
+    {
+        var errors = new List<string>();
+        var deptIds = products.SelectMany(p => p.DepartmentIds).Distinct().ToList();
+        var userIds = products.SelectMany(p => p.Users.Select(u => u.UserId)).Distinct().ToList();
+
+        if (deptIds.Count > 0)
+        {
+            var existingDepts = await _context.Departments
+                .Where(d => deptIds.Contains(d.Id))
+                .Select(d => d.Id)
+                .ToListAsync();
+            foreach (var missing in deptIds.Except(existingDepts))
+                errors.Add($"Bo'lim topilmadi: {missing}");
+        }
+
+        if (userIds.Count > 0)
+        {
+            var users = await _context.Users
+                .Where(u => userIds.Contains(u.Id))
+                .Select(u => new { u.Id, u.DepartmentId })
+                .ToListAsync();
+            var existingUserIds = users.Select(u => u.Id).ToHashSet();
+            foreach (var missing in userIds.Except(existingUserIds))
+                errors.Add($"Foydalanuvchi topilmadi: {missing}");
+
+            // Each Responsible/Supervisor user must belong to one of the product's selected departments.
+            // Observers (Boshqaruv) skip this check.
+            foreach (var p in products)
+            {
+                if (p.DepartmentIds.Count == 0) continue;
+                foreach (var u in p.Users)
+                {
+                    if (u.Role == ContractUserRole.Observer) continue;
+                    var ud = users.FirstOrDefault(x => x.Id == u.UserId);
+                    if (ud is null) continue;
+                    if (ud.DepartmentId is null || !p.DepartmentIds.Contains(ud.DepartmentId.Value))
+                        errors.Add($"Xodim {u.UserId} mahsulot tanlangan bo'limlardan emas.");
+                }
+            }
+        }
+
+        return errors;
+    }
+
+    public async Task<ApiResult<ContractCreateResultDto>> UpdateAsync(Guid id, ContractUpdateDto dto)
     {
         var contract = await _context.Contracts
             .Include(c => c.ContractDepartments)
             .Include(c => c.ContractUsers)
-            .Include(c => c.Products)
+            .Include(c => c.Products).ThenInclude(p => p.ProductDepartments)
+            .Include(c => c.Products).ThenInclude(p => p.ProductUsers)
             .FirstOrDefaultAsync(c => c.Id == id);
 
         if (contract is null)
-            return ApiResult<int>.Failure([$"Contract with id '{id}' not found."], 404);
+            return ApiResult<ContractCreateResultDto>.Failure([$"Contract with id '{id}' not found."], 404);
 
         if (dto.ContractNo is not null && dto.ContractNo != contract.ContractNo)
         {
             if (await _context.Contracts.AnyAsync(c => c.ContractNo == dto.ContractNo))
-                return ApiResult<int>.Failure([$"Contract with number '{dto.ContractNo}' already exists."]);
+                return ApiResult<ContractCreateResultDto>.Failure([$"Contract with number '{dto.ContractNo}' already exists."]);
 
             contract.ContractNo = dto.ContractNo;
         }
@@ -155,10 +286,23 @@ public class ContractService : IContractService
         if (dto.ContractParty is not null) contract.ContractParty = dto.ContractParty;
         if (dto.Notes is not null) contract.Notes = dto.Notes;
 
-        if (dto.DepartmentIds is not null)
+        if (dto.Products is not null)
         {
+            var validationErrors = await ValidateProductsAsync(dto.Products);
+            if (validationErrors.Count > 0)
+                return ApiResult<ContractCreateResultDto>.Failure(validationErrors, 400);
+        }
+
+        if (dto.DepartmentIds is not null || dto.Products is not null)
+        {
+            // Mirror per-product departments into contract-level for legacy visibility.
+            var contractDeptIds = (dto.DepartmentIds ?? new List<Guid>())
+                .Concat(dto.Products?.SelectMany(p => p.DepartmentIds) ?? Enumerable.Empty<Guid>())
+                .Distinct()
+                .ToList();
+
             _context.ContractDepartments.RemoveRange(contract.ContractDepartments);
-            foreach (var deptId in dto.DepartmentIds.Distinct())
+            foreach (var deptId in contractDeptIds)
             {
                 _context.ContractDepartments.Add(new ContractDepartment
                 {
@@ -168,25 +312,57 @@ public class ContractService : IContractService
             }
         }
 
+        var productResults = new List<ContractProductIdResultDto>();
         if (dto.Products is not null)
         {
+            // Remove all existing product rows + their FK rows (cascade handles m2m).
             _context.ContractProducts.RemoveRange(contract.Products);
             var orderIdx = 0;
             foreach (var p in dto.Products)
             {
                 if (string.IsNullOrWhiteSpace(p.ProductType)) continue;
+                var productId = Guid.NewGuid();
+                var thisOrderIdx = orderIdx++;
                 _context.ContractProducts.Add(new ContractProduct
                 {
-                    Id = Guid.NewGuid(),
+                    Id = productId,
                     ContractId = contract.Id,
                     ProductType = p.ProductType.Trim(),
                     Quantity = p.Quantity,
                     Unit = p.Unit ?? string.Empty,
                     Notes = p.Notes,
-                    OrderIndex = orderIdx++,
+                    OrderIndex = thisOrderIdx,
                     CreatedAt = DateTime.UtcNow,
                 });
+                productResults.Add(new ContractProductIdResultDto { Id = productId, OrderIndex = thisOrderIdx });
+
+                foreach (var dId in p.DepartmentIds.Distinct())
+                {
+                    _context.ContractProductDepartments.Add(new ContractProductDepartment
+                    {
+                        ContractProductId = productId,
+                        DepartmentId = dId,
+                    });
+                }
+
+                foreach (var u in p.Users.DistinctBy(x => new { x.UserId, x.Role }))
+                {
+                    _context.ContractProductUsers.Add(new ContractProductUser
+                    {
+                        ContractProductId = productId,
+                        UserId = u.UserId,
+                        Role = u.Role,
+                    });
+                }
             }
+        }
+        else
+        {
+            // No product changes — return existing IDs unchanged.
+            productResults = contract.Products
+                .OrderBy(p => p.OrderIndex)
+                .Select(p => new ContractProductIdResultDto { Id = p.Id, OrderIndex = p.OrderIndex })
+                .ToList();
         }
 
         await _context.SaveChangesAsync();
@@ -203,7 +379,11 @@ public class ContractService : IContractService
         await _notificationService.NotifyUsersAndSuperAdminsAsync(
             userIds.Union(deptUserIds), title, body, NotificationType.Info, contract.Id);
 
-        return ApiResult<int>.Success(200);
+        return ApiResult<ContractCreateResultDto>.Success(new ContractCreateResultDto
+        {
+            Id = contract.Id,
+            Products = productResults,
+        });
     }
 
     public async Task<ApiResult<int>> UpdateStatusAsync(Guid id, ContractStatus status)
@@ -270,6 +450,8 @@ public class ContractService : IContractService
         var contract = await _context.Contracts
             .Include(c => c.ContractDepartments)
             .Include(c => c.ContractUsers)
+            .Include(c => c.Products).ThenInclude(p => p.ProductDepartments)
+            .Include(c => c.Products).ThenInclude(p => p.ProductUsers)
             .Include(c => c.TechProcesses)
             .Include(c => c.TechnicalDrawings)
             .Include(c => c.CostNorms).ThenInclude(cn => cn.Items)
@@ -286,6 +468,12 @@ public class ContractService : IContractService
 
         foreach (var cd in contract.ContractDepartments) cd.IsActive = false;
         foreach (var cu in contract.ContractUsers) cu.IsActive = false;
+        foreach (var p in contract.Products)
+        {
+            p.IsActive = false;
+            foreach (var pd in p.ProductDepartments) pd.IsActive = false;
+            foreach (var pu in p.ProductUsers) pu.IsActive = false;
+        }
         foreach (var tp in contract.TechProcesses) tp.IsActive = false;
         foreach (var td in contract.TechnicalDrawings) td.IsActive = false;
         foreach (var cn in contract.CostNorms)
@@ -323,6 +511,8 @@ public class ContractService : IContractService
         var contract = await _context.Contracts
             .Include(c => c.ContractDepartments)
             .Include(c => c.ContractUsers)
+            .Include(c => c.Products).ThenInclude(p => p.ProductDepartments)
+            .Include(c => c.Products).ThenInclude(p => p.ProductUsers)
             .Include(c => c.TechProcesses)
             .Include(c => c.TechnicalDrawings)
             .Include(c => c.CostNorms).ThenInclude(cn => cn.Items)
@@ -342,6 +532,12 @@ public class ContractService : IContractService
 
         foreach (var cd in contract.ContractDepartments) cd.IsActive = true;
         foreach (var cu in contract.ContractUsers) cu.IsActive = true;
+        foreach (var p in contract.Products)
+        {
+            p.IsActive = true;
+            foreach (var pd in p.ProductDepartments) pd.IsActive = true;
+            foreach (var pu in p.ProductUsers) pu.IsActive = true;
+        }
         foreach (var tp in contract.TechProcesses) tp.IsActive = true;
         foreach (var td in contract.TechnicalDrawings) td.IsActive = true;
         foreach (var cn in contract.CostNorms)
@@ -485,8 +681,9 @@ public class ContractService : IContractService
             var allContractsQuery = _context.Contracts
                 .Include(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
                 .Include(c => c.Creator)
-                .Include(c => c.ContractUsers).ThenInclude(cu => cu.User).ThenInclude(u => u.Role)
-                .Include(c => c.Products)
+                .Include(c => c.ContractUsers).ThenInclude(cu => cu.User).ThenInclude(u => u!.Department)
+                .Include(c => c.Products).ThenInclude(p => p.ProductDepartments).ThenInclude(pd => pd.Department)
+                .Include(c => c.Products).ThenInclude(p => p.ProductUsers).ThenInclude(pu => pu.User).ThenInclude(u => u!.Department)
                 .AsNoTracking()
                 .AsQueryable();
 
@@ -511,14 +708,16 @@ public class ContractService : IContractService
         if (user.Department is null || user.Department.Type != Core.Enums.DepartmentType.IshlabChiqarish)
             return ApiResult<IEnumerable<ContractResponseDto>>.Success(Enumerable.Empty<ContractResponseDto>());
 
-        var contractsQuery = _context.ContractUsers
-            .Where(cu => cu.UserId == userId)
-            .Include(cu => cu.Contract).ThenInclude(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
-            .Include(cu => cu.Contract).ThenInclude(c => c.Creator)
-            .Include(cu => cu.Contract).ThenInclude(c => c.Products)
-            .Include(cu => cu.Contract).ThenInclude(c => c.ContractUsers).ThenInclude(cu2 => cu2.User).ThenInclude(u => u.Role)
-            .AsNoTracking()
-            .Select(cu => cu.Contract);
+        var contractsQuery = _context.Contracts
+            .Where(c =>
+                c.ContractUsers.Any(cu => cu.UserId == userId) ||
+                c.Products.Any(p => p.ProductUsers.Any(pu => pu.UserId == userId)))
+            .Include(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
+            .Include(c => c.Creator)
+            .Include(c => c.ContractUsers).ThenInclude(cu => cu.User).ThenInclude(u => u!.Department)
+            .Include(c => c.Products).ThenInclude(p => p.ProductDepartments).ThenInclude(pd => pd.Department)
+            .Include(c => c.Products).ThenInclude(p => p.ProductUsers).ThenInclude(pu => pu.User).ThenInclude(u => u!.Department)
+            .AsNoTracking();
 
         if (isActive.HasValue)
             contractsQuery = contractsQuery.Where(c => c.IsActive == isActive.Value);
@@ -526,6 +725,9 @@ public class ContractService : IContractService
         var contracts = await contractsQuery
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync();
+
+        // Show only the products this user is assigned to (or fall back to contract-level assignment).
+        FilterVisibleProducts(contracts, userId);
 
         return ApiResult<IEnumerable<ContractResponseDto>>.Success(contracts.Select(MapToResponse));
     }
@@ -576,6 +778,23 @@ public class ContractService : IContractService
                 Unit        = p.Unit,
                 OrderIndex  = p.OrderIndex,
                 Notes       = p.Notes,
+                Departments = p.ProductDepartments
+                    .Where(pd => pd.Department is not null)
+                    .Select(pd => new ContractProductDepartmentDto
+                    {
+                        Id   = pd.Department.Id,
+                        Name = pd.Department.Name,
+                        Type = pd.Department.Type,
+                    }).ToList(),
+                AssignedUsers = p.ProductUsers
+                    .Where(pu => pu.User is not null)
+                    .Select(pu => new ContractProductUserDto
+                    {
+                        UserId         = pu.UserId,
+                        FullName       = $"{pu.User!.FirstName} {pu.User.LastName}",
+                        DepartmentName = pu.User.Department?.Name,
+                        Role           = pu.Role,
+                    }).ToList(),
             }).ToList(),
     };
 }

@@ -18,4 +18,6 @@ public class ContractProduct
     public ICollection<TechProcess> TechProcesses { get; set; } = [];
     public ICollection<CostNorm> CostNorms { get; set; } = [];
     public ICollection<ContractTask> ContractTasks { get; set; } = [];
+    public ICollection<ContractProductDepartment> ProductDepartments { get; set; } = [];
+    public ICollection<ContractProductUser> ProductUsers { get; set; } = [];
 }

@@ -185,6 +185,45 @@ namespace DataAccess.Migrations
                     b.ToTable("ContractProducts");
                 });
 
+            modelBuilder.Entity("Core.Entities.ContractProductDepartment", b =>
+                {
+                    b.Property<Guid>("ContractProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DepartmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("ContractProductId", "DepartmentId");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.ToTable("ContractProductDepartments");
+                });
+
+            modelBuilder.Entity("Core.Entities.ContractProductUser", b =>
+                {
+                    b.Property<Guid>("ContractProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("ContractProductId", "UserId", "Role");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("ContractProductUsers");
+                });
+
             modelBuilder.Entity("Core.Entities.ContractTask", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1004,6 +1043,9 @@ namespace DataAccess.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
@@ -1162,6 +1204,44 @@ namespace DataAccess.Migrations
                         .IsRequired();
 
                     b.Navigation("Contract");
+                });
+
+            modelBuilder.Entity("Core.Entities.ContractProductDepartment", b =>
+                {
+                    b.HasOne("Core.Entities.ContractProduct", "Product")
+                        .WithMany("ProductDepartments")
+                        .HasForeignKey("ContractProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Core.Entities.Department", "Department")
+                        .WithMany("ContractProductDepartments")
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Department");
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("Core.Entities.ContractProductUser", b =>
+                {
+                    b.HasOne("Core.Entities.ContractProduct", "Product")
+                        .WithMany("ProductUsers")
+                        .HasForeignKey("ContractProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Core.Entities.User", "User")
+                        .WithMany("ContractProductUsers")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Core.Entities.ContractTask", b =>
@@ -1602,6 +1682,10 @@ namespace DataAccess.Migrations
 
                     b.Navigation("CostNorms");
 
+                    b.Navigation("ProductDepartments");
+
+                    b.Navigation("ProductUsers");
+
                     b.Navigation("TechProcesses");
 
                     b.Navigation("TechnicalDrawings");
@@ -1620,6 +1704,8 @@ namespace DataAccess.Migrations
             modelBuilder.Entity("Core.Entities.Department", b =>
                 {
                     b.Navigation("ContractDepartments");
+
+                    b.Navigation("ContractProductDepartments");
 
                     b.Navigation("Products");
 
@@ -1663,6 +1749,8 @@ namespace DataAccess.Migrations
                     b.Navigation("ApprovedRequisitions");
 
                     b.Navigation("AssignedTasks");
+
+                    b.Navigation("ContractProductUsers");
 
                     b.Navigation("ContractUsers");
 

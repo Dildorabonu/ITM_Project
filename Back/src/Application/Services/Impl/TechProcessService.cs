@@ -40,7 +40,12 @@ public class TechProcessService : ITechProcessService
             query = query.Where(t =>
                 _context.ContractUsers.Any(cu => cu.ContractId == t.ContractId && cu.UserId == currentUserId) ||
                 _context.ContractDepartments.Any(cd => cd.ContractId == t.ContractId &&
-                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == cd.DepartmentId)));
+                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == cd.DepartmentId)) ||
+                (t.ContractProductId != null && (
+                    _context.ContractProductUsers.Any(pu => pu.ContractProductId == t.ContractProductId && pu.UserId == currentUserId) ||
+                    _context.ContractProductDepartments.Any(pd => pd.ContractProductId == t.ContractProductId &&
+                        _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == pd.DepartmentId))
+                )));
         }
 
         if (status.HasValue)

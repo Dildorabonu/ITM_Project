@@ -8,8 +8,8 @@ public interface IContractService
 {
     Task<ApiResult<IEnumerable<ContractResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, ContractStatus? status = null, Guid? departmentId = null, bool? isActive = null);
     Task<ApiResult<ContractResponseDto>> GetByIdAsync(Guid id);
-    Task<ApiResult<Guid>> CreateAsync(ContractCreateDto dto, Guid createdBy);
-    Task<ApiResult<int>> UpdateAsync(Guid id, ContractUpdateDto dto);
+    Task<ApiResult<ContractCreateResultDto>> CreateAsync(ContractCreateDto dto, Guid createdBy);
+    Task<ApiResult<ContractCreateResultDto>> UpdateAsync(Guid id, ContractUpdateDto dto);
     Task<ApiResult<int>> UpdateStatusAsync(Guid id, ContractStatus status);
     Task<ApiResult<int>> DeactivateAsync(Guid id, ContractDeactivateDto dto);
     Task<ApiResult<int>> ActivateAsync(Guid id);

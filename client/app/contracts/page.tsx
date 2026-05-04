@@ -16,6 +16,7 @@ import {
   type ContractUpdatePayload,
   type AttachmentResponse,
   type ContractUserResponse,
+  type ContractProductPayload,
   type UserLookup,
   type DepartmentResponse,
 } from "@/lib/userService";
@@ -78,11 +79,7 @@ export default function ContractsPage() {
   const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
   const [formError, setFormError]       = useState("");
   const [pendingContractFiles, setPendingContractFiles] = useState<File[]>([]);
-  const [pendingTzFiles, setPendingTzFiles]             = useState<File[]>([]);
-  const [formUsers, setFormUsers]             = useState<UserLookup[]>([]);
-  const [formSupervisors, setFormSupervisors] = useState<UserLookup[]>([]);
-  const [formObservers, setFormObservers]     = useState<UserLookup[]>([]);
-  const [openPickerIdx, setOpenPickerIdx]     = useState<number | null>(null);
+  const [openPickerKey, setOpenPickerKey]     = useState<`${number}:${0 | 1 | 2}` | null>(null);
   const pickerRef                             = useRef<HTMLDivElement | null>(null);
 
   // View drawer
@@ -103,8 +100,9 @@ export default function ContractsPage() {
   const [allUsers, setAllUsers]         = useState<UserLookup[]>([]);
 
   // Scan modal
+  type ScanTarget = { kind: "contract" } | { kind: "product-tz"; productIdx: number };
   const [showScanModal, setShowScanModal]   = useState(false);
-  const [scanTarget, setScanTarget]         = useState<"contract" | "tz">("contract");
+  const [scanTarget, setScanTarget]         = useState<ScanTarget>({ kind: "contract" });
   const [scanSources, setScanSources]       = useState<Parameters<typeof ScanModal>[0]["scanSources"]>([]);
   const [scanSourcesLoading, setScanSourcesLoading] = useState(false);
   const [scanSourcesError, setScanSourcesError]     = useState("");
@@ -212,22 +210,20 @@ export default function ContractsPage() {
   }, [search, filterStatus, filterPriority, contracts]);
 
   useEffect(() => {
-    if (openPickerIdx === null) return;
+    if (openPickerKey === null) return;
     const handler = (e: MouseEvent) => {
       if (pickerRef.current && !pickerRef.current.contains(e.target as Node))
-        setOpenPickerIdx(null);
+        setOpenPickerKey(null);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [openPickerIdx]);
+  }, [openPickerKey]);
 
   useEffect(() => {
     if (!showForm) return;
     const handlePopState = () => {
       setShowForm(false);
       setPendingContractFiles([]);
-      setPendingTzFiles([]);
-      setFormUsers([]);
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
@@ -250,10 +246,6 @@ export default function ContractsPage() {
     setSubmitted(false);
     setFormError("");
     setPendingContractFiles([]);
-    setPendingTzFiles([]);
-    setFormUsers([]);
-    setFormSupervisors([]);
-    setFormObservers([]);
     await ensureDataLoaded();
     window.history.pushState({ showForm: true }, "");
     setShowForm(true);
@@ -262,9 +254,18 @@ export default function ContractsPage() {
   const openEdit = async (c: ContractResponse) => {
     sessionStorage.removeItem("draft_contracts");
     setEditTarget(c);
+
+    const [lookup, depts] = await Promise.all([
+      allUsers.length > 0 ? Promise.resolve(allUsers) : userService.getLookup(),
+      departments.length > 0 ? Promise.resolve(departments) : departmentService.getAllFull().then(d => d.filter(dep => dep.isActive)),
+    ]);
+    if (lookup !== allUsers) setAllUsers(lookup);
+    if (depts !== departments) setDepartments(depts);
+
+    const lookupById = new Map(lookup.map(u => [u.id, u]));
+
     setForm({
       contractNo:    c.contractNo,
-      departmentIds: c.departments?.map(d => d.id) ?? [],
       startDate:     c.startDate ? c.startDate.slice(0, 10) : "",
       endDate:       c.endDate ? c.endDate.slice(0, 10) : "",
       priority:      String(c.priority),
@@ -276,30 +277,41 @@ export default function ContractsPage() {
             quantity:    p.quantity != null ? String(p.quantity) : "",
             unit:        p.unit ?? "",
             notes:       p.notes ?? "",
+            departmentIds: p.departments?.map(d => d.id) ?? [],
+            responsibleUsers: (p.assignedUsers ?? []).filter(u => u.role === 0).map(u => lookupById.get(u.userId)).filter((u): u is UserLookup => !!u),
+            supervisorUsers:  (p.assignedUsers ?? []).filter(u => u.role === 1).map(u => lookupById.get(u.userId)).filter((u): u is UserLookup => !!u),
+            observerUsers:    (p.assignedUsers ?? []).filter(u => u.role === 2).map(u => lookupById.get(u.userId)).filter((u): u is UserLookup => !!u),
+            pendingTzFiles: [],
           }))
-        : [{ productType: "", quantity: "", unit: "", notes: "" }],
+        : [{ productType: "", quantity: "", unit: "", notes: "", departmentIds: [], responsibleUsers: [], supervisorUsers: [], observerUsers: [], pendingTzFiles: [] }],
     });
     setStartDateDisp(c.startDate ? isoToDisplayDate(c.startDate.slice(0, 10)) : "");
     setEndDateDisp(c.endDate ? isoToDisplayDate(c.endDate.slice(0, 10)) : "");
     setSubmitted(false);
     setFormError("");
-    const [users, lookup, depts] = await Promise.all([
-      contractService.getUsers(c.id),
-      allUsers.length > 0 ? Promise.resolve(allUsers) : userService.getLookup(),
-      departments.length > 0 ? Promise.resolve(departments) : departmentService.getAllFull().then(d => d.filter(dep => dep.isActive)),
-    ]);
-    if (lookup !== allUsers) setAllUsers(lookup);
-    if (depts !== departments) setDepartments(depts);
-    setFormUsers(lookup.filter((u: UserLookup) => users.some((cu: ContractUserResponse) => cu.userId === u.id && cu.role === 0)));
-    setFormSupervisors(lookup.filter((u: UserLookup) => users.some((cu: ContractUserResponse) => cu.userId === u.id && cu.role === 1)));
-    setFormObservers(lookup.filter((u: UserLookup) => users.some((cu: ContractUserResponse) => cu.userId === u.id && cu.role === 2)));
     window.history.pushState({ showForm: true }, "");
     setShowForm(true);
   };
 
   const isValid = () =>
-    form.contractNo.trim() && form.departmentIds.length > 0 &&
-    form.startDate && form.endDate;
+    !!form.contractNo.trim() && !!form.startDate && !!form.endDate &&
+    form.products.length > 0 &&
+    form.products.every(p => p.productType.trim() !== "" && p.departmentIds.length > 0);
+
+  const buildProductsPayload = (): ContractProductPayload[] => form.products
+    .filter(p => p.productType.trim())
+    .map(p => ({
+      productType:   p.productType.trim(),
+      quantity:      p.quantity ? Number(p.quantity) : 0,
+      unit:          p.unit || "",
+      notes:         p.notes || null,
+      departmentIds: p.departmentIds,
+      users: [
+        ...p.responsibleUsers.map(u => ({ userId: u.id, role: 0 })),
+        ...p.supervisorUsers.map(u => ({ userId: u.id, role: 1 })),
+        ...p.observerUsers.map(u => ({ userId: u.id, role: 2 })),
+      ],
+    }));
 
   const handleSave = async () => {
     setSubmitted(true);
@@ -310,18 +322,13 @@ export default function ContractsPage() {
     setSaving(true);
     setFormError("");
     try {
-      const productsPayload = form.products
-        .filter(p => p.productType.trim())
-        .map(p => ({
-          productType: p.productType.trim(),
-          quantity:    p.quantity ? Number(p.quantity) : 0,
-          unit:        p.unit || "",
-          notes:       p.notes || null,
-        }));
+      const productsPayload = buildProductsPayload();
+      // Forms-with-products carry their own department lists; keep top-level
+      // departmentIds empty so the backend mirrors the union from products.
+      let result: { id: string; products: { id: string; orderIndex: number }[] };
       if (editTarget) {
         const dto: ContractUpdatePayload = {
           contractNo:    form.contractNo,
-          departmentIds: form.departmentIds,
           startDate:     startDateIso,
           endDate:       endDateIso,
           priority:      Number(form.priority) as Priority,
@@ -329,24 +336,10 @@ export default function ContractsPage() {
           notes:         form.notes || null,
           products:      productsPayload,
         };
-        await contractService.update(editTarget.id, dto);
-        // sync users by role
-        const currentUsers = await contractService.getUsers(editTarget.id);
-        const newUserMap = new Map<string, number>([
-          ...formUsers.map(u => [u.id, 0] as [string, number]),
-          ...formSupervisors.map(u => [u.id, 1] as [string, number]),
-          ...formObservers.map(u => [u.id, 2] as [string, number]),
-        ]);
-        const toAdd = [...newUserMap.entries()]
-          .filter(([id, role]) => { const ex = currentUsers.find(cu => cu.userId === id); return !ex || ex.role !== role; })
-          .map(([userId, role]) => ({ userId, role }));
-        const toRemove = currentUsers.filter(cu => !newUserMap.has(cu.userId)).map(cu => cu.userId);
-        if (toAdd.length > 0) await contractService.assignUsers(editTarget.id, toAdd);
-        for (const uid of toRemove) await contractService.removeUser(editTarget.id, uid);
+        result = await contractService.update(editTarget.id, dto);
       } else {
         const dto: ContractCreatePayload = {
           contractNo:    form.contractNo,
-          departmentIds: form.departmentIds.length > 0 ? form.departmentIds : undefined,
           startDate:     startDateIso,
           endDate:       endDateIso,
           priority:      Number(form.priority) as Priority,
@@ -354,24 +347,23 @@ export default function ContractsPage() {
           notes:         form.notes || null,
           products:      productsPayload.length > 0 ? productsPayload : undefined,
         };
-        const newId = await contractService.create(dto);
-        if (newId) {
-          await contractService.updateStatus(newId, ContractStatus.DrawingPending);
-          const allNewUsers = [
-            ...formUsers.map(u => ({ userId: u.id, role: 0 })),
-            ...formSupervisors.map(u => ({ userId: u.id, role: 1 })),
-            ...formObservers.map(u => ({ userId: u.id, role: 2 })),
-          ];
-          if (allNewUsers.length > 0)
-            await contractService.assignUsers(newId, allNewUsers);
-          for (const file of pendingContractFiles)
-            await contractService.uploadFile(newId, file);
-          for (const file of pendingTzFiles)
-            await contractService.uploadTzFile(newId, file);
-        }
+        result = await contractService.create(dto);
+        await contractService.updateStatus(result.id, ContractStatus.DrawingPending);
+        for (const file of pendingContractFiles)
+          await contractService.uploadFile(result.id, file);
         setPendingContractFiles([]);
-        setPendingTzFiles([]);
       }
+
+      // Upload per-product TZ files. The backend returns products in OrderIndex
+      // order, matching how we sent them; map by index.
+      const sortedProducts = [...result.products].sort((a, b) => a.orderIndex - b.orderIndex);
+      const formProductsWithType = form.products.filter(p => p.productType.trim());
+      for (let i = 0; i < formProductsWithType.length && i < sortedProducts.length; i++) {
+        const productId = sortedProducts[i].id;
+        for (const file of formProductsWithType[i].pendingTzFiles)
+          await contractService.uploadProductTzFile(result.id, productId, file);
+      }
+
       const wasEditing = !!editTarget;
       await load();
       setShowForm(false);
@@ -394,7 +386,7 @@ export default function ContractsPage() {
 
   // ── Scan ──────────────────────────────────────────────────────────────────
 
-  const openScanModal = async (target: "contract" | "tz" = "contract") => {
+  const openScanModal = async (target: ScanTarget = { kind: "contract" }) => {
     setScanTarget(target);
     setScanError("");
     setScanSourcesError("");
@@ -420,8 +412,15 @@ export default function ContractsPage() {
     setScanning(true);
     try {
       const file = await scanService.scan(selectedSourceId, scanColorMode, scanDpi);
-      if (scanTarget === "tz") setPendingTzFiles(prev => [...prev, file]);
-      else setPendingContractFiles(prev => [...prev, file]);
+      if (scanTarget.kind === "product-tz") {
+        const productIdx = scanTarget.productIdx;
+        setForm(f => ({
+          ...f,
+          products: f.products.map((p, i) => i === productIdx ? { ...p, pendingTzFiles: [...p.pendingTzFiles, file] } : p),
+        }));
+      } else {
+        setPendingContractFiles(prev => [...prev, file]);
+      }
       setShowScanModal(false);
     } catch {
       setScanError("Skanerlashda xatolik yuz berdi. Skaner ulanganini va tayyor ekanini tekshiring.");
@@ -497,22 +496,14 @@ export default function ContractsPage() {
           formError={formError}
           pendingContractFiles={pendingContractFiles}
           setPendingContractFiles={setPendingContractFiles}
-          pendingTzFiles={pendingTzFiles}
-          setPendingTzFiles={setPendingTzFiles}
-          formUsers={formUsers}
-          setFormUsers={setFormUsers}
-          formSupervisors={formSupervisors}
-          setFormSupervisors={setFormSupervisors}
-          formObservers={formObservers}
-          setFormObservers={setFormObservers}
-          openPickerIdx={openPickerIdx}
-          setOpenPickerIdx={setOpenPickerIdx}
+          openPickerKey={openPickerKey}
+          setOpenPickerKey={setOpenPickerKey}
           pickerRef={pickerRef}
           allUsers={allUsers}
           departments={departments}
           handleSave={requestSave}
           openScanModal={openScanModal}
-          onCancel={() => { setShowForm(false); setPendingContractFiles([]); setPendingTzFiles([]); setFormUsers([]); }}
+          onCancel={() => { setShowForm(false); setPendingContractFiles([]); }}
           canCreate={canCreate}
           canUpdate={canUpdate}
         />
