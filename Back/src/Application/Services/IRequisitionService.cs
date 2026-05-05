@@ -1,5 +1,6 @@
 using Application.DTOs;
 using Application.DTOs.Requisitions;
+using Application.Helpers;
 using Core.Enums;
 
 namespace Application.Services;
@@ -7,6 +8,7 @@ namespace Application.Services;
 public interface IRequisitionService
 {
     Task<ApiResult<IEnumerable<RequisitionResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, RequisitionStatus? status = null);
+    Task<ApiResult<PagedResult<RequisitionResponseDto>>> GetPagedAsync(Guid currentUserId, bool viewAll, PaginationParams pagination, string? search = null, RequisitionStatus? status = null, bool? completed = null);
     Task<ApiResult<RequisitionResponseDto>> GetByIdAsync(Guid id);
     Task<ApiResult<Guid>> CreateAsync(RequisitionCreateDto dto, Guid createdBy);
 
