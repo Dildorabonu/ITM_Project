@@ -115,11 +115,10 @@ public class ManufacturedProductService : IManufacturedProductService
     // ─── Sync ────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Shartnoma ostidagi har bir mahsulot uchun ManufacturedProducts jadvalini yangilaydi:
-    /// — Tex jarayoni va xarajat normasi tasdiqlangan, kontrakt holati InProduction/Completed bo'lsa,
-    ///   yozuv qo'shiladi yoki yangilanadi.
-    /// — Aks holda (yoki kontrakt Cancelled/IsActive=false bo'lsa), yozuv o'chiriladi.
-    /// Bu metod shartnoma holati, tex jarayon yoki xarajat normasi o'zgargan har safar chaqiriladi.
+    /// Shartnoma ostidagi har bir mahsulot uchun ManufacturedProducts jadvalini yangilaydi.
+    /// Endi mahsulot o'z statusiga qarab kiritiladi — kontrakt umumiy holati emas:
+    /// — Mahsulot status InProduction yoki Completed bo'lsa → yozuv qo'shiladi/yangilanadi.
+    /// — Boshqa holatlarda (DrawingPending/TechProcessing/Cancelled yoki kontrakt nofaol) → yozuv o'chiriladi.
     /// </summary>
     public async SysTask SyncForContractAsync(Guid contractId)
     {
@@ -135,11 +134,8 @@ public class ManufacturedProductService : IManufacturedProductService
             .Where(p => p.ContractId == contractId && p.ContractProductId != null)
             .ToListAsync();
 
-        // Kontrakt o'chirilgan / bekor qilingan / faqat boshlang'ich bosqichda — barcha yozuvlarni o'chiramiz.
-        if (!contract.IsActive
-            || contract.Status == ContractStatus.Cancelled
-            || contract.Status == ContractStatus.DrawingPending
-            || contract.Status == ContractStatus.TechProcessing)
+        // Kontrakt o'chirilgan / bekor qilingan — barcha yozuvlarni o'chiramiz.
+        if (!contract.IsActive || contract.Status == ContractStatus.Cancelled)
         {
             if (existingRows.Count > 0)
             {
@@ -148,28 +144,6 @@ public class ManufacturedProductService : IManufacturedProductService
             }
             return;
         }
-
-        // Per-product approval set
-        var approvedTpProductIds = await _context.TechProcesses
-            .Where(tp => tp.IsActive
-                         && tp.ContractProductId != null
-                         && tp.ContractId == contractId
-                         && (tp.Status == ProcessStatus.Approved || tp.Status == ProcessStatus.Completed))
-            .Select(tp => tp.ContractProductId!.Value)
-            .Distinct()
-            .ToListAsync();
-
-        var approvedCnProductIds = await _context.CostNorms
-            .Where(cn => cn.IsActive
-                         && cn.ContractProductId != null
-                         && cn.ContractId == contractId
-                         && cn.Status == DrawingStatus.Approved
-                         && cn.Items.Any(i => i.IsActive))
-            .Select(cn => cn.ContractProductId!.Value)
-            .Distinct()
-            .ToListAsync();
-
-        var readyProductIds = approvedTpProductIds.Intersect(approvedCnProductIds).ToHashSet();
 
         var department = contract.ContractDepartments
             .Where(cd => cd.IsActive && cd.Department != null)
@@ -191,19 +165,21 @@ public class ManufacturedProductService : IManufacturedProductService
             return;
         }
 
-        var derivedStatus = contract.Status == ContractStatus.Completed
-            ? ManufacturingStatus.Completed
-            : ManufacturingStatus.InProgress;
-
         var existingByProductId = existingRows.ToDictionary(r => r.ContractProductId!.Value);
         var keepRowIds = new HashSet<Guid>();
 
         foreach (var product in contract.Products.Where(p => p.IsActive))
         {
-            // Yakunlangan kontraktlarda hamma mahsulot saqlanadi (allaqachon ishlab chiqarilgan);
-            // aks holda — faqat tasdiqlangan mahsulotlar.
-            var include = contract.Status == ContractStatus.Completed || readyProductIds.Contains(product.Id);
+            // Faqat InProduction yoki Completed mahsulotlari ko'rinadi — har bir
+            // mahsulot o'z holatida bo'ladi, kontrakt darajasidagi umumiy holat
+            // boshqa mahsulotlarni yashirmaydi.
+            var include = product.Status == ContractProductStatus.InProduction
+                          || product.Status == ContractProductStatus.Completed;
             if (!include) continue;
+
+            var derivedStatus = product.Status == ContractProductStatus.Completed
+                ? ManufacturingStatus.Completed
+                : ManufacturingStatus.InProgress;
 
             if (!Enum.TryParse<ProductUnit>(product.Unit, ignoreCase: true, out var unit))
                 unit = ProductUnit.Dona;
@@ -214,7 +190,7 @@ public class ManufacturedProductService : IManufacturedProductService
                                      && t.ContractProductId == product.Id);
 
             decimal producedQuantity = warehouseTask?.CompletedAmount ?? 0m;
-            if (contract.Status == ContractStatus.Completed && warehouseTask is null)
+            if (product.Status == ContractProductStatus.Completed && warehouseTask is null)
                 producedQuantity = product.Quantity;
 
             var firstTask = contract.ContractTasks

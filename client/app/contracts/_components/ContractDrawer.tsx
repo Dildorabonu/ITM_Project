@@ -5,13 +5,31 @@ import { createPortal } from "react-dom";
 import {
   DepartmentType,
   contractService,
+  CONTRACT_PRODUCT_STATUS_LABELS,
   type ContractResponse,
   type AttachmentResponse,
   type ContractUserResponse,
+  type ContractProductResponse,
 } from "@/lib/userService";
+import { PRODUCT_STATUS_STYLE } from "../_types";
 import { StatusBadge, PriorityBadge } from "./StatusBadge";
 import { WorkflowDiagram } from "./WorkflowDiagram";
 import { fmt } from "./DatePickerField";
+
+function ProductStatusBadge({ status }: { status: ContractProductResponse["status"] }) {
+  const s = PRODUCT_STATUS_STYLE[status];
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center",
+      padding: "2px 10px", borderRadius: 20,
+      fontSize: 11, fontWeight: 700,
+      background: s.bg, color: s.color, border: `1px solid ${s.border}`,
+      whiteSpace: "nowrap",
+    }}>
+      {CONTRACT_PRODUCT_STATUS_LABELS[status]}
+    </span>
+  );
+}
 
 const TYPE_STYLE = {
   [DepartmentType.IshlabChiqarish]: { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa", icon: "🏭" },
@@ -93,7 +111,7 @@ export function ContractDrawer({
             onMouseUp={e => { (e.currentTarget as HTMLButtonElement).style.transform = "scale(1)"; }}>✕</button>
         </div>
 
-        <WorkflowDiagram status={viewContract.status} />
+        <WorkflowDiagram status={viewContract.status} products={viewContract.products} />
 
         <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 10 }}>Umumiy</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 22 }}>
@@ -103,7 +121,7 @@ export function ContractDrawer({
           </div>
           <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
             <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Holat</div>
-            <StatusBadge status={viewContract.status} />
+            <StatusBadge status={viewContract.status} products={viewContract.products} />
           </div>
           <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
             <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Muhimlik</div>
@@ -162,6 +180,7 @@ export function ContractDrawer({
                           {p.quantity != null ? p.quantity.toLocaleString() : "—"} {p.unit}
                         </div>
                       </div>
+                      <ProductStatusBadge status={p.status} />
                     </div>
 
                     <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
