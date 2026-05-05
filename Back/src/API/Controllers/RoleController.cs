@@ -1,5 +1,6 @@
 using API.Authorization;
 using Application.DTOs.Roles;
+using Application.Helpers;
 using Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -23,6 +24,18 @@ public class RoleController : ControllerBase
     public async Task<IActionResult> GetAll()
     {
         var result = await _roleService.GetAllAsync();
+        return Ok(result);
+    }
+
+    [HasPermission("Roles.View")]
+    [HttpGet("paged")]
+    public async Task<IActionResult> GetPaged(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? search = null)
+    {
+        var pagination = new PaginationParams { Page = page, PageSize = pageSize };
+        var result = await _roleService.GetPagedAsync(pagination, search);
         return Ok(result);
     }
 

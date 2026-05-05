@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useDraft } from "@/lib/useDraft";
 import {
   roleService,
@@ -28,6 +28,12 @@ export default function RolesPage() {
   const [permissions, setPermissions] = useState<PermissionModuleResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+
+  // Pagination
+  const PAGE_SIZE = 20;
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
   // View drawer
   const [viewRole, setViewRole] = useState<RoleResponse | null>(null);
@@ -75,18 +81,37 @@ export default function RolesPage() {
     },
   );
 
-  const fetchAll = async () => {
+  const loadRoles = useCallback(async (p = page) => {
     setLoading(true);
     try {
-      const [r, p] = await Promise.all([roleService.getAllFull(), permissionService.getAll()]);
-      setRoles(r);
-      setPermissions(p);
+      const data = await roleService.getPaged(p, PAGE_SIZE, search.trim() ? { search: search.trim() } : {});
+      setRoles(data.items);
+      setTotalPages(data.totalPages);
+      setTotalCount(data.totalCount);
+    } catch {
+      setRoles([]);
+      setTotalPages(1);
+      setTotalCount(0);
     } finally {
       setLoading(false);
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, search]);
 
-  useEffect(() => { fetchAll(); }, []);
+  // Reset to page 1 when search changes
+  useEffect(() => { setPage(1); }, [search]);
+
+  // Reload when page or search changes (debounce search)
+  useEffect(() => {
+    const t = setTimeout(() => { loadRoles(page); }, search ? 250 : 0);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, search]);
+
+  // Permissions only need to be fetched once
+  useEffect(() => {
+    permissionService.getAll().then(setPermissions).catch(() => setPermissions([]));
+  }, []);
 
   /* ---------- View ---------- */
   const openViewRole = async (r: RoleResponse) => {
@@ -180,7 +205,7 @@ export default function RolesPage() {
         await roleService.setPermissions(roleId, Array.from(selectedPerms));
       }
       setShowRoleModal(false);
-      await fetchAll();
+      await loadRoles(page);
       showToast(editRole ? "Rol muvaffaqiyatli tahrirlandi!" : "Rol muvaffaqiyatli yaratildi!");
     } catch {
       showToast("Rolni saqlashda xatolik yuz berdi.", "Xatolik");
@@ -197,7 +222,7 @@ export default function RolesPage() {
     try {
       await roleService.delete(deleteConfirmId);
       setDeleteConfirmId(null);
-      await fetchAll();
+      await loadRoles(page);
       showToast("Rol muvaffaqiyatli noaktiv qilindi!");
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { errors?: string[] } } };
@@ -214,7 +239,7 @@ export default function RolesPage() {
     try {
       await roleService.update(activateConfirmId, { isActive: true });
       setActivateConfirmId(null);
-      await fetchAll();
+      await loadRoles(page);
       showToast("Rol muvaffaqiyatli aktiv qilindi!");
     } catch {
       showToast("Rolni aktiv qilishda xatolik yuz berdi.", "Xatolik");
@@ -222,11 +247,6 @@ export default function RolesPage() {
       setActivating(false);
     }
   };
-
-  const filtered = roles.filter(r =>
-    r.name.toLowerCase().includes(search.toLowerCase()) ||
-    (r.description ?? "").toLowerCase().includes(search.toLowerCase())
-  );
 
   if (showRoleModal) {
     return (
@@ -254,13 +274,18 @@ export default function RolesPage() {
 
   return (
     <>
-      <div className="page-transition">
+      <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
         <RoleTable
           loading={loading}
-          filtered={filtered}
+          roles={roles}
           search={search}
           setSearch={setSearch}
-          fetchAll={fetchAll}
+          fetchAll={() => loadRoles(page)}
+          page={page}
+          pageSize={PAGE_SIZE}
+          totalPages={totalPages}
+          totalCount={totalCount}
+          setPage={setPage}
           canCreate={canCreate}
           canUpdate={canUpdate}
           canDelete={canDelete}
