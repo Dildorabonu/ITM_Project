@@ -125,6 +125,12 @@ export default function TechProductionPage() {
   const [readinessItems, setReadinessItems] = useState<ContractReadinessScope[]>([]);
   const [readinessLoading, setReadinessLoading] = useState(true);
 
+  // Pagination
+  const PAGE_SIZE = 20;
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+
   // ── Loaders ────────────────────────────────────────────────────────────────
 
   const loadContracts = useCallback(async()=>{
@@ -143,19 +149,36 @@ export default function TechProductionPage() {
 
   const loadCn = useCallback(async()=>{ setCnListLoading(true); const d=await costNormService.getAll(undefined, viewMode === "active"); setCnList(d); setCnListLoading(false); },[viewMode]);
 
-  const loadReadiness = useCallback(async()=>{
+  const loadReadiness = useCallback(async(p = page)=>{
     try {
       setReadinessLoading(true);
-      const data = await contractService.getReadinessOverview(viewMode === "active");
-      setReadinessItems(data as ContractReadinessScope[]);
+      const data = await contractService.getReadinessOverview(p, PAGE_SIZE, {
+        search:   tpSearch || undefined,
+        isActive: viewMode === "active",
+      });
+      setReadinessItems((data?.items ?? []) as ContractReadinessScope[]);
+      setTotalPages(data?.totalPages ?? 1);
+      setTotalCount(data?.totalCount ?? 0);
     } catch {
       setReadinessItems([]);
+      setTotalPages(1);
+      setTotalCount(0);
     } finally {
       setReadinessLoading(false);
     }
-  },[viewMode]);
+  },[viewMode, tpSearch, page]);
 
-  useEffect(()=>{ loadTp(); loadCn(); loadContracts(); loadReadiness(); },[loadTp, loadCn, loadContracts, loadReadiness]);
+  useEffect(()=>{ loadTp(); loadCn(); loadContracts(); },[loadTp, loadCn, loadContracts]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => { setPage(1); }, [viewMode, tpSearch]);
+
+  // Reload readiness when page or any filter changes (debounce search)
+  useEffect(() => {
+    const t = setTimeout(() => { loadReadiness(page); }, tpSearch ? 250 : 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, viewMode, tpSearch]);
 
   useEffect(()=>{ if(!tpShowForm) return; const h=()=>setTpShowForm(false); window.addEventListener("popstate",h); return ()=>window.removeEventListener("popstate",h); },[tpShowForm]);
 
@@ -932,12 +955,9 @@ export default function TechProductionPage() {
 
   const selectedItem = readinessItems.find(i => scopeKey(i.contractId, i.contractProductId) === selectedScopeKey) ?? null;
 
-  // Backend `/api/contract/readiness` endpointi qatorlarni priority bo'yicha tartiblab qaytaradi
-  // (0 — eng yuqori, 3 — yakunlangan). Bu yerda faqat shartnoma raqami bo'yicha qidiruvni
-  // qo'llaymiz; tartibni o'zgartirmaymiz.
-  const sortedFilteredItems = !tpSearch.trim()
-    ? readinessItems
-    : readinessItems.filter(i => i.contractNo.toLowerCase().includes(tpSearch.trim().toLowerCase()));
+  // Backend `/api/contract/readiness` qatorlarni priority bo'yicha tartiblab,
+  // qidiruv va sahifalashni o'zi qaytaradi.
+  const sortedFilteredItems = readinessItems;
 
   // ── Detail full-page view ──────────────────────────────────────────────────
 
@@ -1294,7 +1314,7 @@ export default function TechProductionPage() {
 
   return (
     <>
-    <div className="page-transition" style={{ display:"flex",flexDirection:"column",flex:1,gap:16 }}>
+    <div className="page-transition" style={{ display:"flex",flexDirection:"column",flex:1,minHeight:0 }}>
       <style>{`
         @keyframes tp-row-pulse {
           0%, 100% { background-color: rgba(217,48,37,0.06); }
@@ -1344,7 +1364,7 @@ export default function TechProductionPage() {
       `}</style>
 
       {/* ── Toolbar ── */}
-      <div className="itm-card" style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 14px",flexWrap:"wrap" }}>
+      <div className="itm-card" style={{ display:"flex",alignItems:"center",gap:10,marginBottom:6,padding:"8px 14px",flexWrap:"wrap" }}>
         {/* Faol / Arxiv tab toggle */}
         <div style={{ display: "inline-flex", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 2, gap: 2, flexShrink: 0 }}>
           <button
@@ -1387,33 +1407,33 @@ export default function TechProductionPage() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input className="search-input" placeholder="Shartnoma raqami bo'yicha qidirish..." value={tpSearch} onChange={e=>setTpSearch(e.target.value)}/>
         </div>
-        <button className="btn-icon" onClick={()=>{ loadTp(); loadCn(); loadContracts(); loadReadiness(); }} title="Yangilash" style={{ background:"var(--accent-dim)",borderColor:"var(--accent)",color:"var(--accent)",width:36,height:36 }}>
+        <button className="btn-icon" onClick={()=>{ loadTp(); loadCn(); loadContracts(); loadReadiness(page); }} title="Yangilash" style={{ background:"var(--accent-dim)",borderColor:"var(--accent)",color:"var(--accent)",width:36,height:36 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
         </button>
       </div>
 
       {/* ── Contracts table ── */}
-      <div className="itm-card" style={{ flex:1, overflow:"hidden" }}>
+      <div className="itm-card" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "clip" } as React.CSSProperties}>
         {(readinessLoading||tpLoading||cnListLoading)?(
-          <div style={{ padding:40,textAlign:"center",color:"var(--text2)" }}>Yuklanmoqda...</div>
+          <div style={{ flex:1,padding:40,textAlign:"center",color:"var(--text2)" }}>Yuklanmoqda...</div>
         ):readinessItems.length===0?(
-          <div style={{ padding:40,textAlign:"center",color:"var(--text2)" }}>
+          <div style={{ flex:1,padding:40,textAlign:"center",color:"var(--text2)" }}>
             {viewMode === "archive" ? "Arxivda yozuvlar yo'q" : "Ma'lumot topilmadi"}
           </div>
         ):(
-          <div style={{ overflowX:"auto" }}>
+          <div style={{ overflowX:"auto",overflowY:"auto",flex:1,minHeight:0 }}>
             <table className="itm-table">
-              <thead>
+              <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
                 <tr>
-                  <th style={{ width:52,textAlign:"center",borderRight:"2px solid var(--border)",color:"var(--text1)",textTransform:"none" }}>T/r</th>
-                  <th style={{ textAlign:"center",color:"var(--text1)" }}>Shartnoma №</th>
-                  <th style={{ textAlign:"center",color:"var(--text1)" }}>Mahsulot</th>
-                  <th style={{ textAlign:"center",color:"var(--text1)" }}>Texnik chizma</th>
-                  <th style={{ textAlign:"center",color:"var(--text1)" }}>Texnologik jarayon</th>
-                  <th style={{ textAlign:"center",color:"var(--text1)" }}>Me&apos;yoriy sarf</th>
-                  <th style={{ textAlign:"center",color:"var(--text1)" }}>Umumiy holat</th>
-                  <th style={{ textAlign:"center",color:"var(--text1)",textTransform:"none" }}>Faollik</th>
-                  <th style={{ textAlign:"center",borderLeft:"2px solid var(--border)",color:"var(--text1)",textTransform:"none" }}>Amal</th>
+                  <th style={{ width:64,minWidth:64,textAlign:"center",borderRight:"2px solid var(--border)",color:"var(--text1)",textTransform:"none",background:"var(--bg2)" }}>T/r</th>
+                  <th style={{ textAlign:"center",color:"var(--text1)",background:"var(--bg2)" }}>Shartnoma №</th>
+                  <th style={{ textAlign:"center",color:"var(--text1)",background:"var(--bg2)" }}>Mahsulot</th>
+                  <th style={{ textAlign:"center",color:"var(--text1)",background:"var(--bg2)" }}>Texnik chizma</th>
+                  <th style={{ textAlign:"center",color:"var(--text1)",background:"var(--bg2)" }}>Texnologik jarayon</th>
+                  <th style={{ textAlign:"center",color:"var(--text1)",background:"var(--bg2)" }}>Me&apos;yoriy sarf</th>
+                  <th style={{ textAlign:"center",color:"var(--text1)",background:"var(--bg2)" }}>Umumiy holat</th>
+                  <th style={{ textAlign:"center",color:"var(--text1)",textTransform:"none",background:"var(--bg2)" }}>Faollik</th>
+                  <th style={{ textAlign:"center",borderLeft:"2px solid var(--border)",color:"var(--text1)",textTransform:"none",background:"var(--bg2)" }}>Amal</th>
                 </tr>
               </thead>
               <tbody>
@@ -1434,7 +1454,7 @@ export default function TechProductionPage() {
                       className={drawingReadyPending ? "tp-row-ready" : undefined}
                       onClick={()=>{ if(!drawingOk){ setDrawingWarningNo(item.contractNo); } else { setSelectedScopeKey(rowKey); setTpInlineEditing(false); } }}
                       style={{ cursor:"pointer",transition:"background 0.12s" }}>
-                      <td style={{ textAlign:"center",borderRight:"2px solid var(--border)",padding:"0 8px",fontSize:13, color: drawingReadyPending ? "var(--danger)" : undefined, fontWeight: drawingReadyPending ? 700 : undefined }}>{String(i+1).padStart(2,"0")}</td>
+                      <td style={{ textAlign:"center",borderRight:"2px solid var(--border)",minWidth:64,padding:"0 8px",fontSize:13, color: drawingReadyPending ? "var(--danger)" : undefined, fontWeight: drawingReadyPending ? 700 : undefined }}>{String((page - 1) * PAGE_SIZE + i + 1).padStart(2,"0")}</td>
                       <td style={{ textAlign:"center",fontSize:13,color:"var(--text1)",fontFamily:"var(--font-inter,Inter,sans-serif)" }}>{item.contractNo}</td>
                       <td style={{ textAlign:"center",fontSize:13,color:"var(--text1)" }}>
                         {item.contractProductId === null ? (
@@ -1520,6 +1540,57 @@ export default function TechProductionPage() {
             </table>
           </div>
         )}
+      </div>
+
+      {/* Pagination footer */}
+      <div style={{
+        flexShrink: 0,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "8px 14px",
+        marginTop: 8,
+      }}>
+        <span style={{ fontSize: 17, color: "var(--text)", fontFamily: "var(--font-mono)", fontWeight: 450 }}>
+          {totalCount} tadan {totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}&nbsp;–&nbsp;{Math.min(page * PAGE_SIZE, totalCount)} ko&apos;rsatilmoqda
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <button
+            className="btn-secondary"
+            disabled={page <= 1}
+            onClick={() => setPage(p => p - 1)}
+            style={{ padding: "5px 12px", fontSize: 12 }}
+          >
+            ← Oldingi
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1)
+            .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+            .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+              if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("...");
+              acc.push(p);
+              return acc;
+            }, [])
+            .map((p, idx) =>
+              p === "..." ? (
+                <span key={`ellipsis-${idx}`} style={{ fontSize: 13, color: "var(--text3)", padding: "0 2px" }}>…</span>
+              ) : (
+                <button
+                  key={p}
+                  className={p === page ? "btn-primary" : "btn-secondary"}
+                  onClick={() => setPage(p as number)}
+                  style={{ minWidth: 30, padding: "5px 8px", fontSize: 12, fontWeight: p === page ? 700 : 400 }}
+                >
+                  {p}
+                </button>
+              )
+            )}
+          <button
+            className="btn-secondary"
+            disabled={page >= totalPages}
+            onClick={() => setPage(p => p + 1)}
+            style={{ padding: "5px 12px", fontSize: 12 }}
+          >
+            Keyingi →
+          </button>
+        </div>
       </div>
 
       {/* Drawing not approved — blur overlay warning */}
