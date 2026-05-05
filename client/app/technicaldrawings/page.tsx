@@ -1,20 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   technicalDrawingService,
   contractService,
   DrawingStatus,
   type TechnicalDrawingResponse,
-  type ContractResponse,
+  type TechnicalDrawingRow,
   type AttachmentResponse,
 } from "@/lib/userService";
 
 import { useToastStore } from "@/lib/store/toastStore";
 import { useAuthStore } from "@/lib/store/authStore";
 
-import { type MergedRow, type DrawingFormValues, emptyDrawingForm } from "./_types";
+import { type DrawingFormValues, emptyDrawingForm } from "./_types";
 import { StatusBadge } from "./_components/StatusBadge";
 import { DrawingForm } from "./_components/DrawingForm";
 import { DrawingDrawer } from "./_components/DrawingDrawer";
@@ -27,17 +27,24 @@ function fmtDate(value: string) {
   return `${day}.${m}.${y.slice(-2)}`;
 }
 
+type CreateContractContext = { id: string; contractNo: string; products: { id: string; productType: string; quantity: number; unit: string }[] };
+
 export default function TechnicalDrawingsPage() {
   const showToast = useToastStore((s) => s.show);
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const canCreate = hasPermission("TechnicalDrawings.Create");
   const canUpdate = hasPermission("TechnicalDrawings.Update");
-  const [list, setList] = useState<TechnicalDrawingResponse[]>([]);
-  const [contracts, setContracts] = useState<ContractResponse[]>([]);
+  const [rows, setRows] = useState<TechnicalDrawingRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"active" | "archive">("active");
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+
+  // Pagination
+  const PAGE_SIZE = 20;
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
   // Drawer
   const [drawer, setDrawer] = useState<TechnicalDrawingResponse | null>(null);
@@ -46,7 +53,7 @@ export default function TechnicalDrawingsPage() {
 
   // Create form
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [createContract, setCreateContract] = useState<ContractResponse | null>(null);
+  const [createContract, setCreateContract] = useState<CreateContractContext | null>(null);
   const [createForm, setCreateForm] = useState<DrawingFormValues>(emptyDrawingForm);
   const [createSubmitted, setCreateSubmitted] = useState(false);
   const [createSaving, setCreateSaving] = useState(false);
@@ -70,92 +77,36 @@ export default function TechnicalDrawingsPage() {
 
   // ── Load ──────────────────────────────────────────────────────────────────
 
-  const loadData = async () => {
+  const loadData = async (p = page) => {
     setLoading(true);
-    const isActiveFlag = viewMode === "active";
-    const [drawings, contractList] = await Promise.all([
-      technicalDrawingService.getAll(undefined, isActiveFlag),
-      contractService.getAll(undefined, undefined, isActiveFlag),
-    ]);
-    setList(drawings);
-    setContracts(contractList);
-    setLoading(false);
+    try {
+      const isActiveFlag = viewMode === "active";
+      const opts: Parameters<typeof technicalDrawingService.getPaged>[2] = { isActive: isActiveFlag };
+      if (search.trim()) opts.search = search.trim();
+      if (filterStatus === "no_drawing") opts.onlyMissing = true;
+      else if (filterStatus !== "") opts.status = Number(filterStatus) as DrawingStatus;
+      const data = await technicalDrawingService.getPaged(p, PAGE_SIZE, opts);
+      setRows(data.items);
+      setTotalPages(data.totalPages);
+      setTotalCount(data.totalCount);
+    } catch {
+      setRows([]);
+      setTotalPages(1);
+      setTotalCount(0);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { loadData(); }, [viewMode]);
+  // Reset to page 1 when filters change
+  useEffect(() => { setPage(1); }, [viewMode, search, filterStatus]);
 
-  // ── Rows ──────────────────────────────────────────────────────────────────
-
-  const mergedRows = useMemo((): MergedRow[] => {
-    const rows: MergedRow[] = [];
-
-    for (const contract of contracts) {
-      const drawings = list.filter((d) => d.contractId === contract.id);
-      const products = contract.products ?? [];
-      const usedProductIds = new Set(
-        drawings.map((d) => d.contractProductId).filter((id): id is string => !!id)
-      );
-
-      for (const d of drawings) {
-        rows.push({ kind: "drawing", drawing: d });
-      }
-
-      // Empty placeholder rows — only meaningful in active view (encourage creating a drawing).
-      // Archive view should never show "+" buttons for missing drawings.
-      if (viewMode === "active") {
-        if (products.length > 0) {
-          for (const p of products) {
-            if (!usedProductIds.has(p.id)) {
-              rows.push({
-                kind: "empty",
-                contract,
-                existingCount: drawings.length,
-                product: { id: p.id, productType: p.productType, quantity: p.quantity, unit: p.unit },
-              });
-            }
-          }
-        } else if (drawings.length === 0) {
-          rows.push({ kind: "empty", contract, existingCount: 0, product: null });
-        }
-      }
-    }
-    for (const d of list) {
-      if (!contracts.some((c) => c.id === d.contractId)) {
-        rows.push({ kind: "drawing", drawing: d });
-      }
-    }
-    return rows;
-  }, [contracts, list, viewMode]);
-
-  const filtered = useMemo((): MergedRow[] => {
-    const q = search.trim().toLowerCase();
-    const matched = mergedRows.filter((row) => {
-      const contractNo = row.kind === "drawing"
-        ? row.drawing.contractNo.toLowerCase()
-        : row.contract.contractNo.toLowerCase();
-      const matchSearch =
-        q.length === 0 ||
-        contractNo.includes(q) ||
-        (row.kind === "drawing" && row.drawing.title.toLowerCase().includes(q)) ||
-        (row.kind === "drawing" && (row.drawing.productType ?? "").toLowerCase().includes(q)) ||
-        (row.kind === "empty" && (row.product?.productType ?? "").toLowerCase().includes(q));
-
-      if (filterStatus === "no_drawing") return matchSearch && row.kind === "empty";
-
-      const statusNum = filterStatus !== "" ? Number(filterStatus) : null;
-      if (statusNum !== null && row.kind === "empty") return false;
-      const matchStatus = statusNum === null || (row.kind === "drawing" && row.drawing.status === statusNum);
-
-      return matchSearch && matchStatus;
-    });
-
-    const rank = (row: MergedRow) => {
-      if (row.kind === "empty") return 0;
-      if (row.drawing.status === DrawingStatus.Draft) return 1;
-      return 2;
-    };
-    return matched.sort((a, b) => rank(a) - rank(b));
-  }, [mergedRows, search, filterStatus]);
+  // Reload when page or filters change (debounce search)
+  useEffect(() => {
+    const t = setTimeout(() => { loadData(page); }, search ? 250 : 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, viewMode, search, filterStatus]);
 
   useEffect(() => {
     if (loading) return;
@@ -179,7 +130,7 @@ export default function TechnicalDrawingsPage() {
       });
     });
     return () => cancelAnimationFrame(id);
-  }, [loading, filtered]);
+  }, [loading, rows]);
 
   // ── Drawer ────────────────────────────────────────────────────────────────
 
@@ -197,24 +148,12 @@ export default function TechnicalDrawingsPage() {
 
   // ── Create ────────────────────────────────────────────────────────────────
 
-  const openCreate = (contract: ContractResponse, productId: string | null) => {
-    const drawings = list.filter((d) => d.contractId === contract.id);
-    const usedIds = new Set(
-      drawings.map((d) => d.contractProductId).filter((id): id is string => !!id)
-    );
-    const products = contract.products ?? [];
-
-    if (productId) {
-      if (!products.some((p) => p.id === productId) || usedIds.has(productId)) return;
-    } else {
-      if (products.length > 0) return;
-      if (drawings.length > 0) return;
-    }
-
-    setCreateContract(contract);
+  const openCreate = (ctx: { contractId: string; contractNo: string; product: { id: string; productType: string; quantity: number; unit: string } | null }) => {
+    const products = ctx.product ? [ctx.product] : [];
+    setCreateContract({ id: ctx.contractId, contractNo: ctx.contractNo, products });
     setCreateForm({
       ...emptyDrawingForm,
-      contractProductId: productId ?? "",
+      contractProductId: ctx.product?.id ?? "",
     });
     setCreateSubmitted(false);
     window.history.pushState(null, "");
@@ -278,13 +217,21 @@ export default function TechnicalDrawingsPage() {
 
   // ── Edit ──────────────────────────────────────────────────────────────────
 
-  const openEdit = (item: TechnicalDrawingResponse) => {
+  const [editProducts, setEditProducts] = useState<{ id: string; productType: string; quantity: number; unit: string }[]>([]);
+
+  const openEdit = async (item: TechnicalDrawingResponse) => {
     setEditTarget(item);
     setEditForm({ title: item.title, notes: item.notes || "", files: [], contractProductId: item.contractProductId ?? "" });
     setEditSubmitted(false);
     setDrawer(null);
     window.history.pushState(null, "");
     setShowEditForm(true);
+    try {
+      const contract = await contractService.getById(item.contractId);
+      setEditProducts((contract.products ?? []).map((p) => ({ id: p.id, productType: p.productType, quantity: p.quantity, unit: p.unit })));
+    } catch {
+      setEditProducts([]);
+    }
   };
 
   const handleEditSave = async () => {
@@ -412,12 +359,7 @@ export default function TechnicalDrawingsPage() {
     return (
       <DrawingForm
         mode="edit"
-        contract={{
-          contractNo: editTarget.contractNo,
-          products: contracts.find(c => c.id === editTarget.contractId)?.products?.map(p => ({
-            id: p.id, productType: p.productType, quantity: p.quantity, unit: p.unit,
-          })) ?? [],
-        }}
+        contract={{ contractNo: editTarget.contractNo, products: editProducts }}
         form={editForm}
         setForm={setEditForm}
         submitted={editSubmitted}
@@ -431,7 +373,7 @@ export default function TechnicalDrawingsPage() {
   // ── Render: List ──────────────────────────────────────────────────────────
 
   return (
-    <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+    <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       <style>{`
         @keyframes td-row-pulse {
           0%, 100% { background-color: var(--td-row-dim); }
@@ -561,10 +503,10 @@ export default function TechnicalDrawingsPage() {
           transform: translateX(-50%) translateY(1px);
         }
       `}</style>
-      <div style={{ display: "flex", flexDirection: "column", flex: 1, gap: 16, fontFamily: "Inter, sans-serif" }}>
+      <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, fontFamily: "Inter, sans-serif" }}>
 
         {/* Filter bar */}
-        <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 2, padding: "10px 14px", flexWrap: "wrap" }}>
+        <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, padding: "8px 14px", flexWrap: "wrap", overflow: "visible" }}>
           {/* Faol / Arxiv tab toggle */}
           <div style={{ display: "inline-flex", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 2, gap: 2, flexShrink: 0 }}>
             <button
@@ -631,7 +573,7 @@ export default function TechnicalDrawingsPage() {
 
           <button
             className="btn-icon"
-            onClick={loadData}
+            onClick={() => loadData()}
             title="Yangilash"
             style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}
           >
@@ -644,20 +586,20 @@ export default function TechnicalDrawingsPage() {
         </div>
 
         {/* Table */}
-        <div className="itm-card" style={{ flex: 1 }}>
+        <div className="itm-card" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "clip" } as React.CSSProperties}>
           {loading ? (
-            <div style={{ padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
+            <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
           ) : (
-            <div style={{ overflowX: "auto" }}>
+            <div style={{ overflowX: "auto", overflowY: "auto", flex: 1, minHeight: 0 }}>
               <table className="itm-table">
-                <thead>
+                <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
                   <tr>
-                    <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
-                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Shartnoma</th>
-                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Mahsulot</th>
-                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Yaratuvchi</th>
-                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Status</th>
-                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>
+                    <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>T/r</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Shartnoma</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Mahsulot</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Yaratuvchi</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Status</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>
                       <span className="td-th-info-wrap">
                         Sana
                         <span
@@ -672,31 +614,31 @@ export default function TechnicalDrawingsPage() {
                         </span>
                       </span>
                     </th>
-                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Faollik</th>
-                    <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>Amal</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Faollik</th>
+                    <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", background: "var(--bg2)" }}>Amal</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.length === 0 ? (
+                  {rows.length === 0 ? (
                     <tr>
                       <td colSpan={8} style={{ textAlign: "center", padding: "32px 14px", color: "var(--text3)" }}>
                         {viewMode === "archive" ? "Arxivda chizmalar yo'q" : "Ma'lumot topilmadi"}
                       </td>
                     </tr>
                   ) : (
-                    filtered.map((row, i) => {
-                      if (row.kind === "empty") {
-                        const c = row.contract;
-                        const product = row.product;
-                        const rowKey = `empty-${c.id}-${product?.id ?? "general"}`;
+                    rows.map((row, i) => {
+                      const ordinal = String((page - 1) * PAGE_SIZE + i + 1).padStart(2, "0");
+                      if (row.kind === 1 && row.empty) {
+                        const e = row.empty;
+                        const rowKey = `empty-${e.contractId}-${e.productId ?? "general"}`;
                         return (
                           <tr key={rowKey} className="td-row-empty">
                             <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px", color: "var(--danger)", fontWeight: 700 }}>
-                              {String(i + 1).padStart(2, "0")}
+                              {ordinal}
                             </td>
-                            <td style={{ textAlign: "center", fontSize: 13, color: "var(--text1)", fontWeight: 600 }}>{c.contractNo}</td>
+                            <td style={{ textAlign: "center", fontSize: 13, color: "var(--text1)", fontWeight: 600 }}>{e.contractNo}</td>
                             <td style={{ textAlign: "center", maxWidth: 220, color: "var(--text1)", fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {product ? product.productType : "Umumiy"}
+                              {e.productType ?? "Umumiy"}
                             </td>
                             <td style={{ textAlign: "center", color: "var(--text3)", fontSize: 13 }}>—</td>
                             <td style={{ textAlign: "center" }}>
@@ -722,7 +664,13 @@ export default function TechnicalDrawingsPage() {
                                 {canCreate && (
                                   <button
                                     className="btn-icon"
-                                    onClick={() => openCreate(c, product?.id ?? null)}
+                                    onClick={() => openCreate({
+                                      contractId: e.contractId,
+                                      contractNo: e.contractNo,
+                                      product: e.productId && e.productType && e.quantity != null && e.unit != null
+                                        ? { id: e.productId, productType: e.productType, quantity: e.quantity, unit: e.unit }
+                                        : null,
+                                    })}
                                     title="Chizma yaratish"
                                     style={{ color: "var(--accent)", borderColor: "var(--accent)33", background: "var(--accent-dim)", width: 28, height: 28, fontSize: 18, fontWeight: 400, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
                                   >
@@ -735,12 +683,13 @@ export default function TechnicalDrawingsPage() {
                         );
                       }
 
+                      if (!row.drawing) return null;
                       const item = row.drawing;
                       const isDraft = item.status === DrawingStatus.Draft;
                       return (
                         <tr key={item.id} className={isDraft ? "td-row-draft" : undefined}>
                           <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px", color: isDraft ? "var(--warn)" : undefined, fontWeight: isDraft ? 700 : undefined }}>
-                            {String(i + 1).padStart(2, "0")}
+                            {ordinal}
                           </td>
                           <td style={{ textAlign: "center" }}>
                             <button
@@ -822,6 +771,57 @@ export default function TechnicalDrawingsPage() {
               </table>
             </div>
           )}
+        </div>
+
+        {/* Pagination footer */}
+        <div style={{
+          flexShrink: 0,
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "8px 14px",
+          marginTop: 8,
+        }}>
+          <span style={{ fontSize: 17, color: "var(--text)", fontFamily: "var(--font-mono)", fontWeight: 450 }}>
+            {totalCount} tadan {totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}&nbsp;–&nbsp;{Math.min(page * PAGE_SIZE, totalCount)} ko&apos;rsatilmoqda
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <button
+              className="btn-secondary"
+              disabled={page <= 1}
+              onClick={() => setPage(p => p - 1)}
+              style={{ padding: "5px 12px", fontSize: 12 }}
+            >
+              ← Oldingi
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+              .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+                if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("...");
+                acc.push(p);
+                return acc;
+              }, [])
+              .map((p, idx) =>
+                p === "..." ? (
+                  <span key={`ellipsis-${idx}`} style={{ fontSize: 13, color: "var(--text3)", padding: "0 2px" }}>…</span>
+                ) : (
+                  <button
+                    key={p}
+                    className={p === page ? "btn-primary" : "btn-secondary"}
+                    onClick={() => setPage(p as number)}
+                    style={{ minWidth: 30, padding: "5px 8px", fontSize: 12, fontWeight: p === page ? 700 : 400 }}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
+            <button
+              className="btn-secondary"
+              disabled={page >= totalPages}
+              onClick={() => setPage(p => p + 1)}
+              style={{ padding: "5px 12px", fontSize: 12 }}
+            >
+              Keyingi →
+            </button>
+          </div>
         </div>
       </div>
 
