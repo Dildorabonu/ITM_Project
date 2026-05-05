@@ -177,6 +177,9 @@ namespace DataAccess.Migrations
                     b.Property<int>("Quantity")
                         .HasColumnType("integer");
 
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Unit")
                         .IsRequired()
                         .HasMaxLength(64)

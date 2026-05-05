@@ -1,5 +1,6 @@
 using Application.DTOs;
 using Application.DTOs.CostNorms;
+using Application.Helpers;
 using Core.Entities;
 using Core.Enums;
 using DataAccess.Persistence;
@@ -155,61 +156,27 @@ public class CostNormService : ICostNormService
             NotificationType.Info,
             dto.ContractId);
 
-        await TryAdvanceToProductionAsync(dto.ContractId);
-
         return ApiResult<Guid>.Success(costNorm.Id, 201);
     }
 
-    private async SysTask TryAdvanceToProductionAsync(Guid contractId)
+    // After a CN approval, a single product may now have both TP+CN approved
+    // and can move to InProduction independently of its siblings.
+    private async SysTask AdvanceProductIfReadyAsync(Guid? productId)
     {
-        var contract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == contractId);
-        if (contract is null || contract.Status != ContractStatus.TechProcessing)
+        if (!productId.HasValue) return;
+
+        var product = await _context.ContractProducts.FirstOrDefaultAsync(p => p.Id == productId.Value);
+        if (product is null) return;
+        if (product.Status == ContractProductStatus.InProduction
+            || product.Status == ContractProductStatus.Completed
+            || product.Status == ContractProductStatus.Cancelled)
             return;
 
-        if (!await IsContractFullyReadyForProductionAsync(contractId))
+        if (!await ContractStatusHelper.IsProductReadyForProductionAsync(_context, product.Id))
             return;
 
-        contract.Status = ContractStatus.InProduction;
+        product.Status = ContractProductStatus.InProduction;
         await _context.SaveChangesAsync();
-    }
-
-    // Kontrakt InProduction'ga o'tishi uchun har bir mahsulot alohida tasdiqlangan bo'lishi shart.
-    // Mahsulotsiz kontraktlarda esa kontrakt darajasidagi bitta Approved TP + Approved CN yetadi.
-    private async Task<bool> IsContractFullyReadyForProductionAsync(Guid contractId)
-    {
-        var productIds = await _context.ContractProducts
-            .Where(p => p.ContractId == contractId)
-            .Select(p => p.Id)
-            .ToListAsync();
-
-        if (productIds.Count == 0)
-        {
-            var tpOk = await _context.TechProcesses
-                .AnyAsync(t => t.ContractId == contractId && t.Status == ProcessStatus.Approved);
-            var cnOk = await _context.CostNorms
-                .AnyAsync(c => c.ContractId == contractId && c.Status == DrawingStatus.Approved);
-            return tpOk && cnOk;
-        }
-
-        var approvedTpProductIds = await _context.TechProcesses
-            .Where(t => t.ContractId == contractId
-                && t.Status == ProcessStatus.Approved
-                && t.ContractProductId != null)
-            .Select(t => t.ContractProductId!.Value)
-            .Distinct()
-            .ToListAsync();
-
-        var approvedCnProductIds = await _context.CostNorms
-            .Where(c => c.ContractId == contractId
-                && c.Status == DrawingStatus.Approved
-                && c.ContractProductId != null)
-            .Select(c => c.ContractProductId!.Value)
-            .Distinct()
-            .ToListAsync();
-
-        var tpSet = approvedTpProductIds.ToHashSet();
-        var cnSet = approvedCnProductIds.ToHashSet();
-        return productIds.All(pid => tpSet.Contains(pid) && cnSet.Contains(pid));
     }
 
     public async Task<ApiResult<int>> UpdateAsync(Guid id, CostNormUpdateDto dto)
@@ -277,7 +244,9 @@ public class CostNormService : ICostNormService
 
         costNorm.Status = DrawingStatus.Approved;
         await _context.SaveChangesAsync();
-        await TryAdvanceToProductionAsync(costNorm.ContractId);
+        await AdvanceProductIfReadyAsync(costNorm.ContractProductId);
+        await ContractStatusHelper.RecomputeContractStatusAsync(_context, costNorm.ContractId);
+        await _context.SaveChangesAsync();
         await _manufacturedProductService.SyncForContractAsync(costNorm.ContractId);
         return ApiResult<int>.Success(1);
     }

@@ -369,6 +369,22 @@ export const CONTRACT_STATUS_LABELS: Record<ContractStatus, string> = {
   [ContractStatus.Cancelled]:            "Bekor qilindi",
 };
 
+export enum ContractProductStatus {
+  DrawingPending = 1,
+  TechProcessing = 2,
+  InProduction   = 4,
+  Completed      = 5,
+  Cancelled      = 6,
+}
+
+export const CONTRACT_PRODUCT_STATUS_LABELS: Record<ContractProductStatus, string> = {
+  [ContractProductStatus.DrawingPending]: "Chizmasi tayyorlanmoqda",
+  [ContractProductStatus.TechProcessing]: "Texnologik jarayon tayyorlanmoqda",
+  [ContractProductStatus.InProduction]:   "Ishlab chiqarishda",
+  [ContractProductStatus.Completed]:      "Yakunlandi",
+  [ContractProductStatus.Cancelled]:      "Bekor qilindi",
+};
+
 export const PRIORITY_LABELS: Record<Priority, string> = {
   [Priority.Low]:    "Past",
   [Priority.Medium]: "O'rta",
@@ -417,6 +433,7 @@ export interface ContractProductResponse {
   unit: string;
   orderIndex: number;
   notes: string | null;
+  status: ContractProductStatus;
   departments: ContractProductDepartmentInfo[];
   assignedUsers: ContractProductUserInfo[];
 }
