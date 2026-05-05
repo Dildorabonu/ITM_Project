@@ -47,7 +47,6 @@ export const VISIBLE_STATUSES: ContractStatus[] = [
 ];
 
 export const STATUS_STYLE: Record<ContractStatus, { bg: string; color: string; border: string }> = {
-  [ContractStatus.Draft]:                { bg: "var(--bg3)",         color: "var(--text2)",    border: "var(--border)" },
   [ContractStatus.DrawingPending]:       { bg: "#ede9fe",            color: "#6d28d9",         border: "#c4b5fd" },
   [ContractStatus.TechProcessing]:       { bg: "#fff7ed",            color: "#c2410c",         border: "#fdba74" },
   [ContractStatus.InProduction]:         { bg: "#e6f4ea",            color: "#1e7e34",         border: "#a8d5b5" },
@@ -65,7 +64,6 @@ export const PRIORITY_STYLE: Record<Priority, { color: string }> = {
 // ─── Workflow ─────────────────────────────────────────────────────────────────
 
 export const WORKFLOW_STEPS: { status: ContractStatus; label: string; shortLabel: string }[] = [
-  { status: ContractStatus.Draft,          label: "Shartnoma yaratilindi",                shortLabel: "Yaratildi" },
   { status: ContractStatus.DrawingPending, label: "Chizmasi tayyorlanmoqda",              shortLabel: "Chizma" },
   { status: ContractStatus.TechProcessing, label: "Texnologik jarayon tayyorlanmoqda",    shortLabel: "Tex jarayon" },
   { status: ContractStatus.InProduction,   label: "Ishlab chiqarish jarayoni boshlangan", shortLabel: "Ishlab chiqarish" },
@@ -73,7 +71,6 @@ export const WORKFLOW_STEPS: { status: ContractStatus; label: string; shortLabel
 ];
 
 export const STEP_COLORS: Record<ContractStatus, { active: string; done: string; text: string }> = {
-  [ContractStatus.Draft]:               { active: "#6b7280", done: "#6b7280", text: "#fff" },
   [ContractStatus.DrawingPending]:      { active: "#7c3aed", done: "#7c3aed", text: "#fff" },
   [ContractStatus.TechProcessing]:      { active: "#c2410c", done: "#c2410c", text: "#fff" },
   [ContractStatus.InProduction]:        { active: "#1e7e34", done: "#1e7e34", text: "#fff" },

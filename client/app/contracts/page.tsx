@@ -362,7 +362,6 @@ export default function ContractsPage() {
           products:      productsPayload.length > 0 ? productsPayload : undefined,
         };
         result = await contractService.create(dto);
-        await contractService.updateStatus(result.id, ContractStatus.DrawingPending);
         for (const file of pendingContractFiles)
           await contractService.uploadFile(result.id, file);
         setPendingContractFiles([]);
@@ -910,9 +909,13 @@ export default function ContractsPage() {
               ) : (
                 <button
                   key={p}
-                  className={p === page ? "btn-primary" : "btn-secondary"}
+                  className="btn-secondary"
                   onClick={() => setPage(p as number)}
-                  style={{ minWidth: 30, padding: "5px 8px", fontSize: 12, fontWeight: p === page ? 700 : 400 }}
+                  style={{
+                    minWidth: 30, padding: "5px 8px", fontSize: 12, fontWeight: 600,
+                    fontVariantNumeric: "tabular-nums", justifyContent: "center",
+                    ...(p === page ? { background: "var(--accent)", color: "#fff", borderColor: "var(--accent)" } : {}),
+                  }}
                 >
                   {p}
                 </button>

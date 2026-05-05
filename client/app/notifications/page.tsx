@@ -51,7 +51,6 @@ const itemClass: Record<string, string> = { warn: "ni-warn", danger: "ni-danger"
 const borderColor: Record<string, string> = { blue: "var(--accent)", warn: "var(--warn)", danger: "var(--danger)", green: "var(--success)" };
 
 const statusLabels: Record<number, string> = {
-  [ContractStatus.Draft]: "Shartnoma yaratilindi",
   [ContractStatus.DrawingPending]: "Chizmasi tayyorlanmoqda",
   [ContractStatus.TechProcessing]: "Tex jarayon tayyorlanmoqda",
   [ContractStatus.InProduction]: "Ishlab chiqarish jarayonida",

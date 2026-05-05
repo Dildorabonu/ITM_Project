@@ -1574,9 +1574,13 @@ export default function TechProductionPage() {
               ) : (
                 <button
                   key={p}
-                  className={p === page ? "btn-primary" : "btn-secondary"}
+                  className="btn-secondary"
                   onClick={() => setPage(p as number)}
-                  style={{ minWidth: 30, padding: "5px 8px", fontSize: 12, fontWeight: p === page ? 700 : 400 }}
+                  style={{
+                    minWidth: 30, padding: "5px 8px", fontSize: 12, fontWeight: 600,
+                    fontVariantNumeric: "tabular-nums", justifyContent: "center",
+                    ...(p === page ? { background: "var(--accent)", color: "#fff", borderColor: "var(--accent)" } : {}),
+                  }}
                 >
                   {p}
                 </button>

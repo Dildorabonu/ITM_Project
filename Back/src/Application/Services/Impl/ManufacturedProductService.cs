@@ -138,7 +138,6 @@ public class ManufacturedProductService : IManufacturedProductService
         // Kontrakt o'chirilgan / bekor qilingan / faqat boshlang'ich bosqichda — barcha yozuvlarni o'chiramiz.
         if (!contract.IsActive
             || contract.Status == ContractStatus.Cancelled
-            || contract.Status == ContractStatus.Draft
             || contract.Status == ContractStatus.DrawingPending
             || contract.Status == ContractStatus.TechProcessing)
         {
