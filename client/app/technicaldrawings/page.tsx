@@ -781,7 +781,7 @@ export default function TechnicalDrawingsPage() {
           marginTop: 8,
         }}>
           <span style={{ fontSize: 17, color: "var(--text)", fontFamily: "var(--font-mono)", fontWeight: 450 }}>
-            {totalCount} tadan {totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}&nbsp;–&nbsp;{Math.min(page * PAGE_SIZE, totalCount)} ko&apos;rsatilmoqda
+            {totalCount} tadan {totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}&nbsp;–&nbsp;{Math.min(page * PAGE_SIZE, totalCount)}&nbsp;ko&apos;rsatilmoqda
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <button
