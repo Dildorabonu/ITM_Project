@@ -362,7 +362,6 @@ export default function ContractsPage() {
           products:      productsPayload.length > 0 ? productsPayload : undefined,
         };
         result = await contractService.create(dto);
-        await contractService.updateStatus(result.id, ContractStatus.DrawingPending);
         for (const file of pendingContractFiles)
           await contractService.uploadFile(result.id, file);
         setPendingContractFiles([]);

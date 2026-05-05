@@ -183,7 +183,7 @@ public class ContractService : IContractService
             EndDate = dto.EndDate,
             Priority = dto.Priority,
             ContractParty = dto.ContractParty,
-            Status = ContractStatus.Draft,
+            Status = ContractStatus.DrawingPending,
             Notes = dto.Notes,
             CreatedBy = createdBy,
             CreatedAt = DateTime.UtcNow
