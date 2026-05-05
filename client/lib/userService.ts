@@ -499,6 +499,20 @@ export const contractService = {
     }
   },
 
+  getPaged: async (
+    page = 1,
+    pageSize = 20,
+    opts: { search?: string; status?: ContractStatus; priority?: Priority; isActive?: boolean } = {},
+  ): Promise<PagedResult<ContractResponse>> => {
+    const params: Record<string, string> = { page: String(page), pageSize: String(pageSize) };
+    if (opts.search?.trim())     params.search   = opts.search.trim();
+    if (opts.status   !== undefined) params.status   = String(opts.status);
+    if (opts.priority !== undefined) params.priority = String(opts.priority);
+    if (opts.isActive !== undefined) params.isActive = String(opts.isActive);
+    const res = await api.get("/api/contract/paged", { params });
+    return res.data?.result ?? res.data;
+  },
+
   getById: async (id: string): Promise<ContractResponse> => {
     const res = await api.get(`/api/contract/${id}`);
     return res.data?.result ?? res.data;

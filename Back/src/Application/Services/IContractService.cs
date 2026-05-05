@@ -1,5 +1,6 @@
 using Application.DTOs;
 using Application.DTOs.Contracts;
+using Application.Helpers;
 using Core.Enums;
 
 namespace Application.Services;
@@ -7,6 +8,7 @@ namespace Application.Services;
 public interface IContractService
 {
     Task<ApiResult<IEnumerable<ContractResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, ContractStatus? status = null, Guid? departmentId = null, bool? isActive = null);
+    Task<ApiResult<PagedResult<ContractResponseDto>>> GetPagedAsync(Guid currentUserId, bool viewAll, PaginationParams pagination, string? search = null, ContractStatus? status = null, Priority? priority = null, bool? isActive = null);
     Task<ApiResult<ContractResponseDto>> GetByIdAsync(Guid id);
     Task<ApiResult<ContractCreateResultDto>> CreateAsync(ContractCreateDto dto, Guid createdBy);
     Task<ApiResult<ContractCreateResultDto>> UpdateAsync(Guid id, ContractUpdateDto dto);
