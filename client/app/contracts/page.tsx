@@ -53,7 +53,6 @@ export default function ContractsPage() {
   const canUpdate = hasPermission("Contracts.Update");
 
   const [contracts, setContracts]       = useState<ContractResponse[]>([]);
-  const [filtered, setFiltered]         = useState<ContractResponse[]>([]);
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState("");
 
@@ -67,6 +66,12 @@ export default function ContractsPage() {
   const [pendingPriority, setPendingPriority] = useState("");
   const filterBtnRef  = useRef<HTMLButtonElement>(null);
   const filterPanelRef = useRef<HTMLDivElement>(null);
+
+  // Pagination
+  const PAGE_SIZE = 20;
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
   // Form
   const [showForm, setShowForm]         = useState(false);
@@ -162,14 +167,23 @@ export default function ContractsPage() {
 
   // ── Load ──────────────────────────────────────────────────────────────────
 
-  const load = async () => {
+  const load = async (p = page) => {
     try {
       setLoading(true);
       setError("");
-      const data = await contractService.getAll(undefined, undefined, viewMode === "active");
-      setContracts(data);
+      const data = await contractService.getPaged(p, PAGE_SIZE, {
+        search:   search || undefined,
+        status:   filterStatus   !== "" ? (Number(filterStatus)   as ContractStatus) : undefined,
+        priority: filterPriority !== "" ? (Number(filterPriority) as Priority)       : undefined,
+        isActive: viewMode === "active",
+      });
+      setContracts(data.items);
+      setTotalPages(data.totalPages);
+      setTotalCount(data.totalCount);
     } catch (err) {
       setContracts([]);
+      setTotalPages(1);
+      setTotalCount(0);
       setError("Shartnomalarni yuklashda xatolik yuz berdi");
       console.error("Contracts load error:", err);
     } finally {
@@ -177,9 +191,15 @@ export default function ContractsPage() {
     }
   };
 
+  // Reset to page 1 when filters change
+  useEffect(() => { setPage(1); }, [viewMode, search, filterStatus, filterPriority]);
+
+  // Reload when page or any filter changes (debounce search)
   useEffect(() => {
-    load();
-  }, [viewMode]);
+    const t = setTimeout(() => { load(page); }, search ? 250 : 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, viewMode, search, filterStatus, filterPriority]);
 
   useEffect(() => {
     departmentService.getAllFull().then(d => setDepartments(d)).catch(() => {});
@@ -196,18 +216,6 @@ export default function ContractsPage() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [filterPanelOpen]);
-
-  useEffect(() => {
-    const q = search.toLowerCase();
-    setFiltered(
-      contracts.filter(c => {
-        const matchSearch = !q || c.contractNo.toLowerCase().includes(q);
-        const matchStatus = filterStatus === "" || c.status === Number(filterStatus);
-        const matchPriority = filterPriority === "" || c.priority === Number(filterPriority);
-        return matchSearch && matchStatus && matchPriority;
-      })
-    );
-  }, [search, filterStatus, filterPriority, contracts]);
 
   useEffect(() => {
     if (openPickerKey === null) return;
@@ -442,10 +450,10 @@ export default function ContractsPage() {
     setActivating(true);
     try {
       await contractService.activate(activateId);
-      setContracts(prev => prev.filter(c => c.id !== activateId));
       setActivateId(null);
       window.dispatchEvent(new Event("notif-read"));
       showToast("Shartnoma muvaffaqiyatli active qilindi!");
+      await load();
     } catch {
       // stay open
     } finally {
@@ -473,10 +481,10 @@ export default function ContractsPage() {
     setDeactivating(true);
     try {
       await contractService.deactivate(deactivateId, deactivateReason, trimmed);
-      setContracts(prev => prev.filter(c => c.id !== deactivateId));
       closeDeactivate();
       window.dispatchEvent(new Event("notif-read"));
       showToast("Shartnoma muvaffaqiyatli noactive qilindi!");
+      await load();
     } catch {
       // stay open
     } finally {
@@ -558,10 +566,10 @@ export default function ContractsPage() {
   // ── Render: List ──────────────────────────────────────────────────────────
 
   return (
-    <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+    <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
 
       {/* Filter bar */}
-      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px", flexWrap: "wrap", overflow: "visible" }}>
+      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, padding: "8px 14px", flexWrap: "wrap", overflow: "visible" }}>
         {/* Faol / Arxiv tab toggle */}
         <div style={{ display: "inline-flex", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 2, gap: 2, flexShrink: 0 }}>
           <button
@@ -607,10 +615,6 @@ export default function ContractsPage() {
           <input className="search-input" placeholder="Qidirish: raqam, tomon..."
             value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-
-        <span style={{ fontSize: 12, color: "var(--text3)", fontWeight: 600, fontFamily: "var(--font-mono)", flexShrink: 0 }}>
-          {filtered.length} / {contracts.length}
-        </span>
 
         {/* Filter dropdown */}
         <div style={{ position: "relative", flexShrink: 0 }}>
@@ -749,7 +753,7 @@ export default function ContractsPage() {
           )}
         </div>
 
-        <button className="btn-icon" onClick={load} title="Yangilash"
+        <button className="btn-icon" onClick={() => load()} title="Yangilash"
           style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" />
@@ -769,33 +773,33 @@ export default function ContractsPage() {
       </div>
 
       {/* Table */}
-      <div className="itm-card" style={{ flex: 1 }}>
+      <div className="itm-card" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "clip" } as React.CSSProperties}>
         {loading ? (
-          <div style={{ padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
+          <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
         ) : error ? (
-          <div style={{ padding: 40, textAlign: "center", color: "var(--danger)" }}>{error}</div>
+          <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--danger)" }}>{error}</div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div style={{ overflowX: "auto", overflowY: "auto", flex: 1, minHeight: 0 }}>
             <table className="itm-table">
-              <thead>
+              <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
                 <tr>
-                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Raqam</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Muddat</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Muhimlik</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Holat</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Faollik</th>
-                  <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>Amal</th>
+                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>T/r</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Raqam</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Muddat</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Muhimlik</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Holat</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Faollik</th>
+                  <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", background: "var(--bg2)" }}>Amal</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
+                {contracts.length === 0 ? (
                   <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>
                     {viewMode === "archive" ? "Arxivda shartnomalar yo'q" : "Ma'lumot topilmadi"}
                   </td></tr>
-                ) : filtered.map((c, i) => (
+                ) : contracts.map((c, i) => (
                   <tr key={c.id}>
-                    <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>{String(i + 1).padStart(2, "0")}</td>
+                    <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>{String((page - 1) * PAGE_SIZE + i + 1).padStart(2, "0")}</td>
                     <td style={{ textAlign: "center", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       <button onClick={() => openDrawer(c)}
                         style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 13, color: "var(--text1)", fontFamily: "var(--font-inter)", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block" }}>
@@ -872,6 +876,57 @@ export default function ContractsPage() {
             </table>
           </div>
         )}
+      </div>
+
+      {/* Pagination footer */}
+      <div style={{
+        flexShrink: 0,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "8px 14px",
+        marginTop: 8,
+      }}>
+        <span style={{ fontSize: 17, color: "var(--text)", fontFamily: "var(--font-mono)", fontWeight: 450 }}>
+          {totalCount} tadan {totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}&nbsp;–&nbsp;{Math.min(page * PAGE_SIZE, totalCount)} ko&apos;rsatilmoqda
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <button
+            className="btn-secondary"
+            disabled={page <= 1}
+            onClick={() => setPage(p => p - 1)}
+            style={{ padding: "5px 12px", fontSize: 12 }}
+          >
+            ← Oldingi
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1)
+            .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+            .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+              if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("...");
+              acc.push(p);
+              return acc;
+            }, [])
+            .map((p, idx) =>
+              p === "..." ? (
+                <span key={`ellipsis-${idx}`} style={{ fontSize: 13, color: "var(--text3)", padding: "0 2px" }}>…</span>
+              ) : (
+                <button
+                  key={p}
+                  className={p === page ? "btn-primary" : "btn-secondary"}
+                  onClick={() => setPage(p as number)}
+                  style={{ minWidth: 30, padding: "5px 8px", fontSize: 12, fontWeight: p === page ? 700 : 400 }}
+                >
+                  {p}
+                </button>
+              )
+            )}
+          <button
+            className="btn-secondary"
+            disabled={page >= totalPages}
+            onClick={() => setPage(p => p + 1)}
+            style={{ padding: "5px 12px", fontSize: 12 }}
+          >
+            Keyingi →
+          </button>
+        </div>
       </div>
 
       {/* ── View Drawer ── */}

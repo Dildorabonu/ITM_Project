@@ -1,5 +1,6 @@
 using Application.DTOs;
 using Application.DTOs.Contracts;
+using Application.Helpers;
 using Core.Entities;
 using Core.Enums;
 using DataAccess.Persistence;
@@ -64,6 +65,66 @@ public class ContractService : IContractService
             FilterVisibleProducts(contracts, currentUserId);
 
         return ApiResult<IEnumerable<ContractResponseDto>>.Success(contracts.Select(MapToResponse));
+    }
+
+    public async Task<ApiResult<PagedResult<ContractResponseDto>>> GetPagedAsync(
+        Guid currentUserId,
+        bool viewAll,
+        PaginationParams pagination,
+        string? search = null,
+        ContractStatus? status = null,
+        Priority? priority = null,
+        bool? isActive = null)
+    {
+        var query = _context.Contracts
+            .Include(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
+            .Include(c => c.Creator)
+            .Include(c => c.Products).ThenInclude(p => p.ProductDepartments).ThenInclude(pd => pd.Department)
+            .Include(c => c.Products).ThenInclude(p => p.ProductUsers).ThenInclude(pu => pu.User).ThenInclude(u => u.Department)
+            .AsNoTracking()
+            .AsQueryable();
+
+        if (!viewAll)
+        {
+            query = query.Where(c =>
+                c.ContractUsers.Any(cu => cu.UserId == currentUserId) ||
+                c.Products.Any(p => p.ProductUsers.Any(pu => pu.UserId == currentUserId)) ||
+                c.ContractDepartments.Any(cd =>
+                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == cd.DepartmentId)) ||
+                c.Products.Any(p => p.ProductDepartments.Any(pd =>
+                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == pd.DepartmentId))));
+        }
+
+        if (status.HasValue)
+            query = query.Where(c => c.Status == status.Value);
+
+        if (priority.HasValue)
+            query = query.Where(c => c.Priority == priority.Value);
+
+        if (isActive.HasValue)
+            query = query.Where(c => c.IsActive == isActive.Value);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var lower = search.ToLower();
+            query = query.Where(c =>
+                c.ContractNo.ToLower().Contains(lower) ||
+                c.ContractParty.ToLower().Contains(lower));
+        }
+
+        var totalCount = await query.CountAsync();
+
+        var contracts = await query
+            .OrderByDescending(c => c.CreatedAt)
+            .Skip((pagination.Page - 1) * pagination.PageSize)
+            .Take(pagination.PageSize)
+            .ToListAsync();
+
+        if (!viewAll)
+            FilterVisibleProducts(contracts, currentUserId);
+
+        var paged = PagedResult<ContractResponseDto>.Create(contracts.Select(MapToResponse), totalCount, pagination);
+        return ApiResult<PagedResult<ContractResponseDto>>.Success(paged);
     }
 
     private void FilterVisibleProducts(List<Contract> contracts, Guid currentUserId)
