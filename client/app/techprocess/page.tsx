@@ -1460,14 +1460,7 @@ export default function TechProductionPage() {
                         {item.contractProductId === null ? (
                           <span style={{ fontSize:11,fontWeight:600,color:"var(--text2)",background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:20,padding:"2px 10px" }}>📋 Umumiy</span>
                         ) : (
-                          <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:1 }}>
-                            <span style={{ fontWeight:600 }}>{item.productType}</span>
-                            {item.productQuantity !== null && (
-                              <span style={{ fontSize:11,color:"var(--text3)" }}>
-                                {item.productQuantity.toLocaleString()} {item.productUnit ?? ""}
-                              </span>
-                            )}
-                          </div>
+                          <span style={{ fontWeight:600 }}>{item.productType}</span>
                         )}
                       </td>
                       <td style={{ textAlign:"center" }}>
