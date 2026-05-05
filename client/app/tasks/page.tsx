@@ -2120,16 +2120,58 @@ export default function TasksPage() {
                   </div>
 
                   <div style={{ padding: "10px 14px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
-                    {(Object.entries(STATUS_LABELS) as unknown as [ContractStatus, string][]).map(([val, label]) => (
-                      <div key={val} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                        <span className={`status ${STATUS_COLORS[val]}`} style={{ alignSelf: "flex-start" }}>
-                          {label}
-                        </span>
-                        <p style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.5, margin: 0, paddingLeft: 2 }}>
-                          {STATUS_DESCRIPTIONS[val]}
-                        </p>
-                      </div>
-                    ))}
+                    {(Object.entries(STATUS_LABELS) as unknown as [ContractStatus, string][]).map(([val, label]) => {
+                      const isActive = Number(val) === ContractStatus.InProduction;
+                      return (
+                        <div
+                          key={val}
+                          style={{
+                            display: "flex", flexDirection: "column", gap: 4,
+                            ...(isActive ? {
+                              background: "var(--accent-dim)",
+                              borderLeft: "2px solid var(--accent)",
+                              borderRadius: "var(--radius)",
+                              padding: "8px 10px",
+                              margin: "0 -4px",
+                            } : {}),
+                          }}
+                        >
+                          <span className={`status ${STATUS_COLORS[val]}`} style={{ alignSelf: "flex-start" }}>
+                            {label}
+                          </span>
+                          <p style={{
+                            fontSize: 12,
+                            color: isActive ? "var(--text)" : "var(--text2)",
+                            lineHeight: 1.5, margin: 0, paddingLeft: 2,
+                          }}>
+                            {STATUS_DESCRIPTIONS[val]}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div style={{
+                    display: "flex", alignItems: "flex-start", gap: 8,
+                    padding: "10px 14px",
+                    margin: "0 14px 14px",
+                    background: "var(--accent-dim)",
+                    border: "1px solid var(--accent)",
+                    borderRadius: "var(--radius)",
+                    fontSize: 11.5, color: "var(--text2)", lineHeight: 1.5,
+                  }}>
+                    <svg width="14" height="14" fill="none" stroke="var(--accent)" strokeWidth="2" viewBox="0 0 24 24" style={{ flexShrink: 0, marginTop: 1 }}>
+                      <circle cx="12" cy="12" r="10"/>
+                      <line x1="12" y1="16" x2="12" y2="12"/>
+                      <line x1="12" y1="8" x2="12.01" y2="8"/>
+                    </svg>
+                    <span>
+                      Vazifalar faqat{" "}
+                      <span style={{ color: "var(--accent)", fontWeight: 600, fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                        Ishlab chiqarishda
+                      </span>
+                      {" "}holatidagi shartnomalardan yaratiladi.
+                    </span>
                   </div>
                 </div>
               )}
