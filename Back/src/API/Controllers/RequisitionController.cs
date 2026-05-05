@@ -1,5 +1,6 @@
 using API.Authorization;
 using Application.DTOs.Requisitions;
+using Application.Helpers;
 using Application.Services;
 using Core.Enums;
 using Microsoft.AspNetCore.Authorization;
@@ -33,6 +34,24 @@ public class RequisitionController : ControllerBase
 
         var viewAll = User.HasClaim("perm", "Requisitions.ViewAll");
         var result = await _requisitionService.GetAllAsync(userId.Value, viewAll, status);
+        return Ok(result);
+    }
+
+    [HasPermission("Requisitions.View")]
+    [HttpGet("paged")]
+    public async Task<IActionResult> GetPaged(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? search = null,
+        [FromQuery] RequisitionStatus? status = null,
+        [FromQuery] bool? completed = null)
+    {
+        var userId = GetUserId();
+        if (userId is null) return Unauthorized();
+
+        var viewAll = User.HasClaim("perm", "Requisitions.ViewAll");
+        var pagination = new PaginationParams { Page = page, PageSize = pageSize };
+        var result = await _requisitionService.GetPagedAsync(userId.Value, viewAll, pagination, search, status, completed);
         return Ok(result);
     }
 

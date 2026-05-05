@@ -1429,6 +1429,19 @@ export const requisitionService = {
     }
   },
 
+  getPaged: async (
+    page = 1,
+    pageSize = 20,
+    opts: { search?: string; status?: RequisitionStatus; completed?: boolean } = {},
+  ): Promise<PagedResult<RequisitionResponse>> => {
+    const params: Record<string, string> = { page: String(page), pageSize: String(pageSize) };
+    if (opts.search?.trim()) params.search = opts.search.trim();
+    if (opts.status !== undefined) params.status = String(opts.status);
+    if (opts.completed !== undefined) params.completed = String(opts.completed);
+    const res = await api.get("/api/requisition/paged", { params });
+    return res.data?.result ?? res.data;
+  },
+
   getById: async (id: string): Promise<RequisitionResponse | null> => {
     try {
       const res = await api.get(`/api/requisition/${id}`);
