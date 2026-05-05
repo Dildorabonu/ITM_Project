@@ -55,6 +55,7 @@ public class ContractProductResponseDto
     public string Unit { get; set; } = string.Empty;
     public int OrderIndex { get; set; }
     public string? Notes { get; set; }
+    public ContractProductStatus Status { get; set; }
     public List<ContractProductDepartmentDto> Departments { get; set; } = [];
     public List<ContractProductUserDto> AssignedUsers { get; set; } = [];
 }

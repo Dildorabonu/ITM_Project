@@ -1,4 +1,4 @@
-import { ContractStatus, Priority, CONTRACT_STATUS_LABELS, PRIORITY_LABELS, type UserLookup } from "@/lib/userService";
+import { ContractStatus, ContractProductStatus, Priority, CONTRACT_STATUS_LABELS, PRIORITY_LABELS, type UserLookup } from "@/lib/userService";
 
 // ─── Form types ───────────────────────────────────────────────────────────────
 
@@ -76,6 +76,31 @@ export const STEP_COLORS: Record<ContractStatus, { active: string; done: string;
   [ContractStatus.InProduction]:        { active: "#1e7e34", done: "#1e7e34", text: "#fff" },
   [ContractStatus.Completed]:           { active: "#1a56db", done: "#1a56db", text: "#fff" },
   [ContractStatus.Cancelled]:           { active: "#dc2626", done: "#dc2626", text: "#fff" },
+};
+
+// Per-product workflow mirrors the contract one but is keyed on ContractProductStatus.
+// The shared shape lets WorkflowDiagram render either flow with the same component.
+export const PRODUCT_WORKFLOW_STEPS: { status: ContractProductStatus; label: string; shortLabel: string }[] = [
+  { status: ContractProductStatus.DrawingPending, label: "Chizmasi tayyorlanmoqda",              shortLabel: "Chizma" },
+  { status: ContractProductStatus.TechProcessing, label: "Texnologik jarayon tayyorlanmoqda",    shortLabel: "Tex jarayon" },
+  { status: ContractProductStatus.InProduction,   label: "Ishlab chiqarish jarayoni boshlangan", shortLabel: "Ishlab chiqarish" },
+  { status: ContractProductStatus.Completed,      label: "Yakunlandi",                           shortLabel: "Yakunlandi" },
+];
+
+export const PRODUCT_STEP_COLORS: Record<ContractProductStatus, { active: string; done: string; text: string }> = {
+  [ContractProductStatus.DrawingPending]: { active: "#7c3aed", done: "#7c3aed", text: "#fff" },
+  [ContractProductStatus.TechProcessing]: { active: "#c2410c", done: "#c2410c", text: "#fff" },
+  [ContractProductStatus.InProduction]:   { active: "#1e7e34", done: "#1e7e34", text: "#fff" },
+  [ContractProductStatus.Completed]:      { active: "#1a56db", done: "#1a56db", text: "#fff" },
+  [ContractProductStatus.Cancelled]:      { active: "#dc2626", done: "#dc2626", text: "#fff" },
+};
+
+export const PRODUCT_STATUS_STYLE: Record<ContractProductStatus, { bg: string; color: string; border: string }> = {
+  [ContractProductStatus.DrawingPending]: { bg: "#ede9fe",            color: "#6d28d9",       border: "#c4b5fd" },
+  [ContractProductStatus.TechProcessing]: { bg: "#fff7ed",            color: "#c2410c",       border: "#fdba74" },
+  [ContractProductStatus.InProduction]:   { bg: "#e6f4ea",            color: "#1e7e34",       border: "#a8d5b5" },
+  [ContractProductStatus.Completed]:      { bg: "#e8f0fe",            color: "#1a56db",       border: "#a4c0f4" },
+  [ContractProductStatus.Cancelled]:      { bg: "var(--danger-dim)",  color: "var(--danger)", border: "var(--danger)" },
 };
 
 // ─── Select options ───────────────────────────────────────────────────────────
