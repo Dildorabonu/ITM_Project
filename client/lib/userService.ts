@@ -681,6 +681,18 @@ export const departmentService = {
     return res.data?.result ?? res.data ?? [];
   },
 
+  getPaged: async (
+    page = 1,
+    pageSize = 20,
+    opts: { search?: string; type?: DepartmentType } = {},
+  ): Promise<PagedResult<DepartmentResponse>> => {
+    const params: Record<string, string> = { page: String(page), pageSize: String(pageSize) };
+    if (opts.search?.trim()) params.search = opts.search.trim();
+    if (opts.type !== undefined) params.type = String(opts.type);
+    const res = await api.get("/api/department/paged", { params });
+    return res.data?.result ?? res.data;
+  },
+
   getById: async (id: string): Promise<DepartmentResponse> => {
     const res = await api.get(`/api/department/${id}`);
     return res.data?.result ?? res.data;

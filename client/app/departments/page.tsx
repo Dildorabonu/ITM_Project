@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useDraft } from "@/lib/useDraft";
 import {
@@ -13,187 +13,13 @@ import {
 } from "@/lib/userService";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useToastStore } from "@/lib/store/toastStore";
+import { CheckSelect } from "@/app/_components/CheckSelect";
 
-const TYPE_FILTER_OPTIONS: { value: DepartmentType | null; label: string; icon?: string }[] = [
-  { value: null, label: "Barchasi" },
-  { value: DepartmentType.IshlabChiqarish, label: DEPARTMENT_TYPE_LABELS[DepartmentType.IshlabChiqarish], icon: "🏭" },
-  { value: DepartmentType.Bolim,           label: DEPARTMENT_TYPE_LABELS[DepartmentType.Bolim],           icon: "🏢" },
-  { value: DepartmentType.Boshqaruv,       label: DEPARTMENT_TYPE_LABELS[DepartmentType.Boshqaruv],       icon: "👔" },
+const TYPE_FILTER_OPTIONS: { value: string; label: string }[] = [
+  { value: String(DepartmentType.IshlabChiqarish), label: DEPARTMENT_TYPE_LABELS[DepartmentType.IshlabChiqarish] },
+  { value: String(DepartmentType.Bolim),           label: DEPARTMENT_TYPE_LABELS[DepartmentType.Bolim] },
+  { value: String(DepartmentType.Boshqaruv),       label: DEPARTMENT_TYPE_LABELS[DepartmentType.Boshqaruv] },
 ];
-
-function TypeFilterDropdown({
-  value,
-  onChange,
-  counts,
-}: {
-  value: DepartmentType | null;
-  onChange: (v: DepartmentType | null) => void;
-  counts: Record<string, number>;
-}) {
-  const [open, setOpen] = useState(false);
-  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  const selected = TYPE_FILTER_OPTIONS.find(o => o.value === value)!;
-
-  useLayoutEffect(() => {
-    if (!open || !triggerRef.current) return;
-    const rect = triggerRef.current.getBoundingClientRect();
-    const dropW = Math.max(rect.width, 200);
-    const leftPos = rect.left + dropW > window.innerWidth ? window.innerWidth - dropW - 4 : rect.left;
-    setDropdownStyle({
-      position: "fixed",
-      top: rect.bottom + 4,
-      left: leftPos,
-      width: dropW,
-      zIndex: 9999,
-    });
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (triggerRef.current?.contains(e.target as Node)) return;
-      if (dropdownRef.current?.contains(e.target as Node)) return;
-      setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onScroll = (e: Event) => {
-      if (dropdownRef.current?.contains(e.target as Node)) return;
-      setOpen(false);
-    };
-    const onResize = () => setOpen(false);
-    window.addEventListener("scroll", onScroll, true);
-    window.addEventListener("resize", onResize);
-    return () => {
-      window.removeEventListener("scroll", onScroll, true);
-      window.removeEventListener("resize", onResize);
-    };
-  }, [open]);
-
-  const totalCount = counts["all"] ?? 0;
-
-  const dropdown = open ? (
-    <div
-      ref={dropdownRef}
-      onWheel={e => e.stopPropagation()}
-      style={{
-        ...dropdownStyle,
-        background: "var(--bg2)",
-        border: "1.5px solid var(--border)",
-        borderRadius: "var(--radius)",
-        boxShadow: "0 8px 28px rgba(0,0,0,0.15)",
-        maxHeight: 300,
-        overflowY: "auto",
-      }}
-    >
-      {TYPE_FILTER_OPTIONS.map(opt => {
-        const checked = opt.value === value;
-        const count = opt.value === null ? totalCount : (counts[String(opt.value)] ?? 0);
-        return (
-          <div
-            key={String(opt.value)}
-            onClick={() => { onChange(opt.value); setOpen(false); }}
-            onMouseEnter={e => { if (!checked) e.currentTarget.style.background = "var(--bg3)"; }}
-            onMouseLeave={e => { if (!checked) e.currentTarget.style.background = checked ? "var(--accent-dim)" : ""; }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: "9px 12px",
-              cursor: "pointer",
-              fontSize: 13,
-              color: checked ? "var(--accent)" : "var(--text1)",
-              fontWeight: checked ? 600 : 400,
-              background: checked ? "var(--accent-dim)" : "transparent",
-              borderBottom: "1px solid var(--border)",
-              transition: "background 0.1s",
-            }}
-          >
-            <span style={{
-              width: 15, height: 15, flexShrink: 0,
-              border: `1.5px solid ${checked ? "var(--accent)" : "var(--border)"}`,
-              borderRadius: 3,
-              background: checked ? "var(--accent)" : "transparent",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              transition: "background 0.15s, border-color 0.15s",
-            }}>
-              {checked && (
-                <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="2 6 5 9 10 3" />
-                </svg>
-              )}
-            </span>
-            {opt.icon && <span style={{ fontSize: 15, lineHeight: 1 }}>{opt.icon}</span>}
-            <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {opt.label}
-            </span>
-            <span style={{
-              fontSize: 11, fontWeight: 600,
-              background: checked ? "var(--accent)" : "var(--border)",
-              color: checked ? "#fff" : "var(--text2)",
-              borderRadius: 10, padding: "1px 7px", flexShrink: 0,
-            }}>{count}</span>
-          </div>
-        );
-      })}
-    </div>
-  ) : null;
-
-  return (
-    <div style={{ position: "relative" }}>
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "7px 12px",
-          border: `1.5px solid ${open ? "var(--accent)" : "var(--border)"}`,
-          borderRadius: "var(--radius)",
-          fontSize: 13,
-          fontWeight: 600,
-          background: "var(--bg3)",
-          color: "var(--text1)",
-          cursor: "pointer",
-          transition: "border-color 0.15s",
-          whiteSpace: "nowrap",
-          minWidth: 160,
-          fontFamily: "var(--font-inter), Inter, sans-serif",
-        }}
-      >
-        {selected.icon && <span style={{ fontSize: 15, lineHeight: 1 }}>{selected.icon}</span>}
-        <span style={{ flex: 1, textAlign: "left" }}>{selected.label}</span>
-        <span style={{
-          fontSize: 11, fontWeight: 600,
-          background: "var(--accent)",
-          color: "#fff",
-          borderRadius: 10, padding: "1px 7px", flexShrink: 0,
-        }}>
-          {value === null ? totalCount : (counts[String(value)] ?? 0)}
-        </span>
-        <svg
-          width="12" height="12" viewBox="0 0 24 24"
-          fill="none" stroke="currentColor" strokeWidth="2.5"
-          style={{ flexShrink: 0, color: "var(--text3)", transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}
-        >
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
-      </button>
-      {typeof document !== "undefined" && dropdown ? createPortal(dropdown, document.body) : null}
-    </div>
-  );
-}
 
 interface DeptForm {
   name: string;
@@ -216,12 +42,23 @@ export default function DepartmentsPage() {
   const canDelete = hasPermission("Departments.Delete");
   const showToast = useToastStore(s => s.show);
 
-  const [depts, setDepts] = useState<DepartmentResponse[]>([]);
-  const [filtered, setFiltered] = useState<DepartmentResponse[]>([]);
+  const [list, setList] = useState<DepartmentResponse[]>([]);
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<DepartmentType | null>(null);
+  const [filterType, setFilterType] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // Filter panel
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
+  const [pendingType, setPendingType] = useState("");
+  const filterBtnRef = useRef<HTMLButtonElement>(null);
+  const filterPanelRef = useRef<HTMLDivElement>(null);
+
+  // Pagination
+  const PAGE_SIZE = 20;
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState<DepartmentResponse | null>(null);
@@ -234,6 +71,22 @@ export default function DepartmentsPage() {
   const [toggling, setToggling] = useState(false);
   const [toggleError, setToggleError] = useState("");
 
+  const activeFilterCount = filterType !== "" ? 1 : 0;
+
+  const openFilterPanel = () => {
+    setPendingType(filterType);
+    setFilterPanelOpen(true);
+  };
+
+  const applyFilters = () => {
+    setFilterType(pendingType);
+    setFilterPanelOpen(false);
+  };
+
+  const clearFilters = () => {
+    setPendingType("");
+    setFilterType("");
+  };
 
   useDraft(
     "draft_departments",
@@ -242,28 +95,49 @@ export default function DepartmentsPage() {
     (d) => { setForm(d.form); setEditTarget(d.editTarget); setShowForm(true); },
   );
 
-  const load = async () => {
+  const load = useCallback(async (p = page) => {
     try {
       setLoading(true);
       setError("");
-      const data = await departmentService.getAllFull();
-      setDepts(data);
+      const opts: { search?: string; type?: DepartmentType } = {};
+      if (search.trim()) opts.search = search.trim();
+      if (filterType !== "") opts.type = Number(filterType) as DepartmentType;
+      const data = await departmentService.getPaged(p, PAGE_SIZE, opts);
+      setList(data.items);
+      setTotalPages(data.totalPages);
+      setTotalCount(data.totalCount);
     } catch {
+      setList([]);
+      setTotalPages(1);
+      setTotalCount(0);
       setError("Ma'lumotlarni yuklashda xatolik yuz berdi.");
     } finally {
       setLoading(false);
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, search, filterType]);
 
-  useEffect(() => { load(); }, []);
+  // Reset to page 1 when filters change
+  useEffect(() => { setPage(1); }, [search, filterType]);
+
+  // Reload when page or any filter changes (debounce search)
+  useEffect(() => {
+    const t = setTimeout(() => { load(page); }, search ? 250 : 0);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, search, filterType]);
 
   useEffect(() => {
-    const q = search.toLowerCase();
-    let list = depts;
-    if (typeFilter !== null) list = list.filter(d => d.type === typeFilter);
-    if (q) list = list.filter(d => d.name.toLowerCase().includes(q));
-    setFiltered(list);
-  }, [search, typeFilter, depts]);
+    if (!filterPanelOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        filterBtnRef.current && !filterBtnRef.current.contains(e.target as Node) &&
+        filterPanelRef.current && !filterPanelRef.current.contains(e.target as Node)
+      ) setFilterPanelOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [filterPanelOpen]);
 
   useEffect(() => {
     if (!showForm) return;
@@ -302,13 +176,6 @@ export default function DepartmentsPage() {
           employeeCount: count ?? null,
         };
         await departmentService.update(editTarget.id, payload);
-        const updated: DepartmentResponse = {
-          ...editTarget,
-          name: form.name || editTarget.name,
-          type: form.type,
-          employeeCount: count ?? editTarget.employeeCount,
-        };
-        setDepts(prev => prev.map(d => d.id === editTarget.id ? updated : d));
         showToast("Bo'lim muvaffaqiyatli yangilandi!");
       } else {
         const payload: DepartmentCreatePayload = {
@@ -317,18 +184,10 @@ export default function DepartmentsPage() {
           employeeCount: count,
         };
         await departmentService.create(payload);
-        const created: DepartmentResponse = {
-          id: crypto.randomUUID(),
-          name: form.name,
-          type: form.type,
-          employeeCount: count ?? 0,
-          createdAt: new Date().toISOString(),
-          isActive: true,
-        };
-        setDepts(prev => [...prev, created]);
         showToast("Bo'lim muvaffaqiyatli yaratildi!");
       }
       setShowForm(false);
+      await load(page);
     } catch {
       showToast("Saqlashda xatolik yuz berdi.", "Xatolik");
     } finally {
@@ -343,10 +202,10 @@ export default function DepartmentsPage() {
     try {
       await departmentService.delete(toggleTarget.id);
       const wasActive = toggleTarget.isActive !== false;
-      setDepts(prev => prev.map(d => d.id === toggleTarget.id ? { ...d, isActive: !toggleTarget.isActive } : d));
       showToast(wasActive ? "Bo'lim noaktiv qilindi!" : "Bo'lim muvaffaqiyatli faollashtirildi!");
       setToggleId(null);
       setToggleTarget(null);
+      await load(page);
     } catch {
       setToggleError("Amal bajarilmadi. Qayta urinib ko'ring.");
     } finally {
@@ -515,38 +374,151 @@ export default function DepartmentsPage() {
   }
 
   /* ===== List view ===== */
-  const counts = {
-    all: depts.length,
-    [DepartmentType.IshlabChiqarish]: depts.filter(d => d.type === DepartmentType.IshlabChiqarish).length,
-    [DepartmentType.Bolim]:           depts.filter(d => d.type === DepartmentType.Bolim).length,
-    [DepartmentType.Boshqaruv]:       depts.filter(d => d.type === DepartmentType.Boshqaruv).length,
-  };
-
   return (
-    <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+    <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
 
       {/* Toolbar */}
-      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px" }}>
-        <div className="search-wrap" style={{ maxWidth: "none", flex: 1 }}>
+      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, padding: "8px 14px", flexWrap: "wrap", overflow: "visible" }}>
+        <div className="search-wrap" style={{ maxWidth: "none", flex: 1, minWidth: 180 }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          <input className="search-input" placeholder="Qidirish"
+          <input className="search-input" placeholder="Qidirish: nomi..."
             value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <TypeFilterDropdown value={typeFilter} onChange={setTypeFilter} counts={counts} />
-        <button
-          className="btn-icon"
-          onClick={load}
-          title="Yangilash"
-          style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}
-        >
+
+        {/* Filter dropdown */}
+        <div style={{ position: "relative", flexShrink: 0 }}>
+          <button
+            ref={filterBtnRef}
+            onClick={() => filterPanelOpen ? setFilterPanelOpen(false) : openFilterPanel()}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "6px 12px", borderRadius: "var(--radius)",
+              border: `1px solid ${activeFilterCount > 0 ? "var(--accent)" : "var(--border2)"}`,
+              background: activeFilterCount > 0 ? "var(--accent-dim)" : "var(--surface)",
+              color: activeFilterCount > 0 ? "var(--accent)" : "var(--text2)",
+              fontSize: 13, fontWeight: 500, cursor: "pointer",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={e => { if (!activeFilterCount) (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--accent)"; }}
+            onMouseLeave={e => { if (!activeFilterCount) (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border2)"; }}
+          >
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+            </svg>
+            Filtrlar
+            {activeFilterCount > 0 && (
+              <span style={{
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                width: 18, height: 18, borderRadius: "50%",
+                background: "var(--accent)", color: "#fff",
+                fontSize: 10, fontWeight: 700, fontFamily: "var(--font-mono)",
+              }}>
+                {activeFilterCount}
+              </span>
+            )}
+            <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
+              style={{ transition: "transform 0.2s", transform: filterPanelOpen ? "rotate(180deg)" : "rotate(0deg)" }}>
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+
+          {filterPanelOpen && (
+            <div
+              ref={filterPanelRef}
+              style={{
+                position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 100,
+                width: 240,
+                background: "var(--surface)", border: "1px solid var(--border)",
+                borderRadius: "var(--radius2)",
+                boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+                animation: "panel-appear 0.18s ease",
+              }}
+            >
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "12px 14px 10px",
+                borderBottom: "1px solid var(--border)",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, fontWeight: 600, color: "var(--text)" }}>
+                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                  </svg>
+                  Filtrlar
+                </div>
+                {pendingType !== "" && (
+                  <button
+                    onClick={clearFilters}
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 4,
+                      background: "none", border: "none", cursor: "pointer",
+                      color: "var(--text3)", fontSize: 12, padding: "2px 4px",
+                      borderRadius: 4, transition: "color 0.15s",
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.color = "var(--text)")}
+                    onMouseLeave={e => (e.currentTarget.style.color = "var(--text3)")}
+                  >
+                    <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                    Tozalash
+                  </button>
+                )}
+              </div>
+
+              <div style={{ padding: "14px 14px 0" }}>
+                <div style={{ marginBottom: 14, position: "relative" }}>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text3)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 5 }}>
+                    <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+                      <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+                    </svg>
+                    Toifa
+                  </p>
+                  <CheckSelect
+                    value={pendingType}
+                    onChange={setPendingType}
+                    options={TYPE_FILTER_OPTIONS.map(o => ({ id: o.value, name: o.label }))}
+                    placeholder="Barcha toifalar"
+                    disablePortal
+                  />
+                </div>
+              </div>
+
+              <div style={{ padding: "0 14px 14px" }}>
+                <button
+                  onClick={applyFilters}
+                  style={{
+                    width: "100%", padding: "9px 0",
+                    background: "var(--accent)", color: "#fff",
+                    border: "none", borderRadius: "var(--radius)",
+                    fontSize: 13, fontWeight: 600, cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "var(--accent2)")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "var(--accent)")}
+                >
+                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  Filtrlarni qo&apos;llash
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <button className="btn-icon" onClick={() => load()} title="Yangilash"
+          style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polyline points="23 4 23 10 17 10" />
             <polyline points="1 20 1 14 7 14" />
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
           </svg>
         </button>
+
         {canCreate && (
           <button
             className="btn-primary"
@@ -561,35 +533,36 @@ export default function DepartmentsPage() {
         )}
       </div>
 
-      <div className="itm-card" style={{ flex: 1 }}>
+      {/* Table */}
+      <div className="itm-card" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "clip" } as React.CSSProperties}>
         {loading ? (
-          <div style={{ padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
+          <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
         ) : error ? (
-          <div style={{ padding: 40, textAlign: "center", color: "#e05252" }}>{error}</div>
+          <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--danger)" }}>{error}</div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div style={{ overflowX: "auto", overflowY: "auto", flex: 1, minHeight: 0 }}>
             <table className="itm-table">
-              <thead>
+              <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
                 <tr>
-                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Nomi</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Toifa</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Bo&apos;lim boshlig&apos;i</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Xodimlar</th>
-                  <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>Amal</th>
+                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>T/r</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Nomi</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Toifa</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Bo&apos;lim boshlig&apos;i</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Xodimlar</th>
+                  <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", background: "var(--bg2)" }}>Amal</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
+                {list.length === 0 ? (
                   <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
-                ) : filtered.map((d, i) => {
+                ) : list.map((d, i) => {
                   const inactive = d.isActive === false;
                   return (
                     <tr key={d.id} style={inactive ? { opacity: 0.55 } : undefined}>
                       <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>
-                        {String(i + 1).padStart(2, "0")}
+                        {String((page - 1) * PAGE_SIZE + i + 1).padStart(2, "0")}
                       </td>
-                      <td style={{ textAlign: "center", fontWeight: 600, maxWidth: 260 }}>
+                      <td style={{ textAlign: "center", fontWeight: 600, maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 8, maxWidth: "100%" }}>
                           <span
                             title={d.name}
@@ -608,8 +581,8 @@ export default function DepartmentsPage() {
                           )}
                         </span>
                       </td>
-                      <td style={{ textAlign: "center", color: "var(--text1)" }}>{DEPARTMENT_TYPE_LABELS[d.type]}</td>
-                      <td style={{ textAlign: "center", color: "var(--text1)" }}>{d.headUserName ?? "—"}</td>
+                      <td style={{ textAlign: "center", color: "var(--text1)", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{DEPARTMENT_TYPE_LABELS[d.type]}</td>
+                      <td style={{ textAlign: "center", color: "var(--text1)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.headUserName ?? "—"}</td>
                       <td style={{ textAlign: "center", color: "var(--text1)" }}>{d.employeeCount ?? "—"}</td>
                       <td style={{ borderLeft: "2px solid var(--border)" }}>
                         {(canUpdate || canDelete) && (
@@ -654,9 +627,59 @@ export default function DepartmentsPage() {
                 })}
               </tbody>
             </table>
-
           </div>
         )}
+      </div>
+
+      {/* Pagination footer */}
+      <div style={{
+        flexShrink: 0,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "8px 14px",
+        marginTop: 8,
+      }}>
+        <span style={{ fontSize: 17, color: "var(--text)", fontFamily: "var(--font-mono)", fontWeight: 450 }}>
+          {totalCount} tadan {totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}&nbsp;–&nbsp;{Math.min(page * PAGE_SIZE, totalCount)}&nbsp;ko&apos;rsatilmoqda
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <button
+            className="btn-secondary"
+            disabled={page <= 1}
+            onClick={() => setPage(p => p - 1)}
+            style={{ padding: "5px 12px", fontSize: 12 }}
+          >
+            ← Oldingi
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1)
+            .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+            .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+              if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("...");
+              acc.push(p);
+              return acc;
+            }, [])
+            .map((p, idx) =>
+              p === "..." ? (
+                <span key={`ellipsis-${idx}`} style={{ fontSize: 13, color: "var(--text3)", padding: "0 2px" }}>…</span>
+              ) : (
+                <button
+                  key={p}
+                  className={p === page ? "btn-primary" : "btn-secondary"}
+                  onClick={() => setPage(p as number)}
+                  style={{ minWidth: 30, padding: "5px 8px", fontSize: 12, fontWeight: p === page ? 700 : 400 }}
+                >
+                  {p}
+                </button>
+              )
+            )}
+          <button
+            className="btn-secondary"
+            disabled={page >= totalPages}
+            onClick={() => setPage(p => p + 1)}
+            style={{ padding: "5px 12px", fontSize: 12 }}
+          >
+            Keyingi →
+          </button>
+        </div>
       </div>
 
       {/* Delete confirm */}
