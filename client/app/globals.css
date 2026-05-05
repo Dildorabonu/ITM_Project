@@ -1716,3 +1716,48 @@ body {
   .pm-stage-chips { gap: 3px; }
   .pm-chip { padding: 3px 7px; font-size: 10px; }
 }
+
+/* ── Techprocess: choreographed table reveal ── */
+@keyframes tpHeadReveal {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes tpSectionReveal {
+  from { opacity: 0; transform: translateX(-14px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes tpRowReveal {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes tpCellType {
+  from { clip-path: inset(0 100% 0 0); }
+  to   { clip-path: inset(0 0 0 0); }
+}
+@keyframes tpCellFade {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: none; }
+}
+
+.tp-head-reveal { animation: tpHeadReveal 0.6s cubic-bezier(0.22,1,0.36,1) both; }
+.tp-section-reveal { animation: tpSectionReveal 0.7s cubic-bezier(0.22,1,0.36,1) both; }
+.tp-row-reveal { animation: tpRowReveal 0.75s cubic-bezier(0.22,1,0.36,1) both; }
+
+.tp-cell-text {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: bottom;
+  animation: tpCellType var(--type-dur, 0.6s) steps(var(--type-steps, 18), end) both;
+}
+.tp-cell-fade {
+  display: inline-block;
+  animation: tpCellFade 0.5s cubic-bezier(0.22,1,0.36,1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tp-head-reveal,
+  .tp-section-reveal,
+  .tp-row-reveal,
+  .tp-cell-text,
+  .tp-cell-fade { animation: none !important; }
+}

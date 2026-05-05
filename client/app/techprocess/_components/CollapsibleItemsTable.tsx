@@ -50,6 +50,15 @@ export function CollapsibleItemsTable({ rows,showPhotos,onUpdateRow,onDeleteRow 
   const allCollapsed=collapsed.size===sections.filter(s=>s.sectionName).length;
   const colCount=(showPhotos?9:7)+(editable?1:0);
   let globalRowIdx=0;
+  let revealStep=0;
+  const STAGGER_MS=80;
+  const MAX_REVEAL_DELAY_MS=4500;
+  const PER_CHAR_MS=55;
+  const stepDelay=(step:number)=>Math.min(step*STAGGER_MS,MAX_REVEAL_DELAY_MS);
+  const cellTextDelay=(step:number,col:number)=>Math.min(stepDelay(step)+260+col*55,MAX_REVEAL_DELAY_MS+700);
+  const typeSteps=(s:string|null|undefined)=>{ const n=(s??"—").length; return Math.min(Math.max(n,3),40); };
+  const typeDurMs=(s:string|null|undefined)=>{ const n=(s??"—").length; return Math.min(Math.max(n*PER_CHAR_MS,260),1500); };
+  const typeStyle=(s:string|null|undefined,delayMs:number)=>({ animationDelay:`${delayMs}ms`,"--type-steps":typeSteps(s),"--type-dur":`${typeDurMs(s)}ms` } as React.CSSProperties);
 
   return (
     <div>
@@ -64,7 +73,7 @@ export function CollapsibleItemsTable({ rows,showPhotos,onUpdateRow,onDeleteRow 
       )}
       <table className="itm-table" style={{ width:"100%",tableLayout:"auto" }}>
         <thead>
-          <tr>
+          <tr className="tp-head-reveal">
             <th style={{ width:42,textAlign:"center",borderRight:"2px solid var(--border)",color:"var(--text1)",textTransform:"none",position:"sticky",top:0,zIndex:2,background:"var(--bg2)" }}>T/r</th>
             <th style={{ color:"var(--text1)",textAlign:"center",whiteSpace:"nowrap",position:"sticky",top:0,zIndex:2,background:"var(--bg2)" }}>Материал номи</th>
             <th style={{ color:"var(--text1)",textAlign:"center",whiteSpace:"nowrap",position:"sticky",top:0,zIndex:2,background:"var(--bg2)" }}>Ўлчов</th>
@@ -82,8 +91,8 @@ export function CollapsibleItemsTable({ rows,showPhotos,onUpdateRow,onDeleteRow 
             const hasSection=!!section.sectionName;
             return (
               <React.Fragment key={`s-${section.sectionIdx}`}>
-                {hasSection&&(
-                  <tr onClick={()=>toggleSection(section.sectionIdx)} style={{ cursor:"pointer",userSelect:"none" }}>
+                {hasSection&&(()=>{ const sStep=revealStep++; return (
+                  <tr onClick={()=>toggleSection(section.sectionIdx)} className="tp-section-reveal" style={{ cursor:"pointer",userSelect:"none",animationDelay:`${stepDelay(sStep)}ms` }}>
                     <td colSpan={colCount} style={{ padding:"9px 14px",background:"var(--bg2)",fontWeight:700,fontSize:12,color:"var(--text1)",borderTop:"2px solid var(--border)",borderBottom:isCollapsed?"2px solid var(--border)":"1px solid var(--border)",letterSpacing:0.3 }}>
                       <span style={{ display:"inline-flex",alignItems:"center",gap:7 }}>
                         {isCollapsed?<ChevronRight size={13} style={{ color:"var(--text3)",flexShrink:0 }}/>:<ChevronDown size={13} style={{ color:"var(--text3)",flexShrink:0 }}/>}
@@ -92,14 +101,18 @@ export function CollapsibleItemsTable({ rows,showPhotos,onUpdateRow,onDeleteRow 
                       </span>
                     </td>
                   </tr>
-                )}
+                ); })()}
                 {!isCollapsed&&section.items.map(({row,flatIdx},ri)=>{
                   globalRowIdx++;
                   const rowNum=globalRowIdx;
                   const isEditing=editingIdx===flatIdx;
+                  const rStep=revealStep++;
+                  const rowDelayMs=stepDelay(rStep);
                   return (
-                    <tr key={`${section.sectionIdx}-${ri}`} style={isEditing?{background:"var(--accent-dim)"}:undefined}>
-                      <td style={{ textAlign:"center",borderRight:"2px solid var(--border)",minWidth:40,padding:"0 4px",color:"var(--text1)",fontSize:12 }}>{String(rowNum).padStart(2,"0")}</td>
+                    <tr key={`${section.sectionIdx}-${ri}`} className={isEditing?undefined:"tp-row-reveal"} style={isEditing?{background:"var(--accent-dim)"}:{ animationDelay:`${rowDelayMs}ms` }}>
+                      <td style={{ textAlign:"center",borderRight:"2px solid var(--border)",minWidth:40,padding:"0 4px",color:"var(--text1)",fontSize:12 }}>
+                        {isEditing?String(rowNum).padStart(2,"0"):(()=>{ const v=String(rowNum).padStart(2,"0"); return <span className="tp-cell-text" style={typeStyle(v,cellTextDelay(rStep,0))}>{v}</span>; })()}
+                      </td>
                       {isEditing?(
                         <>
                           <td><input className="form-input" placeholder="Nomi" style={{ width:"100%",padding:"4px 8px",fontSize:13 }} value={editDraft.name??row.name??""} onChange={e=>setEditDraft(d=>({...d,name:e.target.value}))}/></td>
@@ -123,20 +136,20 @@ export function CollapsibleItemsTable({ rows,showPhotos,onUpdateRow,onDeleteRow 
                         </>
                       ):(
                         <>
-                          <td style={{ textAlign:"center",color:"var(--text1)",lineHeight:1.4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }} title={row.name??""}>{row.name||"—"}</td>
-                          <td style={{ textAlign:"center",color:"var(--text1)" }}>{row.unit||"—"}</td>
-                          <td style={{ textAlign:"center",color:"var(--text1)",fontFamily:"Inter,sans-serif" }}>{row.readyQty||"—"}</td>
-                          <td style={{ textAlign:"center",color:"var(--text1)",fontFamily:"Inter,sans-serif" }}>{row.wasteQty||"—"}</td>
-                          <td style={{ textAlign:"center",color:"var(--text1)",fontFamily:"Inter,sans-serif" }}>{row.totalQty||"—"}</td>
-                          {showPhotos&&<><td style={{ padding:"6px 12px" }}><PhotoCell src={row.photoRaw}/></td><td style={{ padding:"6px 12px" }}><PhotoCell src={row.photoSemi}/></td></>}
+                          <td style={{ textAlign:"center",color:"var(--text1)",lineHeight:1.4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }} title={row.name??""}><span className="tp-cell-text" style={typeStyle(row.name,cellTextDelay(rStep,1))}>{row.name||"—"}</span></td>
+                          <td style={{ textAlign:"center",color:"var(--text1)" }}><span className="tp-cell-text" style={typeStyle(row.unit,cellTextDelay(rStep,2))}>{row.unit||"—"}</span></td>
+                          <td style={{ textAlign:"center",color:"var(--text1)",fontFamily:"Inter,sans-serif" }}><span className="tp-cell-text" style={typeStyle(row.readyQty,cellTextDelay(rStep,3))}>{row.readyQty||"—"}</span></td>
+                          <td style={{ textAlign:"center",color:"var(--text1)",fontFamily:"Inter,sans-serif" }}><span className="tp-cell-text" style={typeStyle(row.wasteQty,cellTextDelay(rStep,4))}>{row.wasteQty||"—"}</span></td>
+                          <td style={{ textAlign:"center",color:"var(--text1)",fontFamily:"Inter,sans-serif" }}><span className="tp-cell-text" style={typeStyle(row.totalQty,cellTextDelay(rStep,5))}>{row.totalQty||"—"}</span></td>
+                          {showPhotos&&<><td style={{ padding:"6px 12px" }}><span className="tp-cell-fade" style={{ animationDelay:`${cellTextDelay(rStep,6)}ms` }}><PhotoCell src={row.photoRaw}/></span></td><td style={{ padding:"6px 12px" }}><span className="tp-cell-fade" style={{ animationDelay:`${cellTextDelay(rStep,7)}ms` }}><PhotoCell src={row.photoSemi}/></span></td></>}
                           <td style={{ textAlign:"center" }}>
                             {row.importType?(
-                              <span style={{ display:"inline-block",padding:"2px 8px",borderRadius:20,fontSize:11,fontWeight:600,
+                              <span className="tp-cell-fade" style={{ animationDelay:`${cellTextDelay(rStep,showPhotos?8:6)}ms`,display:"inline-block",padding:"2px 8px",borderRadius:20,fontSize:11,fontWeight:600,
                                 background:row.importType.toLowerCase().includes("местный")||row.importType.toLowerCase().includes("локал")?"#e6f4ea":"#e8f0fe",
                                 color:row.importType.toLowerCase().includes("местный")||row.importType.toLowerCase().includes("локал")?"#1e7e34":"#1a56db",
                                 border:`1px solid ${row.importType.toLowerCase().includes("местный")||row.importType.toLowerCase().includes("локал")?"#a8d5b5":"#a4c0f4"}`,
                               }}>{row.importType}</span>
-                            ):"—"}
+                            ):<span className="tp-cell-text" style={typeStyle("—",cellTextDelay(rStep,showPhotos?8:6))}>—</span>}
                           </td>
                           {editable&&(
                             <td style={{ borderLeft:"2px solid var(--border)",textAlign:"center" }}>
