@@ -1,5 +1,6 @@
 using Application.DTOs;
 using Application.DTOs.TechProcesses;
+using Application.Helpers;
 using Core.Entities;
 using Core.Enums;
 using DataAccess.Persistence;
@@ -113,11 +114,29 @@ public class TechProcessService : ITechProcessService
 
         _context.TechProcesses.Add(tp);
 
-        var contract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == dto.ContractId);
-        if (contract is not null && contract.Status == ContractStatus.DrawingPending)
-            contract.Status = ContractStatus.TechProcessing;
+        // Lift the affected product(s) past DrawingPending. Contract.Status is
+        // recomputed below from the per-product aggregate.
+        if (dto.ContractProductId.HasValue)
+        {
+            var product = await _context.ContractProducts
+                .FirstOrDefaultAsync(p => p.Id == dto.ContractProductId.Value);
+            if (product is not null)
+                ContractStatusHelper.TryAdvanceToTechProcessing(product);
+        }
+        else
+        {
+            var products = await _context.ContractProducts
+                .Where(p => p.ContractId == dto.ContractId && p.IsActive)
+                .ToListAsync();
+            foreach (var p in products)
+                ContractStatusHelper.TryAdvanceToTechProcessing(p);
+        }
 
         await _context.SaveChangesAsync();
+        await ContractStatusHelper.RecomputeContractStatusAsync(_context, dto.ContractId);
+        await _context.SaveChangesAsync();
+
+        var contract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == dto.ContractId);
 
         if (contract is not null)
         {
@@ -138,74 +157,24 @@ public class TechProcessService : ITechProcessService
         return ApiResult<Guid>.Success(tp.Id, 201);
     }
 
-    private async SysTask TryAdvanceToProductionAsync(Guid contractId)
+    // After a TP or CN approval, a single product may now have both approved
+    // and can move to InProduction independently of its siblings.
+    private async SysTask AdvanceProductIfReadyAsync(Guid? productId)
     {
-        var contract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == contractId);
-        if (contract is null || contract.Status != ContractStatus.TechProcessing)
+        if (!productId.HasValue) return;
+
+        var product = await _context.ContractProducts.FirstOrDefaultAsync(p => p.Id == productId.Value);
+        if (product is null) return;
+        if (product.Status == ContractProductStatus.InProduction
+            || product.Status == ContractProductStatus.Completed
+            || product.Status == ContractProductStatus.Cancelled)
             return;
 
-        if (!await IsContractFullyReadyForProductionAsync(contractId))
+        if (!await ContractStatusHelper.IsProductReadyForProductionAsync(_context, product.Id))
             return;
 
-        contract.Status = ContractStatus.InProduction;
+        product.Status = ContractProductStatus.InProduction;
         await _context.SaveChangesAsync();
-
-        var deptUserIds = await _context.Users
-            .Where(u => u.IsActive && _context.ContractDepartments
-                .Any(cd => cd.ContractId == contractId && cd.DepartmentId == u.DepartmentId))
-            .Select(u => u.Id)
-            .ToListAsync();
-
-        var contractUserIds = await _context.ContractUsers
-            .Where(cu => cu.ContractId == contractId)
-            .Select(cu => cu.UserId)
-            .ToListAsync();
-
-        await _notificationService.NotifyUsersAndSuperAdminsAsync(
-            deptUserIds.Union(contractUserIds).Distinct(),
-            $"Shartnoma ishlab chiqarishga o'tdi: {contract.ContractNo}",
-            $"«{contract.ContractNo}» shartnomasi tex jarayon va xarajat normalari tasdiqlandi. Ishlab chiqarish bosqichiga o'tildi.",
-            NotificationType.Task,
-            contract.Id);
-    }
-
-    // Kontrakt InProduction'ga o'tishi uchun har bir mahsulot alohida tasdiqlangan bo'lishi shart.
-    // Mahsulotsiz kontraktlarda esa kontrakt darajasidagi bitta Approved TP + Approved CN yetadi.
-    private async Task<bool> IsContractFullyReadyForProductionAsync(Guid contractId)
-    {
-        var productIds = await _context.ContractProducts
-            .Where(p => p.ContractId == contractId)
-            .Select(p => p.Id)
-            .ToListAsync();
-
-        if (productIds.Count == 0)
-        {
-            var tpOk = await _context.TechProcesses
-                .AnyAsync(t => t.ContractId == contractId && t.Status == ProcessStatus.Approved);
-            var cnOk = await _context.CostNorms
-                .AnyAsync(c => c.ContractId == contractId && c.Status == DrawingStatus.Approved);
-            return tpOk && cnOk;
-        }
-
-        var approvedTpProductIds = await _context.TechProcesses
-            .Where(t => t.ContractId == contractId
-                && t.Status == ProcessStatus.Approved
-                && t.ContractProductId != null)
-            .Select(t => t.ContractProductId!.Value)
-            .Distinct()
-            .ToListAsync();
-
-        var approvedCnProductIds = await _context.CostNorms
-            .Where(c => c.ContractId == contractId
-                && c.Status == DrawingStatus.Approved
-                && c.ContractProductId != null)
-            .Select(c => c.ContractProductId!.Value)
-            .Distinct()
-            .ToListAsync();
-
-        var tpSet = approvedTpProductIds.ToHashSet();
-        var cnSet = approvedCnProductIds.ToHashSet();
-        return productIds.All(pid => tpSet.Contains(pid) && cnSet.Contains(pid));
     }
 
     public async Task<ApiResult<int>> UpdateAsync(Guid id, TechProcessUpdateDto dto)
@@ -251,7 +220,9 @@ public class TechProcessService : ITechProcessService
         tp.ApprovedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
-        await TryAdvanceToProductionAsync(tp.ContractId);
+        await AdvanceProductIfReadyAsync(tp.ContractProductId);
+        await ContractStatusHelper.RecomputeContractStatusAsync(_context, tp.ContractId);
+        await _context.SaveChangesAsync();
         await _manufacturedProductService.SyncForContractAsync(tp.ContractId);
 
         var approveContract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == tp.ContractId);

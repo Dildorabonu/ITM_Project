@@ -303,14 +303,36 @@ public class TechnicalDrawingService : ITechnicalDrawingService
         drawing.Status = status;
 
         var contractMoved = false;
-        if (status == DrawingStatus.Approved && drawing.Contract is not null &&
-            drawing.Contract.Status == ContractStatus.DrawingPending)
+        if (status == DrawingStatus.Approved && drawing.Contract is not null)
         {
-            drawing.Contract.Status = ContractStatus.TechProcessing;
-            contractMoved = true;
+            // Per-product flow: lift the specific product (or every product
+            // when the drawing is contract-level legacy) past DrawingPending.
+            if (drawing.ContractProductId.HasValue)
+            {
+                var product = await _context.ContractProducts
+                    .FirstOrDefaultAsync(p => p.Id == drawing.ContractProductId.Value);
+                if (product is not null)
+                    ContractStatusHelper.TryAdvanceToTechProcessing(product);
+            }
+            else
+            {
+                var products = await _context.ContractProducts
+                    .Where(p => p.ContractId == drawing.ContractId && p.IsActive)
+                    .ToListAsync();
+                foreach (var p in products)
+                    ContractStatusHelper.TryAdvanceToTechProcessing(p);
+            }
         }
 
         await _context.SaveChangesAsync();
+
+        if (status == DrawingStatus.Approved && drawing.Contract is not null)
+        {
+            var prevStatus = drawing.Contract.Status;
+            await ContractStatusHelper.RecomputeContractStatusAsync(_context, drawing.ContractId);
+            await _context.SaveChangesAsync();
+            contractMoved = drawing.Contract.Status != prevStatus;
+        }
 
         if (drawing.Contract is not null)
         {

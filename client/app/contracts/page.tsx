@@ -811,9 +811,9 @@ export default function ContractsPage() {
                       </span>
                     </td>
                     <td style={{ textAlign: "center", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><PriorityBadge priority={c.priority} /></td>
-                    <td style={{ textAlign: "center", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      <div style={{ maxWidth: 140, overflow: "hidden", display: "inline-flex", justifyContent: "center" }}>
-                        <StatusBadge status={c.status} />
+                    <td style={{ textAlign: "center", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <div style={{ maxWidth: 200, overflow: "hidden", display: "inline-flex", justifyContent: "center" }}>
+                        <StatusBadge status={c.status} products={c.products} />
                       </div>
                     </td>
                     <td style={{ textAlign: "center" }}>

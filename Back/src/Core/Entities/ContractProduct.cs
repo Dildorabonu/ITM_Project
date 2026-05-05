@@ -1,3 +1,5 @@
+using Core.Enums;
+
 namespace Core.Entities;
 
 public class ContractProduct
@@ -9,6 +11,7 @@ public class ContractProduct
     public string Unit { get; set; } = string.Empty;
     public int OrderIndex { get; set; }
     public string? Notes { get; set; }
+    public ContractProductStatus Status { get; set; } = ContractProductStatus.DrawingPending;
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

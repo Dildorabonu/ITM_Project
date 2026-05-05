@@ -464,10 +464,21 @@ public class ContractService : IContractService
         var contract = await _context.Contracts
             .Include(c => c.ContractDepartments)
             .Include(c => c.ContractUsers)
+            .Include(c => c.Products)
             .FirstOrDefaultAsync(c => c.Id == id);
 
         if (contract is null)
             return ApiResult<int>.Failure([$"Contract with id '{id}' not found."], 404);
+
+        // Manual status changes propagate to active products so the per-product
+        // workflow stays in sync with whatever the operator forced at the
+        // contract level.
+        var productStatus = MapToProductStatus(status);
+        if (productStatus.HasValue)
+        {
+            foreach (var p in contract.Products.Where(p => p.IsActive && p.Status != ContractProductStatus.Cancelled))
+                p.Status = productStatus.Value;
+        }
 
         contract.Status = status;
         await _context.SaveChangesAsync();
@@ -488,63 +499,41 @@ public class ContractService : IContractService
                 userIds.Union(deptUserIds), title, body, NotificationType.Info, contract.Id);
         }
 
-        if (status == ContractStatus.TechProcessing)
-            await TryAdvanceToProductionAsync(contract);
+        // Recompute from products in case the manual status disagrees with
+        // actual per-product progress (e.g. one product still pending).
+        await ContractStatusHelper.RecomputeContractStatusAsync(_context, contract.Id);
+        await _context.SaveChangesAsync();
 
         await _manufacturedProductService.SyncForContractAsync(contract.Id);
 
         return ApiResult<int>.Success(200);
     }
 
-    private async System.Threading.Tasks.Task TryAdvanceToProductionAsync(Contract contract)
+    private static ContractProductStatus? MapToProductStatus(ContractStatus status) => status switch
     {
-        if (contract.Status != ContractStatus.TechProcessing)
-            return;
+        ContractStatus.DrawingPending => ContractProductStatus.DrawingPending,
+        ContractStatus.TechProcessing => ContractProductStatus.TechProcessing,
+        ContractStatus.InProduction   => ContractProductStatus.InProduction,
+        ContractStatus.Completed      => ContractProductStatus.Completed,
+        ContractStatus.Cancelled      => ContractProductStatus.Cancelled,
+        _ => null,
+    };
 
-        if (!await IsContractFullyReadyForProductionAsync(contract.Id))
-            return;
-
-        contract.Status = ContractStatus.InProduction;
-        await _context.SaveChangesAsync();
-    }
-
-    // Kontrakt InProduction'ga o'tishi uchun har bir mahsulot alohida tasdiqlangan bo'lishi shart.
-    // Mahsulotsiz kontraktlarda esa kontrakt darajasidagi bitta Approved TP + Approved CN yetadi.
-    private async Task<bool> IsContractFullyReadyForProductionAsync(Guid contractId)
+    // Re-derives a product's stage from its current TP/CN/drawing state. Used
+    // when reactivating a contract — frozen Cancelled status would otherwise
+    // hide the product from /manufactured even after its work resumes.
+    private async Task<ContractProductStatus> ResolveProductStageAsync(Guid productId)
     {
-        var productIds = await _context.ContractProducts
-            .Where(p => p.ContractId == contractId)
-            .Select(p => p.Id)
-            .ToListAsync();
+        if (await ContractStatusHelper.IsProductReadyForProductionAsync(_context, productId))
+            return ContractProductStatus.InProduction;
 
-        if (productIds.Count == 0)
-        {
-            var tpOk = await _context.TechProcesses
-                .AnyAsync(t => t.ContractId == contractId && t.Status == ProcessStatus.Approved);
-            var cnOk = await _context.CostNorms
-                .AnyAsync(c => c.ContractId == contractId && c.Status == DrawingStatus.Approved);
-            return tpOk && cnOk;
-        }
+        var hasTpOrApprovedDrawing = await _context.TechProcesses.AnyAsync(t => t.ContractProductId == productId)
+            || await _context.TechnicalDrawings
+                .AnyAsync(d => d.ContractProductId == productId && d.Status == DrawingStatus.Approved);
 
-        var approvedTpProductIds = await _context.TechProcesses
-            .Where(t => t.ContractId == contractId
-                && t.Status == ProcessStatus.Approved
-                && t.ContractProductId != null)
-            .Select(t => t.ContractProductId!.Value)
-            .Distinct()
-            .ToListAsync();
-
-        var approvedCnProductIds = await _context.CostNorms
-            .Where(c => c.ContractId == contractId
-                && c.Status == DrawingStatus.Approved
-                && c.ContractProductId != null)
-            .Select(c => c.ContractProductId!.Value)
-            .Distinct()
-            .ToListAsync();
-
-        var tpSet = approvedTpProductIds.ToHashSet();
-        var cnSet = approvedCnProductIds.ToHashSet();
-        return productIds.All(pid => tpSet.Contains(pid) && cnSet.Contains(pid));
+        return hasTpOrApprovedDrawing
+            ? ContractProductStatus.TechProcessing
+            : ContractProductStatus.DrawingPending;
     }
 
     public async Task<ApiResult<int>> DeactivateAsync(Guid id, ContractDeactivateDto dto)
@@ -580,6 +569,7 @@ public class ContractService : IContractService
         foreach (var p in contract.Products)
         {
             p.IsActive = false;
+            p.Status = ContractProductStatus.Cancelled;
             foreach (var pd in p.ProductDepartments) pd.IsActive = false;
             foreach (var pu in p.ProductUsers) pu.IsActive = false;
         }
@@ -649,6 +639,10 @@ public class ContractService : IContractService
         foreach (var p in contract.Products)
         {
             p.IsActive = true;
+            // Recompute the stage from current TP/CN/drawing state so the
+            // product re-enters the workflow at the right place rather than
+            // staying frozen at Cancelled.
+            p.Status = await ResolveProductStageAsync(p.Id);
             foreach (var pd in p.ProductDepartments) pd.IsActive = true;
             foreach (var pu in p.ProductUsers) pu.IsActive = true;
         }
@@ -665,6 +659,11 @@ public class ContractService : IContractService
             foreach (var log in ct.DailyLogs) log.IsActive = true;
         }
 
+        await _context.SaveChangesAsync();
+
+        // After per-product stages were rederived, the aggregate may differ
+        // from the frozen pre-deactivation status.
+        await ContractStatusHelper.RecomputeContractStatusAsync(_context, contract.Id);
         await _context.SaveChangesAsync();
 
         var activateTitle = $"Shartnoma faollashtirildi: {contract.ContractNo}";
@@ -1079,6 +1078,7 @@ public class ContractService : IContractService
                 Unit        = p.Unit,
                 OrderIndex  = p.OrderIndex,
                 Notes       = p.Notes,
+                Status      = p.Status,
                 Departments = p.ProductDepartments
                     .Where(pd => pd.Department is not null)
                     .Select(pd => new ContractProductDepartmentDto
