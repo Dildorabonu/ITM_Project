@@ -166,7 +166,11 @@ public class ContractController : ControllerBase
     // ── Readiness Overview (texnik chizma + TP + me'yoriy sarf) ───────────────
 
     [HttpGet("readiness")]
-    public async Task<IActionResult> GetReadinessOverview([FromQuery] bool? isActive = null)
+    public async Task<IActionResult> GetReadinessOverview(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? search = null,
+        [FromQuery] bool? isActive = null)
     {
         var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!Guid.TryParse(userIdClaim, out var userId))
@@ -178,7 +182,8 @@ public class ContractController : ControllerBase
         if (!canView && !viewAll)
             return Forbid();
 
-        var result = await _contractService.GetReadinessOverviewAsync(userId, viewAll, isActive);
+        var pagination = new PaginationParams { Page = page, PageSize = pageSize };
+        var result = await _contractService.GetReadinessOverviewAsync(userId, viewAll, pagination, search, isActive);
         return StatusCode(result.StatusCode, result);
     }
 
