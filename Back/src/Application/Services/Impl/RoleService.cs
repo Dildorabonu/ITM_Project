@@ -1,5 +1,6 @@
 using Application.DTOs;
 using Application.DTOs.Roles;
+using Application.Helpers;
 using Core.Entities;
 using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -22,6 +23,30 @@ public class RoleService : IRoleService
             .ToListAsync();
 
         return ApiResult<IEnumerable<RoleResponseDto>>.Success(roles.Select(MapToResponse));
+    }
+
+    public async Task<ApiResult<PagedResult<RoleResponseDto>>> GetPagedAsync(PaginationParams pagination, string? search = null)
+    {
+        var query = _context.Roles.AsNoTracking().AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var lower = search.Trim().ToLower();
+            query = query.Where(r =>
+                r.Name.ToLower().Contains(lower) ||
+                (r.Description != null && r.Description.ToLower().Contains(lower)));
+        }
+
+        var totalCount = await query.CountAsync();
+
+        var roles = await query
+            .OrderBy(r => r.Name)
+            .Skip((pagination.Page - 1) * pagination.PageSize)
+            .Take(pagination.PageSize)
+            .ToListAsync();
+
+        var paged = PagedResult<RoleResponseDto>.Create(roles.Select(MapToResponse), totalCount, pagination);
+        return ApiResult<PagedResult<RoleResponseDto>>.Success(paged);
     }
 
     public async Task<ApiResult<IEnumerable<RoleResponseDto>>> GetLookupAsync()

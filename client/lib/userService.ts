@@ -164,6 +164,17 @@ export const roleService = {
     return res.data?.result ?? res.data ?? [];
   },
 
+  getPaged: async (
+    page = 1,
+    pageSize = 20,
+    opts: { search?: string } = {},
+  ): Promise<PagedResult<RoleResponse>> => {
+    const params: Record<string, string> = { page: String(page), pageSize: String(pageSize) };
+    if (opts.search?.trim()) params.search = opts.search.trim();
+    const res = await api.get("/api/role/paged", { params });
+    return res.data?.result ?? res.data;
+  },
+
   create: async (dto: RoleCreatePayload): Promise<string> => {
     const res = await api.post("/api/role", dto);
     return res.data?.result?.id ?? res.data?.id;
