@@ -1,5 +1,6 @@
 using Application.DTOs;
 using Application.DTOs.Requisitions;
+using Application.Helpers;
 using Core.Entities;
 using Core.Enums;
 using DataAccess.Persistence;
@@ -45,6 +46,80 @@ public class RequisitionService : IRequisitionService
 
         var list = await query.OrderByDescending(r => r.CreatedAt).ToListAsync();
         return ApiResult<IEnumerable<RequisitionResponseDto>>.Success(list.Select(MapToResponse));
+    }
+
+    private static readonly RequisitionStatus[] TerminalStatuses =
+    [
+        RequisitionStatus.ReadyForWarehouseRelease,
+        RequisitionStatus.ReadyForPurchase,
+        RequisitionStatus.Rejected,
+    ];
+
+    public async Task<ApiResult<PagedResult<RequisitionResponseDto>>> GetPagedAsync(
+        Guid currentUserId,
+        bool viewAll,
+        PaginationParams pagination,
+        string? search = null,
+        RequisitionStatus? status = null,
+        bool? completed = null)
+    {
+        var query = _context.Requisitions
+            .Include(r => r.Creator)
+            .Include(r => r.Approver)
+            .Include(r => r.WarehouseChecker)
+            .Include(r => r.Contract)
+            .Include(r => r.Department)
+            .Include(r => r.Parent)
+            .Include(r => r.Children)
+            .Include(r => r.Items).ThenInclude(i => i.Material)
+            .AsNoTracking()
+            .Where(r => r.ParentRequisitionId == null);
+
+        if (!viewAll)
+            query = query.Where(r => r.CreatedBy == currentUserId);
+
+        if (status.HasValue)
+            query = query.Where(r => r.Status == status.Value);
+
+        if (completed.HasValue)
+        {
+            if (completed.Value)
+            {
+                query = query.Where(r =>
+                    r.Children.Any()
+                        ? r.Children.All(c => TerminalStatuses.Contains(c.Status))
+                        : TerminalStatuses.Contains(r.Status));
+            }
+            else
+            {
+                query = query.Where(r =>
+                    r.Children.Any()
+                        ? r.Children.Any(c => !TerminalStatuses.Contains(c.Status))
+                        : !TerminalStatuses.Contains(r.Status));
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var lower = search.Trim().ToLower();
+            query = query.Where(r =>
+                r.RequisitionNo.ToLower().Contains(lower) ||
+                r.Purpose.ToLower().Contains(lower) ||
+                (r.Contract != null && r.Contract.ContractNo.ToLower().Contains(lower)) ||
+                (r.Department != null && r.Department.Name.ToLower().Contains(lower)) ||
+                (r.Creator != null && (r.Creator.FirstName + " " + r.Creator.LastName).ToLower().Contains(lower)));
+        }
+
+        var totalCount = await query.CountAsync();
+
+        var items = await query
+            .OrderByDescending(r => r.CreatedAt)
+            .Skip((pagination.Page - 1) * pagination.PageSize)
+            .Take(pagination.PageSize)
+            .ToListAsync();
+
+        var paged = PagedResult<RequisitionResponseDto>.Create(items.Select(MapToResponse), totalCount, pagination);
+        return ApiResult<PagedResult<RequisitionResponseDto>>.Success(paged);
     }
 
     public async Task<ApiResult<RequisitionResponseDto>> GetByIdAsync(Guid id)
