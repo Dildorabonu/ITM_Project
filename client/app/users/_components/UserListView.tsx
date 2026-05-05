@@ -360,7 +360,7 @@ export function UserListView({
           marginTop: 8,
         }}>
           <span style={{ fontSize: 17, color: "var(--text)", fontFamily: "var(--font-mono)", fontWeight: 450 }}>
-            {totalCount} tadan {(page - 1) * 20 + 1}&nbsp;–&nbsp;{Math.min(page * 20, totalCount)} ko&apos;rsatilmoqda
+            {totalCount} tadan {(page - 1) * 20 + 1}&nbsp;–&nbsp;{Math.min(page * 20, totalCount)}&nbsp;ko&apos;rsatilmoqda
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <button

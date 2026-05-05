@@ -1085,7 +1085,7 @@ export default function ProductsPage() {
         marginTop: 8,
       }}>
         <span style={{ fontSize: 17, color: "var(--text)", fontFamily: "var(--font-mono)", fontWeight: 450 }}>
-          {totalCount} tadan {totalCount === 0 ? 0 : (page - 1) * 50 + 1}&nbsp;–&nbsp;{Math.min(page * 50, totalCount)} ko&apos;rsatilmoqda
+          {totalCount} tadan {totalCount === 0 ? 0 : (page - 1) * 50 + 1}&nbsp;–&nbsp;{Math.min(page * 50, totalCount)}&nbsp;ko&apos;rsatilmoqda
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <button
