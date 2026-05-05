@@ -1896,26 +1896,25 @@ export default function TasksPage() {
 
   const canView = hasPermission("Tasks.View") || hasPermission("Tasks.ViewAll");
 
+  // Kontraktlar va har bir scope uchun tex jarayon + xarajat normasi tasdiqlanganini
+  // bitta zanjirda yuklaymiz — `loading` faqat sort uchun zarur ma'lumot tayyor bo'lgach yopiladi,
+  // aks holda grid avval noto'g'ri tartibda chiqib keyin "sakrab" qaytariladi.
   useEffect(() => {
     if (!canView) return;
     setLoading(true);
-    contractService.getMyProductionTasks(viewMode === "active").then(data => {
-      setContracts(data);
-      setLoading(false);
-    });
-  }, [canView, viewMode]);
-
-  // Har bir scope uchun tex jarayon + xarajat normasi tasdiqlanganini oldindan yuklash.
-  // Visual `isActionable` shu ma'lumot bilan gate qilinadi, aks holda bitta mahsulot tasdiqlansa
-  // kontraktdagi tasdiqlanmagan mahsulotlar ham aktiv ko'rinib qoladi.
-  useEffect(() => {
-    if (contracts.length === 0) {
-      setScopeReady({});
-      return;
-    }
     let cancelled = false;
     (async () => {
-      const uniqueIds = Array.from(new Set(contracts.map(c => c.id)));
+      const data = await contractService.getMyProductionTasks(viewMode === "active");
+      if (cancelled) return;
+
+      if (data.length === 0) {
+        setContracts(data);
+        setScopeReady({});
+        setLoading(false);
+        return;
+      }
+
+      const uniqueIds = Array.from(new Set(data.map(c => c.id)));
       const results = await Promise.all(uniqueIds.map(async cid => {
         const [tps, cns] = await Promise.all([
           techProcessService.getByContract(cid).catch(() => []),
@@ -1924,9 +1923,10 @@ export default function TasksPage() {
         return { cid, tps, cns };
       }));
       if (cancelled) return;
+
       const byContract = new Map(results.map(r => [r.cid, r]));
       const next: Record<string, boolean> = {};
-      for (const c of contracts) {
+      for (const c of data) {
         const r = byContract.get(c.id);
         if (!r) continue;
         const checkScope = (productId: string | null) => {
@@ -1948,10 +1948,13 @@ export default function TasksPage() {
           for (const p of products) next[`${c.id}::${p.id}`] = checkScope(p.id);
         }
       }
+
+      setContracts(data);
       setScopeReady(next);
+      setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [contracts]);
+  }, [canView, viewMode]);
 
   if (!canView) {
     return (
