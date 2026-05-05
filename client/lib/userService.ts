@@ -499,6 +499,20 @@ export const contractService = {
     }
   },
 
+  getPaged: async (
+    page = 1,
+    pageSize = 20,
+    opts: { search?: string; status?: ContractStatus; priority?: Priority; isActive?: boolean } = {},
+  ): Promise<PagedResult<ContractResponse>> => {
+    const params: Record<string, string> = { page: String(page), pageSize: String(pageSize) };
+    if (opts.search?.trim())     params.search   = opts.search.trim();
+    if (opts.status   !== undefined) params.status   = String(opts.status);
+    if (opts.priority !== undefined) params.priority = String(opts.priority);
+    if (opts.isActive !== undefined) params.isActive = String(opts.isActive);
+    const res = await api.get("/api/contract/paged", { params });
+    return res.data?.result ?? res.data;
+  },
+
   getById: async (id: string): Promise<ContractResponse> => {
     const res = await api.get(`/api/contract/${id}`);
     return res.data?.result ?? res.data;
@@ -923,6 +937,23 @@ export interface TechnicalDrawingResponse {
   isActive: boolean;
 }
 
+export interface TechnicalDrawingEmptyRow {
+  contractId: string;
+  contractNo: string;
+  productId: string | null;
+  productType: string | null;
+  quantity: number | null;
+  unit: string | null;
+}
+
+export type TechnicalDrawingRowKind = 0 | 1; // 0 = drawing, 1 = empty
+
+export interface TechnicalDrawingRow {
+  kind: TechnicalDrawingRowKind;
+  drawing: TechnicalDrawingResponse | null;
+  empty: TechnicalDrawingEmptyRow | null;
+}
+
 export interface TechnicalDrawingCreatePayload {
   contractId: string;
   contractProductId?: string | null;
@@ -948,6 +979,20 @@ export const technicalDrawingService = {
     } catch {
       return [];
     }
+  },
+
+  getPaged: async (
+    page = 1,
+    pageSize = 20,
+    opts: { search?: string; status?: DrawingStatus; onlyMissing?: boolean; isActive?: boolean } = {},
+  ): Promise<PagedResult<TechnicalDrawingRow>> => {
+    const params: Record<string, string> = { page: String(page), pageSize: String(pageSize) };
+    if (opts.search?.trim())     params.search      = opts.search.trim();
+    if (opts.status   !== undefined) params.status      = String(opts.status);
+    if (opts.onlyMissing !== undefined) params.onlyMissing = String(opts.onlyMissing);
+    if (opts.isActive !== undefined) params.isActive    = String(opts.isActive);
+    const res = await api.get("/api/technicaldrawing/paged", { params });
+    return res.data?.result ?? res.data;
   },
 
   create: async (dto: TechnicalDrawingCreatePayload): Promise<string> => {

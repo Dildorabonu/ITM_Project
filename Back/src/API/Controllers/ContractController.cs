@@ -1,5 +1,6 @@
 using API.Authorization;
 using Application.DTOs.Contracts;
+using Application.Helpers;
 using Application.Services;
 using Core.Enums;
 using Microsoft.AspNetCore.Authorization;
@@ -39,6 +40,30 @@ public class ContractController : ControllerBase
             return Unauthorized();
 
         var result = await _contractService.GetAllAsync(userId, viewAll, status, departmentId, isActive);
+        return Ok(result);
+    }
+
+    [HttpGet("paged")]
+    public async Task<IActionResult> GetPaged(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? search = null,
+        [FromQuery] ContractStatus? status = null,
+        [FromQuery] Priority? priority = null,
+        [FromQuery] bool? isActive = null)
+    {
+        var canView = User.HasClaim("perm", "Contracts.View");
+        var viewAll = User.HasClaim("perm", "Contracts.ViewAll");
+
+        if (!canView && !viewAll)
+            return Forbid();
+
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        var pagination = new PaginationParams { Page = page, PageSize = pageSize };
+        var result = await _contractService.GetPagedAsync(userId, viewAll, pagination, search, status, priority, isActive);
         return Ok(result);
     }
 

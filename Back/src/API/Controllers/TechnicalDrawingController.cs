@@ -1,5 +1,6 @@
 using API.Authorization;
 using Application.DTOs.TechnicalDrawings;
+using Application.Helpers;
 using Application.Services;
 using Core.Enums;
 using DataAccess.Persistence;
@@ -37,6 +38,27 @@ public class TechnicalDrawingController : ControllerBase
 
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         var result = await _drawingService.GetAllAsync(userId, viewAll, status, isActive);
+        return StatusCode(result.StatusCode, result);
+    }
+
+    [HttpGet("paged")]
+    public async Task<IActionResult> GetPaged(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? search = null,
+        [FromQuery] DrawingStatus? status = null,
+        [FromQuery] bool? onlyMissing = null,
+        [FromQuery] bool? isActive = null)
+    {
+        var canView = User.HasClaim("perm", "TechnicalDrawings.View");
+        var viewAll = User.HasClaim("perm", "TechnicalDrawings.ViewAll");
+
+        if (!canView && !viewAll)
+            return Forbid();
+
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var pagination = new PaginationParams { Page = page, PageSize = pageSize };
+        var result = await _drawingService.GetPagedAsync(userId, viewAll, pagination, search, status, onlyMissing, isActive);
         return StatusCode(result.StatusCode, result);
     }
 
