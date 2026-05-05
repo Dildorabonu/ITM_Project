@@ -1,6 +1,8 @@
 using Application.DTOs;
 using Application.DTOs.Departments;
+using Application.Helpers;
 using Core.Entities;
+using Core.Enums;
 using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -33,6 +35,49 @@ public class DepartmentService : IDepartmentService
 
         return ApiResult<IEnumerable<DepartmentResponseDto>>.Success(
             departments.Select(d => MapToResponse(d, headMap.TryGetValue(d.Id, out var name) ? name : null)));
+    }
+
+    public async Task<ApiResult<PagedResult<DepartmentResponseDto>>> GetPagedAsync(
+        PaginationParams pagination,
+        string? search = null,
+        DepartmentType? type = null)
+    {
+        var query = _context.Departments
+            .AsNoTracking()
+            .AsQueryable();
+
+        if (type.HasValue)
+            query = query.Where(d => d.Type == type.Value);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var lower = search.Trim().ToLower();
+            query = query.Where(d => d.Name.ToLower().Contains(lower));
+        }
+
+        var totalCount = await query.CountAsync();
+
+        var departments = await query
+            .OrderBy(d => d.Name)
+            .Skip((pagination.Page - 1) * pagination.PageSize)
+            .Take(pagination.PageSize)
+            .ToListAsync();
+
+        var deptIds = departments.Select(d => d.Id).ToList();
+        var headUsers = await _context.Users
+            .AsNoTracking()
+            .Where(u => u.DepartmentId != null && u.IsHead && deptIds.Contains(u.DepartmentId.Value))
+            .Select(u => new { u.DepartmentId, FullName = u.FirstName + " " + u.LastName })
+            .ToListAsync();
+
+        var headMap = headUsers.ToDictionary(u => u.DepartmentId!, u => u.FullName);
+
+        var paged = PagedResult<DepartmentResponseDto>.Create(
+            departments.Select(d => MapToResponse(d, headMap.TryGetValue(d.Id, out var name) ? name : null)),
+            totalCount,
+            pagination);
+
+        return ApiResult<PagedResult<DepartmentResponseDto>>.Success(paged);
     }
 
     public async Task<ApiResult<DepartmentResponseDto>> GetByIdAsync(Guid id)
