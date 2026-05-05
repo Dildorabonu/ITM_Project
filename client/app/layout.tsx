@@ -371,6 +371,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           boxShadow: "2px 0 16px rgba(0,0,0,0.18)",
           border: "1px solid var(--border)",
           transition: "width 0.25s ease, min-width 0.25s ease",
+          animation: "sidebarEnter 0.65s cubic-bezier(0.22,1,0.36,1) backwards",
         }}>
           {/* Logo */}
           <div style={{ padding: "10px 20px", height: 58, boxSizing: "border-box", borderBottom: "1px solid var(--sidebar-border)", display: "flex", alignItems: "center", justifyContent: sidebarCollapsed ? "center" : "flex-start" }}>
@@ -455,6 +456,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               100% { box-shadow: 0 0 0 0 rgba(0,0,0,0); }
             }
             .theme-icon-morph { animation: iconMorph 0.48s cubic-bezier(0.34,1.56,0.64,1) both; display: flex; }
+            @keyframes sidebarEnter {
+              from { transform: translateX(-100%); opacity: 0; }
+              to   { transform: translateX(0);     opacity: 1; }
+            }
+            @keyframes topbarEnter {
+              from { transform: translateY(-100%); opacity: 0; }
+              to   { transform: translateY(0);     opacity: 1; }
+            }
+            @keyframes contentEnter {
+              from { opacity: 0; transform: translateY(18px) scale(0.99); }
+              to   { opacity: 1; transform: translateY(0)    scale(1);    }
+            }
             .theme-btn-sun  { border-color: var(--accent-light) !important; color: var(--accent-light) !important; --glow-color: var(--accent-mid); animation: btnGlow 0.5s ease-out; }
             .theme-btn-moon { border-color: var(--accent) !important; color: var(--accent) !important; --glow-color: var(--accent-mid); animation: btnGlow 0.5s ease-out; }
           `}</style>
@@ -464,8 +477,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
           {/* Nav */}
           <nav ref={navRef} onScroll={updateScrollState} style={{ padding: "16px 0", flex: 1, overflowY: "scroll", overflowX: "hidden", scrollbarWidth: "none" }}>
-            {visibleNavGroups.map((group) => {
+            {(() => { let _ni = 0; return visibleNavGroups.map((group) => {
               const isCollapsed = !!collapsedGroups[group.label];
+              const _gd = 480 + _ni++ * 70;
               return (
                 <div key={group.label} style={{ marginBottom: 10 }}>
                   <div
@@ -478,6 +492,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       justifyContent: sidebarCollapsed ? "center" : "space-between",
                       cursor: sidebarCollapsed ? "default" : "pointer", userSelect: "none",
                       margin: "0 8px", borderRadius: 8, position: "relative",
+                      animation: "navItemIn 0.32s ease backwards", animationDelay: `${_gd}ms`,
                     }}
                     onMouseEnter={e => { if (!sidebarCollapsed) (e.currentTarget as HTMLElement).style.background = "linear-gradient(to right, transparent 6px, var(--sidebar-hover) 6px)"; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
@@ -502,7 +517,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       </>
                     )}
                   </div>
-                  {!sidebarCollapsed && !isCollapsed && group.items.map((item, idx) => {
+                  {!sidebarCollapsed && !isCollapsed && group.items.map((item) => {
                     const isActive = pathname === item.href;
                     return (
                       <Link key={item.href} href={item.href} className="nav-item" style={{
@@ -514,8 +529,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         whiteSpace: "nowrap", overflow: "hidden",
                         position: "relative", transition: "all 0.14s",
                         margin: "0 8px", borderRadius: 8,
-                        animation: "navItemIn 0.2s ease both",
-                        animationDelay: `${idx * 60}ms`,
+                        animation: "navItemIn 0.32s ease backwards",
+                        animationDelay: `${480 + _ni++ * 70}ms`,
                       }}
                       onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "linear-gradient(to right, transparent 22px, var(--sidebar-hover) 22px)"; } }}
                       onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "transparent"; } }}
@@ -539,7 +554,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   })}
                 </div>
               );
-            })}
+            });})()}
           </nav>
 
           {/* Custom scrollbar */}
@@ -644,6 +659,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             background: "var(--bg2)", border: "1px solid var(--border)",
             display: "flex", alignItems: "center", padding: "0 26px", gap: 14,
             boxShadow: "var(--shadow)",
+            position: "relative", zIndex: 10,
+            animation: "topbarEnter 0.55s cubic-bezier(0.22,1,0.36,1) 0.38s backwards",
           }}>
             <div className="font-head-itm" style={{ fontSize: 20, fontWeight: 800, letterSpacing: 2, color: "var(--text)", textTransform: "uppercase" }}>
               {pageTitle}
@@ -819,7 +836,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </div>
 
           {/* Page content */}
-          <main style={{ flex: 1, overflow: "hidden", background: "var(--surface)", border: "1px solid var(--border)" }}>
+          <main style={{ flex: 1, overflow: "hidden", background: "var(--surface)", border: "1px solid var(--border)", animation: "contentEnter 0.55s cubic-bezier(0.22,1,0.36,1) 0.72s backwards" }}>
             <div style={{ padding: "16px 20px", height: "100%", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: 16, position: "relative", overflowY: "auto" }}>
               {children}
               {!readyRoutes.has(pathname) && !readyPrefixes.some(p => pathname.startsWith(p)) && (
