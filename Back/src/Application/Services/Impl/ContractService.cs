@@ -846,7 +846,7 @@ public class ContractService : IContractService
         return ApiResult<IEnumerable<ContractResponseDto>>.Success(contracts.Select(MapToResponse));
     }
 
-    public async Task<ApiResult<IEnumerable<ContractReadinessDto>>> GetReadinessOverviewAsync(Guid currentUserId, bool viewAll, bool? isActive = null)
+    public async Task<ApiResult<PagedResult<ContractReadinessDto>>> GetReadinessOverviewAsync(Guid currentUserId, bool viewAll, PaginationParams pagination, string? search = null, bool? isActive = null)
     {
         var query = _context.Contracts
             .Include(c => c.Products).ThenInclude(p => p.ProductUsers)
@@ -869,6 +869,12 @@ public class ContractService : IContractService
 
         if (isActive.HasValue)
             query = query.Where(c => c.IsActive == isActive.Value);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var lower = search.Trim().ToLower();
+            query = query.Where(c => c.ContractNo.ToLower().Contains(lower));
+        }
 
         var contracts = await query.ToListAsync();
         if (!viewAll)
@@ -925,7 +931,14 @@ public class ContractService : IContractService
             .ThenBy(s => s.ProductType, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        return ApiResult<IEnumerable<ContractReadinessDto>>.Success(ordered);
+        var totalCount = ordered.Count;
+        var pageItems = ordered
+            .Skip((pagination.Page - 1) * pagination.PageSize)
+            .Take(pagination.PageSize)
+            .ToList();
+
+        var paged = PagedResult<ContractReadinessDto>.Create(pageItems, totalCount, pagination);
+        return ApiResult<PagedResult<ContractReadinessDto>>.Success(paged);
     }
 
     private record ContractReadinessDrawingRow(Guid Id, Guid ContractId, Guid? ContractProductId, string Title, string? Notes, DrawingStatus Status, DateTime CreatedAt);
