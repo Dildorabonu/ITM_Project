@@ -654,15 +654,16 @@ export const contractService = {
     }
   },
 
-  getReadinessOverview: async (isActive?: boolean): Promise<unknown[]> => {
-    try {
-      const params: Record<string, string> = {};
-      if (isActive !== undefined) params.isActive = String(isActive);
-      const res = await api.get("/api/contract/readiness", { params });
-      return res.data?.result ?? res.data ?? [];
-    } catch {
-      return [];
-    }
+  getReadinessOverview: async (
+    page = 1,
+    pageSize = 20,
+    opts: { search?: string; isActive?: boolean } = {},
+  ): Promise<PagedResult<unknown>> => {
+    const params: Record<string, string> = { page: String(page), pageSize: String(pageSize) };
+    if (opts.search?.trim())         params.search   = opts.search.trim();
+    if (opts.isActive !== undefined) params.isActive = String(opts.isActive);
+    const res = await api.get("/api/contract/readiness", { params });
+    return res.data?.result ?? res.data;
   },
 };
 

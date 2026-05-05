@@ -959,8 +959,8 @@ export default function ProductsPage() {
 
   /* ===== List view ===== */
   return (
-    <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
-      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px" }}>
+    <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, padding: "8px 14px", flexWrap: "wrap", overflow: "visible" }}>
         <div className="search-wrap" style={{ maxWidth: "none", flex: 1 }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -1001,23 +1001,23 @@ export default function ProductsPage() {
         )}
       </div>
 
-      <div className="itm-card" style={{ flex: 1 }}>
+      <div className="itm-card" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "clip" } as React.CSSProperties}>
         {loading ? (
-          <div style={{ padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
+          <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
         ) : error ? (
-          <div style={{ padding: 40, textAlign: "center", color: "#e05252" }}>{error}</div>
+          <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--danger)" }}>{error}</div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div style={{ overflowX: "auto", overflowY: "auto", flex: 1, minHeight: 0 }}>
             <table className="itm-table">
-              <thead>
+              <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
                 <tr>
-                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Mahsulot nomi</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Bo&apos;lim</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Soni</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>O&apos;lchov</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Tavsif</th>
-                  <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>Amal</th>
+                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>T/r</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Mahsulot nomi</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Bo&apos;lim</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Soni</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>O&apos;lchov</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Tavsif</th>
+                  <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", background: "var(--bg2)" }}>Amal</th>
                 </tr>
               </thead>
               <tbody>
@@ -1075,49 +1075,57 @@ export default function ProductsPage() {
             </table>
           </div>
         )}
-        {!loading && !error && totalPages > 1 && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderTop: "1px solid var(--border)" }}>
-            <span style={{ fontSize: 13, color: "var(--text2)" }}>
-              {totalCount} ta mahsulot &mdash; {page}/{totalPages} sahifa
-            </span>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button
-                disabled={page <= 1}
-                onClick={() => setPage(p => p - 1)}
-                style={{ padding: "5px 12px", borderRadius: "var(--radius)", border: "1.5px solid var(--border)", background: "var(--bg3)", color: page <= 1 ? "var(--text3)" : "var(--text1)", cursor: page <= 1 ? "not-allowed" : "pointer", fontSize: 13 }}
-              >
-                ‹ Oldingi
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
-                .reduce<(number | "…")[]>((acc, p, idx, arr) => {
-                  if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("…");
-                  acc.push(p);
-                  return acc;
-                }, [])
-                .map((p, idx) =>
-                  p === "…" ? (
-                    <span key={`ellipsis-${idx}`} style={{ padding: "5px 8px", color: "var(--text3)", fontSize: 13 }}>…</span>
-                  ) : (
-                    <button
-                      key={p}
-                      onClick={() => setPage(p as number)}
-                      style={{ padding: "5px 12px", borderRadius: "var(--radius)", border: "1.5px solid", borderColor: page === p ? "var(--accent)" : "var(--border)", background: page === p ? "var(--accent)" : "var(--bg3)", color: page === p ? "#fff" : "var(--text1)", cursor: "pointer", fontSize: 13, fontWeight: page === p ? 700 : 400 }}
-                    >
-                      {p}
-                    </button>
-                  )
-                )}
-              <button
-                disabled={page >= totalPages}
-                onClick={() => setPage(p => p + 1)}
-                style={{ padding: "5px 12px", borderRadius: "var(--radius)", border: "1.5px solid var(--border)", background: "var(--bg3)", color: page >= totalPages ? "var(--text3)" : "var(--text1)", cursor: page >= totalPages ? "not-allowed" : "pointer", fontSize: 13 }}
-              >
-                Keyingi ›
-              </button>
-            </div>
-          </div>
-        )}
+      </div>
+
+      {/* Pagination footer */}
+      <div style={{
+        flexShrink: 0,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "8px 14px",
+        marginTop: 8,
+      }}>
+        <span style={{ fontSize: 17, color: "var(--text)", fontFamily: "var(--font-mono)", fontWeight: 450 }}>
+          {totalCount} tadan {totalCount === 0 ? 0 : (page - 1) * 50 + 1}&nbsp;–&nbsp;{Math.min(page * 50, totalCount)} ko&apos;rsatilmoqda
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <button
+            className="btn-secondary"
+            disabled={page <= 1}
+            onClick={() => setPage(p => p - 1)}
+            style={{ padding: "5px 12px", fontSize: 12 }}
+          >
+            ← Oldingi
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1)
+            .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+            .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+              if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("...");
+              acc.push(p);
+              return acc;
+            }, [])
+            .map((p, idx) =>
+              p === "..." ? (
+                <span key={`ellipsis-${idx}`} style={{ fontSize: 13, color: "var(--text3)", padding: "0 2px" }}>…</span>
+              ) : (
+                <button
+                  key={p}
+                  className={p === page ? "btn-primary" : "btn-secondary"}
+                  onClick={() => setPage(p as number)}
+                  style={{ minWidth: 30, padding: "5px 8px", fontSize: 12, fontWeight: p === page ? 700 : 400 }}
+                >
+                  {p}
+                </button>
+              )
+            )}
+          <button
+            className="btn-secondary"
+            disabled={page >= totalPages}
+            onClick={() => setPage(p => p + 1)}
+            style={{ padding: "5px 12px", fontSize: 12 }}
+          >
+            Keyingi →
+          </button>
+        </div>
       </div>
 
       {/* View drawer */}
