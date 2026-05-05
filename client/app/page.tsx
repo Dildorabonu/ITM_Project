@@ -598,7 +598,6 @@ export default function DashboardPage() {
       {/* ═══ Production Pipeline Board ═══ */}
       {canViewContracts && (() => {
         const STAGES = [
-          { status: ContractStatus.Draft, label: "Shartnoma", color: "stg-blue" },
           { status: ContractStatus.DrawingPending, label: "Chizma", color: "stg-indigo" },
           { status: ContractStatus.TechProcessing, label: "Tex. jarayon", color: "stg-violet" },
           { status: ContractStatus.InProduction, label: "Ishlab chiq.", color: "stg-emerald" },

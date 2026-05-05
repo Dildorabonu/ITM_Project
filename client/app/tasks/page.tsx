@@ -72,7 +72,6 @@ function saveShipments(contractId: string, batches: ShipmentBatch[]) {
 }
 
 const STATUS_COLORS: Record<ContractStatus, string> = {
-  [ContractStatus.Draft]:               "s-gray",
   [ContractStatus.DrawingPending]:      "s-purple",
   [ContractStatus.TechProcessing]:      "s-teal",
   [ContractStatus.InProduction]:        "s-blue",
@@ -81,7 +80,6 @@ const STATUS_COLORS: Record<ContractStatus, string> = {
 };
 
 const STATUS_LABELS: Record<ContractStatus, string> = {
-  [ContractStatus.Draft]:               "Qoralama",
   [ContractStatus.DrawingPending]:      "Chizma tayyorlanmoqda",
   [ContractStatus.TechProcessing]:      "Tex jarayon",
   [ContractStatus.InProduction]:        "Ishlab chiqarishda",
@@ -90,7 +88,6 @@ const STATUS_LABELS: Record<ContractStatus, string> = {
 };
 
 const STATUS_DESCRIPTIONS: Record<ContractStatus, string> = {
-  [ContractStatus.Draft]:               "Shartnoma yangi yaratilgan, lekin hali rasmiylashtirilmagan. Ma'lumotlar to'ldirilmoqda.",
   [ContractStatus.DrawingPending]:      "Konstruktor mahsulot uchun texnik chizmani tayyorlamoqda.",
   [ContractStatus.TechProcessing]:      "Texnolog ishlab chiqarish bosqichlarini va xarajat normalarini hisoblamoqda.",
   [ContractStatus.InProduction]:        "Sex mahsulotni tayyorlamoqda — vazifalar bajarilish jarayonida.",

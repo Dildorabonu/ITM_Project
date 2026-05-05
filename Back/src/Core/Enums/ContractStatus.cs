@@ -2,7 +2,6 @@ namespace Core.Enums;
 
 public enum ContractStatus
 {
-    Draft = 0,                // Shartnoma yaratilindi
     DrawingPending = 1,       // Chizmasi tayyorlanmoqda
     TechProcessing = 2,       // Tex jarayon va me'yoriy sarf tayyorlanmoqda
     InProduction = 4,         // Ishlab chiqarish jarayoni boshlangan

@@ -347,7 +347,6 @@ export interface AttachmentResponse {
 // ─── Contracts ───────────────────────────────────────────────────────────────
 
 export enum ContractStatus {
-  Draft = 0,
   DrawingPending = 1,
   TechProcessing = 2,
   InProduction = 4,
@@ -363,7 +362,6 @@ export enum Priority {
 }
 
 export const CONTRACT_STATUS_LABELS: Record<ContractStatus, string> = {
-  [ContractStatus.Draft]:                "Shartnoma yaratilindi",
   [ContractStatus.DrawingPending]:       "Chizmasi tayyorlanmoqda",
   [ContractStatus.TechProcessing]:       "Texnologik jarayon tayyorlanmoqda",
   [ContractStatus.InProduction]:         "Ishlab chiqarishda",
