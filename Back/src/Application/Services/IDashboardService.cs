@@ -5,5 +5,5 @@ namespace Application.Services;
 
 public interface IDashboardService
 {
-    Task<ApiResult<DashboardSummaryDto>> GetSummaryAsync(int trendDays = 30);
+    Task<ApiResult<DashboardSummaryDto>> GetSummaryAsync(DateOnly? from = null, DateOnly? to = null);
 }
