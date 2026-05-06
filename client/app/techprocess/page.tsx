@@ -598,10 +598,25 @@ export default function TechProductionPage() {
                   <textarea className="form-input" value={cnForm.notes} onChange={e=>setCnForm(f=>({...f,notes:e.target.value}))} placeholder="Qo'shimcha izoh (ixtiyoriy)" style={{ resize:"none",flex:1,minHeight:130 }}/>
                 </div>
                 <div style={{ display:"flex",flexDirection:"column" }}>
-                  <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6,color:cnSubmitted&&cnParsedTables.length===0?"var(--danger)":"var(--text2)" }}>
-                    DOCX fayl <span style={{ color:"var(--danger)" }}>*</span>
-                    <span style={{ fontWeight:400,color:"var(--text3)",marginLeft:6 }}>(me&apos;yoriy sarf jadvali)</span>
-                  </label>
+                  <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6,gap:8,flexWrap:"wrap" }}>
+                    <label style={{ fontSize:13,fontWeight:600,color:cnSubmitted&&cnParsedTables.length===0?"var(--danger)":"var(--text2)" }}>
+                      DOCX fayl <span style={{ color:"var(--danger)" }}>*</span>
+                      <span style={{ fontWeight:400,color:"var(--text3)",marginLeft:6 }}>(me&apos;yoriy sarf jadvali)</span>
+                    </label>
+                    <a
+                      href="/namuna_meyoriy_sarf.docx"
+                      download
+                      style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"5px 12px",borderRadius:"var(--radius)",background:"var(--accent-dim)",border:"1px solid var(--accent)44",color:"var(--accent)",fontSize:12,fontWeight:600,textDecoration:"none",cursor:"pointer" }}
+                      title="Ustunlar tartibi to'g'ri bo'lgan namunaviy faylni yuklab oling"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                      </svg>
+                      Namuna fayl
+                    </a>
+                  </div>
                   <label htmlFor="cn-file-docx" style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,cursor:"pointer",border:`2px dashed ${cnSubmitted&&cnParsedTables.length===0?"var(--danger)":"var(--border)"}`,borderRadius:10,padding:"20px 16px",background:"var(--bg1)",transition:"border-color 0.15s",textAlign:"center",minHeight:130 }}
                     onMouseEnter={e=>e.currentTarget.style.borderColor="var(--accent)"} onMouseLeave={e=>e.currentTarget.style.borderColor=cnSubmitted&&cnParsedTables.length===0?"var(--danger)":"var(--border)"}>
                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.6"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -919,7 +934,22 @@ export default function TechProductionPage() {
               <input className="form-input" value={cnEditForm.notes} onChange={e=>setCnEditForm(f=>({...f,notes:e.target.value}))}/>
             </div>
             <div>
-              <label style={{ fontSize:12,fontWeight:600,display:"block",marginBottom:5,color:"var(--text2)" }}>Fayl almashtirish (ixtiyoriy)</label>
+              <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:5,gap:8 }}>
+                <label style={{ fontSize:12,fontWeight:600,color:"var(--text2)" }}>Fayl almashtirish (ixtiyoriy)</label>
+                <a
+                  href="/namuna_meyoriy_sarf.docx"
+                  download
+                  style={{ display:"inline-flex",alignItems:"center",gap:4,color:"var(--accent)",fontSize:11,fontWeight:600,textDecoration:"none" }}
+                  title="Namunaviy DOCX faylni yuklab oling"
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Namuna
+                </a>
+              </div>
               <input ref={cnEditFileRef} type="file" accept=".docx" style={{ display:"none" }} onChange={handleEditCnFileChange}/>
               <div style={{ display:"inline-flex",alignItems:"center",gap:8,background:"var(--bg3)",border:"1.5px solid var(--border)",borderRadius:"var(--radius)",padding:"0 10px",height:40,boxSizing:"border-box" }}>
                 <button onClick={()=>cnEditFileRef.current?.click()} style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"4px 10px",borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"transparent",color:"var(--text2)",fontSize:12,cursor:"pointer",transition:"border-color 0.14s,color 0.14s",flexShrink:0 }}
