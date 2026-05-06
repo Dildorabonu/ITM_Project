@@ -900,6 +900,52 @@ namespace DataAccess.Migrations
                     b.ToTable("RolePermissions");
                 });
 
+            modelBuilder.Entity("Core.Entities.ShipmentBatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<int>("BatchNo")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ContractId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ContractProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DepartmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContractProductId");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("ContractId", "ContractProductId", "BatchNo")
+                        .IsUnique();
+
+                    b.ToTable("ShipmentBatches");
+                });
+
             modelBuilder.Entity("Core.Entities.StockIn", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1506,6 +1552,39 @@ namespace DataAccess.Migrations
                     b.Navigation("Permission");
 
                     b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("Core.Entities.ShipmentBatch", b =>
+                {
+                    b.HasOne("Core.Entities.Contract", "Contract")
+                        .WithMany()
+                        .HasForeignKey("ContractId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Core.Entities.ContractProduct", "ContractProduct")
+                        .WithMany()
+                        .HasForeignKey("ContractProductId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Core.Entities.User", "Creator")
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Core.Entities.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Contract");
+
+                    b.Navigation("ContractProduct");
+
+                    b.Navigation("Creator");
+
+                    b.Navigation("Department");
                 });
 
             modelBuilder.Entity("Core.Entities.StockIn", b =>
