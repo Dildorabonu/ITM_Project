@@ -1592,6 +1592,7 @@ export interface ManufacturedProductResponse {
   departmentId: string;
   departmentName: string;
   contractId: string | null;
+  contractProductId: string | null;
   contractNo: string | null;
   startedAt: string | null;
   completedAt: string | null;

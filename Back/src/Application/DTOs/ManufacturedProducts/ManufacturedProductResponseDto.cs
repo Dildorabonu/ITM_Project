@@ -15,6 +15,7 @@ public class ManufacturedProductResponseDto
     public Guid DepartmentId { get; set; }
     public string DepartmentName { get; set; } = string.Empty;
     public Guid? ContractId { get; set; }
+    public Guid? ContractProductId { get; set; }
     public string? ContractNo { get; set; }
     public DateTime? StartedAt { get; set; }
     public DateTime? CompletedAt { get; set; }

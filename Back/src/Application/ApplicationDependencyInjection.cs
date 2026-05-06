@@ -30,6 +30,7 @@ public static class ApplicationDependencyInjection
         services.AddScoped<IRequisitionService, RequisitionService>();
         services.AddScoped<IFileStorageService, FileStorageService>();
         services.AddScoped<IManufacturedProductService, ManufacturedProductService>();
+        services.AddScoped<IShipmentBatchService, ShipmentBatchService>();
 
         return services;
     }

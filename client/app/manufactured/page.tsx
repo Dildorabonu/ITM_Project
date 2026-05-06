@@ -13,6 +13,7 @@ import {
   type DepartmentOption,
 } from "@/lib/userService";
 import { CheckSelect } from "@/app/_components/CheckSelect";
+import { shipmentBatchService, type ShipmentBatch } from "@/lib/shipments";
 
 const STATUS_FILTER_OPTIONS = [
   { id: "", name: "Barcha holatlar" },
@@ -78,11 +79,26 @@ export default function ManufacturedProductsPage() {
 
   // View drawer
   const [viewProduct, setViewProduct] = useState<ManufacturedProductResponse | null>(null);
+  const [viewBatches, setViewBatches] = useState<ShipmentBatch[]>([]);
+  const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
 
   useEffect(() => {
     if (viewProduct) document.body.style.overflow = "hidden";
     else document.body.style.overflow = "";
     return () => { document.body.style.overflow = ""; };
+  }, [viewProduct]);
+
+  useEffect(() => {
+    let ignore = false;
+    if (viewProduct?.contractId) {
+      shipmentBatchService
+        .getByContract(viewProduct.contractId, viewProduct.contractProductId ?? undefined)
+        .then(list => { if (!ignore) setViewBatches(list); })
+        .catch(() => { if (!ignore) setViewBatches([]); });
+    } else {
+      setViewBatches([]);
+    }
+    return () => { ignore = true; };
   }, [viewProduct]);
 
   const load = async () => {
@@ -418,6 +434,108 @@ export default function ManufacturedProductsPage() {
                   {viewProduct.completedAt ? new Date(viewProduct.completedAt).toLocaleDateString("uz-UZ") : "—"}
                 </div>
               </div>
+            </div>
+
+            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 10 }}>
+              Partiyalar
+              {viewBatches.length > 0 && (
+                <span style={{ marginLeft: 8, color: "var(--text3)", fontWeight: 500 }}>
+                  ({viewBatches.length} ta jo&apos;natma &mdash; jami{" "}
+                  {viewBatches.reduce((s, b) => s + b.amount, 0).toLocaleString()}{" "}
+                  {PRODUCT_UNIT_LABELS[viewProduct.unit] ?? ""})
+                </span>
+              )}
+            </div>
+            <div style={{ marginBottom: 22 }}>
+              {!viewProduct.contractId ? (
+                <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px", fontSize: 13, color: "var(--text3)" }}>
+                  Mahsulot shartnomaga bog&apos;lanmagan &mdash; partiyalar mavjud emas.
+                </div>
+              ) : viewBatches.length === 0 ? (
+                <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px", fontSize: 13, color: "var(--text3)" }}>
+                  Hali jo&apos;natma yo&apos;q. Vazifalardan partiya yuborilganida bu yerda ko&apos;rinadi.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 320, overflowY: "auto" }}>
+                  {[...viewBatches].sort((a, b) => b.batchNo - a.batchNo).map(b => {
+                    const isExpanded = expandedBatchId === b.id;
+                    const hasDetails = !!(b.createdByFullName || b.departmentName);
+                    return (
+                      <div
+                        key={b.id}
+                        onClick={() => hasDetails && setExpandedBatchId(isExpanded ? null : b.id)}
+                        style={{
+                          display: "flex", flexDirection: "column", gap: 8,
+                          padding: "10px 14px", borderRadius: "var(--radius)",
+                          background: "var(--surface2, var(--bg3))",
+                          border: `1px solid ${isExpanded ? "var(--accent)" : "var(--accent-mid)"}`,
+                          fontSize: 13,
+                          cursor: hasDetails ? "pointer" : "default",
+                          transition: "border-color 0.15s ease",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <span style={{
+                            display: "inline-flex", alignItems: "center", justifyContent: "center",
+                            minWidth: 32, height: 22, padding: "0 8px",
+                            borderRadius: 6, background: "var(--accent)", color: "#fff",
+                            fontSize: 11, fontWeight: 800, flexShrink: 0,
+                          }}>
+                            #{b.batchNo}
+                          </span>
+                          <span style={{ fontWeight: 700, color: "var(--accent)", flexShrink: 0 }}>
+                            {b.amount.toLocaleString()}{" "}
+                            <span style={{ color: "var(--text3)", fontWeight: 500, fontSize: 11 }}>
+                              {PRODUCT_UNIT_LABELS[viewProduct.unit] ?? ""}
+                            </span>
+                          </span>
+                          <span style={{ marginLeft: "auto", color: "var(--text3)", fontSize: 12, fontFamily: "var(--font-mono)" }}>
+                            {new Date(b.createdAt).toLocaleString("uz-UZ", {
+                              day: "2-digit", month: "2-digit", year: "numeric",
+                              hour: "2-digit", minute: "2-digit",
+                            })}
+                          </span>
+                          {hasDetails && (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                              style={{ transition: "transform 0.2s ease", transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}>
+                              <polyline points="6 9 12 15 18 9" />
+                            </svg>
+                          )}
+                        </div>
+                        {isExpanded && hasDetails && (
+                          <div style={{
+                            display: "flex", flexWrap: "wrap", gap: 14,
+                            paddingTop: 8, borderTop: "1px solid var(--accent-mid)",
+                            fontSize: 12,
+                          }}>
+                            {b.createdByFullName && (
+                              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                  <circle cx="12" cy="7" r="4" />
+                                </svg>
+                                <span style={{ color: "var(--text3)" }}>Yuboruvchi:</span>
+                                <span style={{ color: "var(--text1)", fontWeight: 600 }}>{b.createdByFullName}</span>
+                              </div>
+                            )}
+                            {b.departmentName && (
+                              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M3 21h18" />
+                                  <path d="M5 21V7l8-4v18" />
+                                  <path d="M19 21V11l-6-4" />
+                                </svg>
+                                <span style={{ color: "var(--text3)" }}>Bo&apos;lim:</span>
+                                <span style={{ color: "var(--text1)", fontWeight: 600 }}>{b.departmentName}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {(viewProduct.description || viewProduct.notes) && (
