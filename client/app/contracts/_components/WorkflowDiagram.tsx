@@ -19,7 +19,7 @@ export function WorkflowDiagram({ status, products }: Props) {
     <div style={{ marginBottom: 22 }}>
       <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 12 }}>Jarayon holati</div>
 
-      <ContractWorkflowRow status={status} />
+      <ContractWorkflowRow status={status} products={visibleProducts} />
 
       {visibleProducts.length > 0 && (
         <div style={{ marginTop: 18, borderTop: "1px dashed var(--border)", paddingTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -35,8 +35,26 @@ export function WorkflowDiagram({ status, products }: Props) {
   );
 }
 
-function ContractWorkflowRow({ status }: { status: ContractStatus }) {
+function ContractWorkflowRow({ status, products }: { status: ContractStatus; products: ContractProductResponse[] }) {
+  // currentIdx = the contract's derived stage (backend = earliest active product).
+  // For multi-product contracts the connecting line still fills to the FURTHEST
+  // reached stage so users see overall forward motion; the "active" ring stays
+  // on the bottleneck step where the slowest product is parked.
   const currentIdx = WORKFLOW_STEPS.findIndex(s => s.status === status);
+  const stageIdx = (s: ContractProductStatus) =>
+    PRODUCT_WORKFLOW_STEPS.findIndex(step => step.status === s);
+  const maxStageIdx = products.length > 0
+    ? Math.max(...products.map(p => stageIdx(p.status)))
+    : currentIdx;
+  const fillIdx = Math.max(currentIdx, maxStageIdx);
+
+  const summary = products.length > 1
+    ? `${products.length} mahsulot · ${PRODUCT_WORKFLOW_STEPS
+        .map(step => ({ count: products.filter(p => p.status === step.status).length, label: step.shortLabel }))
+        .filter(x => x.count > 0)
+        .map(x => `${x.count} ta ${x.label}`)
+        .join(", ")}`
+    : (WORKFLOW_STEPS[currentIdx]?.label ?? "—");
 
   return (
     <div style={{ position: "relative" }}>
@@ -46,11 +64,11 @@ function ContractWorkflowRow({ status }: { status: ContractStatus }) {
         right: `${50 / WORKFLOW_STEPS.length}%`,
         height: 2, background: "var(--border)", zIndex: 0,
       }} />
-      {currentIdx > 0 && (
+      {fillIdx > 0 && (
         <div style={{
           position: "absolute", top: 16,
           left: `${50 / WORKFLOW_STEPS.length}%`,
-          width: `${currentIdx * 100 / WORKFLOW_STEPS.length}%`,
+          width: `${fillIdx * 100 / WORKFLOW_STEPS.length}%`,
           height: 2, background: STEP_COLORS[status].active, zIndex: 0, transition: "width 0.4s",
         }} />
       )}
@@ -58,13 +76,15 @@ function ContractWorkflowRow({ status }: { status: ContractStatus }) {
         {WORKFLOW_STEPS.map((step, idx) => {
           const isDone = idx < currentIdx;
           const isActive = idx === currentIdx;
+          const isReached = idx <= maxStageIdx;
           const col = STEP_COLORS[step.status];
+          const productsHere = products.filter(p => stageIdx(p.status) === idx);
           return (
             <div key={step.status} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flex: 1 }}>
               <div style={{
                 width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
-                background: isDone || isActive ? col.active : "var(--bg3)",
-                border: `2px solid ${isDone || isActive ? col.active : "var(--border)"}`,
+                background: isReached ? col.active : "var(--bg3)",
+                border: `2px solid ${isReached ? col.active : "var(--border)"}`,
                 display: "flex", alignItems: "center", justifyContent: "center",
                 boxShadow: isActive ? `0 0 0 4px ${col.active}33` : "none",
                 transition: "all 0.3s",
@@ -74,18 +94,33 @@ function ContractWorkflowRow({ status }: { status: ContractStatus }) {
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 ) : (
-                  <span style={{ fontSize: 11, fontWeight: 700, color: isActive ? col.text : "var(--text3)" }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: isReached ? col.text : "var(--text3)" }}>
                     {idx + 1}
                   </span>
                 )}
               </div>
               <span style={{
                 fontSize: 10, fontWeight: isActive ? 700 : 500, textAlign: "center", lineHeight: 1.3,
-                color: isActive ? col.active : isDone ? "var(--text2)" : "var(--text3)",
+                color: isActive ? col.active : isReached ? "var(--text2)" : "var(--text3)",
                 maxWidth: 72,
               }}>
                 {step.shortLabel}
               </span>
+              {products.length > 1 && productsHere.length > 0 && (
+                <div style={{ display: "flex", gap: 3, alignItems: "center", marginTop: 2 }}>
+                  {productsHere.slice(0, 4).map(p => (
+                    <div key={p.id} style={{
+                      width: 7, height: 7, borderRadius: "50%",
+                      background: col.active,
+                    }} />
+                  ))}
+                  {productsHere.length > 4 && (
+                    <span style={{ fontSize: 9, fontWeight: 700, color: col.active, fontFamily: "var(--font-mono)" }}>
+                      +{productsHere.length - 4}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
@@ -97,7 +132,7 @@ function ContractWorkflowRow({ status }: { status: ContractStatus }) {
         fontSize: 13, fontWeight: 600, color: STEP_COLORS[status].active,
         textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
       }}>
-        {WORKFLOW_STEPS[currentIdx]?.label ?? "—"}
+        {summary}
       </div>
     </div>
   );

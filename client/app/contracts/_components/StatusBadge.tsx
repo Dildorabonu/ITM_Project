@@ -3,44 +3,72 @@ import { STATUS_STYLE, PRIORITY_STYLE } from "../_types";
 
 interface StatusBadgeProps {
   status: ContractStatus;
-  // Optional product list lets the badge show how many products have already
-  // reached the contract's current stage (e.g. "Tex jarayon · 2/3").
+  // When provided, the badge groups products by their per-product stage so
+  // mixed contracts surface every stage instead of hiding behind the earliest.
   products?: ContractProductResponse[];
 }
 
+// Non-uniform progress weights: drawing/tech are prep, production is the bulk
+// of the work. Reaching production gives a big jump (10 → 50) so the bar
+// reflects that "we're now in the heart of manufacturing".
+const STAGE_PROGRESS: Record<ContractProductStatus, number> = {
+  [ContractProductStatus.DrawingPending]: 0,
+  [ContractProductStatus.TechProcessing]: 10,
+  [ContractProductStatus.InProduction]:   50,
+  [ContractProductStatus.Completed]:      100,
+  [ContractProductStatus.Cancelled]:      0,
+};
+
 export function StatusBadge({ status, products }: StatusBadgeProps) {
-  const s = STATUS_STYLE[status];
-
-  let counter: string | null = null;
-  if (products && products.length > 0) {
-    const active = products.filter(p => p.status !== ContractProductStatus.Cancelled);
-    const total = active.length;
-    if (total > 0) {
-      const matching = active.filter(p => (p.status as number) >= (status as number)).length;
-      counter = `${matching}/${total}`;
-    }
-  }
-
-  return (
-    <span style={{
-      display: "inline-flex", alignItems: "center", gap: 6, padding: "2px 10px",
-      borderRadius: 20, fontSize: 13, fontWeight: 600,
-      background: s.bg, color: s.color, border: `1px solid ${s.border}`,
-      maxWidth: "100%", overflow: "hidden",
-    }}>
-      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+  // Cancelled is a terminal lifecycle state — render the contract-level pill
+  // unchanged; product distribution doesn't apply.
+  if (status === ContractStatus.Cancelled) {
+    const s = STATUS_STYLE[status];
+    return (
+      <span style={{
+        display: "inline-flex", alignItems: "center",
+        padding: "2px 10px", borderRadius: 999,
+        background: s.bg, color: s.color, border: `1px solid ${s.border}`,
+        fontSize: 12, fontWeight: 600, whiteSpace: "nowrap",
+        maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis",
+      }}>
         {CONTRACT_STATUS_LABELS[status]}
       </span>
-      {counter && (
-        <span style={{
-          fontSize: 11, fontWeight: 700, fontFamily: "var(--font-mono)",
-          padding: "1px 6px", borderRadius: 999,
-          background: `${s.color}1f`, color: s.color, flexShrink: 0,
-        }}>
-          {counter}
-        </span>
-      )}
-    </span>
+    );
+  }
+
+  const active = (products ?? []).filter(p => p.status !== ContractProductStatus.Cancelled);
+  const percent = active.length === 0
+    ? 0
+    : Math.round(
+        active.reduce((sum, p) => sum + STAGE_PROGRESS[p.status], 0) / active.length
+      );
+
+  const style = STATUS_STYLE[status];
+
+  return (
+    <div style={{
+      display: "inline-flex", alignItems: "center", gap: 8,
+      padding: "3px 10px", borderRadius: 999,
+      background: style.bg, border: `1px solid ${style.border}`,
+      width: 150, maxWidth: "100%",
+    }}>
+      <div style={{
+        flex: 1, height: 5, borderRadius: 999,
+        background: `${style.color}24`, overflow: "hidden",
+      }}>
+        <div style={{
+          width: `${percent}%`, height: "100%",
+          background: style.color, transition: "width 0.4s ease",
+        }} />
+      </div>
+      <span style={{
+        fontSize: 11, fontWeight: 700, fontFamily: "var(--font-mono)",
+        color: style.color, flexShrink: 0, minWidth: 30, textAlign: "right",
+      }}>
+        {percent}%
+      </span>
+    </div>
   );
 }
 

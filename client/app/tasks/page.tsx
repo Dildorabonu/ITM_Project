@@ -17,10 +17,6 @@ import {
   ContractTaskCreatePayload,
   ContractTaskUpdatePayload,
   ContractTaskLogResponse,
-  techProcessService,
-  ProcessStatus,
-  costNormService,
-  DrawingStatus,
 } from "@/lib/userService";
 
 // ─── Scope ────────────────────────────────────────────────────────────────────
@@ -31,6 +27,16 @@ type Scope = { contract: ContractResponse; product: ContractProductResponse | nu
 
 function scopeKey(s: Scope): string {
   return `${s.contract.id}::${s.product?.id ?? "umumiy"}`;
+}
+
+// Per-product workflow holati (`ContractProduct.Status`) backendda hisoblanadi —
+// tex jarayon va xarajat normasi tasdiqlanganida `InProduction` ga o'tadi.
+// Mahsulotsiz scope uchun shartnoma darajasidagi statusga qaytamiz.
+// `ContractStatus` va `ContractProductStatus` enum qiymatlari bir xil sonlarda.
+function scopeStatus(s: Scope): ContractStatus {
+  return s.product
+    ? (s.product.status as unknown as ContractStatus)
+    : s.contract.status;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -150,9 +156,14 @@ function ContractBar({
           <span style={{ color: "var(--danger)" }}>{formatDate(contract.endDate)}</span>
         </span>
       </div>
-      <span className={`status ${STATUS_COLORS[contract.status]}`} style={{ marginLeft: "auto", flexShrink: 0 }}>
-        {STATUS_LABELS[contract.status]}
-      </span>
+      {(() => {
+        const status = scopeStatus(scope);
+        return (
+          <span className={`status ${STATUS_COLORS[status]}`} style={{ marginLeft: "auto", flexShrink: 0 }}>
+            {STATUS_LABELS[status]}
+          </span>
+        );
+      })()}
       {!contract.isActive && (
         <span style={{
           display: "inline-flex", alignItems: "center", padding: "2px 10px",
@@ -168,10 +179,10 @@ function ContractBar({
 
 // ─── Contract card ────────────────────────────────────────────────────────────
 
-// Bir shartnomada bir nechta mahsulot bo'lsa, hammasi tasdiqlanmaguncha kontrakt
-// status `TechProcessing` da qoladi. Mahsulot bo'yicha tasdiqlangan scope uchun
-// vazifaga kirishni ochiq qoldiramiz — per-scope tayyorlikni `scopeReady` tekshiradi.
-const ACTIONABLE_STATUSES = new Set([ContractStatus.TechProcessing, ContractStatus.InProduction]);
+// Per-product workflow: mahsulot `InProduction` (yoki `Completed`) ga yetganida
+// vazifa yaratish ochiladi. Boshqa mahsulot DrawingPending'da bo'lishi muhim emas —
+// har scope alohida tekshiriladi.
+const ACTIONABLE_STATUSES = new Set([ContractStatus.InProduction, ContractStatus.Completed]);
 
 function ContractCard({
   scope,
@@ -223,11 +234,9 @@ function ContractCard({
           <span className="tcc-party">{contract.contractParty}</span>
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          {/* Mahsulot bo'yicha tayyor bo'lsa, kontrakt darajasidagi `Tex jarayon`
-              badge'i chalg'itadi — per-scope holatni "Ishlab chiqarishda" deb ko'rsatamiz. */}
+          {/* Per-product workflow holati — har mahsulot alohida bosqichda. */}
           {(() => {
-            const showAsProduction = isActionable && contract.status === ContractStatus.TechProcessing;
-            const status = showAsProduction ? ContractStatus.InProduction : contract.status;
+            const status = scopeStatus(scope);
             return (
               <span className={`status ${STATUS_COLORS[status]}`}>
                 {STATUS_LABELS[status]}
@@ -1784,9 +1793,6 @@ export default function TasksPage() {
   const [selected, setSelected] = useState<Scope | null>(null);
   const [phase, setPhase] = useState<Phase>("grid");
   const [blockModal, setBlockModal] = useState<Scope | null>(null);
-  // Har bir scope (contract+product) uchun tex jarayon va xarajat normasi tasdiqlangan/yo'qligi.
-  // Kontrakt statusi InProduction bo'lishi yetarli emas — har mahsulot alohida tekshiriladi.
-  const [scopeReady, setScopeReady] = useState<Record<string, boolean>>({});
 
   // ─── Filters ────────────────────────────────────────────────────────────────
   const [viewMode, setViewMode] = useState<"active" | "archive">("active");
@@ -1829,7 +1835,6 @@ export default function TasksPage() {
   }, [legendOpen]);
 
   const filteredContracts = contracts.filter(c => {
-    if (filterStatus !== "" && String(c.status) !== filterStatus) return false;
     if (filterPriority !== "" && String(c.priority) !== filterPriority) return false;
     return true;
   });
@@ -1848,7 +1853,11 @@ export default function TasksPage() {
     }
   }
 
+  // Status filtri scope darajasida: kontrakt statusi `min(barcha mahsulot)` bo'lgani
+  // uchun kontrakt darajasida filtrlash bir mahsulot DrawingPending'da bo'lsa
+  // boshqa "InProduction"dagi mahsulotni ko'rinmas qiladi.
   const filteredScopes = allScopes.filter(s => {
+    if (filterStatus !== "" && String(scopeStatus(s)) !== filterStatus) return false;
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       const matches =
@@ -1860,26 +1869,13 @@ export default function TasksPage() {
     return true;
   });
 
-  const handleSelect = async (s: Scope) => {
+  const handleSelect = (s: Scope) => {
     if (phase !== "grid") return;
-    const [tpList, cnList] = await Promise.all([
-      techProcessService.getByContract(s.contract.id).catch(() => []),
-      costNormService.getAll(s.contract.id).catch(() => []),
-    ]);
 
-    // Scope mahsulotga aniq mos kelishi kerak — mahsulot tanlangan shartnomalarda Umumiy variant yo'q.
-    const targetId = s.product?.id ?? null;
-    const tpOk = tpList.some(t =>
-      (t.contractProductId ?? null) === targetId &&
-      (t.status === ProcessStatus.Approved || t.status === ProcessStatus.Completed)
-    );
-    const cnOk = cnList.some(n =>
-      (n.contractProductId ?? null) === targetId &&
-      n.status === DrawingStatus.Approved &&
-      (n.items?.length ?? 0) > 0
-    );
-
-    if (!tpOk || !cnOk) {
+    // Backend `ContractProduct.Status` allaqachon source of truth: tex jarayon +
+    // xarajat normasi tasdiqlanganida `InProduction` ga o'tadi. Frontendda qayta
+    // hisoblamaymiz, shu maydonga qaraymiz.
+    if (!ACTIONABLE_STATUSES.has(scopeStatus(s))) {
       setBlockModal(s);
       return;
     }
@@ -1896,9 +1892,8 @@ export default function TasksPage() {
 
   const canView = hasPermission("Tasks.View") || hasPermission("Tasks.ViewAll");
 
-  // Kontraktlar va har bir scope uchun tex jarayon + xarajat normasi tasdiqlanganini
-  // bitta zanjirda yuklaymiz — `loading` faqat sort uchun zarur ma'lumot tayyor bo'lgach yopiladi,
-  // aks holda grid avval noto'g'ri tartibda chiqib keyin "sakrab" qaytariladi.
+  // `ContractResponse.products[].status` backenddan keladi — qaysi mahsulot
+  // ishlab chiqarishga tayyorligini hisoblash uchun qo'shimcha so'rov shart emas.
   useEffect(() => {
     if (!canView) return;
     setLoading(true);
@@ -1906,51 +1901,7 @@ export default function TasksPage() {
     (async () => {
       const data = await contractService.getMyProductionTasks(viewMode === "active");
       if (cancelled) return;
-
-      if (data.length === 0) {
-        setContracts(data);
-        setScopeReady({});
-        setLoading(false);
-        return;
-      }
-
-      const uniqueIds = Array.from(new Set(data.map(c => c.id)));
-      const results = await Promise.all(uniqueIds.map(async cid => {
-        const [tps, cns] = await Promise.all([
-          techProcessService.getByContract(cid).catch(() => []),
-          costNormService.getAll(cid).catch(() => []),
-        ]);
-        return { cid, tps, cns };
-      }));
-      if (cancelled) return;
-
-      const byContract = new Map(results.map(r => [r.cid, r]));
-      const next: Record<string, boolean> = {};
-      for (const c of data) {
-        const r = byContract.get(c.id);
-        if (!r) continue;
-        const checkScope = (productId: string | null) => {
-          const tpOk = r.tps.some(t =>
-            (t.contractProductId ?? null) === productId &&
-            (t.status === ProcessStatus.Approved || t.status === ProcessStatus.Completed)
-          );
-          const cnOk = r.cns.some(n =>
-            (n.contractProductId ?? null) === productId &&
-            n.status === DrawingStatus.Approved &&
-            (n.items?.length ?? 0) > 0
-          );
-          return tpOk && cnOk;
-        };
-        const products = c.products ?? [];
-        if (products.length === 0) {
-          next[`${c.id}::umumiy`] = checkScope(null);
-        } else {
-          for (const p of products) next[`${c.id}::${p.id}`] = checkScope(p.id);
-        }
-      }
-
       setContracts(data);
-      setScopeReady(next);
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -2330,8 +2281,8 @@ export default function TasksPage() {
             <div className="tasks-contract-grid">
               {[...filteredScopes]
                 .sort((a, b) => {
-                  const aOk = ACTIONABLE_STATUSES.has(a.contract.status) && scopeReady[scopeKey(a)] === true ? 0 : 1;
-                  const bOk = ACTIONABLE_STATUSES.has(b.contract.status) && scopeReady[scopeKey(b)] === true ? 0 : 1;
+                  const aOk = ACTIONABLE_STATUSES.has(scopeStatus(a)) ? 0 : 1;
+                  const bOk = ACTIONABLE_STATUSES.has(scopeStatus(b)) ? 0 : 1;
                   if (aOk !== bOk) return aOk - bOk;
                   // Bir kontrakt ichida — Umumiy oxirida, mahsulotlar productType bo'yicha
                   if (a.contract.id === b.contract.id) {
@@ -2348,7 +2299,7 @@ export default function TasksPage() {
                       key={key}
                       scope={s}
                       selected={selected ? scopeKey(selected) === key : false}
-                      isActionable={ACTIONABLE_STATUSES.has(s.contract.status) && scopeReady[key] === true}
+                      isActionable={ACTIONABLE_STATUSES.has(scopeStatus(s))}
                       onClick={() => handleSelect(s)}
                     />
                   );
@@ -2384,7 +2335,9 @@ export default function TasksPage() {
                 </strong>
               </p>
               <p style={{ fontSize: 14, color: "var(--text)", lineHeight: 1.65 }}>
-                Bu shartnoma bo&apos;yicha tex jarayon bo&apos;limidagi umumiy holat hali yakunlanmagan. Vazifalar bo&apos;limiga kirish uchun umumiy holat &ldquo;Yakunlangan&rdquo; bo&apos;lishi kerak.
+                {blockModal.product
+                  ? "Bu mahsulot uchun texnik chizma, tex jarayon va xarajat normasi to'liq tasdiqlanmagan. Vazifa yaratish uchun mahsulot “Ishlab chiqarishda” holatiga o'tishi kerak."
+                  : "Bu shartnoma bo'yicha tex jarayon bo'limidagi umumiy holat hali yakunlanmagan. Vazifalar bo'limiga kirish uchun umumiy holat “Yakunlangan” bo'lishi kerak."}
               </p>
             </div>
             <div className="modal-footer">
