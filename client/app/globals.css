@@ -1808,6 +1808,7 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius2);
   overflow: hidden;
+  flex-shrink: 0;
   z-index: 1;
 }
 
