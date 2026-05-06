@@ -359,7 +359,7 @@ function DualAreaChart({
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   DONUT CHART (contract status)
+   BUBBLE CHART (contract status — bubbles inside a sphere)
 ═══════════════════════════════════════════════════════════════════ */
 
 const STATUS_COLORS: Record<number, string> = {
@@ -370,46 +370,340 @@ const STATUS_COLORS: Record<number, string> = {
   [ContractStatus.Cancelled]:      "#ef4444",
 };
 
-function DonutChart({ data }: { data: ContractStatusBucket[] }) {
+function BubbleChart({ data }: { data: ContractStatusBucket[] }) {
   const total = data.reduce((s, d) => s + d.count, 0);
-  const size = 200;
-  const thickness = 28;
-  const r = (size - thickness) / 2 - 2;
-  const c = 2 * Math.PI * r;
+  const size = 240;
   const cx = size / 2, cy = size / 2;
+  const containerR = size / 2 - 6;
 
-  let acc = 0;
+  // Only show bubbles for non-zero counts
+  const visible = useMemo(
+    () => data.filter(d => d.count > 0),
+    [data]
+  );
+
+  // Bubble metadata (radius ∝ √count). Initial settled positions via force-packing.
+  type BubbleMeta = { r: number; status: number; count: number; label: string };
+  type BubblePhys = { x: number; y: number; vx: number; vy: number };
+
+  const meta: BubbleMeta[] = useMemo(() => {
+    if (visible.length === 0) return [];
+    const maxCount = Math.max(1, ...visible.map(d => d.count));
+    const minR = Math.min(20, containerR * 0.18);
+    const maxR = containerR * (visible.length === 1 ? 0.78 : 0.55);
+    return visible.map(d => ({
+      r: Math.max(minR, Math.sqrt(d.count / maxCount) * maxR),
+      status: d.status,
+      count: d.count,
+      label: d.label,
+    }));
+  }, [visible, containerR]);
+
+  const initialPositions = useMemo<BubblePhys[]>(() => {
+    if (meta.length === 0) return [];
+    const bs = meta.map((m, i) => {
+      const a = (i / meta.length) * Math.PI * 2 - Math.PI / 2;
+      return {
+        x: cx + Math.cos(a) * containerR * 0.3,
+        y: cy + Math.sin(a) * containerR * 0.3,
+        vx: 0, vy: 0,
+      };
+    });
+    for (let iter = 0; iter < 260; iter++) {
+      for (let i = 0; i < bs.length; i++) {
+        for (let j = i + 1; j < bs.length; j++) {
+          const dx = bs[j].x - bs[i].x;
+          const dy = bs[j].y - bs[i].y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
+          const minDist = meta[i].r + meta[j].r + 3;
+          if (dist < minDist) {
+            const ov = (minDist - dist) * 0.5;
+            const nx = dx / dist, ny = dy / dist;
+            bs[i].x -= nx * ov; bs[i].y -= ny * ov;
+            bs[j].x += nx * ov; bs[j].y += ny * ov;
+          }
+        }
+      }
+      for (let i = 0; i < bs.length; i++) {
+        const b = bs[i];
+        b.x += (cx - b.x) * 0.012;
+        b.y += (cy - b.y) * 0.012;
+        const dx = b.x - cx, dy = b.y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
+        const max = containerR - meta[i].r - 2;
+        if (dist > max) {
+          b.x = cx + (dx / dist) * max;
+          b.y = cy + (dy / dist) * max;
+        }
+      }
+    }
+    return bs;
+  }, [meta, containerR, cx, cy]);
+
+  // Live physics state — driven via raf, mutated in place; render via tick counter
+  const physRef = useRef<BubblePhys[]>([]);
+  const dragRef = useRef<{ idx: number; offsetX: number; offsetY: number; lastX: number; lastY: number; lastT: number } | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [, setTick] = useState(0);
+  const [popKey, setPopKey] = useState(0);
+
+  // Reset physics whenever data changes
+  useEffect(() => {
+    physRef.current = initialPositions.map(p => ({ ...p }));
+    dragRef.current = null;
+    setPopKey(k => k + 1);
+  }, [initialPositions]);
+
+  // Animation loop
+  useEffect(() => {
+    if (meta.length === 0) return;
+    let raf = 0;
+    const step = () => {
+      const bs = physRef.current;
+      const drag = dragRef.current;
+
+      // Forces & integration (per-frame, tuned for 60fps feel)
+      for (let i = 0; i < bs.length; i++) {
+        if (drag && drag.idx === i) continue;
+        const b = bs[i];
+        b.vx *= 0.965;
+        b.vy *= 0.965;
+        b.vx += (cx - b.x) * 0.0018;
+        b.vy += (cy - b.y) * 0.0018;
+        b.vx += (Math.random() - 0.5) * 0.06;
+        b.vy += (Math.random() - 0.5) * 0.06;
+        b.x += b.vx;
+        b.y += b.vy;
+      }
+
+      // Pairwise elastic collision (mass ∝ r²)
+      for (let i = 0; i < bs.length; i++) {
+        for (let j = i + 1; j < bs.length; j++) {
+          const a = bs[i], c = bs[j];
+          const dx = c.x - a.x, dy = c.y - a.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
+          const minDist = meta[i].r + meta[j].r;
+          if (dist < minDist) {
+            const nx = dx / dist, ny = dy / dist;
+            const overlap = minDist - dist;
+            a.x -= nx * overlap * 0.5;
+            a.y -= ny * overlap * 0.5;
+            c.x += nx * overlap * 0.5;
+            c.y += ny * overlap * 0.5;
+            const ma = meta[i].r * meta[i].r, mc = meta[j].r * meta[j].r;
+            const va = a.vx * nx + a.vy * ny;
+            const vc = c.vx * nx + c.vy * ny;
+            if (vc - va < 0) {
+              const e = 0.82;
+              const newVa = (va * (ma - mc) + (1 + e) * mc * vc) / (ma + mc);
+              const newVc = (vc * (mc - ma) + (1 + e) * ma * va) / (ma + mc);
+              a.vx += (newVa - va) * nx;
+              a.vy += (newVa - va) * ny;
+              c.vx += (newVc - vc) * nx;
+              c.vy += (newVc - vc) * ny;
+            }
+          }
+        }
+      }
+
+      // Sphere boundary — reflect with energy loss
+      for (let i = 0; i < bs.length; i++) {
+        const b = bs[i];
+        const dx = b.x - cx, dy = b.y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
+        const max = containerR - meta[i].r - 2;
+        if (dist > max) {
+          const nx = dx / dist, ny = dy / dist;
+          b.x = cx + nx * max;
+          b.y = cy + ny * max;
+          const dot = b.vx * nx + b.vy * ny;
+          if (dot > 0) {
+            b.vx -= 1.7 * dot * nx;
+            b.vy -= 1.7 * dot * ny;
+          }
+        }
+      }
+
+      setTick(t => (t + 1) % 1_000_000);
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [meta, cx, cy, containerR]);
+
+  // Pointer → SVG-local coordinates
+  const toLocal = (clientX: number, clientY: number) => {
+    const svg = svgRef.current;
+    if (!svg) return { x: 0, y: 0 };
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return { x: 0, y: 0 };
+    const pt = svg.createSVGPoint();
+    pt.x = clientX; pt.y = clientY;
+    const local = pt.matrixTransform(ctm.inverse());
+    return { x: local.x, y: local.y };
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    const { x, y } = toLocal(e.clientX, e.clientY);
+    const bs = physRef.current;
+    let hit = -1;
+    for (let i = bs.length - 1; i >= 0; i--) {
+      const dx = x - bs[i].x, dy = y - bs[i].y;
+      if (dx * dx + dy * dy <= meta[i].r * meta[i].r) { hit = i; break; }
+    }
+    if (hit >= 0) {
+      const b = bs[hit];
+      dragRef.current = {
+        idx: hit,
+        offsetX: x - b.x,
+        offsetY: y - b.y,
+        lastX: x, lastY: y,
+        lastT: performance.now(),
+      };
+      b.vx = 0; b.vy = 0;
+      try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* noop */ }
+    } else {
+      // Clicked empty space inside sphere → "poke" nearby bubbles outward
+      for (let i = 0; i < bs.length; i++) {
+        const dx = bs[i].x - x, dy = bs[i].y - y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
+        if (dist < containerR) {
+          const force = Math.max(0, 60 - dist) * 0.18;
+          bs[i].vx += (dx / dist) * force;
+          bs[i].vy += (dy / dist) * force;
+        }
+      }
+    }
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    const { x, y } = toLocal(e.clientX, e.clientY);
+    const bs = physRef.current;
+    const b = bs[drag.idx];
+    const newX = x - drag.offsetX;
+    const newY = y - drag.offsetY;
+    const now = performance.now();
+    const dt = Math.max(0.008, (now - drag.lastT) / 1000);
+    b.vx = (newX - b.x) / dt / 60;
+    b.vy = (newY - b.y) / dt / 60;
+    b.x = newX;
+    b.y = newY;
+    drag.lastT = now;
+    drag.lastX = x;
+    drag.lastY = y;
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (dragRef.current) {
+      try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* noop */ }
+      dragRef.current = null;
+    }
+  };
+
+  const phys = physRef.current;
+  const isDragging = dragRef.current !== null;
 
   return (
-    <div className="dx-donut-wrap">
-      <div className="dx-donut-svg-wrap">
-        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-          <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--border)" strokeWidth={thickness} opacity="0.4" />
-          {total > 0 && data.map((d, i) => {
-            if (d.count === 0) return null;
-            const pct = d.count / total;
-            const dash = pct * c;
-            const offset = -acc * c + c * 0.25;
-            acc += pct;
+    <div className="dx-bub-wrap">
+      <div className="dx-bub-svg-wrap" style={{ width: size, height: size }}>
+        <svg
+          ref={svgRef}
+          width={size} height={size} viewBox={`0 0 ${size} ${size}`}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          style={{ touchAction: "none", cursor: isDragging ? "grabbing" : "grab" }}
+        >
+          <defs>
+            {visible.map((d) => (
+              <radialGradient key={d.status} id={`bubGrad-${d.status}`} cx="32%" cy="28%" r="85%">
+                <stop offset="0%"   stopColor={STATUS_COLORS[d.status]} stopOpacity="1" />
+                <stop offset="55%"  stopColor={STATUS_COLORS[d.status]} stopOpacity="0.85" />
+                <stop offset="100%" stopColor={STATUS_COLORS[d.status]} stopOpacity="0.5" />
+              </radialGradient>
+            ))}
+            <radialGradient id="bubSphere" cx="50%" cy="38%" r="65%">
+              <stop offset="0%"   stopColor="var(--accent)" stopOpacity="0.06" />
+              <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+
+          {/* Sphere container */}
+          <circle cx={cx} cy={cy} r={containerR}
+            fill="url(#bubSphere)"
+            stroke="var(--border)"
+            strokeWidth="1.2"
+            strokeDasharray="2,5"
+            opacity="0.85"
+          />
+
+          {/* Bubbles */}
+          {meta.map((m, i) => {
+            const p = phys[i];
+            if (!p) return null;
+            const fontSize = Math.min(Math.max(m.r * 0.55, 10), 26);
+            const labelSize = Math.min(Math.max(m.r * 0.2, 7), 9.5);
             return (
-              <circle key={i}
-                cx={cx} cy={cy} r={r}
-                fill="none"
-                stroke={STATUS_COLORS[d.status] || "var(--accent)"}
-                strokeWidth={thickness}
-                strokeDasharray={`${dash} ${c - dash}`}
-                strokeDashoffset={offset}
-                strokeLinecap="butt"
-                style={{ transition: "stroke-dasharray 0.6s cubic-bezier(.22,1,.36,1)" }}
-              />
+              <g
+                key={`${m.status}-${i}-${popKey}`}
+                className="dx-bub-pop"
+                style={{
+                  transformOrigin: `${p.x}px ${p.y}px`,
+                  transformBox: "view-box" as React.CSSProperties["transformBox"],
+                  animationDelay: `${i * 0.07}s`,
+                }}
+              >
+                <circle cx={p.x} cy={p.y} r={m.r}
+                  fill={`url(#bubGrad-${m.status})`}
+                  stroke={STATUS_COLORS[m.status]}
+                  strokeWidth="1.3"
+                  strokeOpacity="0.7"
+                />
+                <ellipse
+                  cx={p.x - m.r * 0.3}
+                  cy={p.y - m.r * 0.42}
+                  rx={m.r * 0.32}
+                  ry={m.r * 0.18}
+                  fill="white"
+                  opacity="0.35"
+                  style={{ pointerEvents: "none" }}
+                />
+                <text x={p.x} y={p.y + (m.r > 28 ? -fontSize * 0.05 : fontSize * 0.1)}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fill="white"
+                  fontSize={fontSize}
+                  fontWeight="800"
+                  style={{ fontFamily: "var(--font-mono)", pointerEvents: "none", userSelect: "none" }}
+                >
+                  {m.count}
+                </text>
+                <text x={p.x} y={p.y + (m.r > 28 ? m.r * 0.55 : m.r + labelSize + 3)}
+                  textAnchor="middle"
+                  fill={m.r > 28 ? "white" : STATUS_COLORS[m.status]}
+                  fontSize={labelSize}
+                  fontWeight="700"
+                  opacity={m.r > 28 ? 0.92 : 0.95}
+                  style={{ fontFamily: "var(--font-inter)", pointerEvents: "none", letterSpacing: "0.05em", userSelect: "none" }}
+                >
+                  {m.label.toUpperCase()}
+                </text>
+              </g>
             );
           })}
         </svg>
-        <div className="dx-donut-center">
-          <div className="dx-donut-num">{total}</div>
-          <div className="dx-donut-cap">Jami shartnoma</div>
-        </div>
+
+        {visible.length === 0 && (
+          <div className="dx-bub-empty">
+            <div className="dx-donut-num">{total}</div>
+            <div className="dx-donut-cap">Jami shartnoma</div>
+          </div>
+        )}
       </div>
+
       <div className="dx-donut-legend">
         {data.map((d, i) => {
           const pct = total > 0 ? Math.round((d.count / total) * 100) : 0;
@@ -1029,7 +1323,7 @@ export default function DashboardPage() {
             <Ico.Box />
             <h3 className="dx-section-title">Shartnomalar holati</h3>
           </div>
-          <DonutChart data={data.contractStatus} />
+          <BubbleChart data={data.contractStatus} />
         </div>
       </section>
 
