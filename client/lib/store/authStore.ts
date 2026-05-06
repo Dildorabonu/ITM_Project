@@ -4,11 +4,26 @@ import axios from "axios";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5223";
 
-// .NET ClaimTypes long names
-const CLAIM_NAME       = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name";
-const CLAIM_ROLE       = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role";
-const CLAIM_GIVEN_NAME = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname";
-const CLAIM_SURNAME    = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname";
+// JWT default short names (after JwtSecurityTokenHandler outbound mapping) + long URI fallbacks
+const CLAIM_NAMEID_SHORT     = "nameid";
+const CLAIM_NAMEID_LONG      = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier";
+const CLAIM_NAME_SHORT       = "unique_name";
+const CLAIM_NAME_LONG        = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name";
+const CLAIM_ROLE_SHORT       = "role";
+const CLAIM_ROLE_LONG        = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role";
+const CLAIM_GIVEN_NAME_SHORT = "given_name";
+const CLAIM_GIVEN_NAME_LONG  = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname";
+const CLAIM_SURNAME_SHORT    = "family_name";
+const CLAIM_SURNAME_LONG     = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname";
+
+function readClaim(payload: Record<string, unknown> | null, ...keys: string[]): string {
+  if (!payload) return "";
+  for (const k of keys) {
+    const v = payload[k];
+    if (typeof v === "string" && v.length > 0) return v;
+  }
+  return "";
+}
 
 export interface User {
   id: string;
@@ -70,11 +85,11 @@ export const useAuthStore = create<AuthState>()(
         const { accessToken, refreshToken } = res.data.result;
         const payload = parseJwt(accessToken);
         const user: User = {
-          id: (payload?.["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"] as string) || "",
-          login: (payload?.[CLAIM_NAME] as string) || login,
-          role: (payload?.[CLAIM_ROLE] as string) || "",
-          firstName: (payload?.[CLAIM_GIVEN_NAME] as string) || "",
-          lastName: (payload?.[CLAIM_SURNAME] as string) || "",
+          id: readClaim(payload, CLAIM_NAMEID_SHORT, CLAIM_NAMEID_LONG),
+          login: readClaim(payload, CLAIM_NAME_SHORT, CLAIM_NAME_LONG) || login,
+          role: readClaim(payload, CLAIM_ROLE_SHORT, CLAIM_ROLE_LONG),
+          firstName: readClaim(payload, CLAIM_GIVEN_NAME_SHORT, CLAIM_GIVEN_NAME_LONG),
+          lastName: readClaim(payload, CLAIM_SURNAME_SHORT, CLAIM_SURNAME_LONG),
           permissions: payload ? extractPermissions(payload) : [],
         };
         set({ accessToken, refreshToken, user });
