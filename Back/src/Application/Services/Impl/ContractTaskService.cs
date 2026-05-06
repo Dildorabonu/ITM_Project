@@ -10,15 +10,18 @@ public class ContractTaskService : IContractTaskService
 {
     private readonly DatabaseContext _context;
     private readonly IManufacturedProductService _manufacturedProductService;
+    private readonly IActivityLogService _activityLogService;
 
     private const string WarehouseTaskName = "Tayyor mahsulotni omborga topshirish";
 
     public ContractTaskService(
         DatabaseContext context,
-        IManufacturedProductService manufacturedProductService)
+        IManufacturedProductService manufacturedProductService,
+        IActivityLogService activityLogService)
     {
         _context = context;
         _manufacturedProductService = manufacturedProductService;
+        _activityLogService = activityLogService;
     }
 
     public async Task<ApiResult<IEnumerable<ContractTaskResponseDto>>> GetByContractIdAsync(Guid contractId)
@@ -206,6 +209,19 @@ public class ContractTaskService : IContractTaskService
         // Ombor vazifasi progress logi qo'shilsa — tayyor mahsulot qatorining miqdorini yangilaymiz.
         if (task.Name == WarehouseTaskName && task.ContractProductId.HasValue)
             await _manufacturedProductService.UpdateProducedQuantityAsync(task.ContractId, task.ContractProductId);
+
+        var contractNo = await _context.Contracts
+            .AsNoTracking()
+            .Where(c => c.Id == task.ContractId)
+            .Select(c => c.ContractNo)
+            .FirstOrDefaultAsync();
+
+        await _activityLogService.LogAsync(
+            kind: "task-log",
+            title: $"{log.Amount} {task.Name}",
+            subtitle: contractNo,
+            actorId: createdBy,
+            refId: task.Id);
 
         return ApiResult<Guid>.Success(log.Id, 201);
     }

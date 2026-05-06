@@ -9,12 +9,14 @@ namespace Application.Services.Impl;
 public class ShipmentBatchService : IShipmentBatchService
 {
     private readonly DatabaseContext _context;
+    private readonly IActivityLogService _activityLogService;
 
     private const string WarehouseTaskName = "Tayyor mahsulotni omborga topshirish";
 
-    public ShipmentBatchService(DatabaseContext context)
+    public ShipmentBatchService(DatabaseContext context, IActivityLogService activityLogService)
     {
         _context = context;
+        _activityLogService = activityLogService;
     }
 
     public async Task<ApiResult<IEnumerable<ShipmentBatchResponseDto>>> GetByContractAsync(
@@ -105,8 +107,16 @@ public class ShipmentBatchService : IShipmentBatchService
         var created = await _context.ShipmentBatches
             .Include(s => s.Department)
             .Include(s => s.Creator)
+            .Include(s => s.Contract)
             .AsNoTracking()
             .FirstAsync(s => s.Id == batch.Id);
+
+        await _activityLogService.LogAsync(
+            kind: "shipment",
+            title: $"Partiya #{created.BatchNo} — {created.Amount}",
+            subtitle: created.Contract?.ContractNo,
+            actorId: userId,
+            refId: created.Id);
 
         return ApiResult<ShipmentBatchResponseDto>.Success(MapToResponse(created), 201);
     }

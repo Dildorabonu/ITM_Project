@@ -296,75 +296,21 @@ public class DashboardService : IDashboardService
             };
         }).ToList();
 
-        // ── Recent activity feed — latest items, snapshot ─────────────────
-        var recentContracts = await _context.Contracts
+        // ── Recent activity feed (ActivityLog jadvalidan) ─────────────────
+        var recentActivity = await _context.ActivityLogs
             .AsNoTracking()
-            .OrderByDescending(c => c.CreatedAt)
-            .Take(5)
-            .Select(c => new RecentActivityDto
-            {
-                Kind = "contract",
-                Title = $"Yangi shartnoma: {c.ContractNo}",
-                Subtitle = c.ContractParty,
-                ActorName = c.Creator != null ? (c.Creator.FirstName + " " + c.Creator.LastName).Trim() : null,
-                At = c.CreatedAt,
-                RefId = c.Id,
-            })
-            .ToListAsync();
-
-        var recentLogs = await _context.ContractTaskDailyLogs
-            .AsNoTracking()
-            .Where(l => l.IsActive)
-            .OrderByDescending(l => l.CreatedAt)
-            .Take(5)
-            .Select(l => new RecentActivityDto
-            {
-                Kind = "task-log",
-                Title = $"{l.Amount} {(l.Task != null ? l.Task.Name : "vazifa")}",
-                Subtitle = l.Task != null && l.Task.Contract != null ? l.Task.Contract.ContractNo : null,
-                ActorName = l.Creator != null ? (l.Creator.FirstName + " " + l.Creator.LastName).Trim() : null,
-                At = l.CreatedAt,
-                RefId = l.TaskId,
-            })
-            .ToListAsync();
-
-        var recentShipments = await _context.ShipmentBatches
-            .AsNoTracking()
-            .OrderByDescending(s => s.CreatedAt)
-            .Take(5)
-            .Select(s => new RecentActivityDto
-            {
-                Kind = "shipment",
-                Title = $"Partiya #{s.BatchNo} — {s.Amount}",
-                Subtitle = s.Contract != null ? s.Contract.ContractNo : null,
-                ActorName = s.Creator != null ? (s.Creator.FirstName + " " + s.Creator.LastName).Trim() : null,
-                At = s.CreatedAt,
-                RefId = s.Id,
-            })
-            .ToListAsync();
-
-        var recentManufactured = await _context.ManufacturedProducts
-            .AsNoTracking()
-            .OrderByDescending(m => m.CreatedAt)
-            .Take(5)
-            .Select(m => new RecentActivityDto
-            {
-                Kind = "manufactured",
-                Title = $"Ishlab chiq.: {m.Name}",
-                Subtitle = m.Department != null ? m.Department.Name : null,
-                ActorName = m.Creator != null ? (m.Creator.FirstName + " " + m.Creator.LastName).Trim() : null,
-                At = m.CreatedAt,
-                RefId = m.Id,
-            })
-            .ToListAsync();
-
-        var recentActivity = recentContracts
-            .Concat(recentLogs)
-            .Concat(recentShipments)
-            .Concat(recentManufactured)
-            .OrderByDescending(a => a.At)
+            .OrderByDescending(a => a.CreatedAt)
             .Take(12)
-            .ToList();
+            .Select(a => new RecentActivityDto
+            {
+                Kind = a.Kind,
+                Title = a.Title,
+                Subtitle = a.Subtitle,
+                ActorName = a.ActorName,
+                At = a.CreatedAt,
+                RefId = a.RefId,
+            })
+            .ToListAsync();
 
         // ── Top performers — within selected range ────────────────────────
         var topPerformers = await _context.ContractTaskDailyLogs

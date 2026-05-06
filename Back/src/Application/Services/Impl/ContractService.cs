@@ -13,15 +13,18 @@ public class ContractService : IContractService
     private readonly DatabaseContext _context;
     private readonly INotificationService _notificationService;
     private readonly IManufacturedProductService _manufacturedProductService;
+    private readonly IActivityLogService _activityLogService;
 
     public ContractService(
         DatabaseContext context,
         INotificationService notificationService,
-        IManufacturedProductService manufacturedProductService)
+        IManufacturedProductService manufacturedProductService,
+        IActivityLogService activityLogService)
     {
         _context = context;
         _notificationService = notificationService;
         _manufacturedProductService = manufacturedProductService;
+        _activityLogService = activityLogService;
     }
 
     public async Task<ApiResult<IEnumerable<ContractResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, ContractStatus? status = null, Guid? departmentId = null, bool? isActive = null)
@@ -251,6 +254,13 @@ public class ContractService : IContractService
         }
 
         await _context.SaveChangesAsync();
+
+        await _activityLogService.LogAsync(
+            kind: "contract",
+            title: $"Yangi shartnoma: {contract.ContractNo}",
+            subtitle: contract.ContractParty,
+            actorId: createdBy,
+            refId: contract.Id);
 
         await _notificationService.NotifySuperAdminsAsync(
             $"Yangi shartnoma yaratildi: {contract.ContractNo}",
