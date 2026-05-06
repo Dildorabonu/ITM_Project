@@ -12,13 +12,15 @@ namespace Application.Services.Impl;
 public class ManufacturedProductService : IManufacturedProductService
 {
     private readonly DatabaseContext _context;
+    private readonly IActivityLogService _activityLogService;
 
     // Tasks page-da har bir mahsulot uchun avtomatik yaratiladigan ombor vazifasining nomi.
     private const string WarehouseTaskName = "Tayyor mahsulotni omborga topshirish";
 
-    public ManufacturedProductService(DatabaseContext context)
+    public ManufacturedProductService(DatabaseContext context, IActivityLogService activityLogService)
     {
         _context = context;
+        _activityLogService = activityLogService;
     }
 
     // ─── Read operations ─────────────────────────────────────────────────────
@@ -152,6 +154,19 @@ public class ManufacturedProductService : IManufacturedProductService
 
         _context.ManufacturedProducts.Add(entity);
         await _context.SaveChangesAsync();
+
+        var departmentName = await _context.Departments
+            .AsNoTracking()
+            .Where(d => d.Id == entity.DepartmentId)
+            .Select(d => d.Name)
+            .FirstOrDefaultAsync();
+
+        await _activityLogService.LogAsync(
+            kind: "manufactured",
+            title: $"Ishlab chiq.: {entity.Name}",
+            subtitle: departmentName,
+            actorId: userId,
+            refId: entity.Id);
 
         return ApiResult<int>.Success(201);
     }
@@ -304,6 +319,7 @@ public class ManufacturedProductService : IManufacturedProductService
 
         var existingByProductId = existingRows.ToDictionary(r => r.ContractProductId!.Value);
         var keepRowIds = new HashSet<Guid>();
+        var newlyCreated = new List<(ManufacturedProduct Row, string DepartmentName)>();
 
         foreach (var product in contract.Products.Where(p => p.IsActive))
         {
@@ -376,6 +392,7 @@ public class ManufacturedProductService : IManufacturedProductService
                     CreatedAt = DateTime.UtcNow,
                 };
                 _context.ManufacturedProducts.Add(newRow);
+                newlyCreated.Add((newRow, department.Name));
             }
         }
 
@@ -385,6 +402,16 @@ public class ManufacturedProductService : IManufacturedProductService
             _context.ManufacturedProducts.RemoveRange(rowsToRemove);
 
         await _context.SaveChangesAsync();
+
+        foreach (var (row, deptName) in newlyCreated)
+        {
+            await _activityLogService.LogAsync(
+                kind: "manufactured",
+                title: $"Ishlab chiq.: {row.Name}",
+                subtitle: deptName,
+                actorId: row.CreatedBy,
+                refId: row.Id);
+        }
     }
 
     /// <summary>
