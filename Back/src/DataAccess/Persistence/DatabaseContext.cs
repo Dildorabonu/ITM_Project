@@ -37,6 +37,7 @@ public class DatabaseContext : DbContext
     public DbSet<Requisition> Requisitions { get; set; }
     public DbSet<RequisitionItem> RequisitionItems { get; set; }
     public DbSet<ManufacturedProduct> ManufacturedProducts { get; set; }
+    public DbSet<ShipmentBatch> ShipmentBatches { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -17,7 +17,12 @@ import {
   ContractTaskCreatePayload,
   ContractTaskUpdatePayload,
   ContractTaskLogResponse,
+  DepartmentType,
 } from "@/lib/userService";
+import {
+  type ShipmentBatch,
+  shipmentBatchService,
+} from "@/lib/shipments";
 
 // ─── Scope ────────────────────────────────────────────────────────────────────
 // Bitta scope = (contract, mahsulot) yoki (contract, Umumiy).
@@ -42,40 +47,6 @@ function scopeStatus(s: Scope): ContractStatus {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const WAREHOUSE_TASK_NAME = "Tayyor mahsulotni omborga topshirish";
-
-// ─── Shipments (local storage) ────────────────────────────────────────────────
-// Backend yo'q — partiyalar localStorage'da saqlanadi (contract bo'yicha).
-
-interface ShipmentBatch {
-  id: string;
-  batchNo: number;
-  amount: number;
-  createdAt: string; // ISO
-}
-
-const SHIPMENTS_KEY = "itm.shipments.v1";
-
-function readAllShipments(): Record<string, ShipmentBatch[]> {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(SHIPMENTS_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
-
-function getShipments(contractId: string): ShipmentBatch[] {
-  const all = readAllShipments();
-  return all[contractId] ?? [];
-}
-
-function saveShipments(contractId: string, batches: ShipmentBatch[]) {
-  if (typeof window === "undefined") return;
-  const all = readAllShipments();
-  all[contractId] = batches;
-  window.localStorage.setItem(SHIPMENTS_KEY, JSON.stringify(all));
-}
 
 const STATUS_COLORS: Record<ContractStatus, string> = {
   [ContractStatus.DrawingPending]:      "s-purple",
@@ -838,12 +809,18 @@ const PURPLE_BORDER = "var(--accent-mid)";
 function ShipmentsModal({
   task,
   unit,
+  contractId,
+  contractProductId,
+  departmentId,
   initialBatches,
   onChange,
   onCancel,
 }: {
   task: ContractTaskResponse;
   unit: string;
+  contractId: string;
+  contractProductId: string | null;
+  departmentId: string | null;
   initialBatches: ShipmentBatch[];
   onChange: (next: ShipmentBatch[]) => void;
   onCancel: () => void;
@@ -852,11 +829,13 @@ function ShipmentsModal({
   const [amount, setAmount] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [confirmAmount, setConfirmAmount] = useState<number | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const ready = task.completedAmount;
   const shipped = batches.reduce((s, b) => s + b.amount, 0);
   const available = Math.max(0, ready - shipped);
-  const nextBatchNo = batches.length + 1;
+  const nextBatchNo = (batches.length === 0 ? 0 : Math.max(...batches.map(b => b.batchNo))) + 1;
 
   const parsed = parseFloat(amount);
   const amountValid = !isNaN(parsed) && parsed > 0 && parsed <= available;
@@ -868,20 +847,30 @@ function ShipmentsModal({
     setConfirmAmount(parsed);
   };
 
-  const handleConfirmSend = () => {
-    if (confirmAmount === null) return;
-    const newBatch: ShipmentBatch = {
-      id: `b_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-      batchNo: nextBatchNo,
-      amount: confirmAmount,
-      createdAt: new Date().toISOString(),
-    };
-    const next = [...batches, newBatch];
-    setBatches(next);
-    onChange(next);
-    setAmount("");
-    setSubmitted(false);
-    setConfirmAmount(null);
+  const handleConfirmSend = async () => {
+    if (confirmAmount === null || submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const created = await shipmentBatchService.create({
+        contractId,
+        contractProductId,
+        departmentId,
+        amount: confirmAmount,
+      });
+      const next = [...batches, created].sort((a, b) => a.batchNo - b.batchNo);
+      setBatches(next);
+      onChange(next);
+      setAmount("");
+      setSubmitted(false);
+      setConfirmAmount(null);
+    } catch (e) {
+      const err = e as { response?: { data?: { errors?: string[] } } };
+      const msg = err?.response?.data?.errors?.[0] ?? "Saqlashda xatolik yuz berdi.";
+      setError(msg);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return createPortal(
@@ -990,11 +979,14 @@ function ShipmentsModal({
               {submitted && amount && !tooMuch && parsed <= 0 && (
                 <div style={{ color: "var(--danger)", fontSize: 12 }}>Miqdor 0 dan katta bo&apos;lsin</div>
               )}
+              {error && (
+                <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>{error}</div>
+              )}
             </div>
 
             <button
               onClick={handleAskSend}
-              disabled={available <= 0}
+              disabled={available <= 0 || submitting}
               style={{
                 marginTop: 10, width: "100%",
                 padding: "10px 14px", borderRadius: 8,
@@ -1025,29 +1017,54 @@ function ShipmentsModal({
               <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflowY: "auto" }}>
                 {[...batches].sort((a, b) => b.batchNo - a.batchNo).map(b => (
                   <div key={b.id} style={{
-                    display: "flex", alignItems: "center", gap: 10,
+                    display: "flex", flexDirection: "column", gap: 6,
                     padding: "9px 12px", borderRadius: 8,
                     background: "var(--surface2, var(--card-bg))",
                     border: `1px solid ${PURPLE_BORDER}`,
                     fontSize: 13,
                   }}>
-                    <span style={{
-                      display: "inline-flex", alignItems: "center", justifyContent: "center",
-                      minWidth: 30, height: 22, padding: "0 8px",
-                      borderRadius: 6, background: PURPLE, color: "#fff",
-                      fontSize: 11, fontWeight: 800, flexShrink: 0,
-                    }}>
-                      #{b.batchNo}
-                    </span>
-                    <span style={{ fontWeight: 700, color: PURPLE, flexShrink: 0 }}>
-                      {b.amount.toLocaleString()} <span style={{ color: "var(--text3)", fontWeight: 500, fontSize: 11 }}>{unit}</span>
-                    </span>
-                    <span className="mono" style={{ marginLeft: "auto", color: "var(--text3)", fontSize: 12 }}>
-                      {new Date(b.createdAt).toLocaleString("uz-UZ", {
-                        day: "2-digit", month: "2-digit", year: "numeric",
-                        hour: "2-digit", minute: "2-digit",
-                      })}
-                    </span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{
+                        display: "inline-flex", alignItems: "center", justifyContent: "center",
+                        minWidth: 30, height: 22, padding: "0 8px",
+                        borderRadius: 6, background: PURPLE, color: "#fff",
+                        fontSize: 11, fontWeight: 800, flexShrink: 0,
+                      }}>
+                        #{b.batchNo}
+                      </span>
+                      <span style={{ fontWeight: 700, color: PURPLE, flexShrink: 0 }}>
+                        {b.amount.toLocaleString()} <span style={{ color: "var(--text3)", fontWeight: 500, fontSize: 11 }}>{unit}</span>
+                      </span>
+                      <span className="mono" style={{ marginLeft: "auto", color: "var(--text3)", fontSize: 12 }}>
+                        {new Date(b.createdAt).toLocaleString("uz-UZ", {
+                          day: "2-digit", month: "2-digit", year: "numeric",
+                          hour: "2-digit", minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                    {(b.createdByFullName || b.departmentName) && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, fontSize: 12, color: "var(--text3)", paddingLeft: 2 }}>
+                        {b.createdByFullName && (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                              <circle cx="12" cy="7" r="4" />
+                            </svg>
+                            <span style={{ color: "var(--text2)" }}>{b.createdByFullName}</span>
+                          </span>
+                        )}
+                        {b.departmentName && (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M3 21h18" />
+                              <path d="M5 21V7l8-4v18" />
+                              <path d="M19 21V11l-6-4" />
+                            </svg>
+                            <span style={{ color: "var(--text2)" }}>{b.departmentName}</span>
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1083,31 +1100,47 @@ function ShipmentsModal({
                   <strong style={{ color: PURPLE }}>#{nextBatchNo}-jo&apos;natma</strong>{" "}
                   sifatida yubormoqchimisiz?
                 </p>
+                {error && (
+                  <div style={{
+                    marginTop: 12, padding: "8px 12px",
+                    borderRadius: 6, background: "var(--danger-dim)",
+                    border: "1px solid var(--danger)55",
+                    color: "var(--danger)", fontSize: 12,
+                  }}>
+                    {error}
+                  </div>
+                )}
               </div>
               <div className="modal-footer" style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                 <button
                   onClick={() => setConfirmAmount(null)}
+                  disabled={submitting}
                   style={{
                     padding: "8px 16px", borderRadius: 7,
                     background: "var(--danger-dim)",
                     border: "1px solid var(--danger)55",
                     color: "var(--danger)",
-                    fontSize: 13, fontWeight: 700, cursor: "pointer",
+                    fontSize: 13, fontWeight: 700,
+                    cursor: submitting ? "not-allowed" : "pointer",
+                    opacity: submitting ? 0.6 : 1,
                   }}
                 >
                   Yo&apos;q
                 </button>
                 <button
                   onClick={handleConfirmSend}
+                  disabled={submitting}
                   style={{
                     padding: "8px 16px", borderRadius: 7,
                     background: "#15803d",
                     border: "1px solid #15803d",
                     color: "#fff",
-                    fontSize: 13, fontWeight: 700, cursor: "pointer",
+                    fontSize: 13, fontWeight: 700,
+                    cursor: submitting ? "not-allowed" : "pointer",
+                    opacity: submitting ? 0.7 : 1,
                   }}
                 >
-                  Ha
+                  {submitting ? "Saqlanmoqda…" : "Ha"}
                 </button>
               </div>
             </div>
@@ -1427,14 +1460,18 @@ function TaskPanel({ scope, hideHeader }: { scope: Scope; hideHeader?: boolean }
     return () => { ignore = true; };
   }, [contract.id, productScopeId, product?.quantity, contract.products]);
 
-  // Load shipments for this contract from localStorage
+  // Load shipments for this scope (contract + product) from backend.
   useEffect(() => {
-    setShipments(getShipments(contract.id));
-  }, [contract.id]);
+    let ignore = false;
+    shipmentBatchService
+      .getByContract(contract.id, productScopeId ?? undefined)
+      .then(list => { if (!ignore) setShipments(list); })
+      .catch(() => { if (!ignore) setShipments([]); });
+    return () => { ignore = true; };
+  }, [contract.id, productScopeId]);
 
   const handleShipmentsChange = (next: ShipmentBatch[]) => {
     setShipments(next);
-    saveShipments(contract.id, next);
   };
 
   // Faqat shu scope-ga tegishli vazifalarni qaytaradi.
@@ -1753,15 +1790,22 @@ function TaskPanel({ scope, hideHeader }: { scope: Scope; hideHeader?: boolean }
       )}
 
       {/* Shipments modal (warehouse only) */}
-      {shipmentsTask && (
-        <ShipmentsModal
-          task={shipmentsTask}
-          unit={product?.unit ?? contract.products?.[0]?.unit ?? ""}
-          initialBatches={shipments}
-          onChange={handleShipmentsChange}
-          onCancel={() => setShipmentsId(null)}
-        />
-      )}
+      {shipmentsTask && (() => {
+        const productDepts = product?.departments ?? contract.products?.[0]?.departments ?? [];
+        const productionDept = productDepts.find(d => d.type === DepartmentType.IshlabChiqarish) ?? productDepts[0];
+        return (
+          <ShipmentsModal
+            task={shipmentsTask}
+            unit={product?.unit ?? contract.products?.[0]?.unit ?? ""}
+            contractId={contract.id}
+            contractProductId={productScopeId}
+            departmentId={productionDept?.id ?? null}
+            initialBatches={shipments}
+            onChange={handleShipmentsChange}
+            onCancel={() => setShipmentsId(null)}
+          />
+        );
+      })()}
 
       {/* Delete confirmation modal */}
       <ConfirmModal

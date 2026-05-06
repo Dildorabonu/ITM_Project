@@ -290,6 +290,7 @@ public class ManufacturedProductService : IManufacturedProductService
         DepartmentId = p.DepartmentId,
         DepartmentName = p.Department?.Name ?? string.Empty,
         ContractId = p.ContractId,
+        ContractProductId = p.ContractProductId,
         ContractNo = p.Contract?.ContractNo,
         StartedAt = p.StartedAt,
         CompletedAt = p.CompletedAt,
