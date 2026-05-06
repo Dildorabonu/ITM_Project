@@ -7,12 +7,18 @@ import {
   departmentService,
   ManufacturingStatus,
   MANUFACTURING_STATUS_LABELS,
+  ProductUnit,
   PRODUCT_UNIT_LABELS,
   type ManufacturedProductResponse,
   type ManufacturedProductStats,
+  type ManufacturedProductCreatePayload,
+  type ManufacturedProductUpdatePayload,
   type DepartmentOption,
 } from "@/lib/userService";
 import { CheckSelect } from "@/app/_components/CheckSelect";
+import { ConfirmModal } from "@/app/_components/ConfirmModal";
+import { useAuthStore } from "@/lib/store/authStore";
+import { useToastStore } from "@/lib/store/toastStore";
 import { shipmentBatchService, type ShipmentBatch } from "@/lib/shipments";
 
 const STATUS_FILTER_OPTIONS = [
@@ -20,6 +26,38 @@ const STATUS_FILTER_OPTIONS = [
   { id: String(ManufacturingStatus.InProgress), name: MANUFACTURING_STATUS_LABELS[ManufacturingStatus.InProgress] },
   { id: String(ManufacturingStatus.Completed),  name: MANUFACTURING_STATUS_LABELS[ManufacturingStatus.Completed] },
 ];
+
+const UNIT_OPTIONS = (Object.keys(PRODUCT_UNIT_LABELS) as unknown as ProductUnit[]).map(key => ({
+  id: String(key),
+  name: PRODUCT_UNIT_LABELS[key],
+}));
+
+const STATUS_OPTIONS = [
+  { id: String(ManufacturingStatus.InProgress), name: MANUFACTURING_STATUS_LABELS[ManufacturingStatus.InProgress] },
+  { id: String(ManufacturingStatus.Completed),  name: MANUFACTURING_STATUS_LABELS[ManufacturingStatus.Completed] },
+];
+
+interface ProductForm {
+  name: string;
+  code: string;
+  departmentId: string;
+  quantity: string;
+  producedQuantity: string;
+  unit: string;
+  status: string;
+  startedAt: string;
+  completedAt: string;
+  description: string;
+  notes: string;
+}
+
+const emptyForm: ProductForm = {
+  name: "", code: "", departmentId: "", quantity: "", producedQuantity: "0",
+  unit: String(ProductUnit.Dona), status: String(ManufacturingStatus.InProgress),
+  startedAt: "", completedAt: "", description: "", notes: "",
+};
+
+const isManualEntry = (p: ManufacturedProductResponse) => p.contractProductId === null;
 
 function StatusBadge({ status }: { status: ManufacturingStatus }) {
   const isCompleted = status === ManufacturingStatus.Completed;
@@ -65,6 +103,12 @@ function ProgressBar({ produced, total }: { produced: number; total: number }) {
 }
 
 export default function ManufacturedProductsPage() {
+  const hasPermission = useAuthStore(s => s.hasPermission);
+  const canCreate = hasPermission("ManufacturedProducts.Create");
+  const canUpdate = hasPermission("ManufacturedProducts.Update");
+  const canDelete = hasPermission("ManufacturedProducts.Delete");
+  const showToast = useToastStore(s => s.show);
+
   const [products, setProducts] = useState<ManufacturedProductResponse[]>([]);
   const [stats, setStats] = useState<ManufacturedProductStats>({ total: 0, inProgress: 0, completed: 0 });
   const [page, setPage] = useState(1);
@@ -82,11 +126,23 @@ export default function ManufacturedProductsPage() {
   const [viewBatches, setViewBatches] = useState<ShipmentBatch[]>([]);
   const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
 
+  // Create / Edit form drawer
+  const [showForm, setShowForm] = useState(false);
+  const [editTarget, setEditTarget] = useState<ManufacturedProductResponse | null>(null);
+  const [form, setForm] = useState<ProductForm>(emptyForm);
+  const [formSubmitted, setFormSubmitted] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+
+  // Delete confirm
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   useEffect(() => {
-    if (viewProduct) document.body.style.overflow = "hidden";
+    if (viewProduct || showForm) document.body.style.overflow = "hidden";
     else document.body.style.overflow = "";
     return () => { document.body.style.overflow = ""; };
-  }, [viewProduct]);
+  }, [viewProduct, showForm]);
 
   useEffect(() => {
     let ignore = false;
@@ -138,6 +194,116 @@ export default function ManufacturedProductsPage() {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [page, search, filterDept, filterStatus]);
+
+  /* ===== Form handlers ===== */
+  const openCreate = () => {
+    setEditTarget(null);
+    setForm(emptyForm);
+    setFormSubmitted(false);
+    setFormError("");
+    setShowForm(true);
+  };
+
+  const openEdit = (p: ManufacturedProductResponse) => {
+    setEditTarget(p);
+    setForm({
+      name: p.name,
+      code: p.code ?? "",
+      departmentId: p.departmentId,
+      quantity: String(p.quantity),
+      producedQuantity: String(p.producedQuantity),
+      unit: String(p.unit),
+      status: String(p.status),
+      startedAt: p.startedAt ? p.startedAt.slice(0, 10) : "",
+      completedAt: p.completedAt ? p.completedAt.slice(0, 10) : "",
+      description: p.description ?? "",
+      notes: p.notes ?? "",
+    });
+    setFormSubmitted(false);
+    setFormError("");
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    if (saving) return;
+    setShowForm(false);
+    setEditTarget(null);
+    setForm(emptyForm);
+    setFormSubmitted(false);
+    setFormError("");
+  };
+
+  const handleSave = async () => {
+    setFormSubmitted(true);
+    const qty = Number(form.quantity);
+    const produced = Number(form.producedQuantity || "0");
+
+    if (!form.name.trim() || !form.departmentId || !form.unit || !form.quantity ||
+        Number.isNaN(qty) || qty < 0 || Number.isNaN(produced) || produced < 0) {
+      return;
+    }
+    if (produced > qty) {
+      setFormError("Bajarilgan miqdor umumiy miqdordan ko'p bo'lishi mumkin emas.");
+      return;
+    }
+
+    setSaving(true);
+    setFormError("");
+    try {
+      const payload: ManufacturedProductCreatePayload = {
+        name: form.name.trim(),
+        code: form.code.trim() || null,
+        description: form.description.trim() || null,
+        quantity: qty,
+        producedQuantity: produced,
+        unit: Number(form.unit) as ProductUnit,
+        status: Number(form.status) as ManufacturingStatus,
+        departmentId: form.departmentId,
+        startedAt: form.startedAt || null,
+        completedAt: form.completedAt || null,
+        notes: form.notes.trim() || null,
+      };
+
+      if (editTarget) {
+        const updatePayload: ManufacturedProductUpdatePayload = { ...payload };
+        await manufacturedProductService.update(editTarget.id, updatePayload);
+        showToast("Mahsulot yangilandi");
+      } else {
+        await manufacturedProductService.create(payload);
+        showToast("Mahsulot qo'shildi");
+      }
+
+      setShowForm(false);
+      setEditTarget(null);
+      setForm(emptyForm);
+      await Promise.all([load(), loadStats()]);
+    } catch (e) {
+      const msg = (e as { response?: { data?: { errors?: string[]; message?: string } } })
+        ?.response?.data?.errors?.[0]
+        ?? (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+        ?? "Saqlashda xatolik yuz berdi.";
+      setFormError(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    setDeleting(true);
+    try {
+      await manufacturedProductService.delete(deleteId);
+      showToast("Mahsulot o'chirildi");
+      setDeleteId(null);
+      await Promise.all([load(), loadStats()]);
+    } catch (e) {
+      const msg = (e as { response?: { data?: { errors?: string[] } } })
+        ?.response?.data?.errors?.[0] ?? "O'chirishda xatolik yuz berdi.";
+      showToast(msg, "Xatolik");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   /* ===== List view ===== */
   return (
@@ -218,6 +384,27 @@ export default function ManufacturedProductsPage() {
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
           </svg>
         </button>
+        {canCreate && (
+          <button
+            onClick={openCreate}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "8px 14px", height: 36,
+              background: "var(--accent)", color: "#fff",
+              border: "none", borderRadius: "var(--radius)",
+              fontSize: 13, fontWeight: 600, cursor: "pointer",
+              transition: "background 0.15s ease",
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = "var(--accent2)")}
+            onMouseLeave={e => (e.currentTarget.style.background = "var(--accent)")}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Yangi mahsulot
+          </button>
+        )}
       </div>
 
       {/* Info banner — explains auto-derivation */}
@@ -234,6 +421,7 @@ export default function ManufacturedProductsPage() {
           Ushbu ro&apos;yxat avtomatik tarzda shartnoma vazifalaridan to&apos;ldiriladi.
           Vazifalarda ishlab chiqarish jarayoni boshlangan mahsulotlar shu yerda paydo bo&apos;ladi;
           shartnoma yakunlangan yoki bekor qilinganda ro&apos;yxatdan chiqib ketadi.
+          Shartnomadan tashqari mahsulotlarni esa &laquo;+ Yangi mahsulot&raquo; tugmasi orqali qo&apos;lda kiritish va keyinchalik tahrirlash mumkin.
         </span>
       </div>
 
@@ -292,6 +480,26 @@ export default function ManufacturedProductsPage() {
                             <circle cx="12" cy="12" r="3" />
                           </svg>
                         </button>
+                        {canUpdate && isManualEntry(p) && (
+                          <button className="btn-icon" title="Tahrirlash" onClick={() => openEdit(p)}
+                            style={{ color: "var(--accent)", borderColor: "var(--accent)33", background: "var(--accent-dim)" }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
+                          </button>
+                        )}
+                        {canDelete && isManualEntry(p) && (
+                          <button className="btn-icon" title="O'chirish" onClick={() => setDeleteId(p.id)}
+                            style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="3 6 5 6 21 6" />
+                              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                              <path d="M10 11v6M14 11v6" />
+                              <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+                            </svg>
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -559,6 +767,213 @@ export default function ManufacturedProductsPage() {
         </div>,
         document.body
       )}
+
+      {/* Create / Edit drawer */}
+      {showForm && createPortal(
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(2px)", zIndex: 1000, display: "flex", justifyContent: "flex-end" }}
+          onClick={closeForm}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: 640, maxWidth: "95vw", height: "calc(100vh - 32px)", margin: "16px 16px 16px 0",
+              background: "var(--bg2)", borderRadius: 14,
+              boxShadow: "-4px 0 32px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column",
+              padding: "28px 28px 24px", overflowY: "auto",
+              animation: "panel-appear 0.28s ease",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <span style={{ fontWeight: 700, fontSize: 17, color: "var(--text1)" }}>
+                {editTarget ? "Mahsulotni tahrirlash" : "Yangi mahsulot qo'shish"}
+              </span>
+              <button onClick={closeForm}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
+            </div>
+
+            {formError && (
+              <div style={{
+                marginBottom: 14, padding: "10px 14px",
+                background: "var(--danger-dim)", border: "1px solid var(--danger)33",
+                borderRadius: "var(--radius)", color: "var(--danger)", fontSize: 13,
+              }}>{formError}</div>
+            )}
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <FormField label="Mahsulot nomi" required error={formSubmitted && !form.name.trim()}>
+                <input
+                  value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  className="form-input"
+                  placeholder="Masalan: Maxsus paket"
+                />
+              </FormField>
+              <FormField label="Kod / Artikul">
+                <input
+                  value={form.code}
+                  onChange={e => setForm(f => ({ ...f, code: e.target.value }))}
+                  className="form-input"
+                  placeholder="Ixtiyoriy"
+                />
+              </FormField>
+
+              <FormField label="Bo'lim" required error={formSubmitted && !form.departmentId}>
+                <CheckSelect
+                  value={form.departmentId}
+                  onChange={v => setForm(f => ({ ...f, departmentId: v }))}
+                  options={departments.map(d => ({ id: d.id, name: d.name }))}
+                  placeholder="Bo'limni tanlang"
+                />
+              </FormField>
+              <FormField label="O'lchov birligi" required error={formSubmitted && !form.unit}>
+                <CheckSelect
+                  value={form.unit}
+                  onChange={v => setForm(f => ({ ...f, unit: v }))}
+                  options={UNIT_OPTIONS}
+                  placeholder="O'lchov"
+                />
+              </FormField>
+
+              <FormField label="Umumiy miqdor" required error={formSubmitted && (!form.quantity || Number(form.quantity) < 0)}>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={form.quantity}
+                  onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))}
+                  className="form-input"
+                  placeholder="0"
+                />
+              </FormField>
+              <FormField label="Bajarilgan miqdor">
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={form.producedQuantity}
+                  onChange={e => setForm(f => ({ ...f, producedQuantity: e.target.value }))}
+                  className="form-input"
+                  placeholder="0"
+                />
+              </FormField>
+
+              <FormField label="Holati">
+                <CheckSelect
+                  value={form.status}
+                  onChange={v => setForm(f => ({ ...f, status: v }))}
+                  options={STATUS_OPTIONS}
+                  placeholder="Holat"
+                />
+              </FormField>
+              <div />
+
+              <FormField label="Boshlangan sana">
+                <input
+                  type="date"
+                  value={form.startedAt}
+                  onChange={e => setForm(f => ({ ...f, startedAt: e.target.value }))}
+                  className="form-input"
+                />
+              </FormField>
+              <FormField label="Tugallangan sana">
+                <input
+                  type="date"
+                  value={form.completedAt}
+                  onChange={e => setForm(f => ({ ...f, completedAt: e.target.value }))}
+                  className="form-input"
+                />
+              </FormField>
+
+              <div style={{ gridColumn: "1 / -1" }}>
+                <FormField label="Tavsif">
+                  <textarea
+                    value={form.description}
+                    onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                    className="form-input"
+                    rows={2}
+                    style={{ resize: "vertical", minHeight: 60 }}
+                    placeholder="Mahsulot haqida qisqacha"
+                  />
+                </FormField>
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <FormField label="Izoh">
+                  <textarea
+                    value={form.notes}
+                    onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                    className="form-input"
+                    rows={2}
+                    style={{ resize: "vertical", minHeight: 60 }}
+                    placeholder="Ichki eslatma"
+                  />
+                </FormField>
+              </div>
+            </div>
+
+            <div style={{
+              display: "flex", justifyContent: "flex-end", gap: 10,
+              marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--border)",
+            }}>
+              <button
+                onClick={closeForm}
+                disabled={saving}
+                style={{
+                  padding: "8px 18px", borderRadius: "var(--radius)",
+                  border: "1.5px solid var(--border2)", background: "transparent",
+                  color: "var(--text2)", fontSize: 13, fontWeight: 500,
+                  cursor: saving ? "not-allowed" : "pointer",
+                }}
+              >
+                Bekor qilish
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                style={{
+                  padding: "8px 22px", borderRadius: "var(--radius)",
+                  border: "none", background: "var(--accent)",
+                  color: "#fff", fontSize: 13, fontWeight: 600,
+                  cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1,
+                }}
+              >
+                {saving ? "Saqlanmoqda..." : editTarget ? "Saqlash" : "Qo'shish"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      <ConfirmModal
+        open={!!deleteId}
+        title="Mahsulotni o'chirish"
+        message="Bu mahsulot ro'yxatdan butunlay o'chiriladi. Davom etasizmi?"
+        loading={deleting}
+        onConfirm={handleDelete}
+        onCancel={() => !deleting && setDeleteId(null)}
+      />
+    </div>
+  );
+}
+
+function FormField({
+  label, required, error, children,
+}: {
+  label: string;
+  required?: boolean;
+  error?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <label style={{
+        fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5,
+        color: error ? "var(--danger)" : "var(--text3)",
+      }}>
+        {label}{required && <span style={{ color: "var(--danger)" }}> *</span>}
+      </label>
+      {children}
     </div>
   );
 }
