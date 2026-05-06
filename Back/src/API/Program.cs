@@ -168,6 +168,14 @@ namespace API
                     await syncService.SyncForContractAsync(cid);
             }
 
+            // ActivityLog jadvali bo'sh bo'lsa — mavjud yozuvlardan bir marta to'ldiramiz.
+            using (var scope = app.Services.CreateScope())
+            {
+                var ctx = scope.ServiceProvider.GetRequiredService<DatabaseContext>();
+                if (!await ctx.ActivityLogs.AnyAsync())
+                    await ActivityLogBackfill.RunAsync(ctx);
+            }
+
             // Pre-warm user lookup cache so first request is instant
             using (var scope = app.Services.CreateScope())
             {

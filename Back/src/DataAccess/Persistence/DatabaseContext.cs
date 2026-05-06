@@ -38,6 +38,7 @@ public class DatabaseContext : DbContext
     public DbSet<RequisitionItem> RequisitionItems { get; set; }
     public DbSet<ManufacturedProduct> ManufacturedProducts { get; set; }
     public DbSet<ShipmentBatch> ShipmentBatches { get; set; }
+    public DbSet<ActivityLog> ActivityLogs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
