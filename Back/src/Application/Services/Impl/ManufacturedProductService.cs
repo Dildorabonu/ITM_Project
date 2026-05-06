@@ -31,8 +31,9 @@ public class ManufacturedProductService : IManufacturedProductService
             .Include(p => p.Contract)
             .Include(p => p.Creator)
             .AsNoTracking()
-            // Auto-derived ro'yxat — har bir yozuv ContractProduct bilan bog'langan bo'lishi shart.
-            .Where(p => p.ContractProductId != null);
+            // Auto-derived (ContractProductId != null) yoki qo'lda kiritilgan (kontraktga
+            // umuman bog'lanmagan) yozuvlar — orphan auto-rows ko'rinmasligi uchun aniq filter.
+            .Where(p => p.ContractProductId != null || p.ContractId == null);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -68,7 +69,7 @@ public class ManufacturedProductService : IManufacturedProductService
     {
         var grouped = await _context.ManufacturedProducts
             .AsNoTracking()
-            .Where(p => p.ContractProductId != null)
+            .Where(p => p.ContractProductId != null || p.ContractId == null)
             .GroupBy(p => p.Status)
             .Select(g => new { Status = g.Key, Count = g.Count() })
             .ToListAsync();
@@ -98,19 +99,155 @@ public class ManufacturedProductService : IManufacturedProductService
         return ApiResult<ManufacturedProductResponseDto>.Success(MapToResponse(product));
     }
 
-    // ─── Write operations — disabled (auto-managed) ──────────────────────────
+    // ─── Write operations ────────────────────────────────────────────────────
+    // Faqat qo'lda kiritilgan yozuvlar uchun (ContractProductId == null). Auto-derived
+    // yozuvlar shartnoma jarayoni orqali boshqariladi va to'g'ridan-to'g'ri tahrir/o'chirish
+    // qilib bo'lmaydi.
 
-    public System.Threading.Tasks.Task<ApiResult<int>> CreateAsync(ManufacturedProductCreateDto dto, Guid userId)
-        => System.Threading.Tasks.Task.FromResult(ApiResult<int>.Failure(
-            ["Mahsulotlar shartnoma vazifalaridan avtomatik tushadi — qo'lda qo'shib bo'lmaydi."]));
+    public async Task<ApiResult<int>> CreateAsync(ManufacturedProductCreateDto dto, Guid userId)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Name))
+            return ApiResult<int>.Failure(["Mahsulot nomi bo'sh bo'lishi mumkin emas."]);
 
-    public System.Threading.Tasks.Task<ApiResult<int>> UpdateAsync(Guid id, ManufacturedProductUpdateDto dto)
-        => System.Threading.Tasks.Task.FromResult(ApiResult<int>.Failure(
-            ["Tayyor mahsulot avtomatik tarzda shartnoma jarayonidan boshqariladi — tahrirlab bo'lmaydi."]));
+        if (dto.DepartmentId == Guid.Empty)
+            return ApiResult<int>.Failure(["Bo'lim tanlanishi shart."]);
 
-    public System.Threading.Tasks.Task<ApiResult<int>> DeleteAsync(Guid id)
-        => System.Threading.Tasks.Task.FromResult(ApiResult<int>.Failure(
-            ["Tayyor mahsulotni qo'lda o'chirib bo'lmaydi — shartnoma holati o'zgartirilsa, ro'yxatdan avtomatik chiqadi."]));
+        var departmentExists = await _context.Departments.AnyAsync(d => d.Id == dto.DepartmentId);
+        if (!departmentExists)
+            return ApiResult<int>.Failure(["Tanlangan bo'lim topilmadi."]);
+
+        if (dto.Quantity < 0 || dto.ProducedQuantity < 0)
+            return ApiResult<int>.Failure(["Miqdor manfiy bo'lishi mumkin emas."]);
+
+        if (dto.ProducedQuantity > dto.Quantity)
+            return ApiResult<int>.Failure(["Bajarilgan miqdor umumiy miqdordan ko'p bo'lishi mumkin emas."]);
+
+        var status = dto.ProducedQuantity >= dto.Quantity && dto.Quantity > 0
+            ? ManufacturingStatus.Completed
+            : dto.Status;
+
+        var entity = new ManufacturedProduct
+        {
+            Id = Guid.NewGuid(),
+            Name = dto.Name.Trim(),
+            Code = string.IsNullOrWhiteSpace(dto.Code) ? null : dto.Code.Trim(),
+            Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim(),
+            Quantity = dto.Quantity,
+            ProducedQuantity = dto.ProducedQuantity,
+            Unit = dto.Unit,
+            Status = status,
+            DepartmentId = dto.DepartmentId,
+            // Qo'lda kiritilgan yozuv hech qachon shartnomaga bog'lanmaydi —
+            // GetAllAsync filter va sync mantig'i shu qoidaga tayanadi.
+            ContractId = null,
+            ContractProductId = null,
+            StartedAt = dto.StartedAt,
+            CompletedAt = status == ManufacturingStatus.Completed
+                ? dto.CompletedAt ?? DateTime.UtcNow
+                : null,
+            Notes = string.IsNullOrWhiteSpace(dto.Notes) ? null : dto.Notes.Trim(),
+            CreatedBy = userId,
+            CreatedAt = DateTime.UtcNow,
+        };
+
+        _context.ManufacturedProducts.Add(entity);
+        await _context.SaveChangesAsync();
+
+        return ApiResult<int>.Success(201);
+    }
+
+    public async Task<ApiResult<int>> UpdateAsync(Guid id, ManufacturedProductUpdateDto dto)
+    {
+        var entity = await _context.ManufacturedProducts.FirstOrDefaultAsync(p => p.Id == id);
+        if (entity is null)
+            return ApiResult<int>.Failure([$"Tayyor mahsulot '{id}' topilmadi."]);
+
+        if (entity.ContractProductId != null)
+            return ApiResult<int>.Failure(
+                ["Bu yozuv shartnoma vazifalaridan avtomatik boshqariladi — qo'lda tahrirlab bo'lmaydi."]);
+
+        if (dto.Name != null)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Name))
+                return ApiResult<int>.Failure(["Mahsulot nomi bo'sh bo'lishi mumkin emas."]);
+            entity.Name = dto.Name.Trim();
+        }
+
+        if (dto.Code != null)
+            entity.Code = string.IsNullOrWhiteSpace(dto.Code) ? null : dto.Code.Trim();
+
+        if (dto.Description != null)
+            entity.Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim();
+
+        if (dto.Quantity.HasValue)
+        {
+            if (dto.Quantity.Value < 0)
+                return ApiResult<int>.Failure(["Miqdor manfiy bo'lishi mumkin emas."]);
+            entity.Quantity = dto.Quantity.Value;
+        }
+
+        if (dto.ProducedQuantity.HasValue)
+        {
+            if (dto.ProducedQuantity.Value < 0)
+                return ApiResult<int>.Failure(["Bajarilgan miqdor manfiy bo'lishi mumkin emas."]);
+            entity.ProducedQuantity = dto.ProducedQuantity.Value;
+        }
+
+        if (entity.ProducedQuantity > entity.Quantity)
+            return ApiResult<int>.Failure(["Bajarilgan miqdor umumiy miqdordan ko'p bo'lishi mumkin emas."]);
+
+        if (dto.Unit.HasValue)
+            entity.Unit = dto.Unit.Value;
+
+        if (dto.DepartmentId.HasValue)
+        {
+            if (dto.DepartmentId.Value == Guid.Empty)
+                return ApiResult<int>.Failure(["Bo'lim tanlanishi shart."]);
+            var departmentExists = await _context.Departments.AnyAsync(d => d.Id == dto.DepartmentId.Value);
+            if (!departmentExists)
+                return ApiResult<int>.Failure(["Tanlangan bo'lim topilmadi."]);
+            entity.DepartmentId = dto.DepartmentId.Value;
+        }
+
+        if (dto.Status.HasValue)
+            entity.Status = dto.Status.Value;
+
+        // Auto-finalize: agar bajarilgan miqdor umumiyga teng bo'lsa, holatni Completed ga o'tkazamiz.
+        if (entity.Quantity > 0 && entity.ProducedQuantity >= entity.Quantity)
+            entity.Status = ManufacturingStatus.Completed;
+
+        if (dto.StartedAt != null)
+            entity.StartedAt = dto.StartedAt;
+
+        if (dto.CompletedAt != null)
+            entity.CompletedAt = dto.CompletedAt;
+
+        if (entity.Status == ManufacturingStatus.Completed && entity.CompletedAt is null)
+            entity.CompletedAt = DateTime.UtcNow;
+        else if (entity.Status != ManufacturingStatus.Completed)
+            entity.CompletedAt = null;
+
+        if (dto.Notes != null)
+            entity.Notes = string.IsNullOrWhiteSpace(dto.Notes) ? null : dto.Notes.Trim();
+
+        await _context.SaveChangesAsync();
+        return ApiResult<int>.Success(200);
+    }
+
+    public async Task<ApiResult<int>> DeleteAsync(Guid id)
+    {
+        var entity = await _context.ManufacturedProducts.FirstOrDefaultAsync(p => p.Id == id);
+        if (entity is null)
+            return ApiResult<int>.Failure([$"Tayyor mahsulot '{id}' topilmadi."]);
+
+        if (entity.ContractProductId != null)
+            return ApiResult<int>.Failure(
+                ["Bu yozuv shartnoma vazifalaridan avtomatik boshqariladi — qo'lda o'chirib bo'lmaydi."]);
+
+        _context.ManufacturedProducts.Remove(entity);
+        await _context.SaveChangesAsync();
+        return ApiResult<int>.Success(200);
+    }
 
     // ─── Sync ────────────────────────────────────────────────────────────────
 
