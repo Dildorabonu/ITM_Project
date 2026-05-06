@@ -4,122 +4,56 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useAuthStore } from "@/lib/store/authStore";
 import {
-  type PagedResult,
-  type UserResponse,
-  type DepartmentResponse,
-  type ContractResponse,
+  dashboardService,
+  type DashboardSummary,
+  type ProductionTrendPoint,
+  type DepartmentWorkload,
+  type HeatmapCell,
+  type ContractStatusBucket,
+  type ManufacturingProgress,
+  type UpcomingDeadline,
+  type TopPerformer,
+  type RecentActivity,
+} from "@/lib/dashboardService";
+import {
   ContractStatus,
+  Priority,
   DepartmentType,
-  userService,
-  departmentService,
-  contractService,
-  roleService,
+  ManufacturingStatus,
+  ProductUnit,
 } from "@/lib/userService";
 
-/* ───── Icons (SVG) ───── */
+/* ═══════════════════════════════════════════════════════════════════
+   ICONS
+═══════════════════════════════════════════════════════════════════ */
 
-function SunIcon() {
-  return (
-    <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-      <circle cx="12" cy="12" r="4" fill="currentColor" opacity="0.9" />
-      <g stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-        <line x1="12" y1="1" x2="12" y2="3" />
-        <line x1="12" y1="21" x2="12" y2="23" />
-        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-        <line x1="1" y1="12" x2="3" y2="12" />
-        <line x1="21" y1="12" x2="23" y2="12" />
-        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-      </g>
-    </svg>
-  );
-}
+const Ico = {
+  Sun:    () => <svg width="32" height="32" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4" fill="currentColor" opacity="0.9" /><g stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" /></g></svg>,
+  Moon:   () => <svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="currentColor" opacity="0.85" /></svg>,
+  Sunset: () => <svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M17 18a5 5 0 1 0-10 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="currentColor" opacity="0.15" /><line x1="12" y1="9" x2="12" y2="3" stroke="currentColor" strokeWidth="1.5" /><line x1="4.22" y1="10.22" x2="5.64" y2="11.64" stroke="currentColor" strokeWidth="1.5" /><line x1="1" y1="18" x2="3" y2="18" stroke="currentColor" strokeWidth="1.5" /><line x1="21" y1="18" x2="23" y2="18" stroke="currentColor" strokeWidth="1.5" /><line x1="18.36" y1="11.64" x2="19.78" y2="10.22" stroke="currentColor" strokeWidth="1.5" /><line x1="1" y1="22" x2="23" y2="22" stroke="currentColor" strokeWidth="1.5" /></svg>,
+  Sunrise:() => <svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M17 18a5 5 0 1 0-10 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="currentColor" opacity="0.15" /><line x1="12" y1="3" x2="12" y2="9" stroke="currentColor" strokeWidth="1.5" /><polyline points="8 6 12 2 16 6" stroke="currentColor" strokeWidth="1.5" fill="none" /><line x1="4.22" y1="10.22" x2="5.64" y2="11.64" stroke="currentColor" strokeWidth="1.5" /><line x1="1" y1="18" x2="3" y2="18" stroke="currentColor" strokeWidth="1.5" /><line x1="21" y1="18" x2="23" y2="18" stroke="currentColor" strokeWidth="1.5" /><line x1="18.36" y1="11.64" x2="19.78" y2="10.22" stroke="currentColor" strokeWidth="1.5" /><line x1="1" y1="22" x2="23" y2="22" stroke="currentColor" strokeWidth="1.5" /></svg>,
+  ArrowRight: () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7" /></svg>,
+  TrendUp:    () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>,
+  TrendDown:  () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6" /><polyline points="17 18 23 18 23 12" /></svg>,
+  Calendar:   () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>,
+  Clock:      () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>,
+  Activity:   () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>,
+  Layers:     () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" /></svg>,
+  Factory:    () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M2 20V8l5 4V8l5 4V8l5 4V4h3v16z" /><line x1="9" y1="20" x2="9" y2="16" /><line x1="14" y1="20" x2="14" y2="16" /></svg>,
+  Truck:      () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" /><polygon points="16 8 20 8 23 11 23 16 16 16 16 8" /><circle cx="5.5" cy="18.5" r="2.5" /><circle cx="18.5" cy="18.5" r="2.5" /></svg>,
+  Users:      () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>,
+  File:       () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>,
+  CheckCircle:() => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>,
+  Alert:      () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>,
+  Box:        () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></svg>,
+  Building:   () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" /></svg>,
+  Zap:        () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>,
+  Trophy:     () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 22a7 7 0 1 0 4 0" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2z" /></svg>,
+};
 
-function MoonIcon() {
-  return (
-    <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="currentColor" opacity="0.85" />
-    </svg>
-  );
-}
-
-function SunsetIcon() {
-  return (
-    <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-      <path d="M17 18a5 5 0 1 0-10 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="currentColor" opacity="0.15" />
-      <line x1="12" y1="9" x2="12" y2="3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="4.22" y1="10.22" x2="5.64" y2="11.64" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="1" y1="18" x2="3" y2="18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="21" y1="18" x2="23" y2="18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="18.36" y1="11.64" x2="19.78" y2="10.22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="1" y1="22" x2="23" y2="22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function SunriseIcon() {
-  return (
-    <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-      <path d="M17 18a5 5 0 1 0-10 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="currentColor" opacity="0.15" />
-      <line x1="12" y1="3" x2="12" y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <polyline points="8 6 12 2 16 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-      <line x1="4.22" y1="10.22" x2="5.64" y2="11.64" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="1" y1="18" x2="3" y2="18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="21" y1="18" x2="23" y2="18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="18.36" y1="11.64" x2="19.78" y2="10.22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="1" y1="22" x2="23" y2="22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function ArrowRightIcon() {
-  return <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7" /></svg>;
-}
-function UsersSmIcon() {
-  return <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>;
-}
-function DeptSmIcon() {
-  return <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" /></svg>;
-}
-function ContractSmIcon() {
-  return <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>;
-}
-function RoleSmIcon() {
-  return <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>;
-}
-function TrendUpIcon() {
-  return <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>;
-}
-function CalendarIcon() {
-  return <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>;
-}
-function ActivityIcon() {
-  return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>;
-}
-function ClockIcon() {
-  return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>;
-}
-function AlertTriangleIcon() {
-  return <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>;
-}
-function BarChart2Icon() {
-  return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>;
-}
-function CheckCircleIcon() {
-  return <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>;
-}
-function LayersIcon() {
-  return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" /></svg>;
-}
-function CheckSmIcon() {
-  return <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" /></svg>;
-}
-function XSmIcon() {
-  return <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>;
-}
-
-/* ───── Animated Background (floating orbs) ───── */
+/* ═══════════════════════════════════════════════════════════════════
+   ANIMATED BG (canvas orbs)
+═══════════════════════════════════════════════════════════════════ */
 
 function AnimatedBg() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -131,35 +65,30 @@ function AnimatedBg() {
     if (!ctx) return;
 
     let raf: number;
-    let w = 0;
-    let h = 0;
+    let w = 0, h = 0;
 
-    const orbs = Array.from({ length: 6 }, (_, i) => ({
+    const orbs = Array.from({ length: 7 }, (_, i) => ({
       x: Math.random(),
       y: Math.random(),
-      r: 80 + Math.random() * 120,
-      vx: (Math.random() - 0.5) * 0.0003,
-      vy: (Math.random() - 0.5) * 0.0003,
-      hue: [210, 230, 250, 190, 270, 220][i],
-      alpha: 0.04 + Math.random() * 0.03,
+      r: 100 + Math.random() * 140,
+      vx: (Math.random() - 0.5) * 0.0004,
+      vy: (Math.random() - 0.5) * 0.0004,
+      hue: [210, 230, 250, 190, 270, 220, 200][i],
+      alpha: 0.04 + Math.random() * 0.04,
     }));
 
     function resize() {
-      w = canvas!.offsetWidth;
-      h = canvas!.offsetHeight;
-      canvas!.width = w * 0.5;
-      canvas!.height = h * 0.5;
+      w = canvas!.offsetWidth; h = canvas!.offsetHeight;
+      canvas!.width = w * 0.5; canvas!.height = h * 0.5;
       ctx!.scale(0.5, 0.5);
     }
 
     function draw() {
       ctx!.clearRect(0, 0, w, h);
       for (const o of orbs) {
-        o.x += o.vx;
-        o.y += o.vy;
+        o.x += o.vx; o.y += o.vy;
         if (o.x < -0.1 || o.x > 1.1) o.vx *= -1;
         if (o.y < -0.1 || o.y > 1.1) o.vy *= -1;
-
         const grd = ctx!.createRadialGradient(o.x * w, o.y * h, 0, o.x * w, o.y * h, o.r);
         grd.addColorStop(0, `hsla(${o.hue}, 80%, 60%, ${o.alpha})`);
         grd.addColorStop(1, `hsla(${o.hue}, 80%, 60%, 0)`);
@@ -171,66 +100,47 @@ function AnimatedBg() {
       raf = requestAnimationFrame(draw);
     }
 
-    resize();
-    draw();
+    resize(); draw();
     window.addEventListener("resize", resize);
     return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", resize); };
   }, []);
 
-  return <canvas ref={canvasRef} className="nd-animated-bg" />;
+  return <canvas ref={canvasRef} className="dx-animated-bg" />;
 }
 
-/* ───── Animated Counter Hook ───── */
+/* ═══════════════════════════════════════════════════════════════════
+   COUNT-UP HOOK
+═══════════════════════════════════════════════════════════════════ */
 
-function useCountUp(target: number, duration = 1200) {
+function useCountUp(target: number, duration = 1100): number {
   const [val, setVal] = useState(0);
   const rafRef = useRef<number>(0);
 
   useEffect(() => {
     if (target === 0) { setVal(0); return; }
     const start = performance.now();
+    const startVal = val;
     const tick = (now: number) => {
       const t = Math.min((now - start) / duration, 1);
       const ease = 1 - Math.pow(1 - t, 3);
-      setVal(Math.round(ease * target));
+      setVal(Math.round(startVal + (target - startVal) * ease));
       if (t < 1) rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target, duration]);
 
   return val;
 }
 
-/* ───── Progress Ring ───── */
+/* ═══════════════════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════════════════ */
 
-function ProgressRing({ value, max, label, color, size = 90 }: { value: number; max: number; label: string; color: string; size?: number }) {
-  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
-  const r = (size - 8) / 2;
-  const circ = 2 * Math.PI * r;
-  const offset = circ - (pct / 100) * circ;
-
-  return (
-    <div className="nd-ring-item">
-      <svg width={size} height={size} className="nd-ring-svg">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--border)" strokeWidth="6" />
-        <circle
-          cx={size / 2} cy={size / 2} r={r}
-          fill="none" className={`nd-ring-progress ${color}`}
-          strokeWidth="6" strokeLinecap="round"
-          strokeDasharray={circ}
-          strokeDashoffset={offset}
-        />
-      </svg>
-      <div className="nd-ring-center">
-        <span className="nd-ring-pct">{pct}%</span>
-      </div>
-      <div className="nd-ring-label">{label}</div>
-    </div>
-  );
-}
-
-/* ───── Helpers ───── */
+const UZ_MONTHS_SHORT = ["yan","fev","mar","apr","may","iyn","iyl","avg","sen","okt","noy","dek"];
+const UZ_MONTHS = ["yanvar","fevral","mart","aprel","may","iyun","iyul","avgust","sentyabr","oktyabr","noyabr","dekabr"];
+const UZ_WEEKDAYS = ["yakshanba","dushanba","seshanba","chorshanba","payshanba","juma","shanba"];
 
 function getGreeting(): { text: string; icon: "sunrise" | "sun" | "sunset" | "moon" } {
   const h = new Date().getHours();
@@ -240,483 +150,960 @@ function getGreeting(): { text: string; icon: "sunrise" | "sun" | "sunset" | "mo
   return { text: "Xayrli kech", icon: "sunset" };
 }
 
-const UZ_MONTHS = ["yanvar","fevral","mart","aprel","may","iyun","iyul","avgust","sentyabr","oktyabr","noyabr","dekabr"];
-const UZ_MONTHS_SHORT = ["yan","fev","mar","apr","may","iyn","iyl","avg","sen","okt","noy","dek"];
-const UZ_WEEKDAYS = ["yakshanba","dushanba","seshanba","chorshanba","payshanba","juma","shanba"];
-
-function formatUzDate(d: Date, format: "full" | "short" | "numeric" = "full"): string {
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = d.getMonth();
-  const year = d.getFullYear();
-  if (format === "numeric") return `${day}.${String(month + 1).padStart(2, "0")}.${year}`;
-  if (format === "short") return `${day}-${UZ_MONTHS_SHORT[month]} ${year}`;
-  return `${d.getDate()}-${UZ_MONTHS[month]} ${year}-yil, ${UZ_WEEKDAYS[d.getDay()]}`;
-}
-
 function getGreetingIcon(icon: string) {
   switch (icon) {
-    case "sunrise": return <SunriseIcon />;
-    case "sun":     return <SunIcon />;
-    case "sunset":  return <SunsetIcon />;
-    case "moon":    return <MoonIcon />;
-    default:        return <SunIcon />;
+    case "sunrise": return <Ico.Sunrise />;
+    case "sun":     return <Ico.Sun />;
+    case "sunset":  return <Ico.Sunset />;
+    case "moon":    return <Ico.Moon />;
+    default:        return <Ico.Sun />;
   }
 }
 
-function daysUntil(dateStr: string): number {
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const target = new Date(dateStr);
-  target.setHours(0, 0, 0, 0);
-  return Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+function formatUzDate(d: Date, format: "full" | "short" = "full") {
+  const day = d.getDate();
+  if (format === "short") return `${String(day).padStart(2, "0")}-${UZ_MONTHS_SHORT[d.getMonth()]}`;
+  return `${day}-${UZ_MONTHS[d.getMonth()]} ${d.getFullYear()}-yil, ${UZ_WEEKDAYS[d.getDay()]}`;
 }
 
-function deadlineUrgency(days: number): "critical" | "warn" | "normal" | "passed" {
+function formatNum(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 10_000)    return `${Math.round(n / 1000)}k`;
+  if (n >= 1_000)     return `${(n / 1000).toFixed(1)}k`;
+  return Math.round(n).toString();
+}
+
+function pctChange(curr: number, prev: number): { pct: number; dir: "up" | "down" | "flat" } {
+  if (prev === 0) return { pct: curr > 0 ? 100 : 0, dir: curr > 0 ? "up" : "flat" };
+  const change = ((curr - prev) / prev) * 100;
+  return { pct: Math.abs(Math.round(change)), dir: change > 0.5 ? "up" : change < -0.5 ? "down" : "flat" };
+}
+
+function priorityLabel(p: Priority): string {
+  switch (p) {
+    case Priority.Low:    return "Past";
+    case Priority.Medium: return "O'rta";
+    case Priority.High:   return "Yuqori";
+    case Priority.Urgent: return "Shoshilinch";
+    default: return "—";
+  }
+}
+
+function priorityClass(p: Priority): string {
+  switch (p) {
+    case Priority.Urgent: return "danger";
+    case Priority.High:   return "warn";
+    case Priority.Medium: return "accent";
+    default:              return "neutral";
+  }
+}
+
+function unitLabel(u: ProductUnit): string {
+  return ["dona","kg","g","l","m","m²","m³","quti","paket","to'plam"][u] || "";
+}
+
+function deadlineUrgency(days: number): "passed" | "critical" | "warn" | "normal" {
   if (days < 0) return "passed";
   if (days <= 3) return "critical";
   if (days <= 10) return "warn";
   return "normal";
 }
 
-/* ───── Page ───── */
+function statusClass(s: ContractStatus): string {
+  switch (s) {
+    case ContractStatus.DrawingPending: return "indigo";
+    case ContractStatus.TechProcessing: return "violet";
+    case ContractStatus.InProduction:   return "emerald";
+    case ContractStatus.Completed:      return "success";
+    case ContractStatus.Cancelled:      return "danger";
+    default:                            return "neutral";
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   DUAL AREA CHART (production + shipment)
+═══════════════════════════════════════════════════════════════════ */
+
+function DualAreaChart({
+  prod, ship, height = 240,
+}: {
+  prod: ProductionTrendPoint[];
+  ship: ProductionTrendPoint[];
+  height?: number;
+}) {
+  const [hover, setHover] = useState<number | null>(null);
+  const data = prod.map((p, i) => ({ date: p.date, prod: p.amount, ship: ship[i]?.amount ?? 0 }));
+  if (data.length === 0) return null;
+
+  const W = 800;
+  const H = height;
+  const padL = 44, padR = 14, padT = 18, padB = 28;
+  const cw = W - padL - padR;
+  const ch = H - padT - padB;
+  const maxVal = Math.max(1, ...data.map(d => Math.max(d.prod, d.ship)));
+
+  const xAt = (i: number) => padL + (i / Math.max(1, data.length - 1)) * cw;
+  const yAt = (v: number) => padT + ch - (v / maxVal) * ch;
+
+  const buildSmooth = (key: "prod" | "ship") => {
+    const pts = data.map((d, i) => ({ x: xAt(i), y: yAt(d[key]) }));
+    let p = `M${pts[0].x},${pts[0].y}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] || pts[i];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[i + 2] || p2;
+      p += ` C${p1.x + (p2.x - p0.x) / 6},${p1.y + (p2.y - p0.y) / 6} ${p2.x - (p3.x - p1.x) / 6},${p2.y - (p3.y - p1.y) / 6} ${p2.x},${p2.y}`;
+    }
+    return p;
+  };
+
+  const prodLine = buildSmooth("prod");
+  const shipLine = buildSmooth("ship");
+  const prodArea = `${prodLine} L${xAt(data.length - 1)},${padT + ch} L${padL},${padT + ch} Z`;
+  const shipArea = `${shipLine} L${xAt(data.length - 1)},${padT + ch} L${padL},${padT + ch} Z`;
+
+  const grid = 4;
+  const xLabelCount = Math.min(data.length, 10);
+  const step = Math.max(1, Math.floor(data.length / xLabelCount));
+
+  return (
+    <div className="dx-chart-wrap" style={{ position: "relative" }}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="dx-chart-svg">
+        <defs>
+          <linearGradient id="dxGradProd" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"  stopColor="var(--accent)" stopOpacity="0.45" />
+            <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id="dxGradShip" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"  stopColor="var(--success)" stopOpacity="0.40" />
+            <stop offset="100%" stopColor="var(--success)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        {Array.from({ length: grid + 1 }).map((_, i) => {
+          const v = (maxVal / grid) * i;
+          const y = padT + ch - (v / maxVal) * ch;
+          return (
+            <g key={i}>
+              <line x1={padL} y1={y} x2={W - padR} y2={y}
+                stroke="var(--border)" strokeWidth="1" strokeDasharray="3,4" opacity="0.55" />
+              <text x={padL - 8} y={y + 3.5} textAnchor="end"
+                fill="var(--text3)" fontSize="10">{formatNum(v)}</text>
+            </g>
+          );
+        })}
+
+        <path d={prodArea} fill="url(#dxGradProd)" />
+        <path d={shipArea} fill="url(#dxGradShip)" />
+        <path d={prodLine} fill="none" stroke="var(--accent)" strokeWidth="2.4" strokeLinejoin="round" />
+        <path d={shipLine} fill="none" stroke="var(--success)" strokeWidth="2.4" strokeLinejoin="round" strokeDasharray="0" />
+
+        {data.map((d, i) => {
+          if (i % step !== 0 && i !== data.length - 1) return null;
+          const x = xAt(i);
+          const date = new Date(d.date);
+          return (
+            <text key={i} x={x} y={H - 8} textAnchor="middle" fill="var(--text3)" fontSize="10">
+              {`${date.getDate()}/${date.getMonth() + 1}`}
+            </text>
+          );
+        })}
+
+        {hover !== null && (
+          <g>
+            <line x1={xAt(hover)} y1={padT} x2={xAt(hover)} y2={padT + ch}
+              stroke="var(--text3)" strokeWidth="1" strokeDasharray="3,3" opacity="0.5" />
+            <circle cx={xAt(hover)} cy={yAt(data[hover].prod)} r="3.5"
+              fill="var(--surface)" stroke="var(--accent)" strokeWidth="2" />
+            <circle cx={xAt(hover)} cy={yAt(data[hover].ship)} r="3.5"
+              fill="var(--surface)" stroke="var(--success)" strokeWidth="2" />
+          </g>
+        )}
+
+        {data.map((_, i) => {
+          const x = xAt(i);
+          const w = cw / Math.max(1, data.length - 1);
+          return (
+            <rect key={i} x={x - w / 2} y={padT} width={w} height={ch}
+              fill="transparent"
+              onMouseEnter={() => setHover(i)}
+              onMouseLeave={() => setHover(null)}
+            />
+          );
+        })}
+      </svg>
+
+      {hover !== null && (() => {
+        const x = xAt(hover);
+        const date = new Date(data[hover].date);
+        const left = (x / W) * 100;
+        return (
+          <div className="dx-tooltip" style={{ left: `${left}%` }}>
+            <div className="dx-tooltip-date">{date.getDate()}-{UZ_MONTHS_SHORT[date.getMonth()]}</div>
+            <div className="dx-tooltip-row">
+              <span className="dx-tooltip-dot" style={{ background: "var(--accent)" }} />
+              <span className="dx-tooltip-label">Ishlab chiq.</span>
+              <span className="dx-tooltip-val">{data[hover].prod.toLocaleString()}</span>
+            </div>
+            <div className="dx-tooltip-row">
+              <span className="dx-tooltip-dot" style={{ background: "var(--success)" }} />
+              <span className="dx-tooltip-label">Jo&apos;natma</span>
+              <span className="dx-tooltip-val">{data[hover].ship.toLocaleString()}</span>
+            </div>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   DONUT CHART (contract status)
+═══════════════════════════════════════════════════════════════════ */
+
+const STATUS_COLORS: Record<number, string> = {
+  [ContractStatus.DrawingPending]: "#6366f1",
+  [ContractStatus.TechProcessing]: "#a855f7",
+  [ContractStatus.InProduction]:   "#10b981",
+  [ContractStatus.Completed]:      "#22c55e",
+  [ContractStatus.Cancelled]:      "#ef4444",
+};
+
+function DonutChart({ data }: { data: ContractStatusBucket[] }) {
+  const total = data.reduce((s, d) => s + d.count, 0);
+  const size = 200;
+  const thickness = 28;
+  const r = (size - thickness) / 2 - 2;
+  const c = 2 * Math.PI * r;
+  const cx = size / 2, cy = size / 2;
+
+  let acc = 0;
+
+  return (
+    <div className="dx-donut-wrap">
+      <div className="dx-donut-svg-wrap">
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--border)" strokeWidth={thickness} opacity="0.4" />
+          {total > 0 && data.map((d, i) => {
+            if (d.count === 0) return null;
+            const pct = d.count / total;
+            const dash = pct * c;
+            const offset = -acc * c + c * 0.25;
+            acc += pct;
+            return (
+              <circle key={i}
+                cx={cx} cy={cy} r={r}
+                fill="none"
+                stroke={STATUS_COLORS[d.status] || "var(--accent)"}
+                strokeWidth={thickness}
+                strokeDasharray={`${dash} ${c - dash}`}
+                strokeDashoffset={offset}
+                strokeLinecap="butt"
+                style={{ transition: "stroke-dasharray 0.6s cubic-bezier(.22,1,.36,1)" }}
+              />
+            );
+          })}
+        </svg>
+        <div className="dx-donut-center">
+          <div className="dx-donut-num">{total}</div>
+          <div className="dx-donut-cap">Jami shartnoma</div>
+        </div>
+      </div>
+      <div className="dx-donut-legend">
+        {data.map((d, i) => {
+          const pct = total > 0 ? Math.round((d.count / total) * 100) : 0;
+          return (
+            <div key={i} className="dx-legend-item">
+              <span className="dx-legend-dot" style={{ background: STATUS_COLORS[d.status] }} />
+              <span className="dx-legend-label">{d.label}</span>
+              <span className="dx-legend-pct">{pct}%</span>
+              <span className="dx-legend-num">{d.count}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   HORIZONTAL BARS (department workload)
+═══════════════════════════════════════════════════════════════════ */
+
+function HBarList({ data }: { data: DepartmentWorkload[] }) {
+  const max = Math.max(1, ...data.map(d => d.activeContracts + d.activeManufactured));
+
+  if (data.length === 0) {
+    return <div className="dx-empty"><Ico.CheckCircle /><span>Faol yuk yo&apos;q</span></div>;
+  }
+
+  return (
+    <div className="dx-hbar-list">
+      {data.slice(0, 8).map((d, i) => {
+        const total = d.activeContracts + d.activeManufactured;
+        const pct = (total / max) * 100;
+        const contractPct = total > 0 ? (d.activeContracts / total) * 100 : 0;
+        const typeChip = d.type === DepartmentType.IshlabChiqarish ? "production"
+                       : d.type === DepartmentType.Boshqaruv      ? "admin" : "section";
+        return (
+          <div key={d.id} className={`dx-hbar-row dx-fadein-${Math.min(i, 5)}`}>
+            <div className="dx-hbar-left">
+              <span className={`dx-hbar-chip dxc-${typeChip}`} />
+              <span className="dx-hbar-name" title={d.name}>{d.name}</span>
+              <span className="dx-hbar-emp">{d.employeeCount} xodim</span>
+            </div>
+            <div className="dx-hbar-track">
+              <div className="dx-hbar-fill" style={{ width: `${pct}%` }}>
+                <div className="dx-hbar-seg dx-hbar-seg-c" style={{ width: `${contractPct}%` }} />
+                <div className="dx-hbar-seg dx-hbar-seg-m" style={{ width: `${100 - contractPct}%` }} />
+              </div>
+            </div>
+            <div className="dx-hbar-right">
+              <span className="dx-hbar-num">{total}</span>
+              <span className="dx-hbar-meta">{d.activeContracts}c · {d.activeManufactured}p</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   HEATMAP (production activity, 12 weeks × 7 days)
+═══════════════════════════════════════════════════════════════════ */
+
+function Heatmap({ cells }: { cells: HeatmapCell[] }) {
+  const weeks = Math.max(0, ...cells.map(c => c.weekIndex)) + 1;
+  const max = Math.max(1, ...cells.map(c => c.amount));
+
+  const grid: (HeatmapCell | undefined)[][] = Array.from({ length: 7 }, () =>
+    Array.from({ length: weeks }, () => undefined)
+  );
+  for (const c of cells) {
+    if (c.dayOfWeek >= 0 && c.dayOfWeek < 7 && c.weekIndex < weeks) {
+      grid[c.dayOfWeek][c.weekIndex] = c;
+    }
+  }
+
+  // Month labels at top of weeks
+  const monthLabels: { idx: number; label: string }[] = [];
+  let prevMonth = -1;
+  for (let w = 0; w < weeks; w++) {
+    const sample = grid[0][w] || grid[1][w] || grid[2][w];
+    if (!sample) continue;
+    const m = new Date(sample.date).getMonth();
+    if (m !== prevMonth) {
+      monthLabels.push({ idx: w, label: UZ_MONTHS_SHORT[m] });
+      prevMonth = m;
+    }
+  }
+
+  const dayLabels = ["", "Du", "", "Ch", "", "Ju", ""];
+
+  function intensity(v: number): number {
+    if (v <= 0) return 0;
+    const r = v / max;
+    if (r < 0.15) return 1;
+    if (r < 0.35) return 2;
+    if (r < 0.65) return 3;
+    return 4;
+  }
+
+  return (
+    <div className="dx-heat">
+      <div className="dx-heat-months">
+        <div className="dx-heat-spacer" />
+        <div className="dx-heat-months-row">
+          {monthLabels.map((m, i) => (
+            <span key={i} className="dx-heat-month" style={{ left: `${m.idx * 16}px` }}>{m.label}</span>
+          ))}
+        </div>
+      </div>
+      <div className="dx-heat-body">
+        <div className="dx-heat-days">
+          {dayLabels.map((l, i) => <div key={i} className="dx-heat-day-label">{l}</div>)}
+        </div>
+        <div className="dx-heat-grid" style={{ gridTemplateColumns: `repeat(${weeks}, 12px)` }}>
+          {Array.from({ length: 7 }).flatMap((_, day) =>
+            Array.from({ length: weeks }).map((_, w) => {
+              const c = grid[day][w];
+              const lvl = c ? intensity(c.amount) : -1;
+              return (
+                <div key={`${day}-${w}`}
+                  className={`dx-heat-cell dx-heat-l${lvl >= 0 ? lvl : 0}`}
+                  title={c ? `${c.date}: ${c.amount} (${c.logCount})` : ""}
+                />
+              );
+            })
+          )}
+        </div>
+      </div>
+      <div className="dx-heat-legend">
+        <span className="dx-heat-legend-label">Kam</span>
+        {[0, 1, 2, 3, 4].map(l => <span key={l} className={`dx-heat-cell dx-heat-l${l}`} />)}
+        <span className="dx-heat-legend-label">Ko&apos;p</span>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   PRIORITY MINI BARS
+═══════════════════════════════════════════════════════════════════ */
+
+function PriorityBars({ data }: { data: { priority: Priority; label: string; count: number }[] }) {
+  const max = Math.max(1, ...data.map(d => d.count));
+  return (
+    <div className="dx-pri-list">
+      {data.map((d, i) => (
+        <div key={i} className="dx-pri-row">
+          <span className={`dx-pri-dot dxp-${priorityClass(d.priority)}`} />
+          <span className="dx-pri-label">{d.label}</span>
+          <div className="dx-pri-track">
+            <div className={`dx-pri-fill dxp-${priorityClass(d.priority)}`}
+              style={{ width: `${(d.count / max) * 100}%` }} />
+          </div>
+          <span className="dx-pri-num">{d.count}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   KPI CARD
+═══════════════════════════════════════════════════════════════════ */
+
+function KpiCard({
+  label, value, sub, trend, icon, accent, onClick,
+}: {
+  label: string;
+  value: number | string;
+  sub?: string;
+  trend?: { dir: "up" | "down" | "flat"; pct: number; label?: string };
+  icon: React.ReactNode;
+  accent: "accent" | "success" | "warn" | "danger" | "purple" | "indigo" | "cyan" | "amber";
+  onClick?: () => void;
+}) {
+  return (
+    <div className={`dx-kpi dx-kpi-${accent} ${onClick ? "dx-kpi-clickable" : ""}`}
+      onClick={onClick} role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : -1}>
+      <div className="dx-kpi-shine" />
+      <div className="dx-kpi-glow" />
+      <div className={`dx-kpi-icon dxk-${accent}`}>{icon}</div>
+      <div className="dx-kpi-body">
+        <div className="dx-kpi-label">{label}</div>
+        <div className="dx-kpi-value">{value}</div>
+        <div className="dx-kpi-foot">
+          {sub && <span className="dx-kpi-sub">{sub}</span>}
+          {trend && (
+            <span className={`dx-kpi-trend dxt-${trend.dir}`}>
+              {trend.dir === "up" ? <Ico.TrendUp /> : trend.dir === "down" ? <Ico.TrendDown /> : <span>—</span>}
+              {trend.pct}%
+              {trend.label && <span className="dx-kpi-trend-cap">{trend.label}</span>}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   PIPELINE BOARD (kanban by status)
+═══════════════════════════════════════════════════════════════════ */
+
+function PipelineBoard({ buckets }: { buckets: ContractStatusBucket[] }) {
+  const order = [
+    ContractStatus.DrawingPending,
+    ContractStatus.TechProcessing,
+    ContractStatus.InProduction,
+    ContractStatus.Completed,
+  ];
+  const total = buckets.reduce((s, b) => s + b.count, 0);
+
+  return (
+    <div className="dx-pipe-board">
+      {order.map((st, i) => {
+        const b = buckets.find(x => x.status === st);
+        const count = b?.count || 0;
+        const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+        const cls = statusClass(st);
+        return (
+          <div key={st} className={`dx-pipe-stage dxs-${cls} dx-fadein-${Math.min(i, 4)}`}>
+            <div className="dx-pipe-stage-top">
+              <span className={`dx-pipe-dot dxs-${cls}`} />
+              <span className="dx-pipe-stage-label">{b?.label || ""}</span>
+            </div>
+            <div className="dx-pipe-stage-num">{count}</div>
+            <div className="dx-pipe-stage-foot">
+              <div className="dx-pipe-mini-track">
+                <div className={`dx-pipe-mini-fill dxs-${cls}`} style={{ width: `${pct}%` }} />
+              </div>
+              <span className="dx-pipe-stage-pct">{pct}%</span>
+            </div>
+            {i < order.length - 1 && <div className={`dx-pipe-arrow dxs-${cls}`}>→</div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MANUFACTURING PROGRESS (cards with progress)
+═══════════════════════════════════════════════════════════════════ */
+
+function MfgProgressList({ items }: { items: ManufacturingProgress[] }) {
+  if (items.length === 0) {
+    return <div className="dx-empty"><Ico.CheckCircle /><span>Hozircha ishlab chiqarishda mahsulot yo&apos;q</span></div>;
+  }
+  return (
+    <div className="dx-mfg-list">
+      {items.map((m, i) => {
+        const pct = Math.min(100, Math.max(0, m.progressPercent));
+        const cls = pct >= 80 ? "success" : pct >= 40 ? "accent" : "warn";
+        return (
+          <div key={m.id} className={`dx-mfg-item dx-fadein-${Math.min(i, 5)}`}>
+            <div className="dx-mfg-top">
+              <div className="dx-mfg-info">
+                <div className="dx-mfg-name">{m.name}</div>
+                <div className="dx-mfg-meta">
+                  {m.code && <span className="dx-mfg-code">{m.code}</span>}
+                  {m.contractNo && <span className="dx-mfg-contract">{m.contractNo}</span>}
+                  {m.departmentName && <span className="dx-mfg-dept">{m.departmentName}</span>}
+                </div>
+              </div>
+              <div className={`dx-mfg-pct dxc-${cls}`}>{Math.round(pct)}%</div>
+            </div>
+            <div className="dx-mfg-track">
+              <div className={`dx-mfg-fill dxc-${cls}`} style={{ width: `${pct}%` }} />
+            </div>
+            <div className="dx-mfg-foot">
+              <span className="dx-mfg-qty">{m.producedQuantity.toLocaleString()} / {m.quantity.toLocaleString()} {unitLabel(m.unit)}</span>
+              <span className="dx-mfg-status">
+                {m.status === ManufacturingStatus.Completed ? "Yakunlandi" : "Jarayonda"}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   DEADLINE LIST
+═══════════════════════════════════════════════════════════════════ */
+
+function DeadlineList({ items, onClick }: { items: UpcomingDeadline[]; onClick?: () => void }) {
+  if (items.length === 0) {
+    return <div className="dx-empty"><Ico.CheckCircle /><span>Yaqin deadline yo&apos;q</span></div>;
+  }
+  return (
+    <div className="dx-dl-list">
+      {items.map((c, i) => {
+        const urg = deadlineUrgency(c.daysRemaining);
+        return (
+          <div key={c.id} className={`dx-dl-item dx-fadein-${Math.min(i, 5)} dxd-${urg}`} onClick={onClick}>
+            <div className={`dx-dl-bar dxd-${urg}`} />
+            <div className="dx-dl-left">
+              <div className="dx-dl-top">
+                <span className="dx-dl-no">{c.contractNo}</span>
+                <span className={`dx-dl-prio dxp-${priorityClass(c.priority)}`}>{priorityLabel(c.priority)}</span>
+              </div>
+              <div className="dx-dl-party">{c.contractParty}</div>
+              {c.primaryProduct && <div className="dx-dl-product">{c.primaryProduct}</div>}
+              <div className="dx-dl-prog">
+                <div className="dx-dl-prog-track">
+                  <div className="dx-dl-prog-fill" style={{ width: `${c.overallProgress}%` }} />
+                </div>
+                <span className="dx-dl-prog-num">{Math.round(c.overallProgress)}%</span>
+              </div>
+            </div>
+            <div className="dx-dl-right">
+              <div className={`dx-dl-days dxd-${urg}`}>
+                {urg === "passed" ? `${Math.abs(c.daysRemaining)} kun o'tdi` :
+                 c.daysRemaining === 0 ? "Bugun" :
+                 `${c.daysRemaining} kun`}
+              </div>
+              <div className="dx-dl-date">{formatUzDate(new Date(c.endDate), "short")}</div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ACTIVITY FEED
+═══════════════════════════════════════════════════════════════════ */
+
+function ActivityFeed({ items }: { items: RecentActivity[] }) {
+  // Live "X minutes ago" — refreshes once per minute.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (items.length === 0) {
+    return <div className="dx-empty"><Ico.CheckCircle /><span>Faollik yo&apos;q</span></div>;
+  }
+
+  function relTime(at: string): string {
+    const diff = (now - new Date(at).getTime()) / 1000;
+    if (diff < 60) return "hozir";
+    if (diff < 3600) return `${Math.floor(diff / 60)} daq`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} soat`;
+    if (diff < 86400 * 7) return `${Math.floor(diff / 86400)} kun`;
+    const d = new Date(at);
+    return `${d.getDate()}-${UZ_MONTHS_SHORT[d.getMonth()]}`;
+  }
+
+  function kindIcon(k: string) {
+    switch (k) {
+      case "contract":     return <Ico.File />;
+      case "task-log":     return <Ico.Activity />;
+      case "shipment":     return <Ico.Truck />;
+      case "manufactured": return <Ico.Factory />;
+      default:             return <Ico.Box />;
+    }
+  }
+  function kindClass(k: string) {
+    switch (k) {
+      case "contract":     return "indigo";
+      case "task-log":     return "accent";
+      case "shipment":     return "success";
+      case "manufactured": return "purple";
+      default:             return "neutral";
+    }
+  }
+
+  return (
+    <div className="dx-feed">
+      {items.map((a, i) => (
+        <div key={i} className={`dx-feed-item dx-fadein-${Math.min(i, 5)}`}>
+          <div className={`dx-feed-icon dxc-${kindClass(a.kind)}`}>{kindIcon(a.kind)}</div>
+          <div className="dx-feed-body">
+            <div className="dx-feed-title">{a.title}</div>
+            <div className="dx-feed-meta">
+              {a.subtitle && <span className="dx-feed-sub">{a.subtitle}</span>}
+              {a.actorName && <span className="dx-feed-actor">· {a.actorName}</span>}
+            </div>
+          </div>
+          <div className="dx-feed-time">{relTime(a.at)}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   TOP PERFORMERS
+═══════════════════════════════════════════════════════════════════ */
+
+function TopPerformers({ items }: { items: TopPerformer[] }) {
+  if (items.length === 0) return <div className="dx-empty"><Ico.Trophy /><span>Ma&apos;lumot yo&apos;q</span></div>;
+  const max = Math.max(1, ...items.map(p => Number(p.totalAmount)));
+  return (
+    <div className="dx-perf-list">
+      {items.map((p, i) => (
+        <div key={p.userId} className={`dx-perf-item dx-fadein-${Math.min(i, 4)}`}>
+          <div className={`dx-perf-rank dxr-${i}`}>{i + 1}</div>
+          <div className="dx-perf-info">
+            <div className="dx-perf-name">{p.fullName.trim() || "—"}</div>
+            <div className="dx-perf-dept">{p.departmentName || "Bo'limsiz"}</div>
+            <div className="dx-perf-track">
+              <div className="dx-perf-fill" style={{ width: `${(Number(p.totalAmount) / max) * 100}%` }} />
+            </div>
+          </div>
+          <div className="dx-perf-stats">
+            <div className="dx-perf-num">{formatNum(Number(p.totalAmount))}</div>
+            <div className="dx-perf-cap">{p.logCount} yozuv</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   PAGE
+═══════════════════════════════════════════════════════════════════ */
 
 export default function DashboardPage() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const accessToken = useAuthStore((s) => s.accessToken);
-  const hasPermission = useAuthStore((s) => s.hasPermission);
-
-  const canViewUsers = hasPermission("Users.View");
-  const canViewDepts = hasPermission("Departments.View");
-  const canViewContracts = hasPermission("Contracts.View") || hasPermission("Contracts.ViewAll");
-  const canViewRoles = hasPermission("Roles.View");
 
   const [loading, setLoading] = useState(true);
-  const [usersData, setUsersData] = useState<PagedResult<UserResponse> | null>(null);
-  const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
-  const [contracts, setContracts] = useState<ContractResponse[]>([]);
-  const [roles, setRoles] = useState<{ id: string; name: string }[]>([]);
+  const [data, setData] = useState<DashboardSummary | null>(null);
+  const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
     if (!accessToken) return;
-    const load = async () => {
+    let alive = true;
+    (async () => {
       try {
-        const promises: Promise<unknown>[] = [];
-        const keys: string[] = [];
+        setErr(null);
+        const summary = await dashboardService.getSummary(30);
+        if (!alive) return;
+        setData(summary);
+      } catch {
+        if (!alive) return;
+        setErr("Ma'lumotlarni yuklab bo'lmadi");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [accessToken]);
 
-        if (canViewUsers)     { promises.push(userService.getAll(1, 1));       keys.push("users"); }
-        if (canViewDepts)     { promises.push(departmentService.getAllFull());  keys.push("depts"); }
-        if (canViewContracts) { promises.push(contractService.getAll());       keys.push("contracts"); }
-        if (canViewRoles)     { promises.push(roleService.getAll());           keys.push("roles"); }
+  // Animated KPI counters (called unconditionally)
+  const k = data?.kpis;
+  const animTotal     = useCountUp(k?.totalContracts ?? 0);
+  const animActive    = useCountUp(k?.activeContracts ?? 0);
+  const animCompleted = useCountUp(k?.completedContracts ?? 0);
+  const animMfg       = useCountUp(k?.manufacturedInProgress ?? 0);
+  const animShip      = useCountUp(k?.totalShipments ?? 0);
+  const animUsers     = useCountUp(k?.totalUsers ?? 0);
+  const animDepts     = useCountUp(k?.activeDepartments ?? 0);
+  const animOverdue   = useCountUp(k?.overdueContracts ?? 0);
 
-        const results = await Promise.allSettled(promises);
-        results.forEach((res, i) => {
-          if (res.status !== "fulfilled") return;
-          switch (keys[i]) {
-            case "users":     setUsersData(res.value as PagedResult<UserResponse>); break;
-            case "depts":     setDepartments(res.value as DepartmentResponse[]); break;
-            case "contracts": setContracts(res.value as ContractResponse[]); break;
-            case "roles":     setRoles(res.value as { id: string; name: string }[]); break;
-          }
-        });
-      } catch { /* handled */ }
-      setLoading(false);
-    };
-    load();
-  }, [accessToken, canViewUsers, canViewDepts, canViewContracts, canViewRoles]);
+  const completionTrend = useMemo(() => {
+    if (!k) return null;
+    return pctChange(k.completedThisMonth, k.completedPrevMonth);
+  }, [k]);
 
-  /* ── Computed ── */
-  const totalUsers = usersData?.totalCount ?? 0;
-  const activeDepts = departments.filter(d => d.isActive).length;
-  const totalEmployees = departments.reduce((s, d) => s + (d.employeeCount || 0), 0);
-  const totalContracts = contracts.length;
-  const activeContracts = contracts.filter(c => c.status !== ContractStatus.Completed && c.status !== ContractStatus.Cancelled).length;
-  const completedContracts = contracts.filter(c => c.status === ContractStatus.Completed).length;
-  const totalRoles = roles.length;
+  const shipmentTrend = useMemo(() => {
+    if (!k) return null;
+    return pctChange(k.shipmentsThisWeek, k.shipmentsPrevWeek);
+  }, [k]);
 
-  // Animated counters
-  const animUsers = useCountUp(totalUsers);
-  const animDepts = useCountUp(activeDepts);
-  const animContracts = useCountUp(activeContracts);
-  const animRoles = useCountUp(totalRoles);
+  const productionTrend = useMemo(() => {
+    if (!k) return null;
+    return pctChange(Number(k.loggedAmountThisWeek), Number(k.loggedAmountPrevWeek));
+  }, [k]);
 
-  // Upcoming deadlines - active contracts sorted by endDate
-  const upcomingDeadlines = useMemo(() =>
-    contracts
-      .filter(c => c.status !== ContractStatus.Completed && c.status !== ContractStatus.Cancelled)
-      .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime())
-      .slice(0, 6),
-    [contracts]
-  );
-
-  // Department activity - count active contracts per department
-  const deptActivity = useMemo(() => {
-    const map = new Map<string, { name: string; type: DepartmentType; count: number }>();
-    contracts
-      .filter(c => c.status === ContractStatus.InProduction || c.status === ContractStatus.TechProcessing)
-      .forEach(c => {
-        (c.departments || []).forEach(d => {
-          const existing = map.get(d.id);
-          if (existing) {
-            existing.count++;
-          } else {
-            map.set(d.id, { name: d.name, type: d.type, count: 1 });
-          }
-        });
-      });
-    return Array.from(map.values())
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 8);
-  }, [contracts]);
-
-  const maxDeptActivity = deptActivity.length > 0 ? deptActivity[0].count : 1;
-
-  const today = new Date();
-  const dateStr = formatUzDate(today, "full");
-  const firstName = user?.firstName || user?.login || "";
   const greeting = getGreeting();
+  const today = new Date();
+  const firstName = user?.firstName || user?.login || "";
 
   if (loading) {
     return (
-      <div className="nd-loading">
-        <div className="nd-loading-inner">
+      <div className="dx-loading">
+        <div className="dx-loading-inner">
           <div className="nd-spinner" />
-          Yuklanmoqda...
+          Ma&apos;lumotlar tayyorlanmoqda...
+        </div>
+      </div>
+    );
+  }
+
+  if (err || !data) {
+    return (
+      <div className="dx-loading">
+        <div className="dx-loading-inner">
+          <Ico.Alert />
+          {err || "Xato"}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="nd-wrapper page-transition">
-      {/* ═══ Animated Background ═══ */}
+    <div className="dx-wrap page-transition">
       <AnimatedBg />
 
-      {/* ═══ Welcome Hero ═══ */}
-      <div className="nd-hero">
-        <div className="nd-hero-aurora" />
-        <div className="nd-hero-content">
-          <div className="nd-hero-greeting">
-            <span className="nd-hero-icon-pulse">{getGreetingIcon(greeting.icon)}</span>
+      {/* ─── HERO ─── */}
+      <section className="dx-hero">
+        <div className="dx-hero-aurora" />
+        <div className="dx-hero-grid" />
+        <div className="dx-hero-content">
+          <div className="dx-hero-greeting">
+            <span className="dx-hero-icon">{getGreetingIcon(greeting.icon)}</span>
             <span>{greeting.text},</span>
           </div>
-          <h1 className="nd-hero-name">{firstName}</h1>
-          <p className="nd-hero-sub">Bugungi ish jadvali va tashkilot holati</p>
-        </div>
-        <div className="nd-hero-right">
-          <div className="nd-hero-date">
-            <CalendarIcon />
-            <span>{dateStr}</span>
-          </div>
-          {user?.role && (
-            <div className="nd-hero-role">{user.role}</div>
-          )}
-        </div>
-        <div className="nd-hero-shape nd-hero-shape-1" />
-        <div className="nd-hero-shape nd-hero-shape-2" />
-        <div className="nd-hero-shape nd-hero-shape-3" />
-      </div>
+          <h1 className="dx-hero-name">{firstName}</h1>
+          <p className="dx-hero-sub">Bugungi tashkilot holati va ishlab chiqarish ko&apos;rsatkichlari</p>
 
-      {/* ═══ Stats Row ═══ */}
-      <div className="nd-stats-row">
-        {canViewUsers && (
-          <div className="nd-stat-card nd-glow-hover nd-stagger-0" onClick={() => router.push("/users")}>
-            <div className="nd-stat-icon ic-accent"><UsersSmIcon /></div>
-            <div className="nd-stat-info">
-              <span className="nd-stat-label">Foydalanuvchilar</span>
-              <span className="nd-stat-value">{animUsers}</span>
-            </div>
-            <div className="nd-stat-badge sb-accent">{totalEmployees} xodim</div>
-            <div className="nd-card-shine" />
-          </div>
-        )}
-        {canViewDepts && (
-          <div className="nd-stat-card nd-glow-hover nd-stagger-1" onClick={() => router.push("/departments")}>
-            <div className="nd-stat-icon ic-warn"><DeptSmIcon /></div>
-            <div className="nd-stat-info">
-              <span className="nd-stat-label">Faol bo&apos;limlar</span>
-              <span className="nd-stat-value">{animDepts}</span>
-            </div>
-            <div className="nd-stat-badge sb-warn">{departments.length} jami</div>
-            <div className="nd-card-shine" />
-          </div>
-        )}
-        {canViewContracts && (
-          <div className="nd-stat-card nd-glow-hover nd-stagger-2" onClick={() => router.push("/contracts")}>
-            <div className="nd-stat-icon ic-success"><ContractSmIcon /></div>
-            <div className="nd-stat-info">
-              <span className="nd-stat-label">Faol shartnomalar</span>
-              <span className="nd-stat-value">{animContracts}</span>
-            </div>
-            <div className="nd-stat-badge sb-success">
-              <TrendUpIcon /> {totalContracts > 0 ? Math.round((completedContracts / totalContracts) * 100) : 0}% yakunlangan
-            </div>
-            <div className="nd-card-shine" />
-          </div>
-        )}
-        {canViewRoles && (
-          <div className="nd-stat-card nd-glow-hover nd-stagger-3" onClick={() => router.push("/roles")}>
-            <div className="nd-stat-icon ic-purple"><RoleSmIcon /></div>
-            <div className="nd-stat-info">
-              <span className="nd-stat-label">Rollar</span>
-              <span className="nd-stat-value">{animRoles}</span>
-            </div>
-            <div className="nd-stat-badge sb-purple">Tizim rollari</div>
-            <div className="nd-card-shine" />
-          </div>
-        )}
-      </div>
-
-      {/* ═══ Deadlines + Work Progress (side by side) ═══ */}
-      <div className="nd-main-grid nd-duo-row">
-        {/* Left: Deadline Tracker */}
-        {canViewContracts && (
-          <div className="nd-section nd-glow-hover">
-            <div className="nd-section-header">
-              <ClockIcon />
-              <span>Yaqinlashayotgan deadlinelar</span>
-              <button type="button" className="nd-section-link" onClick={() => router.push("/contracts")}>
-                Barchasini ko&apos;rish <ArrowRightIcon />
-              </button>
-            </div>
-            <div className="nd-deadline-list">
-              {upcomingDeadlines.length === 0 ? (
-                <div className="nd-empty">
-                  <CheckCircleIcon />
-                  <span>Yaqin deadline topilmadi</span>
-                </div>
-              ) : (
-                upcomingDeadlines.map((c, i) => {
-                  const days = daysUntil(c.endDate);
-                  const urgency = deadlineUrgency(days);
-                  const endDate = new Date(c.endDate);
-                  return (
-                    <div
-                      key={c.id}
-                      className={`nd-deadline-item nd-fadein-${Math.min(i, 4)} dl-${urgency}`}
-                      onClick={() => router.push(`/contracts`)}
-                    >
-                      <div className="nd-deadline-left">
-                        <div className={`nd-deadline-urgency-dot dl-dot-${urgency}`} />
-                        <div className="nd-deadline-info">
-                          <div className="nd-deadline-contract">{c.contractNo}</div>
-                          <div className="nd-deadline-product">{(c.products?.[0]?.productType ?? "—")} — {c.contractParty}</div>
-                        </div>
-                      </div>
-                      <div className="nd-deadline-right">
-                        <div className={`nd-deadline-days dl-days-${urgency}`}>
-                          {urgency === "passed" ? (
-                            <><AlertTriangleIcon /> {Math.abs(days)} kun o&apos;tgan</>
-                          ) : days === 0 ? (
-                            <><AlertTriangleIcon /> Bugun</>
-                          ) : (
-                            <>{days} kun qoldi</>
-                          )}
-                        </div>
-                        <div className="nd-deadline-date">
-                          {formatUzDate(endDate, "short")}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
+          <div className="dx-hero-quick">
+            <div className="dx-hero-quick-item">
+              <span className="dx-hero-quick-dot dxc-success" />
+              <span className="dx-hero-quick-label">Yakunlangan oyiga</span>
+              <span className="dx-hero-quick-val">{k?.completedThisMonth ?? 0}</span>
+              {completionTrend && completionTrend.dir !== "flat" && (
+                <span className={`dx-hero-quick-trend dxt-${completionTrend.dir}`}>
+                  {completionTrend.dir === "up" ? "↑" : "↓"} {completionTrend.pct}%
+                </span>
               )}
             </div>
+            <div className="dx-hero-quick-item">
+              <span className="dx-hero-quick-dot dxc-warn" />
+              <span className="dx-hero-quick-label">Muddati o&apos;tgan</span>
+              <span className="dx-hero-quick-val">{k?.overdueContracts ?? 0}</span>
+            </div>
+            <div className="dx-hero-quick-item">
+              <span className="dx-hero-quick-dot dxc-danger" />
+              <span className="dx-hero-quick-label">Kritik deadline</span>
+              <span className="dx-hero-quick-val">{k?.criticalDeadlines ?? 0}</span>
+            </div>
           </div>
-        )}
-
-        {/* Right: Work Progress */}
-        {canViewContracts && (
-          <div className="nd-section nd-glow-hover">
-            <div className="nd-section-header">
-              <ActivityIcon />
-              <span>Ish jarayoni</span>
-            </div>
-            <div className="nd-rings-row">
-              <ProgressRing value={completedContracts} max={totalContracts} label="Yakunlangan" color="ring-success" />
-              <ProgressRing value={activeContracts} max={totalContracts} label="Faol" color="ring-accent" />
-              <ProgressRing
-                value={contracts.filter(c => c.status === ContractStatus.InProduction).length}
-                max={totalContracts}
-                label="Ishlab chiq."
-                color="ring-purple"
-              />
-            </div>
-
-            {/* Quick stats */}
-            <div className="nd-progress-stats">
-              <div className="nd-progress-stat-item">
-                <span className="nd-progress-stat-dot psd-success" />
-                <span className="nd-progress-stat-label">Yakunlangan</span>
-                <span className="nd-progress-stat-val">{completedContracts}</span>
-              </div>
-              <div className="nd-progress-stat-item">
-                <span className="nd-progress-stat-dot psd-accent" />
-                <span className="nd-progress-stat-label">Jarayonda</span>
-                <span className="nd-progress-stat-val">{activeContracts}</span>
-              </div>
-              <div className="nd-progress-stat-item">
-                <span className="nd-progress-stat-dot psd-danger" />
-                <span className="nd-progress-stat-label">Bekor qilingan</span>
-                <span className="nd-progress-stat-val">{contracts.filter(c => c.status === ContractStatus.Cancelled).length}</span>
-              </div>
-            </div>
-
-            {/* Department activity (compact) */}
-            {deptActivity.length > 0 && (
-              <div className="nd-dept-compact">
-                <div className="nd-dept-compact-title">
-                  <BarChart2Icon />
-                  <span>Bo&apos;limlar faolligi</span>
-                </div>
-                {deptActivity.slice(0, 4).map((d, i) => {
-                  const pct = Math.round((d.count / maxDeptActivity) * 100);
-                  const barCls = d.type === DepartmentType.IshlabChiqarish
-                    ? "bar-accent"
-                    : d.type === DepartmentType.Boshqaruv
-                      ? "bar-purple"
-                      : "bar-success";
-                  return (
-                    <div key={i} className="nd-activity-row">
-                      <div className="nd-activity-name" title={d.name}>{d.name}</div>
-                      <div className="nd-activity-bar-track">
-                        <div
-                          className={`nd-activity-bar-fill bar-delay-${i} ${barCls}`}
-                          style={{ "--bar-w": `${pct}%` } as React.CSSProperties}
-                        />
-                      </div>
-                      <div className="nd-activity-count">{d.count}</div>
-                    </div>
-                  );
-                })}
-              </div>
+        </div>
+        <div className="dx-hero-right">
+          <div className="dx-hero-date">
+            <Ico.Calendar />
+            <span>{formatUzDate(today)}</span>
+          </div>
+          {user?.role && <div className="dx-hero-role">{user.role}</div>}
+          <div className="dx-hero-tile">
+            <span className="dx-hero-tile-cap">Bu hafta yozilgan</span>
+            <span className="dx-hero-tile-val">{formatNum(Number(k?.loggedAmountThisWeek ?? 0))}</span>
+            {productionTrend && productionTrend.dir !== "flat" && (
+              <span className={`dx-hero-tile-trend dxt-${productionTrend.dir}`}>
+                {productionTrend.dir === "up" ? <Ico.TrendUp /> : <Ico.TrendDown />} {productionTrend.pct}%
+                <span className="dx-hero-tile-cap">o&apos;tgan haftaga</span>
+              </span>
             )}
           </div>
-        )}
-      </div>
+        </div>
+      </section>
 
-      {/* ═══ Production Pipeline Board ═══ */}
-      {canViewContracts && (() => {
-        const STAGES = [
-          { status: ContractStatus.DrawingPending, label: "Chizma", color: "stg-indigo" },
-          { status: ContractStatus.TechProcessing, label: "Tex. jarayon", color: "stg-violet" },
-          { status: ContractStatus.InProduction, label: "Ishlab chiq.", color: "stg-emerald" },
-          { status: ContractStatus.Completed, label: "Yakunlandi", color: "stg-green" },
-        ];
-        const statusOrder = STAGES.map(s => s.status);
-        const pipeContracts = contracts
-          .filter(c => c.status !== ContractStatus.Cancelled && c.status !== ContractStatus.Completed)
-          .slice(0, 8);
+      {/* ─── KPI ROW ─── */}
+      <section className="dx-kpi-grid">
+        <KpiCard label="Jami shartnoma" value={animTotal} icon={<Ico.File />} accent="accent"
+          sub={`${k?.activeContracts ?? 0} ta faol`}
+          onClick={() => router.push("/contracts")} />
+        <KpiCard label="Faol shartnoma" value={animActive} icon={<Ico.Zap />} accent="indigo"
+          sub={`${k?.inProductionProducts ?? 0} mahsulot ishda`}
+          onClick={() => router.push("/contracts")} />
+        <KpiCard label="Yakunlangan" value={animCompleted} icon={<Ico.CheckCircle />} accent="success"
+          sub={`${k?.completionRate ?? 0}% umumiy`}
+          trend={completionTrend ? { dir: completionTrend.dir, pct: completionTrend.pct, label: "oyiga" } : undefined} />
+        <KpiCard label="Ishlab chiqarishda" value={animMfg} icon={<Ico.Factory />} accent="purple"
+          sub={`${k?.manufacturedCompleted ?? 0} yakunlangan`} />
+        <KpiCard label="Jo'natma partiyalari" value={animShip} icon={<Ico.Truck />} accent="cyan"
+          sub={`${k?.shipmentsThisWeek ?? 0} bu hafta`}
+          trend={shipmentTrend ? { dir: shipmentTrend.dir, pct: shipmentTrend.pct } : undefined} />
+        <KpiCard label="Foydalanuvchilar" value={animUsers} icon={<Ico.Users />} accent="amber"
+          sub={`${k?.totalEmployees ?? 0} xodim`}
+          onClick={() => router.push("/users")} />
+        <KpiCard label="Faol bo'limlar" value={animDepts} icon={<Ico.Building />} accent="warn"
+          sub={`${k?.activeDepartments ?? 0} / ${(k?.activeDepartments ?? 0)} ishlamoqda`}
+          onClick={() => router.push("/departments")} />
+        <KpiCard label="Muddati o'tgan" value={animOverdue} icon={<Ico.Alert />} accent="danger"
+          sub={`${k?.criticalDeadlines ?? 0} kritik (7 kun)`} />
+      </section>
 
-        if (pipeContracts.length === 0) return null;
+      {/* ─── PIPELINE BOARD ─── */}
+      <section className="dx-section">
+        <div className="dx-section-header">
+          <Ico.Layers />
+          <h3 className="dx-section-title">Ishlab chiqarish kanban</h3>
+          <span className="dx-section-meta">{data.kpis.totalContracts} ta jami</span>
+        </div>
+        <PipelineBoard buckets={data.contractStatus} />
+      </section>
 
-        // Count per stage
-        const stageCounts = STAGES.map(s =>
-          contracts.filter(c => c.status === s.status).length
-        );
-
-        return (
-          <div className="pm-wrapper">
-            {/* Decorative bg */}
-            <div className="pm-bg-grid" />
-            <div className="pm-bg-glow pm-bg-glow-1" />
-            <div className="pm-bg-glow pm-bg-glow-2" />
-
-            {/* Header */}
-            <div className="pm-header">
-              <div className="pm-header-left">
-                <div className="pm-header-icon"><LayersIcon /></div>
-                <div>
-                  <h2 className="pm-title">Ishlab chiqarish jarayoni</h2>
-                  <p className="pm-subtitle">{pipeContracts.length} ta faol shartnoma</p>
-                </div>
-              </div>
-              <button type="button" className="pm-view-all" onClick={() => router.push("/contracts")}>
-                Barchasini ko&apos;rish <ArrowRightIcon />
-              </button>
-            </div>
-
-            {/* Stage summary chips */}
-            <div className="pm-stage-chips">
-              {STAGES.map((s, i) => (
-                <div key={i} className={`pm-chip ${s.color} ${stageCounts[i] > 0 ? "pm-chip-active" : ""}`}>
-                  <span className="pm-chip-count">{stageCounts[i]}</span>
-                  <span className="pm-chip-label">{s.label}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Pipeline matrix table */}
-            <div className="pm-table-scroll">
-              <table className="pm-table">
-                <thead>
-                  <tr>
-                    <th className="pm-th pm-th-contract">Shartnoma</th>
-                    {STAGES.map((s, i) => (
-                      <th key={i} className={`pm-th pm-th-stage ${s.color}`}>
-                        <span className="pm-th-text">{s.label}</span>
-                      </th>
-                    ))}
-                    <th className="pm-th pm-th-progress">Holat</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pipeContracts.map((contract, ci) => {
-                    const currentIdx = statusOrder.indexOf(contract.status);
-                    const progressPct = Math.round((currentIdx / (STAGES.length - 1)) * 100);
-                    return (
-                      <tr key={contract.id} className={`pm-row pm-row-fadein-${Math.min(ci, 5)}`} onClick={() => router.push("/contracts")}>
-                        <td className="pm-td pm-td-contract">
-                          <div className="pm-contract-info">
-                            <span className="pm-contract-no">{contract.contractNo}</span>
-                            <span className="pm-contract-product">{contract.products?.map(p => p.productType).filter(Boolean).join(", ") || "—"}</span>
-                            <span className="pm-contract-party">{contract.contractParty}</span>
-                          </div>
-                        </td>
-                        {STAGES.map((stage, si) => {
-                          const isDone = si < currentIdx;
-                          const isCurrent = si === currentIdx;
-                          return (
-                            <td key={si} className={`pm-td pm-td-cell ${isCurrent ? "pm-cell-current" : ""}`}>
-                              {isDone && (
-                                <div className={`pm-dot pm-dot-done ${stage.color}`}>
-                                  <CheckSmIcon />
-                                </div>
-                              )}
-                              {isCurrent && (
-                                <div className={`pm-dot pm-dot-active ${stage.color}`}>
-                                  <span className="pm-dot-pulse" />
-                                  <span className="pm-dot-core" />
-                                </div>
-                              )}
-                              {!isDone && !isCurrent && (
-                                <div className="pm-dot pm-dot-pending" />
-                              )}
-                              {/* Connector line */}
-                              {si > 0 && (
-                                <div className={`pm-connector ${isDone ? "pm-conn-done" : isCurrent ? "pm-conn-current" : "pm-conn-pending"}`} />
-                              )}
-                            </td>
-                          );
-                        })}
-                        <td className="pm-td pm-td-status">
-                          <div className="pm-status-wrap">
-                            <div className="pm-mini-bar">
-                              <div className="pm-mini-fill" style={{ "--pm-pct": `${progressPct}%` } as React.CSSProperties} />
-                            </div>
-                            <span className="pm-pct-text">{progressPct}%</span>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+      {/* ─── 2-COLUMN: TREND CHART + DONUT ─── */}
+      <section className="dx-row dx-row-2-1">
+        <div className="dx-section">
+          <div className="dx-section-header">
+            <Ico.Activity />
+            <h3 className="dx-section-title">Ishlab chiqarish va jo&apos;natma dinamikasi</h3>
+            <span className="dx-section-meta">oxirgi 30 kun</span>
+            <div className="dx-section-legend">
+              <span className="dx-legend-dot" style={{ background: "var(--accent)" }} /> Ishlab chiqarish
+              <span className="dx-legend-dot" style={{ background: "var(--success)", marginLeft: 12 }} /> Jo&apos;natmalar
             </div>
           </div>
-        );
-      })()}
+          <DualAreaChart prod={data.productionTrend} ship={data.shipmentTrend} />
+        </div>
 
+        <div className="dx-section">
+          <div className="dx-section-header">
+            <Ico.Box />
+            <h3 className="dx-section-title">Shartnomalar holati</h3>
+          </div>
+          <DonutChart data={data.contractStatus} />
+        </div>
+      </section>
+
+      {/* ─── 2-COLUMN: DEPT WORKLOAD + PRIORITY ─── */}
+      <section className="dx-row dx-row-2-1">
+        <div className="dx-section">
+          <div className="dx-section-header">
+            <Ico.Building />
+            <h3 className="dx-section-title">Bo&apos;limlar yuklamasi</h3>
+            <span className="dx-section-meta">faol shartnoma + ishlab chiqarish</span>
+            <div className="dx-section-legend">
+              <span className="dx-legend-dot" style={{ background: "var(--accent)" }} /> Shartnoma
+              <span className="dx-legend-dot" style={{ background: "var(--purple)", marginLeft: 12 }} /> Mahsulot
+            </div>
+          </div>
+          <HBarList data={data.departmentWorkload} />
+        </div>
+
+        <div className="dx-section">
+          <div className="dx-section-header">
+            <Ico.Zap />
+            <h3 className="dx-section-title">Muhimlik darajasi</h3>
+            <span className="dx-section-meta">faol shartnomalar</span>
+          </div>
+          <PriorityBars data={data.priorityDistribution} />
+          <div className="dx-section-divider" />
+          <div className="dx-section-header" style={{ marginTop: 16 }}>
+            <Ico.Trophy />
+            <h3 className="dx-section-title">Top ishchilar</h3>
+            <span className="dx-section-meta">30 kun</span>
+          </div>
+          <TopPerformers items={data.topPerformers} />
+        </div>
+      </section>
+
+      {/* ─── HEATMAP (full row) ─── */}
+      <section className="dx-section">
+        <div className="dx-section-header">
+          <Ico.Activity />
+          <h3 className="dx-section-title">Faollik xaritasi</h3>
+          <span className="dx-section-meta">12 hafta · kunlik yozuvlar</span>
+        </div>
+        <Heatmap cells={data.activityHeatmap} />
+      </section>
+
+      {/* ─── 3-COLUMN: DEADLINES + MFG + ACTIVITY ─── */}
+      <section className="dx-row dx-row-3">
+        <div className="dx-section">
+          <div className="dx-section-header">
+            <Ico.Clock />
+            <h3 className="dx-section-title">Yaqinlashayotgan deadlinelar</h3>
+            <button type="button" className="dx-section-link" onClick={() => router.push("/contracts")}>
+              Hammasi <Ico.ArrowRight />
+            </button>
+          </div>
+          <DeadlineList items={data.upcomingDeadlines} onClick={() => router.push("/contracts")} />
+        </div>
+
+        <div className="dx-section">
+          <div className="dx-section-header">
+            <Ico.Factory />
+            <h3 className="dx-section-title">Mahsulot ishlab chiqarish progressi</h3>
+          </div>
+          <MfgProgressList items={data.manufacturingProgress} />
+        </div>
+
+        <div className="dx-section">
+          <div className="dx-section-header">
+            <Ico.Activity />
+            <h3 className="dx-section-title">So&apos;nggi faollik</h3>
+          </div>
+          <ActivityFeed items={data.recentActivity} />
+        </div>
+      </section>
     </div>
   );
 }
