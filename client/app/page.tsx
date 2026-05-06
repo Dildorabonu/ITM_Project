@@ -173,10 +173,69 @@ function formatNum(n: number): string {
   return Math.round(n).toString();
 }
 
-function pctChange(curr: number, prev: number): { pct: number; dir: "up" | "down" | "flat" } {
-  if (prev === 0) return { pct: curr > 0 ? 100 : 0, dir: curr > 0 ? "up" : "flat" };
+function pctChange(curr: number, prev: number): { pct: number; dir: "up" | "down" | "flat" | "new" } {
+  if (prev === 0) return { pct: 0, dir: curr > 0 ? "new" : "flat" };
   const change = ((curr - prev) / prev) * 100;
   return { pct: Math.abs(Math.round(change)), dir: change > 0.5 ? "up" : change < -0.5 ? "down" : "flat" };
+}
+
+/* ─── Period helpers ─── */
+
+type PeriodPreset = "today" | "week" | "month" | "30d" | "90d" | "custom";
+
+const PERIOD_LABELS: Record<PeriodPreset, string> = {
+  today:  "Bugun",
+  week:   "Bu hafta",
+  month:  "Bu oy",
+  "30d":  "30 kun",
+  "90d":  "90 kun",
+  custom: "Maxsus",
+};
+
+function toIsoDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function fromIsoDate(s: string): Date {
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, (m ?? 1) - 1, d ?? 1);
+}
+
+function rangeFromPreset(preset: Exclude<PeriodPreset, "custom">): { from: string; to: string } {
+  const today = new Date();
+  const todayStr = toIsoDate(today);
+  switch (preset) {
+    case "today": return { from: todayStr, to: todayStr };
+    case "week": {
+      const day = today.getDay();
+      const offset = day === 0 ? 6 : day - 1; // Monday-based
+      const monday = new Date(today);
+      monday.setDate(today.getDate() - offset);
+      return { from: toIsoDate(monday), to: todayStr };
+    }
+    case "month": {
+      const first = new Date(today.getFullYear(), today.getMonth(), 1);
+      return { from: toIsoDate(first), to: todayStr };
+    }
+    case "30d": {
+      const d = new Date(today); d.setDate(today.getDate() - 29);
+      return { from: toIsoDate(d), to: todayStr };
+    }
+    case "90d": {
+      const d = new Date(today); d.setDate(today.getDate() - 89);
+      return { from: toIsoDate(d), to: todayStr };
+    }
+  }
+}
+
+function formatRangeShort(from: string, to: string): string {
+  const f = fromIsoDate(from);
+  const t = fromIsoDate(to);
+  if (from === to) return formatUzDate(f, "short");
+  return `${formatUzDate(f, "short")} → ${formatUzDate(t, "short")}`;
 }
 
 function priorityLabel(p: Priority): string {
@@ -876,7 +935,7 @@ function KpiCard({
   label: string;
   value: number | string;
   sub?: string;
-  trend?: { dir: "up" | "down" | "flat"; pct: number; label?: string };
+  trend?: { dir: "up" | "down" | "flat" | "new"; pct: number; label?: string };
   icon: React.ReactNode;
   accent: "accent" | "success" | "warn" | "danger" | "purple" | "indigo" | "cyan" | "amber";
   onClick?: () => void;
@@ -894,9 +953,15 @@ function KpiCard({
           {sub && <span className="dx-kpi-sub">{sub}</span>}
           {trend && (
             <span className={`dx-kpi-trend dxt-${trend.dir}`}>
-              {trend.dir === "up" ? <Ico.TrendUp /> : trend.dir === "down" ? <Ico.TrendDown /> : <span>—</span>}
-              {trend.pct}%
-              {trend.label && <span className="dx-kpi-trend-cap">{trend.label}</span>}
+              {trend.dir === "new" ? (
+                <>Yangi{trend.label && <span className="dx-kpi-trend-cap">{trend.label}</span>}</>
+              ) : (
+                <>
+                  {trend.dir === "up" ? <Ico.TrendUp /> : trend.dir === "down" ? <Ico.TrendDown /> : <span>—</span>}
+                  {trend.pct}%
+                  {trend.label && <span className="dx-kpi-trend-cap">{trend.label}</span>}
+                </>
+              )}
             </span>
           )}
         </div>
@@ -1126,6 +1191,115 @@ function TopPerformers({ items }: { items: TopPerformer[] }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
+   PERIOD BAR
+═══════════════════════════════════════════════════════════════════ */
+
+function PeriodBar({
+  preset, setPreset, customRange, setCustomRange,
+  presetOpen, setPresetOpen, range, rangeDays, refreshing,
+}: {
+  preset: PeriodPreset;
+  setPreset: (p: PeriodPreset) => void;
+  customRange: { from: string; to: string };
+  setCustomRange: (r: { from: string; to: string }) => void;
+  presetOpen: boolean;
+  setPresetOpen: (b: boolean) => void;
+  range: { from: string; to: string };
+  rangeDays: number;
+  refreshing: boolean;
+}) {
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!presetOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setPresetOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [presetOpen, setPresetOpen]);
+
+  const presets: PeriodPreset[] = ["today", "week", "month", "30d", "90d", "custom"];
+
+  return (
+    <section className="dx-period-bar">
+      <div className="dx-period-cap">
+        <Ico.Calendar />
+        <span className="dx-period-cap-label">Davr ko&apos;rsatkichlari</span>
+      </div>
+
+      <div className="dx-period-controls">
+        <div className="dx-period-dd" ref={dropdownRef}>
+          <button
+            className="dx-period-btn"
+            onClick={() => setPresetOpen(!presetOpen)}
+            aria-expanded={presetOpen}
+          >
+            <span className="dx-period-btn-label">{PERIOD_LABELS[preset]}</span>
+            <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2"
+                 viewBox="0 0 24 24"
+                 style={{ transform: presetOpen ? "rotate(180deg)" : "none", transition: "transform 0.18s" }}>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          {presetOpen && (
+            <div className="dx-period-menu">
+              {presets.map(p => (
+                <button
+                  key={p}
+                  className={`dx-period-menu-item ${preset === p ? "dx-active" : ""}`}
+                  onClick={() => { setPreset(p); if (p !== "custom") setPresetOpen(false); }}
+                >
+                  {PERIOD_LABELS[p]}
+                </button>
+              ))}
+              {preset === "custom" && (
+                <div className="dx-period-custom">
+                  <label>
+                    <span>Boshlanish</span>
+                    <input
+                      type="date"
+                      value={customRange.from}
+                      max={customRange.to || undefined}
+                      onChange={e => setCustomRange({ ...customRange, from: e.target.value })}
+                    />
+                  </label>
+                  <label>
+                    <span>Tugash</span>
+                    <input
+                      type="date"
+                      value={customRange.to}
+                      min={customRange.from || undefined}
+                      onChange={e => setCustomRange({ ...customRange, to: e.target.value })}
+                    />
+                  </label>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="dx-period-range">
+          <span className="dx-period-range-text">
+            {range.from && range.to ? formatRangeShort(range.from, range.to) : "—"}
+          </span>
+          <span className="dx-period-range-days">{rangeDays || 0} kun</span>
+        </div>
+
+        {refreshing && (
+          <div className="dx-period-refresh">
+            <div className="nd-spinner" style={{ width: 12, height: 12, borderWidth: 1.5 }} />
+            <span>Yangilanmoqda...</span>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
    PAGE
 ═══════════════════════════════════════════════════════════════════ */
 
@@ -1135,8 +1309,18 @@ export default function DashboardPage() {
   const accessToken = useAuthStore((s) => s.accessToken);
 
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [err, setErr] = useState<string | null>(null);
+
+  const [preset, setPreset] = useState<PeriodPreset>("month");
+  const [customRange, setCustomRange] = useState<{ from: string; to: string }>({ from: "", to: "" });
+  const [presetOpen, setPresetOpen] = useState(false);
+
+  const range = useMemo<{ from: string; to: string }>(() => {
+    if (preset === "custom" && customRange.from && customRange.to) return customRange;
+    return rangeFromPreset(preset === "custom" ? "month" : preset);
+  }, [preset, customRange]);
 
   useEffect(() => {
     if (!accessToken) return;
@@ -1144,44 +1328,48 @@ export default function DashboardPage() {
     (async () => {
       try {
         setErr(null);
-        const summary = await dashboardService.getSummary(30);
+        if (data) setRefreshing(true);
+        const summary = await dashboardService.getSummary({ from: range.from, to: range.to });
         if (!alive) return;
         setData(summary);
       } catch {
         if (!alive) return;
         setErr("Ma'lumotlarni yuklab bo'lmadi");
       } finally {
-        if (alive) setLoading(false);
+        if (alive) { setLoading(false); setRefreshing(false); }
       }
     })();
     return () => { alive = false; };
-  }, [accessToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken, range.from, range.to]);
 
   // Animated KPI counters (called unconditionally)
   const k = data?.kpis;
-  const animTotal     = useCountUp(k?.totalContracts ?? 0);
+  // State (always-now)
   const animActive    = useCountUp(k?.activeContracts ?? 0);
-  const animCompleted = useCountUp(k?.completedContracts ?? 0);
-  const animMfg       = useCountUp(k?.manufacturedInProgress ?? 0);
-  const animShip      = useCountUp(k?.totalShipments ?? 0);
-  const animUsers     = useCountUp(k?.totalUsers ?? 0);
-  const animDepts     = useCountUp(k?.activeDepartments ?? 0);
   const animOverdue   = useCountUp(k?.overdueContracts ?? 0);
+  const animCritical  = useCountUp(k?.criticalDeadlines ?? 0);
+  const animMfgIp     = useCountUp(k?.manufacturedInProgress ?? 0);
+  const animEmployees = useCountUp(k?.totalEmployees ?? 0);
 
   const completionTrend = useMemo(() => {
     if (!k) return null;
-    return pctChange(k.completedThisMonth, k.completedPrevMonth);
+    return pctChange(k.completedInRange, k.completedPrevRange);
   }, [k]);
 
   const shipmentTrend = useMemo(() => {
     if (!k) return null;
-    return pctChange(k.shipmentsThisWeek, k.shipmentsPrevWeek);
+    return pctChange(k.shipmentsInRange, k.shipmentsPrevRange);
   }, [k]);
 
   const productionTrend = useMemo(() => {
     if (!k) return null;
-    return pctChange(Number(k.loggedAmountThisWeek), Number(k.loggedAmountPrevWeek));
+    return pctChange(Number(k.loggedAmountInRange), Number(k.loggedAmountPrevRange));
   }, [k]);
+
+  const animCompletedRange = useCountUp(k?.completedInRange ?? 0);
+  const animShipRange      = useCountUp(k?.shipmentsInRange ?? 0);
+  const animMfgDoneRange   = useCountUp(k?.manufacturedCompletedInRange ?? 0);
 
   const greeting = getGreeting();
   const today = new Date();
@@ -1217,80 +1405,111 @@ export default function DashboardPage() {
       <section className="dx-hero">
         <div className="dx-hero-aurora" />
         <div className="dx-hero-grid" />
-        <div className="dx-hero-content">
-          <div className="dx-hero-greeting">
-            <span className="dx-hero-icon">{getGreetingIcon(greeting.icon)}</span>
-            <span>{greeting.text},</span>
-          </div>
-          <h1 className="dx-hero-name">{firstName}</h1>
-          <p className="dx-hero-sub">Bugungi tashkilot holati va ishlab chiqarish ko&apos;rsatkichlari</p>
 
-          <div className="dx-hero-quick">
-            <div className="dx-hero-quick-item">
-              <span className="dx-hero-quick-dot dxc-success" />
-              <span className="dx-hero-quick-label">Yakunlangan oyiga</span>
-              <span className="dx-hero-quick-val">{k?.completedThisMonth ?? 0}</span>
-              {completionTrend && completionTrend.dir !== "flat" && (
-                <span className={`dx-hero-quick-trend dxt-${completionTrend.dir}`}>
-                  {completionTrend.dir === "up" ? "↑" : "↓"} {completionTrend.pct}%
-                </span>
-              )}
+        <div className="dx-hero-top">
+          <div className="dx-hero-greet-block">
+            <div className="dx-hero-greeting">
+              <span className="dx-hero-icon">{getGreetingIcon(greeting.icon)}</span>
+              <span>{greeting.text},</span>
             </div>
-            <div className="dx-hero-quick-item">
-              <span className="dx-hero-quick-dot dxc-warn" />
-              <span className="dx-hero-quick-label">Muddati o&apos;tgan</span>
-              <span className="dx-hero-quick-val">{k?.overdueContracts ?? 0}</span>
+            <h1 className="dx-hero-name">{firstName}</h1>
+            <p className="dx-hero-sub">Bugungi tashkilot holati va ishlab chiqarish ko&apos;rsatkichlari</p>
+          </div>
+          <div className="dx-hero-meta">
+            <div className="dx-hero-date">
+              <Ico.Calendar />
+              <span>{formatUzDate(today)}</span>
             </div>
-            <div className="dx-hero-quick-item">
-              <span className="dx-hero-quick-dot dxc-danger" />
-              <span className="dx-hero-quick-label">Kritik deadline</span>
-              <span className="dx-hero-quick-val">{k?.criticalDeadlines ?? 0}</span>
-            </div>
+            {user?.role && <div className="dx-hero-role">{user.role}</div>}
           </div>
         </div>
-        <div className="dx-hero-right">
-          <div className="dx-hero-date">
-            <Ico.Calendar />
-            <span>{formatUzDate(today)}</span>
+
+        {/* ALWAYS-NOW state strip — period-independent metrics */}
+        <div className="dx-state-strip">
+          <div className="dx-state-strip-cap">
+            <span className="dx-hero-block-dot dxc-warn" />
+            Hozirgi holat <span className="dx-state-strip-note">davrga bog&apos;liq emas</span>
           </div>
-          {user?.role && <div className="dx-hero-role">{user.role}</div>}
-          <div className="dx-hero-tile">
-            <span className="dx-hero-tile-cap">Bu hafta yozilgan</span>
-            <span className="dx-hero-tile-val">{formatNum(Number(k?.loggedAmountThisWeek ?? 0))}</span>
-            {productionTrend && productionTrend.dir !== "flat" && (
-              <span className={`dx-hero-tile-trend dxt-${productionTrend.dir}`}>
-                {productionTrend.dir === "up" ? <Ico.TrendUp /> : <Ico.TrendDown />} {productionTrend.pct}%
-                <span className="dx-hero-tile-cap">o&apos;tgan haftaga</span>
-              </span>
-            )}
+          <div className="dx-state-strip-tiles">
+            <button
+              className="dx-mini-tile dxm-accent"
+              onClick={() => router.push("/contracts")}
+              aria-label="Faol shartnomalar"
+            >
+              <div className="dx-mini-icon"><Ico.Zap /></div>
+              <div className="dx-mini-val">{animActive}</div>
+              <div className="dx-mini-lbl">Faol shartnoma</div>
+            </button>
+            <button
+              className="dx-mini-tile dxm-warn"
+              onClick={() => router.push("/contracts")}
+              aria-label="Muddati o'tgan shartnomalar"
+            >
+              <div className="dx-mini-icon"><Ico.Clock /></div>
+              <div className="dx-mini-val">{animOverdue}</div>
+              <div className="dx-mini-lbl">Muddati o&apos;tgan</div>
+            </button>
+            <button
+              className="dx-mini-tile dxm-danger"
+              onClick={() => router.push("/contracts")}
+              aria-label="Kritik deadline"
+            >
+              <div className="dx-mini-icon"><Ico.Alert /></div>
+              <div className="dx-mini-val">{animCritical}</div>
+              <div className="dx-mini-lbl">Kritik deadline <span className="dx-mini-sub">7 kun</span></div>
+            </button>
+            <button
+              className="dx-mini-tile dxm-purple"
+              onClick={() => router.push("/manufactured")}
+              aria-label="Ishlab chiqarishda"
+            >
+              <div className="dx-mini-icon"><Ico.Factory /></div>
+              <div className="dx-mini-val">{animMfgIp}</div>
+              <div className="dx-mini-lbl">Ishlab chiqarishda</div>
+            </button>
+            <button
+              className="dx-mini-tile dxm-cyan"
+              onClick={() => router.push("/users")}
+              aria-label="Xodimlar"
+            >
+              <div className="dx-mini-icon"><Ico.Users /></div>
+              <div className="dx-mini-val">{animEmployees}</div>
+              <div className="dx-mini-lbl">Xodimlar <span className="dx-mini-sub">{k?.activeDepartments ?? 0} bo&apos;lim</span></div>
+            </button>
           </div>
         </div>
       </section>
 
-      {/* ─── KPI ROW ─── */}
+      {/* ─── PERIOD BAR ─── */}
+      <PeriodBar
+        preset={preset}
+        setPreset={setPreset}
+        customRange={customRange}
+        setCustomRange={setCustomRange}
+        presetOpen={presetOpen}
+        setPresetOpen={setPresetOpen}
+        range={range}
+        rangeDays={k?.rangeDays ?? 0}
+        refreshing={refreshing}
+      />
+
+      {/* ─── KPI ROW (period-bound) ─── */}
       <section className="dx-kpi-grid">
-        <KpiCard label="Jami shartnoma" value={animTotal} icon={<Ico.File />} accent="accent"
-          sub={`${k?.activeContracts ?? 0} ta faol`}
+        <KpiCard label="Yakunlangan shartnoma" value={animCompletedRange} icon={<Ico.CheckCircle />} accent="success"
+          sub="Davrda yakunlangan"
+          trend={completionTrend ? { dir: completionTrend.dir, pct: completionTrend.pct, label: "o'tgan davr" } : undefined}
           onClick={() => router.push("/contracts")} />
-        <KpiCard label="Faol shartnoma" value={animActive} icon={<Ico.Zap />} accent="indigo"
-          sub={`${k?.inProductionProducts ?? 0} mahsulot ishda`}
-          onClick={() => router.push("/contracts")} />
-        <KpiCard label="Yakunlangan" value={animCompleted} icon={<Ico.CheckCircle />} accent="success"
-          sub={`${k?.completionRate ?? 0}% umumiy`}
-          trend={completionTrend ? { dir: completionTrend.dir, pct: completionTrend.pct, label: "oyiga" } : undefined} />
-        <KpiCard label="Ishlab chiqarishda" value={animMfg} icon={<Ico.Factory />} accent="purple"
-          sub={`${k?.manufacturedCompleted ?? 0} yakunlangan`} />
-        <KpiCard label="Jo'natma partiyalari" value={animShip} icon={<Ico.Truck />} accent="cyan"
-          sub={`${k?.shipmentsThisWeek ?? 0} bu hafta`}
-          trend={shipmentTrend ? { dir: shipmentTrend.dir, pct: shipmentTrend.pct } : undefined} />
-        <KpiCard label="Foydalanuvchilar" value={animUsers} icon={<Ico.Users />} accent="amber"
-          sub={`${k?.totalEmployees ?? 0} xodim`}
-          onClick={() => router.push("/users")} />
-        <KpiCard label="Faol bo'limlar" value={animDepts} icon={<Ico.Building />} accent="warn"
-          sub={`${k?.activeDepartments ?? 0} / ${(k?.activeDepartments ?? 0)} ishlamoqda`}
-          onClick={() => router.push("/departments")} />
-        <KpiCard label="Muddati o'tgan" value={animOverdue} icon={<Ico.Alert />} accent="danger"
-          sub={`${k?.criticalDeadlines ?? 0} kritik (7 kun)`} />
+        <KpiCard label="Sarf hajmi" value={formatNum(Number(k?.loggedAmountInRange ?? 0))} icon={<Ico.Activity />} accent="purple"
+          sub="Davrdagi jami sarf"
+          trend={productionTrend ? { dir: productionTrend.dir, pct: productionTrend.pct, label: "o'tgan davr" } : undefined}
+          onClick={() => router.push("/tasks")} />
+        <KpiCard label="Jo'natma partiyalari" value={animShipRange} icon={<Ico.Truck />} accent="cyan"
+          sub="Davrda yuborilgan"
+          trend={shipmentTrend ? { dir: shipmentTrend.dir, pct: shipmentTrend.pct, label: "o'tgan davr" } : undefined}
+          onClick={() => router.push("/manufactured")} />
+        <KpiCard label="Yakunlangan ishlab chiq." value={animMfgDoneRange} icon={<Ico.Factory />} accent="indigo"
+          sub="Davrda tugatilgan"
+          onClick={() => router.push("/manufactured")} />
       </section>
 
       {/* ─── PIPELINE BOARD ─── */}
