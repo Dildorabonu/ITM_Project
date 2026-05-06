@@ -16,11 +16,12 @@ public class DashboardController : ControllerBase
         _service = service;
     }
 
-    // GET /api/dashboard/summary?trendDays=30
+    // GET /api/dashboard/summary?from=2026-05-01&to=2026-05-06
+    // If from/to omitted → defaults to current month (1st of month → today).
     [HttpGet("summary")]
-    public async Task<IActionResult> GetSummary([FromQuery] int trendDays = 30)
+    public async Task<IActionResult> GetSummary([FromQuery] DateOnly? from = null, [FromQuery] DateOnly? to = null)
     {
-        var result = await _service.GetSummaryAsync(trendDays);
+        var result = await _service.GetSummaryAsync(from, to);
         return StatusCode(result.StatusCode, result);
     }
 }

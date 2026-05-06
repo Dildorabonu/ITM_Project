@@ -19,34 +19,33 @@ public class DashboardSummaryDto
 
 public class DashboardKpiDto
 {
+    // ── Always-now (state, period-independent) ──
     public int TotalContracts { get; set; }
     public int ActiveContracts { get; set; }
     public int CompletedContracts { get; set; }
     public int CancelledContracts { get; set; }
-    public int CompletedThisMonth { get; set; }
-    public int CompletedPrevMonth { get; set; }
     public double CompletionRate { get; set; }
-
+    public int OverdueContracts { get; set; }
+    public int CriticalDeadlines { get; set; }
     public int TotalProducts { get; set; }
     public int InProductionProducts { get; set; }
-
-    public int ManufacturedTotal { get; set; }
     public int ManufacturedInProgress { get; set; }
-    public int ManufacturedCompleted { get; set; }
-
     public int TotalShipments { get; set; }
-    public int ShipmentsThisWeek { get; set; }
-    public int ShipmentsPrevWeek { get; set; }
-
     public int TotalUsers { get; set; }
     public int ActiveDepartments { get; set; }
     public int TotalEmployees { get; set; }
 
-    public decimal LoggedAmountThisWeek { get; set; }
-    public decimal LoggedAmountPrevWeek { get; set; }
-
-    public int OverdueContracts { get; set; }
-    public int CriticalDeadlines { get; set; }
+    // ── Selected period (from / to inclusive) ──
+    public DateOnly RangeFrom { get; set; }
+    public DateOnly RangeTo { get; set; }
+    public int RangeDays { get; set; }
+    public int CompletedInRange { get; set; }
+    public int CompletedPrevRange { get; set; }
+    public int ManufacturedCompletedInRange { get; set; }
+    public int ShipmentsInRange { get; set; }
+    public int ShipmentsPrevRange { get; set; }
+    public decimal LoggedAmountInRange { get; set; }
+    public decimal LoggedAmountPrevRange { get; set; }
 }
 
 public class ContractStatusBucketDto

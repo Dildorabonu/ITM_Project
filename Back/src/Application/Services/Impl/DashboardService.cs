@@ -15,20 +15,30 @@ public class DashboardService : IDashboardService
         _context = context;
     }
 
-    public async Task<ApiResult<DashboardSummaryDto>> GetSummaryAsync(int trendDays = 30)
+    public async Task<ApiResult<DashboardSummaryDto>> GetSummaryAsync(DateOnly? from = null, DateOnly? to = null)
     {
-        if (trendDays <= 0) trendDays = 30;
-        if (trendDays > 180) trendDays = 180;
-
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var trendStart = today.AddDays(-(trendDays - 1));
-        var monthStart = new DateOnly(today.Year, today.Month, 1);
-        var prevMonthStart = monthStart.AddMonths(-1);
-        var weekStart = today.AddDays(-6);
-        var prevWeekStart = today.AddDays(-13);
-        var prevWeekEnd = today.AddDays(-7);
 
-        // ── KPIs (single pass over Contracts) ──────────────────────────────
+        // Default range = current month (1st → today)
+        var rangeTo = to ?? today;
+        var rangeFrom = from ?? new DateOnly(rangeTo.Year, rangeTo.Month, 1);
+
+        // Sanity: from <= to, clamp to <= today
+        if (rangeFrom > rangeTo) (rangeFrom, rangeTo) = (rangeTo, rangeFrom);
+        if (rangeTo > today) rangeTo = today;
+
+        var rangeDays = rangeTo.DayNumber - rangeFrom.DayNumber + 1;
+        // Previous comparison range = same length immediately before
+        var prevRangeTo   = rangeFrom.AddDays(-1);
+        var prevRangeFrom = prevRangeTo.AddDays(-(rangeDays - 1));
+
+        // UTC instants for timestamptz queries
+        var rangeFromUtc     = AsUtc(rangeFrom, TimeOnly.MinValue);
+        var rangeToUtc       = AsUtc(rangeTo,   TimeOnly.MaxValue);
+        var prevRangeFromUtc = AsUtc(prevRangeFrom, TimeOnly.MinValue);
+        var prevRangeToUtc   = AsUtc(prevRangeTo,   TimeOnly.MaxValue);
+
+        // ── Contracts (state snapshot + period totals) ─────────────────────
         var contracts = await _context.Contracts
             .AsNoTracking()
             .Select(c => new { c.Id, c.Status, c.Priority, c.EndDate, c.IsActive, c.CreatedAt })
@@ -40,13 +50,16 @@ public class DashboardService : IDashboardService
         var completedContracts = contracts.Count(c => c.Status == ContractStatus.Completed);
         var cancelledContracts = contracts.Count(c => c.Status == ContractStatus.Cancelled);
 
-        var completedThisMonth = contracts.Count(c =>
-            c.Status == ContractStatus.Completed &&
-            DateOnly.FromDateTime(c.CreatedAt) >= monthStart);
-        var completedPrevMonth = contracts.Count(c =>
-            c.Status == ContractStatus.Completed &&
-            DateOnly.FromDateTime(c.CreatedAt) >= prevMonthStart &&
-            DateOnly.FromDateTime(c.CreatedAt) < monthStart);
+        bool InRange(DateTime ts, DateOnly f, DateOnly t)
+        {
+            var d = DateOnly.FromDateTime(ts);
+            return d >= f && d <= t;
+        }
+
+        var completedInRange = contracts.Count(c =>
+            c.Status == ContractStatus.Completed && InRange(c.CreatedAt, rangeFrom, rangeTo));
+        var completedPrevRange = contracts.Count(c =>
+            c.Status == ContractStatus.Completed && InRange(c.CreatedAt, prevRangeFrom, prevRangeTo));
 
         var overdueContracts = contracts.Count(c =>
             c.Status != ContractStatus.Completed &&
@@ -59,7 +72,7 @@ public class DashboardService : IDashboardService
             c.EndDate >= today &&
             c.EndDate <= today.AddDays(7));
 
-        // Status distribution
+        // Status & priority distributions — current snapshot
         var statusBuckets = Enum.GetValues<ContractStatus>()
             .Select(s => new ContractStatusBucketDto
             {
@@ -69,7 +82,6 @@ public class DashboardService : IDashboardService
             })
             .ToList();
 
-        // Priority distribution (active only)
         var priorityBuckets = Enum.GetValues<Priority>()
             .Select(p => new PriorityBucketDto
             {
@@ -89,27 +101,21 @@ public class DashboardService : IDashboardService
             .Where(p => p.IsActive && p.Status == ContractProductStatus.InProduction)
             .CountAsync();
 
-        var manufacturedAgg = await _context.ManufacturedProducts
-            .AsNoTracking()
-            .GroupBy(m => m.Status)
-            .Select(g => new { Status = g.Key, Count = g.Count() })
-            .ToListAsync();
-        var mfgInProgress = manufacturedAgg.FirstOrDefault(x => x.Status == ManufacturingStatus.InProgress)?.Count ?? 0;
-        var mfgCompleted = manufacturedAgg.FirstOrDefault(x => x.Status == ManufacturingStatus.Completed)?.Count ?? 0;
-        var mfgTotal = mfgInProgress + mfgCompleted;
+        var mfgInProgress = await _context.ManufacturedProducts
+            .CountAsync(m => m.Status == ManufacturingStatus.InProgress);
+
+        // Manufactured completed in range — by CreatedAt of completion (best proxy
+        // available without a dedicated CompletedAt column)
+        var manufacturedCompletedInRange = await _context.ManufacturedProducts
+            .CountAsync(m => m.Status == ManufacturingStatus.Completed
+                          && m.CreatedAt >= rangeFromUtc && m.CreatedAt <= rangeToUtc);
 
         // ── Shipments ─────────────────────────────────────────────────────
-        // DateOnly.ToDateTime returns Kind=Unspecified; Npgsql requires Kind=Utc for timestamptz.
-        var trendStartUtc    = DateTime.SpecifyKind(trendStart.ToDateTime(TimeOnly.MinValue),    DateTimeKind.Utc);
-        var weekStartUtc     = DateTime.SpecifyKind(weekStart.ToDateTime(TimeOnly.MinValue),     DateTimeKind.Utc);
-        var prevWeekStartUtc = DateTime.SpecifyKind(prevWeekStart.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
-        var prevWeekEndUtc   = DateTime.SpecifyKind(prevWeekEnd.ToDateTime(TimeOnly.MaxValue),   DateTimeKind.Utc);
-
         var totalShipments = await _context.ShipmentBatches.CountAsync();
-        var shipmentsThisWeek = await _context.ShipmentBatches
-            .Where(s => s.CreatedAt >= weekStartUtc).CountAsync();
-        var shipmentsPrevWeek = await _context.ShipmentBatches
-            .Where(s => s.CreatedAt >= prevWeekStartUtc && s.CreatedAt <= prevWeekEndUtc).CountAsync();
+        var shipmentsInRange = await _context.ShipmentBatches
+            .CountAsync(s => s.CreatedAt >= rangeFromUtc && s.CreatedAt <= rangeToUtc);
+        var shipmentsPrevRange = await _context.ShipmentBatches
+            .CountAsync(s => s.CreatedAt >= prevRangeFromUtc && s.CreatedAt <= prevRangeToUtc);
 
         // ── Users / Departments ────────────────────────────────────────────
         var totalUsers = await _context.Users.Where(u => u.IsActive).CountAsync();
@@ -117,21 +123,21 @@ public class DashboardService : IDashboardService
         var activeDepartments = departments.Count(d => d.IsActive);
         var totalEmployees = departments.Sum(d => d.EmployeeCount);
 
-        // ── Production trend (daily logs) ──────────────────────────────────
-        var dailyLogsRaw = await _context.ContractTaskDailyLogs
+        // ── Production trend (daily logs) — over selected range ────────────
+        var dailyLogsRange = await _context.ContractTaskDailyLogs
             .AsNoTracking()
-            .Where(l => l.IsActive && l.Date >= trendStart && l.Date <= today)
+            .Where(l => l.IsActive && l.Date >= rangeFrom && l.Date <= rangeTo)
             .Select(l => new { l.Date, l.Amount })
             .ToListAsync();
 
-        var productionByDate = dailyLogsRaw
+        var productionByDate = dailyLogsRange
             .GroupBy(l => l.Date)
             .ToDictionary(g => g.Key, g => new { Sum = g.Sum(x => x.Amount), Count = g.Count() });
 
         var productionTrend = new List<ProductionTrendPointDto>();
-        for (int i = 0; i < trendDays; i++)
+        for (int i = 0; i < rangeDays; i++)
         {
-            var d = trendStart.AddDays(i);
+            var d = rangeFrom.AddDays(i);
             productionByDate.TryGetValue(d, out var v);
             productionTrend.Add(new ProductionTrendPointDto
             {
@@ -141,17 +147,17 @@ public class DashboardService : IDashboardService
             });
         }
 
-        var loggedThisWeek = dailyLogsRaw
-            .Where(l => l.Date >= weekStart && l.Date <= today)
-            .Sum(l => l.Amount);
-        var loggedPrevWeek = dailyLogsRaw
-            .Where(l => l.Date >= prevWeekStart && l.Date <= prevWeekEnd)
-            .Sum(l => l.Amount);
+        var loggedAmountInRange = dailyLogsRange.Sum(l => l.Amount);
 
-        // ── Shipment trend ────────────────────────────────────────────────
+        var loggedAmountPrevRange = await _context.ContractTaskDailyLogs
+            .AsNoTracking()
+            .Where(l => l.IsActive && l.Date >= prevRangeFrom && l.Date <= prevRangeTo)
+            .SumAsync(l => (decimal?)l.Amount) ?? 0m;
+
+        // ── Shipment trend — over selected range ──────────────────────────
         var shipmentRaw = await _context.ShipmentBatches
             .AsNoTracking()
-            .Where(s => s.CreatedAt >= trendStartUtc)
+            .Where(s => s.CreatedAt >= rangeFromUtc && s.CreatedAt <= rangeToUtc)
             .Select(s => new { s.CreatedAt, s.Amount })
             .ToListAsync();
 
@@ -160,9 +166,9 @@ public class DashboardService : IDashboardService
             .ToDictionary(g => g.Key, g => new { Sum = g.Sum(x => x.Amount), Count = g.Count() });
 
         var shipmentTrend = new List<ProductionTrendPointDto>();
-        for (int i = 0; i < trendDays; i++)
+        for (int i = 0; i < rangeDays; i++)
         {
-            var d = trendStart.AddDays(i);
+            var d = rangeFrom.AddDays(i);
             shipByDate.TryGetValue(d, out var v);
             shipmentTrend.Add(new ProductionTrendPointDto
             {
@@ -190,7 +196,7 @@ public class DashboardService : IDashboardService
         var deptManufacturedDict = deptManufacturedCounts.ToDictionary(x => x.DepartmentId, x => x.Count);
 
         var deptLogged = await _context.ContractTaskDailyLogs
-            .Where(l => l.IsActive && l.Date >= weekStart && l.Date <= today
+            .Where(l => l.IsActive && l.Date >= rangeFrom && l.Date <= rangeTo
                         && l.Creator != null && l.Creator.DepartmentId != null)
             .GroupBy(l => l.Creator!.DepartmentId)
             .Select(g => new { DepartmentId = g.Key!.Value, Sum = g.Sum(x => x.Amount) })
@@ -213,7 +219,7 @@ public class DashboardService : IDashboardService
             .ThenByDescending(d => d.LoggedAmount)
             .ToList();
 
-        // ── Manufacturing progress (in-progress, top 8) ───────────────────
+        // ── Manufacturing progress (in-progress, top 8) — snapshot ────────
         var manufacturingProgress = await _context.ManufacturedProducts
             .AsNoTracking()
             .Where(m => m.Status == ManufacturingStatus.InProgress)
@@ -239,7 +245,7 @@ public class DashboardService : IDashboardService
             })
             .ToListAsync();
 
-        // ── Upcoming deadlines (active contracts, sorted by endDate) ──────
+        // ── Upcoming deadlines (active contracts, sorted by endDate) — snapshot
         var upcomingRaw = await _context.Contracts
             .AsNoTracking()
             .Where(c => c.Status != ContractStatus.Completed && c.Status != ContractStatus.Cancelled)
@@ -290,7 +296,7 @@ public class DashboardService : IDashboardService
             };
         }).ToList();
 
-        // ── Recent activity feed (mixed sources) ──────────────────────────
+        // ── Recent activity feed — latest items, snapshot ─────────────────
         var recentContracts = await _context.Contracts
             .AsNoTracking()
             .OrderByDescending(c => c.CreatedAt)
@@ -360,11 +366,10 @@ public class DashboardService : IDashboardService
             .Take(12)
             .ToList();
 
-        // ── Top performers (last 30 days by daily-log count) ──────────────
-        var perfStart = today.AddDays(-29);
+        // ── Top performers — within selected range ────────────────────────
         var topPerformers = await _context.ContractTaskDailyLogs
             .AsNoTracking()
-            .Where(l => l.IsActive && l.Date >= perfStart && l.Creator != null)
+            .Where(l => l.IsActive && l.Date >= rangeFrom && l.Date <= rangeTo && l.Creator != null)
             .GroupBy(l => new
             {
                 l.CreatedBy,
@@ -384,7 +389,7 @@ public class DashboardService : IDashboardService
             .Take(5)
             .ToListAsync();
 
-        // ── Activity heatmap (last 12 weeks, day-of-week × week) ──────────
+        // ── Activity heatmap — fixed last 12 weeks (long-term pattern view)
         const int heatmapWeeks = 12;
         var heatStart = today.AddDays(-(heatmapWeeks * 7 - 1));
 
@@ -420,26 +425,29 @@ public class DashboardService : IDashboardService
                 ActiveContracts = activeContracts,
                 CompletedContracts = completedContracts,
                 CancelledContracts = cancelledContracts,
-                CompletedThisMonth = completedThisMonth,
-                CompletedPrevMonth = completedPrevMonth,
                 CompletionRate = totalContracts > 0
                     ? Math.Round((double)completedContracts / totalContracts * 100.0, 1)
                     : 0,
+                OverdueContracts = overdueContracts,
+                CriticalDeadlines = criticalDeadlines,
                 TotalProducts = totalProducts,
                 InProductionProducts = inProductionProducts,
-                ManufacturedTotal = mfgTotal,
                 ManufacturedInProgress = mfgInProgress,
-                ManufacturedCompleted = mfgCompleted,
                 TotalShipments = totalShipments,
-                ShipmentsThisWeek = shipmentsThisWeek,
-                ShipmentsPrevWeek = shipmentsPrevWeek,
                 TotalUsers = totalUsers,
                 ActiveDepartments = activeDepartments,
                 TotalEmployees = totalEmployees,
-                LoggedAmountThisWeek = loggedThisWeek,
-                LoggedAmountPrevWeek = loggedPrevWeek,
-                OverdueContracts = overdueContracts,
-                CriticalDeadlines = criticalDeadlines,
+
+                RangeFrom = rangeFrom,
+                RangeTo = rangeTo,
+                RangeDays = rangeDays,
+                CompletedInRange = completedInRange,
+                CompletedPrevRange = completedPrevRange,
+                ManufacturedCompletedInRange = manufacturedCompletedInRange,
+                ShipmentsInRange = shipmentsInRange,
+                ShipmentsPrevRange = shipmentsPrevRange,
+                LoggedAmountInRange = loggedAmountInRange,
+                LoggedAmountPrevRange = loggedAmountPrevRange,
             },
             ContractStatus = statusBuckets,
             ProductionTrend = productionTrend,
@@ -455,6 +463,10 @@ public class DashboardService : IDashboardService
 
         return ApiResult<DashboardSummaryDto>.Success(summary);
     }
+
+    // DateOnly.ToDateTime returns Kind=Unspecified; Npgsql requires Kind=Utc for timestamptz.
+    private static DateTime AsUtc(DateOnly d, TimeOnly t) =>
+        DateTime.SpecifyKind(d.ToDateTime(t), DateTimeKind.Utc);
 
     private static string StatusLabel(ContractStatus s) => s switch
     {
