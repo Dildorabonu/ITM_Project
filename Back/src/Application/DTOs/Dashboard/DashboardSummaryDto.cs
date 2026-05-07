@@ -40,13 +40,6 @@ public class DashboardKpiDto
     public DateOnly RangeFrom { get; set; }
     public DateOnly RangeTo { get; set; }
     public int RangeDays { get; set; }
-    public int CompletedInRange { get; set; }
-    public int CompletedPrevRange { get; set; }
-    public int ManufacturedCompletedInRange { get; set; }
-    public int ShipmentsInRange { get; set; }
-    public int ShipmentsPrevRange { get; set; }
-    public decimal LoggedAmountInRange { get; set; }
-    public decimal LoggedAmountPrevRange { get; set; }
 }
 
 public class ContractStatusBucketDto

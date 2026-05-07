@@ -28,15 +28,10 @@ public class DashboardService : IDashboardService
         if (rangeTo > today) rangeTo = today;
 
         var rangeDays = rangeTo.DayNumber - rangeFrom.DayNumber + 1;
-        // Previous comparison range = same length immediately before
-        var prevRangeTo   = rangeFrom.AddDays(-1);
-        var prevRangeFrom = prevRangeTo.AddDays(-(rangeDays - 1));
 
         // UTC instants for timestamptz queries
-        var rangeFromUtc     = AsUtc(rangeFrom, TimeOnly.MinValue);
-        var rangeToUtc       = AsUtc(rangeTo,   TimeOnly.MaxValue);
-        var prevRangeFromUtc = AsUtc(prevRangeFrom, TimeOnly.MinValue);
-        var prevRangeToUtc   = AsUtc(prevRangeTo,   TimeOnly.MaxValue);
+        var rangeFromUtc = AsUtc(rangeFrom, TimeOnly.MinValue);
+        var rangeToUtc   = AsUtc(rangeTo,   TimeOnly.MaxValue);
 
         // ── Contracts (state snapshot + period totals) ─────────────────────
         var contracts = await _context.Contracts
@@ -49,17 +44,6 @@ public class DashboardService : IDashboardService
             c.Status != ContractStatus.Completed && c.Status != ContractStatus.Cancelled);
         var completedContracts = contracts.Count(c => c.Status == ContractStatus.Completed);
         var cancelledContracts = contracts.Count(c => c.Status == ContractStatus.Cancelled);
-
-        bool InRange(DateTime ts, DateOnly f, DateOnly t)
-        {
-            var d = DateOnly.FromDateTime(ts);
-            return d >= f && d <= t;
-        }
-
-        var completedInRange = contracts.Count(c =>
-            c.Status == ContractStatus.Completed && InRange(c.CreatedAt, rangeFrom, rangeTo));
-        var completedPrevRange = contracts.Count(c =>
-            c.Status == ContractStatus.Completed && InRange(c.CreatedAt, prevRangeFrom, prevRangeTo));
 
         var overdueContracts = contracts.Count(c =>
             c.Status != ContractStatus.Completed &&
@@ -116,18 +100,8 @@ public class DashboardService : IDashboardService
         var mfgCompleted = await _context.ManufacturedProducts
             .CountAsync(m => m.Status == ManufacturingStatus.Completed);
 
-        // Manufactured completed in range — by CreatedAt of completion (best proxy
-        // available without a dedicated CompletedAt column)
-        var manufacturedCompletedInRange = await _context.ManufacturedProducts
-            .CountAsync(m => m.Status == ManufacturingStatus.Completed
-                          && m.CreatedAt >= rangeFromUtc && m.CreatedAt <= rangeToUtc);
-
         // ── Shipments ─────────────────────────────────────────────────────
         var totalShipments = await _context.ShipmentBatches.CountAsync();
-        var shipmentsInRange = await _context.ShipmentBatches
-            .CountAsync(s => s.CreatedAt >= rangeFromUtc && s.CreatedAt <= rangeToUtc);
-        var shipmentsPrevRange = await _context.ShipmentBatches
-            .CountAsync(s => s.CreatedAt >= prevRangeFromUtc && s.CreatedAt <= prevRangeToUtc);
 
         // ── Users / Departments ────────────────────────────────────────────
         var totalUsers = await _context.Users.Where(u => u.IsActive).CountAsync();
@@ -159,13 +133,6 @@ public class DashboardService : IDashboardService
                 LogCount = v?.Count ?? 0,
             });
         }
-
-        var loggedAmountInRange = dailyLogsRange.Sum(l => l.Amount);
-
-        var loggedAmountPrevRange = await _context.ContractTaskDailyLogs
-            .AsNoTracking()
-            .Where(l => l.IsActive && l.Date >= prevRangeFrom && l.Date <= prevRangeTo)
-            .SumAsync(l => (decimal?)l.Amount) ?? 0m;
 
         // ── Shipment trend — over selected range ──────────────────────────
         var shipmentRaw = await _context.ShipmentBatches
@@ -401,13 +368,6 @@ public class DashboardService : IDashboardService
                 RangeFrom = rangeFrom,
                 RangeTo = rangeTo,
                 RangeDays = rangeDays,
-                CompletedInRange = completedInRange,
-                CompletedPrevRange = completedPrevRange,
-                ManufacturedCompletedInRange = manufacturedCompletedInRange,
-                ShipmentsInRange = shipmentsInRange,
-                ShipmentsPrevRange = shipmentsPrevRange,
-                LoggedAmountInRange = loggedAmountInRange,
-                LoggedAmountPrevRange = loggedAmountPrevRange,
             },
             ContractStatus = statusBuckets,
             ProductionTrend = productionTrend,
