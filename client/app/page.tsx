@@ -1346,11 +1346,10 @@ export default function DashboardPage() {
   // Animated KPI counters (called unconditionally)
   const k = data?.kpis;
   // State (always-now)
-  const animActive    = useCountUp(k?.activeContracts ?? 0);
-  const animOverdue   = useCountUp(k?.overdueContracts ?? 0);
-  const animCritical  = useCountUp(k?.criticalDeadlines ?? 0);
-  const animMfgIp     = useCountUp(k?.manufacturedInProgress ?? 0);
-  const animEmployees = useCountUp(k?.totalEmployees ?? 0);
+  const animActive     = useCountUp(k?.activeContracts ?? 0);
+  const animMfgDone    = useCountUp(k?.manufacturedCompleted ?? 0);
+  const animMfgIp      = useCountUp(k?.manufacturedInProgress ?? 0);
+  const animEmployees  = useCountUp(k?.totalEmployees ?? 0);
 
   const completionTrend = useMemo(() => {
     if (!k) return null;
@@ -1441,22 +1440,13 @@ export default function DashboardPage() {
               <div className="dx-mini-lbl">Faol shartnoma</div>
             </button>
             <button
-              className="dx-mini-tile dxm-warn"
-              onClick={() => router.push("/contracts")}
-              aria-label="Muddati o'tgan shartnomalar"
+              className="dx-mini-tile dxm-success"
+              onClick={() => router.push("/manufactured")}
+              aria-label="Tayyor mahsulotlar"
             >
-              <div className="dx-mini-icon"><Ico.Clock /></div>
-              <div className="dx-mini-val">{animOverdue}</div>
-              <div className="dx-mini-lbl">Muddati o&apos;tgan</div>
-            </button>
-            <button
-              className="dx-mini-tile dxm-danger"
-              onClick={() => router.push("/contracts")}
-              aria-label="Kritik deadline"
-            >
-              <div className="dx-mini-icon"><Ico.Alert /></div>
-              <div className="dx-mini-val">{animCritical}</div>
-              <div className="dx-mini-lbl">Kritik deadline <span className="dx-mini-sub">7 kun</span></div>
+              <div className="dx-mini-icon"><Ico.CheckCircle /></div>
+              <div className="dx-mini-val">{animMfgDone}</div>
+              <div className="dx-mini-lbl">Tayyor mahsulot</div>
             </button>
             <button
               className="dx-mini-tile dxm-purple"
