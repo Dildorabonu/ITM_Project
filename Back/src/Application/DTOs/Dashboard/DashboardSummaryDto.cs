@@ -30,6 +30,7 @@ public class DashboardKpiDto
     public int TotalProducts { get; set; }
     public int InProductionProducts { get; set; }
     public int ManufacturedInProgress { get; set; }
+    public int ManufacturedCompleted { get; set; }
     public int TotalShipments { get; set; }
     public int TotalUsers { get; set; }
     public int ActiveDepartments { get; set; }

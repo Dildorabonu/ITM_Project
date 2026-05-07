@@ -9,10 +9,10 @@ export interface DashboardKpis {
   cancelledContracts: number;
   completionRate: number;
   overdueContracts: number;
-  criticalDeadlines: number;
   totalProducts: number;
   inProductionProducts: number;
   manufacturedInProgress: number;
+  manufacturedCompleted: number;
   totalShipments: number;
   totalUsers: number;
   activeDepartments: number;
