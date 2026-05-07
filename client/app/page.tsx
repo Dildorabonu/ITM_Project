@@ -33,12 +33,9 @@ const Ico = {
   Sunset: () => <svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M17 18a5 5 0 1 0-10 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="currentColor" opacity="0.15" /><line x1="12" y1="9" x2="12" y2="3" stroke="currentColor" strokeWidth="1.5" /><line x1="4.22" y1="10.22" x2="5.64" y2="11.64" stroke="currentColor" strokeWidth="1.5" /><line x1="1" y1="18" x2="3" y2="18" stroke="currentColor" strokeWidth="1.5" /><line x1="21" y1="18" x2="23" y2="18" stroke="currentColor" strokeWidth="1.5" /><line x1="18.36" y1="11.64" x2="19.78" y2="10.22" stroke="currentColor" strokeWidth="1.5" /><line x1="1" y1="22" x2="23" y2="22" stroke="currentColor" strokeWidth="1.5" /></svg>,
   Sunrise:() => <svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M17 18a5 5 0 1 0-10 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="currentColor" opacity="0.15" /><line x1="12" y1="3" x2="12" y2="9" stroke="currentColor" strokeWidth="1.5" /><polyline points="8 6 12 2 16 6" stroke="currentColor" strokeWidth="1.5" fill="none" /><line x1="4.22" y1="10.22" x2="5.64" y2="11.64" stroke="currentColor" strokeWidth="1.5" /><line x1="1" y1="18" x2="3" y2="18" stroke="currentColor" strokeWidth="1.5" /><line x1="21" y1="18" x2="23" y2="18" stroke="currentColor" strokeWidth="1.5" /><line x1="18.36" y1="11.64" x2="19.78" y2="10.22" stroke="currentColor" strokeWidth="1.5" /><line x1="1" y1="22" x2="23" y2="22" stroke="currentColor" strokeWidth="1.5" /></svg>,
   ArrowRight: () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7" /></svg>,
-  TrendUp:    () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>,
-  TrendDown:  () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6" /><polyline points="17 18 23 18 23 12" /></svg>,
   Calendar:   () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>,
   Clock:      () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>,
   Activity:   () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>,
-  Layers:     () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" /></svg>,
   Factory:    () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M2 20V8l5 4V8l5 4V8l5 4V4h3v16z" /><line x1="9" y1="20" x2="9" y2="16" /><line x1="14" y1="20" x2="14" y2="16" /></svg>,
   Truck:      () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" /><polygon points="16 8 20 8 23 11 23 16 16 16 16 8" /><circle cx="5.5" cy="18.5" r="2.5" /><circle cx="18.5" cy="18.5" r="2.5" /></svg>,
   Users:      () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>,
@@ -173,12 +170,6 @@ function formatNum(n: number): string {
   return Math.round(n).toString();
 }
 
-function pctChange(curr: number, prev: number): { pct: number; dir: "up" | "down" | "flat" | "new" } {
-  if (prev === 0) return { pct: 0, dir: curr > 0 ? "new" : "flat" };
-  const change = ((curr - prev) / prev) * 100;
-  return { pct: Math.abs(Math.round(change)), dir: change > 0.5 ? "up" : change < -0.5 ? "down" : "flat" };
-}
-
 /* ─── Period helpers ─── */
 
 type PeriodPreset = "today" | "week" | "month" | "30d" | "90d" | "custom";
@@ -266,17 +257,6 @@ function deadlineUrgency(days: number): "passed" | "critical" | "warn" | "normal
   if (days <= 3) return "critical";
   if (days <= 10) return "warn";
   return "normal";
-}
-
-function statusClass(s: ContractStatus): string {
-  switch (s) {
-    case ContractStatus.DrawingPending: return "indigo";
-    case ContractStatus.TechProcessing: return "violet";
-    case ContractStatus.InProduction:   return "emerald";
-    case ContractStatus.Completed:      return "success";
-    case ContractStatus.Cancelled:      return "danger";
-    default:                            return "neutral";
-  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -926,92 +906,6 @@ function PriorityBars({ data }: { data: { priority: Priority; label: string; cou
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   KPI CARD
-═══════════════════════════════════════════════════════════════════ */
-
-function KpiCard({
-  label, value, sub, trend, icon, accent, onClick,
-}: {
-  label: string;
-  value: number | string;
-  sub?: string;
-  trend?: { dir: "up" | "down" | "flat" | "new"; pct: number; label?: string };
-  icon: React.ReactNode;
-  accent: "accent" | "success" | "warn" | "danger" | "purple" | "indigo" | "cyan" | "amber";
-  onClick?: () => void;
-}) {
-  return (
-    <div className={`dx-kpi dx-kpi-${accent} ${onClick ? "dx-kpi-clickable" : ""}`}
-      onClick={onClick} role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : -1}>
-      <div className="dx-kpi-shine" />
-      <div className="dx-kpi-glow" />
-      <div className={`dx-kpi-icon dxk-${accent}`}>{icon}</div>
-      <div className="dx-kpi-body">
-        <div className="dx-kpi-label">{label}</div>
-        <div className="dx-kpi-value">{value}</div>
-        <div className="dx-kpi-foot">
-          {sub && <span className="dx-kpi-sub">{sub}</span>}
-          {trend && (
-            <span className={`dx-kpi-trend dxt-${trend.dir}`}>
-              {trend.dir === "new" ? (
-                <>Yangi{trend.label && <span className="dx-kpi-trend-cap">{trend.label}</span>}</>
-              ) : (
-                <>
-                  {trend.dir === "up" ? <Ico.TrendUp /> : trend.dir === "down" ? <Ico.TrendDown /> : <span>—</span>}
-                  {trend.pct}%
-                  {trend.label && <span className="dx-kpi-trend-cap">{trend.label}</span>}
-                </>
-              )}
-            </span>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   PIPELINE BOARD (kanban by status)
-═══════════════════════════════════════════════════════════════════ */
-
-function PipelineBoard({ buckets }: { buckets: ContractStatusBucket[] }) {
-  const order = [
-    ContractStatus.DrawingPending,
-    ContractStatus.TechProcessing,
-    ContractStatus.InProduction,
-    ContractStatus.Completed,
-  ];
-  const total = buckets.reduce((s, b) => s + b.count, 0);
-
-  return (
-    <div className="dx-pipe-board">
-      {order.map((st, i) => {
-        const b = buckets.find(x => x.status === st);
-        const count = b?.count || 0;
-        const pct = total > 0 ? Math.round((count / total) * 100) : 0;
-        const cls = statusClass(st);
-        return (
-          <div key={st} className={`dx-pipe-stage dxs-${cls} dx-fadein-${Math.min(i, 4)}`}>
-            <div className="dx-pipe-stage-top">
-              <span className={`dx-pipe-dot dxs-${cls}`} />
-              <span className="dx-pipe-stage-label">{b?.label || ""}</span>
-            </div>
-            <div className="dx-pipe-stage-num">{count}</div>
-            <div className="dx-pipe-stage-foot">
-              <div className="dx-pipe-mini-track">
-                <div className={`dx-pipe-mini-fill dxs-${cls}`} style={{ width: `${pct}%` }} />
-              </div>
-              <span className="dx-pipe-stage-pct">{pct}%</span>
-            </div>
-            {i < order.length - 1 && <div className={`dx-pipe-arrow dxs-${cls}`}>→</div>}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════
    MANUFACTURING PROGRESS (cards with progress)
 ═══════════════════════════════════════════════════════════════════ */
 
@@ -1351,25 +1245,6 @@ export default function DashboardPage() {
   const animMfgIp      = useCountUp(k?.manufacturedInProgress ?? 0);
   const animEmployees  = useCountUp(k?.totalEmployees ?? 0);
 
-  const completionTrend = useMemo(() => {
-    if (!k) return null;
-    return pctChange(k.completedInRange, k.completedPrevRange);
-  }, [k]);
-
-  const shipmentTrend = useMemo(() => {
-    if (!k) return null;
-    return pctChange(k.shipmentsInRange, k.shipmentsPrevRange);
-  }, [k]);
-
-  const productionTrend = useMemo(() => {
-    if (!k) return null;
-    return pctChange(Number(k.loggedAmountInRange), Number(k.loggedAmountPrevRange));
-  }, [k]);
-
-  const animCompletedRange = useCountUp(k?.completedInRange ?? 0);
-  const animShipRange      = useCountUp(k?.shipmentsInRange ?? 0);
-  const animMfgDoneRange   = useCountUp(k?.manufacturedCompletedInRange ?? 0);
-
   const greeting = getGreeting();
   const today = new Date();
   const firstName = user?.firstName || user?.login || "";
@@ -1482,35 +1357,6 @@ export default function DashboardPage() {
         rangeDays={k?.rangeDays ?? 0}
         refreshing={refreshing}
       />
-
-      {/* ─── KPI ROW (period-bound) ─── */}
-      <section className="dx-kpi-grid">
-        <KpiCard label="Yakunlangan shartnoma" value={animCompletedRange} icon={<Ico.CheckCircle />} accent="success"
-          sub="Davrda yakunlangan"
-          trend={completionTrend ? { dir: completionTrend.dir, pct: completionTrend.pct, label: "o'tgan davr" } : undefined}
-          onClick={() => router.push("/contracts")} />
-        <KpiCard label="Sarf hajmi" value={formatNum(Number(k?.loggedAmountInRange ?? 0))} icon={<Ico.Activity />} accent="purple"
-          sub="Davrdagi jami sarf"
-          trend={productionTrend ? { dir: productionTrend.dir, pct: productionTrend.pct, label: "o'tgan davr" } : undefined}
-          onClick={() => router.push("/tasks")} />
-        <KpiCard label="Jo'natma partiyalari" value={animShipRange} icon={<Ico.Truck />} accent="cyan"
-          sub="Davrda yuborilgan"
-          trend={shipmentTrend ? { dir: shipmentTrend.dir, pct: shipmentTrend.pct, label: "o'tgan davr" } : undefined}
-          onClick={() => router.push("/manufactured")} />
-        <KpiCard label="Yakunlangan ishlab chiq." value={animMfgDoneRange} icon={<Ico.Factory />} accent="indigo"
-          sub="Davrda tugatilgan"
-          onClick={() => router.push("/manufactured")} />
-      </section>
-
-      {/* ─── PIPELINE BOARD ─── */}
-      <section className="dx-section">
-        <div className="dx-section-header">
-          <Ico.Layers />
-          <h3 className="dx-section-title">Ishlab chiqarish kanban</h3>
-          <span className="dx-section-meta">{data.kpis.totalContracts} ta jami</span>
-        </div>
-        <PipelineBoard buckets={data.contractStatus} />
-      </section>
 
       {/* ─── 2-COLUMN: TREND CHART + DONUT ─── */}
       <section className="dx-row dx-row-2-1">

@@ -22,13 +22,6 @@ export interface DashboardKpis {
   rangeFrom: string;            // "YYYY-MM-DD"
   rangeTo: string;              // "YYYY-MM-DD"
   rangeDays: number;
-  completedInRange: number;
-  completedPrevRange: number;
-  manufacturedCompletedInRange: number;
-  shipmentsInRange: number;
-  shipmentsPrevRange: number;
-  loggedAmountInRange: number;
-  loggedAmountPrevRange: number;
 }
 
 export interface ContractStatusBucket {
