@@ -103,6 +103,8 @@ public class DashboardService : IDashboardService
 
         var mfgInProgress = await _context.ManufacturedProducts
             .CountAsync(m => m.Status == ManufacturingStatus.InProgress);
+        var mfgCompleted = await _context.ManufacturedProducts
+            .CountAsync(m => m.Status == ManufacturingStatus.Completed);
 
         // Manufactured completed in range — by CreatedAt of completion (best proxy
         // available without a dedicated CompletedAt column)
@@ -121,7 +123,8 @@ public class DashboardService : IDashboardService
         var totalUsers = await _context.Users.Where(u => u.IsActive).CountAsync();
         var departments = await _context.Departments.AsNoTracking().ToListAsync();
         var activeDepartments = departments.Count(d => d.IsActive);
-        var totalEmployees = departments.Sum(d => d.EmployeeCount);
+        var totalEmployees = await _context.Users
+            .CountAsync(u => u.IsActive && u.DepartmentId != null);
 
         // ── Production trend (daily logs) — over selected range ────────────
         var dailyLogsRange = await _context.ContractTaskDailyLogs
@@ -379,6 +382,7 @@ public class DashboardService : IDashboardService
                 TotalProducts = totalProducts,
                 InProductionProducts = inProductionProducts,
                 ManufacturedInProgress = mfgInProgress,
+                ManufacturedCompleted = mfgCompleted,
                 TotalShipments = totalShipments,
                 TotalUsers = totalUsers,
                 ActiveDepartments = activeDepartments,
