@@ -492,7 +492,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       justifyContent: sidebarCollapsed ? "center" : "space-between",
                       cursor: sidebarCollapsed ? "default" : "pointer", userSelect: "none",
                       margin: "0 8px", borderRadius: 8, position: "relative",
-                      animation: "navItemIn 0.32s ease backwards", animationDelay: `${_gd}ms`,
+                      animation: `navItemIn 0.32s ease ${_gd}ms backwards`,
                     }}
                     onMouseEnter={e => { if (!sidebarCollapsed) (e.currentTarget as HTMLElement).style.background = "linear-gradient(to right, transparent 6px, var(--sidebar-hover) 6px)"; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
@@ -529,8 +529,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         whiteSpace: "nowrap", overflow: "hidden",
                         position: "relative", transition: "all 0.14s",
                         margin: "0 8px", borderRadius: 8,
-                        animation: "navItemIn 0.32s ease backwards",
-                        animationDelay: `${480 + _ni++ * 70}ms`,
+                        animation: `navItemIn 0.32s ease ${480 + _ni++ * 70}ms backwards`,
                       }}
                       onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "linear-gradient(to right, transparent 22px, var(--sidebar-hover) 22px)"; } }}
                       onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "transparent"; } }}
