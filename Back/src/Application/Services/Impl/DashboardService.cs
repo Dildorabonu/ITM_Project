@@ -72,13 +72,23 @@ public class DashboardService : IDashboardService
             c.EndDate >= today &&
             c.EndDate <= today.AddDays(7));
 
-        // Status & priority distributions — current snapshot
+        // Status distribution — counted at the product level. Contract.Status
+        // collapses to the earliest stage of its products, which hides advanced
+        // products behind any laggard. The dashboard widget reflects actual
+        // per-product progress instead.
+        var productStatusCounts = await _context.ContractProducts
+            .Where(p => p.IsActive)
+            .GroupBy(p => p.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToListAsync();
+        var productStatusDict = productStatusCounts.ToDictionary(x => x.Status, x => x.Count);
+
         var statusBuckets = Enum.GetValues<ContractStatus>()
             .Select(s => new ContractStatusBucketDto
             {
                 Status = s,
                 Label = StatusLabel(s),
-                Count = contracts.Count(c => c.Status == s),
+                Count = productStatusDict.GetValueOrDefault((ContractProductStatus)(int)s),
             })
             .ToList();
 
