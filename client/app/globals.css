@@ -2556,6 +2556,44 @@ body {
 .dx-tooltip-label { flex: 1; color: var(--text3); }
 .dx-tooltip-val   { color: var(--text); font-weight: 700; font-family: var(--font-mono); }
 
+.dx-chart-stats {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 6px 22px;
+  padding: 12px 6px 4px;
+  margin-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+.dx-chart-stat {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 18px;
+}
+.dx-chart-stat-peak { margin-left: auto; }
+.dx-chart-stat-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  box-shadow: 0 0 6px currentColor;
+}
+.dx-chart-stat-label {
+  font-size: 10px;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+.dx-chart-stat-val {
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text);
+  line-height: 1;
+}
+.dx-chart-stat-sub {
+  font-size: 11px;
+  color: var(--text3);
+  font-weight: 500;
+}
+
 /* ─── DONUT ─── */
 
 .dx-donut-wrap {
@@ -2665,12 +2703,38 @@ body {
   display: flex; flex-direction: column;
   gap: 8px;
 }
+.dx-hbar-hint {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 14px;
+  padding: 0 0 10px 0;
+  margin-bottom: 4px;
+  border-bottom: 1px dashed var(--border);
+  font-size: 10px;
+  color: var(--text3);
+}
+.dx-hbar-hint-label {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--text3);
+}
+.dx-hbar-hint-item {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--text2);
+}
+.dx-hbar-hint-tip {
+  margin-left: auto;
+  font-style: italic;
+  color: var(--text3);
+}
 .dx-hbar-row {
   display: grid;
   grid-template-columns: 200px 1fr 100px;
   gap: 12px;
   align-items: center;
   padding: 6px 0;
+  cursor: help;
 }
 .dx-hbar-left {
   display: flex; align-items: center; gap: 8px;
