@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useAuthStore } from "@/lib/store/authStore";
 import {
   dashboardService,
@@ -19,6 +19,7 @@ import {
   ContractStatus,
   Priority,
   DepartmentType,
+  DEPARTMENT_TYPE_LABELS,
   ManufacturingStatus,
   ProductUnit,
 } from "@/lib/userService";
@@ -109,24 +110,34 @@ function AnimatedBg() {
    COUNT-UP HOOK
 ═══════════════════════════════════════════════════════════════════ */
 
-function useCountUp(target: number, duration = 1100): number {
+function useCountUp(target: number, duration = 1400, delay = 0, trigger: unknown = 0): number {
   const [val, setVal] = useState(0);
   const rafRef = useRef<number>(0);
+  const timeoutRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
-    if (target === 0) { setVal(0); return; }
-    const start = performance.now();
-    const startVal = val;
-    const tick = (now: number) => {
-      const t = Math.min((now - start) / duration, 1);
-      const ease = 1 - Math.pow(1 - t, 3);
-      setVal(Math.round(startVal + (target - startVal) * ease));
-      if (t < 1) rafRef.current = requestAnimationFrame(tick);
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
+
+    setVal(0);
+    if (target === 0) return;
+
+    timeoutRef.current = window.setTimeout(() => {
+      const start = performance.now();
+      const tick = (now: number) => {
+        const t = Math.min((now - start) / duration, 1);
+        const ease = 1 - Math.pow(1 - t, 3);
+        setVal(Math.round(target * ease));
+        if (t < 1) rafRef.current = requestAnimationFrame(tick);
+      };
+      rafRef.current = requestAnimationFrame(tick);
+    }, delay);
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
     };
-    rafRef.current = requestAnimationFrame(tick);
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target, duration]);
+  }, [target, duration, delay, trigger]);
 
   return val;
 }
@@ -306,6 +317,12 @@ function DualAreaChart({
   const xLabelCount = Math.min(data.length, 10);
   const step = Math.max(1, Math.floor(data.length / xLabelCount));
 
+  const totalProd = data.reduce((s, d) => s + d.prod, 0);
+  const totalShip = data.reduce((s, d) => s + d.ship, 0);
+  const peak = data.reduce((m, d) => (d.prod > m.prod ? d : m), data[0]);
+  const peakDate = new Date(peak.date);
+  const fulfillmentRate = totalProd > 0 ? Math.round((totalShip / totalProd) * 100) : 0;
+
   return (
     <div className="dx-chart-wrap" style={{ position: "relative" }}>
       <svg viewBox={`0 0 ${W} ${H}`} className="dx-chart-svg">
@@ -393,6 +410,30 @@ function DualAreaChart({
           </div>
         );
       })()}
+
+      <div className="dx-chart-stats">
+        <div className="dx-chart-stat">
+          <span className="dx-chart-stat-dot" style={{ background: "var(--accent)" }} />
+          <span className="dx-chart-stat-label">Jami ishlab chiqarilgan</span>
+          <span className="dx-chart-stat-val">{totalProd.toLocaleString()}</span>
+        </div>
+        <div className="dx-chart-stat">
+          <span className="dx-chart-stat-dot" style={{ background: "var(--success)" }} />
+          <span className="dx-chart-stat-label">Jami jo&apos;natilgan</span>
+          <span className="dx-chart-stat-val">{totalShip.toLocaleString()}</span>
+        </div>
+        <div className="dx-chart-stat">
+          <span className="dx-chart-stat-label">Bajarish darajasi</span>
+          <span className="dx-chart-stat-val">{fulfillmentRate}%</span>
+        </div>
+        <div className="dx-chart-stat dx-chart-stat-peak">
+          <span className="dx-chart-stat-label">Eng yuqori kun</span>
+          <span className="dx-chart-stat-val">
+            {peakDate.getDate()}-{UZ_MONTHS_SHORT[peakDate.getMonth()]}
+            <span className="dx-chart-stat-sub"> ({peak.prod.toLocaleString()})</span>
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -773,17 +814,42 @@ function HBarList({ data }: { data: DepartmentWorkload[] }) {
 
   return (
     <div className="dx-hbar-list">
+      <div className="dx-hbar-hint">
+        <span className="dx-hbar-hint-label">Bo&apos;lim turi</span>
+        <span className="dx-hbar-hint-item">
+          <span className="dx-hbar-chip dxc-production" /> Ishlab chiqarish
+        </span>
+        <span className="dx-hbar-hint-item">
+          <span className="dx-hbar-chip dxc-admin" /> Boshqaruv
+        </span>
+        <span className="dx-hbar-hint-item">
+          <span className="dx-hbar-chip dxc-section" /> Bo&apos;lim
+        </span>
+        <span className="dx-hbar-hint-tip">
+          Chiziq uzunligi — umumiy yuk · ranglar — shartnoma/mahsulot nisbati
+        </span>
+      </div>
       {data.slice(0, 8).map((d, i) => {
         const total = d.activeContracts + d.activeManufactured;
         const pct = (total / max) * 100;
         const contractPct = total > 0 ? (d.activeContracts / total) * 100 : 0;
         const typeChip = d.type === DepartmentType.IshlabChiqarish ? "production"
                        : d.type === DepartmentType.Boshqaruv      ? "admin" : "section";
+        const typeLabel = DEPARTMENT_TYPE_LABELS[d.type];
+        const rowTitle =
+          `${d.name} · ${typeLabel}\n` +
+          `${d.employeeCount} xodim\n` +
+          `${d.activeContracts} faol shartnoma · ${d.activeManufactured} ishlab chiqarish\n` +
+          `Jami yuk: ${total}`;
         return (
-          <div key={d.id} className={`dx-hbar-row dx-fadein-${Math.min(i, 5)}`}>
+          <div
+            key={d.id}
+            className={`dx-hbar-row dx-fadein-${Math.min(i, 5)}`}
+            title={rowTitle}
+          >
             <div className="dx-hbar-left">
               <span className={`dx-hbar-chip dxc-${typeChip}`} />
-              <span className="dx-hbar-name" title={d.name}>{d.name}</span>
+              <span className="dx-hbar-name">{d.name}</span>
               <span className="dx-hbar-emp">{d.employeeCount} xodim</span>
             </div>
             <div className="dx-hbar-track">
@@ -1206,6 +1272,7 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
   const [preset, setPreset] = useState<PeriodPreset>("month");
   const [customRange, setCustomRange] = useState<{ from: string; to: string }>({ from: "", to: "" });
@@ -1216,34 +1283,33 @@ export default function DashboardPage() {
     return rangeFromPreset(preset === "custom" ? "month" : preset);
   }, [preset, customRange]);
 
-  useEffect(() => {
+  const loadSummary = useCallback(async () => {
     if (!accessToken) return;
-    let alive = true;
-    (async () => {
-      try {
-        setErr(null);
-        if (data) setRefreshing(true);
-        const summary = await dashboardService.getSummary({ from: range.from, to: range.to });
-        if (!alive) return;
-        setData(summary);
-      } catch {
-        if (!alive) return;
-        setErr("Ma'lumotlarni yuklab bo'lmadi");
-      } finally {
-        if (alive) { setLoading(false); setRefreshing(false); }
-      }
-    })();
-    return () => { alive = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    try {
+      setErr(null);
+      setRefreshing(true);
+      const summary = await dashboardService.getSummary({ from: range.from, to: range.to });
+      setData(summary);
+      setRefreshNonce((n) => n + 1);
+    } catch {
+      setErr("Ma'lumotlarni yuklab bo'lmadi");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, [accessToken, range.from, range.to]);
+
+  useEffect(() => {
+    void loadSummary();
+  }, [loadSummary]);
 
   // Animated KPI counters (called unconditionally)
   const k = data?.kpis;
   // State (always-now)
-  const animActive     = useCountUp(k?.activeContracts ?? 0);
-  const animMfgDone    = useCountUp(k?.manufacturedCompleted ?? 0);
-  const animMfgIp      = useCountUp(k?.manufacturedInProgress ?? 0);
-  const animEmployees  = useCountUp(k?.totalEmployees ?? 0);
+  const animActive     = useCountUp(k?.activeContracts ?? 0,        1400, 0,   refreshNonce);
+  const animMfgDone    = useCountUp(k?.manufacturedCompleted ?? 0,  1400, 120, refreshNonce);
+  const animMfgIp      = useCountUp(k?.manufacturedInProgress ?? 0, 1400, 240, refreshNonce);
+  const animEmployees  = useCountUp(k?.totalEmployees ?? 0,         1400, 360, refreshNonce);
 
   const greeting = getGreeting();
   const today = new Date();
@@ -1290,9 +1356,36 @@ export default function DashboardPage() {
             <p className="dx-hero-sub">Bugungi tashkilot holati va ishlab chiqarish ko&apos;rsatkichlari</p>
           </div>
           <div className="dx-hero-meta">
-            <div className="dx-hero-date">
-              <Ico.Calendar />
-              <span>{formatUzDate(today)}</span>
+            <div className="dx-hero-meta-row">
+              <button
+                className="btn-icon"
+                onClick={() => { void loadSummary(); }}
+                disabled={refreshing}
+                title="Yangilash"
+                aria-label="Yangilash"
+                style={{
+                  background: "var(--accent-dim)",
+                  borderColor: "var(--accent)",
+                  color: "var(--accent)",
+                  width: 36,
+                  height: 36,
+                }}
+              >
+                <svg
+                  width="16" height="16" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2"
+                  strokeLinecap="round" strokeLinejoin="round"
+                  className={refreshing ? "dx-hero-refresh-spin" : ""}
+                >
+                  <polyline points="23 4 23 10 17 10" />
+                  <polyline points="1 20 1 14 7 14" />
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                </svg>
+              </button>
+              <div className="dx-hero-date">
+                <Ico.Calendar />
+                <span>{formatUzDate(today)}</span>
+              </div>
             </div>
             {user?.role && <div className="dx-hero-role">{user.role}</div>}
           </div>
