@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useAuthStore } from "@/lib/store/authStore";
 import {
   dashboardService,
@@ -109,24 +109,34 @@ function AnimatedBg() {
    COUNT-UP HOOK
 ═══════════════════════════════════════════════════════════════════ */
 
-function useCountUp(target: number, duration = 1100): number {
+function useCountUp(target: number, duration = 1400, delay = 0, trigger: unknown = 0): number {
   const [val, setVal] = useState(0);
   const rafRef = useRef<number>(0);
+  const timeoutRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
-    if (target === 0) { setVal(0); return; }
-    const start = performance.now();
-    const startVal = val;
-    const tick = (now: number) => {
-      const t = Math.min((now - start) / duration, 1);
-      const ease = 1 - Math.pow(1 - t, 3);
-      setVal(Math.round(startVal + (target - startVal) * ease));
-      if (t < 1) rafRef.current = requestAnimationFrame(tick);
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
+
+    setVal(0);
+    if (target === 0) return;
+
+    timeoutRef.current = window.setTimeout(() => {
+      const start = performance.now();
+      const tick = (now: number) => {
+        const t = Math.min((now - start) / duration, 1);
+        const ease = 1 - Math.pow(1 - t, 3);
+        setVal(Math.round(target * ease));
+        if (t < 1) rafRef.current = requestAnimationFrame(tick);
+      };
+      rafRef.current = requestAnimationFrame(tick);
+    }, delay);
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
     };
-    rafRef.current = requestAnimationFrame(tick);
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target, duration]);
+  }, [target, duration, delay, trigger]);
 
   return val;
 }
@@ -1206,6 +1216,7 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
   const [preset, setPreset] = useState<PeriodPreset>("month");
   const [customRange, setCustomRange] = useState<{ from: string; to: string }>({ from: "", to: "" });
@@ -1216,34 +1227,33 @@ export default function DashboardPage() {
     return rangeFromPreset(preset === "custom" ? "month" : preset);
   }, [preset, customRange]);
 
-  useEffect(() => {
+  const loadSummary = useCallback(async () => {
     if (!accessToken) return;
-    let alive = true;
-    (async () => {
-      try {
-        setErr(null);
-        if (data) setRefreshing(true);
-        const summary = await dashboardService.getSummary({ from: range.from, to: range.to });
-        if (!alive) return;
-        setData(summary);
-      } catch {
-        if (!alive) return;
-        setErr("Ma'lumotlarni yuklab bo'lmadi");
-      } finally {
-        if (alive) { setLoading(false); setRefreshing(false); }
-      }
-    })();
-    return () => { alive = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    try {
+      setErr(null);
+      setRefreshing(true);
+      const summary = await dashboardService.getSummary({ from: range.from, to: range.to });
+      setData(summary);
+      setRefreshNonce((n) => n + 1);
+    } catch {
+      setErr("Ma'lumotlarni yuklab bo'lmadi");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, [accessToken, range.from, range.to]);
+
+  useEffect(() => {
+    void loadSummary();
+  }, [loadSummary]);
 
   // Animated KPI counters (called unconditionally)
   const k = data?.kpis;
   // State (always-now)
-  const animActive     = useCountUp(k?.activeContracts ?? 0);
-  const animMfgDone    = useCountUp(k?.manufacturedCompleted ?? 0);
-  const animMfgIp      = useCountUp(k?.manufacturedInProgress ?? 0);
-  const animEmployees  = useCountUp(k?.totalEmployees ?? 0);
+  const animActive     = useCountUp(k?.activeContracts ?? 0,        1400, 0,   refreshNonce);
+  const animMfgDone    = useCountUp(k?.manufacturedCompleted ?? 0,  1400, 120, refreshNonce);
+  const animMfgIp      = useCountUp(k?.manufacturedInProgress ?? 0, 1400, 240, refreshNonce);
+  const animEmployees  = useCountUp(k?.totalEmployees ?? 0,         1400, 360, refreshNonce);
 
   const greeting = getGreeting();
   const today = new Date();
@@ -1290,9 +1300,36 @@ export default function DashboardPage() {
             <p className="dx-hero-sub">Bugungi tashkilot holati va ishlab chiqarish ko&apos;rsatkichlari</p>
           </div>
           <div className="dx-hero-meta">
-            <div className="dx-hero-date">
-              <Ico.Calendar />
-              <span>{formatUzDate(today)}</span>
+            <div className="dx-hero-meta-row">
+              <button
+                className="btn-icon"
+                onClick={() => { void loadSummary(); }}
+                disabled={refreshing}
+                title="Yangilash"
+                aria-label="Yangilash"
+                style={{
+                  background: "var(--accent-dim)",
+                  borderColor: "var(--accent)",
+                  color: "var(--accent)",
+                  width: 36,
+                  height: 36,
+                }}
+              >
+                <svg
+                  width="16" height="16" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2"
+                  strokeLinecap="round" strokeLinejoin="round"
+                  className={refreshing ? "dx-hero-refresh-spin" : ""}
+                >
+                  <polyline points="23 4 23 10 17 10" />
+                  <polyline points="1 20 1 14 7 14" />
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                </svg>
+              </button>
+              <div className="dx-hero-date">
+                <Ico.Calendar />
+                <span>{formatUzDate(today)}</span>
+              </div>
             </div>
             {user?.role && <div className="dx-hero-role">{user.role}</div>}
           </div>
