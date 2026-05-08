@@ -19,6 +19,7 @@ import {
   ContractStatus,
   Priority,
   DepartmentType,
+  DEPARTMENT_TYPE_LABELS,
   ManufacturingStatus,
   ProductUnit,
 } from "@/lib/userService";
@@ -316,6 +317,12 @@ function DualAreaChart({
   const xLabelCount = Math.min(data.length, 10);
   const step = Math.max(1, Math.floor(data.length / xLabelCount));
 
+  const totalProd = data.reduce((s, d) => s + d.prod, 0);
+  const totalShip = data.reduce((s, d) => s + d.ship, 0);
+  const peak = data.reduce((m, d) => (d.prod > m.prod ? d : m), data[0]);
+  const peakDate = new Date(peak.date);
+  const fulfillmentRate = totalProd > 0 ? Math.round((totalShip / totalProd) * 100) : 0;
+
   return (
     <div className="dx-chart-wrap" style={{ position: "relative" }}>
       <svg viewBox={`0 0 ${W} ${H}`} className="dx-chart-svg">
@@ -403,6 +410,30 @@ function DualAreaChart({
           </div>
         );
       })()}
+
+      <div className="dx-chart-stats">
+        <div className="dx-chart-stat">
+          <span className="dx-chart-stat-dot" style={{ background: "var(--accent)" }} />
+          <span className="dx-chart-stat-label">Jami ishlab chiqarilgan</span>
+          <span className="dx-chart-stat-val">{totalProd.toLocaleString()}</span>
+        </div>
+        <div className="dx-chart-stat">
+          <span className="dx-chart-stat-dot" style={{ background: "var(--success)" }} />
+          <span className="dx-chart-stat-label">Jami jo&apos;natilgan</span>
+          <span className="dx-chart-stat-val">{totalShip.toLocaleString()}</span>
+        </div>
+        <div className="dx-chart-stat">
+          <span className="dx-chart-stat-label">Bajarish darajasi</span>
+          <span className="dx-chart-stat-val">{fulfillmentRate}%</span>
+        </div>
+        <div className="dx-chart-stat dx-chart-stat-peak">
+          <span className="dx-chart-stat-label">Eng yuqori kun</span>
+          <span className="dx-chart-stat-val">
+            {peakDate.getDate()}-{UZ_MONTHS_SHORT[peakDate.getMonth()]}
+            <span className="dx-chart-stat-sub"> ({peak.prod.toLocaleString()})</span>
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -783,17 +814,42 @@ function HBarList({ data }: { data: DepartmentWorkload[] }) {
 
   return (
     <div className="dx-hbar-list">
+      <div className="dx-hbar-hint">
+        <span className="dx-hbar-hint-label">Bo&apos;lim turi</span>
+        <span className="dx-hbar-hint-item">
+          <span className="dx-hbar-chip dxc-production" /> Ishlab chiqarish
+        </span>
+        <span className="dx-hbar-hint-item">
+          <span className="dx-hbar-chip dxc-admin" /> Boshqaruv
+        </span>
+        <span className="dx-hbar-hint-item">
+          <span className="dx-hbar-chip dxc-section" /> Bo&apos;lim
+        </span>
+        <span className="dx-hbar-hint-tip">
+          Chiziq uzunligi — umumiy yuk · ranglar — shartnoma/mahsulot nisbati
+        </span>
+      </div>
       {data.slice(0, 8).map((d, i) => {
         const total = d.activeContracts + d.activeManufactured;
         const pct = (total / max) * 100;
         const contractPct = total > 0 ? (d.activeContracts / total) * 100 : 0;
         const typeChip = d.type === DepartmentType.IshlabChiqarish ? "production"
                        : d.type === DepartmentType.Boshqaruv      ? "admin" : "section";
+        const typeLabel = DEPARTMENT_TYPE_LABELS[d.type];
+        const rowTitle =
+          `${d.name} · ${typeLabel}\n` +
+          `${d.employeeCount} xodim\n` +
+          `${d.activeContracts} faol shartnoma · ${d.activeManufactured} ishlab chiqarish\n` +
+          `Jami yuk: ${total}`;
         return (
-          <div key={d.id} className={`dx-hbar-row dx-fadein-${Math.min(i, 5)}`}>
+          <div
+            key={d.id}
+            className={`dx-hbar-row dx-fadein-${Math.min(i, 5)}`}
+            title={rowTitle}
+          >
             <div className="dx-hbar-left">
               <span className={`dx-hbar-chip dxc-${typeChip}`} />
-              <span className="dx-hbar-name" title={d.name}>{d.name}</span>
+              <span className="dx-hbar-name">{d.name}</span>
               <span className="dx-hbar-emp">{d.employeeCount} xodim</span>
             </div>
             <div className="dx-hbar-track">
