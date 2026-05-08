@@ -418,8 +418,12 @@ function DualAreaChart({
         const x = xAt(hover);
         const date = new Date(data[hover].date);
         const left = (x / W) * 100;
+        const transform =
+          left > 75 ? "translateX(-100%) translateX(-8px)"
+          : left < 25 ? "translateX(0) translateX(8px)"
+          : "translateX(-50%)";
         return (
-          <div className="dx-tooltip" style={{ left: `${left}%` }}>
+          <div className="dx-tooltip" style={{ left: `${left}%`, transform }}>
             <div className="dx-tooltip-date">{date.getDate()}-{UZ_MONTHS_SHORT[date.getMonth()]}</div>
             <div className="dx-tooltip-row">
               <span className="dx-tooltip-dot" style={{ background: "var(--accent)" }} />
