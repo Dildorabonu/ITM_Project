@@ -297,13 +297,37 @@ function DualAreaChart({
 
   const buildSmooth = (key: "prod" | "ship") => {
     const pts = data.map((d, i) => ({ x: xAt(i), y: yAt(d[key]) }));
+    const n = pts.length;
+    if (n < 2) return `M${pts[0]?.x ?? 0},${pts[0]?.y ?? 0}`;
+
+    // Monotone cubic Hermite interpolation (Fritsch-Carlson) — no overshoot
+    const dx: number[] = [], dy: number[] = [], m: number[] = [];
+    for (let i = 0; i < n - 1; i++) {
+      dx[i] = pts[i + 1].x - pts[i].x;
+      dy[i] = pts[i + 1].y - pts[i].y;
+      m[i] = dy[i] / dx[i];
+    }
+
+    const t: number[] = new Array(n);
+    t[0] = m[0];
+    t[n - 1] = m[n - 2];
+    for (let i = 1; i < n - 1; i++) {
+      if (m[i - 1] * m[i] <= 0) {
+        t[i] = 0;
+      } else {
+        const w1 = 2 * dx[i] + dx[i - 1];
+        const w2 = dx[i] + 2 * dx[i - 1];
+        t[i] = (w1 + w2) / (w1 / m[i - 1] + w2 / m[i]);
+      }
+    }
+
     let p = `M${pts[0].x},${pts[0].y}`;
-    for (let i = 0; i < pts.length - 1; i++) {
-      const p0 = pts[i - 1] || pts[i];
-      const p1 = pts[i];
-      const p2 = pts[i + 1];
-      const p3 = pts[i + 2] || p2;
-      p += ` C${p1.x + (p2.x - p0.x) / 6},${p1.y + (p2.y - p0.y) / 6} ${p2.x - (p3.x - p1.x) / 6},${p2.y - (p3.y - p1.y) / 6} ${p2.x},${p2.y}`;
+    for (let i = 0; i < n - 1; i++) {
+      const c1x = pts[i].x + dx[i] / 3;
+      const c1y = pts[i].y + (t[i] * dx[i]) / 3;
+      const c2x = pts[i + 1].x - dx[i] / 3;
+      const c2y = pts[i + 1].y - (t[i + 1] * dx[i]) / 3;
+      p += ` C${c1x},${c1y} ${c2x},${c2y} ${pts[i + 1].x},${pts[i + 1].y}`;
     }
     return p;
   };
@@ -481,7 +505,7 @@ function BubbleChart({ data }: { data: ContractStatusBucket[] }) {
 
   const initialPositions = useMemo<BubblePhys[]>(() => {
     if (meta.length === 0) return [];
-    const bs = meta.map((m, i) => {
+    const bs = meta.map((_, i) => {
       const a = (i / meta.length) * Math.PI * 2 - Math.PI / 2;
       return {
         x: cx + Math.cos(a) * containerR * 0.3,
