@@ -2428,18 +2428,9 @@ html.dark .dx-section-framed {
 .dx-chart-wrap { position: relative; }
 .dx-chart-svg { width: 100%; height: auto; display: block; }
 
-/* ─── TREND + PIE ROW (sibling panels in dx-strip-left) ─── */
-.dx-trend-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 16px;
-  min-width: 0;
-}
+/* ─── TREND PANEL (full width in dx-strip-left) ─── */
 .dx-strip-trend { min-width: 0; }
-.dx-strip-pie { min-width: 0; }
-@media (max-width: 1280px) {
-  .dx-trend-row { grid-template-columns: 1fr; }
-}
+.dx-trend-body-wide { min-height: 360px; }
 
 /* ─── COMPLETION PIE CHART ─── */
 .dx-pie-wrap {
@@ -2462,6 +2453,32 @@ html.dark .dx-section-framed {
 }
 @keyframes dxPieIn {
   to { opacity: 1; transform: scale(1); }
+}
+.dx-pie-slice-visual {
+  pointer-events: none;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition:
+    transform 0.26s cubic-bezier(.4, 0, .2, 1) 0s,
+    filter 0.22s ease-out 0s;
+}
+.dx-pie-slice-hit {
+  cursor: pointer;
+  pointer-events: fill;
+  fill: transparent;
+}
+.dx-pie-slice-inner:hover .dx-pie-slice-visual {
+  transform: translate(var(--slice-tx, 0px), var(--slice-ty, 0px)) scale(1.04);
+  filter:
+    saturate(1.7)
+    brightness(1.2)
+    drop-shadow(0 3px 10px rgba(0, 0, 0, 0.5));
+  transition:
+    transform 0.3s cubic-bezier(.22, 1, .36, 1) 0.06s,
+    filter 0.22s ease-out 0.04s;
+}
+.dx-pie-svg:hover .dx-pie-slice-inner:not(:hover) .dx-pie-slice-visual {
+  filter: saturate(0.65) brightness(0.8);
 }
 
 .dx-pie-key {
@@ -3050,6 +3067,14 @@ html.dark .dx-section-framed {
   max-height: 460px;
   overflow-y: auto;
 }
+.dx-dl-list-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 10px;
+  max-height: none;
+  overflow-y: visible;
+}
+.dx-dl-list-grid .dx-dl-item:hover { transform: translateY(-2px); }
 .dx-dl-item {
   position: relative;
   display: grid;
