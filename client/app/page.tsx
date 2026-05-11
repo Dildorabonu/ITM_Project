@@ -282,7 +282,31 @@ function DualAreaChart({
   height?: number;
 }) {
   const [hover, setHover] = useState<number | null>(null);
+  const [animKey, setAnimKey] = useState(0);
+  const firstRunRef = useRef(true);
   const data = prod.map((p, i) => ({ date: p.date, prod: p.amount, ship: ship[i]?.amount ?? 0 }));
+
+  useEffect(() => {
+    if (firstRunRef.current) {
+      firstRunRef.current = false;
+      return;
+    }
+    setAnimKey((k) => k + 1);
+  }, [prod, ship]);
+
+  const totalProdRaw  = data.reduce((s, d) => s + d.prod, 0);
+  const totalShipRaw  = data.reduce((s, d) => s + d.ship, 0);
+  const peakIdx       = data.length > 0
+    ? data.reduce((idx, d, i) => (d.prod > data[idx].prod ? i : idx), 0)
+    : 0;
+  const peakProdRaw   = data[peakIdx]?.prod ?? 0;
+  const rateRaw       = totalProdRaw > 0 ? Math.round((totalShipRaw / totalProdRaw) * 100) : 0;
+
+  const animTotalProd = useCountUp(totalProdRaw, 1400, 0,   animKey);
+  const animTotalShip = useCountUp(totalShipRaw, 1400, 120, animKey);
+  const animRate      = useCountUp(rateRaw,      1400, 240, animKey);
+  const animPeakProd  = useCountUp(peakProdRaw,  1400, 360, animKey);
+
   if (data.length === 0) return null;
 
   const W = 800;
@@ -341,11 +365,8 @@ function DualAreaChart({
   const xLabelCount = Math.min(data.length, 10);
   const step = Math.max(1, Math.floor(data.length / xLabelCount));
 
-  const totalProd = data.reduce((s, d) => s + d.prod, 0);
-  const totalShip = data.reduce((s, d) => s + d.ship, 0);
-  const peak = data.reduce((m, d) => (d.prod > m.prod ? d : m), data[0]);
+  const peak = data[peakIdx];
   const peakDate = new Date(peak.date);
-  const fulfillmentRate = totalProd > 0 ? Math.round((totalShip / totalProd) * 100) : 0;
 
   return (
     <div className="dx-chart-wrap" style={{ position: "relative" }}>
@@ -374,10 +395,10 @@ function DualAreaChart({
           );
         })}
 
-        <path d={prodArea} fill="url(#dxGradProd)" />
-        <path d={shipArea} fill="url(#dxGradShip)" />
-        <path d={prodLine} fill="none" stroke="var(--accent)" strokeWidth="2.4" strokeLinejoin="round" />
-        <path d={shipLine} fill="none" stroke="var(--success)" strokeWidth="2.4" strokeLinejoin="round" strokeDasharray="0" />
+        <path key={`area-prod-${animKey}`} className="dx-chart-area" d={prodArea} fill="url(#dxGradProd)" />
+        <path key={`area-ship-${animKey}`} className="dx-chart-area dx-chart-area-ship" d={shipArea} fill="url(#dxGradShip)" />
+        <path key={`line-prod-${animKey}`} className="dx-chart-line" pathLength={1} d={prodLine} fill="none" stroke="var(--accent)" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
+        <path key={`line-ship-${animKey}`} className="dx-chart-line dx-chart-line-ship" pathLength={1} d={shipLine} fill="none" stroke="var(--success)" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
 
         {data.map((d, i) => {
           if (i % step !== 0 && i !== data.length - 1) return null;
@@ -443,22 +464,22 @@ function DualAreaChart({
         <div className="dx-chart-stat">
           <span className="dx-chart-stat-dot" style={{ background: "var(--accent)" }} />
           <span className="dx-chart-stat-label">Jami ishlab chiqarilgan</span>
-          <span className="dx-chart-stat-val">{totalProd.toLocaleString()}</span>
+          <span className="dx-chart-stat-val">{animTotalProd.toLocaleString()}</span>
         </div>
         <div className="dx-chart-stat">
           <span className="dx-chart-stat-dot" style={{ background: "var(--success)" }} />
           <span className="dx-chart-stat-label">Jami jo&apos;natilgan</span>
-          <span className="dx-chart-stat-val">{totalShip.toLocaleString()}</span>
+          <span className="dx-chart-stat-val">{animTotalShip.toLocaleString()}</span>
         </div>
         <div className="dx-chart-stat">
           <span className="dx-chart-stat-label">Bajarish darajasi</span>
-          <span className="dx-chart-stat-val">{fulfillmentRate}%</span>
+          <span className="dx-chart-stat-val">{animRate}%</span>
         </div>
         <div className="dx-chart-stat dx-chart-stat-peak">
           <span className="dx-chart-stat-label">Eng yuqori kun</span>
           <span className="dx-chart-stat-val">
             {peakDate.getDate()}-{UZ_MONTHS_SHORT[peakDate.getMonth()]}
-            <span className="dx-chart-stat-sub"> ({peak.prod.toLocaleString()})</span>
+            <span className="dx-chart-stat-sub"> ({animPeakProd.toLocaleString()})</span>
           </span>
         </div>
       </div>
