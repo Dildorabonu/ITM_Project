@@ -302,16 +302,11 @@ function DualAreaChart({
 
   const totalProdRaw  = realData.reduce((s, d) => s + d.prod, 0);
   const totalShipRaw  = realData.reduce((s, d) => s + d.ship, 0);
-  const peakIdx       = realData.length > 0
-    ? realData.reduce((idx, d, i) => (d.prod > realData[idx].prod ? i : idx), 0)
-    : 0;
-  const peakProdRaw   = realData[peakIdx]?.prod ?? 0;
   const rateRaw       = totalProdRaw > 0 ? Math.round((totalShipRaw / totalProdRaw) * 100) : 0;
 
   const animTotalProd = useCountUp(totalProdRaw, 1400, 0,   animKey);
   const animTotalShip = useCountUp(totalShipRaw, 1400, 120, animKey);
   const animRate      = useCountUp(rateRaw,      1400, 240, animKey);
-  const animPeakProd  = useCountUp(peakProdRaw,  1400, 360, animKey);
 
   if (data.length === 0) return null;
 
@@ -375,9 +370,6 @@ function DualAreaChart({
   const grid = 4;
   const xLabelCount = Math.min(realData.length, 10);
   const step = Math.max(1, Math.floor(realData.length / xLabelCount));
-
-  const peak = data[peakIdx];
-  const peakDate = new Date(peak.date);
 
   return (
     <div className="dx-chart-wrap" style={{ position: "relative" }}>
@@ -487,13 +479,6 @@ function DualAreaChart({
         <div className="dx-chart-stat">
           <span className="dx-chart-stat-label">Bajarish darajasi</span>
           <span className="dx-chart-stat-val">{animRate}%</span>
-        </div>
-        <div className="dx-chart-stat dx-chart-stat-peak">
-          <span className="dx-chart-stat-label">Eng yuqori kun</span>
-          <span className="dx-chart-stat-val">
-            {peakDate.getDate()}-{UZ_MONTHS_SHORT[peakDate.getMonth()]}
-            <span className="dx-chart-stat-sub"> ({animPeakProd.toLocaleString()})</span>
-          </span>
         </div>
       </div>
     </div>
@@ -1440,7 +1425,7 @@ export default function DashboardPage() {
 
       {/* ─── 2-COLUMN: DEPT WORKLOAD + PRIORITY ─── */}
       <section className="dx-row dx-row-2-1">
-        <RevealSection key={`hbar-${refreshNonce}`} className="dx-section">
+        <RevealSection key={`hbar-${refreshNonce}`} className="dx-section dx-section-framed">
           <div className="dx-section-header">
             <Ico.Building />
             <h3 className="dx-section-title">Bo&apos;limlar yuklamasi</h3>
@@ -1449,7 +1434,9 @@ export default function DashboardPage() {
               <span className="dx-legend-dot" style={{ background: "var(--purple)", marginLeft: 12 }} /> Mahsulot
             </div>
           </div>
-          <HBarList data={data.departmentWorkload} />
+          <div className="dx-section-body">
+            <HBarList data={data.departmentWorkload} />
+          </div>
         </RevealSection>
 
         <RevealSection key={`priority-${refreshNonce}`} className="dx-section">
