@@ -1497,10 +1497,6 @@ export default function DashboardPage() {
 
       {/* ALWAYS-NOW state strip — period-independent metrics */}
       <section className="dx-state-strip">
-          <div className="dx-state-strip-cap">
-            <span className="dx-hero-block-dot dxc-warn" />
-            Hozirgi holat <span className="dx-state-strip-note">davrga bog&apos;liq emas</span>
-          </div>
           <div className="dx-state-strip-tiles">
             <button
               className="dx-mini-tile dxm-accent"
