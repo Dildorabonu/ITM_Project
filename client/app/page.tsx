@@ -235,65 +235,6 @@ function formatNum(n: number): string {
   return Math.round(n).toString();
 }
 
-/* ─── Period helpers ─── */
-
-type PeriodPreset = "today" | "week" | "month" | "30d" | "90d" | "custom";
-
-const PERIOD_LABELS: Record<PeriodPreset, string> = {
-  today:  "Bugun",
-  week:   "Bu hafta",
-  month:  "Bu oy",
-  "30d":  "30 kun",
-  "90d":  "90 kun",
-  custom: "Maxsus",
-};
-
-function toIsoDate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function fromIsoDate(s: string): Date {
-  const [y, m, d] = s.split("-").map(Number);
-  return new Date(y, (m ?? 1) - 1, d ?? 1);
-}
-
-function rangeFromPreset(preset: Exclude<PeriodPreset, "custom">): { from: string; to: string } {
-  const today = new Date();
-  const todayStr = toIsoDate(today);
-  switch (preset) {
-    case "today": return { from: todayStr, to: todayStr };
-    case "week": {
-      const day = today.getDay();
-      const offset = day === 0 ? 6 : day - 1; // Monday-based
-      const monday = new Date(today);
-      monday.setDate(today.getDate() - offset);
-      return { from: toIsoDate(monday), to: todayStr };
-    }
-    case "month": {
-      const first = new Date(today.getFullYear(), today.getMonth(), 1);
-      return { from: toIsoDate(first), to: todayStr };
-    }
-    case "30d": {
-      const d = new Date(today); d.setDate(today.getDate() - 29);
-      return { from: toIsoDate(d), to: todayStr };
-    }
-    case "90d": {
-      const d = new Date(today); d.setDate(today.getDate() - 89);
-      return { from: toIsoDate(d), to: todayStr };
-    }
-  }
-}
-
-function formatRangeShort(from: string, to: string): string {
-  const f = fromIsoDate(from);
-  const t = fromIsoDate(to);
-  if (from === to) return formatUzDate(f, "short");
-  return `${formatUzDate(f, "short")} → ${formatUzDate(t, "short")}`;
-}
-
 function priorityLabel(p: Priority): string {
   switch (p) {
     case Priority.Low:    return "Past";
@@ -1254,115 +1195,6 @@ function TopPerformers({ items }: { items: TopPerformer[] }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   PERIOD BAR
-═══════════════════════════════════════════════════════════════════ */
-
-function PeriodBar({
-  preset, setPreset, customRange, setCustomRange,
-  presetOpen, setPresetOpen, range, rangeDays, refreshing,
-}: {
-  preset: PeriodPreset;
-  setPreset: (p: PeriodPreset) => void;
-  customRange: { from: string; to: string };
-  setCustomRange: (r: { from: string; to: string }) => void;
-  presetOpen: boolean;
-  setPresetOpen: (b: boolean) => void;
-  range: { from: string; to: string };
-  rangeDays: number;
-  refreshing: boolean;
-}) {
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!presetOpen) return;
-    const onDoc = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setPresetOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [presetOpen, setPresetOpen]);
-
-  const presets: PeriodPreset[] = ["today", "week", "month", "30d", "90d", "custom"];
-
-  return (
-    <section className="dx-period-bar">
-      <div className="dx-period-cap">
-        <Ico.Calendar />
-        <span className="dx-period-cap-label">Davr ko&apos;rsatkichlari</span>
-      </div>
-
-      <div className="dx-period-controls">
-        <div className="dx-period-dd" ref={dropdownRef}>
-          <button
-            className="dx-period-btn"
-            onClick={() => setPresetOpen(!presetOpen)}
-            aria-expanded={presetOpen}
-          >
-            <span className="dx-period-btn-label">{PERIOD_LABELS[preset]}</span>
-            <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2"
-                 viewBox="0 0 24 24"
-                 style={{ transform: presetOpen ? "rotate(180deg)" : "none", transition: "transform 0.18s" }}>
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </button>
-          {presetOpen && (
-            <div className="dx-period-menu">
-              {presets.map(p => (
-                <button
-                  key={p}
-                  className={`dx-period-menu-item ${preset === p ? "dx-active" : ""}`}
-                  onClick={() => { setPreset(p); if (p !== "custom") setPresetOpen(false); }}
-                >
-                  {PERIOD_LABELS[p]}
-                </button>
-              ))}
-              {preset === "custom" && (
-                <div className="dx-period-custom">
-                  <label>
-                    <span>Boshlanish</span>
-                    <input
-                      type="date"
-                      value={customRange.from}
-                      max={customRange.to || undefined}
-                      onChange={e => setCustomRange({ ...customRange, from: e.target.value })}
-                    />
-                  </label>
-                  <label>
-                    <span>Tugash</span>
-                    <input
-                      type="date"
-                      value={customRange.to}
-                      min={customRange.from || undefined}
-                      onChange={e => setCustomRange({ ...customRange, to: e.target.value })}
-                    />
-                  </label>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="dx-period-range">
-          <span className="dx-period-range-text">
-            {range.from && range.to ? formatRangeShort(range.from, range.to) : "—"}
-          </span>
-          <span className="dx-period-range-days">{rangeDays || 0} kun</span>
-        </div>
-
-        {refreshing && (
-          <div className="dx-period-refresh">
-            <div className="nd-spinner" style={{ width: 12, height: 12, borderWidth: 1.5 }} />
-            <span>Yangilanmoqda...</span>
-          </div>
-        )}
-      </div>
-    </section>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════
    PAGE
 ═══════════════════════════════════════════════════════════════════ */
 
@@ -1377,21 +1209,12 @@ export default function DashboardPage() {
   const [err, setErr] = useState<string | null>(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
 
-  const [preset, setPreset] = useState<PeriodPreset>("month");
-  const [customRange, setCustomRange] = useState<{ from: string; to: string }>({ from: "", to: "" });
-  const [presetOpen, setPresetOpen] = useState(false);
-
-  const range = useMemo<{ from: string; to: string }>(() => {
-    if (preset === "custom" && customRange.from && customRange.to) return customRange;
-    return rangeFromPreset(preset === "custom" ? "month" : preset);
-  }, [preset, customRange]);
-
   const loadSummary = useCallback(async () => {
     if (!accessToken) return;
     try {
       setErr(null);
       setRefreshing(true);
-      const summary = await dashboardService.getSummary({ from: range.from, to: range.to });
+      const summary = await dashboardService.getSummary();
       setData(summary);
       setRefreshNonce((n) => n + 1);
     } catch {
@@ -1400,7 +1223,7 @@ export default function DashboardPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [accessToken, range.from, range.to]);
+  }, [accessToken]);
 
   useEffect(() => {
     void loadSummary();
@@ -1553,19 +1376,6 @@ export default function DashboardPage() {
             </button>
           </div>
       </section>
-
-      {/* ─── PERIOD BAR ─── */}
-      <PeriodBar
-        preset={preset}
-        setPreset={setPreset}
-        customRange={customRange}
-        setCustomRange={setCustomRange}
-        presetOpen={presetOpen}
-        setPresetOpen={setPresetOpen}
-        range={range}
-        rangeDays={k?.rangeDays ?? 0}
-        refreshing={refreshing}
-      />
 
       {/* ─── 2-COLUMN: TREND CHART + DONUT ─── */}
       <section className="dx-row dx-row-2-1">
