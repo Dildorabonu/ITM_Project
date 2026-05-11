@@ -15,19 +15,15 @@ public class DashboardService : IDashboardService
         _context = context;
     }
 
-    public async Task<ApiResult<DashboardSummaryDto>> GetSummaryAsync(DateOnly? from = null, DateOnly? to = null)
+    public async Task<ApiResult<DashboardSummaryDto>> GetSummaryAsync()
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
-        // Default range = current month (1st → today)
-        var rangeTo = to ?? today;
-        var rangeFrom = from ?? new DateOnly(rangeTo.Year, rangeTo.Month, 1);
-
-        // Sanity: from <= to, clamp to <= today
-        if (rangeFrom > rangeTo) (rangeFrom, rangeTo) = (rangeTo, rangeFrom);
-        if (rangeTo > today) rangeTo = today;
-
-        var rangeDays = rangeTo.DayNumber - rangeFrom.DayNumber + 1;
+        // Trend / workload window: last 30 days inclusive
+        const int trendDays = 30;
+        var rangeTo = today;
+        var rangeFrom = today.AddDays(-(trendDays - 1));
+        var rangeDays = trendDays;
 
         // UTC instants for timestamptz queries
         var rangeFromUtc = AsUtc(rangeFrom, TimeOnly.MinValue);
@@ -364,10 +360,6 @@ public class DashboardService : IDashboardService
                 TotalUsers = totalUsers,
                 ActiveDepartments = activeDepartments,
                 TotalEmployees = totalEmployees,
-
-                RangeFrom = rangeFrom,
-                RangeTo = rangeTo,
-                RangeDays = rangeDays,
             },
             ContractStatus = statusBuckets,
             ProductionTrend = productionTrend,

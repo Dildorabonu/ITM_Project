@@ -2,7 +2,6 @@ import { api } from "./api";
 import { ContractStatus, DepartmentType, Priority, ManufacturingStatus, ProductUnit } from "./userService";
 
 export interface DashboardKpis {
-  // ── Always-now (state) ──
   totalContracts: number;
   activeContracts: number;
   completedContracts: number;
@@ -17,11 +16,6 @@ export interface DashboardKpis {
   totalUsers: number;
   activeDepartments: number;
   totalEmployees: number;
-
-  // ── Selected period ──
-  rangeFrom: string;            // "YYYY-MM-DD"
-  rangeTo: string;              // "YYYY-MM-DD"
-  rangeDays: number;
 }
 
 export interface ContractStatusBucket {
@@ -117,17 +111,9 @@ export interface DashboardSummary {
   activityHeatmap: HeatmapCell[];
 }
 
-export interface DashboardRange {
-  from?: string; // "YYYY-MM-DD"
-  to?: string;   // "YYYY-MM-DD"
-}
-
 export const dashboardService = {
-  getSummary: async (range: DashboardRange = {}): Promise<DashboardSummary> => {
-    const params: Record<string, string> = {};
-    if (range.from) params.from = range.from;
-    if (range.to)   params.to   = range.to;
-    const res = await api.get("/api/dashboard/summary", { params });
+  getSummary: async (): Promise<DashboardSummary> => {
+    const res = await api.get("/api/dashboard/summary");
     return res.data?.result ?? res.data;
   },
 };
