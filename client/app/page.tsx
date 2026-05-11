@@ -898,21 +898,14 @@ function HBarList({ data }: { data: DepartmentWorkload[] }) {
         const typeChip = d.type === DepartmentType.IshlabChiqarish ? "production"
                        : d.type === DepartmentType.Boshqaruv      ? "admin" : "section";
         const typeLabel = DEPARTMENT_TYPE_LABELS[d.type];
-        const rowTitle =
-          `${d.name} · ${typeLabel}\n` +
-          `${d.employeeCount} xodim\n` +
-          `${d.activeContracts} faol shartnoma · ${d.activeManufactured} ishlab chiqarish\n` +
-          `Jami yuk: ${total}`;
         return (
           <div
             key={d.id}
             className={`dx-hbar-row dx-fadein-${Math.min(i, 5)}`}
-            title={rowTitle}
           >
             <div className="dx-hbar-left">
               <span className={`dx-hbar-chip dxc-${typeChip}`} />
               <span className="dx-hbar-name">{d.name}</span>
-              <span className="dx-hbar-emp">{d.employeeCount} xodim</span>
             </div>
             <div className="dx-hbar-track">
               <div className="dx-hbar-fill" style={{ width: `${pct}%` }}>
@@ -923,6 +916,32 @@ function HBarList({ data }: { data: DepartmentWorkload[] }) {
             <div className="dx-hbar-right">
               <span className="dx-hbar-num">{total}</span>
               <span className="dx-hbar-meta">{d.activeContracts}c · {d.activeManufactured}p</span>
+            </div>
+
+            <div className="dx-hbar-tip" role="tooltip">
+              <div className="dx-hbar-tip-head">
+                <span className={`dx-hbar-chip dxc-${typeChip}`} />
+                <span className="dx-hbar-tip-name">{d.name}</span>
+                <span className="dx-hbar-tip-type">{typeLabel}</span>
+              </div>
+              <div className="dx-hbar-tip-grid">
+                <div className="dx-hbar-tip-stat">
+                  <span className="dx-hbar-tip-label">Xodimlar</span>
+                  <span className="dx-hbar-tip-val">{d.employeeCount}</span>
+                </div>
+                <div className="dx-hbar-tip-stat">
+                  <span className="dx-hbar-tip-label">Jami yuk</span>
+                  <span className="dx-hbar-tip-val">{total}</span>
+                </div>
+                <div className="dx-hbar-tip-stat">
+                  <span className="dx-hbar-tip-label">Shartnoma</span>
+                  <span className="dx-hbar-tip-val dx-hbar-tip-val-c">{d.activeContracts}</span>
+                </div>
+                <div className="dx-hbar-tip-stat">
+                  <span className="dx-hbar-tip-label">Mahsulot</span>
+                  <span className="dx-hbar-tip-val dx-hbar-tip-val-m">{d.activeManufactured}</span>
+                </div>
+              </div>
             </div>
           </div>
         );
