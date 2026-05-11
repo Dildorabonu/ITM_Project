@@ -1497,46 +1497,59 @@ export default function DashboardPage() {
 
       {/* ALWAYS-NOW state strip — period-independent metrics */}
       <section className="dx-state-strip">
-          <div className="dx-state-strip-cap">
-            <span className="dx-hero-block-dot dxc-warn" />
-            Hozirgi holat <span className="dx-state-strip-note">davrga bog&apos;liq emas</span>
-          </div>
           <div className="dx-state-strip-tiles">
             <button
               className="dx-mini-tile dxm-accent"
               onClick={() => router.push("/contracts")}
               aria-label="Faol shartnomalar"
             >
-              <div className="dx-mini-icon"><Ico.Zap /></div>
-              <div className="dx-mini-val">{animActive}</div>
-              <div className="dx-mini-lbl">Faol shartnoma</div>
+              <div className="dx-mini-top">
+                <span className="dx-mini-title">Faol shartnoma</span>
+                <span className="dx-mini-icon"><Ico.Zap /></span>
+              </div>
+              <div className="dx-mini-inner">
+                <div className="dx-mini-val">{animActive}</div>
+              </div>
             </button>
             <button
               className="dx-mini-tile dxm-success"
               onClick={() => router.push("/manufactured")}
               aria-label="Tayyor mahsulotlar"
             >
-              <div className="dx-mini-icon"><Ico.CheckCircle /></div>
-              <div className="dx-mini-val">{animMfgDone}</div>
-              <div className="dx-mini-lbl">Tayyor mahsulot</div>
+              <div className="dx-mini-top">
+                <span className="dx-mini-title">Tayyor mahsulot</span>
+                <span className="dx-mini-icon"><Ico.CheckCircle /></span>
+              </div>
+              <div className="dx-mini-inner">
+                <div className="dx-mini-val">{animMfgDone}</div>
+              </div>
             </button>
             <button
               className="dx-mini-tile dxm-purple"
               onClick={() => router.push("/manufactured")}
               aria-label="Ishlab chiqarishda"
             >
-              <div className="dx-mini-icon"><Ico.Factory /></div>
-              <div className="dx-mini-val">{animMfgIp}</div>
-              <div className="dx-mini-lbl">Ishlab chiqarishda</div>
+              <div className="dx-mini-top">
+                <span className="dx-mini-title">Ishlab chiqarishda</span>
+                <span className="dx-mini-icon"><Ico.Factory /></span>
+              </div>
+              <div className="dx-mini-inner">
+                <div className="dx-mini-val">{animMfgIp}</div>
+              </div>
             </button>
             <button
               className="dx-mini-tile dxm-cyan"
               onClick={() => router.push("/users")}
               aria-label="Xodimlar"
             >
-              <div className="dx-mini-icon"><Ico.Users /></div>
-              <div className="dx-mini-val">{animEmployees}</div>
-              <div className="dx-mini-lbl">Xodimlar <span className="dx-mini-sub">{k?.activeDepartments ?? 0} bo&apos;lim</span></div>
+              <div className="dx-mini-top">
+                <span className="dx-mini-title">Xodimlar</span>
+                <span className="dx-mini-icon"><Ico.Users /></span>
+              </div>
+              <div className="dx-mini-inner">
+                <div className="dx-mini-val">{animEmployees}</div>
+                <div className="dx-mini-foot">{k?.activeDepartments ?? 0} bo&apos;lim</div>
+              </div>
             </button>
           </div>
       </section>
