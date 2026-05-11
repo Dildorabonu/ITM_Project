@@ -16,6 +16,9 @@ export interface DashboardKpis {
   totalUsers: number;
   activeDepartments: number;
   totalEmployees: number;
+  totalContractedAmount: number;
+  totalProducedAmount: number;
+  totalBatchedAmount: number;
 }
 
 export interface ContractStatusBucket {

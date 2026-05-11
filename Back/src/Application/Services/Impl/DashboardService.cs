@@ -99,6 +99,16 @@ public class DashboardService : IDashboardService
         // ── Shipments ─────────────────────────────────────────────────────
         var totalShipments = await _context.ShipmentBatches.CountAsync();
 
+        // ── Completion aggregates (all-time, active products) ──────────────
+        var totalContractedAmount = await _context.ContractProducts
+            .Where(p => p.IsActive)
+            .SumAsync(p => (decimal?)p.Quantity) ?? 0m;
+        var totalProducedAmount = await _context.ContractTaskDailyLogs
+            .Where(l => l.IsActive)
+            .SumAsync(l => (decimal?)l.Amount) ?? 0m;
+        var totalBatchedAmount = await _context.ShipmentBatches
+            .SumAsync(s => (decimal?)s.Amount) ?? 0m;
+
         // ── Users / Departments ────────────────────────────────────────────
         var totalUsers = await _context.Users.Where(u => u.IsActive).CountAsync();
         var departments = await _context.Departments.AsNoTracking().ToListAsync();
@@ -360,6 +370,9 @@ public class DashboardService : IDashboardService
                 TotalUsers = totalUsers,
                 ActiveDepartments = activeDepartments,
                 TotalEmployees = totalEmployees,
+                TotalContractedAmount = totalContractedAmount,
+                TotalProducedAmount = totalProducedAmount,
+                TotalBatchedAmount = totalBatchedAmount,
             },
             ContractStatus = statusBuckets,
             ProductionTrend = productionTrend,
