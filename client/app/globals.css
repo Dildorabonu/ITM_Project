@@ -3269,6 +3269,36 @@ body {
 .dx-fadein-4 { animation: dxFadeIn 0.4s ease-out 0.24s both; }
 .dx-fadein-5 { animation: dxFadeIn 0.4s ease-out 0.30s both; }
 
+/* ─── REVEAL-ON-SCROLL: pause animations until parent .dx-section
+       gets .dx-anim-on (set by IntersectionObserver in page.tsx).
+   Bar fills (dx-*-fill) intentionally NOT gated — their ndBarGrow
+   keyframe animates `width` toward `var(--bar-w, 0%)` while the
+   elements have inline `width: X%`, so a paused-then-played run
+   would shrink to 0 then snap back. Letting them run on mount
+   keeps that artifact off-screen and out of the user's view. ─── */
+.dx-section .dx-fadein-0,
+.dx-section .dx-fadein-1,
+.dx-section .dx-fadein-2,
+.dx-section .dx-fadein-3,
+.dx-section .dx-fadein-4,
+.dx-section .dx-fadein-5,
+.dx-section .dx-chart-line,
+.dx-section .dx-chart-area,
+.dx-section .dx-bub-pop {
+  animation-play-state: paused;
+}
+.dx-section.dx-anim-on .dx-fadein-0,
+.dx-section.dx-anim-on .dx-fadein-1,
+.dx-section.dx-anim-on .dx-fadein-2,
+.dx-section.dx-anim-on .dx-fadein-3,
+.dx-section.dx-anim-on .dx-fadein-4,
+.dx-section.dx-anim-on .dx-fadein-5,
+.dx-section.dx-anim-on .dx-chart-line,
+.dx-section.dx-anim-on .dx-chart-area,
+.dx-section.dx-anim-on .dx-bub-pop {
+  animation-play-state: running;
+}
+
 /* ─── RESPONSIVE ─── */
 
 @media (max-width: 1280px) {
