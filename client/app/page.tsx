@@ -300,9 +300,10 @@ function CompletionPieChart({
   const cx = size / 2, cy = size / 2;
   const r  = size / 2 - 6;
 
-  type Seg = { d: string; mid: number; pct: number; label: string; solid: string; value: number };
+  type Seg = { d: string; hitD: string; mid: number; pct: number; label: string; solid: string; value: number };
   const segments: Seg[] = (() => {
     if (sum === 0) return [];
+    const visibleCount = slices.filter(x => x.value > 0).length;
     let acc = 0;
     return slices.filter(s => s.value > 0).map((s) => {
       const start = (acc / sum) * Math.PI * 2 - Math.PI / 2;
@@ -314,11 +315,31 @@ function CompletionPieChart({
       const y1 = cy + Math.sin(start) * r;
       const x2 = cx + Math.cos(end)   * r;
       const y2 = cy + Math.sin(end)   * r;
-      const isFull = slices.filter(x => x.value > 0).length === 1;
+      const isFull = visibleCount === 1;
       const d = isFull
         ? `M ${cx} ${cy - r} A ${r} ${r} 0 1 1 ${cx - 0.01} ${cy - r} Z`
         : `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`;
-      return { d, mid, pct: Math.round((s.value / sum) * 100), label: s.label, solid: s.solid, value: s.value };
+
+      const span    = end - start;
+      const anglePad = Math.min(0.05, span * 0.2);
+      const sHit    = start + anglePad;
+      const eHit    = end   - anglePad;
+      const rHit    = r * 0.96;
+      const rInner  = r * 0.08;
+      const largeHit = eHit - sHit > Math.PI ? 1 : 0;
+      const xh1 = cx + Math.cos(sHit) * rHit;
+      const yh1 = cy + Math.sin(sHit) * rHit;
+      const xh2 = cx + Math.cos(eHit) * rHit;
+      const yh2 = cy + Math.sin(eHit) * rHit;
+      const xi1 = cx + Math.cos(sHit) * rInner;
+      const yi1 = cy + Math.sin(sHit) * rInner;
+      const xi2 = cx + Math.cos(eHit) * rInner;
+      const yi2 = cy + Math.sin(eHit) * rInner;
+      const hitD = isFull
+        ? `M ${cx} ${cy - rHit} A ${rHit} ${rHit} 0 1 1 ${cx - 0.01} ${cy - rHit} Z`
+        : `M ${xi1} ${yi1} L ${xh1} ${yh1} A ${rHit} ${rHit} 0 ${largeHit} 1 ${xh2} ${yh2} L ${xi2} ${yi2} A ${rInner} ${rInner} 0 ${largeHit} 0 ${xi1} ${yi1} Z`;
+
+      return { d, hitD, mid, pct: Math.round((s.value / sum) * 100), label: s.label, solid: s.solid, value: s.value };
     });
   })();
 
@@ -331,21 +352,31 @@ function CompletionPieChart({
           ) : (
             segments.map((seg, i) => (
               <g key={`${animKey}-${i}`} className="dx-pie-slice" style={{ animationDelay: `${i * 0.12}s`, transformOrigin: `${cx}px ${cy}px` }}>
-                <path d={seg.d} fill={seg.solid} stroke="var(--surface)" strokeWidth="2" />
-                {seg.pct >= 8 && (
-                  <text
-                    x={cx + Math.cos(seg.mid) * (r * 0.62)}
-                    y={cy + Math.sin(seg.mid) * (r * 0.62)}
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fill="white"
-                    fontSize="16"
-                    fontWeight="800"
-                    style={{ fontFamily: "var(--font-mono)", pointerEvents: "none", userSelect: "none" }}
-                  >
-                    {seg.pct}%
-                  </text>
-                )}
+                <g
+                  className="dx-pie-slice-inner"
+                  style={{
+                    ["--slice-tx" as never]: `${Math.cos(seg.mid) * 10}px`,
+                    ["--slice-ty" as never]: `${Math.sin(seg.mid) * 10}px`,
+                  } as React.CSSProperties}
+                >
+                  <path className="dx-pie-slice-visual" d={seg.d} fill={seg.solid} stroke="var(--surface)" strokeWidth="2" />
+                  {seg.pct >= 8 && (
+                    <text
+                      className="dx-pie-slice-label"
+                      x={cx + Math.cos(seg.mid) * (r * 0.62)}
+                      y={cy + Math.sin(seg.mid) * (r * 0.62)}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      fill="white"
+                      fontSize="16"
+                      fontWeight="800"
+                      style={{ fontFamily: "var(--font-mono)", pointerEvents: "none", userSelect: "none" }}
+                    >
+                      {seg.pct}%
+                    </text>
+                  )}
+                  <path className="dx-pie-slice-hit" d={seg.hitD} fill="transparent" />
+                </g>
               </g>
             ))
           )}
@@ -1161,12 +1192,12 @@ function MfgProgressList({ items }: { items: ManufacturingProgress[] }) {
    DEADLINE LIST
 ═══════════════════════════════════════════════════════════════════ */
 
-function DeadlineList({ items, onClick }: { items: UpcomingDeadline[]; onClick?: () => void }) {
+function DeadlineList({ items, onClick, variant = "list" }: { items: UpcomingDeadline[]; onClick?: () => void; variant?: "list" | "grid" }) {
   if (items.length === 0) {
     return <div className="dx-empty"><Ico.CheckCircle /><span>Yaqin deadline yo&apos;q</span></div>;
   }
   return (
-    <div className="dx-dl-list">
+    <div className={variant === "grid" ? "dx-dl-list dx-dl-list-grid" : "dx-dl-list"}>
       {items.map((c, i) => {
         const urg = deadlineUrgency(c.daysRemaining);
         return (
@@ -1477,36 +1508,20 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          <div className="dx-trend-row">
-            <RevealSection key={`trend-${refreshNonce}`} className="dx-section dx-section-framed dx-strip-trend">
-              <div className="dx-section-header">
-                <Ico.Activity />
-                <h3 className="dx-section-title">Ishlab chiqarish va jo&apos;natma dinamikasi</h3>
-                <span className="dx-section-meta">oxirgi 30 kun</span>
-                <div className="dx-section-legend">
-                  <span className="dx-legend-dot" style={{ background: "var(--accent)" }} /> Ishlab chiqarish
-                  <span className="dx-legend-dot" style={{ background: "var(--success)", marginLeft: 12 }} /> Jo&apos;natmalar
-                </div>
+          <RevealSection key={`trend-${refreshNonce}`} className="dx-section dx-section-framed dx-strip-trend">
+            <div className="dx-section-header">
+              <Ico.Activity />
+              <h3 className="dx-section-title">Ishlab chiqarish va jo&apos;natma dinamikasi</h3>
+              <span className="dx-section-meta">oxirgi 30 kun</span>
+              <div className="dx-section-legend">
+                <span className="dx-legend-dot" style={{ background: "var(--accent)" }} /> Ishlab chiqarish
+                <span className="dx-legend-dot" style={{ background: "var(--success)", marginLeft: 12 }} /> Jo&apos;natmalar
               </div>
-              <div className="dx-section-body">
-                <DualAreaChart prod={data.productionTrend} ship={data.shipmentTrend} />
-              </div>
-            </RevealSection>
-
-            <RevealSection key={`pie-${refreshNonce}`} className="dx-section dx-section-framed dx-strip-pie">
-              <div className="dx-section-header">
-                <Ico.PieChart />
-                <h3 className="dx-section-title">Bajarish ulushi</h3>
-              </div>
-              <div className="dx-section-body">
-                <CompletionPieChart
-                  contracted={data.kpis.totalContractedAmount}
-                  produced={data.kpis.totalProducedAmount}
-                  batched={data.kpis.totalBatchedAmount}
-                />
-              </div>
-            </RevealSection>
-          </div>
+            </div>
+            <div className="dx-section-body dx-trend-body-wide">
+              <DualAreaChart prod={data.productionTrend} ship={data.shipmentTrend} />
+            </div>
+          </RevealSection>
         </div>
 
         <RevealSection key={`activity-${refreshNonce}`} className="dx-section dx-section-framed">
@@ -1516,6 +1531,43 @@ export default function DashboardPage() {
           </div>
           <div className="dx-section-body">
             <ActivityFeed items={data.recentActivity} />
+          </div>
+        </RevealSection>
+      </section>
+
+      {/* ─── 3-COLUMN: PIE + MFG + CONTRACT STATUS ─── */}
+      <section className="dx-row dx-row-3">
+        <RevealSection key={`pie-${refreshNonce}`} className="dx-section dx-section-framed">
+          <div className="dx-section-header">
+            <Ico.PieChart />
+            <h3 className="dx-section-title">Bajarish ulushi</h3>
+          </div>
+          <div className="dx-section-body">
+            <CompletionPieChart
+              contracted={data.kpis.totalContractedAmount}
+              produced={data.kpis.totalProducedAmount}
+              batched={data.kpis.totalBatchedAmount}
+            />
+          </div>
+        </RevealSection>
+
+        <RevealSection key={`mfg-${refreshNonce}`} className="dx-section dx-section-framed">
+          <div className="dx-section-header">
+            <Ico.Factory />
+            <h3 className="dx-section-title">Mahsulot ishlab chiqarish progressi</h3>
+          </div>
+          <div className="dx-section-body">
+            <MfgProgressList items={data.manufacturingProgress} />
+          </div>
+        </RevealSection>
+
+        <RevealSection key={`bubble-${refreshNonce}`} className="dx-section dx-section-framed">
+          <div className="dx-section-header">
+            <Ico.Box />
+            <h3 className="dx-section-title">Shartnomalar holati</h3>
+          </div>
+          <div className="dx-section-body">
+            <BubbleChart data={data.contractStatus} />
           </div>
         </RevealSection>
       </section>
@@ -1563,35 +1615,19 @@ export default function DashboardPage() {
         <Heatmap cells={data.activityHeatmap} />
       </RevealSection>
 
-      {/* ─── 3-COLUMN: DEADLINES + MFG + CONTRACT STATUS ─── */}
-      <section className="dx-row dx-row-3">
-        <RevealSection key={`deadlines-${refreshNonce}`} className="dx-section">
-          <div className="dx-section-header">
-            <Ico.Clock />
-            <h3 className="dx-section-title">Yaqinlashayotgan deadlinelar</h3>
-            <button type="button" className="dx-section-link" onClick={() => router.push("/contracts")}>
-              Hammasi <Ico.ArrowRight />
-            </button>
-          </div>
-          <DeadlineList items={data.upcomingDeadlines} onClick={() => router.push("/contracts")} />
-        </RevealSection>
-
-        <RevealSection key={`mfg-${refreshNonce}`} className="dx-section">
-          <div className="dx-section-header">
-            <Ico.Factory />
-            <h3 className="dx-section-title">Mahsulot ishlab chiqarish progressi</h3>
-          </div>
-          <MfgProgressList items={data.manufacturingProgress} />
-        </RevealSection>
-
-        <RevealSection key={`bubble-${refreshNonce}`} className="dx-section">
-          <div className="dx-section-header">
-            <Ico.Box />
-            <h3 className="dx-section-title">Shartnomalar holati</h3>
-          </div>
-          <BubbleChart data={data.contractStatus} />
-        </RevealSection>
-      </section>
+      {/* ─── UPCOMING DEADLINES (full row, end) ─── */}
+      <RevealSection key={`deadlines-${refreshNonce}`} as="section" className="dx-section dx-section-framed">
+        <div className="dx-section-header">
+          <Ico.Clock />
+          <h3 className="dx-section-title">Yaqinlashayotgan deadlinelar</h3>
+          <button type="button" className="dx-section-link" onClick={() => router.push("/contracts")}>
+            Hammasi <Ico.ArrowRight />
+          </button>
+        </div>
+        <div className="dx-section-body">
+          <DeadlineList items={data.upcomingDeadlines} onClick={() => router.push("/contracts")} variant="grid" />
+        </div>
+      </RevealSection>
     </div>
   );
 }
