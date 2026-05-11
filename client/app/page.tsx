@@ -279,7 +279,18 @@ function DualAreaChart({
   const [hover, setHover] = useState<number | null>(null);
   const [animKey, setAnimKey] = useState(0);
   const firstRunRef = useRef(true);
-  const data = prod.map((p, i) => ({ date: p.date, prod: p.amount, ship: ship[i]?.amount ?? 0 }));
+  const realData = prod.map((p, i) => ({ date: p.date, prod: p.amount, ship: ship[i]?.amount ?? 0, future: false }));
+  const FUTURE_DAYS = 3;
+  const data = (() => {
+    if (realData.length === 0) return realData;
+    const last = new Date(realData[realData.length - 1].date);
+    const tail = Array.from({ length: FUTURE_DAYS }, (_, k) => {
+      const d = new Date(last);
+      d.setDate(d.getDate() + k + 1);
+      return { date: d.toISOString(), prod: 0, ship: 0, future: true };
+    });
+    return [...realData, ...tail];
+  })();
 
   useEffect(() => {
     if (firstRunRef.current) {
@@ -289,12 +300,12 @@ function DualAreaChart({
     setAnimKey((k) => k + 1);
   }, [prod, ship]);
 
-  const totalProdRaw  = data.reduce((s, d) => s + d.prod, 0);
-  const totalShipRaw  = data.reduce((s, d) => s + d.ship, 0);
-  const peakIdx       = data.length > 0
-    ? data.reduce((idx, d, i) => (d.prod > data[idx].prod ? i : idx), 0)
+  const totalProdRaw  = realData.reduce((s, d) => s + d.prod, 0);
+  const totalShipRaw  = realData.reduce((s, d) => s + d.ship, 0);
+  const peakIdx       = realData.length > 0
+    ? realData.reduce((idx, d, i) => (d.prod > realData[idx].prod ? i : idx), 0)
     : 0;
-  const peakProdRaw   = data[peakIdx]?.prod ?? 0;
+  const peakProdRaw   = realData[peakIdx]?.prod ?? 0;
   const rateRaw       = totalProdRaw > 0 ? Math.round((totalShipRaw / totalProdRaw) * 100) : 0;
 
   const animTotalProd = useCountUp(totalProdRaw, 1400, 0,   animKey);
@@ -309,13 +320,16 @@ function DualAreaChart({
   const padL = 44, padR = 14, padT = 18, padB = 28;
   const cw = W - padL - padR;
   const ch = H - padT - padB;
-  const maxVal = Math.max(1, ...data.map(d => Math.max(d.prod, d.ship)));
+  const maxVal = Math.max(1, ...realData.map(d => Math.max(d.prod, d.ship)));
 
   const xAt = (i: number) => padL + (i / Math.max(1, data.length - 1)) * cw;
   const yAt = (v: number) => padT + ch - (v / maxVal) * ch;
 
   const buildSmooth = (key: "prod" | "ship") => {
-    const pts = data.map((d, i) => ({ x: xAt(i), y: yAt(d[key]) }));
+    const lineData = realData.length > 0 && data.length > realData.length
+      ? [...realData, data[realData.length]]
+      : realData;
+    const pts = lineData.map((d, i) => ({ x: xAt(i), y: yAt(d[key]) }));
     const n = pts.length;
     if (n < 2) return `M${pts[0]?.x ?? 0},${pts[0]?.y ?? 0}`;
 
@@ -353,12 +367,14 @@ function DualAreaChart({
 
   const prodLine = buildSmooth("prod");
   const shipLine = buildSmooth("ship");
-  const prodArea = `${prodLine} L${xAt(data.length - 1)},${padT + ch} L${padL},${padT + ch} Z`;
-  const shipArea = `${shipLine} L${xAt(data.length - 1)},${padT + ch} L${padL},${padT + ch} Z`;
+  const lastRealIdx = Math.max(0, realData.length - 1);
+  const lineEndIdx = Math.min(data.length - 1, realData.length);
+  const prodArea = `${prodLine} L${xAt(lineEndIdx)},${padT + ch} L${padL},${padT + ch} Z`;
+  const shipArea = `${shipLine} L${xAt(lineEndIdx)},${padT + ch} L${padL},${padT + ch} Z`;
 
   const grid = 4;
-  const xLabelCount = Math.min(data.length, 10);
-  const step = Math.max(1, Math.floor(data.length / xLabelCount));
+  const xLabelCount = Math.min(realData.length, 10);
+  const step = Math.max(1, Math.floor(realData.length / xLabelCount));
 
   const peak = data[peakIdx];
   const peakDate = new Date(peak.date);
@@ -396,7 +412,8 @@ function DualAreaChart({
         <path key={`line-ship-${animKey}`} className="dx-chart-line dx-chart-line-ship" pathLength={1} d={shipLine} fill="none" stroke="var(--success)" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
 
         {data.map((d, i) => {
-          if (i % step !== 0 && i !== data.length - 1) return null;
+          if (d.future && i !== lineEndIdx) return null;
+          if (!d.future && i % step !== 0) return null;
           const x = xAt(i);
           const date = new Date(d.date);
           return (
@@ -406,7 +423,7 @@ function DualAreaChart({
           );
         })}
 
-        {hover !== null && (
+        {hover !== null && !data[hover].future && (
           <g>
             <line x1={xAt(hover)} y1={padT} x2={xAt(hover)} y2={padT + ch}
               stroke="var(--text3)" strokeWidth="1" strokeDasharray="3,3" opacity="0.5" />
@@ -417,7 +434,8 @@ function DualAreaChart({
           </g>
         )}
 
-        {data.map((_, i) => {
+        {data.map((d, i) => {
+          if (d.future) return null;
           const x = xAt(i);
           const w = cw / Math.max(1, data.length - 1);
           return (
@@ -430,7 +448,7 @@ function DualAreaChart({
         })}
       </svg>
 
-      {hover !== null && (() => {
+      {hover !== null && !data[hover].future && (() => {
         const x = xAt(hover);
         const date = new Date(data[hover].date);
         const left = (x / W) * 100;
