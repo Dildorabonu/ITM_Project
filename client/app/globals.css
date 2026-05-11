@@ -2284,6 +2284,30 @@ body {
 .dx-row { display: grid; gap: 16px; position: relative; z-index: 1; }
 .dx-row-2-1 { grid-template-columns: 2fr 1fr; }
 .dx-row-3   { grid-template-columns: 1fr 1fr 1fr; }
+.dx-row-strip-feed {
+  grid-template-columns: 2fr 1fr;
+  align-items: stretch;
+}
+.dx-strip-left {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.dx-strip-trend { flex: 1; min-height: 0; }
+.dx-tiles-2x2 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: min-content;
+  gap: 10px;
+  min-height: 0;
+}
+.dx-tiles-2x2 .dx-mini-tile {
+  padding: 8px;
+}
+.dx-tiles-2x2 .dx-mini-inner {
+  padding: 10px 14px;
+}
 
 /* ─── PIPELINE BOARD ─── */
 
@@ -3166,6 +3190,7 @@ body {
   .dx-kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .dx-row-2-1 { grid-template-columns: 1fr; }
   .dx-row-3   { grid-template-columns: 1fr 1fr; }
+  .dx-row-strip-feed { grid-template-columns: 1fr; }
 }
 @media (max-width: 800px) {
   .dx-hero { flex-direction: column; }
