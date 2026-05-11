@@ -271,25 +271,28 @@ function deadlineUrgency(days: number): "passed" | "critical" | "warn" | "normal
 ═══════════════════════════════════════════════════════════════════ */
 
 function CompletionPieChart({
-  prod, ship,
+  contracted, produced, batched,
 }: {
-  prod: ProductionTrendPoint[];
-  ship: ProductionTrendPoint[];
+  contracted: number;
+  produced: number;
+  batched: number;
 }) {
-  const totalProd = prod.reduce((s, p) => s + p.amount, 0);
-  const totalShip = ship.reduce((s, p) => s + p.amount, 0);
-  const remaining = Math.max(0, totalProd - totalShip);
+  const producedClamped = Math.min(Math.max(0, produced), Math.max(0, contracted));
+  const batchedClamped  = Math.min(Math.max(0, batched), producedClamped);
+  const notProduced     = Math.max(0, contracted - producedClamped);
+  const notBatched      = Math.max(0, producedClamped - batchedClamped);
 
   const [animKey, setAnimKey] = useState(0);
   const firstRunRef = useRef(true);
   useEffect(() => {
     if (firstRunRef.current) { firstRunRef.current = false; return; }
     setAnimKey(k => k + 1);
-  }, [totalProd, totalShip]);
+  }, [contracted, produced, batched]);
 
   const slices = [
-    { label: "Jo'natilgan", value: totalShip, solid: "#10b981" },
-    { label: "Qolgan",      value: remaining, solid: "#1a6eeb" },
+    { label: "Partiyalangan",       value: batchedClamped, solid: "#10b981" },
+    { label: "Partiyalanmagan",     value: notBatched,     solid: "#1a6eeb" },
+    { label: "Ishlab chiqarilmagan", value: notProduced,   solid: "#4b5563" },
   ];
   const sum = slices.reduce((s, x) => s + x.value, 0);
 
@@ -351,12 +354,16 @@ function CompletionPieChart({
 
       <div className="dx-pie-key">
         <span className="dx-pie-key-item">
-          <span className="dx-pie-key-dot" style={{ background: "var(--success)" }} />
-          Jo&apos;natilgan
+          <span className="dx-pie-key-dot" style={{ background: "#10b981" }} />
+          Partiyalangan
         </span>
         <span className="dx-pie-key-item">
-          <span className="dx-pie-key-dot" style={{ background: "var(--accent)" }} />
-          Qolgan
+          <span className="dx-pie-key-dot" style={{ background: "#1a6eeb" }} />
+          Partiyalanmagan
+        </span>
+        <span className="dx-pie-key-item">
+          <span className="dx-pie-key-dot" style={{ background: "#4b5563" }} />
+          Ishlab chiqarilmagan
         </span>
       </div>
     </div>
@@ -1492,7 +1499,11 @@ export default function DashboardPage() {
                 <h3 className="dx-section-title">Bajarish ulushi</h3>
               </div>
               <div className="dx-section-body">
-                <CompletionPieChart prod={data.productionTrend} ship={data.shipmentTrend} />
+                <CompletionPieChart
+                  contracted={data.kpis.totalContractedAmount}
+                  produced={data.kpis.totalProducedAmount}
+                  batched={data.kpis.totalBatchedAmount}
+                />
               </div>
             </RevealSection>
           </div>
