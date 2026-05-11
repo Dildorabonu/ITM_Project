@@ -1493,9 +1493,10 @@ export default function DashboardPage() {
             {user?.role && <div className="dx-hero-role">{user.role}</div>}
           </div>
         </div>
+      </section>
 
-        {/* ALWAYS-NOW state strip — period-independent metrics */}
-        <div className="dx-state-strip">
+      {/* ALWAYS-NOW state strip — period-independent metrics */}
+      <section className="dx-state-strip">
           <div className="dx-state-strip-cap">
             <span className="dx-hero-block-dot dxc-warn" />
             Hozirgi holat <span className="dx-state-strip-note">davrga bog&apos;liq emas</span>
@@ -1538,7 +1539,6 @@ export default function DashboardPage() {
               <div className="dx-mini-lbl">Xodimlar <span className="dx-mini-sub">{k?.activeDepartments ?? 0} bo&apos;lim</span></div>
             </button>
           </div>
-        </div>
       </section>
 
       {/* ─── PERIOD BAR ─── */}
