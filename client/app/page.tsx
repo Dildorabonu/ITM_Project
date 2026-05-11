@@ -47,6 +47,7 @@ const Ico = {
   Building:   () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" /></svg>,
   Zap:        () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>,
   Trophy:     () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 22a7 7 0 1 0 4 0" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2z" /></svg>,
+  PieChart:   () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M21.21 15.89A10 10 0 1 1 8 2.83" /><path d="M22 12A10 10 0 0 0 12 2v10z" /></svg>,
 };
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -266,6 +267,103 @@ function deadlineUrgency(days: number): "passed" | "critical" | "warn" | "normal
 }
 
 /* ═══════════════════════════════════════════════════════════════════
+   COMPLETION PIE CHART (production vs shipment summary)
+═══════════════════════════════════════════════════════════════════ */
+
+function CompletionPieChart({
+  prod, ship,
+}: {
+  prod: ProductionTrendPoint[];
+  ship: ProductionTrendPoint[];
+}) {
+  const totalProd = prod.reduce((s, p) => s + p.amount, 0);
+  const totalShip = ship.reduce((s, p) => s + p.amount, 0);
+  const remaining = Math.max(0, totalProd - totalShip);
+
+  const [animKey, setAnimKey] = useState(0);
+  const firstRunRef = useRef(true);
+  useEffect(() => {
+    if (firstRunRef.current) { firstRunRef.current = false; return; }
+    setAnimKey(k => k + 1);
+  }, [totalProd, totalShip]);
+
+  const slices = [
+    { label: "Jo'natilgan", value: totalShip, solid: "#10b981" },
+    { label: "Qolgan",      value: remaining, solid: "#1a6eeb" },
+  ];
+  const sum = slices.reduce((s, x) => s + x.value, 0);
+
+  const size = 200;
+  const cx = size / 2, cy = size / 2;
+  const r  = size / 2 - 6;
+
+  type Seg = { d: string; mid: number; pct: number; label: string; solid: string; value: number };
+  const segments: Seg[] = (() => {
+    if (sum === 0) return [];
+    let acc = 0;
+    return slices.filter(s => s.value > 0).map((s) => {
+      const start = (acc / sum) * Math.PI * 2 - Math.PI / 2;
+      acc += s.value;
+      const end   = (acc / sum) * Math.PI * 2 - Math.PI / 2;
+      const mid   = (start + end) / 2;
+      const large = end - start > Math.PI ? 1 : 0;
+      const x1 = cx + Math.cos(start) * r;
+      const y1 = cy + Math.sin(start) * r;
+      const x2 = cx + Math.cos(end)   * r;
+      const y2 = cy + Math.sin(end)   * r;
+      const isFull = slices.filter(x => x.value > 0).length === 1;
+      const d = isFull
+        ? `M ${cx} ${cy - r} A ${r} ${r} 0 1 1 ${cx - 0.01} ${cy - r} Z`
+        : `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`;
+      return { d, mid, pct: Math.round((s.value / sum) * 100), label: s.label, solid: s.solid, value: s.value };
+    });
+  })();
+
+  return (
+    <div className="dx-pie-wrap">
+      <div className="dx-pie-svg-wrap">
+        <svg viewBox={`0 0 ${size} ${size}`} className="dx-pie-svg">
+          {sum === 0 ? (
+            <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--border)" strokeWidth="14" />
+          ) : (
+            segments.map((seg, i) => (
+              <g key={`${animKey}-${i}`} className="dx-pie-slice" style={{ animationDelay: `${i * 0.12}s`, transformOrigin: `${cx}px ${cy}px` }}>
+                <path d={seg.d} fill={seg.solid} stroke="var(--surface)" strokeWidth="2" />
+                {seg.pct >= 8 && (
+                  <text
+                    x={cx + Math.cos(seg.mid) * (r * 0.62)}
+                    y={cy + Math.sin(seg.mid) * (r * 0.62)}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fill="white"
+                    fontSize="16"
+                    fontWeight="800"
+                    style={{ fontFamily: "var(--font-mono)", pointerEvents: "none", userSelect: "none" }}
+                  >
+                    {seg.pct}%
+                  </text>
+                )}
+              </g>
+            ))
+          )}
+        </svg>
+      </div>
+
+      <div className="dx-pie-key">
+        <span className="dx-pie-key-item">
+          <span className="dx-pie-key-dot" style={{ background: "var(--success)" }} />
+          Jo&apos;natilgan
+        </span>
+        <span className="dx-pie-key-item">
+          <span className="dx-pie-key-dot" style={{ background: "var(--accent)" }} />
+          Qolgan
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
    DUAL AREA CHART (production + shipment)
 ═══════════════════════════════════════════════════════════════════ */
 
@@ -299,14 +397,6 @@ function DualAreaChart({
     }
     setAnimKey((k) => k + 1);
   }, [prod, ship]);
-
-  const totalProdRaw  = realData.reduce((s, d) => s + d.prod, 0);
-  const totalShipRaw  = realData.reduce((s, d) => s + d.ship, 0);
-  const rateRaw       = totalProdRaw > 0 ? Math.round((totalShipRaw / totalProdRaw) * 100) : 0;
-
-  const animTotalProd = useCountUp(totalProdRaw, 1400, 0,   animKey);
-  const animTotalShip = useCountUp(totalShipRaw, 1400, 120, animKey);
-  const animRate      = useCountUp(rateRaw,      1400, 240, animKey);
 
   if (data.length === 0) return null;
 
@@ -465,22 +555,6 @@ function DualAreaChart({
         );
       })()}
 
-      <div className="dx-chart-stats">
-        <div className="dx-chart-stat">
-          <span className="dx-chart-stat-dot" style={{ background: "var(--accent)" }} />
-          <span className="dx-chart-stat-label">Jami ishlab chiqarilgan</span>
-          <span className="dx-chart-stat-val">{animTotalProd.toLocaleString()}</span>
-        </div>
-        <div className="dx-chart-stat">
-          <span className="dx-chart-stat-dot" style={{ background: "var(--success)" }} />
-          <span className="dx-chart-stat-label">Jami jo&apos;natilgan</span>
-          <span className="dx-chart-stat-val">{animTotalShip.toLocaleString()}</span>
-        </div>
-        <div className="dx-chart-stat">
-          <span className="dx-chart-stat-label">Bajarish darajasi</span>
-          <span className="dx-chart-stat-val">{animRate}%</span>
-        </div>
-      </div>
     </div>
   );
 }
@@ -1396,20 +1470,32 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          <RevealSection key={`trend-${refreshNonce}`} className="dx-section dx-section-framed dx-strip-trend">
-            <div className="dx-section-header">
-              <Ico.Activity />
-              <h3 className="dx-section-title">Ishlab chiqarish va jo&apos;natma dinamikasi</h3>
-              <span className="dx-section-meta">oxirgi 30 kun</span>
-              <div className="dx-section-legend">
-                <span className="dx-legend-dot" style={{ background: "var(--accent)" }} /> Ishlab chiqarish
-                <span className="dx-legend-dot" style={{ background: "var(--success)", marginLeft: 12 }} /> Jo&apos;natmalar
+          <div className="dx-trend-row">
+            <RevealSection key={`trend-${refreshNonce}`} className="dx-section dx-section-framed dx-strip-trend">
+              <div className="dx-section-header">
+                <Ico.Activity />
+                <h3 className="dx-section-title">Ishlab chiqarish va jo&apos;natma dinamikasi</h3>
+                <span className="dx-section-meta">oxirgi 30 kun</span>
+                <div className="dx-section-legend">
+                  <span className="dx-legend-dot" style={{ background: "var(--accent)" }} /> Ishlab chiqarish
+                  <span className="dx-legend-dot" style={{ background: "var(--success)", marginLeft: 12 }} /> Jo&apos;natmalar
+                </div>
               </div>
-            </div>
-            <div className="dx-section-body">
-              <DualAreaChart prod={data.productionTrend} ship={data.shipmentTrend} />
-            </div>
-          </RevealSection>
+              <div className="dx-section-body">
+                <DualAreaChart prod={data.productionTrend} ship={data.shipmentTrend} />
+              </div>
+            </RevealSection>
+
+            <RevealSection key={`pie-${refreshNonce}`} className="dx-section dx-section-framed dx-strip-pie">
+              <div className="dx-section-header">
+                <Ico.PieChart />
+                <h3 className="dx-section-title">Bajarish ulushi</h3>
+              </div>
+              <div className="dx-section-body">
+                <CompletionPieChart prod={data.productionTrend} ship={data.shipmentTrend} />
+              </div>
+            </RevealSection>
+          </div>
         </div>
 
         <RevealSection key={`activity-${refreshNonce}`} className="dx-section dx-section-framed">
