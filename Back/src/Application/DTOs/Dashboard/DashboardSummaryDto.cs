@@ -19,7 +19,6 @@ public class DashboardSummaryDto
 
 public class DashboardKpiDto
 {
-    // ── Always-now (state, period-independent) ──
     public int TotalContracts { get; set; }
     public int ActiveContracts { get; set; }
     public int CompletedContracts { get; set; }
@@ -35,11 +34,6 @@ public class DashboardKpiDto
     public int TotalUsers { get; set; }
     public int ActiveDepartments { get; set; }
     public int TotalEmployees { get; set; }
-
-    // ── Selected period (from / to inclusive) ──
-    public DateOnly RangeFrom { get; set; }
-    public DateOnly RangeTo { get; set; }
-    public int RangeDays { get; set; }
 }
 
 public class ContractStatusBucketDto
