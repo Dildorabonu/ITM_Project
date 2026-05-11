@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react";
 import { useAuthStore } from "@/lib/store/authStore";
 import {
   dashboardService,
@@ -140,6 +140,60 @@ function useCountUp(target: number, duration = 1400, delay = 0, trigger: unknown
   }, [target, duration, delay, trigger]);
 
   return val;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   REVEAL-ON-SCROLL SECTION
+   Pauses inner animations until the section enters the viewport.
+═══════════════════════════════════════════════════════════════════ */
+
+function RevealSection({
+  className = "",
+  as: Tag = "div",
+  children,
+}: {
+  className?: string;
+  as?: "div" | "section";
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [on, setOn] = useState(false);
+
+  // Sync check before paint so already-visible sections don't flash hidden.
+  useLayoutEffect(() => {
+    if (on) return;
+    const el = ref.current;
+    if (!el) return;
+    const vh = window.innerHeight || document.documentElement.clientHeight;
+    const rect = el.getBoundingClientRect();
+    if (rect.top < vh && rect.bottom > 0) setOn(true);
+  }, [on]);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || on) return;
+
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setOn(true);
+          obs.disconnect();
+        }
+      },
+      // Fire BEFORE the section reaches the viewport so the animation
+      // completes by the time the user scrolls to it — avoids the
+      // "reset and re-open" feel when content is already visible.
+      { rootMargin: "0px 0px 30% 0px", threshold: 0 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [on]);
+
+  return (
+    <Tag ref={ref as React.RefObject<HTMLDivElement & HTMLElement>} className={`${className}${on ? " dx-anim-on" : ""}`}>
+      {children}
+    </Tag>
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -1502,7 +1556,7 @@ export default function DashboardPage() {
 
       {/* ─── 2-COLUMN: TREND CHART + DONUT ─── */}
       <section className="dx-row dx-row-2-1">
-        <div className="dx-section">
+        <RevealSection key={`trend-${refreshNonce}`} className="dx-section">
           <div className="dx-section-header">
             <Ico.Activity />
             <h3 className="dx-section-title">Ishlab chiqarish va jo&apos;natma dinamikasi</h3>
@@ -1513,20 +1567,20 @@ export default function DashboardPage() {
             </div>
           </div>
           <DualAreaChart prod={data.productionTrend} ship={data.shipmentTrend} />
-        </div>
+        </RevealSection>
 
-        <div className="dx-section">
+        <RevealSection key={`bubble-${refreshNonce}`} className="dx-section">
           <div className="dx-section-header">
             <Ico.Box />
             <h3 className="dx-section-title">Shartnomalar holati</h3>
           </div>
           <BubbleChart data={data.contractStatus} />
-        </div>
+        </RevealSection>
       </section>
 
       {/* ─── 2-COLUMN: DEPT WORKLOAD + PRIORITY ─── */}
       <section className="dx-row dx-row-2-1">
-        <div className="dx-section">
+        <RevealSection key={`hbar-${refreshNonce}`} className="dx-section">
           <div className="dx-section-header">
             <Ico.Building />
             <h3 className="dx-section-title">Bo&apos;limlar yuklamasi</h3>
@@ -1537,9 +1591,9 @@ export default function DashboardPage() {
             </div>
           </div>
           <HBarList data={data.departmentWorkload} />
-        </div>
+        </RevealSection>
 
-        <div className="dx-section">
+        <RevealSection key={`priority-${refreshNonce}`} className="dx-section">
           <div className="dx-section-header">
             <Ico.Zap />
             <h3 className="dx-section-title">Muhimlik darajasi</h3>
@@ -1553,22 +1607,22 @@ export default function DashboardPage() {
             <span className="dx-section-meta">30 kun</span>
           </div>
           <TopPerformers items={data.topPerformers} />
-        </div>
+        </RevealSection>
       </section>
 
       {/* ─── HEATMAP (full row) ─── */}
-      <section className="dx-section">
+      <RevealSection key={`heatmap-${refreshNonce}`} as="section" className="dx-section">
         <div className="dx-section-header">
           <Ico.Activity />
           <h3 className="dx-section-title">Faollik xaritasi</h3>
           <span className="dx-section-meta">12 hafta · kunlik yozuvlar</span>
         </div>
         <Heatmap cells={data.activityHeatmap} />
-      </section>
+      </RevealSection>
 
       {/* ─── 3-COLUMN: DEADLINES + MFG + ACTIVITY ─── */}
       <section className="dx-row dx-row-3">
-        <div className="dx-section">
+        <RevealSection key={`deadlines-${refreshNonce}`} className="dx-section">
           <div className="dx-section-header">
             <Ico.Clock />
             <h3 className="dx-section-title">Yaqinlashayotgan deadlinelar</h3>
@@ -1577,23 +1631,23 @@ export default function DashboardPage() {
             </button>
           </div>
           <DeadlineList items={data.upcomingDeadlines} onClick={() => router.push("/contracts")} />
-        </div>
+        </RevealSection>
 
-        <div className="dx-section">
+        <RevealSection key={`mfg-${refreshNonce}`} className="dx-section">
           <div className="dx-section-header">
             <Ico.Factory />
             <h3 className="dx-section-title">Mahsulot ishlab chiqarish progressi</h3>
           </div>
           <MfgProgressList items={data.manufacturingProgress} />
-        </div>
+        </RevealSection>
 
-        <div className="dx-section">
+        <RevealSection key={`activity-${refreshNonce}`} className="dx-section">
           <div className="dx-section-header">
             <Ico.Activity />
             <h3 className="dx-section-title">So&apos;nggi faollik</h3>
           </div>
           <ActivityFeed items={data.recentActivity} />
-        </div>
+        </RevealSection>
       </section>
     </div>
   );
