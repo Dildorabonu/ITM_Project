@@ -34,6 +34,9 @@ public class DashboardKpiDto
     public int TotalUsers { get; set; }
     public int ActiveDepartments { get; set; }
     public int TotalEmployees { get; set; }
+    public decimal TotalContractedAmount { get; set; }
+    public decimal TotalProducedAmount { get; set; }
+    public decimal TotalBatchedAmount { get; set; }
 }
 
 public class ContractStatusBucketDto
