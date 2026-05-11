@@ -2284,6 +2284,30 @@ body {
 .dx-row { display: grid; gap: 16px; position: relative; z-index: 1; }
 .dx-row-2-1 { grid-template-columns: 2fr 1fr; }
 .dx-row-3   { grid-template-columns: 1fr 1fr 1fr; }
+
+.dx-section-framed {
+  background: #e2e8f0;
+  padding: 10px;
+  gap: 0;
+}
+html.dark .dx-section-framed {
+  background: var(--surface2);
+}
+.dx-section-framed .dx-section-header {
+  padding: 4px 6px;
+  margin-bottom: 10px;
+}
+.dx-section-body {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .dx-row-strip-feed {
   grid-template-columns: 2fr 1fr;
   align-items: stretch;
