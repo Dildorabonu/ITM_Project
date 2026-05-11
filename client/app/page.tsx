@@ -887,9 +887,6 @@ function HBarList({ data }: { data: DepartmentWorkload[] }) {
         <span className="dx-hbar-hint-item">
           <span className="dx-hbar-chip dxc-section" /> Bo&apos;lim
         </span>
-        <span className="dx-hbar-hint-tip">
-          Chiziq uzunligi — umumiy yuk · ranglar — shartnoma/mahsulot nisbati
-        </span>
       </div>
       {data.slice(0, 8).map((d, i) => {
         const total = d.activeContracts + d.activeManufactured;
@@ -1447,7 +1444,6 @@ export default function DashboardPage() {
           <div className="dx-section-header">
             <Ico.Building />
             <h3 className="dx-section-title">Bo&apos;limlar yuklamasi</h3>
-            <span className="dx-section-meta">faol shartnoma + ishlab chiqarish</span>
             <div className="dx-section-legend">
               <span className="dx-legend-dot" style={{ background: "var(--accent)" }} /> Shartnoma
               <span className="dx-legend-dot" style={{ background: "var(--purple)", marginLeft: 12 }} /> Mahsulot
