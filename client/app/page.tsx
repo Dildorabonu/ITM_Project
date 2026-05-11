@@ -1377,7 +1377,7 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          <RevealSection key={`trend-${refreshNonce}`} className="dx-section dx-strip-trend">
+          <RevealSection key={`trend-${refreshNonce}`} className="dx-section dx-section-framed dx-strip-trend">
             <div className="dx-section-header">
               <Ico.Activity />
               <h3 className="dx-section-title">Ishlab chiqarish va jo&apos;natma dinamikasi</h3>
@@ -1387,16 +1387,20 @@ export default function DashboardPage() {
                 <span className="dx-legend-dot" style={{ background: "var(--success)", marginLeft: 12 }} /> Jo&apos;natmalar
               </div>
             </div>
-            <DualAreaChart prod={data.productionTrend} ship={data.shipmentTrend} />
+            <div className="dx-section-body">
+              <DualAreaChart prod={data.productionTrend} ship={data.shipmentTrend} />
+            </div>
           </RevealSection>
         </div>
 
-        <RevealSection key={`activity-${refreshNonce}`} className="dx-section">
+        <RevealSection key={`activity-${refreshNonce}`} className="dx-section dx-section-framed">
           <div className="dx-section-header">
             <Ico.Activity />
             <h3 className="dx-section-title">So&apos;nggi faollik</h3>
           </div>
-          <ActivityFeed items={data.recentActivity} />
+          <div className="dx-section-body">
+            <ActivityFeed items={data.recentActivity} />
+          </div>
         </RevealSection>
       </section>
 
