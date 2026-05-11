@@ -1318,9 +1318,10 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* ALWAYS-NOW state strip — period-independent metrics */}
-      <section className="dx-state-strip">
-          <div className="dx-state-strip-tiles">
+      {/* ALWAYS-NOW state strip + trend chart + recent activity */}
+      <section className="dx-row dx-row-strip-feed">
+        <div className="dx-strip-left">
+          <div className="dx-state-strip-tiles dx-tiles-2x2">
             <button
               className="dx-mini-tile dxm-accent"
               onClick={() => router.push("/contracts")}
@@ -1375,29 +1376,27 @@ export default function DashboardPage() {
               </div>
             </button>
           </div>
-      </section>
 
-      {/* ─── 2-COLUMN: TREND CHART + DONUT ─── */}
-      <section className="dx-row dx-row-2-1">
-        <RevealSection key={`trend-${refreshNonce}`} className="dx-section">
+          <RevealSection key={`trend-${refreshNonce}`} className="dx-section dx-strip-trend">
+            <div className="dx-section-header">
+              <Ico.Activity />
+              <h3 className="dx-section-title">Ishlab chiqarish va jo&apos;natma dinamikasi</h3>
+              <span className="dx-section-meta">oxirgi 30 kun</span>
+              <div className="dx-section-legend">
+                <span className="dx-legend-dot" style={{ background: "var(--accent)" }} /> Ishlab chiqarish
+                <span className="dx-legend-dot" style={{ background: "var(--success)", marginLeft: 12 }} /> Jo&apos;natmalar
+              </div>
+            </div>
+            <DualAreaChart prod={data.productionTrend} ship={data.shipmentTrend} />
+          </RevealSection>
+        </div>
+
+        <RevealSection key={`activity-${refreshNonce}`} className="dx-section">
           <div className="dx-section-header">
             <Ico.Activity />
-            <h3 className="dx-section-title">Ishlab chiqarish va jo&apos;natma dinamikasi</h3>
-            <span className="dx-section-meta">oxirgi 30 kun</span>
-            <div className="dx-section-legend">
-              <span className="dx-legend-dot" style={{ background: "var(--accent)" }} /> Ishlab chiqarish
-              <span className="dx-legend-dot" style={{ background: "var(--success)", marginLeft: 12 }} /> Jo&apos;natmalar
-            </div>
+            <h3 className="dx-section-title">So&apos;nggi faollik</h3>
           </div>
-          <DualAreaChart prod={data.productionTrend} ship={data.shipmentTrend} />
-        </RevealSection>
-
-        <RevealSection key={`bubble-${refreshNonce}`} className="dx-section">
-          <div className="dx-section-header">
-            <Ico.Box />
-            <h3 className="dx-section-title">Shartnomalar holati</h3>
-          </div>
-          <BubbleChart data={data.contractStatus} />
+          <ActivityFeed items={data.recentActivity} />
         </RevealSection>
       </section>
 
@@ -1443,7 +1442,7 @@ export default function DashboardPage() {
         <Heatmap cells={data.activityHeatmap} />
       </RevealSection>
 
-      {/* ─── 3-COLUMN: DEADLINES + MFG + ACTIVITY ─── */}
+      {/* ─── 3-COLUMN: DEADLINES + MFG + CONTRACT STATUS ─── */}
       <section className="dx-row dx-row-3">
         <RevealSection key={`deadlines-${refreshNonce}`} className="dx-section">
           <div className="dx-section-header">
@@ -1464,12 +1463,12 @@ export default function DashboardPage() {
           <MfgProgressList items={data.manufacturingProgress} />
         </RevealSection>
 
-        <RevealSection key={`activity-${refreshNonce}`} className="dx-section">
+        <RevealSection key={`bubble-${refreshNonce}`} className="dx-section">
           <div className="dx-section-header">
-            <Ico.Activity />
-            <h3 className="dx-section-title">So&apos;nggi faollik</h3>
+            <Ico.Box />
+            <h3 className="dx-section-title">Shartnomalar holati</h3>
           </div>
-          <ActivityFeed items={data.recentActivity} />
+          <BubbleChart data={data.contractStatus} />
         </RevealSection>
       </section>
     </div>
