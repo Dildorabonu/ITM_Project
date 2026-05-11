@@ -2664,8 +2664,111 @@ html.dark .dx-section-framed {
   gap: 12px;
   align-items: center;
   padding: 6px 0;
-  cursor: help;
+  position: relative;
 }
+.dx-hbar-row:hover .dx-hbar-name { color: var(--accent); }
+
+/* Custom tooltip */
+.dx-hbar-tip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% - 2px);
+  transform: translateX(-50%) translateY(6px) scale(0.97);
+  transform-origin: bottom center;
+  width: 280px;
+  padding: 12px 14px 14px;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, var(--bg2), var(--surface));
+  border: 1px solid var(--border2);
+  border-radius: var(--radius2);
+  box-shadow:
+    0 14px 36px rgba(0, 0, 0, 0.45),
+    0 0 0 1px var(--accent-dim),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 50;
+  transition:
+    opacity 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0.18s;
+}
+.dx-hbar-row:hover .dx-hbar-tip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0) scale(1);
+  transition-delay: 0.12s;
+}
+.dx-hbar-tip::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 10px;
+  height: 10px;
+  background: var(--surface);
+  border-right: 1px solid var(--border2);
+  border-bottom: 1px solid var(--border2);
+  transform: translateX(-50%) rotate(45deg);
+}
+.dx-hbar-tip-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px dashed var(--border);
+}
+.dx-hbar-tip-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dx-hbar-tip-type {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 3px 7px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.dx-hbar-tip-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+}
+.dx-hbar-tip-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.dx-hbar-tip-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+.dx-hbar-tip-val {
+  font-family: var(--font-mono);
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1;
+}
+.dx-hbar-tip-val-c { color: var(--accent); }
+.dx-hbar-tip-val-m { color: var(--purple); }
 .dx-hbar-left {
   display: flex; align-items: center; gap: 8px;
   min-width: 0;
