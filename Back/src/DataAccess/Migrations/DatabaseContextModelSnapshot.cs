@@ -698,6 +698,10 @@ namespace DataAccess.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("text");
 
+                    b.Property<string>("InvoiceNumber")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
@@ -711,6 +715,9 @@ namespace DataAccess.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("DepartmentId");
+
+                    b.HasIndex("InvoiceNumber")
+                        .IsUnique();
 
                     b.HasIndex("Name", "DepartmentId")
                         .IsUnique();

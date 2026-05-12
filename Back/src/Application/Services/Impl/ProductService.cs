@@ -27,6 +27,7 @@ public class ProductService : IProductService
             var lower = search.ToLower();
             query = query.Where(p =>
                 p.Name.ToLower().Contains(lower) ||
+                p.InvoiceNumber.ToLower().Contains(lower) ||
                 (p.Description != null && p.Description.ToLower().Contains(lower)) ||
                 p.Department!.Name.ToLower().Contains(lower));
         }
@@ -73,16 +74,23 @@ public class ProductService : IProductService
 
     public async Task<ApiResult<int>> CreateAsync(ProductCreateDto dto)
     {
+        if (string.IsNullOrWhiteSpace(dto.InvoiceNumber))
+            return ApiResult<int>.Failure(["Invoice raqami kiritilishi shart."]);
+
         if (!await _context.Departments.AnyAsync(d => d.Id == dto.DepartmentId))
             return ApiResult<int>.Failure([$"Department with id '{dto.DepartmentId}' not found."]);
 
         if (await _context.Products.AnyAsync(p => p.Name == dto.Name && p.DepartmentId == dto.DepartmentId))
             return ApiResult<int>.Failure([$"Product with name '{dto.Name}' already exists in this department."]);
 
+        if (await _context.Products.AnyAsync(p => p.InvoiceNumber == dto.InvoiceNumber))
+            return ApiResult<int>.Failure([$"Invoice raqami '{dto.InvoiceNumber}' allaqachon mavjud."]);
+
         var product = new Product
         {
             Id = Guid.NewGuid(),
             Name = dto.Name,
+            InvoiceNumber = dto.InvoiceNumber.Trim(),
             Description = dto.Description,
             Quantity = dto.Quantity,
             Unit = dto.Unit,
@@ -103,19 +111,31 @@ public class ProductService : IProductService
         if (list.Count > 200)
             return ApiResult<int>.Failure(["Bir vaqtda 200 tadan ortiq mahsulot qo'shib bo'lmaydi."]);
 
+        var batchInvoices = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var dto in list)
         {
+            if (string.IsNullOrWhiteSpace(dto.InvoiceNumber))
+                return ApiResult<int>.Failure([$"Mahsulot '{dto.Name}' uchun invoice raqami kiritilmagan."]);
+
+            var inv = dto.InvoiceNumber.Trim();
+            if (!batchInvoices.Add(inv))
+                return ApiResult<int>.Failure([$"Invoice raqami '{inv}' ushbu yuborilgan ro'yxatda takrorlangan."]);
+
             if (!await _context.Departments.AnyAsync(d => d.Id == dto.DepartmentId))
                 return ApiResult<int>.Failure([$"Department with id '{dto.DepartmentId}' not found."]);
 
             if (await _context.Products.AnyAsync(p => p.Name == dto.Name && p.DepartmentId == dto.DepartmentId))
                 return ApiResult<int>.Failure([$"Product with name '{dto.Name}' already exists in this department."]);
+
+            if (await _context.Products.AnyAsync(p => p.InvoiceNumber == inv))
+                return ApiResult<int>.Failure([$"Invoice raqami '{inv}' allaqachon mavjud."]);
         }
 
         var products = list.Select(dto => new Product
         {
             Id = Guid.NewGuid(),
             Name = dto.Name,
+            InvoiceNumber = dto.InvoiceNumber.Trim(),
             Description = dto.Description,
             Quantity = dto.Quantity,
             Unit = dto.Unit,
@@ -153,6 +173,21 @@ public class ProductService : IProductService
             product.Name = dto.Name;
         }
 
+        if (dto.InvoiceNumber is not null)
+        {
+            var inv = dto.InvoiceNumber.Trim();
+            if (string.IsNullOrWhiteSpace(inv))
+                return ApiResult<int>.Failure(["Invoice raqami bo'sh bo'lishi mumkin emas."]);
+
+            if (inv != product.InvoiceNumber)
+            {
+                if (await _context.Products.AnyAsync(p => p.InvoiceNumber == inv && p.Id != id))
+                    return ApiResult<int>.Failure([$"Invoice raqami '{inv}' allaqachon mavjud."]);
+
+                product.InvoiceNumber = inv;
+            }
+        }
+
         if (dto.Description is not null) product.Description = dto.Description;
         if (dto.Quantity.HasValue) product.Quantity = dto.Quantity.Value;
         if (dto.Unit.HasValue) product.Unit = dto.Unit.Value;
@@ -179,6 +214,7 @@ public class ProductService : IProductService
     {
         Id = product.Id,
         Name = product.Name,
+        InvoiceNumber = product.InvoiceNumber,
         Description = product.Description,
         Quantity = product.Quantity,
         Unit = product.Unit,
