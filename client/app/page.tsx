@@ -429,13 +429,21 @@ function DualAreaChart({
     return [...realData, ...tail];
   })();
 
+  // Content-based change detector — array reference changes on every load
+  // even when the underlying values (last 30 days) didn't change. Avoid
+  // replaying the line/area animation unless the numbers themselves move.
+  const dataKey = useMemo(() =>
+    prod.map(p => `${p.date}:${p.amount}`).join("|") + "::" +
+    ship.map(p => `${p.date}:${p.amount}`).join("|"),
+    [prod, ship]
+  );
   useEffect(() => {
     if (firstRunRef.current) {
       firstRunRef.current = false;
       return;
     }
     setAnimKey((k) => k + 1);
-  }, [prod, ship]);
+  }, [dataKey]);
 
   if (data.length === 0) return null;
 
@@ -687,12 +695,21 @@ function BubbleChart({ data }: { data: ContractStatusBucket[] }) {
   const [, setTick] = useState(0);
   const [popKey, setPopKey] = useState(0);
 
-  // Reset physics whenever data changes
+  // Content-based change detector — the data array reference changes on every
+  // load even when the underlying status counts haven't moved. Avoid replaying
+  // the bubble pop animation unless a count actually changes.
+  const dataKey = useMemo(() =>
+    data.map(d => `${d.status}:${d.count}`).join("|"),
+    [data]
+  );
+
+  // Reset physics whenever data content actually changes
   useEffect(() => {
     physRef.current = initialPositions.map(p => ({ ...p }));
     dragRef.current = null;
     setPopKey(k => k + 1);
-  }, [initialPositions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataKey]);
 
   // Animation loop
   useEffect(() => {
@@ -1732,7 +1749,12 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [refreshNonce, setRefreshNonce] = useState(0);
+  // Two nonces:
+  //   kpiNonce    — bumps on every load; drives count-up + activity feed re-animation
+  //   staticNonce — bumps only on the first successful load; static sections animate once
+  const [kpiNonce, setKpiNonce] = useState(0);
+  const [staticNonce, setStaticNonce] = useState(0);
+  const firstLoadRef = useRef(true);
   const [range, setRange] = useState<DateRange>(() => getDefaultRange());
 
   const loadSummary = useCallback(async () => {
@@ -1742,7 +1764,11 @@ export default function DashboardPage() {
       setRefreshing(true);
       const summary = await dashboardService.getSummary(range);
       setData(summary);
-      setRefreshNonce((n) => n + 1);
+      setKpiNonce((n) => n + 1);
+      if (firstLoadRef.current) {
+        setStaticNonce((n) => n + 1);
+        firstLoadRef.current = false;
+      }
     } catch {
       setErr("Ma'lumotlarni yuklab bo'lmadi");
     } finally {
@@ -1758,10 +1784,10 @@ export default function DashboardPage() {
   // Animated KPI counters (called unconditionally)
   const k = data?.kpis;
   // State (always-now)
-  const animActive     = useCountUp(k?.activeContracts ?? 0,        1400, 0,   refreshNonce);
-  const animMfgDone    = useCountUp(k?.manufacturedCompleted ?? 0,  1400, 120, refreshNonce);
-  const animMfgIp      = useCountUp(k?.manufacturedInProgress ?? 0, 1400, 240, refreshNonce);
-  const animEmployees  = useCountUp(k?.totalEmployees ?? 0,         1400, 360, refreshNonce);
+  const animActive     = useCountUp(k?.activeContracts ?? 0,        1400, 0,   kpiNonce);
+  const animMfgDone    = useCountUp(k?.manufacturedCompleted ?? 0,  1400, 120, kpiNonce);
+  const animMfgIp      = useCountUp(k?.manufacturedInProgress ?? 0, 1400, 240, kpiNonce);
+  const animEmployees  = useCountUp(k?.totalEmployees ?? 0,         1400, 360, kpiNonce);
 
   const greeting = getGreeting();
   const today = new Date();
@@ -1905,7 +1931,7 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          <RevealSection key={`trend-${refreshNonce}`} className="dx-section dx-section-framed dx-strip-trend">
+          <RevealSection key={`trend-${staticNonce}`} className="dx-section dx-section-framed dx-strip-trend">
             <div className="dx-section-header">
               <Ico.Activity />
               <h3 className="dx-section-title">Ishlab chiqarish va jo&apos;natma dinamikasi</h3>
@@ -1921,7 +1947,7 @@ export default function DashboardPage() {
           </RevealSection>
         </div>
 
-        <RevealSection key={`activity-${refreshNonce}`} className="dx-section dx-section-framed">
+        <RevealSection key={`activity-${kpiNonce}`} className="dx-section dx-section-framed">
           <div className="dx-section-header">
             <Ico.Activity />
             <h3 className="dx-section-title">So&apos;nggi faollik</h3>
@@ -1934,7 +1960,7 @@ export default function DashboardPage() {
 
       {/* ─── 3-COLUMN: PIE + MFG + CONTRACT STATUS ─── */}
       <section className="dx-row dx-row-3">
-        <RevealSection key={`pie-${refreshNonce}`} className="dx-section dx-section-framed">
+        <RevealSection key={`pie-${staticNonce}`} className="dx-section dx-section-framed">
           <div className="dx-section-header">
             <Ico.PieChart />
             <h3 className="dx-section-title">Bajarish ulushi</h3>
@@ -1948,7 +1974,7 @@ export default function DashboardPage() {
           </div>
         </RevealSection>
 
-        <RevealSection key={`mfg-${refreshNonce}`} className="dx-section dx-section-framed">
+        <RevealSection key={`mfg-${staticNonce}`} className="dx-section dx-section-framed">
           <div className="dx-section-header">
             <Ico.Factory />
             <h3 className="dx-section-title">Mahsulot ishlab chiqarish progressi</h3>
@@ -1958,7 +1984,7 @@ export default function DashboardPage() {
           </div>
         </RevealSection>
 
-        <RevealSection key={`bubble-${refreshNonce}`} className="dx-section dx-section-framed">
+        <RevealSection key={`bubble-${staticNonce}`} className="dx-section dx-section-framed">
           <div className="dx-section-header">
             <Ico.Box />
             <h3 className="dx-section-title">Shartnomalar holati</h3>
@@ -1971,7 +1997,7 @@ export default function DashboardPage() {
 
       {/* ─── 2-COLUMN: DEPT WORKLOAD + TOP PERFORMERS ─── */}
       <section className="dx-row dx-row-2-1">
-        <RevealSection key={`hbar-${refreshNonce}`} className="dx-section dx-section-framed">
+        <RevealSection key={`hbar-${staticNonce}`} className="dx-section dx-section-framed">
           <div className="dx-section-header">
             <Ico.Building />
             <h3 className="dx-section-title">Bo&apos;limlar yuklamasi</h3>
@@ -1985,38 +2011,28 @@ export default function DashboardPage() {
           </div>
         </RevealSection>
 
-        <RevealSection key={`performers-${refreshNonce}`} className="dx-section">
+        <RevealSection key={`deadlines-${staticNonce}`} className="dx-section dx-section-framed">
           <div className="dx-section-header">
-            <Ico.Trophy />
-            <h3 className="dx-section-title">Top ishchilar</h3>
-            <span className="dx-section-meta">30 kun</span>
+            <Ico.Clock />
+            <h3 className="dx-section-title">Yaqinlashayotgan deadlinelar</h3>
+            <button type="button" className="dx-section-link" onClick={() => router.push("/contracts")}>
+              Hammasi <Ico.ArrowRight />
+            </button>
           </div>
-          <TopPerformers items={data.topPerformers} />
+          <div className="dx-section-body">
+            <DeadlineList items={data.upcomingDeadlines} onClick={() => router.push("/contracts")} variant="list" />
+          </div>
         </RevealSection>
       </section>
 
       {/* ─── HEATMAP (full row) ─── */}
-      <RevealSection key={`heatmap-${refreshNonce}`} as="section" className="dx-section">
+      <RevealSection key={`heatmap-${staticNonce}`} as="section" className="dx-section">
         <div className="dx-section-header">
           <Ico.Activity />
           <h3 className="dx-section-title">Faollik xaritasi</h3>
           <span className="dx-section-meta">12 hafta · kunlik yozuvlar</span>
         </div>
         <Heatmap cells={data.activityHeatmap} />
-      </RevealSection>
-
-      {/* ─── UPCOMING DEADLINES (full row, end) ─── */}
-      <RevealSection key={`deadlines-${refreshNonce}`} as="section" className="dx-section dx-section-framed">
-        <div className="dx-section-header">
-          <Ico.Clock />
-          <h3 className="dx-section-title">Yaqinlashayotgan deadlinelar</h3>
-          <button type="button" className="dx-section-link" onClick={() => router.push("/contracts")}>
-            Hammasi <Ico.ArrowRight />
-          </button>
-        </div>
-        <div className="dx-section-body">
-          <DeadlineList items={data.upcomingDeadlines} onClick={() => router.push("/contracts")} variant="grid" />
-        </div>
       </RevealSection>
     </div>
   );
