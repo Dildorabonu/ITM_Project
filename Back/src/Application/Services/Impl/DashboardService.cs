@@ -15,11 +15,11 @@ public class DashboardService : IDashboardService
         _context = context;
     }
 
-    public async Task<ApiResult<DashboardSummaryDto>> GetSummaryAsync()
+    public async Task<ApiResult<DashboardSummaryDto>> GetSummaryAsync(DateOnly? from = null, DateOnly? to = null)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
-        // Trend / workload window: last 30 days inclusive
+        // Trend / workload / top-performers window: fixed last 30 days inclusive
         const int trendDays = 30;
         var rangeTo = today;
         var rangeFrom = today.AddDays(-(trendDays - 1));
@@ -29,6 +29,23 @@ public class DashboardService : IDashboardService
         var rangeFromUtc = AsUtc(rangeFrom, TimeOnly.MinValue);
         var rangeToUtc   = AsUtc(rangeTo,   TimeOnly.MaxValue);
 
+        // ── KPI period (user-selectable; default = previous calendar week Mon-Sun) ──
+        DateOnly kpiFrom, kpiTo;
+        if (from.HasValue && to.HasValue && from.Value <= to.Value)
+        {
+            kpiFrom = from.Value;
+            kpiTo   = to.Value;
+        }
+        else
+        {
+            var dow = ((int)today.DayOfWeek + 6) % 7;     // Mon=0 .. Sun=6
+            var thisMonday = today.AddDays(-dow);
+            kpiTo   = thisMonday.AddDays(-1);             // last Sunday
+            kpiFrom = kpiTo.AddDays(-6);                  // last Monday
+        }
+        var kpiFromUtc = AsUtc(kpiFrom, TimeOnly.MinValue);
+        var kpiToUtc   = AsUtc(kpiTo,   TimeOnly.MaxValue);
+
         // ── Contracts (state snapshot + period totals) ─────────────────────
         var contracts = await _context.Contracts
             .AsNoTracking()
@@ -36,8 +53,11 @@ public class DashboardService : IDashboardService
             .ToListAsync();
 
         var totalContracts = contracts.Count;
+        // Period-scoped: contracts created in selected range and still active
         var activeContracts = contracts.Count(c =>
-            c.Status != ContractStatus.Completed && c.Status != ContractStatus.Cancelled);
+            c.Status != ContractStatus.Completed
+            && c.Status != ContractStatus.Cancelled
+            && c.CreatedAt >= kpiFromUtc && c.CreatedAt <= kpiToUtc);
         var completedContracts = contracts.Count(c => c.Status == ContractStatus.Completed);
         var cancelledContracts = contracts.Count(c => c.Status == ContractStatus.Cancelled);
 
@@ -72,18 +92,6 @@ public class DashboardService : IDashboardService
             })
             .ToList();
 
-        var priorityBuckets = Enum.GetValues<Priority>()
-            .Select(p => new PriorityBucketDto
-            {
-                Priority = p,
-                Label = PriorityLabel(p),
-                Count = contracts.Count(c =>
-                    c.Priority == p &&
-                    c.Status != ContractStatus.Completed &&
-                    c.Status != ContractStatus.Cancelled),
-            })
-            .ToList();
-
         // ── Products & Manufacturing ───────────────────────────────────────
         var totalProducts = await _context.ContractProducts
             .Where(p => p.IsActive).CountAsync();
@@ -91,10 +99,15 @@ public class DashboardService : IDashboardService
             .Where(p => p.IsActive && p.Status == ContractProductStatus.InProduction)
             .CountAsync();
 
+        // Period-scoped: in-progress products created during the range
         var mfgInProgress = await _context.ManufacturedProducts
-            .CountAsync(m => m.Status == ManufacturingStatus.InProgress);
+            .CountAsync(m => m.Status == ManufacturingStatus.InProgress
+                          && m.CreatedAt >= kpiFromUtc && m.CreatedAt <= kpiToUtc);
+        // Period-scoped: products completed during the range
         var mfgCompleted = await _context.ManufacturedProducts
-            .CountAsync(m => m.Status == ManufacturingStatus.Completed);
+            .CountAsync(m => m.Status == ManufacturingStatus.Completed
+                          && m.CompletedAt != null
+                          && m.CompletedAt >= kpiFromUtc && m.CompletedAt <= kpiToUtc);
 
         // ── Shipments ─────────────────────────────────────────────────────
         var totalShipments = await _context.ShipmentBatches.CountAsync();
@@ -113,8 +126,10 @@ public class DashboardService : IDashboardService
         var totalUsers = await _context.Users.Where(u => u.IsActive).CountAsync();
         var departments = await _context.Departments.AsNoTracking().ToListAsync();
         var activeDepartments = departments.Count(d => d.IsActive);
+        // Period-scoped: employees onboarded (created) in selected range
         var totalEmployees = await _context.Users
-            .CountAsync(u => u.IsActive && u.DepartmentId != null);
+            .CountAsync(u => u.IsActive && u.DepartmentId != null
+                          && u.CreatedAt >= kpiFromUtc && u.CreatedAt <= kpiToUtc);
 
         // ── Production trend (daily logs) — over selected range ────────────
         var dailyLogsRange = await _context.ContractTaskDailyLogs
@@ -282,9 +297,10 @@ public class DashboardService : IDashboardService
             };
         }).ToList();
 
-        // ── Recent activity feed (ActivityLog jadvalidan) ─────────────────
+        // ── Recent activity feed (ActivityLog) — scoped to KPI period ─────
         var recentActivity = await _context.ActivityLogs
             .AsNoTracking()
+            .Where(a => a.CreatedAt >= kpiFromUtc && a.CreatedAt <= kpiToUtc)
             .OrderByDescending(a => a.CreatedAt)
             .Take(12)
             .Select(a => new RecentActivityDto
@@ -374,6 +390,7 @@ public class DashboardService : IDashboardService
                 TotalProducedAmount = totalProducedAmount,
                 TotalBatchedAmount = totalBatchedAmount,
             },
+            KpiPeriod = new KpiPeriodDto { From = kpiFrom, To = kpiTo },
             ContractStatus = statusBuckets,
             ProductionTrend = productionTrend,
             ShipmentTrend = shipmentTrend,
@@ -382,7 +399,6 @@ public class DashboardService : IDashboardService
             UpcomingDeadlines = upcomingDeadlines,
             RecentActivity = recentActivity,
             TopPerformers = topPerformers,
-            PriorityDistribution = priorityBuckets,
             ActivityHeatmap = heatmap,
         };
 
@@ -403,12 +419,4 @@ public class DashboardService : IDashboardService
         _ => s.ToString(),
     };
 
-    private static string PriorityLabel(Priority p) => p switch
-    {
-        Priority.Low    => "Past",
-        Priority.Medium => "O'rta",
-        Priority.High   => "Yuqori",
-        Priority.Urgent => "Shoshilinch",
-        _ => p.ToString(),
-    };
 }

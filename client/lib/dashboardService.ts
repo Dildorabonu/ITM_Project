@@ -86,12 +86,6 @@ export interface TopPerformer {
   totalAmount: number;
 }
 
-export interface PriorityBucket {
-  priority: Priority;
-  label: string;
-  count: number;
-}
-
 export interface HeatmapCell {
   date: string;
   dayOfWeek: number;
@@ -100,8 +94,14 @@ export interface HeatmapCell {
   logCount: number;
 }
 
+export interface KpiPeriod {
+  from: string; // ISO date (YYYY-MM-DD)
+  to: string;
+}
+
 export interface DashboardSummary {
   kpis: DashboardKpis;
+  kpiPeriod: KpiPeriod;
   contractStatus: ContractStatusBucket[];
   productionTrend: ProductionTrendPoint[];
   shipmentTrend: ProductionTrendPoint[];
@@ -110,13 +110,17 @@ export interface DashboardSummary {
   upcomingDeadlines: UpcomingDeadline[];
   recentActivity: RecentActivity[];
   topPerformers: TopPerformer[];
-  priorityDistribution: PriorityBucket[];
   activityHeatmap: HeatmapCell[];
 }
 
+export interface DashboardSummaryParams {
+  from?: string; // YYYY-MM-DD
+  to?: string;
+}
+
 export const dashboardService = {
-  getSummary: async (): Promise<DashboardSummary> => {
-    const res = await api.get("/api/dashboard/summary");
+  getSummary: async (params?: DashboardSummaryParams): Promise<DashboardSummary> => {
+    const res = await api.get("/api/dashboard/summary", { params });
     return res.data?.result ?? res.data;
   },
 };
