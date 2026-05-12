@@ -269,6 +269,7 @@ export const PRODUCT_UNIT_LABELS_CYR: Record<ProductUnit, string> = {
 export interface ProductResponse {
   id: string;
   name: string;
+  invoiceNumber: string;
   description: string | null;
   quantity: number;
   unit: ProductUnit;
@@ -279,6 +280,7 @@ export interface ProductResponse {
 
 export interface ProductCreatePayload {
   name: string;
+  invoiceNumber: string;
   description?: string | null;
   quantity: number;
   unit: ProductUnit;
@@ -287,6 +289,7 @@ export interface ProductCreatePayload {
 
 export interface ProductUpdatePayload {
   name?: string;
+  invoiceNumber?: string;
   description?: string | null;
   quantity?: number;
   unit?: ProductUnit;
