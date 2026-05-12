@@ -2527,7 +2527,7 @@ html.dark .dx-section-framed {
   display: flex;
   flex-direction: column;
   padding: 12px 14px 12px;
-  min-width: 540px;
+  min-width: 280px;
 }
 
 .dx-cal-nav {
@@ -2556,7 +2556,7 @@ html.dark .dx-section-framed {
 
 .dx-cal-months {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 18px;
   padding: 2px 2px 0;
 }

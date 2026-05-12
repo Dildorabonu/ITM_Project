@@ -1492,7 +1492,7 @@ function RangeCalendarPicker({
     setPickStep("start");
     setHoverDate(null);
     const d = parseIsoDate(value.to);
-    setViewMonth({ year: d.getFullYear(), month: d.getMonth() === 0 ? 0 : d.getMonth() - 1 });
+    setViewMonth({ year: d.getFullYear(), month: d.getMonth() });
   }, [open, value]);
 
   useEffect(() => {
@@ -1530,11 +1530,6 @@ function RangeCalendarPicker({
       window.removeEventListener("scroll", update, true);
     };
   }, [open]);
-
-  const nextMonth = useMemo(() => {
-    if (viewMonth.month === 11) return { year: viewMonth.year + 1, month: 0 };
-    return { year: viewMonth.year, month: viewMonth.month + 1 };
-  }, [viewMonth]);
 
   const goPrev = () => setViewMonth(v =>
     v.month === 0 ? { year: v.year - 1, month: 11 } : { year: v.year, month: v.month - 1 }
@@ -1709,7 +1704,6 @@ function RangeCalendarPicker({
             </div>
             <div className="dx-cal-months">
               {renderMonth(viewMonth.year, viewMonth.month)}
-              {renderMonth(nextMonth.year, nextMonth.month)}
             </div>
 
             <div className="dx-cal-foot">
