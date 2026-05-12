@@ -265,6 +265,9 @@ export default function RequisitionApprovalsPage() {
         open={!!approveId}
         title="Talabnomani tasdiqlash"
         message="Tasdiqlangach, talabnoma bo'yicha keyingi qadamga (ombordan olish yoki sotib olish) o'tiladi. Davom etasizmi?"
+        variant="primary"
+        confirmLabel="Tasdiqlash"
+        loadingLabel="Tasdiqlanmoqda..."
         loading={acting}
         onConfirm={handleApprove}
         onCancel={() => setApproveId(null)}
