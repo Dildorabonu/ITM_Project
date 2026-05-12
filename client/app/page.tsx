@@ -292,6 +292,26 @@ function CompletionPieChart({
     setAnimKey(k => k + 1);
   }, [contracted, produced, batched]);
 
+  const leaderTextRefs = useRef<(SVGTextElement | null)[]>([]);
+  const [leaderTextWidths, setLeaderTextWidths] = useState<number[]>([]);
+  useLayoutEffect(() => {
+    setLeaderTextWidths(prev => {
+      const next: number[] = [];
+      let changed = false;
+      leaderTextRefs.current.forEach((el, i) => {
+        if (el) {
+          const w = el.getComputedTextLength();
+          next[i] = w;
+          if (prev[i] !== w) changed = true;
+        }
+      });
+      const prevLen = prev.filter(v => v !== undefined).length;
+      const nextLen = next.filter(v => v !== undefined).length;
+      if (!changed && prevLen === nextLen) return prev;
+      return next;
+    });
+  });
+
   const slices = [
     { label: "Partiyalangan",       value: batchedClamped, solid: "#10b981" },
     { label: "Partiyalanmagan",     value: notBatched,     solid: "#1a6eeb" },
@@ -347,7 +367,6 @@ function CompletionPieChart({
   })();
 
   const LEADER_OUT = 64;
-  const LEADER_TAIL = 26;
 
   return (
     <div className="dx-pie-wrap">
@@ -364,8 +383,16 @@ function CompletionPieChart({
               const elbowX = cx + dxN * (r + LEADER_OUT);
               const elbowY = cy + dyN * (r + LEADER_OUT);
               const isRight = dxN >= 0;
-              const tipX = elbowX + (isRight ? LEADER_TAIL : -LEADER_TAIL);
+              const valueText = seg.value.toLocaleString("en-US").replace(/,/g, " ");
+              const measuredWidth = leaderTextWidths[i];
+              const fallbackWidth = valueText.split("").reduce((w, c) => w + (c === " " ? 5 : 11), 0);
+              const textWidth = measuredWidth ?? fallbackWidth;
+              const DOT_GAP = 3;
+              const tail = textWidth + DOT_GAP ;
+              const tipX = elbowX + (isRight ? tail : -tail);
               const tipY = elbowY;
+              const textX = isRight ? tipX - DOT_GAP : tipX + DOT_GAP;
+              const lineLen = Math.hypot(elbowX - startX, elbowY - startY) + Math.abs(tipX - elbowX);
               return (
                 <g key={`${animKey}-${i}`} className="dx-pie-slice" style={{ animationDelay: `${i * 0.12}s`, transformOrigin: `${cx}px ${cy}px` }}>
                   <g
@@ -400,19 +427,21 @@ function CompletionPieChart({
                         strokeWidth="2.4"
                         strokeLinecap="round"
                         strokeLinejoin="round"
+                        style={{ ["--line-len" as never]: lineLen } as React.CSSProperties}
                       />
                       <circle cx={tipX} cy={tipY} r="3.6" fill={seg.solid} />
                       <text
-                        x={tipX + (isRight ? 9 : -9)}
-                        y={tipY}
-                        textAnchor={isRight ? "start" : "end"}
-                        dominantBaseline="middle"
+                        ref={(el) => { leaderTextRefs.current[i] = el; }}
+                        x={textX}
+                        y={tipY - 6}
+                        textAnchor={isRight ? "end" : "start"}
+                        dominantBaseline="alphabetic"
                         fill="var(--text)"
                         fontSize="18"
                         fontWeight="800"
-                        style={{ fontFamily: "var(--font-mono)", paintOrder: "stroke", stroke: "var(--surface)", strokeWidth: 4 }}
+                        style={{ fontFamily: "var(--font-mono)", paintOrder: "stroke", stroke: "var(--surface)", strokeWidth: 3 }}
                       >
-                        {seg.value.toLocaleString("en-US").replace(/,/g, " ")}
+                        {valueText}
                       </text>
                     </g>
                     <path className="dx-pie-slice-hit" d={seg.hitD} fill="transparent" />

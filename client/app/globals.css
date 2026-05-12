@@ -2912,8 +2912,8 @@ html.dark .dx-section-framed {
   transition-delay: 0.08s;
 }
 .dx-pie-leader-line {
-  stroke-dasharray: 140;
-  stroke-dashoffset: 140;
+  stroke-dasharray: var(--line-len, 140);
+  stroke-dashoffset: var(--line-len, 140);
   transition: stroke-dashoffset 0.42s cubic-bezier(.22, 1, .36, 1);
 }
 .dx-pie-slice-inner:hover .dx-pie-leader-line {
