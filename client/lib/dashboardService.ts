@@ -114,8 +114,10 @@ export interface DashboardSummary {
 }
 
 export interface DashboardSummaryParams {
-  from?: string; // YYYY-MM-DD
+  from?: string; // YYYY-MM-DD — KPI period
   to?: string;
+  trendFrom?: string; // YYYY-MM-DD — production/shipment dynamics window
+  trendTo?: string;
 }
 
 export const dashboardService = {

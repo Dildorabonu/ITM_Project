@@ -49,6 +49,8 @@ const Ico = {
   Zap:        () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>,
   Trophy:     () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 22a7 7 0 1 0 4 0" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2z" /></svg>,
   PieChart:   () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M21.21 15.89A10 10 0 1 1 8 2.83" /><path d="M22 12A10 10 0 0 0 12 2v10z" /></svg>,
+  Search:     () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>,
+  X:          () => <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.4" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>,
 };
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -508,6 +510,10 @@ function DualAreaChart({
   const xLabelCount = Math.min(realData.length, 10);
   const step = Math.max(1, Math.floor(realData.length / xLabelCount));
 
+  // Guard against stale hover index after the trend range shrinks.
+  const validHover =
+    hover !== null && hover < data.length && !data[hover].future ? hover : null;
+
   return (
     <div className="dx-chart-wrap" style={{ position: "relative" }}>
       <svg viewBox={`0 0 ${W} ${H}`} className="dx-chart-svg">
@@ -552,13 +558,13 @@ function DualAreaChart({
           );
         })}
 
-        {hover !== null && !data[hover].future && (
+        {validHover !== null && (
           <g>
-            <line x1={xAt(hover)} y1={padT} x2={xAt(hover)} y2={padT + ch}
+            <line x1={xAt(validHover)} y1={padT} x2={xAt(validHover)} y2={padT + ch}
               stroke="var(--text3)" strokeWidth="1" strokeDasharray="3,3" opacity="0.5" />
-            <circle cx={xAt(hover)} cy={yAt(data[hover].prod)} r="3.5"
+            <circle cx={xAt(validHover)} cy={yAt(data[validHover].prod)} r="3.5"
               fill="var(--surface)" stroke="var(--accent)" strokeWidth="2" />
-            <circle cx={xAt(hover)} cy={yAt(data[hover].ship)} r="3.5"
+            <circle cx={xAt(validHover)} cy={yAt(data[validHover].ship)} r="3.5"
               fill="var(--surface)" stroke="var(--success)" strokeWidth="2" />
           </g>
         )}
@@ -577,9 +583,9 @@ function DualAreaChart({
         })}
       </svg>
 
-      {hover !== null && !data[hover].future && (() => {
-        const x = xAt(hover);
-        const date = new Date(data[hover].date);
+      {validHover !== null && (() => {
+        const x = xAt(validHover);
+        const date = new Date(data[validHover].date);
         const left = (x / W) * 100;
         const transform =
           left > 75 ? "translateX(-100%) translateX(-8px)"
@@ -591,12 +597,12 @@ function DualAreaChart({
             <div className="dx-tooltip-row">
               <span className="dx-tooltip-dot" style={{ background: "var(--accent)" }} />
               <span className="dx-tooltip-label">Ishlab chiq.</span>
-              <span className="dx-tooltip-val">{data[hover].prod.toLocaleString()}</span>
+              <span className="dx-tooltip-val">{data[validHover].prod.toLocaleString()}</span>
             </div>
             <div className="dx-tooltip-row">
               <span className="dx-tooltip-dot" style={{ background: "var(--success)" }} />
               <span className="dx-tooltip-label">Jo&apos;natma</span>
-              <span className="dx-tooltip-val">{data[hover].ship.toLocaleString()}</span>
+              <span className="dx-tooltip-val">{data[validHover].ship.toLocaleString()}</span>
             </div>
           </div>
         );
@@ -1272,14 +1278,20 @@ function DeadlineList({ items, onClick, variant = "list" }: { items: UpcomingDea
 function ActivityFeed({ items }: { items: RecentActivity[] }) {
   // Live "X minutes ago" — refreshes once per minute.
   const [now, setNow] = useState(() => Date.now());
+  const [query, setQuery] = useState("");
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(id);
   }, []);
 
-  if (items.length === 0) {
-    return <div className="dx-empty"><Ico.CheckCircle /><span>Faollik yo&apos;q</span></div>;
-  }
+  const filtered = useMemo(() => {
+    const q = query.trim().toLocaleLowerCase("uz");
+    if (!q) return items;
+    return items.filter(a => {
+      const hay = `${a.title} ${a.subtitle ?? ""} ${a.actorName ?? ""} ${a.kind}`.toLocaleLowerCase("uz");
+      return hay.includes(q);
+    });
+  }, [items, query]);
 
   function relTime(at: string): string {
     const diff = (now - new Date(at).getTime()) / 1000;
@@ -1311,20 +1323,50 @@ function ActivityFeed({ items }: { items: RecentActivity[] }) {
   }
 
   return (
-    <div className="dx-feed">
-      {items.map((a, i) => (
-        <div key={i} className={`dx-feed-item dx-fadein-${Math.min(i, 5)}`}>
-          <div className={`dx-feed-icon dxc-${kindClass(a.kind)}`}>{kindIcon(a.kind)}</div>
-          <div className="dx-feed-body">
-            <div className="dx-feed-title">{a.title}</div>
-            <div className="dx-feed-meta">
-              {a.subtitle && <span className="dx-feed-sub">{a.subtitle}</span>}
-              {a.actorName && <span className="dx-feed-actor">· {a.actorName}</span>}
+    <div className="dx-feed-wrap">
+      <div className="dx-feed-search">
+        <span className="dx-feed-search-icon"><Ico.Search /></span>
+        <input
+          type="text"
+          className="dx-feed-search-input"
+          placeholder="Faollikni qidirish..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label="Faollikni qidirish"
+        />
+        {query && (
+          <button
+            type="button"
+            className="dx-feed-search-clear"
+            onClick={() => setQuery("")}
+            aria-label="Tozalash"
+          >
+            <Ico.X />
+          </button>
+        )}
+      </div>
+
+      {items.length === 0 ? (
+        <div className="dx-empty"><Ico.CheckCircle /><span>Faollik yo&apos;q</span></div>
+      ) : filtered.length === 0 ? (
+        <div className="dx-empty"><Ico.Search /><span>Hech narsa topilmadi</span></div>
+      ) : (
+        <div className="dx-feed">
+          {filtered.map((a, i) => (
+            <div key={`${a.at}-${i}`} className={`dx-feed-item dx-fadein-${Math.min(i, 5)}`}>
+              <div className={`dx-feed-icon dxc-${kindClass(a.kind)}`}>{kindIcon(a.kind)}</div>
+              <div className="dx-feed-body">
+                <div className="dx-feed-title">{a.title}</div>
+                <div className="dx-feed-meta">
+                  {a.subtitle && <span className="dx-feed-sub">{a.subtitle}</span>}
+                  {a.actorName && <span className="dx-feed-actor">· {a.actorName}</span>}
+                </div>
+              </div>
+              <div className="dx-feed-time">{relTime(a.at)}</div>
             </div>
-          </div>
-          <div className="dx-feed-time">{relTime(a.at)}</div>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 }
@@ -1750,13 +1792,19 @@ export default function DashboardPage() {
   const [staticNonce, setStaticNonce] = useState(0);
   const firstLoadRef = useRef(true);
   const [range, setRange] = useState<DateRange>(() => getDefaultRange());
+  const [trendRange, setTrendRange] = useState<DateRange>(() => getDefaultRange());
 
   const loadSummary = useCallback(async () => {
     if (!accessToken) return;
     try {
       setErr(null);
       setRefreshing(true);
-      const summary = await dashboardService.getSummary(range);
+      const summary = await dashboardService.getSummary({
+        from: range.from,
+        to: range.to,
+        trendFrom: trendRange.from,
+        trendTo: trendRange.to,
+      });
       setData(summary);
       setKpiNonce((n) => n + 1);
       if (firstLoadRef.current) {
@@ -1769,7 +1817,7 @@ export default function DashboardPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [accessToken, range]);
+  }, [accessToken, range, trendRange]);
 
   useEffect(() => {
     void loadSummary();
@@ -1786,6 +1834,12 @@ export default function DashboardPage() {
   const greeting = getGreeting();
   const today = new Date();
   const firstName = user?.firstName || user?.login || "";
+  const trendDayCount = Math.max(
+    1,
+    Math.round(
+      (parseIsoDate(trendRange.to).getTime() - parseIsoDate(trendRange.from).getTime()) / 86400000
+    ) + 1
+  );
 
   if (loading) {
     return (
@@ -1929,10 +1983,13 @@ export default function DashboardPage() {
             <div className="dx-section-header">
               <Ico.Activity />
               <h3 className="dx-section-title">Ishlab chiqarish va jo&apos;natma dinamikasi</h3>
-              <span className="dx-section-meta">oxirgi 30 kun</span>
+              <span className="dx-section-meta">{trendDayCount} kun</span>
               <div className="dx-section-legend">
                 <span className="dx-legend-dot" style={{ background: "var(--accent)" }} /> Ishlab chiqarish
                 <span className="dx-legend-dot" style={{ background: "var(--success)", marginLeft: 12 }} /> Jo&apos;natmalar
+              </div>
+              <div className="dx-section-period">
+                <RangeCalendarPicker value={trendRange} onChange={setTrendRange} loading={refreshing} />
               </div>
             </div>
             <div className="dx-section-body dx-trend-body-wide">
