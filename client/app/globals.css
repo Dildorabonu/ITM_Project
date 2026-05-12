@@ -3037,6 +3037,7 @@ html.dark .dx-section-framed {
 }
 .dx-donut-legend {
   flex: 1; min-width: 160px;
+  align-self: stretch;
   display: flex; flex-direction: column;
   gap: 6px;
 }
@@ -3072,9 +3073,10 @@ html.dark .dx-section-framed {
 
 .dx-bub-wrap {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 22px;
-  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 18px;
 }
 .dx-bub-svg-wrap {
   position: relative;
