@@ -453,19 +453,27 @@ function CompletionPieChart({
         </svg>
       </div>
 
-      <div className="dx-pie-key">
-        <span className="dx-pie-key-item">
-          <span className="dx-pie-key-dot" style={{ background: "#10b981" }} />
-          Partiyalangan
-        </span>
-        <span className="dx-pie-key-item">
-          <span className="dx-pie-key-dot" style={{ background: "#1a6eeb" }} />
-          Partiyalanmagan
-        </span>
-        <span className="dx-pie-key-item">
-          <span className="dx-pie-key-dot" style={{ background: "#4b5563" }} />
-          Ishlab chiqarilmagan
-        </span>
+      <div className="dx-pie-legend">
+        {slices.map((s) => {
+          const pct = sum > 0 ? Math.round((s.value / sum) * 100) : 0;
+          const valueText = s.value.toLocaleString("en-US").replace(/,/g, " ");
+          return (
+            <div
+              key={s.label}
+              className="dx-pie-legend-item"
+              style={{ ["--legend-color" as never]: s.solid } as React.CSSProperties}
+            >
+              <div className="dx-pie-legend-top">
+                <span className="dx-pie-legend-dot" />
+                <span className="dx-pie-legend-label">{s.label}</span>
+              </div>
+              <div className="dx-pie-legend-bot">
+                <span className="dx-pie-legend-value">{valueText}</span>
+                <span className="dx-pie-legend-pct">{pct}%</span>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
