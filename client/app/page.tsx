@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useAuthStore } from "@/lib/store/authStore";
 import {
   dashboardService,
@@ -1124,29 +1125,6 @@ function Heatmap({ cells }: { cells: HeatmapCell[] }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   PRIORITY MINI BARS
-═══════════════════════════════════════════════════════════════════ */
-
-function PriorityBars({ data }: { data: { priority: Priority; label: string; count: number }[] }) {
-  const max = Math.max(1, ...data.map(d => d.count));
-  return (
-    <div className="dx-pri-list">
-      {data.map((d, i) => (
-        <div key={i} className="dx-pri-row">
-          <span className={`dx-pri-dot dxp-${priorityClass(d.priority)}`} />
-          <span className="dx-pri-label">{d.label}</span>
-          <div className="dx-pri-track">
-            <div className={`dx-pri-fill dxp-${priorityClass(d.priority)}`}
-              style={{ width: `${(d.count / max) * 100}%` }} />
-          </div>
-          <span className="dx-pri-num">{d.count}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════
    MANUFACTURING PROGRESS (cards with progress)
 ═══════════════════════════════════════════════════════════════════ */
 
@@ -1200,30 +1178,68 @@ function DeadlineList({ items, onClick, variant = "list" }: { items: UpcomingDea
     <div className={variant === "grid" ? "dx-dl-list dx-dl-list-grid" : "dx-dl-list"}>
       {items.map((c, i) => {
         const urg = deadlineUrgency(c.daysRemaining);
+        const days = Math.abs(c.daysRemaining);
+        const dayBig =
+          urg === "passed" ? days :
+          c.daysRemaining === 0 ? 0 :
+          c.daysRemaining;
+        const dayLabel =
+          urg === "passed" ? "kun o'tdi" :
+          c.daysRemaining === 0 ? "bugun" :
+          c.daysRemaining === 1 ? "kun qoldi" : "kun qoldi";
+        const progress = Math.max(0, Math.min(100, c.overallProgress));
         return (
-          <div key={c.id} className={`dx-dl-item dx-fadein-${Math.min(i, 5)} dxd-${urg}`} onClick={onClick}>
+          <div
+            key={c.id}
+            className={`dx-dl-item dx-fadein-${Math.min(i, 5)} dxd-${urg}`}
+            onClick={onClick}
+          >
             <div className={`dx-dl-bar dxd-${urg}`} />
-            <div className="dx-dl-left">
-              <div className="dx-dl-top">
+            <div className={`dx-dl-glow dxd-${urg}`} aria-hidden />
+
+            <div className="dx-dl-head">
+              <div className="dx-dl-head-left">
                 <span className="dx-dl-no">{c.contractNo}</span>
-                <span className={`dx-dl-prio dxp-${priorityClass(c.priority)}`}>{priorityLabel(c.priority)}</span>
+                <span className={`dx-dl-prio dxp-${priorityClass(c.priority)}`}>
+                  {priorityLabel(c.priority)}
+                </span>
               </div>
-              <div className="dx-dl-party">{c.contractParty}</div>
-              {c.primaryProduct && <div className="dx-dl-product">{c.primaryProduct}</div>}
-              <div className="dx-dl-prog">
-                <div className="dx-dl-prog-track">
-                  <div className="dx-dl-prog-fill" style={{ width: `${c.overallProgress}%` }} />
-                </div>
-                <span className="dx-dl-prog-num">{Math.round(c.overallProgress)}%</span>
+              <div className={`dx-dl-date-chip dxd-${urg}`}>
+                <Ico.Calendar />
+                <span>{formatUzDate(new Date(c.endDate), "short")}</span>
               </div>
             </div>
-            <div className="dx-dl-right">
-              <div className={`dx-dl-days dxd-${urg}`}>
-                {urg === "passed" ? `${Math.abs(c.daysRemaining)} kun o'tdi` :
-                 c.daysRemaining === 0 ? "Bugun" :
-                 `${c.daysRemaining} kun`}
+
+            <div className="dx-dl-body">
+              <div className="dx-dl-info">
+                <div className="dx-dl-party" title={c.contractParty}>{c.contractParty}</div>
+                {c.primaryProduct && (
+                  <div className="dx-dl-product" title={c.primaryProduct}>
+                    <Ico.Box />
+                    <span>{c.primaryProduct}</span>
+                  </div>
+                )}
               </div>
-              <div className="dx-dl-date">{formatUzDate(new Date(c.endDate), "short")}</div>
+
+              <div className={`dx-dl-countdown dxd-${urg}`}>
+                <div className="dx-dl-countdown-ring">
+                  {urg === "critical" || urg === "passed" ? (
+                    <span className="dx-dl-pulse" aria-hidden />
+                  ) : null}
+                  <span className="dx-dl-day-num">{dayBig}</span>
+                </div>
+                <span className="dx-dl-day-cap">{dayLabel}</span>
+              </div>
+            </div>
+
+            <div className="dx-dl-prog">
+              <div className="dx-dl-prog-head">
+                <span className="dx-dl-prog-lbl">Bajarilgan</span>
+                <span className={`dx-dl-prog-num dxd-${urg}`}>{Math.round(progress)}%</span>
+              </div>
+              <div className="dx-dl-prog-track">
+                <div className={`dx-dl-prog-fill dxd-${urg}`} style={{ width: `${progress}%` }} />
+              </div>
             </div>
           </div>
         );
@@ -1326,6 +1342,384 @@ function TopPerformers({ items }: { items: TopPerformer[] }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
+   RANGE CALENDAR PICKER — affects all dashboard data
+═══════════════════════════════════════════════════════════════════ */
+
+type DateRange = { from: string; to: string };
+
+const UZ_MONTHS_FULL = ["Yanvar","Fevral","Mart","Aprel","May","Iyun","Iyul","Avgust","Sentabr","Oktabr","Noyabr","Dekabr"];
+const UZ_WEEKDAYS_SHORT = ["Du","Se","Cho","Pa","Ju","Sh","Ya"];
+
+function toIsoDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function parseIsoDate(s: string): Date {
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function startOfDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function addDays(d: Date, n: number): Date {
+  const r = new Date(d);
+  r.setDate(d.getDate() + n);
+  return r;
+}
+
+function formatPeriodRange(fromIso: string, toIso: string): string {
+  const months = ["Yan","Fev","Mar","Apr","May","Iyn","Iyl","Avg","Sen","Okt","Noy","Dek"];
+  const f = parseIsoDate(fromIso);
+  const t = parseIsoDate(toIso);
+  if (fromIso === toIso) {
+    return `${f.getDate()} ${months[f.getMonth()]} ${f.getFullYear()}`;
+  }
+  const sameYear = f.getFullYear() === t.getFullYear();
+  const sameMonth = sameYear && f.getMonth() === t.getMonth();
+  const left = sameMonth
+    ? `${f.getDate()}`
+    : `${f.getDate()} ${months[f.getMonth()]}${sameYear ? "" : " " + f.getFullYear()}`;
+  const right = `${t.getDate()} ${months[t.getMonth()]} ${t.getFullYear()}`;
+  return `${left} – ${right}`;
+}
+
+type PresetDef = { key: string; label: string; range: () => DateRange };
+
+const RANGE_PRESETS: PresetDef[] = [
+  { key: "today", label: "Bugun", range: () => {
+    const t = toIsoDate(startOfDay(new Date()));
+    return { from: t, to: t };
+  }},
+  { key: "yesterday", label: "Kecha", range: () => {
+    const d = toIsoDate(addDays(startOfDay(new Date()), -1));
+    return { from: d, to: d };
+  }},
+  { key: "last_7_days", label: "Oxirgi 7 kun", range: () => {
+    const t = startOfDay(new Date());
+    return { from: toIsoDate(addDays(t, -6)), to: toIsoDate(t) };
+  }},
+  { key: "last_30_days", label: "Oxirgi 30 kun", range: () => {
+    const t = startOfDay(new Date());
+    return { from: toIsoDate(addDays(t, -29)), to: toIsoDate(t) };
+  }},
+  { key: "this_week", label: "Shu hafta", range: () => {
+    const t = startOfDay(new Date());
+    const dow = (t.getDay() + 6) % 7;
+    return { from: toIsoDate(addDays(t, -dow)), to: toIsoDate(t) };
+  }},
+  { key: "last_week", label: "O'tgan hafta", range: () => {
+    const t = startOfDay(new Date());
+    const dow = (t.getDay() + 6) % 7;
+    const lastSun = addDays(t, -dow - 1);
+    const lastMon = addDays(lastSun, -6);
+    return { from: toIsoDate(lastMon), to: toIsoDate(lastSun) };
+  }},
+  { key: "this_month", label: "Shu oy", range: () => {
+    const t = startOfDay(new Date());
+    const first = new Date(t.getFullYear(), t.getMonth(), 1);
+    return { from: toIsoDate(first), to: toIsoDate(t) };
+  }},
+  { key: "last_month", label: "O'tgan oy", range: () => {
+    const t = startOfDay(new Date());
+    const first = new Date(t.getFullYear(), t.getMonth() - 1, 1);
+    const last  = new Date(t.getFullYear(), t.getMonth(), 0);
+    return { from: toIsoDate(first), to: toIsoDate(last) };
+  }},
+];
+
+function matchPreset(range: DateRange): string | null {
+  for (const p of RANGE_PRESETS) {
+    const r = p.range();
+    if (r.from === range.from && r.to === range.to) return p.key;
+  }
+  return null;
+}
+
+function getDefaultRange(): DateRange {
+  return RANGE_PRESETS.find(p => p.key === "last_30_days")!.range();
+}
+
+function RangeCalendarPicker({
+  value,
+  onChange,
+  loading,
+}: {
+  value: DateRange;
+  onChange: (v: DateRange) => void;
+  loading?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+  const [popupPos, setPopupPos] = useState<{ top: number; right: number } | null>(null);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
+  const [pending, setPending] = useState<DateRange>(value);
+  const [pickStep, setPickStep] = useState<"start" | "end">("start");
+  const [hoverDate, setHoverDate] = useState<string | null>(null);
+  const [viewMonth, setViewMonth] = useState<{ year: number; month: number }>(() => {
+    const d = parseIsoDate(value.from);
+    return { year: d.getFullYear(), month: d.getMonth() };
+  });
+
+  useEffect(() => {
+    if (!open) return;
+    setPending(value);
+    setPickStep("start");
+    setHoverDate(null);
+    const d = parseIsoDate(value.to);
+    setViewMonth({ year: d.getFullYear(), month: d.getMonth() === 0 ? 0 : d.getMonth() - 1 });
+  }, [open, value]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (ref.current?.contains(t)) return;
+      if (popupRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDocDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  useLayoutEffect(() => {
+    if (!open) { setPopupPos(null); return; }
+    const update = () => {
+      if (!triggerRef.current) return;
+      const rect = triggerRef.current.getBoundingClientRect();
+      setPopupPos({
+        top: rect.bottom + 8,
+        right: Math.max(8, window.innerWidth - rect.right),
+      });
+    };
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [open]);
+
+  const nextMonth = useMemo(() => {
+    if (viewMonth.month === 11) return { year: viewMonth.year + 1, month: 0 };
+    return { year: viewMonth.year, month: viewMonth.month + 1 };
+  }, [viewMonth]);
+
+  const goPrev = () => setViewMonth(v =>
+    v.month === 0 ? { year: v.year - 1, month: 11 } : { year: v.year, month: v.month - 1 }
+  );
+  const goNext = () => setViewMonth(v =>
+    v.month === 11 ? { year: v.year + 1, month: 0 } : { year: v.year, month: v.month + 1 }
+  );
+
+  const handleDayClick = (iso: string) => {
+    if (pickStep === "start") {
+      setPending({ from: iso, to: iso });
+      setPickStep("end");
+      setHoverDate(null);
+    } else {
+      if (iso < pending.from) {
+        setPending({ from: iso, to: pending.from });
+      } else {
+        setPending({ from: pending.from, to: iso });
+      }
+      setPickStep("start");
+      setHoverDate(null);
+    }
+  };
+
+  const applyPreset = (p: PresetDef) => {
+    const r = p.range();
+    onChange(r);
+    setOpen(false);
+  };
+
+  const commit = () => {
+    onChange(pending);
+    setOpen(false);
+  };
+
+  const cancel = () => setOpen(false);
+
+  // Effective range for highlight (uses hover preview during "end" step)
+  let effFrom = pending.from;
+  let effTo = pending.to;
+  if (pickStep === "end" && hoverDate) {
+    if (hoverDate < pending.from) {
+      effFrom = hoverDate;
+      effTo = pending.from;
+    } else {
+      effFrom = pending.from;
+      effTo = hoverDate;
+    }
+  }
+
+  const todayIso = toIsoDate(startOfDay(new Date()));
+  const activePresetKey = matchPreset(pending);
+
+  const renderMonth = (year: number, month: number) => {
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startWeekday = (firstDay.getDay() + 6) % 7;
+    const daysInMonth = lastDay.getDate();
+
+    const empties = Array.from({ length: startWeekday }, (_, i) => (
+      <div key={`e${i}`} className="dx-cal-cell is-empty" />
+    ));
+
+    const days = Array.from({ length: daysInMonth }, (_, k) => {
+      const d = k + 1;
+      const iso = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      const isStart = iso === effFrom;
+      const isEnd = iso === effTo;
+      const isSingle = isStart && isEnd;
+      const inRange = !isSingle && iso > effFrom && iso < effTo;
+      const isToday = iso === todayIso;
+
+      let cls = "dx-cal-cell";
+      if (inRange) cls += " is-range";
+      if (isStart && !isSingle) cls += " is-start";
+      if (isEnd && !isSingle) cls += " is-end";
+      if (isSingle) cls += " is-single";
+      if (isToday) cls += " is-today";
+
+      return (
+        <button
+          key={iso}
+          type="button"
+          className={cls}
+          onClick={() => handleDayClick(iso)}
+          onMouseEnter={() => { if (pickStep === "end") setHoverDate(iso); }}
+        >
+          <span className="dx-cal-day-num">{d}</span>
+        </button>
+      );
+    });
+
+    return (
+      <div className="dx-cal-month">
+        <div className="dx-cal-month-head">
+          {UZ_MONTHS_FULL[month]} {year}
+        </div>
+        <div className="dx-cal-weekdays">
+          {UZ_WEEKDAYS_SHORT.map(w => <span key={w}>{w}</span>)}
+        </div>
+        <div
+          className="dx-cal-grid"
+          onMouseLeave={() => { if (pickStep === "end") setHoverDate(null); }}
+        >
+          {empties}{days}
+        </div>
+      </div>
+    );
+  };
+
+  const triggerLabel = formatPeriodRange(value.from, value.to);
+
+  return (
+    <div ref={ref} className={`dx-period dx-cal ${open ? "is-open" : ""}`}>
+      <button
+        ref={triggerRef}
+        type="button"
+        className="dx-period-trigger"
+        onClick={() => setOpen(o => !o)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        disabled={loading}
+      >
+        <span className="dx-period-icon"><Ico.Calendar /></span>
+        <span className="dx-period-label">{triggerLabel}</span>
+        <svg
+          className="dx-period-chev"
+          width="12" height="12" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      {open && mounted && createPortal(
+        <div
+          ref={popupRef}
+          className="dx-cal-pop"
+          role="dialog"
+          aria-label="Davrni tanlang"
+          style={popupPos ? { top: popupPos.top, right: popupPos.right } : { visibility: "hidden" }}
+        >
+          <div className="dx-cal-side">
+            <div className="dx-cal-side-title">Tezkor</div>
+            {RANGE_PRESETS.map(p => (
+              <button
+                key={p.key}
+                type="button"
+                className={`dx-cal-preset ${activePresetKey === p.key ? "is-active" : ""}`}
+                onClick={() => applyPreset(p)}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="dx-cal-main">
+            <div className="dx-cal-nav">
+              <button type="button" className="dx-cal-nav-btn" onClick={goPrev} aria-label="Oldingi oy">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 6 9 12 15 18" />
+                </svg>
+              </button>
+              <div className="dx-cal-nav-spacer" />
+              <button type="button" className="dx-cal-nav-btn" onClick={goNext} aria-label="Keyingi oy">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 6 15 12 9 18" />
+                </svg>
+              </button>
+            </div>
+            <div className="dx-cal-months">
+              {renderMonth(viewMonth.year, viewMonth.month)}
+              {renderMonth(nextMonth.year, nextMonth.month)}
+            </div>
+
+            <div className="dx-cal-foot">
+              <div className="dx-cal-foot-range">
+                <span className="dx-cal-foot-tag">Boshlanish</span>
+                <span className="dx-cal-foot-val">{formatPeriodRange(pending.from, pending.from)}</span>
+                <svg className="dx-cal-foot-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+                <span className="dx-cal-foot-tag">Tugash</span>
+                <span className="dx-cal-foot-val">{formatPeriodRange(pending.to, pending.to)}</span>
+              </div>
+              <div className="dx-cal-foot-actions">
+                <button type="button" className="dx-cal-btn-ghost" onClick={cancel}>Bekor qilish</button>
+                <button type="button" className="dx-cal-btn-primary" onClick={commit}>Tasdiqlash</button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
    PAGE
 ═══════════════════════════════════════════════════════════════════ */
 
@@ -1339,13 +1733,14 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
+  const [range, setRange] = useState<DateRange>(() => getDefaultRange());
 
   const loadSummary = useCallback(async () => {
     if (!accessToken) return;
     try {
       setErr(null);
       setRefreshing(true);
-      const summary = await dashboardService.getSummary();
+      const summary = await dashboardService.getSummary(range);
       setData(summary);
       setRefreshNonce((n) => n + 1);
     } catch {
@@ -1354,7 +1749,7 @@ export default function DashboardPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [accessToken]);
+  }, [accessToken, range]);
 
   useEffect(() => {
     void loadSummary();
@@ -1445,11 +1840,13 @@ export default function DashboardPage() {
               </div>
             </div>
             {user?.role && <div className="dx-hero-role">{user.role}</div>}
+            <div className="dx-hero-period">
+              <RangeCalendarPicker value={range} onChange={setRange} loading={refreshing} />
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ALWAYS-NOW state strip + trend chart + recent activity */}
       <section className="dx-row dx-row-strip-feed">
         <div className="dx-strip-left">
           <div className="dx-state-strip-tiles dx-tiles-2x2">
@@ -1572,7 +1969,7 @@ export default function DashboardPage() {
         </RevealSection>
       </section>
 
-      {/* ─── 2-COLUMN: DEPT WORKLOAD + PRIORITY ─── */}
+      {/* ─── 2-COLUMN: DEPT WORKLOAD + TOP PERFORMERS ─── */}
       <section className="dx-row dx-row-2-1">
         <RevealSection key={`hbar-${refreshNonce}`} className="dx-section dx-section-framed">
           <div className="dx-section-header">
@@ -1588,15 +1985,8 @@ export default function DashboardPage() {
           </div>
         </RevealSection>
 
-        <RevealSection key={`priority-${refreshNonce}`} className="dx-section">
+        <RevealSection key={`performers-${refreshNonce}`} className="dx-section">
           <div className="dx-section-header">
-            <Ico.Zap />
-            <h3 className="dx-section-title">Muhimlik darajasi</h3>
-            <span className="dx-section-meta">faol shartnomalar</span>
-          </div>
-          <PriorityBars data={data.priorityDistribution} />
-          <div className="dx-section-divider" />
-          <div className="dx-section-header" style={{ marginTop: 16 }}>
             <Ico.Trophy />
             <h3 className="dx-section-title">Top ishchilar</h3>
             <span className="dx-section-meta">30 kun</span>
