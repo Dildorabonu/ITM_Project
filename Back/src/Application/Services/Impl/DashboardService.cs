@@ -15,19 +15,36 @@ public class DashboardService : IDashboardService
         _context = context;
     }
 
-    public async Task<ApiResult<DashboardSummaryDto>> GetSummaryAsync(DateOnly? from = null, DateOnly? to = null)
+    public async Task<ApiResult<DashboardSummaryDto>> GetSummaryAsync(
+        DateOnly? from = null,
+        DateOnly? to = null,
+        DateOnly? trendFrom = null,
+        DateOnly? trendTo = null)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
-        // Trend / workload / top-performers window: fixed last 30 days inclusive
-        const int trendDays = 30;
+        // Workload / top-performers window: fixed last 30 days inclusive
+        const int workloadDays = 30;
         var rangeTo = today;
-        var rangeFrom = today.AddDays(-(trendDays - 1));
-        var rangeDays = trendDays;
-
-        // UTC instants for timestamptz queries
+        var rangeFrom = today.AddDays(-(workloadDays - 1));
         var rangeFromUtc = AsUtc(rangeFrom, TimeOnly.MinValue);
         var rangeToUtc   = AsUtc(rangeTo,   TimeOnly.MaxValue);
+
+        // Production / shipment dynamics window — user-selectable; default = last 30 days
+        DateOnly trendRangeFrom, trendRangeTo;
+        if (trendFrom.HasValue && trendTo.HasValue && trendFrom.Value <= trendTo.Value)
+        {
+            trendRangeFrom = trendFrom.Value;
+            trendRangeTo   = trendTo.Value;
+        }
+        else
+        {
+            trendRangeTo   = rangeTo;
+            trendRangeFrom = rangeFrom;
+        }
+        var trendDays = trendRangeTo.DayNumber - trendRangeFrom.DayNumber + 1;
+        var trendFromUtc = AsUtc(trendRangeFrom, TimeOnly.MinValue);
+        var trendToUtc   = AsUtc(trendRangeTo,   TimeOnly.MaxValue);
 
         // ── KPI period (user-selectable; default = previous calendar week Mon-Sun) ──
         DateOnly kpiFrom, kpiTo;
@@ -131,10 +148,10 @@ public class DashboardService : IDashboardService
             .CountAsync(u => u.IsActive && u.DepartmentId != null
                           && u.CreatedAt >= kpiFromUtc && u.CreatedAt <= kpiToUtc);
 
-        // ── Production trend (daily logs) — over selected range ────────────
+        // ── Production trend (daily logs) — over trend range ──────────────
         var dailyLogsRange = await _context.ContractTaskDailyLogs
             .AsNoTracking()
-            .Where(l => l.IsActive && l.Date >= rangeFrom && l.Date <= rangeTo)
+            .Where(l => l.IsActive && l.Date >= trendRangeFrom && l.Date <= trendRangeTo)
             .Select(l => new { l.Date, l.Amount })
             .ToListAsync();
 
@@ -143,9 +160,9 @@ public class DashboardService : IDashboardService
             .ToDictionary(g => g.Key, g => new { Sum = g.Sum(x => x.Amount), Count = g.Count() });
 
         var productionTrend = new List<ProductionTrendPointDto>();
-        for (int i = 0; i < rangeDays; i++)
+        for (int i = 0; i < trendDays; i++)
         {
-            var d = rangeFrom.AddDays(i);
+            var d = trendRangeFrom.AddDays(i);
             productionByDate.TryGetValue(d, out var v);
             productionTrend.Add(new ProductionTrendPointDto
             {
@@ -155,10 +172,10 @@ public class DashboardService : IDashboardService
             });
         }
 
-        // ── Shipment trend — over selected range ──────────────────────────
+        // ── Shipment trend — over trend range ─────────────────────────────
         var shipmentRaw = await _context.ShipmentBatches
             .AsNoTracking()
-            .Where(s => s.CreatedAt >= rangeFromUtc && s.CreatedAt <= rangeToUtc)
+            .Where(s => s.CreatedAt >= trendFromUtc && s.CreatedAt <= trendToUtc)
             .Select(s => new { s.CreatedAt, s.Amount })
             .ToListAsync();
 
@@ -167,9 +184,9 @@ public class DashboardService : IDashboardService
             .ToDictionary(g => g.Key, g => new { Sum = g.Sum(x => x.Amount), Count = g.Count() });
 
         var shipmentTrend = new List<ProductionTrendPointDto>();
-        for (int i = 0; i < rangeDays; i++)
+        for (int i = 0; i < trendDays; i++)
         {
-            var d = rangeFrom.AddDays(i);
+            var d = trendRangeFrom.AddDays(i);
             shipByDate.TryGetValue(d, out var v);
             shipmentTrend.Add(new ProductionTrendPointDto
             {
