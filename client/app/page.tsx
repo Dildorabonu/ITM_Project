@@ -346,42 +346,80 @@ function CompletionPieChart({
     });
   })();
 
+  const LEADER_OUT = 64;
+  const LEADER_TAIL = 26;
+
   return (
     <div className="dx-pie-wrap">
       <div className="dx-pie-svg-wrap">
-        <svg viewBox={`0 0 ${size} ${size}`} className="dx-pie-svg">
+        <svg viewBox={`-150 -80 ${size + 300} ${size + 160}`} className="dx-pie-svg" overflow="visible">
           {sum === 0 ? (
             <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--border)" strokeWidth="14" />
           ) : (
-            segments.map((seg, i) => (
-              <g key={`${animKey}-${i}`} className="dx-pie-slice" style={{ animationDelay: `${i * 0.12}s`, transformOrigin: `${cx}px ${cy}px` }}>
-                <g
-                  className="dx-pie-slice-inner"
-                  style={{
-                    ["--slice-tx" as never]: `${Math.cos(seg.mid) * 10}px`,
-                    ["--slice-ty" as never]: `${Math.sin(seg.mid) * 10}px`,
-                  } as React.CSSProperties}
-                >
-                  <path className="dx-pie-slice-visual" d={seg.d} fill={seg.solid} stroke="var(--surface)" strokeWidth="2" />
-                  {seg.pct >= 8 && (
-                    <text
-                      className="dx-pie-slice-label"
-                      x={cx + Math.cos(seg.mid) * (r * 0.62)}
-                      y={cy + Math.sin(seg.mid) * (r * 0.62)}
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      fill="white"
-                      fontSize="16"
-                      fontWeight="800"
-                      style={{ fontFamily: "var(--font-mono)", pointerEvents: "none", userSelect: "none" }}
-                    >
-                      {seg.pct}%
-                    </text>
-                  )}
-                  <path className="dx-pie-slice-hit" d={seg.hitD} fill="transparent" />
+            segments.map((seg, i) => {
+              const dxN = Math.cos(seg.mid);
+              const dyN = Math.sin(seg.mid);
+              const startX = cx + dxN * (r - 1);
+              const startY = cy + dyN * (r - 1);
+              const elbowX = cx + dxN * (r + LEADER_OUT);
+              const elbowY = cy + dyN * (r + LEADER_OUT);
+              const isRight = dxN >= 0;
+              const tipX = elbowX + (isRight ? LEADER_TAIL : -LEADER_TAIL);
+              const tipY = elbowY;
+              return (
+                <g key={`${animKey}-${i}`} className="dx-pie-slice" style={{ animationDelay: `${i * 0.12}s`, transformOrigin: `${cx}px ${cy}px` }}>
+                  <g
+                    className="dx-pie-slice-inner"
+                    style={{
+                      ["--slice-tx" as never]: `${dxN * 10}px`,
+                      ["--slice-ty" as never]: `${dyN * 10}px`,
+                    } as React.CSSProperties}
+                  >
+                    <path className="dx-pie-slice-visual" d={seg.d} fill={seg.solid} stroke="var(--surface)" strokeWidth="2" />
+                    {seg.pct >= 8 && (
+                      <text
+                        className="dx-pie-slice-label"
+                        x={cx + dxN * (r * 0.62)}
+                        y={cy + dyN * (r * 0.62)}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        fill="white"
+                        fontSize="16"
+                        fontWeight="800"
+                        style={{ fontFamily: "var(--font-mono)", pointerEvents: "none", userSelect: "none" }}
+                      >
+                        {seg.pct}%
+                      </text>
+                    )}
+                    <g className="dx-pie-leader" pointerEvents="none">
+                      <polyline
+                        className="dx-pie-leader-line"
+                        points={`${startX},${startY} ${elbowX},${elbowY} ${tipX},${tipY}`}
+                        fill="none"
+                        stroke={seg.solid}
+                        strokeWidth="2.4"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <circle cx={tipX} cy={tipY} r="3.6" fill={seg.solid} />
+                      <text
+                        x={tipX + (isRight ? 9 : -9)}
+                        y={tipY}
+                        textAnchor={isRight ? "start" : "end"}
+                        dominantBaseline="middle"
+                        fill="var(--text)"
+                        fontSize="18"
+                        fontWeight="800"
+                        style={{ fontFamily: "var(--font-mono)", paintOrder: "stroke", stroke: "var(--surface)", strokeWidth: 4 }}
+                      >
+                        {seg.value.toLocaleString("en-US").replace(/,/g, " ")}
+                      </text>
+                    </g>
+                    <path className="dx-pie-slice-hit" d={seg.hitD} fill="transparent" />
+                  </g>
                 </g>
-              </g>
-            ))
+              );
+            })
           )}
         </svg>
       </div>
@@ -1085,20 +1123,25 @@ function Heatmap({ cells }: { cells: HeatmapCell[] }) {
     }
   }
 
-  // Month labels at top of weeks
-  const monthLabels: { idx: number; label: string }[] = [];
-  let prevMonth = -1;
+  // Group consecutive weeks by month — each block renders independently with a gap between them
+  type MonthBlock = { month: number; label: string; weekIndices: number[] };
+  const blocks: MonthBlock[] = [];
   for (let w = 0; w < weeks; w++) {
-    const sample = grid[0][w] || grid[1][w] || grid[2][w];
+    let sample: HeatmapCell | undefined;
+    for (let d = 0; d < 7; d++) {
+      if (grid[d][w]) { sample = grid[d][w]; break; }
+    }
     if (!sample) continue;
     const m = new Date(sample.date).getMonth();
-    if (m !== prevMonth) {
-      monthLabels.push({ idx: w, label: UZ_MONTHS_SHORT[m] });
-      prevMonth = m;
+    const last = blocks[blocks.length - 1];
+    if (last && last.month === m) {
+      last.weekIndices.push(w);
+    } else {
+      blocks.push({ month: m, label: UZ_MONTHS_SHORT[m], weekIndices: [w] });
     }
   }
 
-  const dayLabels = ["", "Du", "", "Ch", "", "Ju", ""];
+  const dayLabels = ["Ya", "Du", "Se", "Ch", "Pa", "Ju", "Sh"];
 
   function intensity(v: number): number {
     if (v <= 0) return 0;
@@ -1111,31 +1154,35 @@ function Heatmap({ cells }: { cells: HeatmapCell[] }) {
 
   return (
     <div className="dx-heat">
-      <div className="dx-heat-months">
-        <div className="dx-heat-spacer" />
-        <div className="dx-heat-months-row">
-          {monthLabels.map((m, i) => (
-            <span key={i} className="dx-heat-month" style={{ left: `${m.idx * 16}px` }}>{m.label}</span>
-          ))}
-        </div>
-      </div>
       <div className="dx-heat-body">
         <div className="dx-heat-days">
+          <div className="dx-heat-day-spacer" />
           {dayLabels.map((l, i) => <div key={i} className="dx-heat-day-label">{l}</div>)}
         </div>
-        <div className="dx-heat-grid" style={{ gridTemplateColumns: `repeat(${weeks}, 12px)` }}>
-          {Array.from({ length: 7 }).flatMap((_, day) =>
-            Array.from({ length: weeks }).map((_, w) => {
-              const c = grid[day][w];
-              const lvl = c ? intensity(c.amount) : -1;
-              return (
-                <div key={`${day}-${w}`}
-                  className={`dx-heat-cell dx-heat-l${lvl >= 0 ? lvl : 0}`}
-                  title={c ? `${c.date}: ${c.amount} (${c.logCount})` : ""}
-                />
-              );
-            })
-          )}
+        <div className="dx-heat-months">
+          {blocks.map((b, bi) => (
+            <div key={bi} className="dx-heat-month-block">
+              <div className="dx-heat-month-label">{b.label}</div>
+              <div
+                className="dx-heat-grid"
+                style={{ gridTemplateColumns: `repeat(${b.weekIndices.length}, 12px)` }}
+              >
+                {b.weekIndices.flatMap((w) =>
+                  Array.from({ length: 7 }).map((_, day) => {
+                    const c = grid[day][w];
+                    const lvl = c ? intensity(c.amount) : -1;
+                    return (
+                      <div
+                        key={`${day}-${w}`}
+                        className={`dx-heat-cell dx-heat-l${lvl >= 0 ? lvl : 0}`}
+                        title={c ? `${c.date}: ${c.amount} (${c.logCount})` : ""}
+                      />
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
       <div className="dx-heat-legend">
@@ -2081,7 +2128,7 @@ export default function DashboardPage() {
         <div className="dx-section-header">
           <Ico.Activity />
           <h3 className="dx-section-title">Faollik xaritasi</h3>
-          <span className="dx-section-meta">12 hafta · kunlik yozuvlar</span>
+          <span className="dx-section-meta">1 yil · kunlik yozuvlar</span>
         </div>
         <Heatmap cells={data.activityHeatmap} />
       </RevealSection>
