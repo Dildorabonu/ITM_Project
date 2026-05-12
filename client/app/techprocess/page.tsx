@@ -606,10 +606,12 @@ export default function TechProductionPage() {
                     <a
                       href="/namuna_meyoriy_sarf.docx"
                       download
-                      style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"5px 12px",borderRadius:"var(--radius)",background:"var(--accent-dim)",border:"1px solid var(--accent)44",color:"var(--accent)",fontSize:12,fontWeight:600,textDecoration:"none",cursor:"pointer" }}
+                      style={{ display:"inline-flex",alignItems:"center",gap:7,padding:"6px 14px",borderRadius:"var(--radius)",background:"var(--accent)",border:"1px solid var(--accent)",color:"#fff",fontSize:12,fontWeight:600,textDecoration:"none",cursor:"pointer",boxShadow:"0 1px 3px rgba(0,0,0,0.25)",transition:"background 0.15s,transform 0.1s" }}
+                      onMouseEnter={e=>{ e.currentTarget.style.background="var(--accent2)"; }}
+                      onMouseLeave={e=>{ e.currentTarget.style.background="var(--accent)"; }}
                       title="Ustunlar tartibi to'g'ri bo'lgan namunaviy faylni yuklab oling"
                     >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                         <polyline points="7 10 12 15 17 10"/>
                         <line x1="12" y1="15" x2="12" y2="3"/>
