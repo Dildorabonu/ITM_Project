@@ -10,6 +10,12 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
     {
         builder.HasKey(p => p.Id);
 
+        builder.Property(p => p.InvoiceNumber)
+            .IsRequired();
+
+        builder.HasIndex(p => p.InvoiceNumber)
+            .IsUnique();
+
         builder.HasIndex(p => new { p.Name, p.DepartmentId })
             .IsUnique();
 

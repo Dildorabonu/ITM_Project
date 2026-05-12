@@ -354,8 +354,8 @@ public class DashboardService : IDashboardService
             .Take(5)
             .ToListAsync();
 
-        // ── Activity heatmap — fixed last 12 weeks (long-term pattern view)
-        const int heatmapWeeks = 12;
+        // ── Activity heatmap — fixed last 53 weeks (~1 year, GitHub-style)
+        const int heatmapWeeks = 53;
         var heatStart = today.AddDays(-(heatmapWeeks * 7 - 1));
 
         var heatRaw = await _context.ContractTaskDailyLogs

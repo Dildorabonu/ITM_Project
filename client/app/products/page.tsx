@@ -21,6 +21,7 @@ import { CheckSelect } from "@/app/_components/CheckSelect";
 interface ParsedImportRow {
   rowNum: number;
   name: string;
+  invoiceNumber: string;
   departmentName: string;
   departmentId?: string;
   quantity: number;
@@ -31,13 +32,14 @@ interface ParsedImportRow {
 
 interface ProductForm {
   name: string;
+  invoiceNumber: string;
   description: string;
   quantity: string;
   unit: string;
   departmentId: string;
 }
 
-const emptyForm: ProductForm = { name: "", description: "", quantity: "", unit: "", departmentId: "" };
+const emptyForm: ProductForm = { name: "", invoiceNumber: "", description: "", quantity: "", unit: "", departmentId: "" };
 const UNIT_OPTIONS = (Object.keys(PRODUCT_UNIT_LABELS) as unknown as ProductUnit[]).map(key => ({
   id: String(key),
   name: PRODUCT_UNIT_LABELS[key],
@@ -86,7 +88,7 @@ export default function ProductsPage() {
   // Import row inline editing
   const [editingImportRowIdx, setEditingImportRowIdx] = useState<number | null>(null);
   const [editingImportRowData, setEditingImportRowData] = useState<{
-    name: string; departmentId: string; quantity: string; unit: ProductUnit; description: string;
+    name: string; invoiceNumber: string; departmentId: string; quantity: string; unit: ProductUnit; description: string;
   } | null>(null);
 
   useDraft(
@@ -151,7 +153,7 @@ export default function ProductsPage() {
 
   const openEdit = (p: ProductResponse) => {
     setEditTarget(p);
-    setForm({ name: p.name, description: p.description ?? "", quantity: String(p.quantity), unit: String(p.unit), departmentId: p.departmentId });
+    setForm({ name: p.name, invoiceNumber: p.invoiceNumber ?? "", description: p.description ?? "", quantity: String(p.quantity), unit: String(p.unit), departmentId: p.departmentId });
     setFormSubmitted(false);
     window.history.pushState({ showForm: true }, "");
     setShowForm(true);
@@ -163,7 +165,7 @@ export default function ProductsPage() {
 
     if (editTarget) {
       // Single edit
-      if (!form.name.trim() || !form.departmentId) return;
+      if (!form.name.trim() || !form.invoiceNumber.trim() || !form.departmentId) return;
       setSaving(true);
       try {
         const dept = departments.find(d => d.id === form.departmentId);
@@ -171,6 +173,7 @@ export default function ProductsPage() {
         const unitValue = form.unit !== "" ? (Number(form.unit) as ProductUnit) : undefined;
         const payload: ProductUpdatePayload = {
           name: form.name || undefined,
+          invoiceNumber: form.invoiceNumber.trim() || undefined,
           description: form.description || null,
           quantity: qty,
           unit: unitValue,
@@ -180,6 +183,7 @@ export default function ProductsPage() {
         const updated: ProductResponse = {
           ...editTarget,
           name: form.name || editTarget.name,
+          invoiceNumber: form.invoiceNumber.trim() || editTarget.invoiceNumber,
           description: form.description || null,
           quantity: qty,
           unit: unitValue ?? editTarget.unit,
@@ -196,12 +200,22 @@ export default function ProductsPage() {
       }
     } else {
       // Multi-create: validate all rows
-      const valid = forms.every(f => f.name.trim() && f.departmentId);
+      const valid = forms.every(f => f.name.trim() && f.invoiceNumber.trim() && f.departmentId);
       if (!valid) return;
+
+      // Check for duplicate invoice numbers within the form batch
+      const invoices = forms.map(f => f.invoiceNumber.trim().toLowerCase());
+      const dupInvoice = invoices.find((v, i) => invoices.indexOf(v) !== i);
+      if (dupInvoice) {
+        setFormError(`Invoice raqami "${dupInvoice}" yuborilayotgan ro'yxatda takrorlangan.`);
+        return;
+      }
+
       setSaving(true);
       try {
         const payloads: ProductCreatePayload[] = forms.map(f => ({
           name: f.name,
+          invoiceNumber: f.invoiceNumber.trim(),
           description: f.description || null,
           quantity: f.quantity !== "" ? Number(f.quantity) : 0,
           unit: f.unit !== "" ? (Number(f.unit) as ProductUnit) : ProductUnit.Dona,
@@ -238,21 +252,22 @@ export default function ProductsPage() {
     const wb = XLSX.utils.book_new();
 
     // Sheet 1: Products template
-    const headers = ["Mahsulot nomi *", "Bo'lim nomi *", "Miqdor", "O'lchov birligi", "Tavsif"];
+    const headers = ["Mahsulot nomi *", "Invoice raqami *", "Bo'lim nomi *", "Miqdor", "O'lchov birligi", "Tavsif"];
     const example = [
       "Printer qog'ozi",
+      "INV-2026-0001",
       departments[0]?.name ?? "Bo'lim nomini kiriting",
       "100",
       "Dona",
       "A4 formatdagi qog'oz",
     ];
     const ws = XLSX.utils.aoa_to_sheet([
-      ["Ko'rsatma: * belgisi bilan belgilangan ustunlar majburiy. Maksimal 200 ta mahsulot. 3-qatordan boshlab ma'lumot kiriting."],
+      ["Ko'rsatma: * belgisi bilan belgilangan ustunlar majburiy. Invoice raqami unikal bo'lishi shart. Maksimal 200 ta mahsulot. 3-qatordan boshlab ma'lumot kiriting."],
       headers,
       example,
     ]);
-    ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
-    ws["!cols"] = [{ wch: 32 }, { wch: 28 }, { wch: 12 }, { wch: 20 }, { wch: 32 }];
+    ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }];
+    ws["!cols"] = [{ wch: 32 }, { wch: 22 }, { wch: 28 }, { wch: 12 }, { wch: 20 }, { wch: 32 }];
     XLSX.utils.book_append_sheet(wb, ws, "Mahsulotlar");
 
     // Sheet 2: Department list
@@ -309,10 +324,11 @@ export default function ProductsPage() {
 
         const parsed: ParsedImportRow[] = dataRows.map((row, i) => {
           const cols = (row as unknown[]).map(c => String(c ?? "").trim());
-          const [name, deptName, qty, unitLabel, desc] = cols;
+          const [name, invoiceNumber, deptName, qty, unitLabel, desc] = cols;
           const errors: string[] = [];
 
           if (!name) errors.push("Mahsulot nomi kiritilmagan");
+          if (!invoiceNumber) errors.push("Invoice raqami kiritilmagan");
           const dept = deptMap.get((deptName ?? "").toLowerCase().trim());
           if (!dept) errors.push(`"${deptName || "(bo'sh)"}" bo'limi topilmadi`);
 
@@ -326,6 +342,7 @@ export default function ProductsPage() {
           return {
             rowNum: i + 3,
             name: name ?? "",
+            invoiceNumber: invoiceNumber ?? "",
             departmentName: deptName ?? "",
             departmentId: dept?.id,
             quantity: isNaN(quantity) ? 0 : quantity,
@@ -334,6 +351,19 @@ export default function ProductsPage() {
             errors,
           };
         });
+
+        // Mark duplicate invoice numbers within the imported file
+        const invCounts = new Map<string, number>();
+        for (const r of parsed) {
+          const k = r.invoiceNumber.trim().toLowerCase();
+          if (k) invCounts.set(k, (invCounts.get(k) ?? 0) + 1);
+        }
+        for (const r of parsed) {
+          const k = r.invoiceNumber.trim().toLowerCase();
+          if (k && (invCounts.get(k) ?? 0) > 1) {
+            r.errors.push(`Invoice raqami "${r.invoiceNumber}" faylda takrorlangan`);
+          }
+        }
 
         setImportRows(parsed);
       } catch {
@@ -351,6 +381,7 @@ export default function ProductsPage() {
     try {
       const payloads: ProductCreatePayload[] = validRows.map(r => ({
         name: r.name,
+        invoiceNumber: r.invoiceNumber.trim(),
         description: r.description || null,
         quantity: r.quantity,
         unit: r.unit,
@@ -389,6 +420,7 @@ export default function ProductsPage() {
     setEditingImportRowIdx(idx);
     setEditingImportRowData({
       name: row.name,
+      invoiceNumber: row.invoiceNumber,
       departmentId: row.departmentId ?? "",
       quantity: String(row.quantity),
       unit: row.unit,
@@ -399,22 +431,42 @@ export default function ProductsPage() {
   const saveEditImportRow = () => {
     if (editingImportRowIdx === null || !editingImportRowData) return;
     const d = editingImportRowData;
-    const errors: string[] = [];
-    if (!d.name.trim()) errors.push("Mahsulot nomi kiritilmagan");
-    const dept = departments.find(dep => dep.id === d.departmentId);
-    if (!dept) errors.push(`"${d.departmentId || "(bo'sh)"}" bo'limi topilmadi`);
-    const quantity = d.quantity !== "" ? Number(d.quantity) : 0;
-    if (d.quantity && isNaN(Number(d.quantity))) errors.push("Miqdor noto'g'ri format");
-    setImportRows(prev => prev.map((r, i) => i === editingImportRowIdx ? {
-      ...r,
-      name: d.name,
-      departmentId: dept?.id,
-      departmentName: dept?.name ?? r.departmentName,
-      quantity: isNaN(quantity) ? 0 : quantity,
-      unit: d.unit,
-      description: d.description,
-      errors,
-    } : r));
+    setImportRows(prev => {
+      const dept = departments.find(dep => dep.id === d.departmentId);
+      const quantity = d.quantity !== "" ? Number(d.quantity) : 0;
+
+      const updated = prev.map((r, i) => i === editingImportRowIdx ? {
+        ...r,
+        name: d.name,
+        invoiceNumber: d.invoiceNumber,
+        departmentId: dept?.id,
+        departmentName: dept?.name ?? r.departmentName,
+        quantity: isNaN(quantity) ? 0 : quantity,
+        unit: d.unit,
+        description: d.description,
+        errors: [] as string[],
+      } : r);
+
+      // Recompute invoice duplicates across the whole batch
+      const invCounts = new Map<string, number>();
+      for (const r of updated) {
+        const k = r.invoiceNumber.trim().toLowerCase();
+        if (k) invCounts.set(k, (invCounts.get(k) ?? 0) + 1);
+      }
+
+      return updated.map(r => {
+        const errors: string[] = [];
+        if (!r.name.trim()) errors.push("Mahsulot nomi kiritilmagan");
+        if (!r.invoiceNumber.trim()) errors.push("Invoice raqami kiritilmagan");
+        const dep = departments.find(x => x.id === r.departmentId);
+        if (!dep) errors.push(`"${r.departmentName || "(bo'sh)"}" bo'limi topilmadi`);
+        const k = r.invoiceNumber.trim().toLowerCase();
+        if (k && (invCounts.get(k) ?? 0) > 1) {
+          errors.push(`Invoice raqami "${r.invoiceNumber}" faylda takrorlangan`);
+        }
+        return { ...r, errors };
+      });
+    });
     setEditingImportRowIdx(null);
     setEditingImportRowData(null);
   };
@@ -445,6 +497,17 @@ export default function ProductsPage() {
                   style={formSubmitted && !form.name.trim() ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : undefined}
                 />
                 {formSubmitted && !form.name.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Mahsulot nomini kiriting</div>}
+              </div>
+              <div>
+                <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !form.invoiceNumber.trim() ? "var(--danger)" : "var(--text2)" }}>
+                  Invoice raqami <span style={{ color: "var(--danger)" }}>*</span>
+                </label>
+                <input className="form-input" value={form.invoiceNumber}
+                  onChange={e => setForm(f => ({ ...f, invoiceNumber: e.target.value }))}
+                  placeholder="Masalan: INV-2026-0001"
+                  style={formSubmitted && !form.invoiceNumber.trim() ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33", fontFamily: "var(--font-mono)" } : { fontFamily: "var(--font-mono)" }}
+                />
+                {formSubmitted && !form.invoiceNumber.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Invoice raqamini kiriting</div>}
               </div>
               <div>
                 <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !form.departmentId ? "var(--danger)" : "var(--text2)" }}>
@@ -634,6 +697,7 @@ export default function ProductsPage() {
                       <tr>
                         <th style={{ textAlign: "center" }}>Qator</th>
                         <th>Mahsulot nomi</th>
+                        <th>Invoice raqami</th>
                         <th>Bo&apos;lim</th>
                         <th style={{ textAlign: "center" }}>Miqdor</th>
                         <th style={{ textAlign: "center" }}>O&apos;lchov</th>
@@ -657,6 +721,16 @@ export default function ProductsPage() {
                                   value={editingImportRowData.name}
                                   onChange={e => setEditingImportRowData(d => d && { ...d, name: e.target.value })}
                                   style={{ minWidth: 130, padding: "4px 8px", fontSize: 13 }}
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  className="form-input"
+                                  title="Invoice raqami"
+                                  placeholder="INV-…"
+                                  value={editingImportRowData.invoiceNumber}
+                                  onChange={e => setEditingImportRowData(d => d && { ...d, invoiceNumber: e.target.value })}
+                                  style={{ minWidth: 130, padding: "4px 8px", fontSize: 13, fontFamily: "var(--font-mono)" }}
                                 />
                               </td>
                               <td>
@@ -737,6 +811,9 @@ export default function ProductsPage() {
                             <td style={{ textAlign: "center", color: "var(--text3)", fontSize: 12 }}>{row.rowNum}</td>
                             <td style={row.errors.some(e => e.includes("nomi")) ? { color: "var(--danger)", fontWeight: 600 } : undefined}>
                               {row.name || <span style={{ color: "var(--text3)" }}>—</span>}
+                            </td>
+                            <td style={{ fontFamily: "var(--font-mono)", fontSize: 12, ...(row.errors.some(e => e.toLowerCase().includes("invoice")) ? { color: "var(--danger)", fontWeight: 600 } : {}) }}>
+                              {row.invoiceNumber || <span style={{ color: "var(--text3)", fontFamily: "var(--font-inter)" }}>—</span>}
                             </td>
                             <td>{row.departmentName || <span style={{ color: "var(--text3)" }}>—</span>}</td>
                             <td style={{ textAlign: "center" }}>{row.quantity}</td>
@@ -867,6 +944,17 @@ export default function ProductsPage() {
                   style={formSubmitted && !f.name.trim() ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : undefined}
                 />
                 {formSubmitted && !f.name.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Mahsulot nomini kiriting</div>}
+              </div>
+              <div>
+                <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !f.invoiceNumber.trim() ? "var(--danger)" : "var(--text2)" }}>
+                  Invoice raqami <span style={{ color: "var(--danger)" }}>*</span>
+                </label>
+                <input className="form-input" value={f.invoiceNumber}
+                  onChange={e => updateFormRow(index, "invoiceNumber", e.target.value)}
+                  placeholder="Masalan: INV-2026-0001"
+                  style={formSubmitted && !f.invoiceNumber.trim() ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33", fontFamily: "var(--font-mono)" } : { fontFamily: "var(--font-mono)" }}
+                />
+                {formSubmitted && !f.invoiceNumber.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Invoice raqamini kiriting</div>}
               </div>
               <div>
                 <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !f.departmentId ? "var(--danger)" : "var(--text2)" }}>
@@ -1013,6 +1101,7 @@ export default function ProductsPage() {
                 <tr>
                   <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>T/r</th>
                   <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Mahsulot nomi</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Invoice raqami</th>
                   <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Bo&apos;lim</th>
                   <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Soni</th>
                   <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>O&apos;lchov</th>
@@ -1022,13 +1111,14 @@ export default function ProductsPage() {
               </thead>
               <tbody>
                 {products.length === 0 ? (
-                  <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
+                  <tr><td colSpan={8} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
                 ) : products.map((p, i) => (
                   <tr key={p.id}>
                     <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>
                       {String((page - 1) * 50 + i + 1).padStart(2, "0")}
                     </td>
                     <td style={{ textAlign: "center" }}>{p.name}</td>
+                    <td style={{ textAlign: "center", color: "var(--accent)", fontFamily: "var(--font-mono)", fontSize: 13 }}>{p.invoiceNumber || "—"}</td>
                     <td style={{ textAlign: "center", color: "var(--text1)" }}>{p.departmentName}</td>
                     <td style={{ textAlign: "center", color: "var(--text1)" }}>{p.quantity}</td>
                     <td style={{ textAlign: "center", color: "var(--text1)" }}>{PRODUCT_UNIT_LABELS[p.unit] ?? "—"}</td>
@@ -1158,6 +1248,10 @@ export default function ProductsPage() {
               <div style={{ gridColumn: "1 / -1", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
                 <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Mahsulot nomi</div>
                 <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text1)" }}>{viewProduct.name}</div>
+              </div>
+              <div style={{ gridColumn: "1 / -1", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
+                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Invoice raqami</div>
+                <div style={{ fontWeight: 700, fontSize: 16, color: "var(--accent)", fontFamily: "var(--font-mono)" }}>{viewProduct.invoiceNumber || "—"}</div>
               </div>
               <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
                 <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Bo&apos;lim</div>

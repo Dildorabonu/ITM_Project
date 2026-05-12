@@ -2863,10 +2863,10 @@ html.dark .dx-section-framed {
 }
 .dx-pie-svg-wrap {
   position: relative;
-  width: 200px; height: 200px;
+  width: 500px; height: 360px;
   flex-shrink: 0;
 }
-.dx-pie-svg { width: 100%; height: 100%; display: block; }
+.dx-pie-svg { width: 100%; height: 100%; display: block; overflow: visible; }
 .dx-pie-slice {
   opacity: 0;
   transform: scale(0.6);
@@ -2900,6 +2900,25 @@ html.dark .dx-section-framed {
 }
 .dx-pie-svg:hover .dx-pie-slice-inner:not(:hover) .dx-pie-slice-visual {
   filter: saturate(0.65) brightness(0.8);
+}
+
+.dx-pie-leader {
+  opacity: 0;
+  transition: opacity 0.18s ease-out;
+  pointer-events: none;
+}
+.dx-pie-slice-inner:hover .dx-pie-leader {
+  opacity: 1;
+  transition-delay: 0.08s;
+}
+.dx-pie-leader-line {
+  stroke-dasharray: 140;
+  stroke-dashoffset: 140;
+  transition: stroke-dashoffset 0.42s cubic-bezier(.22, 1, .36, 1);
+}
+.dx-pie-slice-inner:hover .dx-pie-leader-line {
+  stroke-dashoffset: 0;
+  transition-delay: 0.08s;
 }
 
 .dx-pie-key {
@@ -3361,40 +3380,38 @@ html.dark .dx-section-framed {
   gap: 8px;
   overflow-x: auto;
 }
-.dx-heat-months {
-  display: flex; align-items: center;
-  margin-left: 30px;
-  position: relative;
-  height: 14px;
-}
-.dx-heat-spacer { width: 0; }
-.dx-heat-months-row {
-  position: relative;
-  height: 14px;
-  flex: 1;
-}
-.dx-heat-month {
-  position: absolute;
-  font-size: 10px;
-  color: var(--text3);
-  font-family: var(--font-mono);
-}
 .dx-heat-body {
-  display: flex; gap: 6px;
+  display: flex; gap: 8px;
+  align-items: flex-start;
 }
 .dx-heat-days {
   display: grid;
-  grid-template-rows: repeat(7, 12px);
-  gap: 4px;
-  padding-top: 0;
+  grid-template-rows: 14px repeat(7, 12px);
+  row-gap: 4px;
+  width: 24px;
 }
+.dx-heat-day-spacer { height: 14px; }
 .dx-heat-day-label {
   font-size: 9px;
   color: var(--text3);
   font-family: var(--font-mono);
   height: 12px;
   display: flex; align-items: center;
-  width: 24px;
+}
+.dx-heat-months {
+  display: flex; align-items: flex-start;
+  gap: 10px;
+}
+.dx-heat-month-block {
+  display: flex; flex-direction: column;
+  gap: 4px;
+}
+.dx-heat-month-label {
+  height: 14px;
+  line-height: 14px;
+  font-size: 10px;
+  color: var(--text3);
+  font-family: var(--font-mono);
 }
 .dx-heat-grid {
   display: grid;
@@ -3422,7 +3439,7 @@ html.dark .dx-section-framed {
 .dx-heat-legend {
   display: flex; align-items: center; gap: 4px;
   margin-top: 8px;
-  margin-left: 30px;
+  margin-left: 32px;
   font-size: 10px;
   color: var(--text3);
 }
