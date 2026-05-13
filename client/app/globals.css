@@ -2070,6 +2070,55 @@ body {
   letter-spacing: 0.08em;
   margin-top: -2px;
 }
+.dx-mini-inner-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.dx-mini-spark {
+  flex-shrink: 0;
+  display: block;
+  overflow: visible;
+}
+.dx-mini-delta {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+}
+.dx-mini-delta-pct {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.dx-mini-delta-label {
+  font-family: var(--font-inter);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text3);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.dx-mini-delta-up   .dx-mini-delta-pct { color: var(--success); }
+.dx-mini-delta-down .dx-mini-delta-pct { color: var(--danger); }
+.dx-mini-delta-flat .dx-mini-delta-pct { color: var(--text3); }
+.dx-mini-delta-new  .dx-mini-delta-pct {
+  color: var(--accent);
+  background: var(--accent-dim);
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+.dx-mini-delta-none .dx-mini-delta-pct { color: var(--text3); }
 .dx-mini-trend {
   position: absolute;
   top: 10px; right: 10px;
