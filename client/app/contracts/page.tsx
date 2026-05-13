@@ -10,7 +10,7 @@ import {
   departmentService,
   ContractStatus,
   ContractDeactivationReason,
-  Priority,
+  ContractType,
   type ContractResponse,
   type ContractCreatePayload,
   type ContractUpdatePayload,
@@ -25,10 +25,10 @@ import {
   ContractForm as ContractFormType,
   emptyForm,
   STATUS_FILTER_OPTIONS,
-  PRIORITY_OPTIONS,
+  CONTRACT_TYPE_OPTIONS,
 } from "./_types";
 import { isoToDisplayDate } from "./_components/DatePickerField";
-import { StatusBadge, PriorityBadge } from "./_components/StatusBadge";
+import { StatusBadge, ContractTypeBadge } from "./_components/StatusBadge";
 import { CheckSelect } from "@/app/_components/CheckSelect";
 import { ContractForm } from "./_components/ContractForm";
 import { ContractDrawer } from "./_components/ContractDrawer";
@@ -60,10 +60,10 @@ export default function ContractsPage() {
   const [viewMode, setViewMode]           = useState<"active" | "archive">("active");
   const [search, setSearch]               = useState("");
   const [filterStatus, setFilterStatus]   = useState("");
-  const [filterPriority, setFilterPriority] = useState("");
+  const [filterContractType, setFilterContractType] = useState("");
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [pendingStatus, setPendingStatus]   = useState("");
-  const [pendingPriority, setPendingPriority] = useState("");
+  const [pendingContractType, setPendingContractType] = useState("");
   const filterBtnRef  = useRef<HTMLButtonElement>(null);
   const filterPanelRef = useRef<HTMLDivElement>(null);
 
@@ -173,8 +173,8 @@ export default function ContractsPage() {
       setError("");
       const data = await contractService.getPaged(p, PAGE_SIZE, {
         search:   search || undefined,
-        status:   filterStatus   !== "" ? (Number(filterStatus)   as ContractStatus) : undefined,
-        priority: filterPriority !== "" ? (Number(filterPriority) as Priority)       : undefined,
+        status:   filterStatus       !== "" ? (Number(filterStatus)       as ContractStatus) : undefined,
+        contractType: filterContractType !== "" ? (Number(filterContractType) as ContractType)   : undefined,
         isActive: viewMode === "active",
       });
       setContracts(data.items);
@@ -192,14 +192,14 @@ export default function ContractsPage() {
   };
 
   // Reset to page 1 when filters change
-  useEffect(() => { setPage(1); }, [viewMode, search, filterStatus, filterPriority]);
+  useEffect(() => { setPage(1); }, [viewMode, search, filterStatus, filterContractType]);
 
   // Reload when page or any filter changes (debounce search)
   useEffect(() => {
     const t = setTimeout(() => { load(page); }, search ? 250 : 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, viewMode, search, filterStatus, filterPriority]);
+  }, [page, viewMode, search, filterStatus, filterContractType]);
 
   useEffect(() => {
     departmentService.getAllFull().then(d => setDepartments(d)).catch(() => {});
@@ -276,7 +276,7 @@ export default function ContractsPage() {
       contractNo:    c.contractNo,
       startDate:     c.startDate ? c.startDate.slice(0, 10) : "",
       endDate:       c.endDate ? c.endDate.slice(0, 10) : "",
-      priority:      String(c.priority),
+      contractType:  String(c.contractType),
       contractParty: c.contractParty ?? "",
       notes:         c.notes ?? "",
       products:      (c.products && c.products.length > 0)
@@ -345,7 +345,7 @@ export default function ContractsPage() {
           contractNo:    form.contractNo,
           startDate:     startDateIso,
           endDate:       endDateIso,
-          priority:      Number(form.priority) as Priority,
+          contractType:  Number(form.contractType) as ContractType,
           contractParty: form.contractParty || undefined,
           notes:         form.notes || null,
           products:      productsPayload,
@@ -356,7 +356,7 @@ export default function ContractsPage() {
           contractNo:    form.contractNo,
           startDate:     startDateIso,
           endDate:       endDateIso,
-          priority:      Number(form.priority) as Priority,
+          contractType:  Number(form.contractType) as ContractType,
           contractParty: form.contractParty || undefined,
           notes:         form.notes || null,
           products:      productsPayload.length > 0 ? productsPayload : undefined,
@@ -541,25 +541,25 @@ export default function ContractsPage() {
 
   // ── Filters helpers ───────────────────────────────────────────────────────────
 
-  const activeFilterCount = (filterStatus !== "" ? 1 : 0) + (filterPriority !== "" ? 1 : 0);
+  const activeFilterCount = (filterStatus !== "" ? 1 : 0) + (filterContractType !== "" ? 1 : 0);
 
   const openFilterPanel = () => {
     setPendingStatus(filterStatus);
-    setPendingPriority(filterPriority);
+    setPendingContractType(filterContractType);
     setFilterPanelOpen(true);
   };
 
   const applyFilters = () => {
     setFilterStatus(pendingStatus);
-    setFilterPriority(pendingPriority);
+    setFilterContractType(pendingContractType);
     setFilterPanelOpen(false);
   };
 
   const clearFilters = () => {
     setPendingStatus("");
-    setPendingPriority("");
+    setPendingContractType("");
     setFilterStatus("");
-    setFilterPriority("");
+    setFilterContractType("");
   };
 
   // ── Render: List ──────────────────────────────────────────────────────────
@@ -675,7 +675,7 @@ export default function ContractsPage() {
                   </svg>
                   Filtrlar
                 </div>
-                {(pendingStatus !== "" || pendingPriority !== "") && (
+                {(pendingStatus !== "" || pendingContractType !== "") && (
                   <button
                     onClick={clearFilters}
                     style={{
@@ -714,15 +714,15 @@ export default function ContractsPage() {
                 <div style={{ marginBottom: 14, position: "relative" }}>
                   <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text3)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 5 }}>
                     <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>
+                      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
                     </svg>
-                    Ustuvorlik
+                    Shartnoma turi
                   </p>
                   <CheckSelect
-                    value={pendingPriority}
-                    onChange={setPendingPriority}
-                    options={PRIORITY_OPTIONS.map(o => ({ id: o.value, name: o.label, color: o.color }))}
-                    placeholder="Barcha ustuvorlik"
+                    value={pendingContractType}
+                    onChange={setPendingContractType}
+                    options={CONTRACT_TYPE_OPTIONS.map(o => ({ id: o.value, name: o.label, color: o.color }))}
+                    placeholder="Barcha turlar"
                     disablePortal
                   />
                 </div>
@@ -785,7 +785,7 @@ export default function ContractsPage() {
                   <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>T/r</th>
                   <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Raqam</th>
                   <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Muddat</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Muhimlik</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Turi</th>
                   <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Holat</th>
                   <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Faollik</th>
                   <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", background: "var(--bg2)" }}>Amal</th>
@@ -810,7 +810,7 @@ export default function ContractsPage() {
                         {fmt(c.startDate)} – {fmt(c.endDate)}
                       </span>
                     </td>
-                    <td style={{ textAlign: "center", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><PriorityBadge priority={c.priority} /></td>
+                    <td style={{ textAlign: "center", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><ContractTypeBadge contractType={c.contractType} /></td>
                     <td style={{ textAlign: "center", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       <div style={{ maxWidth: 200, overflow: "hidden", display: "inline-flex", justifyContent: "center" }}>
                         <StatusBadge status={c.status} products={c.products} />

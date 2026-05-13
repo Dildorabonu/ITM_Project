@@ -6,7 +6,7 @@ import {
   type UserLookup,
   type DepartmentResponse,
 } from "@/lib/userService";
-import { ContractForm as ContractFormType, UNIT_OPTIONS, PRIORITY_OPTIONS, emptyProduct } from "../_types";
+import { ContractForm as ContractFormType, UNIT_OPTIONS, CONTRACT_TYPE_OPTIONS, emptyProduct } from "../_types";
 import { CheckSelect } from "@/app/_components/CheckSelect";
 import { DatePickerField } from "./DatePickerField";
 import { CustomGroupedMultiSelect } from "./CustomGroupedMultiSelect";
@@ -167,13 +167,13 @@ export function ContractForm({
             {endDateErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Tugash sanasini tanlang</div>}
           </div>
 
-          {/* Muhimlik */}
+          {/* Shartnoma turi */}
           <div style={{ gridColumn: "1 / -1" }}>
-            <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Muhimlik</label>
+            <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Shartnoma turi</label>
             <CheckSelect
-              value={form.priority}
-              onChange={v => setForm(f => ({ ...f, priority: v }))}
-              options={PRIORITY_OPTIONS.map(o => ({ id: o.value, name: o.label, color: o.color }))}
+              value={form.contractType}
+              onChange={v => setForm(f => ({ ...f, contractType: v }))}
+              options={CONTRACT_TYPE_OPTIONS.map(o => ({ id: o.value, name: o.label, color: o.color }))}
               placeholder="— Tanlang —"
             />
           </div>
