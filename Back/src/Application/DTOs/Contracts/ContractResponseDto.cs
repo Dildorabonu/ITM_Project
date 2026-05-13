@@ -16,7 +16,7 @@ public class ContractResponseDto
     public DateOnly StartDate { get; set; }
     public DateOnly EndDate { get; set; }
     public List<ContractDepartmentDto> Departments { get; set; } = [];
-    public Priority Priority { get; set; }
+    public ContractType ContractType { get; set; }
     public string ContractParty { get; set; } = string.Empty;
     public ContractStatus Status { get; set; }
     public string? Notes { get; set; }

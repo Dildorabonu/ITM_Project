@@ -66,7 +66,7 @@ public class DashboardService : IDashboardService
         // ── Contracts (state snapshot + period totals) ─────────────────────
         var contracts = await _context.Contracts
             .AsNoTracking()
-            .Select(c => new { c.Id, c.Status, c.Priority, c.EndDate, c.IsActive, c.CreatedAt })
+            .Select(c => new { c.Id, c.Status, c.EndDate, c.IsActive, c.CreatedAt })
             .ToListAsync();
 
         var totalContracts = contracts.Count;
@@ -276,7 +276,6 @@ public class DashboardService : IDashboardService
                 c.ContractParty,
                 c.EndDate,
                 c.Status,
-                c.Priority,
                 FirstProduct = c.Products
                     .Where(p => p.IsActive)
                     .OrderBy(p => p.OrderIndex)
@@ -307,7 +306,6 @@ public class DashboardService : IDashboardService
                 ContractParty = c.ContractParty,
                 EndDate = c.EndDate,
                 Status = c.Status,
-                Priority = c.Priority,
                 DaysRemaining = c.EndDate.DayNumber - today.DayNumber,
                 OverallProgress = Math.Round(progress, 1),
                 PrimaryProduct = c.FirstProduct,

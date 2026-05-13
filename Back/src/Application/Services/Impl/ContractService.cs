@@ -76,7 +76,7 @@ public class ContractService : IContractService
         PaginationParams pagination,
         string? search = null,
         ContractStatus? status = null,
-        Priority? priority = null,
+        ContractType? contractType = null,
         bool? isActive = null)
     {
         var query = _context.Contracts
@@ -101,8 +101,8 @@ public class ContractService : IContractService
         if (status.HasValue)
             query = query.Where(c => c.Status == status.Value);
 
-        if (priority.HasValue)
-            query = query.Where(c => c.Priority == priority.Value);
+        if (contractType.HasValue)
+            query = query.Where(c => c.ContractType == contractType.Value);
 
         if (isActive.HasValue)
             query = query.Where(c => c.IsActive == isActive.Value);
@@ -184,7 +184,7 @@ public class ContractService : IContractService
             ContractNo = dto.ContractNo,
             StartDate = dto.StartDate,
             EndDate = dto.EndDate,
-            Priority = dto.Priority,
+            ContractType = dto.ContractType,
             ContractParty = dto.ContractParty,
             Status = ContractStatus.DrawingPending,
             Notes = dto.Notes,
@@ -365,7 +365,7 @@ public class ContractService : IContractService
 
         if (dto.StartDate.HasValue) contract.StartDate = dto.StartDate.Value;
         if (dto.EndDate.HasValue) contract.EndDate = dto.EndDate.Value;
-        if (dto.Priority.HasValue) contract.Priority = dto.Priority.Value;
+        if (dto.ContractType.HasValue) contract.ContractType = dto.ContractType.Value;
         if (dto.ContractParty is not null) contract.ContractParty = dto.ContractParty;
         if (dto.Notes is not null) contract.Notes = dto.Notes;
 
@@ -1056,7 +1056,7 @@ public class ContractService : IContractService
                 Name = cd.Department.Name,
                 Type = cd.Department.Type,
             }).ToList(),
-        Priority = contract.Priority,
+        ContractType = contract.ContractType,
         ContractParty = contract.ContractParty,
         Status = contract.Status,
         Notes = contract.Notes,

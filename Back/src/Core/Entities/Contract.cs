@@ -8,7 +8,7 @@ public class Contract
     public string ContractNo { get; set; } = string.Empty;
     public DateOnly StartDate { get; set; }
     public DateOnly EndDate { get; set; }
-    public Priority Priority { get; set; }
+    public ContractType ContractType { get; set; }
     public string ContractParty { get; set; } = string.Empty;
     public ContractStatus Status { get; set; }
     public string? Notes { get; set; }

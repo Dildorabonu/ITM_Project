@@ -1,5 +1,5 @@
 import { api } from "./api";
-import { ContractStatus, DepartmentType, Priority, ManufacturingStatus, ProductUnit } from "./userService";
+import { ContractStatus, DepartmentType, ManufacturingStatus, ProductUnit } from "./userService";
 
 export interface DashboardKpis {
   totalContracts: number;
@@ -63,7 +63,6 @@ export interface UpcomingDeadline {
   contractParty: string;
   endDate: string;
   status: ContractStatus;
-  priority: Priority;
   daysRemaining: number;
   overallProgress: number;
   primaryProduct: string | null;

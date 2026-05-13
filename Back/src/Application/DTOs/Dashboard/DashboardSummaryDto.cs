@@ -92,7 +92,6 @@ public class UpcomingDeadlineDto
     public string ContractParty { get; set; } = string.Empty;
     public DateOnly EndDate { get; set; }
     public ContractStatus Status { get; set; }
-    public Priority Priority { get; set; }
     public int DaysRemaining { get; set; }
     public double OverallProgress { get; set; }
     public string? PrimaryProduct { get; set; }
