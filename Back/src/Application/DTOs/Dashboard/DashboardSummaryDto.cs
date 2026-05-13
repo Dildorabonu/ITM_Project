@@ -6,6 +6,9 @@ public class DashboardSummaryDto
 {
     public DashboardKpiDto Kpis { get; set; } = new();
     public KpiPeriodDto KpiPeriod { get; set; } = new();
+    public DashboardKpiDeltaDto PreviousKpis { get; set; } = new();
+    public KpiPeriodDto PreviousKpiPeriod { get; set; } = new();
+    public IEnumerable<KpiSparklinePointDto> KpiSparkline { get; set; } = [];
     public IEnumerable<ContractStatusBucketDto> ContractStatus { get; set; } = [];
     public IEnumerable<ProductionTrendPointDto> ProductionTrend { get; set; } = [];
     public IEnumerable<ProductionTrendPointDto> ShipmentTrend { get; set; } = [];
@@ -43,6 +46,23 @@ public class DashboardKpiDto
     public decimal TotalContractedAmount { get; set; }
     public decimal TotalProducedAmount { get; set; }
     public decimal TotalBatchedAmount { get; set; }
+}
+
+public class DashboardKpiDeltaDto
+{
+    public int ActiveContracts { get; set; }
+    public int ManufacturedCompleted { get; set; }
+    public int ManufacturedInProgress { get; set; }
+    public int TotalEmployees { get; set; }
+}
+
+public class KpiSparklinePointDto
+{
+    public DateOnly Date { get; set; }
+    public int ActiveContracts { get; set; }
+    public int ManufacturedCompleted { get; set; }
+    public int ManufacturedInProgress { get; set; }
+    public int TotalEmployees { get; set; }
 }
 
 public class ContractStatusBucketDto

@@ -93,14 +93,25 @@ export interface HeatmapCell {
   logCount: number;
 }
 
-export interface KpiPeriod {
-  from: string; // ISO date (YYYY-MM-DD)
-  to: string;
+export interface DashboardKpiDelta {
+  activeContracts: number;
+  manufacturedCompleted: number;
+  manufacturedInProgress: number;
+  totalEmployees: number;
+}
+
+export interface KpiSparklinePoint {
+  date: string; // YYYY-MM-DD
+  activeContracts: number;
+  manufacturedCompleted: number;
+  manufacturedInProgress: number;
+  totalEmployees: number;
 }
 
 export interface DashboardSummary {
   kpis: DashboardKpis;
-  kpiPeriod: KpiPeriod;
+  previousKpis: DashboardKpiDelta;
+  kpiSparkline: KpiSparklinePoint[];
   contractStatus: ContractStatusBucket[];
   productionTrend: ProductionTrendPoint[];
   shipmentTrend: ProductionTrendPoint[];
@@ -113,8 +124,6 @@ export interface DashboardSummary {
 }
 
 export interface DashboardSummaryParams {
-  from?: string; // YYYY-MM-DD — KPI period
-  to?: string;
   trendFrom?: string; // YYYY-MM-DD — production/shipment dynamics window
   trendTo?: string;
 }

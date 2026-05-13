@@ -1564,6 +1564,121 @@ function getDefaultRange(): DateRange {
   return RANGE_PRESETS.find(p => p.key === "last_30_days")!.range();
 }
 
+type KpiDelta = { kind: "up" | "down" | "flat" | "new" | "none"; pct: number };
+
+function computeKpiDelta(current: number, previous: number): KpiDelta {
+  if (previous <= 0) {
+    if (current > 0) return { kind: "new", pct: 0 };
+    return { kind: "none", pct: 0 };
+  }
+  const pct = ((current - previous) / previous) * 100;
+  if (Math.abs(pct) < 0.05) return { kind: "flat", pct: 0 };
+  return { kind: pct > 0 ? "up" : "down", pct };
+}
+
+function Sparkline({
+  data,
+  tone,
+  width = 84,
+  height = 30,
+}: {
+  data: number[];
+  tone: "up" | "down" | "flat" | "neutral";
+  width?: number;
+  height?: number;
+}) {
+  if (!data.length) return null;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const span = max - min || 1;
+  const pad = 2;
+  const w = width - pad * 2;
+  const h = height - pad * 2;
+  const step = data.length > 1 ? w / (data.length - 1) : 0;
+  const points = data.map((v, i) => {
+    const x = pad + i * step;
+    const y = pad + h - ((v - min) / span) * h;
+    return [x, y] as const;
+  });
+
+  // Smooth path via cubic Bezier with midpoint control points.
+  const fmt = (n: number) => n.toFixed(1);
+  let linePath = "";
+  if (points.length === 1) {
+    linePath = `M${fmt(points[0][0])},${fmt(points[0][1])}`;
+  } else {
+    linePath = `M${fmt(points[0][0])},${fmt(points[0][1])}`;
+    for (let i = 0; i < points.length - 1; i++) {
+      const [x0, y0] = points[i];
+      const [x1, y1] = points[i + 1];
+      const cx = (x0 + x1) / 2;
+      linePath += ` C${fmt(cx)},${fmt(y0)} ${fmt(cx)},${fmt(y1)} ${fmt(x1)},${fmt(y1)}`;
+    }
+  }
+  const xEnd = pad + (data.length - 1) * step;
+  const areaPath = `${linePath} L${fmt(xEnd)},${fmt(pad + h)} L${fmt(pad)},${fmt(pad + h)} Z`;
+  const last = points[points.length - 1];
+
+  const stroke =
+    tone === "up"   ? "var(--success)" :
+    tone === "down" ? "var(--danger)"  :
+    tone === "flat" ? "var(--text3)"   :
+                      "var(--text3)";
+  const fill =
+    tone === "up"   ? "var(--success-dim)" :
+    tone === "down" ? "var(--danger-dim)"  :
+                      "transparent";
+
+  return (
+    <svg
+      className="dx-mini-spark"
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      aria-hidden
+    >
+      <path d={areaPath} fill={fill} opacity={0.6} />
+      <path d={linePath} fill="none" stroke={stroke} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={last[0]} cy={last[1]} r={2} fill={stroke} />
+    </svg>
+  );
+}
+
+function DeltaLine({ delta, periodLabel }: { delta: KpiDelta; periodLabel: string }) {
+  if (delta.kind === "none") {
+    return (
+      <div className="dx-mini-delta dx-mini-delta-none">
+        <span className="dx-mini-delta-pct">—</span>
+        <span className="dx-mini-delta-label">{periodLabel}</span>
+      </div>
+    );
+  }
+  if (delta.kind === "new") {
+    return (
+      <div className="dx-mini-delta dx-mini-delta-new">
+        <span className="dx-mini-delta-pct">↑ YANGI</span>
+        <span className="dx-mini-delta-label">vs {periodLabel}</span>
+      </div>
+    );
+  }
+  if (delta.kind === "flat") {
+    return (
+      <div className="dx-mini-delta dx-mini-delta-flat">
+        <span className="dx-mini-delta-pct">→ 0%</span>
+        <span className="dx-mini-delta-label">vs {periodLabel}</span>
+      </div>
+    );
+  }
+  const sign = delta.kind === "up" ? "+" : "−";
+  const arrow = delta.kind === "up" ? "↑" : "↓";
+  return (
+    <div className={`dx-mini-delta dx-mini-delta-${delta.kind}`}>
+      <span className="dx-mini-delta-pct">{arrow} {sign}{Math.abs(delta.pct).toFixed(1)}%</span>
+      <span className="dx-mini-delta-label">vs {periodLabel}</span>
+    </div>
+  );
+}
+
 function RangeCalendarPicker({
   value,
   onChange,
@@ -1852,7 +1967,6 @@ export default function DashboardPage() {
   const [kpiNonce, setKpiNonce] = useState(0);
   const [staticNonce, setStaticNonce] = useState(0);
   const firstLoadRef = useRef(true);
-  const [range, setRange] = useState<DateRange>(() => getDefaultRange());
   const [trendRange, setTrendRange] = useState<DateRange>(() => getDefaultRange());
 
   const loadSummary = useCallback(async () => {
@@ -1861,8 +1975,6 @@ export default function DashboardPage() {
       setErr(null);
       setRefreshing(true);
       const summary = await dashboardService.getSummary({
-        from: range.from,
-        to: range.to,
         trendFrom: trendRange.from,
         trendTo: trendRange.to,
       });
@@ -1878,7 +1990,7 @@ export default function DashboardPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [accessToken, range, trendRange]);
+  }, [accessToken, trendRange]);
 
   useEffect(() => {
     void loadSummary();
@@ -1886,11 +1998,29 @@ export default function DashboardPage() {
 
   // Animated KPI counters (called unconditionally)
   const k = data?.kpis;
+  const prevK = data?.previousKpis;
   // State (always-now)
   const animActive     = useCountUp(k?.activeContracts ?? 0,        1400, 0,   kpiNonce);
   const animMfgDone    = useCountUp(k?.manufacturedCompleted ?? 0,  1400, 120, kpiNonce);
   const animMfgIp      = useCountUp(k?.manufacturedInProgress ?? 0, 1400, 240, kpiNonce);
   const animEmployees  = useCountUp(k?.totalEmployees ?? 0,         1400, 360, kpiNonce);
+
+  const KPI_PERIOD_LABEL = "o'tgan hafta";
+  const deltaActive     = computeKpiDelta(k?.activeContracts ?? 0,        prevK?.activeContracts ?? 0);
+  const deltaMfgDone    = computeKpiDelta(k?.manufacturedCompleted ?? 0,  prevK?.manufacturedCompleted ?? 0);
+  const deltaMfgIp      = computeKpiDelta(k?.manufacturedInProgress ?? 0, prevK?.manufacturedInProgress ?? 0);
+  const deltaEmployees  = computeKpiDelta(k?.totalEmployees ?? 0,         prevK?.totalEmployees ?? 0);
+
+  const sparklinePoints = data?.kpiSparkline ?? [];
+  const sparkActive    = sparklinePoints.map(p => p.activeContracts);
+  const sparkMfgDone   = sparklinePoints.map(p => p.manufacturedCompleted);
+  const sparkMfgIp     = sparklinePoints.map(p => p.manufacturedInProgress);
+  const sparkEmployees = sparklinePoints.map(p => p.totalEmployees);
+  const sparkTone = (d: KpiDelta): "up" | "down" | "flat" | "neutral" =>
+    d.kind === "up" || d.kind === "new" ? "up" :
+    d.kind === "down"                   ? "down" :
+    d.kind === "flat"                   ? "flat" :
+                                          "neutral";
 
   const greeting = getGreeting();
   const today = new Date();
@@ -1975,9 +2105,6 @@ export default function DashboardPage() {
               </div>
             </div>
             {user?.role && <div className="dx-hero-role">{user.role}</div>}
-            <div className="dx-hero-period">
-              <RangeCalendarPicker value={range} onChange={setRange} loading={refreshing} />
-            </div>
           </div>
         </div>
       </section>
@@ -1995,7 +2122,11 @@ export default function DashboardPage() {
                 <span className="dx-mini-icon"><Ico.Zap /></span>
               </div>
               <div className="dx-mini-inner">
-                <div className="dx-mini-val">{animActive}</div>
+                <div className="dx-mini-inner-row">
+                  <div className="dx-mini-val">{animActive}</div>
+                  <Sparkline data={sparkActive} tone={sparkTone(deltaActive)} />
+                </div>
+                <DeltaLine delta={deltaActive} periodLabel={KPI_PERIOD_LABEL} />
               </div>
             </button>
             <button
@@ -2008,7 +2139,11 @@ export default function DashboardPage() {
                 <span className="dx-mini-icon"><Ico.CheckCircle /></span>
               </div>
               <div className="dx-mini-inner">
-                <div className="dx-mini-val">{animMfgDone}</div>
+                <div className="dx-mini-inner-row">
+                  <div className="dx-mini-val">{animMfgDone}</div>
+                  <Sparkline data={sparkMfgDone} tone={sparkTone(deltaMfgDone)} />
+                </div>
+                <DeltaLine delta={deltaMfgDone} periodLabel={KPI_PERIOD_LABEL} />
               </div>
             </button>
             <button
@@ -2021,7 +2156,11 @@ export default function DashboardPage() {
                 <span className="dx-mini-icon"><Ico.Factory /></span>
               </div>
               <div className="dx-mini-inner">
-                <div className="dx-mini-val">{animMfgIp}</div>
+                <div className="dx-mini-inner-row">
+                  <div className="dx-mini-val">{animMfgIp}</div>
+                  <Sparkline data={sparkMfgIp} tone={sparkTone(deltaMfgIp)} />
+                </div>
+                <DeltaLine delta={deltaMfgIp} periodLabel={KPI_PERIOD_LABEL} />
               </div>
             </button>
             <button
@@ -2034,8 +2173,11 @@ export default function DashboardPage() {
                 <span className="dx-mini-icon"><Ico.Users /></span>
               </div>
               <div className="dx-mini-inner">
-                <div className="dx-mini-val">{animEmployees}</div>
-                <div className="dx-mini-foot">{k?.activeDepartments ?? 0} bo&apos;lim</div>
+                <div className="dx-mini-inner-row">
+                  <div className="dx-mini-val">{animEmployees}</div>
+                  <Sparkline data={sparkEmployees} tone={sparkTone(deltaEmployees)} />
+                </div>
+                <DeltaLine delta={deltaEmployees} periodLabel={KPI_PERIOD_LABEL} />
               </div>
             </button>
           </div>
