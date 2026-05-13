@@ -1,5 +1,5 @@
-import { ContractStatus, ContractProductStatus, Priority, CONTRACT_STATUS_LABELS, PRIORITY_LABELS, type ContractProductResponse } from "@/lib/userService";
-import { STATUS_STYLE, PRIORITY_STYLE } from "../_types";
+import { ContractStatus, ContractProductStatus, ContractType, CONTRACT_STATUS_LABELS, CONTRACT_TYPE_LABELS, type ContractProductResponse } from "@/lib/userService";
+import { STATUS_STYLE, CONTRACT_TYPE_STYLE } from "../_types";
 
 interface StatusBadgeProps {
   status: ContractStatus;
@@ -72,11 +72,16 @@ export function StatusBadge({ status, products }: StatusBadgeProps) {
   );
 }
 
-export function PriorityBadge({ priority }: { priority: Priority }) {
-  const s = PRIORITY_STYLE[priority];
+export function ContractTypeBadge({ contractType }: { contractType: ContractType }) {
+  const s = CONTRACT_TYPE_STYLE[contractType];
   return (
-    <span style={{ fontSize: 13, fontWeight: 600, color: s.color }}>
-      {PRIORITY_LABELS[priority]}
+    <span style={{
+      display: "inline-flex", alignItems: "center",
+      padding: "2px 10px", borderRadius: 999,
+      background: s.bg, color: s.color, border: `1px solid ${s.border}`,
+      fontSize: 12, fontWeight: 600, whiteSpace: "nowrap",
+    }}>
+      {CONTRACT_TYPE_LABELS[contractType]}
     </span>
   );
 }

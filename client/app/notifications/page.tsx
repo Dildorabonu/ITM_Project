@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
-import { ContractStatus, Priority } from "@/lib/userService";
+import { ContractStatus } from "@/lib/userService";
 
 type Notif = {
   id: string;
@@ -21,7 +21,6 @@ type ContractDetail = {
   contractNo: string;
   startDate: string;
   endDate: string;
-  priority: Priority;
   contractParty: string;
   status: ContractStatus;
   notes: string | null;
@@ -56,20 +55,6 @@ const statusLabels: Record<number, string> = {
   [ContractStatus.InProduction]: "Ishlab chiqarish jarayonida",
   [ContractStatus.Completed]: "Yakunlandi",
   [ContractStatus.Cancelled]: "Bekor qilindi",
-};
-
-const priorityLabels: Record<number, string> = {
-  [Priority.Low]: "Past",
-  [Priority.Medium]: "O'rta",
-  [Priority.High]: "Yuqori",
-  [Priority.Urgent]: "Shoshilinch",
-};
-
-const priorityColors: Record<number, string> = {
-  [Priority.Low]: "var(--text3)",
-  [Priority.Medium]: "var(--accent)",
-  [Priority.High]: "#e67e22",
-  [Priority.Urgent]: "var(--danger)",
 };
 
 function formatTs(iso: string): string {
@@ -358,7 +343,6 @@ export default function NotificationsPage() {
                         )
                       )}
                       {infoRow("Holati", statusLabels[contractDetail.status] || String(contractDetail.status))}
-                      {infoRow("Muhimlik darajasi", priorityLabels[contractDetail.priority] || String(contractDetail.priority), priorityColors[contractDetail.priority])}
                       {infoRow("Boshlanish sanasi", formatDate(contractDetail.startDate))}
                       {infoRow("Tugash sanasi (Deadline)", formatDate(contractDetail.endDate))}
                       {infoRow("Yaratgan", contractDetail.createdByFullName || "—")}

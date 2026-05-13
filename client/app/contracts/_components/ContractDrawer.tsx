@@ -12,7 +12,7 @@ import {
   type ContractProductResponse,
 } from "@/lib/userService";
 import { PRODUCT_STATUS_STYLE } from "../_types";
-import { StatusBadge, PriorityBadge } from "./StatusBadge";
+import { StatusBadge, ContractTypeBadge } from "./StatusBadge";
 import { WorkflowDiagram } from "./WorkflowDiagram";
 import { fmt } from "./DatePickerField";
 
@@ -124,8 +124,8 @@ export function ContractDrawer({
             <StatusBadge status={viewContract.status} products={viewContract.products} />
           </div>
           <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
-            <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Muhimlik</div>
-            <PriorityBadge priority={viewContract.priority} />
+            <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Shartnoma turi</div>
+            <ContractTypeBadge contractType={viewContract.contractType} />
           </div>
           <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
             <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Boshlanish sanasi</div>

@@ -1,4 +1,4 @@
-import { ContractStatus, ContractProductStatus, Priority, CONTRACT_STATUS_LABELS, PRIORITY_LABELS, type UserLookup } from "@/lib/userService";
+import { ContractStatus, ContractProductStatus, ContractType, CONTRACT_STATUS_LABELS, CONTRACT_TYPE_LABELS, type UserLookup } from "@/lib/userService";
 
 // ─── Form types ───────────────────────────────────────────────────────────────
 
@@ -24,7 +24,7 @@ export interface ContractForm {
   contractNo: string;
   startDate: string;
   endDate: string;
-  priority: string;
+  contractType: string;
   contractParty: string;
   notes: string;
   products: ContractProductForm[];
@@ -33,11 +33,11 @@ export interface ContractForm {
 export const emptyForm: ContractForm = {
   contractNo: "",
   startDate: "", endDate: "",
-  priority: String(Priority.Medium), contractParty: "", notes: "",
+  contractType: String(ContractType.Mahalliy), contractParty: "", notes: "",
   products: [{ ...emptyProduct, departmentIds: [], responsibleUsers: [], supervisorUsers: [], observerUsers: [], pendingTzFiles: [] }],
 };
 
-// ─── Status / Priority styles ─────────────────────────────────────────────────
+// ─── Status / Contract type styles ────────────────────────────────────────────
 
 export const VISIBLE_STATUSES: ContractStatus[] = [
   ContractStatus.DrawingPending,
@@ -54,11 +54,9 @@ export const STATUS_STYLE: Record<ContractStatus, { bg: string; color: string; b
   [ContractStatus.Cancelled]:            { bg: "var(--danger-dim)",  color: "var(--danger)",   border: "var(--danger)" },
 };
 
-export const PRIORITY_STYLE: Record<Priority, { color: string }> = {
-  [Priority.Low]:    { color: "var(--text2)" },
-  [Priority.Medium]: { color: "#d97706" },
-  [Priority.High]:   { color: "#dc2626" },
-  [Priority.Urgent]: { color: "#7c3aed" },
+export const CONTRACT_TYPE_STYLE: Record<ContractType, { bg: string; color: string; border: string }> = {
+  [ContractType.Mahalliy]: { bg: "#e6f4ea", color: "#1e7e34", border: "#a8d5b5" },
+  [ContractType.Tashqi]:   { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" },
 };
 
 // ─── Workflow ─────────────────────────────────────────────────────────────────
@@ -121,11 +119,9 @@ export const UNIT_OPTIONS: SelectOption[] = [
   { value: "Toʻplam",   label: "To'plam",        icon: "🗂️" },
 ];
 
-export const PRIORITY_OPTIONS: SelectOption[] = [
-  { value: String(Priority.Low),    label: "Past",        color: "var(--text2)" },
-  { value: String(Priority.Medium), label: "O'rta",       color: "#d97706" },
-  { value: String(Priority.High),   label: "Yuqori",      color: "#dc2626" },
-  { value: String(Priority.Urgent), label: "Shoshilinch", color: "#7c3aed" },
+export const CONTRACT_TYPE_OPTIONS: SelectOption[] = [
+  { value: String(ContractType.Mahalliy), label: CONTRACT_TYPE_LABELS[ContractType.Mahalliy], color: CONTRACT_TYPE_STYLE[ContractType.Mahalliy].color },
+  { value: String(ContractType.Tashqi),   label: CONTRACT_TYPE_LABELS[ContractType.Tashqi],   color: CONTRACT_TYPE_STYLE[ContractType.Tashqi].color },
 ];
 
 export const STATUS_FILTER_OPTIONS: SelectOption[] = [

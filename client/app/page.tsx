@@ -18,7 +18,6 @@ import {
 } from "@/lib/dashboardService";
 import {
   ContractStatus,
-  Priority,
   DepartmentType,
   DEPARTMENT_TYPE_LABELS,
   ManufacturingStatus,
@@ -237,25 +236,6 @@ function formatNum(n: number): string {
   if (n >= 10_000)    return `${Math.round(n / 1000)}k`;
   if (n >= 1_000)     return `${(n / 1000).toFixed(1)}k`;
   return Math.round(n).toString();
-}
-
-function priorityLabel(p: Priority): string {
-  switch (p) {
-    case Priority.Low:    return "Past";
-    case Priority.Medium: return "O'rta";
-    case Priority.High:   return "Yuqori";
-    case Priority.Urgent: return "Shoshilinch";
-    default: return "—";
-  }
-}
-
-function priorityClass(p: Priority): string {
-  switch (p) {
-    case Priority.Urgent: return "danger";
-    case Priority.High:   return "warn";
-    case Priority.Medium: return "accent";
-    default:              return "neutral";
-  }
 }
 
 function unitLabel(u: ProductUnit): string {
@@ -1307,9 +1287,6 @@ function DeadlineList({ items, onClick, variant = "list" }: { items: UpcomingDea
             <div className="dx-dl-head">
               <div className="dx-dl-head-left">
                 <span className="dx-dl-no">{c.contractNo}</span>
-                <span className={`dx-dl-prio dxp-${priorityClass(c.priority)}`}>
-                  {priorityLabel(c.priority)}
-                </span>
               </div>
               <div className={`dx-dl-date-chip dxd-${urg}`}>
                 <Ico.Calendar />

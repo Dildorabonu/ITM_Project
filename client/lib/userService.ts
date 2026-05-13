@@ -364,6 +364,16 @@ export enum Priority {
   Urgent = 3,
 }
 
+export enum ContractType {
+  Mahalliy = 0,
+  Tashqi = 1,
+}
+
+export const CONTRACT_TYPE_LABELS: Record<ContractType, string> = {
+  [ContractType.Mahalliy]: "Mahalliy",
+  [ContractType.Tashqi]: "Tashqi",
+};
+
 export const CONTRACT_STATUS_LABELS: Record<ContractStatus, string> = {
   [ContractStatus.DrawingPending]:       "Chizmasi tayyorlanmoqda",
   [ContractStatus.TechProcessing]:       "Texnologik jarayon tayyorlanmoqda",
@@ -468,7 +478,7 @@ export interface ContractResponse {
   startDate: string;
   endDate: string;
   departments: ContractDepartmentInfo[];
-  priority: Priority;
+  contractType: ContractType;
   contractParty: string;
   status: ContractStatus;
   notes: string | null;
@@ -487,7 +497,7 @@ export interface ContractCreatePayload {
   startDate: string;
   endDate: string;
   departmentIds?: string[];
-  priority: Priority;
+  contractType: ContractType;
   contractParty?: string;
   notes?: string | null;
   products?: ContractProductPayload[];
@@ -498,7 +508,7 @@ export interface ContractUpdatePayload {
   startDate?: string;
   endDate?: string;
   departmentIds?: string[];
-  priority?: Priority;
+  contractType?: ContractType;
   contractParty?: string;
   notes?: string | null;
   products?: ContractProductPayload[];
@@ -531,12 +541,12 @@ export const contractService = {
   getPaged: async (
     page = 1,
     pageSize = 20,
-    opts: { search?: string; status?: ContractStatus; priority?: Priority; isActive?: boolean } = {},
+    opts: { search?: string; status?: ContractStatus; contractType?: ContractType; isActive?: boolean } = {},
   ): Promise<PagedResult<ContractResponse>> => {
     const params: Record<string, string> = { page: String(page), pageSize: String(pageSize) };
     if (opts.search?.trim())     params.search   = opts.search.trim();
     if (opts.status   !== undefined) params.status   = String(opts.status);
-    if (opts.priority !== undefined) params.priority = String(opts.priority);
+    if (opts.contractType !== undefined) params.contractType = String(opts.contractType);
     if (opts.isActive !== undefined) params.isActive = String(opts.isActive);
     const res = await api.get("/api/contract/paged", { params });
     return res.data?.result ?? res.data;

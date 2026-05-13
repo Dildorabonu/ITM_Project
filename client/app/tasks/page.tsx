@@ -10,8 +10,6 @@ import {
   ContractResponse,
   ContractProductResponse,
   ContractStatus,
-  Priority,
-  PRIORITY_LABELS,
   contractTaskService,
   ContractTaskResponse,
   ContractTaskCreatePayload,
@@ -72,13 +70,6 @@ const STATUS_DESCRIPTIONS: Record<ContractStatus, string> = {
   [ContractStatus.Cancelled]:           "Shartnoma to'xtatildi yoki bekor qilindi.",
 };
 
-const PRIORITY_COLORS: Record<Priority, string> = {
-  [Priority.Low]:    "s-gray",
-  [Priority.Medium]: "s-warn",
-  [Priority.High]:   "s-danger",
-  [Priority.Urgent]: "s-danger",
-};
-
 function formatDate(dateStr: string) {
   if (!dateStr) return "—";
   const d = new Date(dateStr);
@@ -117,9 +108,6 @@ function ContractBar({
         </span>
         <span className="tcb-qty">
           {product ? `${product.quantity.toLocaleString()} ${product.unit}` : ""}
-        </span>
-        <span className={`status ${PRIORITY_COLORS[contract.priority]}`}>
-          {PRIORITY_LABELS[contract.priority]}
         </span>
         <span className="tcb-dates mono">
           {formatDate(contract.startDate)}
@@ -245,12 +233,6 @@ function ContractCard({
                 {product
                   ? `${product.quantity.toLocaleString()} ${product.unit}`
                   : "—"}
-              </span>
-            </div>
-            <div className="tcc-row">
-              <span className="tcc-label">Ustuvorlik</span>
-              <span className={`status ${PRIORITY_COLORS[contract.priority]}`}>
-                {PRIORITY_LABELS[contract.priority]}
               </span>
             </div>
           </div>
@@ -1842,10 +1824,8 @@ export default function TasksPage() {
   const [viewMode, setViewMode] = useState<"active" | "archive">("active");
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
-  const [filterPriority, setFilterPriority] = useState("");
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [pendingStatus, setPendingStatus] = useState("");
-  const [pendingPriority, setPendingPriority] = useState("");
   const filterBtnRef = useRef<HTMLButtonElement>(null);
   const filterPanelRef = useRef<HTMLDivElement>(null);
 
@@ -1878,15 +1858,10 @@ export default function TasksPage() {
     return () => document.removeEventListener("mousedown", handler);
   }, [legendOpen]);
 
-  const filteredContracts = contracts.filter(c => {
-    if (filterPriority !== "" && String(c.priority) !== filterPriority) return false;
-    return true;
-  });
-
   // Har bir kontrakt → 1 yoki bir nechta scope (har bir mahsulot uchun alohida).
   // Mahsulotsiz kontraktlar → 1 ta Umumiy scope.
   const allScopes: Scope[] = [];
-  for (const c of filteredContracts) {
+  for (const c of contracts) {
     const products = c.products ?? [];
     if (products.length === 0) {
       allScopes.push({ contract: c, product: null });
@@ -1967,25 +1942,21 @@ export default function TasksPage() {
     );
   }
 
-  const activeFilterCount = (filterStatus !== "" ? 1 : 0) + (filterPriority !== "" ? 1 : 0);
+  const activeFilterCount = filterStatus !== "" ? 1 : 0;
 
   const openFilterPanel = () => {
     setPendingStatus(filterStatus);
-    setPendingPriority(filterPriority);
     setFilterPanelOpen(true);
   };
 
   const applyFilters = () => {
     setFilterStatus(pendingStatus);
-    setFilterPriority(pendingPriority);
     setFilterPanelOpen(false);
   };
 
   const clearFilters = () => {
     setPendingStatus("");
-    setPendingPriority("");
     setFilterStatus("");
-    setFilterPriority("");
   };
 
   return (
@@ -2234,7 +2205,7 @@ export default function TasksPage() {
                       </svg>
                       Filtrlar
                     </div>
-                    {(pendingStatus !== "" || pendingPriority !== "") && (
+                    {pendingStatus !== "" && (
                       <button
                         onClick={clearFilters}
                         style={{
@@ -2268,21 +2239,6 @@ export default function TasksPage() {
                         onChange={setPendingStatus}
                         options={(Object.entries(STATUS_LABELS) as unknown as [ContractStatus, string][]).map(([val, label]) => ({ id: String(val), name: label }))}
                         placeholder="Barcha holat"
-                        disablePortal
-                      />
-                    </div>
-                    <div style={{ marginBottom: 14, position: "relative" }}>
-                      <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text3)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 5 }}>
-                        <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                          <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>
-                        </svg>
-                        Ustuvorlik
-                      </p>
-                      <CheckSelect
-                        value={pendingPriority}
-                        onChange={setPendingPriority}
-                        options={(Object.entries(PRIORITY_LABELS) as unknown as [Priority, string][]).map(([val, label]) => ({ id: String(val), name: label }))}
-                        placeholder="Barcha ustuvorlik"
                         disablePortal
                       />
                     </div>
