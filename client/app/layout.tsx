@@ -169,7 +169,12 @@ const pageTitles: Record<string, string> = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const pageTitle = pageTitles[pathname] || "OmborPro";
+  const pageTitle = pageTitles[pathname]
+    ?? Object.keys(pageTitles)
+      .filter(k => k !== "/" && pathname.startsWith(k + "/"))
+      .sort((a, b) => b.length - a.length)
+      .map(k => pageTitles[k])[0]
+    ?? "OmborPro";
 
   const user = useAuthStore((s) => s.user);
   const logoutAction = useAuthStore((s) => s.logout);

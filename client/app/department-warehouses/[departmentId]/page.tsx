@@ -169,20 +169,20 @@ export default function DepartmentWarehouseDetailPage() {
         {canViewAll && (
           <Link
             href="/department-warehouses"
-            title="Bo'lim Omborlari ro'yxatiga qaytish"
             style={{
-              display: "inline-flex", alignItems: "center", justifyContent: "center",
-              width: 32, height: 32, borderRadius: "var(--radius)",
-              border: "1px solid var(--border)", background: "var(--surface)",
-              color: "var(--text2)", flexShrink: 0, transition: "all 0.15s",
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "7px 14px", background: "var(--bg3)",
+              border: "1.5px solid var(--border)", borderRadius: "var(--radius)",
+              fontWeight: 600, fontSize: 13, color: "var(--text2)",
+              flexShrink: 0, transition: "border-color 0.15s, color 0.15s",
             }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text2)"; }}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="19" y1="12" x2="5" y2="12" />
-              <polyline points="12 19 5 12 12 5" />
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <polyline points="15 18 9 12 15 6" />
             </svg>
+            Orqaga
           </Link>
         )}
         <div
