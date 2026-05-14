@@ -35,6 +35,18 @@ public class ProductController : ControllerBase
     }
 
     [HasPermission("Products.View")]
+    [HttpGet("reservations")]
+    public async Task<IActionResult> GetReservations(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        [FromQuery] string? search = null)
+    {
+        var restrict = GetRestrictDepartmentId();
+        var result = await _productService.GetReservationsAsync(page, pageSize, search, restrict);
+        return Ok(result);
+    }
+
+    [HasPermission("Products.View")]
     [HttpGet("by-department/{departmentId:guid}")]
     public async Task<IActionResult> GetByDepartment(Guid departmentId)
     {
