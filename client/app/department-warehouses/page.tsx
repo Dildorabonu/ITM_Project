@@ -6,28 +6,9 @@ import { useRouter } from "next/navigation";
 import {
   productService,
   DepartmentType,
-  DEPARTMENT_TYPE_LABELS,
   type DepartmentWarehouseSummary,
 } from "@/lib/userService";
 import { useAuthStore } from "@/lib/store/authStore";
-
-// Saturated tile palette — deterministic per department
-const TILE_PALETTE: { bg: string; soft: string }[] = [
-  { bg: "#5E84C9", soft: "#88A6DA" }, // blue
-  { bg: "#4FB1F2", soft: "#85C7F5" }, // sky
-  { bg: "#E7A06B", soft: "#EEB892" }, // peach
-  { bg: "#8198BD", soft: "#A2B3CF" }, // slate
-  { bg: "#67BB66", soft: "#8FCC8E" }, // green
-  { bg: "#DD7F7F", soft: "#E8A2A2" }, // coral
-  { bg: "#62BFA1", soft: "#8DD2B9" }, // mint
-  { bg: "#C16464", soft: "#D08C8C" }, // red
-  { bg: "#4DB6A6", soft: "#7BC8BC" }, // teal
-  { bg: "#B6B561", soft: "#CCCB8B" }, // olive
-  { bg: "#A571C3", soft: "#BC95D2" }, // purple
-  { bg: "#E6964F", soft: "#EEB07A" }, // amber
-  { bg: "#6F7DB8", soft: "#9099C9" }, // indigo
-  { bg: "#D67AB3", soft: "#E2A1C8" }, // pink
-];
 
 function hashStr(s: string): number {
   let h = 5381;
@@ -35,8 +16,27 @@ function hashStr(s: string): number {
   return Math.abs(h);
 }
 
-function getTileColor(id: string) {
-  return TILE_PALETTE[hashStr(id) % TILE_PALETTE.length];
+// Build a stable color map for the full department set so that every visible
+// tile receives a hue exactly 137.508° (golden angle) away from its neighbours.
+// Hash-based mapping looks random in theory but suffers from the birthday
+// paradox in practice — with only ~23 IDs spread over 360° clusters appear.
+// Index-based golden-angle assignment guarantees maximum perceptual spacing.
+function buildColorMap(ids: string[], theme: "dark" | "light") {
+  const sorted = [...ids].sort((a, b) => a.localeCompare(b));
+  const map = new Map<string, { bg: string; soft: string }>();
+  sorted.forEach((id, i) => {
+    const hue = (i * 137.508) % 360;
+    map.set(id, theme === "dark"
+      ? {
+          bg: `oklch(88% 0.075 ${hue})`,  // airy pastel — bottom-right
+          soft: `oklch(93% 0.06 ${hue})`, // slightly lighter top-left
+        }
+      : {
+          bg: `oklch(90% 0.07 ${hue})`,   // airy pastel — bottom-right
+          soft: `oklch(94% 0.055 ${hue})`, // slightly lighter top-left
+        });
+  });
+  return map;
 }
 
 // 12 distinct outline icons — industrial / warehouse themed
@@ -124,12 +124,6 @@ function getTileIcon(id: string) {
   return TILE_ICONS[hashStr(id + "·icon") % TILE_ICONS.length];
 }
 
-const TYPE_LABEL_COLOR: Record<DepartmentType, string> = {
-  [DepartmentType.IshlabChiqarish]: "var(--warn)",
-  [DepartmentType.Bolim]: "var(--accent)",
-  [DepartmentType.Boshqaruv]: "var(--purple)",
-};
-
 function fmtNum(n: number) {
   if (Number.isInteger(n)) return n.toLocaleString("uz-UZ");
   return n.toLocaleString("uz-UZ", { maximumFractionDigits: 2 });
@@ -155,6 +149,20 @@ export default function DepartmentWarehousesPage() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<string>("");
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+
+  useEffect(() => {
+    const saved = localStorage.getItem("theme");
+    if (saved === "light" || saved === "dark") setTheme(saved);
+    const onChange = (e: Event) => {
+      const detail = (e as CustomEvent<{ theme?: "dark" | "light" }>).detail;
+      if (detail?.theme === "dark" || detail?.theme === "light") {
+        setTheme(detail.theme);
+      }
+    };
+    window.addEventListener("appearance-theme", onChange);
+    return () => window.removeEventListener("appearance-theme", onChange);
+  }, []);
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -201,6 +209,15 @@ export default function DepartmentWarehousesPage() {
       return acc;
     }, { products: 0, qty: 0 });
   }, [filtered]);
+
+  // Stable color map keyed on the full department set — filtering/searching
+  // never reshuffles hues, but adding/removing departments rebalances them.
+  const colorMap = useMemo(
+    () => buildColorMap(summaries.map(s => s.departmentId), theme),
+    [summaries, theme],
+  );
+
+  const isDark = theme === "dark";
 
   if (!hasHydrated || (!canViewAll && user?.departmentId)) {
     return (
@@ -301,9 +318,9 @@ export default function DepartmentWarehousesPage() {
 
       {/* Tile grid */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="rounded-[20px] aspect-[5/3.5] animate-pulse bg-[--surface2]" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className="rounded-[16px] aspect-[5/4.8] animate-pulse bg-[--surface2]" />
           ))}
         </div>
       ) : error ? (
@@ -329,90 +346,55 @@ export default function DepartmentWarehousesPage() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
           {filtered.map((s, i) => {
-            const color = getTileColor(s.departmentId);
+            const color = colorMap.get(s.departmentId)!;
             const icon = getTileIcon(s.departmentId);
             const isEmpty = s.productCount === 0;
-            const typeLabel = DEPARTMENT_TYPE_LABELS[s.departmentType as DepartmentType] ?? "—";
 
+            const emptyBg = "linear-gradient(135deg, #eef0f3 0%, #dfe2e8 100%)";
+            const cardShadow = isDark
+              ? "shadow-[0_6px_18px_rgba(0,0,0,0.32)] hover:shadow-[0_18px_42px_rgba(0,0,0,0.45)]"
+              : "shadow-[0_4px_14px_rgba(15,23,42,0.08)] hover:shadow-[0_14px_32px_rgba(15,23,42,0.16)]";
+            const iconBoxClass = "flex items-center justify-center w-[44px] h-[44px] rounded-full bg-white/55 text-[#1f2430]";
+            const badgeClass = "inline-flex items-center justify-center font-mono text-[12px] font-semibold text-white bg-[#6b7280] px-3.5 h-[28px] min-w-[36px] rounded-full";
+            const titleClass = "font-head-itm text-[14px] font-bold text-[#1f2430] leading-snug tracking-tight";
             return (
               <Link
                 key={s.departmentId}
                 href={`/department-warehouses/${s.departmentId}`}
                 className={`nd-fadein-${Math.min(i, 4)} group relative overflow-hidden
-                            flex flex-col rounded-[20px] aspect-[5/3.5]
-                            shadow-[0_6px_18px_rgba(0,0,0,0.32)]
+                            block rounded-[16px] aspect-[5/4.8]
+                            ${cardShadow}
                             transition-all duration-300 ease-out cursor-pointer
-                            hover:-translate-y-1 hover:shadow-[0_18px_42px_rgba(0,0,0,0.45)]`}
+                            hover:-translate-y-1`}
                 style={{
                   background: isEmpty
-                    ? "linear-gradient(135deg, #3a3f4a 0%, #2c303a 100%)"
-                    : `linear-gradient(135deg, ${color.soft} 0%, ${color.bg} 65%, ${color.bg} 100%)`,
+                    ? emptyBg
+                    : `linear-gradient(135deg, ${color.soft} 0%, ${color.bg} 100%)`,
                 }}
               >
-                {/* Soft highlight behind icon (top-left) */}
-                <span
-                  className="absolute -top-14 -left-14 w-52 h-52 rounded-full opacity-35 pointer-events-none"
-                  style={{ background: "radial-gradient(circle, rgba(255,255,255,0.5) 0%, transparent 60%)" }}
-                />
-
-                {/* Top row: icon (with halo) + quantity badge */}
-                <div className="relative px-5 pt-5">
-                  <span className="relative inline-flex items-center justify-center">
-                    <svg
-                      width="56" height="56" viewBox="0 0 24 24"
-                      className="relative text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.25)]"
-                    >
-                      {icon}
-                    </svg>
-                  </span>
-                  <span
-                    className="absolute top-5 right-5 inline-flex items-center justify-center whitespace-nowrap min-w-[52px] h-[36px] px-4 rounded-full
-                               bg-[rgba(15,18,25,0.78)] backdrop-blur-md text-white text-[14px] leading-none
-                               font-mono font-bold tracking-tight
-                               ring-[3px] ring-white/30 shadow-[0_4px_12px_rgba(0,0,0,0.35)]"
-                  >
-                    {isEmpty ? "0" : fmtCompact(s.totalQuantity)}
-                  </span>
+                {/* Icon — top-left, has its own offset */}
+                <div className={`${iconBoxClass} absolute top-[16px] left-[16px]`}>
+                  <svg width="22" height="22" viewBox="0 0 24 24">
+                    {icon}
+                  </svg>
                 </div>
 
-                {/* Spacer */}
-                <div className="flex-1" />
+                {/* Badge — top-right, has its own offset */}
+                <span className={`${badgeClass} absolute top-[18px] right-[16px]`}>
+                  {isEmpty ? "0" : fmtCompact(s.totalQuantity)}
+                </span>
 
-                {/* Bottom content — title big, meta subtle */}
-                <div className="relative px-6 pb-6">
-                  <h3 className="font-head-itm text-[22px] font-bold text-white leading-[1.15]
-                                 line-clamp-2 drop-shadow-[0_2px_6px_rgba(0,0,0,0.3)] mb-2.5">
+                {/* Title — bottom-left, has its own offset */}
+                <h3
+                  className={`${titleClass} absolute bottom-[16px] left-[16px] right-[16px]`}
+                  title={s.departmentName}
+                >
+                  <span className="line-clamp-2 [word-break:break-word]">
                     {s.departmentName}
-                  </h3>
-
-                  <div className="flex items-center justify-between text-[12px] text-white/85">
-                    <span className="inline-flex items-center gap-2">
-                      <span
-                        className="w-1.5 h-1.5 rounded-full"
-                        style={{
-                          background: isEmpty
-                            ? "rgba(255,255,255,0.5)"
-                            : TYPE_LABEL_COLOR[s.departmentType as DepartmentType] ?? "white",
-                        }}
-                      />
-                      <span className="font-semibold uppercase tracking-[0.12em] text-white/85">
-                        {typeLabel}
-                      </span>
-                      <span className="text-white/40">·</span>
-                      <span className="font-mono">
-                        {isEmpty ? "bo'sh" : `${fmtNum(s.productCount)} tur`}
-                      </span>
-                    </span>
-                    <span className="inline-flex items-center gap-1 font-semibold text-white/95
-                                     transition-transform duration-200 group-hover:translate-x-1">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="9 18 15 12 9 6" />
-                      </svg>
-                    </span>
-                  </div>
-                </div>
+                  </span>
+                </h3>
               </Link>
             );
           })}
