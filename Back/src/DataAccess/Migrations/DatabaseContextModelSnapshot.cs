@@ -707,7 +707,14 @@ namespace DataAccess.Migrations
                         .HasColumnType("text");
 
                     b.Property<decimal>("Quantity")
-                        .HasColumnType("numeric");
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<decimal>("ReservedQuantity")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasDefaultValue(0m);
 
                     b.Property<int>("Unit")
                         .HasColumnType("integer");
@@ -886,6 +893,9 @@ namespace DataAccess.Migrations
                     b.Property<Guid>("RequisitionId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("ReservedProductId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("WarehouseNotes")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
@@ -895,6 +905,8 @@ namespace DataAccess.Migrations
                     b.HasIndex("MaterialId");
 
                     b.HasIndex("RequisitionId");
+
+                    b.HasIndex("ReservedProductId");
 
                     b.ToTable("RequisitionItems");
                 });
@@ -1592,9 +1604,16 @@ namespace DataAccess.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Core.Entities.Product", "ReservedProduct")
+                        .WithMany()
+                        .HasForeignKey("ReservedProductId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Material");
 
                     b.Navigation("Requisition");
+
+                    b.Navigation("ReservedProduct");
                 });
 
             modelBuilder.Entity("Core.Entities.RolePermission", b =>

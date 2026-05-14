@@ -10,6 +10,9 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
     {
         builder.HasKey(p => p.Id);
 
+        builder.Property(p => p.Quantity).HasPrecision(18, 4);
+        builder.Property(p => p.ReservedQuantity).HasPrecision(18, 4).HasDefaultValue(0m);
+
         builder.Property(p => p.InvoiceNumber)
             .IsRequired();
 

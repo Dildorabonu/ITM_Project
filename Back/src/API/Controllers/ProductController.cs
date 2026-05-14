@@ -1,6 +1,7 @@
 using API.Authorization;
 using Application.DTOs.Products;
 using Application.Services;
+using Core.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -25,10 +26,11 @@ public class ProductController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
         [FromQuery] string? search = null,
-        [FromQuery] Guid? departmentId = null)
+        [FromQuery] Guid? departmentId = null,
+        [FromQuery] DepartmentType? departmentType = null)
     {
         var restrict = GetRestrictDepartmentId();
-        var result = await _productService.GetAllAsync(page, pageSize, search, departmentId, restrict);
+        var result = await _productService.GetAllAsync(page, pageSize, search, departmentId, restrict, departmentType);
         return Ok(result);
     }
 

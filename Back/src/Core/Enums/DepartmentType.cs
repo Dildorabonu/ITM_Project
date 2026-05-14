@@ -5,4 +5,5 @@ public enum DepartmentType
     IshlabChiqarish = 0,
     Bolim  = 1,
     Boshqaruv = 2,
+    Omborxona = 3,
 }

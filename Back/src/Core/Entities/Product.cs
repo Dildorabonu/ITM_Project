@@ -9,6 +9,11 @@ public class Product
     public string InvoiceNumber { get; set; } = string.Empty;
     public string? Description { get; set; }
     public decimal Quantity { get; set; }
+
+    // Omborchi tasdiqlagan, direktor tasdiqini kutayotgan miqdor.
+    // Omborchi tekshiruvida foydalanuvchi ko'radigan miqdor: Quantity - ReservedQuantity.
+    public decimal ReservedQuantity { get; set; }
+
     public ProductUnit Unit { get; set; }
     public Guid DepartmentId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

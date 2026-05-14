@@ -25,7 +25,11 @@ public class RequisitionItem
     // ("100 dan 10 ta bor" ko'rsatishda kerak)
     public decimal? OriginalQuantity { get; set; }
 
+    // Omborchi tasdiqlaganda muzlatilgan Product (Rejectda rezervni qaytarish uchun)
+    public Guid? ReservedProductId { get; set; }
+
     // Navigation properties
     public Requisition? Requisition { get; set; }
     public Material? Material { get; set; }
+    public Product? ReservedProduct { get; set; }
 }
