@@ -28,12 +28,12 @@ function buildColorMap(ids: string[], theme: "dark" | "light") {
     const hue = (i * 137.508) % 360;
     map.set(id, theme === "dark"
       ? {
-          bg: `oklch(66% 0.055 ${hue})`,  // airy jewel — bottom-right
-          soft: `oklch(72% 0.055 ${hue})`, // slightly lighter top-left
+          bg: `oklch(88% 0.075 ${hue})`,  // airy pastel — bottom-right
+          soft: `oklch(93% 0.06 ${hue})`, // slightly lighter top-left
         }
       : {
-          bg: `oklch(84% 0.065 ${hue})`,  // soft pastel — bottom-right
-          soft: `oklch(89% 0.06 ${hue})`,  // slightly lighter top-left
+          bg: `oklch(90% 0.07 ${hue})`,   // airy pastel — bottom-right
+          soft: `oklch(94% 0.055 ${hue})`, // slightly lighter top-left
         });
   });
   return map;
@@ -318,9 +318,9 @@ export default function DepartmentWarehousesPage() {
 
       {/* Tile grid */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="rounded-[20px] aspect-[5/3.8] animate-pulse bg-[--surface2]" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className="rounded-[16px] aspect-[5/4.8] animate-pulse bg-[--surface2]" />
           ))}
         </div>
       ) : error ? (
@@ -346,33 +346,25 @@ export default function DepartmentWarehousesPage() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
           {filtered.map((s, i) => {
             const color = colorMap.get(s.departmentId)!;
             const icon = getTileIcon(s.departmentId);
             const isEmpty = s.productCount === 0;
 
-            const emptyBg = isDark
-              ? "linear-gradient(135deg, #3a3f4a 0%, #2c303a 100%)"
-              : "linear-gradient(135deg, #e5e7eb 0%, #cfd4dc 100%)";
+            const emptyBg = "linear-gradient(135deg, #eef0f3 0%, #dfe2e8 100%)";
             const cardShadow = isDark
               ? "shadow-[0_6px_18px_rgba(0,0,0,0.32)] hover:shadow-[0_18px_42px_rgba(0,0,0,0.45)]"
               : "shadow-[0_4px_14px_rgba(15,23,42,0.08)] hover:shadow-[0_14px_32px_rgba(15,23,42,0.16)]";
-            const iconClass = isDark
-              ? "relative text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.25)]"
-              : "relative text-[#1f2430] drop-shadow-[0_1px_2px_rgba(0,0,0,0.06)]";
-            const badgeClass = isDark
-              ? "absolute top-5 right-5 inline-flex items-center justify-center whitespace-nowrap min-w-[52px] h-[36px] px-4 rounded-full bg-[rgba(15,18,25,0.78)] backdrop-blur-md text-white text-[14px] leading-none font-mono font-bold tracking-tight ring-[3px] ring-white/30 shadow-[0_4px_12px_rgba(0,0,0,0.35)]"
-              : "absolute top-5 right-5 inline-flex items-center justify-center whitespace-nowrap min-w-[52px] h-[36px] px-4 rounded-full bg-white/85 backdrop-blur-md text-[#1f2430] text-[14px] leading-none font-mono font-bold tracking-tight ring-[3px] ring-white/70 shadow-[0_4px_12px_rgba(15,23,42,0.12)]";
-            const titleClass = isDark
-              ? "font-head-itm text-[24px] font-bold text-white leading-[1.2] line-clamp-2 drop-shadow-[0_2px_6px_rgba(0,0,0,0.3)] min-w-0 [word-break:break-word]"
-              : "font-head-itm text-[24px] font-bold text-[#1f2430] leading-[1.2] line-clamp-2 min-w-0 [word-break:break-word]";
+            const iconBoxClass = "flex items-center justify-center w-[44px] h-[44px] rounded-full bg-white/55 text-[#1f2430]";
+            const badgeClass = "inline-flex items-center justify-center font-mono text-[12px] font-semibold text-white bg-[#6b7280] px-3.5 h-[28px] min-w-[36px] rounded-full";
+            const titleClass = "font-head-itm text-[14px] font-bold text-[#1f2430] leading-snug tracking-tight";
             return (
               <Link
                 key={s.departmentId}
                 href={`/department-warehouses/${s.departmentId}`}
                 className={`nd-fadein-${Math.min(i, 4)} group relative overflow-hidden
-                            flex flex-col rounded-[20px] aspect-[5/3.8]
+                            block rounded-[16px] aspect-[5/4.8]
                             ${cardShadow}
                             transition-all duration-300 ease-out cursor-pointer
                             hover:-translate-y-1`}
@@ -382,31 +374,27 @@ export default function DepartmentWarehousesPage() {
                     : `linear-gradient(135deg, ${color.soft} 0%, ${color.bg} 100%)`,
                 }}
               >
-                {/* Top row: icon + quantity badge */}
-                <div className="relative px-5 pt-5">
-                  <span className="relative inline-flex items-center justify-center">
-                    <svg
-                      width="56" height="56" viewBox="0 0 24 24"
-                      className={iconClass}
-                    >
-                      {icon}
-                    </svg>
-                  </span>
-                  <span className={badgeClass}>
-                    {isEmpty ? "0" : fmtCompact(s.totalQuantity)}
-                  </span>
+                {/* Icon — top-left, has its own offset */}
+                <div className={`${iconBoxClass} absolute top-[16px] left-[16px]`}>
+                  <svg width="22" height="22" viewBox="0 0 24 24">
+                    {icon}
+                  </svg>
                 </div>
 
-                {/* Spacer */}
-                <div className="flex-1" />
+                {/* Badge — top-right, has its own offset */}
+                <span className={`${badgeClass} absolute top-[18px] right-[16px]`}>
+                  {isEmpty ? "0" : fmtCompact(s.totalQuantity)}
+                </span>
 
-                {/* Bottom content — title block has fixed height so every tile
-                    reserves space for up to 2 lines and titles top-align uniformly */}
-                <div className="absolute left-5 right-5 bottom-10 h-[60px]">
-                  <h3 className={titleClass} title={s.departmentName}>
+                {/* Title — bottom-left, has its own offset */}
+                <h3
+                  className={`${titleClass} absolute bottom-[16px] left-[16px] right-[16px]`}
+                  title={s.departmentName}
+                >
+                  <span className="line-clamp-2 [word-break:break-word]">
                     {s.departmentName}
-                  </h3>
-                </div>
+                  </span>
+                </h3>
               </Link>
             );
           })}
