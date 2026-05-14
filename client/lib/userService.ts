@@ -309,6 +309,25 @@ export interface DepartmentWarehouseSummary {
   lastUpdatedAt: string | null;
 }
 
+export interface ProductReservationResponse {
+  productId: string;
+  productName: string;
+  invoiceNumber: string;
+  unit: ProductUnit;
+  warehouseDepartmentId: string;
+  warehouseDepartmentName: string;
+  reservedQuantity: number;
+  requisitionId: string;
+  requisitionNo: string;
+  purpose: string;
+  targetDepartmentId: string | null;
+  targetDepartmentName: string | null;
+  status: number;
+  statusLabel: string;
+  warehouseCheckedAt: string | null;
+  approvedAt: string | null;
+}
+
 export const productService = {
   getAll: async (page = 1, pageSize = 50, search?: string, departmentId?: string, departmentType?: DepartmentType): Promise<PagedResult<ProductResponse>> => {
     const params: Record<string, unknown> = { page, pageSize };
@@ -327,6 +346,13 @@ export const productService = {
   getDepartmentSummaries: async (): Promise<DepartmentWarehouseSummary[]> => {
     const res = await api.get("/api/product/department-summaries");
     return res.data?.result ?? res.data ?? [];
+  },
+
+  getReservations: async (page = 1, pageSize = 50, search?: string): Promise<PagedResult<ProductReservationResponse>> => {
+    const params: Record<string, unknown> = { page, pageSize };
+    if (search) params.search = search;
+    const res = await api.get("/api/product/reservations", { params });
+    return res.data?.result ?? res.data;
   },
 
   getById: async (id: string): Promise<ProductResponse> => {
