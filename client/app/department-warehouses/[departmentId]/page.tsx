@@ -14,6 +14,12 @@ import {
   type DepartmentResponse,
 } from "@/lib/userService";
 import { useAuthStore } from "@/lib/store/authStore";
+import { CheckSelect } from "@/app/_components/CheckSelect";
+
+const UNIT_FILTER_OPTIONS = (Object.keys(PRODUCT_UNIT_LABELS) as unknown as ProductUnit[]).map(k => ({
+  id: String(k),
+  name: PRODUCT_UNIT_LABELS[k],
+}));
 
 const TYPE_BADGE: Record<DepartmentType, { color: string; bg: string; border: string; icon: React.ReactNode }> = {
   [DepartmentType.IshlabChiqarish]: {
@@ -117,13 +123,6 @@ export default function DepartmentWarehouseDetailPage() {
     });
   }, [products, search, filterUnit]);
 
-  const totals = useMemo(() => {
-    return filtered.reduce((acc, p) => {
-      acc.qty += p.quantity;
-      return acc;
-    }, { qty: 0 });
-  }, [filtered]);
-
   if (!hasHydrated) {
     return (
       <div className="page-transition min-h-screen flex items-center justify-center">
@@ -164,224 +163,106 @@ export default function DepartmentWarehouseDetailPage() {
   const badge = TYPE_BADGE[deptType] ?? TYPE_BADGE[DepartmentType.Bolim];
 
   return (
-    <div className="page-transition min-h-screen">
-      {/* Breadcrumb */}
-      {canViewAll && (
-        <div className="mb-4 flex items-center gap-1.5 text-xs text-[--text3]">
-          <Link href="/department-warehouses" className="hover:text-[--accent] transition-colors">
-            Bo&apos;lim Omborlari
-          </Link>
-          <span>/</span>
-          <span className="text-[--text2]">{department?.name ?? "..."}</span>
-        </div>
-      )}
-
-      {/* Page header */}
-      <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
-        <div className="flex items-center gap-4">
-          <div
-            className="w-14 h-14 rounded-[--radius2] flex items-center justify-center shrink-0"
-            style={{ background: badge.bg, color: badge.color, border: `1px solid ${badge.border}` }}
+    <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+      {/* Compact page header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+        {canViewAll && (
+          <Link
+            href="/department-warehouses"
+            title="Bo'lim Omborlari ro'yxatiga qaytish"
+            style={{
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              width: 32, height: 32, borderRadius: "var(--radius)",
+              border: "1px solid var(--border)", background: "var(--surface)",
+              color: "var(--text2)", flexShrink: 0, transition: "all 0.15s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text2)"; }}
           >
-            {badge.icon}
-          </div>
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="w-1 h-3.5 rounded-full" style={{ background: badge.color }} />
-              <span
-                className="text-[10px] font-semibold uppercase tracking-[0.18em]"
-                style={{ color: badge.color }}
-              >
-                {department ? DEPARTMENT_TYPE_LABELS[deptType] : "Bo'lim ombori"}
-              </span>
-            </div>
-            <h1 className="font-head-itm text-[22px] font-bold text-[--text] tracking-tight leading-tight">
-              {department?.name ?? "Bo'lim ombori"}
-            </h1>
-            <p className="text-sm text-[--text3] mt-0.5">
-              Ombordan chiqarib berilgan mahsulotlar ro&apos;yxati
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <svg
-              width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[--text3] pointer-events-none"
-            >
-              <circle cx="11" cy="11" r="7" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12" />
+              <polyline points="12 19 5 12 12 5" />
             </svg>
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Mahsulot qidirish..."
-              className="w-60 bg-[--surface] border border-[--border] rounded-[--radius]
-                         pl-8 pr-3 py-2 text-sm text-[--text] placeholder:text-[--text3]
-                         focus:outline-none focus:border-[--accent] focus:ring-1 focus:ring-[--accent-dim]
-                         transition-colors duration-150"
-            />
+          </Link>
+        )}
+        <div
+          style={{
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            width: 38, height: 38, borderRadius: "var(--radius)",
+            background: badge.bg, color: badge.color, border: `1px solid ${badge.border}`,
+            flexShrink: 0,
+          }}
+        >
+          {badge.icon}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.16em", color: badge.color, textTransform: "uppercase", marginBottom: 2 }}>
+            {department ? DEPARTMENT_TYPE_LABELS[deptType] : "Bo'lim ombori"}
           </div>
-          <select
-            value={filterUnit}
-            onChange={(e) => setFilterUnit(e.target.value)}
-            className="bg-[--surface] border border-[--border] rounded-[--radius]
-                       px-3 py-2 text-sm text-[--text]
-                       focus:outline-none focus:border-[--accent] focus:ring-1 focus:ring-[--accent-dim]
-                       transition-colors duration-150 cursor-pointer"
-          >
-            <option value="">Barcha birliklar</option>
-            {(Object.keys(PRODUCT_UNIT_LABELS) as unknown as ProductUnit[]).map(k => (
-              <option key={k} value={k}>{PRODUCT_UNIT_LABELS[k]}</option>
-            ))}
-          </select>
+          <div className="font-head-itm" style={{ fontSize: 18, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.01em", lineHeight: 1.2 }}>
+            {department?.name ?? "Bo'lim ombori"}
+          </div>
         </div>
       </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-        <div className="relative bg-[--surface] border border-[--border] rounded-[--radius] p-4 overflow-hidden group hover:border-[--border2] transition-colors">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-[--text3] mb-1.5">
-                Mahsulot turlari
-              </p>
-              <p className="text-[22px] font-bold font-mono text-[--text] leading-none">{fmtNum(filtered.length)}</p>
-            </div>
-            <div className="w-8 h-8 rounded-[--radius] bg-[--surface2] flex items-center justify-center text-[--accent]">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-                <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-                <line x1="12" y1="22.08" x2="12" y2="12" />
-              </svg>
-            </div>
-          </div>
-          <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[--accent] opacity-50 group-hover:opacity-100 transition-opacity" />
+      {/* Toolbar */}
+      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, padding: "8px 14px", flexWrap: "wrap", overflow: "visible" }}>
+        <div className="search-wrap" style={{ maxWidth: "none", flex: 1, minWidth: 180 }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input className="search-input" placeholder="Qidirish: mahsulot nomi yoki invoice..."
+            value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <div className="relative bg-[--surface] border border-[--border] rounded-[--radius] p-4 overflow-hidden group hover:border-[--border2] transition-colors">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-[--text3] mb-1.5">
-                Jami miqdor
-              </p>
-              <p className="text-[22px] font-bold font-mono text-[--text] leading-none">{fmtNum(totals.qty)}</p>
-            </div>
-            <div className="w-8 h-8 rounded-[--radius] bg-[--surface2] flex items-center justify-center text-[--warn]">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="20" x2="12" y2="10" />
-                <line x1="18" y1="20" x2="18" y2="4" />
-                <line x1="6" y1="20" x2="6" y2="16" />
-              </svg>
-            </div>
-          </div>
-          <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[--warn] opacity-50 group-hover:opacity-100 transition-opacity" />
-        </div>
-        <div className="relative bg-[--surface] border border-[--border] rounded-[--radius] p-4 overflow-hidden group hover:border-[--border2] transition-colors">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-[--text3] mb-1.5">
-                Ko&apos;rinish rejimi
-              </p>
-              <p className="text-sm font-bold text-[--text] leading-none mt-1.5 inline-flex items-center gap-1.5">
-                <span
-                  className="w-1.5 h-1.5 rounded-full animate-pulse"
-                  style={{ background: canViewAll ? "var(--accent)" : "var(--success)" }}
-                />
-                {canViewAll ? "Hammasini ko'rish" : "O'z bo'limim"}
-              </p>
-            </div>
-            <div
-              className="w-8 h-8 rounded-[--radius] bg-[--surface2] flex items-center justify-center"
-              style={{ color: canViewAll ? "var(--accent)" : "var(--success)" }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-            </div>
-          </div>
-          <div
-            className="absolute bottom-0 left-0 right-0 h-[2px] opacity-50 group-hover:opacity-100 transition-opacity"
-            style={{ background: canViewAll ? "var(--accent)" : "var(--success)" }}
-          />
-        </div>
+        <CheckSelect
+          value={filterUnit}
+          onChange={setFilterUnit}
+          options={UNIT_FILTER_OPTIONS}
+          placeholder="Barcha birliklar"
+          style={{ width: 200 }}
+        />
       </div>
 
-      {/* Products table */}
-      <div className="bg-[--surface] border border-[--border] rounded-[--radius2] overflow-hidden">
+      {/* Table */}
+      <div className="itm-card" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "clip" } as React.CSSProperties}>
         {loading ? (
-          <div className="p-12 flex justify-center">
-            <div className="nd-spinner" />
-          </div>
+          <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
         ) : error ? (
-          <div className="p-6 text-center">
-            <p className="text-sm text-[--danger]">{error}</p>
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="p-16 text-center">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[--surface2] flex items-center justify-center text-[--text3]">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-              </svg>
-            </div>
-            <p className="font-head-itm text-base font-semibold text-[--text]">
-              {search || filterUnit ? "Filtrga mos mahsulot topilmadi" : "Bu omborda hali mahsulot yo'q"}
-            </p>
-            <p className="text-sm text-[--text3] mt-1 max-w-md mx-auto">
-              {search || filterUnit
-                ? "Qidiruv yoki birlik filterini o'zgartirib ko'ring."
-                : "Talabnoma orqali ombordan olganingizdan keyin mahsulotlar shu yerda ko'rinadi."}
-            </p>
-          </div>
+          <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--danger)" }}>{error}</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 z-10 bg-[--bg2]">
+          <div style={{ overflowX: "auto", overflowY: "auto", flex: 1, minHeight: 0 }}>
+            <table className="itm-table">
+              <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
                 <tr>
-                  <th className="px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest text-[--text3] border-b border-[--border]">
-                    Mahsulot
-                  </th>
-                  <th className="px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest text-[--text3] border-b border-[--border]">
-                    Invoice №
-                  </th>
-                  <th className="px-3 py-2.5 text-right text-[10px] font-semibold uppercase tracking-widest text-[--text3] border-b border-[--border]">
-                    Miqdor
-                  </th>
-                  <th className="px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest text-[--text3] border-b border-[--border]">
-                    Birlik
-                  </th>
-                  <th className="px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest text-[--text3] border-b border-[--border]">
-                    Tushgan sana
-                  </th>
+                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>T/r</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Mahsulot nomi</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Invoice raqami</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Soni</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>O&apos;lchov</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Tavsif</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Tushgan sana</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((p, i) => (
-                  <tr
-                    key={p.id}
-                    className={`nd-fadein-${Math.min(i, 4)} border-b border-[--border]
-                                hover:bg-[--surface2] transition-colors duration-100`}
-                  >
-                    <td className="px-3 py-2.5 text-[--text]">
-                      <div className="font-medium">{p.name}</div>
-                      {p.description && (
-                        <div className="text-[11px] text-[--text3] mt-0.5 line-clamp-1">{p.description}</div>
-                      )}
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>
+                      {search || filterUnit
+                        ? "Filtrga mos mahsulot topilmadi"
+                        : "Bu omborda hali mahsulot yo'q"}
                     </td>
-                    <td className="px-3 py-2.5">
-                      <span className="font-mono text-xs text-[--accent]">{p.invoiceNumber}</span>
+                  </tr>
+                ) : filtered.map((p, i) => (
+                  <tr key={p.id}>
+                    <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>
+                      {String(i + 1).padStart(2, "0")}
                     </td>
-                    <td className="px-3 py-2.5 text-right font-mono font-semibold text-[--text]">
-                      {fmtNum(p.quantity)}
-                    </td>
-                    <td className="px-3 py-2.5 text-[--text2]">
-                      {PRODUCT_UNIT_LABELS[p.unit] ?? "—"}
-                    </td>
-                    <td className="px-3 py-2.5 text-[--text3] font-mono text-xs">
-                      {fmtDateTime(p.createdAt)}
-                    </td>
+                    <td style={{ textAlign: "center" }}>{p.name}</td>
+                    <td style={{ textAlign: "center", color: "var(--accent)", fontFamily: "var(--font-mono)", fontSize: 13 }}>{p.invoiceNumber || "—"}</td>
+                    <td style={{ textAlign: "center", color: "var(--text1)", fontFamily: "var(--font-mono)" }}>{fmtNum(p.quantity)}</td>
+                    <td style={{ textAlign: "center", color: "var(--text1)" }}>{PRODUCT_UNIT_LABELS[p.unit] ?? "—"}</td>
+                    <td style={{ textAlign: "center", color: "var(--text1)" }}>{p.description ?? "—"}</td>
+                    <td style={{ textAlign: "center", color: "var(--text3)", fontFamily: "var(--font-mono)", fontSize: 12 }}>{fmtDateTime(p.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>
