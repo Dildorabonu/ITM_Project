@@ -6,9 +6,17 @@ import { useRouter } from "next/navigation";
 import {
   productService,
   DepartmentType,
+  DEPARTMENT_TYPE_LABELS,
   type DepartmentWarehouseSummary,
 } from "@/lib/userService";
 import { useAuthStore } from "@/lib/store/authStore";
+import { CheckSelect } from "@/app/_components/CheckSelect";
+
+const TYPE_FILTER_OPTIONS = [
+  { id: String(DepartmentType.IshlabChiqarish), name: DEPARTMENT_TYPE_LABELS[DepartmentType.IshlabChiqarish] },
+  { id: String(DepartmentType.Bolim),           name: DEPARTMENT_TYPE_LABELS[DepartmentType.Bolim] },
+  { id: String(DepartmentType.Boshqaruv),       name: DEPARTMENT_TYPE_LABELS[DepartmentType.Boshqaruv] },
+];
 
 // Build a stable color map for the full department set so that every visible
 // tile receives a hue exactly 137.508° (golden angle) away from its neighbours.
@@ -31,11 +39,6 @@ function buildColorMap(ids: string[], theme: "dark" | "light") {
         });
   });
   return map;
-}
-
-function fmtNum(n: number) {
-  if (Number.isInteger(n)) return n.toLocaleString("uz-UZ");
-  return n.toLocaleString("uz-UZ", { maximumFractionDigits: 2 });
 }
 
 function fmtCompact(n: number) {
@@ -111,14 +114,6 @@ export default function DepartmentWarehousesPage() {
     });
   }, [summaries, search, filterType]);
 
-  const totals = useMemo(() => {
-    return filtered.reduce((acc, s) => {
-      acc.products += s.productCount;
-      acc.qty += s.totalQuantity;
-      return acc;
-    }, { products: 0, qty: 0 });
-  }, [filtered]);
-
   // Stable color map keyed on the full department set — filtering/searching
   // never reshuffles hues, but adding/removing departments rebalances them.
   const colorMap = useMemo(
@@ -157,72 +152,23 @@ export default function DepartmentWarehousesPage() {
   }
 
   return (
-    <div className="page-transition min-h-screen px-6 py-6">
-      {/* Compact header */}
-      <div className="flex items-end justify-between gap-6 flex-wrap mb-7">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="w-1 h-4 rounded-full bg-[--accent]" />
-            <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[--text3]">
-              Ombor / Bo&apos;limlar
-            </span>
-          </div>
-          <h1 className="font-head-itm text-[30px] font-bold text-[--text] tracking-tight leading-none">
-            Bo&apos;lim Omborlari
-          </h1>
-          <p className="text-[13px] text-[--text3] mt-3 flex items-center gap-3 flex-wrap">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="font-mono font-semibold text-[--text2]">{fmtNum(filtered.length)}</span>
-              bo&apos;lim
-            </span>
-            <span className="text-[--border2]">·</span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="font-mono font-semibold text-[--text2]">{fmtNum(totals.products)}</span>
-              mahsulot turi
-            </span>
-            <span className="text-[--border2]">·</span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="font-mono font-semibold text-[--text2]">{fmtNum(totals.qty)}</span>
-              birlik
-            </span>
-          </p>
+    <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+      {/* Toolbar */}
+      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "8px 14px", flexWrap: "wrap", overflow: "visible" }}>
+        <div className="search-wrap" style={{ maxWidth: "none", flex: 1, minWidth: 180 }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input className="search-input" placeholder="Bo'lim qidirish..."
+            value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-
-        <div className="flex items-center gap-2.5 shrink-0">
-          <div className="relative">
-            <svg
-              width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[--text3] pointer-events-none"
-            >
-              <circle cx="11" cy="11" r="7" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Bo'lim qidirish..."
-              className="w-64 bg-[--surface] border border-[--border] rounded-[--radius]
-                         pl-10 pr-3 py-2.5 text-sm text-[--text] placeholder:text-[--text3]
-                         focus:outline-none focus:border-[--accent] focus:ring-1 focus:ring-[--accent-dim]
-                         transition-colors duration-150"
-            />
-          </div>
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            className="bg-[--surface] border border-[--border] rounded-[--radius]
-                       px-3.5 py-2.5 text-sm text-[--text] min-w-[160px]
-                       focus:outline-none focus:border-[--accent] focus:ring-1 focus:ring-[--accent-dim]
-                       transition-colors duration-150 cursor-pointer"
-          >
-            <option value="">Barcha turlar</option>
-            <option value={DepartmentType.IshlabChiqarish}>Ishlab chiqarish</option>
-            <option value={DepartmentType.Bolim}>Bo&apos;lim</option>
-            <option value={DepartmentType.Boshqaruv}>Boshqaruv</option>
-          </select>
-        </div>
+        <CheckSelect
+          value={filterType}
+          onChange={setFilterType}
+          options={TYPE_FILTER_OPTIONS}
+          placeholder="Barcha turlar"
+          style={{ width: 200 }}
+        />
       </div>
 
       {/* Tile grid */}
