@@ -439,6 +439,126 @@ public class RequisitionService : IRequisitionService
         return ApiResult<bool>.Success(true);
     }
 
+    public async Task<ApiResult<bool>> ReleaseAsync(Guid id, Guid releaserId)
+    {
+        var r = await GetWithIncludes(id);
+        if (r is null)
+            return ApiResult<bool>.Failure([$"Requisition '{id}' topilmadi."], 404);
+
+        if (r.Status != RequisitionStatus.ReadyForWarehouseRelease)
+            return ApiResult<bool>.Failure(["Faqat tasdiqlangan (ombordan olishga tayyor) talabnomani chiqarish mumkin."]);
+
+        if (r.DepartmentId is null)
+            return ApiResult<bool>.Failure(["Talabnoma bo'limga bog'lanmagan — qaysi bo'lim omboriga tushishi noma'lum."]);
+
+        var targetDeptId = r.DepartmentId.Value;
+
+        if (!await _context.Departments.AnyAsync(d => d.Id == targetDeptId))
+            return ApiResult<bool>.Failure(["Maqsadli bo'lim topilmadi."]);
+
+        // Mavjud Productlarni bir martada yuklab olish (upsert uchun)
+        var existingProducts = await _context.Products
+            .Where(p => p.DepartmentId == targetDeptId)
+            .ToListAsync();
+
+        var itemIndex = 0;
+        foreach (var item in r.Items)
+        {
+            itemIndex++;
+            var qty = item.Quantity;
+
+            // Mahsulot nomi va birligi (MaterialId yoki erkin matn)
+            string productName;
+            ProductUnit unit;
+
+            if (item.MaterialId.HasValue && item.Material is not null)
+            {
+                var material = item.Material;
+
+                if (material.Quantity < qty)
+                    return ApiResult<bool>.Failure([$"Omborda '{material.Name}' yetarli emas (mavjud: {material.Quantity}, kerak: {qty})."]);
+
+                material.Quantity -= qty;
+                material.UpdatedAt = DateTime.UtcNow;
+
+                _context.StockOuts.Add(new StockOut
+                {
+                    Id = Guid.NewGuid(),
+                    MaterialId = material.Id,
+                    Quantity = qty,
+                    DepartmentId = targetDeptId,
+                    ContractId = r.ContractId,
+                    IssuedBy = releaserId,
+                    IssuedAt = DateTime.UtcNow,
+                    Notes = $"Talabnoma: {r.RequisitionNo}"
+                });
+
+                productName = material.Name;
+                unit = ParseProductUnit(material.Unit);
+            }
+            else
+            {
+                productName = item.FreeTextName ?? "Noma'lum mahsulot";
+                unit = ParseProductUnit(item.FreeTextUnit);
+            }
+
+            // Bo'lim omboriga upsert
+            var existing = existingProducts.FirstOrDefault(p =>
+                p.Name.Equals(productName, StringComparison.OrdinalIgnoreCase) && p.Unit == unit);
+
+            if (existing is not null)
+            {
+                existing.Quantity += qty;
+            }
+            else
+            {
+                var newProduct = new Product
+                {
+                    Id = Guid.NewGuid(),
+                    Name = productName,
+                    InvoiceNumber = $"{r.RequisitionNo}-{itemIndex:D2}",
+                    Description = item.Notes,
+                    Quantity = qty,
+                    Unit = unit,
+                    DepartmentId = targetDeptId,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.Products.Add(newProduct);
+                existingProducts.Add(newProduct);
+            }
+        }
+
+        r.Status = RequisitionStatus.Released;
+
+        await _context.SaveChangesAsync();
+
+        await _notificationService.CreateAsync(r.CreatedBy,
+            $"Talabnoma chiqarib berildi: {r.RequisitionNo}",
+            "Mahsulotlar bo'lim omboriga tushdi.",
+            NotificationType.Info);
+
+        return ApiResult<bool>.Success(true);
+    }
+
+    private static ProductUnit ParseProductUnit(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return ProductUnit.Dona;
+        var s = raw.Trim().ToLowerInvariant();
+        return s switch
+        {
+            "kg" or "kilogramm" or "kilo"            => ProductUnit.Kilogramm,
+            "g" or "gr" or "gramm"                   => ProductUnit.Gramm,
+            "l" or "lt" or "litr"                    => ProductUnit.Litr,
+            "m" or "metr"                            => ProductUnit.Metr,
+            "m2" or "kv.m" or "kvmetr" or "kv metr"  => ProductUnit.KvMetr,
+            "m3" or "kub.m" or "kubmetr" or "kub metr" => ProductUnit.KubMetr,
+            "quti" or "box"                          => ProductUnit.Quti,
+            "paket" or "pak"                         => ProductUnit.Paket,
+            "to'plam" or "toplam" or "set"           => ProductUnit.Toʻplam,
+            _                                        => ProductUnit.Dona,
+        };
+    }
+
     // ─── Yordamchi metodlar ───────────────────────────────────────────────────
 
     private async Task<Requisition?> GetWithIncludes(Guid id) =>

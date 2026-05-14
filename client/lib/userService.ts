@@ -296,6 +296,15 @@ export interface ProductUpdatePayload {
   departmentId?: string;
 }
 
+export interface DepartmentWarehouseSummary {
+  departmentId: string;
+  departmentName: string;
+  departmentType: number;
+  productCount: number;
+  totalQuantity: number;
+  lastUpdatedAt: string | null;
+}
+
 export const productService = {
   getAll: async (page = 1, pageSize = 50, search?: string, departmentId?: string): Promise<PagedResult<ProductResponse>> => {
     const params: Record<string, unknown> = { page, pageSize };
@@ -307,6 +316,11 @@ export const productService = {
 
   getByDepartment: async (departmentId: string): Promise<ProductResponse[]> => {
     const res = await api.get(`/api/product/by-department/${departmentId}`);
+    return res.data?.result ?? res.data ?? [];
+  },
+
+  getDepartmentSummaries: async (): Promise<DepartmentWarehouseSummary[]> => {
+    const res = await api.get("/api/product/department-summaries");
     return res.data?.result ?? res.data ?? [];
   },
 
@@ -1347,6 +1361,7 @@ export enum RequisitionStatus {
   PendingApproval          = 8,
   ReadyForWarehouseRelease = 9,
   ReadyForPurchase         = 10,
+  Released                 = 11,
 }
 
 export enum RequisitionSource {
@@ -1363,6 +1378,7 @@ export const REQUISITION_STATUS_LABELS: Record<RequisitionStatus, string> = {
   [RequisitionStatus.PendingApproval]:          "Tasdiqlash kutilmoqda",
   [RequisitionStatus.ReadyForWarehouseRelease]: "Ombordan olishga",
   [RequisitionStatus.ReadyForPurchase]:         "Sotib olishga",
+  [RequisitionStatus.Released]:                 "Chiqarib berildi",
 };
 
 export const REQUISITION_SOURCE_LABELS: Record<RequisitionSource, string> = {
@@ -1522,6 +1538,10 @@ export const requisitionService = {
 
   reject: async (id: string, rejectionReason: string): Promise<void> => {
     await api.post(`/api/requisition/${id}/reject`, { rejectionReason });
+  },
+
+  release: async (id: string): Promise<void> => {
+    await api.post(`/api/requisition/${id}/release`);
   },
 
   warehouseCheck: async (id: string, items: RequisitionWarehouseCheckItem[]): Promise<string[]> => {

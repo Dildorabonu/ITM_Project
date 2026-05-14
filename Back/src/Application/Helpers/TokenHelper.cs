@@ -11,7 +11,8 @@ public static class TokenHelper
     public static (string Token, DateTime ExpiresAt) GenerateToken(
         Guid userId, string username, string role, JwtOptions jwtOptions,
         string firstName = "", string lastName = "",
-        IEnumerable<string>? permissions = null)
+        IEnumerable<string>? permissions = null,
+        Guid? departmentId = null)
     {
         var claims = new List<Claim>
         {
@@ -21,6 +22,9 @@ public static class TokenHelper
             new(ClaimTypes.GivenName, firstName),
             new(ClaimTypes.Surname, lastName)
         };
+
+        if (departmentId.HasValue)
+            claims.Add(new Claim("dept", departmentId.Value.ToString()));
 
         if (permissions is not null)
         {

@@ -36,6 +36,7 @@ const navGroups: NavGroup[] = [
     icon: "package",
     items: [
       { name: "Mahsulotlar",      href: "/products",     icon: "shopping-bag", permission: "Products.View" },
+      { name: "Bo'lim omborlari", href: "/department-warehouses", icon: "briefcase", permission: "Products.View" },
       { name: "Talabnomalar",     href: "/requisitions", icon: "clipboard",    permission: ["Requisitions.View", "Requisitions.ViewAll"] },
       { name: "Tasdiqlash",       href: "/requisitions/approvals", icon: "check-square", permission: "Requisitions.Approve" },
       { name: "Ombor tekshiruvi", href: "/warehouse",    icon: "package",      permission: "WarehouseCheck.View" },
@@ -142,8 +143,8 @@ function applyAppearanceFont(family: string, scale: number) {
 }
 
 // Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
-const readyRoutes = new Set(["/", "/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions", "/requisitions/approvals", "/manufactured"]);
-const readyPrefixes = ["/requisitions/", "/contracts/", "/techprocess/", "/technicaldrawings/", "/requisitions/print"];
+const readyRoutes = new Set(["/", "/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions", "/requisitions/approvals", "/manufactured", "/department-warehouses"]);
+const readyPrefixes = ["/requisitions/", "/contracts/", "/techprocess/", "/technicaldrawings/", "/requisitions/print", "/department-warehouses/"];
 
 const pageTitles: Record<string, string> = {
   "/":              "Dashboard",
@@ -158,6 +159,7 @@ const pageTitles: Record<string, string> = {
   "/roles":         "Rollar",
   "/departments":   "Tuzilma",
   "/products":      "Mahsulotlar",
+  "/department-warehouses": "Bo'lim Omborlari",
   "/appearance":    "Tashqi ko'rinish",
   "/requisitions":           "Talabnomalar",
   "/requisitions/approvals": "Talabnomalar — Tasdiqlash",

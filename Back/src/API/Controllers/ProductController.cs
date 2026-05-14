@@ -3,6 +3,7 @@ using Application.DTOs.Products;
 using Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace API.Controllers;
 
@@ -26,7 +27,8 @@ public class ProductController : ControllerBase
         [FromQuery] string? search = null,
         [FromQuery] Guid? departmentId = null)
     {
-        var result = await _productService.GetAllAsync(page, pageSize, search, departmentId);
+        var restrict = GetRestrictDepartmentId();
+        var result = await _productService.GetAllAsync(page, pageSize, search, departmentId, restrict);
         return Ok(result);
     }
 
@@ -34,7 +36,20 @@ public class ProductController : ControllerBase
     [HttpGet("by-department/{departmentId:guid}")]
     public async Task<IActionResult> GetByDepartment(Guid departmentId)
     {
+        var restrict = GetRestrictDepartmentId();
+        if (restrict.HasValue && restrict.Value != departmentId)
+            return Forbid();
+
         var result = await _productService.GetByDepartmentAsync(departmentId);
+        return Ok(result);
+    }
+
+    [HasPermission("Products.View")]
+    [HttpGet("department-summaries")]
+    public async Task<IActionResult> GetDepartmentSummaries()
+    {
+        var restrict = GetRestrictDepartmentId();
+        var result = await _productService.GetDepartmentSummariesAsync(restrict);
         return Ok(result);
     }
 
@@ -96,5 +111,20 @@ public class ProductController : ControllerBase
             return NotFound(result);
 
         return StatusCode(result.Result, result);
+    }
+
+    // ViewAll permissioni bo'lmagan foydalanuvchilar uchun JWT 'dept' claimidan
+    // bo'lim ID sini qaytaradi. ViewAll bor bo'lsa null — cheklov yo'q.
+    private Guid? GetRestrictDepartmentId()
+    {
+        if (User.HasClaim("perm", "Products.ViewAll"))
+            return null;
+
+        var deptClaim = User.FindFirstValue("dept");
+        if (Guid.TryParse(deptClaim, out var deptId))
+            return deptId;
+
+        // Bo'limga bog'lanmagan va ViewAll yo'q — hech narsa ko'rmaydi
+        return Guid.Empty;
     }
 }

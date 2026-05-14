@@ -128,6 +128,19 @@ public class RequisitionController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Omborchi mahsulotlarni chiqarib beradi: ReadyForWarehouseRelease → Released. Bo'lim omboriga avto-qo'shish.</summary>
+    [HasPermission("Requisitions.WarehouseCheck")]
+    [HttpPost("{id:guid}/release")]
+    public async Task<IActionResult> Release(Guid id)
+    {
+        var userId = GetUserId();
+        if (userId is null) return Unauthorized();
+
+        var result = await _requisitionService.ReleaseAsync(id, userId.Value);
+        if (!result.Succeeded) return BadRequest(result);
+        return Ok(result);
+    }
+
     // ── Files ────────────────────────────────────────────────────────────────
 
     [HasPermission("Requisitions.View")]

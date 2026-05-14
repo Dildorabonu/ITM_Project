@@ -23,4 +23,8 @@ public interface IRequisitionService
 
     // Direktor: PendingApproval → Rejected
     Task<ApiResult<bool>> RejectAsync(Guid id, Guid directorId, RequisitionRejectDto dto);
+
+    // Omborchi: ReadyForWarehouseRelease → Released
+    // Material qty kamaytiriladi, StockOut yoziladi, bo'lim Productiga avto qo'shiladi
+    Task<ApiResult<bool>> ReleaseAsync(Guid id, Guid releaserId);
 }
