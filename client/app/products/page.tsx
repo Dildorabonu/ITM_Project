@@ -7,6 +7,7 @@ import * as XLSX from "xlsx";
 import {
   productService,
   departmentService,
+  DepartmentType,
   ProductUnit,
   PRODUCT_UNIT_LABELS,
   type ProductResponse,
@@ -44,6 +45,11 @@ const UNIT_OPTIONS = (Object.keys(PRODUCT_UNIT_LABELS) as unknown as ProductUnit
   id: String(key),
   name: PRODUCT_UNIT_LABELS[key],
 }));
+
+// Page rules: this page belongs to the warehouse structure only.
+// Products are filtered to departments of type Omborxona; all dropdowns,
+// the Excel template, and import validation honor this constraint.
+const WAREHOUSE_DEPARTMENT_TYPE = DepartmentType.Omborxona;
 
 export default function ProductsPage() {
   const hasPermission = useAuthStore(s => s.hasPermission);
@@ -111,7 +117,13 @@ export default function ProductsPage() {
     try {
       setLoading(true);
       setError("");
-      const data = await productService.getAll(page, 50, search || undefined, filterDept || undefined);
+      const data = await productService.getAll(
+        page,
+        50,
+        search || undefined,
+        filterDept || undefined,
+        WAREHOUSE_DEPARTMENT_TYPE,
+      );
       setProducts(data.items);
       setTotalPages(data.totalPages);
       setTotalCount(data.totalCount);
@@ -124,7 +136,10 @@ export default function ProductsPage() {
 
   useEffect(() => {
     load();
-    departmentService.getAll().then(setDepartments).catch(() => {});
+    departmentService
+      .getAll()
+      .then(list => setDepartments(list.filter(d => d.type === WAREHOUSE_DEPARTMENT_TYPE)))
+      .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
