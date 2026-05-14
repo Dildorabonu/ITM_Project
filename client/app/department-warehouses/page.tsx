@@ -296,7 +296,7 @@ export default function DepartmentWarehousesPage() {
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="rounded-[20px] aspect-[5/3.5] animate-pulse bg-[--surface2]" />
+            <div key={i} className="rounded-[20px] aspect-[5/3.8] animate-pulse bg-[--surface2]" />
           ))}
         </div>
       ) : error ? (
@@ -333,7 +333,7 @@ export default function DepartmentWarehousesPage() {
                 key={s.departmentId}
                 href={`/department-warehouses/${s.departmentId}`}
                 className={`nd-fadein-${Math.min(i, 4)} group relative overflow-hidden
-                            flex flex-col rounded-[20px] aspect-[5/3.5]
+                            flex flex-col rounded-[20px] aspect-[5/3.8]
                             shadow-[0_6px_18px_rgba(0,0,0,0.32)]
                             transition-all duration-300 ease-out cursor-pointer
                             hover:-translate-y-1 hover:shadow-[0_18px_42px_rgba(0,0,0,0.45)]`}
@@ -372,18 +372,15 @@ export default function DepartmentWarehousesPage() {
                 {/* Spacer */}
                 <div className="flex-1" />
 
-                {/* Bottom content — title only */}
-                <div className="relative px-6 pb-6 flex items-end justify-between gap-3">
-                  <h3 className="font-head-itm text-[22px] font-bold text-white leading-[1.15]
-                                 line-clamp-2 drop-shadow-[0_2px_6px_rgba(0,0,0,0.3)] flex-1 min-w-0">
+                {/* Bottom content — title block has fixed height so every tile
+                    reserves space for up to 2 lines and titles top-align uniformly */}
+                <div className="absolute left-5 right-5 bottom-10 h-[60px]">
+                  <h3 className="font-head-itm text-[24px] font-bold text-white leading-[1.2]
+                                 line-clamp-2 drop-shadow-[0_2px_6px_rgba(0,0,0,0.3)] min-w-0
+                                 [word-break:break-word]"
+                      title={s.departmentName}>
                     {s.departmentName}
                   </h3>
-                  <span className="inline-flex items-center text-white/95 shrink-0 pb-0.5
-                                   transition-transform duration-200 group-hover:translate-x-1">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="9 18 15 12 9 6" />
-                    </svg>
-                  </span>
                 </div>
               </Link>
             );
