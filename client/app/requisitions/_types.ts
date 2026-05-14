@@ -29,6 +29,7 @@ export const STATUS_STYLE: Partial<Record<RequisitionStatus, { bg: string; color
   [RequisitionStatus.Split]:                    { bg: "var(--purple-dim)",  color: "var(--purple)",  border: "rgba(124,58,237,0.25)" },
   [RequisitionStatus.ReadyForWarehouseRelease]: { bg: "var(--success-dim)", color: "var(--success)", border: "rgba(15,123,69,0.2)" },
   [RequisitionStatus.ReadyForPurchase]:         { bg: "var(--accent-dim)",  color: "var(--accent)",  border: "rgba(26,110,235,0.25)" },
+  [RequisitionStatus.Released]:                 { bg: "var(--success-dim)", color: "var(--success)", border: "rgba(15,123,69,0.35)" },
 };
 
 export const SOURCE_STYLE: Record<RequisitionSource, { bg: string; color: string; border: string }> = {
@@ -68,6 +69,7 @@ export function getWorkflowIndex(status: RequisitionStatus): number {
     case RequisitionStatus.PendingApproval:          return 3;
     case RequisitionStatus.ReadyForWarehouseRelease: return 4;
     case RequisitionStatus.ReadyForPurchase:         return 4;
+    case RequisitionStatus.Released:                 return 4;
     default:                                         return -1;
   }
 }
