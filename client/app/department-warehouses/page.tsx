@@ -10,12 +10,6 @@ import {
 } from "@/lib/userService";
 import { useAuthStore } from "@/lib/store/authStore";
 
-function hashStr(s: string): number {
-  let h = 5381;
-  for (let i = 0; i < s.length; i++) h = ((h << 5) + h) + s.charCodeAt(i);
-  return Math.abs(h);
-}
-
 // Build a stable color map for the full department set so that every visible
 // tile receives a hue exactly 137.508° (golden angle) away from its neighbours.
 // Hash-based mapping looks random in theory but suffers from the birthday
@@ -37,91 +31,6 @@ function buildColorMap(ids: string[], theme: "dark" | "light") {
         });
   });
   return map;
-}
-
-// 12 distinct outline icons — industrial / warehouse themed
-const TILE_ICONS: React.ReactNode[] = [
-  // 0 — boxes stacked
-  <g key="boxes" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="11" width="8" height="9" rx="0.5" />
-    <rect x="13" y="11" width="8" height="9" rx="0.5" />
-    <rect x="8" y="3" width="8" height="8" rx="0.5" />
-    <path d="M7 11v3M15 11v3M12 3v3" />
-  </g>,
-  // 1 — factory
-  <g key="factory" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 21V10l5 3V8l5 3V8l5 3v10z" />
-    <path d="M3 21h18M7 17v2M11 17v2M15 17v2M19 17v2" />
-    <path d="M16 5l1-2h2l1 2" />
-  </g>,
-  // 2 — gears
-  <g key="gears" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="9" cy="9" r="3" />
-    <path d="M9 3v2M9 13v2M3 9h2M13 9h2M5 5l1.5 1.5M11.5 11.5L13 13M5 13l1.5-1.5M11.5 6.5L13 5" />
-    <circle cx="16" cy="16" r="2.5" />
-    <path d="M16 12v1.5M16 18.5V20M12 16h1.5M18.5 16H20" />
-  </g>,
-  // 3 — conveyor
-  <g key="conveyor" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="14" width="18" height="5" rx="2.5" />
-    <circle cx="7" cy="16.5" r="0.6" fill="currentColor" />
-    <circle cx="12" cy="16.5" r="0.6" fill="currentColor" />
-    <circle cx="17" cy="16.5" r="0.6" fill="currentColor" />
-    <rect x="6" y="7" width="6" height="5" rx="0.5" />
-    <rect x="14" y="5" width="5" height="7" rx="0.5" />
-  </g>,
-  // 4 — robot arm
-  <g key="arm" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="18" width="18" height="3" rx="0.5" />
-    <path d="M7 18v-4l5-5 4 3" />
-    <circle cx="7" cy="14" r="1.4" />
-    <circle cx="12" cy="9" r="1.4" />
-    <path d="M16 12l3-3 2 2-3 3z" />
-  </g>,
-  // 5 — beaker
-  <g key="beaker" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9 3v6l-5 9a2 2 0 0 0 1.8 3h12.4A2 2 0 0 0 20 18l-5-9V3" />
-    <path d="M8 3h8" />
-    <path d="M7 14h10" />
-  </g>,
-  // 6 — chip
-  <g key="chip" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="6" y="6" width="12" height="12" rx="1" />
-    <rect x="9" y="9" width="6" height="6" />
-    <path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3" />
-  </g>,
-  // 7 — shield
-  <g key="shield" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 3l8 4v5c0 4.5-3.4 8.5-8 9.5C7.4 20.5 4 16.5 4 12V7l8-4z" />
-    <path d="M9 12l2 2 4-4" />
-  </g>,
-  // 8 — server stack
-  <g key="server" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="4" width="18" height="6" rx="1" />
-    <rect x="3" y="14" width="18" height="6" rx="1" />
-    <path d="M6 7h.01M6 17h.01M10 7h6M10 17h6" />
-  </g>,
-  // 9 — truck
-  <g key="truck" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="7" width="11" height="9" rx="1" />
-    <path d="M13 10h4l3 3v3h-7z" />
-    <circle cx="6.5" cy="18" r="1.6" />
-    <circle cx="17" cy="18" r="1.6" />
-  </g>,
-  // 10 — wrench
-  <g key="wrench" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 0 0 5.4-5.4l-2.2 2.2-2.4-2.4z" />
-  </g>,
-  // 11 — clipboard
-  <g key="clipboard" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="5" y="5" width="14" height="16" rx="1.5" />
-    <rect x="9" y="3" width="6" height="4" rx="1" />
-    <path d="M9 12h6M9 15h6M9 18h4" />
-  </g>,
-];
-
-function getTileIcon(id: string) {
-  return TILE_ICONS[hashStr(id + "·icon") % TILE_ICONS.length];
 }
 
 function fmtNum(n: number) {
@@ -349,16 +258,14 @@ export default function DepartmentWarehousesPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
           {filtered.map((s, i) => {
             const color = colorMap.get(s.departmentId)!;
-            const icon = getTileIcon(s.departmentId);
             const isEmpty = s.productCount === 0;
 
             const emptyBg = "linear-gradient(135deg, #eef0f3 0%, #dfe2e8 100%)";
             const cardShadow = isDark
               ? "shadow-[0_6px_18px_rgba(0,0,0,0.32)] hover:shadow-[0_18px_42px_rgba(0,0,0,0.45)]"
               : "shadow-[0_4px_14px_rgba(15,23,42,0.08)] hover:shadow-[0_14px_32px_rgba(15,23,42,0.16)]";
-            const iconBoxClass = "flex items-center justify-center w-[44px] h-[44px] rounded-full bg-white/55 text-[#1f2430]";
             const badgeClass = "inline-flex items-center justify-center font-mono text-[12px] font-semibold text-white bg-[#6b7280] px-3.5 h-[28px] min-w-[36px] rounded-full";
-            const titleClass = "font-head-itm text-[14px] font-bold text-[#1f2430] leading-snug tracking-tight";
+            const titleClass = "font-head-itm text-[17px] font-bold text-[#1f2430] leading-snug tracking-tight";
             return (
               <Link
                 key={s.departmentId}
@@ -374,21 +281,14 @@ export default function DepartmentWarehousesPage() {
                     : `linear-gradient(135deg, ${color.soft} 0%, ${color.bg} 100%)`,
                 }}
               >
-                {/* Icon — top-left, has its own offset */}
-                <div className={`${iconBoxClass} absolute top-[16px] left-[16px]`}>
-                  <svg width="22" height="22" viewBox="0 0 24 24">
-                    {icon}
-                  </svg>
-                </div>
-
                 {/* Badge — top-right, has its own offset */}
                 <span className={`${badgeClass} absolute top-[18px] right-[16px]`}>
                   {isEmpty ? "0" : fmtCompact(s.totalQuantity)}
                 </span>
 
-                {/* Title — bottom-left, has its own offset */}
+                {/* Title — fixed 2-line area anchored to bottom; text starts at top so 1- and 2-line names align */}
                 <h3
-                  className={`${titleClass} absolute bottom-[16px] left-[16px] right-[16px]`}
+                  className={`${titleClass} absolute bottom-[16px] left-[16px] right-[16px] h-[48px] flex items-start`}
                   title={s.departmentName}
                 >
                   <span className="line-clamp-2 [word-break:break-word]">
