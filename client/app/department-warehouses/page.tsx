@@ -10,32 +10,33 @@ import {
 } from "@/lib/userService";
 import { useAuthStore } from "@/lib/store/authStore";
 
-// Saturated tile palette — deterministic per department
-const TILE_PALETTE: { bg: string; soft: string }[] = [
-  { bg: "#5E84C9", soft: "#88A6DA" }, // blue
-  { bg: "#4FB1F2", soft: "#85C7F5" }, // sky
-  { bg: "#E7A06B", soft: "#EEB892" }, // peach
-  { bg: "#8198BD", soft: "#A2B3CF" }, // slate
-  { bg: "#67BB66", soft: "#8FCC8E" }, // green
-  { bg: "#DD7F7F", soft: "#E8A2A2" }, // coral
-  { bg: "#62BFA1", soft: "#8DD2B9" }, // mint
-  { bg: "#C16464", soft: "#D08C8C" }, // red
-  { bg: "#4DB6A6", soft: "#7BC8BC" }, // teal
-  { bg: "#B6B561", soft: "#CCCB8B" }, // olive
-  { bg: "#A571C3", soft: "#BC95D2" }, // purple
-  { bg: "#E6964F", soft: "#EEB07A" }, // amber
-  { bg: "#6F7DB8", soft: "#9099C9" }, // indigo
-  { bg: "#D67AB3", soft: "#E2A1C8" }, // pink
-];
-
 function hashStr(s: string): number {
   let h = 5381;
   for (let i = 0; i < s.length; i++) h = ((h << 5) + h) + s.charCodeAt(i);
   return Math.abs(h);
 }
 
-function getTileColor(id: string) {
-  return TILE_PALETTE[hashStr(id) % TILE_PALETTE.length];
+// Build a stable color map for the full department set so that every visible
+// tile receives a hue exactly 137.508° (golden angle) away from its neighbours.
+// Hash-based mapping looks random in theory but suffers from the birthday
+// paradox in practice — with only ~23 IDs spread over 360° clusters appear.
+// Index-based golden-angle assignment guarantees maximum perceptual spacing.
+function buildColorMap(ids: string[], theme: "dark" | "light") {
+  const sorted = [...ids].sort((a, b) => a.localeCompare(b));
+  const map = new Map<string, { bg: string; soft: string }>();
+  sorted.forEach((id, i) => {
+    const hue = (i * 137.508) % 360;
+    map.set(id, theme === "dark"
+      ? {
+          bg: `oklch(66% 0.055 ${hue})`,  // airy jewel — bottom-right
+          soft: `oklch(72% 0.055 ${hue})`, // slightly lighter top-left
+        }
+      : {
+          bg: `oklch(84% 0.065 ${hue})`,  // soft pastel — bottom-right
+          soft: `oklch(89% 0.06 ${hue})`,  // slightly lighter top-left
+        });
+  });
+  return map;
 }
 
 // 12 distinct outline icons — industrial / warehouse themed
@@ -148,6 +149,20 @@ export default function DepartmentWarehousesPage() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<string>("");
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+
+  useEffect(() => {
+    const saved = localStorage.getItem("theme");
+    if (saved === "light" || saved === "dark") setTheme(saved);
+    const onChange = (e: Event) => {
+      const detail = (e as CustomEvent<{ theme?: "dark" | "light" }>).detail;
+      if (detail?.theme === "dark" || detail?.theme === "light") {
+        setTheme(detail.theme);
+      }
+    };
+    window.addEventListener("appearance-theme", onChange);
+    return () => window.removeEventListener("appearance-theme", onChange);
+  }, []);
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -194,6 +209,15 @@ export default function DepartmentWarehousesPage() {
       return acc;
     }, { products: 0, qty: 0 });
   }, [filtered]);
+
+  // Stable color map keyed on the full department set — filtering/searching
+  // never reshuffles hues, but adding/removing departments rebalances them.
+  const colorMap = useMemo(
+    () => buildColorMap(summaries.map(s => s.departmentId), theme),
+    [summaries, theme],
+  );
+
+  const isDark = theme === "dark";
 
   if (!hasHydrated || (!canViewAll && user?.departmentId)) {
     return (
@@ -324,47 +348,51 @@ export default function DepartmentWarehousesPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filtered.map((s, i) => {
-            const color = getTileColor(s.departmentId);
+            const color = colorMap.get(s.departmentId)!;
             const icon = getTileIcon(s.departmentId);
             const isEmpty = s.productCount === 0;
 
+            const emptyBg = isDark
+              ? "linear-gradient(135deg, #3a3f4a 0%, #2c303a 100%)"
+              : "linear-gradient(135deg, #e5e7eb 0%, #cfd4dc 100%)";
+            const cardShadow = isDark
+              ? "shadow-[0_6px_18px_rgba(0,0,0,0.32)] hover:shadow-[0_18px_42px_rgba(0,0,0,0.45)]"
+              : "shadow-[0_4px_14px_rgba(15,23,42,0.08)] hover:shadow-[0_14px_32px_rgba(15,23,42,0.16)]";
+            const iconClass = isDark
+              ? "relative text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.25)]"
+              : "relative text-[#1f2430] drop-shadow-[0_1px_2px_rgba(0,0,0,0.06)]";
+            const badgeClass = isDark
+              ? "absolute top-5 right-5 inline-flex items-center justify-center whitespace-nowrap min-w-[52px] h-[36px] px-4 rounded-full bg-[rgba(15,18,25,0.78)] backdrop-blur-md text-white text-[14px] leading-none font-mono font-bold tracking-tight ring-[3px] ring-white/30 shadow-[0_4px_12px_rgba(0,0,0,0.35)]"
+              : "absolute top-5 right-5 inline-flex items-center justify-center whitespace-nowrap min-w-[52px] h-[36px] px-4 rounded-full bg-white/85 backdrop-blur-md text-[#1f2430] text-[14px] leading-none font-mono font-bold tracking-tight ring-[3px] ring-white/70 shadow-[0_4px_12px_rgba(15,23,42,0.12)]";
+            const titleClass = isDark
+              ? "font-head-itm text-[24px] font-bold text-white leading-[1.2] line-clamp-2 drop-shadow-[0_2px_6px_rgba(0,0,0,0.3)] min-w-0 [word-break:break-word]"
+              : "font-head-itm text-[24px] font-bold text-[#1f2430] leading-[1.2] line-clamp-2 min-w-0 [word-break:break-word]";
             return (
               <Link
                 key={s.departmentId}
                 href={`/department-warehouses/${s.departmentId}`}
                 className={`nd-fadein-${Math.min(i, 4)} group relative overflow-hidden
                             flex flex-col rounded-[20px] aspect-[5/3.8]
-                            shadow-[0_6px_18px_rgba(0,0,0,0.32)]
+                            ${cardShadow}
                             transition-all duration-300 ease-out cursor-pointer
-                            hover:-translate-y-1 hover:shadow-[0_18px_42px_rgba(0,0,0,0.45)]`}
+                            hover:-translate-y-1`}
                 style={{
                   background: isEmpty
-                    ? "linear-gradient(135deg, #3a3f4a 0%, #2c303a 100%)"
-                    : `linear-gradient(135deg, ${color.soft} 0%, ${color.bg} 65%, ${color.bg} 100%)`,
+                    ? emptyBg
+                    : `linear-gradient(135deg, ${color.soft} 0%, ${color.bg} 100%)`,
                 }}
               >
-                {/* Soft highlight behind icon (top-left) */}
-                <span
-                  className="absolute -top-14 -left-14 w-52 h-52 rounded-full opacity-35 pointer-events-none"
-                  style={{ background: "radial-gradient(circle, rgba(255,255,255,0.5) 0%, transparent 60%)" }}
-                />
-
-                {/* Top row: icon (with halo) + quantity badge */}
+                {/* Top row: icon + quantity badge */}
                 <div className="relative px-5 pt-5">
                   <span className="relative inline-flex items-center justify-center">
                     <svg
                       width="56" height="56" viewBox="0 0 24 24"
-                      className="relative text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.25)]"
+                      className={iconClass}
                     >
                       {icon}
                     </svg>
                   </span>
-                  <span
-                    className="absolute top-5 right-5 inline-flex items-center justify-center whitespace-nowrap min-w-[52px] h-[36px] px-4 rounded-full
-                               bg-[rgba(15,18,25,0.78)] backdrop-blur-md text-white text-[14px] leading-none
-                               font-mono font-bold tracking-tight
-                               ring-[3px] ring-white/30 shadow-[0_4px_12px_rgba(0,0,0,0.35)]"
-                  >
+                  <span className={badgeClass}>
                     {isEmpty ? "0" : fmtCompact(s.totalQuantity)}
                   </span>
                 </div>
@@ -375,10 +403,7 @@ export default function DepartmentWarehousesPage() {
                 {/* Bottom content — title block has fixed height so every tile
                     reserves space for up to 2 lines and titles top-align uniformly */}
                 <div className="absolute left-5 right-5 bottom-10 h-[60px]">
-                  <h3 className="font-head-itm text-[24px] font-bold text-white leading-[1.2]
-                                 line-clamp-2 drop-shadow-[0_2px_6px_rgba(0,0,0,0.3)] min-w-0
-                                 [word-break:break-word]"
-                      title={s.departmentName}>
+                  <h3 className={titleClass} title={s.departmentName}>
                     {s.departmentName}
                   </h3>
                 </div>
