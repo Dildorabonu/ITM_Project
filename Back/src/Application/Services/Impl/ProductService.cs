@@ -2,6 +2,7 @@ using Application.DTOs;
 using Application.DTOs.Products;
 using Application.Helpers;
 using Core.Entities;
+using Core.Enums;
 using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,7 +17,7 @@ public class ProductService : IProductService
         _context = context;
     }
 
-    public async Task<ApiResult<PagedResult<ProductResponseDto>>> GetAllAsync(int page, int pageSize, string? search, Guid? departmentId, Guid? restrictToDepartmentId = null)
+    public async Task<ApiResult<PagedResult<ProductResponseDto>>> GetAllAsync(int page, int pageSize, string? search, Guid? departmentId, Guid? restrictToDepartmentId = null, DepartmentType? departmentType = null)
     {
         var query = _context.Products
             .Include(p => p.Department)
@@ -26,6 +27,9 @@ public class ProductService : IProductService
         // faqat o'zining bo'limidagi mahsulotlar ko'rinadi.
         if (restrictToDepartmentId.HasValue)
             query = query.Where(p => p.DepartmentId == restrictToDepartmentId.Value);
+
+        if (departmentType.HasValue)
+            query = query.Where(p => p.Department!.Type == departmentType.Value);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -265,6 +269,8 @@ public class ProductService : IProductService
         InvoiceNumber = product.InvoiceNumber,
         Description = product.Description,
         Quantity = product.Quantity,
+        ReservedQuantity = product.ReservedQuantity,
+        AvailableQuantity = Math.Max(0m, product.Quantity - product.ReservedQuantity),
         Unit = product.Unit,
         DepartmentId = product.DepartmentId,
         DepartmentName = product.Department?.Name ?? string.Empty,

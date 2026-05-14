@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import {
   requisitionService,
   productService,
+  DepartmentType,
   RequisitionStatus,
   RequisitionType,
   REQUISITION_TYPE_LABELS,
@@ -206,7 +207,7 @@ export default function WarehousePage() {
     try {
       const [reqs, prods] = await Promise.all([
         requisitionService.getAll(RequisitionStatus.PendingWarehouseCheck),
-        productService.getAll(1, 1000),
+        productService.getAll(1, 1000, undefined, undefined, DepartmentType.Omborxona),
       ]);
       setRequisitions(reqs);
       setProducts(prods.items);
@@ -234,7 +235,7 @@ export default function WarehousePage() {
       const totalItems = req.items.length;
       const foundItems = req.items.filter(it => {
         const match = prodMap.get(normalize(it.materialName));
-        return match && match.quantity >= it.quantity;
+        return match && match.availableQuantity >= it.quantity;
       }).length;
       const missingItems = totalItems - foundItems;
       return {
@@ -291,7 +292,7 @@ export default function WarehousePage() {
     if (!selectedReq) { setEditItems([]); return; }
     setEditItems(selectedReq.items.map(it => {
       const match = prodMap.get(normalize(it.materialName));
-      const productQty = match?.quantity ?? 0;
+      const productQty = match?.availableQuantity ?? 0;
       const suggested = Math.min(productQty, it.quantity);
       const status: MaterialStatus = !match ? "topilmadi" : productQty >= it.quantity ? "yetarli" : "yetishmadi";
       return {
@@ -694,7 +695,7 @@ export default function WarehousePage() {
                       setDetailLoading(true);
                       Promise.all([
                         requisitionService.getAll(RequisitionStatus.PendingWarehouseCheck),
-                        productService.getAll(1, 1000),
+                        productService.getAll(1, 1000, undefined, undefined, DepartmentType.Omborxona),
                       ]).then(([reqs, prods]) => {
                         setRequisitions(reqs);
                         setProducts(prods.items);

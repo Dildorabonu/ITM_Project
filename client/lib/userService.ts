@@ -14,12 +14,14 @@ export enum DepartmentType {
   IshlabChiqarish = 0,
   Bolim           = 1,
   Boshqaruv         = 2,
+  Omborxona       = 3,
 }
 
 export const DEPARTMENT_TYPE_LABELS: Record<DepartmentType, string> = {
   [DepartmentType.IshlabChiqarish]: "Ishlab chiqarish",
   [DepartmentType.Bolim]:           "Bo'lim",
   [DepartmentType.Boshqaruv]:         "Boshqaruv",
+  [DepartmentType.Omborxona]:       "Omborxona",
 };
 
 export interface UserLookup {
@@ -272,6 +274,8 @@ export interface ProductResponse {
   invoiceNumber: string;
   description: string | null;
   quantity: number;
+  reservedQuantity: number;
+  availableQuantity: number;
   unit: ProductUnit;
   departmentId: string;
   departmentName: string;
@@ -306,10 +310,11 @@ export interface DepartmentWarehouseSummary {
 }
 
 export const productService = {
-  getAll: async (page = 1, pageSize = 50, search?: string, departmentId?: string): Promise<PagedResult<ProductResponse>> => {
+  getAll: async (page = 1, pageSize = 50, search?: string, departmentId?: string, departmentType?: DepartmentType): Promise<PagedResult<ProductResponse>> => {
     const params: Record<string, unknown> = { page, pageSize };
     if (search) params.search = search;
     if (departmentId) params.departmentId = departmentId;
+    if (departmentType !== undefined) params.departmentType = departmentType;
     const res = await api.get("/api/product", { params });
     return res.data?.result ?? res.data;
   },

@@ -26,5 +26,10 @@ public class RequisitionItemConfiguration : IEntityTypeConfiguration<Requisition
             .WithMany()
             .HasForeignKey(i => i.MaterialId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(i => i.ReservedProduct)
+            .WithMany()
+            .HasForeignKey(i => i.ReservedProductId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }
