@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import {
   productService,
   DepartmentType,
-  DEPARTMENT_TYPE_LABELS,
   type DepartmentWarehouseSummary,
 } from "@/lib/userService";
 import { useAuthStore } from "@/lib/store/authStore";
@@ -123,12 +122,6 @@ const TILE_ICONS: React.ReactNode[] = [
 function getTileIcon(id: string) {
   return TILE_ICONS[hashStr(id + "·icon") % TILE_ICONS.length];
 }
-
-const TYPE_LABEL_COLOR: Record<DepartmentType, string> = {
-  [DepartmentType.IshlabChiqarish]: "var(--warn)",
-  [DepartmentType.Bolim]: "var(--accent)",
-  [DepartmentType.Boshqaruv]: "var(--purple)",
-};
 
 function fmtNum(n: number) {
   if (Number.isInteger(n)) return n.toLocaleString("uz-UZ");
@@ -334,7 +327,6 @@ export default function DepartmentWarehousesPage() {
             const color = getTileColor(s.departmentId);
             const icon = getTileIcon(s.departmentId);
             const isEmpty = s.productCount === 0;
-            const typeLabel = DEPARTMENT_TYPE_LABELS[s.departmentType as DepartmentType] ?? "—";
 
             return (
               <Link
@@ -380,38 +372,18 @@ export default function DepartmentWarehousesPage() {
                 {/* Spacer */}
                 <div className="flex-1" />
 
-                {/* Bottom content — title big, meta subtle */}
-                <div className="relative px-6 pb-6">
+                {/* Bottom content — title only */}
+                <div className="relative px-6 pb-6 flex items-end justify-between gap-3">
                   <h3 className="font-head-itm text-[22px] font-bold text-white leading-[1.15]
-                                 line-clamp-2 drop-shadow-[0_2px_6px_rgba(0,0,0,0.3)] mb-2.5">
+                                 line-clamp-2 drop-shadow-[0_2px_6px_rgba(0,0,0,0.3)] flex-1 min-w-0">
                     {s.departmentName}
                   </h3>
-
-                  <div className="flex items-center justify-between text-[12px] text-white/85">
-                    <span className="inline-flex items-center gap-2">
-                      <span
-                        className="w-1.5 h-1.5 rounded-full"
-                        style={{
-                          background: isEmpty
-                            ? "rgba(255,255,255,0.5)"
-                            : TYPE_LABEL_COLOR[s.departmentType as DepartmentType] ?? "white",
-                        }}
-                      />
-                      <span className="font-semibold uppercase tracking-[0.12em] text-white/85">
-                        {typeLabel}
-                      </span>
-                      <span className="text-white/40">·</span>
-                      <span className="font-mono">
-                        {isEmpty ? "bo'sh" : `${fmtNum(s.productCount)} tur`}
-                      </span>
-                    </span>
-                    <span className="inline-flex items-center gap-1 font-semibold text-white/95
-                                     transition-transform duration-200 group-hover:translate-x-1">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="9 18 15 12 9 6" />
-                      </svg>
-                    </span>
-                  </div>
+                  <span className="inline-flex items-center text-white/95 shrink-0 pb-0.5
+                                   transition-transform duration-200 group-hover:translate-x-1">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  </span>
                 </div>
               </Link>
             );
