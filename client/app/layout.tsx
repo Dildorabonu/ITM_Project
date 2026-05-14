@@ -315,6 +315,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     localStorage.setItem("theme", darkMode ? "dark" : "light");
     const savedAccent = localStorage.getItem("appearance_accent");
     if (savedAccent) applyAppearanceAccent(savedAccent);
+    window.dispatchEvent(new CustomEvent("appearance-theme", { detail: { theme: darkMode ? "dark" : "light" } }));
   }, [darkMode]);
 
   const themeVars = darkMode ? {
