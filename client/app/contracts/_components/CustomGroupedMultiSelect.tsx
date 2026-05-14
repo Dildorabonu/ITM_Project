@@ -7,6 +7,7 @@ const TYPE_STYLE = {
   [DepartmentType.IshlabChiqarish]: { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa", icon: "🏭" },
   [DepartmentType.Bolim]:           { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe", icon: "🏢" },
   [DepartmentType.Boshqaruv]:       { bg: "#f5f3ff", color: "#6d28d9", border: "#ddd6fe", icon: "👔" },
+  [DepartmentType.Omborxona]:       { bg: "#ecfdf5", color: "#047857", border: "#a7f3d0", icon: "📦" },
 };
 
 export function CustomGroupedMultiSelect({

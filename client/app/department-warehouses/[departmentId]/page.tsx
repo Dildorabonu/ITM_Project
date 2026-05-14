@@ -51,6 +51,16 @@ const TYPE_BADGE: Record<DepartmentType, { color: string; bg: string; border: st
       </svg>
     ),
   },
+  [DepartmentType.Omborxona]: {
+    color: "var(--success)", bg: "var(--success-dim)", border: "rgba(15,123,69,0.35)",
+    icon: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 9l9-6 9 6v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9z" />
+        <path d="M3 13h18" />
+        <path d="M9 21V13" /><path d="M15 21V13" />
+      </svg>
+    ),
+  },
 };
 
 function fmtNum(n: number) {

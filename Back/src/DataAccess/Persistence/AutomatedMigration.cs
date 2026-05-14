@@ -368,7 +368,7 @@ public static class AutomatedMigration
             (Name: "Xo'jalik ishlari bo'limi",                                                                        Type: DepartmentType.Bolim),
             (Name: "Energetika bo'limi",                                                                              Type: DepartmentType.Bolim),
             (Name: "Nazorat va qo'riqlash bo'limi",                                                                   Type: DepartmentType.Bolim),
-            (Name: "Omborxona",                                                                                        Type: DepartmentType.Bolim),
+            (Name: "Omborxona",                                                                                        Type: DepartmentType.Omborxona),
 
             // Ishlab chiqarish sexlari
             (Name: "Mexanika va metalga qayta ishlov berish sexi",                                                    Type: DepartmentType.IshlabChiqarish),
@@ -383,8 +383,8 @@ public static class AutomatedMigration
 
         foreach (var (name, type) in seedDepartments)
         {
-            var exists = await context.Departments.AnyAsync(d => d.Name == name);
-            if (!exists)
+            var existing = await context.Departments.FirstOrDefaultAsync(d => d.Name == name);
+            if (existing is null)
             {
                 context.Departments.Add(new Department
                 {
@@ -395,6 +395,10 @@ public static class AutomatedMigration
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow,
                 });
+            }
+            else if (existing.Type != type)
+            {
+                existing.Type = type;
             }
         }
 

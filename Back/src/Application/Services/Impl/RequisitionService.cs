@@ -195,7 +195,7 @@ public class RequisitionService : IRequisitionService
     public async Task<ApiResult<List<Guid>>> WarehouseCheckAsync(Guid id, RequisitionWarehouseCheckDto dto, Guid checkerId)
     {
         var r = await _context.Requisitions
-            .Include(x => x.Items)
+            .Include(x => x.Items).ThenInclude(i => i.Material)
             .FirstOrDefaultAsync(x => x.Id == id);
 
         if (r is null)
@@ -208,8 +208,18 @@ public class RequisitionService : IRequisitionService
         if (checker is null)
             return ApiResult<List<Guid>>.Failure(["Omborchi topilmadi."], 404);
 
-        // Har bir item ga AvailableQuantity yozish
+        var warehouseDept = await _context.Departments
+            .FirstOrDefaultAsync(d => d.Type == DepartmentType.Omborxona && d.IsActive);
+        if (warehouseDept is null)
+            return ApiResult<List<Guid>>.Failure(["Omborxona bo'limi sozlanmagan."]);
+
         var checkMap = dto.Items.ToDictionary(i => i.ItemId);
+
+        // Bitta talabnoma ichida bir xil mahsulot bir necha marta bo'lsa,
+        // umumiy miqdorni bir Productdan kamaytirish uchun rezerv qo'shimchalarini yig'amiz.
+        var reservationDelta = new Dictionary<Guid, decimal>();
+
+        await using var tx = await _context.Database.BeginTransactionAsync();
 
         foreach (var item in r.Items)
         {
@@ -224,6 +234,34 @@ public class RequisitionService : IRequisitionService
 
             item.AvailableQuantity = check.AvailableQuantity;
             item.WarehouseNotes = check.WarehouseNotes;
+
+            if (check.AvailableQuantity > 0)
+            {
+                var productName = (item.Material?.Name ?? item.FreeTextName ?? string.Empty).Trim();
+                if (productName.Length == 0) continue;
+
+                var lower = productName.ToLower();
+                var product = await _context.Products
+                    .FirstOrDefaultAsync(p => p.DepartmentId == warehouseDept.Id && p.Name.ToLower() == lower);
+
+                if (product is null) continue;
+
+                var alreadyAdded = reservationDelta.TryGetValue(product.Id, out var prev) ? prev : 0m;
+                var newDelta = alreadyAdded + check.AvailableQuantity;
+                var effectiveFree = product.Quantity - product.ReservedQuantity - alreadyAdded;
+                if (check.AvailableQuantity > effectiveFree)
+                    return ApiResult<List<Guid>>.Failure([$"\"{product.Name}\" omborda yetarli emas (erkin: {effectiveFree}, kerak: {check.AvailableQuantity})."]);
+
+                reservationDelta[product.Id] = newDelta;
+                item.ReservedProductId = product.Id;
+            }
+        }
+
+        foreach (var (productId, delta) in reservationDelta)
+        {
+            var product = await _context.Products.FindAsync(productId);
+            if (product is null) continue;
+            product.ReservedQuantity += delta;
         }
 
         r.WarehouseCheckedBy = checkerId;
@@ -240,6 +278,7 @@ public class RequisitionService : IRequisitionService
         r.Status = RequisitionStatus.Split;
 
         await _context.SaveChangesAsync();
+        await tx.CommitAsync();
 
         // Yaratuvchiga xabar
         await _notificationService.CreateAsync(r.CreatedBy,
@@ -305,7 +344,8 @@ public class RequisitionService : IRequisitionService
                     FreeTextPhoto = item.FreeTextPhoto,
                     Quantity = available,
                     OriginalQuantity = item.Quantity,
-                    Notes = item.Notes
+                    Notes = item.Notes,
+                    ReservedProductId = item.ReservedProductId
                 });
             }
 
@@ -417,12 +457,26 @@ public class RequisitionService : IRequisitionService
 
     public async Task<ApiResult<bool>> RejectAsync(Guid id, Guid directorId, RequisitionRejectDto dto)
     {
-        var r = await _context.Requisitions.FindAsync(id);
+        var r = await _context.Requisitions
+            .Include(x => x.Items)
+            .FirstOrDefaultAsync(x => x.Id == id);
         if (r is null)
             return ApiResult<bool>.Failure([$"Requisition '{id}' topilmadi."], 404);
 
         if (r.Status != RequisitionStatus.PendingApproval)
             return ApiResult<bool>.Failure(["Faqat tasdiqlash kutayotgan talabnomani rad etish mumkin."]);
+
+        // Warehouse manbali child rad etilsa, omborchi qo'ygan rezervlarni qaytarish
+        if (r.Source == RequisitionSource.Warehouse)
+        {
+            foreach (var item in r.Items)
+            {
+                if (!item.ReservedProductId.HasValue) continue;
+                var product = await _context.Products.FindAsync(item.ReservedProductId.Value);
+                if (product is null) continue;
+                product.ReservedQuantity = Math.Max(0m, product.ReservedQuantity - item.Quantity);
+            }
+        }
 
         r.Status = RequisitionStatus.Rejected;
         r.RejectionReason = dto.RejectionReason;
