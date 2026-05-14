@@ -35,7 +35,7 @@ const navGroups: NavGroup[] = [
     label: "Omborxona",
     icon: "package",
     items: [
-      { name: "Mahsulotlar",      href: "/products",     icon: "shopping-bag", permission: "Products.View" },
+      { name: "Korxona omborxonasi", href: "/products",     icon: "shopping-bag", permission: "Products.View" },
       { name: "Bo'lim omborlari", href: "/department-warehouses", icon: "briefcase", permission: "Products.View" },
       { name: "Talabnomalar",     href: "/requisitions", icon: "clipboard",    permission: ["Requisitions.View", "Requisitions.ViewAll"] },
       { name: "Tasdiqlash",       href: "/requisitions/approvals", icon: "check-square", permission: "Requisitions.Approve" },
@@ -158,7 +158,7 @@ const pageTitles: Record<string, string> = {
   "/users":         "Foydalanuvchilar",
   "/roles":         "Rollar",
   "/departments":   "Tuzilma",
-  "/products":      "Mahsulotlar",
+  "/products":      "Korxona omborxonasi",
   "/department-warehouses": "Bo'lim Omborlari",
   "/appearance":    "Tashqi ko'rinish",
   "/requisitions":           "Talabnomalar",
