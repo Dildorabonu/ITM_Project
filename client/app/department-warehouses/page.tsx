@@ -303,7 +303,7 @@ export default function DepartmentWarehousesPage() {
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="rounded-[20px] h-[210px] animate-pulse bg-[--surface2]" />
+            <div key={i} className="rounded-[20px] aspect-[5/3.5] animate-pulse bg-[--surface2]" />
           ))}
         </div>
       ) : error ? (
@@ -340,8 +340,8 @@ export default function DepartmentWarehousesPage() {
               <Link
                 key={s.departmentId}
                 href={`/department-warehouses/${s.departmentId}`}
-                className={`nd-fadein-${Math.min(i, 4)} group relative overflow-hidden block
-                            rounded-[20px] aspect-[5/3.5] h-full
+                className={`nd-fadein-${Math.min(i, 4)} group relative overflow-hidden
+                            flex flex-col rounded-[20px] aspect-[5/3.5]
                             shadow-[0_6px_18px_rgba(0,0,0,0.32)]
                             transition-all duration-300 ease-out cursor-pointer
                             hover:-translate-y-1 hover:shadow-[0_18px_42px_rgba(0,0,0,0.45)]`}
@@ -351,48 +351,44 @@ export default function DepartmentWarehousesPage() {
                     : `linear-gradient(135deg, ${color.soft} 0%, ${color.bg} 65%, ${color.bg} 100%)`,
                 }}
               >
-                {/* Soft top-right radial highlight */}
+                {/* Soft highlight behind icon (top-left) */}
                 <span
-                  className="absolute -top-16 -right-16 w-56 h-56 rounded-full opacity-40 pointer-events-none"
-                  style={{ background: "radial-gradient(circle, rgba(255,255,255,0.55) 0%, transparent 60%)" }}
+                  className="absolute -top-14 -left-14 w-52 h-52 rounded-full opacity-35 pointer-events-none"
+                  style={{ background: "radial-gradient(circle, rgba(255,255,255,0.5) 0%, transparent 60%)" }}
                 />
-                {/* Big background icon, faint */}
-                <span
-                  className="absolute -bottom-6 -right-4 text-white/10 pointer-events-none
-                             transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3"
-                >
-                  <svg width="180" height="180" viewBox="0 0 24 24">{icon}</svg>
-                </span>
 
-                {/* Quantity badge top-right */}
-                <span
-                  className="absolute top-3.5 right-3.5 inline-flex items-center gap-1.5
-                             px-2.5 py-1 rounded-full bg-black/35 backdrop-blur-sm
-                             text-white text-[11px] font-mono font-semibold
-                             ring-1 ring-white/10"
-                >
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="opacity-80">
-                    <line x1="12" y1="20" x2="12" y2="10" />
-                    <line x1="18" y1="20" x2="18" y2="4" />
-                    <line x1="6" y1="20" x2="6" y2="16" />
-                  </svg>
-                  {isEmpty ? "0" : fmtCompact(s.totalQuantity)}
-                </span>
-
-                {/* Foreground icon top-left */}
-                <span className="absolute top-5 left-5 text-white/95 drop-shadow-[0_2px_6px_rgba(0,0,0,0.2)]">
-                  <svg width="58" height="58" viewBox="0 0 24 24">{icon}</svg>
-                </span>
-
-                {/* Bottom content */}
-                <div className="absolute inset-x-0 bottom-0 p-5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span
-                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full
-                                 text-[10px] font-semibold uppercase tracking-[0.14em]
-                                 text-white/90 bg-white/15 ring-1 ring-white/15 backdrop-blur-sm"
-                      style={isEmpty ? { background: "rgba(255,255,255,0.08)" } : undefined}
+                {/* Top row: icon (with halo) + quantity badge */}
+                <div className="relative px-5 pt-5">
+                  <span className="relative inline-flex items-center justify-center">
+                    <svg
+                      width="56" height="56" viewBox="0 0 24 24"
+                      className="relative text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.25)]"
                     >
+                      {icon}
+                    </svg>
+                  </span>
+                  <span
+                    className="absolute top-5 right-5 inline-flex items-center justify-center whitespace-nowrap min-w-[52px] h-[36px] px-4 rounded-full
+                               bg-[rgba(15,18,25,0.78)] backdrop-blur-md text-white text-[14px] leading-none
+                               font-mono font-bold tracking-tight
+                               ring-[3px] ring-white/30 shadow-[0_4px_12px_rgba(0,0,0,0.35)]"
+                  >
+                    {isEmpty ? "0" : fmtCompact(s.totalQuantity)}
+                  </span>
+                </div>
+
+                {/* Spacer */}
+                <div className="flex-1" />
+
+                {/* Bottom content — title big, meta subtle */}
+                <div className="relative px-6 pb-6">
+                  <h3 className="font-head-itm text-[22px] font-bold text-white leading-[1.15]
+                                 line-clamp-2 drop-shadow-[0_2px_6px_rgba(0,0,0,0.3)] mb-2.5">
+                    {s.departmentName}
+                  </h3>
+
+                  <div className="flex items-center justify-between text-[12px] text-white/85">
+                    <span className="inline-flex items-center gap-2">
                       <span
                         className="w-1.5 h-1.5 rounded-full"
                         style={{
@@ -401,36 +397,17 @@ export default function DepartmentWarehousesPage() {
                             : TYPE_LABEL_COLOR[s.departmentType as DepartmentType] ?? "white",
                         }}
                       />
-                      {typeLabel}
-                    </span>
-                    {isEmpty && (
-                      <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.14em] text-white/55">
-                        bo&apos;sh
+                      <span className="font-semibold uppercase tracking-[0.12em] text-white/85">
+                        {typeLabel}
                       </span>
-                    )}
-                  </div>
-
-                  <h3 className="font-head-itm text-[18px] font-bold text-white leading-[1.15]
-                                 line-clamp-2 drop-shadow-[0_2px_6px_rgba(0,0,0,0.25)]">
-                    {s.departmentName}
-                  </h3>
-
-                  <div className="flex items-center justify-between mt-2.5 text-[11px] text-white/75">
-                    <span className="inline-flex items-center gap-1.5">
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-                        <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-                        <line x1="12" y1="22.08" x2="12" y2="12" />
-                      </svg>
-                      <span className="font-mono font-semibold text-white/95">
-                        {isEmpty ? "—" : fmtNum(s.productCount)}
+                      <span className="text-white/40">·</span>
+                      <span className="font-mono">
+                        {isEmpty ? "bo'sh" : `${fmtNum(s.productCount)} tur`}
                       </span>
-                      <span>tur</span>
                     </span>
-                    <span className="inline-flex items-center gap-1 font-semibold text-white
+                    <span className="inline-flex items-center gap-1 font-semibold text-white/95
                                      transition-transform duration-200 group-hover:translate-x-1">
-                      ko&apos;rish
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="9 18 15 12 9 6" />
                       </svg>
                     </span>
