@@ -13,6 +13,7 @@ import {
   type ProductResponse,
   type ProductCreatePayload,
   type ProductUpdatePayload,
+  type ProductReservationResponse,
   type DepartmentOption,
 } from "@/lib/userService";
 import { useAuthStore } from "@/lib/store/authStore";
@@ -78,6 +79,16 @@ export default function ProductsPage() {
 
   // View drawer
   const [viewProduct, setViewProduct] = useState<ProductResponse | null>(null);
+
+  // Reservations (muzlatilgan mahsulotlar) view
+  const [showFrozen, setShowFrozen] = useState(false);
+  const [frozenItems, setFrozenItems] = useState<ProductReservationResponse[]>([]);
+  const [frozenPage, setFrozenPage] = useState(1);
+  const [frozenTotalPages, setFrozenTotalPages] = useState(1);
+  const [frozenTotalCount, setFrozenTotalCount] = useState(0);
+  const [frozenSearch, setFrozenSearch] = useState("");
+  const [frozenLoading, setFrozenLoading] = useState(false);
+  const [frozenError, setFrozenError] = useState("");
 
   // Delete confirm
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -152,6 +163,46 @@ export default function ProductsPage() {
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, [showForm]);
+
+  const loadFrozen = async (p = frozenPage, q = frozenSearch) => {
+    try {
+      setFrozenLoading(true);
+      setFrozenError("");
+      const data = await productService.getReservations(p, 50, q || undefined);
+      setFrozenItems(data.items);
+      setFrozenTotalPages(data.totalPages);
+      setFrozenTotalCount(data.totalCount);
+    } catch {
+      setFrozenError("Muzlatilgan mahsulotlar yuklanmadi.");
+    } finally {
+      setFrozenLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!showFrozen) return;
+    loadFrozen(frozenPage, frozenSearch);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showFrozen, frozenPage, frozenSearch]);
+
+  useEffect(() => {
+    if (!showFrozen) return;
+    const handlePopState = () => setShowFrozen(false);
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [showFrozen]);
+
+  const openFrozen = () => {
+    setFrozenPage(1);
+    setFrozenSearch("");
+    window.history.pushState({ frozen: true }, "");
+    setShowFrozen(true);
+  };
+
+  const closeFrozen = () => {
+    setShowFrozen(false);
+    window.history.back();
+  };
 
   const openCreate = () => {
     setEditTarget(null);
@@ -1060,6 +1111,154 @@ export default function ProductsPage() {
     );
   }
 
+  /* ===== Frozen products inline view ===== */
+  if (showFrozen) {
+    const fmtDate = (s: string | null) => {
+      if (!s) return "—";
+      const d = s.slice(0, 10).split("-");
+      return d.length === 3 ? `${d[2]}-${d[1]}-${d[0].slice(-2)}` : "—";
+    };
+    return (
+      <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+        <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, padding: "8px 14px", flexWrap: "wrap" }}>
+          <button
+            onClick={closeFrozen}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "0 12px", height: 36, borderRadius: "var(--radius)",
+              border: "1px solid var(--border)", background: "var(--bg2)",
+              color: "var(--text2)", fontSize: 13, cursor: "pointer",
+            }}
+          >
+            ← Orqaga
+          </button>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+            <span style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)" }}>Muzlatilgan mahsulotlar</span>
+            <span style={{ fontSize: 12, color: "var(--text3)" }}>
+              {frozenTotalCount} ta rezerv
+            </span>
+          </div>
+          <div className="search-wrap" style={{ maxWidth: "none", flex: 1, minWidth: 200 }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              className="search-input"
+              placeholder="Qidirish: mahsulot, talabnoma, sabab, bo'lim..."
+              value={frozenSearch}
+              onChange={e => { setFrozenSearch(e.target.value); setFrozenPage(1); }}
+            />
+          </div>
+          <button
+            className="btn-icon"
+            onClick={() => loadFrozen(frozenPage, frozenSearch)}
+            title="Yangilash"
+            style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="23 4 23 10 17 10" />
+              <polyline points="1 20 1 14 7 14" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="itm-card" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "clip" } as React.CSSProperties}>
+          {frozenLoading ? (
+            <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
+          ) : frozenError ? (
+            <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--danger)" }}>{frozenError}</div>
+          ) : (
+            <div style={{ overflowX: "auto", overflowY: "auto", flex: 1, minHeight: 0 }}>
+              <table className="itm-table">
+                <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
+                  <tr>
+                    <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>T/r</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>Mahsulot nomi</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>Invoice raqami</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>Muzlatilgan miqdor</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>Muzlatilish sababi</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>Qaysi bo&apos;lim uchun</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>Talabnoma</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>Holati</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>Sana</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {frozenItems.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} style={{ textAlign: "center", color: "var(--text3)", padding: 40, fontSize: 13 }}>
+                        {frozenSearch ? "Natija topilmadi" : "Muzlatilgan mahsulotlar yo'q"}
+                      </td>
+                    </tr>
+                  ) : frozenItems.map((r, i) => (
+                    <tr key={`${r.requisitionId}-${r.productId}-${i}`}>
+                      <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>
+                        {String((frozenPage - 1) * 50 + i + 1).padStart(2, "0")}
+                      </td>
+                      <td style={{ textAlign: "center", color: "var(--text1)", fontWeight: 500 }}>{r.productName}</td>
+                      <td style={{ textAlign: "center", color: "var(--accent)", fontFamily: "var(--font-mono)", fontSize: 13 }}>{r.invoiceNumber || "—"}</td>
+                      <td style={{ textAlign: "center", fontFamily: "var(--font-mono)", fontWeight: 600, color: "var(--warn)" }}>
+                        {r.reservedQuantity} <span style={{ color: "var(--text3)", fontWeight: 400, marginLeft: 4 }}>{PRODUCT_UNIT_LABELS[r.unit] ?? ""}</span>
+                      </td>
+                      <td title={r.purpose} style={{ textAlign: "center", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text1)" }}>
+                        {r.purpose || "—"}
+                      </td>
+                      <td style={{ textAlign: "center", color: "var(--text1)" }}>{r.targetDepartmentName || "—"}</td>
+                      <td style={{ textAlign: "center", fontFamily: "var(--font-mono)", color: "var(--accent)", fontSize: 13 }}>{r.requisitionNo}</td>
+                      <td style={{ textAlign: "center" }}>
+                        <span style={{
+                          display: "inline-block", padding: "2px 10px", borderRadius: 20,
+                          fontSize: 11, fontWeight: 600,
+                          background: r.status === 9 ? "var(--success-dim)" : "var(--warn-dim)",
+                          color: r.status === 9 ? "var(--success)" : "var(--warn)",
+                        }}>
+                          {r.statusLabel}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: "center", color: "var(--text2)", fontSize: 12 }}>{fmtDate(r.warehouseCheckedAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Pagination */}
+        {frozenTotalCount > 50 && (
+          <div style={{
+            flexShrink: 0,
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "8px 14px", marginTop: 8,
+          }}>
+            <span style={{ fontSize: 17, color: "var(--text)", fontFamily: "var(--font-mono)", fontWeight: 450 }}>
+              {frozenTotalCount} tadan {frozenTotalCount === 0 ? 0 : (frozenPage - 1) * 50 + 1}&nbsp;–&nbsp;{Math.min(frozenPage * 50, frozenTotalCount)}&nbsp;ko&apos;rsatilmoqda
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <button
+                className="btn-secondary"
+                disabled={frozenPage <= 1}
+                onClick={() => setFrozenPage(p => p - 1)}
+                style={{ padding: "5px 12px", fontSize: 12 }}
+              >
+                ← Oldingi
+              </button>
+              <button
+                className="btn-secondary"
+                disabled={frozenPage >= frozenTotalPages}
+                onClick={() => setFrozenPage(p => p + 1)}
+                style={{ padding: "5px 12px", fontSize: 12 }}
+              >
+                Keyingi →
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   /* ===== List view ===== */
   return (
     <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
@@ -1089,6 +1288,26 @@ export default function ProductsPage() {
             <polyline points="1 20 1 14 7 14" />
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
           </svg>
+        </button>
+        <button
+          onClick={openFrozen}
+          title="Muzlatilgan mahsulotlar"
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            padding: "8px 14px", fontSize: 13, fontWeight: 600,
+            borderRadius: "var(--radius)",
+            background: "var(--warn-dim)", border: "1.5px solid var(--warn)44",
+            color: "var(--warn)", cursor: "pointer",
+            transition: "all 0.15s",
+          }}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="12" y1="2" x2="12" y2="22" />
+            <line x1="2" y1="12" x2="22" y2="12" />
+            <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+            <line x1="19.07" y1="4.93" x2="4.93" y2="19.07" />
+          </svg>
+          Muzlatilgan
         </button>
         {canCreate && (
           <button
