@@ -16,11 +16,16 @@ public class ProductService : IProductService
         _context = context;
     }
 
-    public async Task<ApiResult<PagedResult<ProductResponseDto>>> GetAllAsync(int page, int pageSize, string? search, Guid? departmentId)
+    public async Task<ApiResult<PagedResult<ProductResponseDto>>> GetAllAsync(int page, int pageSize, string? search, Guid? departmentId, Guid? restrictToDepartmentId = null)
     {
         var query = _context.Products
             .Include(p => p.Department)
             .AsNoTracking();
+
+        // Permission cheklov: agar foydalanuvchida Products.ViewAll yo'q bo'lsa,
+        // faqat o'zining bo'limidagi mahsulotlar ko'rinadi.
+        if (restrictToDepartmentId.HasValue)
+            query = query.Where(p => p.DepartmentId == restrictToDepartmentId.Value);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -46,6 +51,49 @@ public class ProductService : IProductService
 
         var paged = PagedResult<ProductResponseDto>.Create(items.Select(MapToResponse), totalCount, pagination);
         return ApiResult<PagedResult<ProductResponseDto>>.Success(paged);
+    }
+
+    public async Task<ApiResult<IEnumerable<DepartmentWarehouseSummaryDto>>> GetDepartmentSummariesAsync(Guid? restrictToDepartmentId = null)
+    {
+        var deptQuery = _context.Departments.Where(d => d.IsActive).AsNoTracking();
+
+        if (restrictToDepartmentId.HasValue)
+            deptQuery = deptQuery.Where(d => d.Id == restrictToDepartmentId.Value);
+
+        var depts = await deptQuery.OrderBy(d => d.Name).ToListAsync();
+        if (depts.Count == 0)
+            return ApiResult<IEnumerable<DepartmentWarehouseSummaryDto>>.Success([]);
+
+        var deptIds = depts.Select(d => d.Id).ToList();
+        var stats = await _context.Products
+            .Where(p => deptIds.Contains(p.DepartmentId))
+            .GroupBy(p => p.DepartmentId)
+            .Select(g => new
+            {
+                DepartmentId = g.Key,
+                ProductCount = g.Count(),
+                TotalQuantity = g.Sum(p => p.Quantity),
+                LastUpdatedAt = g.Max(p => p.CreatedAt)
+            })
+            .ToListAsync();
+
+        var statMap = stats.ToDictionary(s => s.DepartmentId);
+
+        var result = depts.Select(d =>
+        {
+            statMap.TryGetValue(d.Id, out var s);
+            return new DepartmentWarehouseSummaryDto
+            {
+                DepartmentId = d.Id,
+                DepartmentName = d.Name,
+                DepartmentType = d.Type,
+                ProductCount = s?.ProductCount ?? 0,
+                TotalQuantity = s?.TotalQuantity ?? 0m,
+                LastUpdatedAt = s?.LastUpdatedAt
+            };
+        });
+
+        return ApiResult<IEnumerable<DepartmentWarehouseSummaryDto>>.Success(result);
     }
 
     public async Task<ApiResult<IEnumerable<ProductResponseDto>>> GetByDepartmentAsync(Guid departmentId)

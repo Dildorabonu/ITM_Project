@@ -32,6 +32,7 @@ export interface User {
   firstName: string;
   lastName: string;
   permissions: string[];
+  departmentId: string | null;
 }
 
 interface AuthState {
@@ -84,6 +85,7 @@ export const useAuthStore = create<AuthState>()(
         });
         const { accessToken, refreshToken } = res.data.result;
         const payload = parseJwt(accessToken);
+        const deptClaim = readClaim(payload, "dept");
         const user: User = {
           id: readClaim(payload, CLAIM_NAMEID_SHORT, CLAIM_NAMEID_LONG),
           login: readClaim(payload, CLAIM_NAME_SHORT, CLAIM_NAME_LONG) || login,
@@ -91,6 +93,7 @@ export const useAuthStore = create<AuthState>()(
           firstName: readClaim(payload, CLAIM_GIVEN_NAME_SHORT, CLAIM_GIVEN_NAME_LONG),
           lastName: readClaim(payload, CLAIM_SURNAME_SHORT, CLAIM_SURNAME_LONG),
           permissions: payload ? extractPermissions(payload) : [],
+          departmentId: deptClaim || null,
         };
         set({ accessToken, refreshToken, user });
       },

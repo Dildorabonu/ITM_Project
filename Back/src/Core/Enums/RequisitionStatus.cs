@@ -10,5 +10,6 @@ public enum RequisitionStatus
     Split = 7,                       // Parent — ikkita childga bo'lingan, arxiv
     PendingApproval = 8,             // Direktor tasdiqini kutmoqda (child)
     ReadyForWarehouseRelease = 9,    // Tasdiqlangan — ombordan olishga
-    ReadyForPurchase = 10            // Tasdiqlangan — sotib olishga
+    ReadyForPurchase = 10,           // Tasdiqlangan — sotib olishga
+    Released = 11                    // Ombordan chiqarib berilgan — bo'lim omboriga tushgan
 }

@@ -23,14 +23,18 @@ export default function RequisitionDetailPage() {
   const showToast = useToastStore((s) => s.show);
 
   const canApprove = hasPermission("Requisitions.Approve");
+  const canRelease = hasPermission("Requisitions.WarehouseCheck");
 
   const [req, setReq] = useState<RequisitionResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
+  const [releasing, setReleasing] = useState(false);
 
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [rejectSaving, setRejectSaving] = useState(false);
+
+  const [releaseOpen, setReleaseOpen] = useState(false);
 
   const [files, setFiles] = useState<AttachmentResponse[]>([]);
   const [filesLoading, setFilesLoading] = useState(false);
@@ -135,6 +139,22 @@ export default function RequisitionDetailPage() {
     }
   };
 
+  const handleRelease = async () => {
+    if (!req) return;
+    setReleasing(true);
+    try {
+      await requisitionService.release(req.id);
+      showToast("Mahsulotlar bo'lim omboriga tushdi", "success");
+      setReleaseOpen(false);
+      await refresh();
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
+      showToast(msg ?? "Chiqarib berishda xatolik yuz berdi", "error");
+    } finally {
+      setReleasing(false);
+    }
+  };
+
   if (loading) {
     return <div style={{ textAlign: "center", padding: 80, color: "var(--text3)" }}>Yuklanmoqda…</div>;
   }
@@ -144,9 +164,14 @@ export default function RequisitionDetailPage() {
   }
 
   const canDoApproval = canApprove && req.status === RequisitionStatus.PendingApproval;
+  const canDoRelease = canRelease
+    && req.status === RequisitionStatus.ReadyForWarehouseRelease
+    && req.source === RequisitionSource.Warehouse;
   const isChild = !!req.parentRequisitionId;
   const showAvailability = req.status === RequisitionStatus.WarehouseChecked;
-  const isApproved = req.status === RequisitionStatus.ReadyForWarehouseRelease || req.status === RequisitionStatus.ReadyForPurchase;
+  const isApproved = req.status === RequisitionStatus.ReadyForWarehouseRelease
+    || req.status === RequisitionStatus.ReadyForPurchase
+    || req.status === RequisitionStatus.Released;
 
   return (
     <div>
@@ -434,8 +459,63 @@ export default function RequisitionDetailPage() {
               </button>
             </div>
           )}
+          {canDoRelease && (
+            <button
+              disabled={releasing}
+              onClick={() => setReleaseOpen(true)}
+              style={{ padding: "12px", borderRadius: "var(--radius)", background: "var(--success)", color: "#fff", border: "none", fontWeight: 600, fontSize: 14, cursor: releasing ? "not-allowed" : "pointer", opacity: releasing ? 0.7 : 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                <line x1="12" y1="22.08" x2="12" y2="12"/>
+              </svg>
+              {releasing ? "Chiqarilmoqda…" : "Mahsulotlarni chiqarib berish"}
+            </button>
+          )}
+          {req.status === RequisitionStatus.Released && (
+            <div style={{ padding: "12px 16px", borderRadius: "var(--radius)", background: "var(--success-dim)", color: "var(--success)", border: "1px solid rgba(15,123,69,0.25)", fontSize: 13, display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Mahsulotlar bo&apos;lim omboriga tushdi
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Release confirm modal */}
+      {releaseOpen && createPortal(
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000 }}
+          onClick={() => !releasing && setReleaseOpen(false)}
+        >
+          <div onClick={e => e.stopPropagation()} style={{ background: "var(--bg2)", borderRadius: 14, padding: 28, width: 460, maxWidth: "90vw", boxShadow: "var(--shadow2)" }}>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8, color: "var(--text1)" }}>Mahsulotlarni chiqarib berish</div>
+            <div style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.5, marginBottom: 16 }}>
+              Talabnomadagi <b>{req.items.length} ta</b> material ombordan chiqariladi va{" "}
+              <b style={{ color: "var(--accent)" }}>{req.departmentName ?? "bo'lim"}</b> omboriga tushadi.
+              Bu amalni qaytarib bo&apos;lmaydi.
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                disabled={releasing}
+                onClick={() => setReleaseOpen(false)}
+                style={{ flex: 1, padding: "9px", background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: "var(--radius)", cursor: releasing ? "not-allowed" : "pointer", fontWeight: 600, color: "var(--text2)" }}
+              >
+                Bekor
+              </button>
+              <button
+                disabled={releasing}
+                onClick={handleRelease}
+                style={{ flex: 1, padding: "9px", background: "var(--success)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: releasing ? "not-allowed" : "pointer", fontWeight: 600, opacity: releasing ? 0.7 : 1 }}
+              >
+                {releasing ? "Chiqarilmoqda…" : "Chiqarish"}
+              </button>
+            </div>
+          </div>
+        </div>
+      , document.body)}
 
       {/* Reject modal */}
       {rejectOpen && createPortal(
