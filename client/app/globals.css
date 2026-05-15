@@ -1,6 +1,15 @@
 @import "tailwindcss";
 /* HMR refresh marker — period selector + state strip */
 
+/* ── Sora (logo bold) ── */
+@font-face {
+  font-family: "Sora";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("https://fonts.gstatic.com/s/sora/v12/xMQOuFFYT72X5wkB_18qmnndmSdSnk-DKQJRBg.woff2") format("woff2");
+}
+
 /* ── Inter ── */
 @font-face { font-family: Inter; font-style: normal; font-weight: 300 800; font-display: swap; src: url("/fonts/2c55a0e60120577a-s.0bjc5tiuqdqro.woff2") format("woff2"); unicode-range: U+460-52F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F; }
 @font-face { font-family: Inter; font-style: normal; font-weight: 300 800; font-display: swap; src: url("/fonts/9c72aa0f40e4eef8-s.0m6w47a4e5dy9.woff2") format("woff2"); unicode-range: U+301, U+400-45F, U+490-491, U+4B0-4B1, U+2116; }
