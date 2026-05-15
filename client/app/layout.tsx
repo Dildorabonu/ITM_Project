@@ -8,6 +8,7 @@ import { useAuthStore } from "@/lib/store/authStore";
 import { api } from "@/lib/api";
 import ToastContainer from "@/app/_components/ToastContainer";
 import EkLogo from "@/app/_components/EkLogo";
+import SplashScreen from "@/app/_components/SplashScreen";
 
 type NavItem = { name: string; href: string; icon: string; badge?: number; badgeWarn?: boolean; permission?: string | string[] };
 type NavGroup = { label: string; icon: string; items: NavItem[] };
@@ -156,6 +157,33 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const [notifCount, setNotifCount] = useState(0);
   const [bellOpen, setBellOpen] = useState(false);
   const [unreadNotifs, setUnreadNotifs] = useState<{ id: string; title: string; body: string; createdAt: string }[]>([]);
+
+  const [pageLoaded, setPageLoaded] = useState(false);
+  const [minTimeElapsed, setMinTimeElapsed] = useState(false);
+  const [splashFading, setSplashFading] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    if (document.readyState === "complete") {
+      setPageLoaded(true);
+    } else {
+      const handler = () => setPageLoaded(true);
+      window.addEventListener("load", handler);
+      return () => window.removeEventListener("load", handler);
+    }
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => setMinTimeElapsed(true), 2000);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    if (!hasHydrated || !pageLoaded || !minTimeElapsed || splashFading) return;
+    setSplashFading(true);
+    const t = setTimeout(() => setShowSplash(false), 600);
+    return () => clearTimeout(t);
+  }, [hasHydrated, pageLoaded, minTimeElapsed, splashFading]);
 
   const fetchUnreadNotifs = useCallback(async () => {
     try {
@@ -339,7 +367,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           ? { background: "var(--bg)", color: "var(--text)" }
           : { height: "100vh", overflow: "hidden", background: "var(--bg)", color: "var(--text)" }),
       }}>
-      {isLoginPage ? children : !hasHydrated ? null : !accessToken ? null : (<div id="app-root" style={{ display: "flex", width: "100%", height: "100%" }}>
+      {!splashFading ? null : isLoginPage ? children : !accessToken ? null : (<div id="app-root" style={{ display: "flex", width: "100%", height: "100%" }}>
 
         {/* ===== SIDEBAR ===== */}
         <aside style={{
@@ -799,6 +827,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         </div>
       </div>)}
+      {showSplash && <SplashScreen fading={splashFading} />}
       <ToastContainer />
       </body>
     </html>
