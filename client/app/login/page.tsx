@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store/authStore";
+import EkLogo from "@/app/_components/EkLogo";
 
 export default function LoginPage() {
   const router      = useRouter();
@@ -239,31 +240,26 @@ export default function LoginPage() {
 
           {/* Logo icon */}
           <div style={{
-            width: 60, height: 60, borderRadius: 16,
-            background: "rgba(255,255,255,0.12)",
-            border: "1px solid rgba(255,255,255,0.2)",
             display: "flex", alignItems: "center", justifyContent: "center",
             boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
-            backdropFilter: "blur(8px)",
+            borderRadius: 16, overflow: "hidden",
           }}>
-            <svg width="28" height="28" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="1.8" viewBox="0 0 24 24">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-            </svg>
+            <EkLogo size={60} />
           </div>
 
           {/* Brand name */}
           <div style={{ textAlign: "center" }}>
             <div style={{
-              fontSize: 28, fontWeight: 800, letterSpacing: 3.5, color: "#fff",
+              fontSize: 28, fontWeight: 800, letterSpacing: 0.5, color: "#fff",
               lineHeight: 1, textShadow: "0 2px 8px rgba(0,0,0,0.2)",
             }}>
-              FACTORY
+              E-Korxona
             </div>
             <div style={{
               fontSize: 10, color: "rgba(255,255,255,0.55)",
-              letterSpacing: 3, marginTop: 6, fontWeight: 500,
+              letterSpacing: 2, marginTop: 6, fontWeight: 500,
             }}>
-              SYSTEM
+              RAQAMLI KORXONA PLATFORMASI
             </div>
           </div>
 
