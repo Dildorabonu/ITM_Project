@@ -7,6 +7,8 @@ import "./globals.css";
 import { useAuthStore } from "@/lib/store/authStore";
 import { api } from "@/lib/api";
 import ToastContainer from "@/app/_components/ToastContainer";
+import EkLogo from "@/app/_components/EkLogo";
+import SplashScreen from "@/app/_components/SplashScreen";
 
 type NavItem = { name: string; href: string; icon: string; badge?: number; badgeWarn?: boolean; permission?: string | string[] };
 type NavGroup = { label: string; icon: string; items: NavItem[] };
@@ -53,36 +55,6 @@ const navGroups: NavGroup[] = [
     ],
   },
 ];
-
-function LogoEmblem({ size = 22, spin = false }: { size?: number; spin?: boolean }) {
-  return (
-    <svg
-      className={spin ? "logo-spin-svg" : undefined}
-      width={size} height={size} viewBox="0 0 32 32"
-      fill="none" strokeLinecap="round" strokeLinejoin="round"
-    >
-      {/* Top face */}
-      <polygon
-        points="16,3 28,9.5 16,16 4,9.5"
-        fill="rgba(255,255,255,0.28)" stroke="rgba(255,255,255,0.9)" strokeWidth="1.4"
-      />
-      {/* Left face */}
-      <polygon
-        points="4,9.5 4,20.5 16,27 16,16"
-        fill="rgba(255,255,255,0.10)" stroke="rgba(255,255,255,0.7)" strokeWidth="1.4"
-      />
-      {/* Right face */}
-      <polygon
-        points="28,9.5 28,20.5 16,27 16,16"
-        fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.55)" strokeWidth="1.4"
-      />
-      {/* Shelf line on left face */}
-      <line x1="4" y1="15" x2="16" y2="21" stroke="rgba(255,255,255,0.35)" strokeWidth="1"/>
-      {/* Shelf line on right face */}
-      <line x1="28" y1="15" x2="16" y2="21" stroke="rgba(255,255,255,0.25)" strokeWidth="1"/>
-    </svg>
-  );
-}
 
 function NavIcon({ type, size = 16, strokeWidth = 2, color }: { type: string; size?: number; strokeWidth?: number; color?: string }) {
   const cls = "flex-shrink-0";
@@ -185,6 +157,33 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const [notifCount, setNotifCount] = useState(0);
   const [bellOpen, setBellOpen] = useState(false);
   const [unreadNotifs, setUnreadNotifs] = useState<{ id: string; title: string; body: string; createdAt: string }[]>([]);
+
+  const [pageLoaded, setPageLoaded] = useState(false);
+  const [minTimeElapsed, setMinTimeElapsed] = useState(false);
+  const [splashFading, setSplashFading] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    if (document.readyState === "complete") {
+      setPageLoaded(true);
+    } else {
+      const handler = () => setPageLoaded(true);
+      window.addEventListener("load", handler);
+      return () => window.removeEventListener("load", handler);
+    }
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => setMinTimeElapsed(true), 2000);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    if (!hasHydrated || !pageLoaded || !minTimeElapsed || splashFading) return;
+    setSplashFading(true);
+    const t = setTimeout(() => setShowSplash(false), 600);
+    return () => clearTimeout(t);
+  }, [hasHydrated, pageLoaded, minTimeElapsed, splashFading]);
 
   const fetchUnreadNotifs = useCallback(async () => {
     try {
@@ -368,7 +367,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           ? { background: "var(--bg)", color: "var(--text)" }
           : { height: "100vh", overflow: "hidden", background: "var(--bg)", color: "var(--text)" }),
       }}>
-      {isLoginPage ? children : !hasHydrated ? null : !accessToken ? null : (<div id="app-root" style={{ display: "flex", width: "100%", height: "100%" }}>
+      {!splashFading ? null : isLoginPage ? children : !accessToken ? null : (<div id="app-root" style={{ display: "flex", width: "100%", height: "100%" }}>
 
         {/* ===== SIDEBAR ===== */}
         <aside style={{
@@ -384,31 +383,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {/* Logo */}
           <div style={{ padding: "10px 20px", height: 58, boxSizing: "border-box", borderBottom: "1px solid var(--sidebar-border)", display: "flex", alignItems: "center", justifyContent: sidebarCollapsed ? "center" : "flex-start" }}>
             {sidebarCollapsed ? (
-              <div className="logo-icon-box" style={{
-                width: 42, height: 42, borderRadius: 0,
-                background: "radial-gradient(circle at 38% 32%, var(--accent-light) 0%, var(--accent) 40%, var(--accent3) 100%)",
-                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                clipPath: "polygon(50% 0%, 96% 25%, 96% 75%, 50% 100%, 4% 75%, 4% 25%)",
-                margin: "0 auto",
-              }}>
-                <LogoEmblem size={24} />
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <EkLogo size={42} />
               </div>
             ) : (
               <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
-                <div className="logo-icon-box" style={{
-                  width: 42, height: 42, borderRadius: 0,
-                  background: "radial-gradient(circle at 38% 32%, var(--accent-light) 0%, var(--accent) 40%, var(--accent3) 100%)",
-                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                  clipPath: "polygon(50% 0%, 96% 25%, 96% 75%, 50% 100%, 4% 75%, 4% 25%)",
-                }}>
-                  <LogoEmblem size={24} />
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <EkLogo size={42} />
                 </div>
                 <div>
-                  <div className="font-head-itm ombor-text" style={{ fontSize: 20, fontWeight: 800, letterSpacing: 2, lineHeight: 1 }}>FACTORY</div>
-                  <div className="font-body-itm" style={{ fontSize: 10, color: "var(--sidebar-text2)", letterSpacing: 4, marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
-                    <span className="live-dot" style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--accent-light)", display: "inline-block", flexShrink: 0 }} />
-                    <span style={{ fontWeight: 600 }}>SYSTEM</span>
-                  </div>
+                  <div className="font-head-itm" style={{ fontSize: 20, fontWeight: 800, letterSpacing: 0.5, lineHeight: 1, color: "var(--text)" }}>E-Korxona</div>
                 </div>
               </div>
             )}
@@ -418,41 +402,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             @keyframes navItemIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
             .nav-item .nav-border { clip-path: inset(50% 0); transition: clip-path 0.3s ease; background: var(--accent); }
             .nav-item:hover .nav-border { clip-path: inset(0% 0); }
-            @keyframes logoPulse {
-              0%,100% { filter: drop-shadow(0 0 3px rgba(26,110,235,0.45)); }
-              50% { filter: drop-shadow(0 0 10px rgba(26,110,235,0.85)); }
-            }
-            @keyframes omborShimmer {
-              0% { background-position: -200% center; }
-              100% { background-position: 200% center; }
-            }
             @keyframes dotPulse {
               0%,100% { opacity: 1; }
               50% { opacity: 0.35; }
             }
-            .logo-icon-box { animation: logoPulse 2.8s ease-in-out infinite; }
-            .ombor-text {
-              background: linear-gradient(90deg, var(--accent) 0%, var(--accent3) 30%, #ffffff 48%, #ffffff 52%, var(--accent3) 70%, var(--accent) 100%);
-              background-size: 200% auto;
-              -webkit-background-clip: text;
-              -webkit-text-fill-color: transparent;
-              background-clip: text;
-              animation: omborShimmer 2.5s linear infinite;
-            }
             .live-dot { animation: dotPulse 1.6s ease-in-out infinite; }
-            @keyframes logoSpin {
-              0%   { transform: rotate(0deg); }
-              18%  { transform: rotate(108deg); }
-              22%  { transform: rotate(96deg); }
-              40%  { transform: rotate(200deg); }
-              44%  { transform: rotate(190deg); }
-              62%  { transform: rotate(288deg); }
-              66%  { transform: rotate(278deg); }
-              88%  { transform: rotate(370deg); }
-              92%  { transform: rotate(360deg); }
-              100% { transform: rotate(360deg); }
-            }
-            .logo-spin-svg { animation: logoSpin 5s cubic-bezier(0.4,0,0.2,1) infinite; transform-origin: center; }
             @keyframes iconMorph {
               0%   { transform: rotate(-200deg) scale(0.1); opacity: 0; filter: blur(6px); }
               65%  { transform: rotate(15deg) scale(1.25); opacity: 1; filter: blur(0); }
@@ -873,6 +827,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         </div>
       </div>)}
+      {showSplash && <SplashScreen fading={splashFading} />}
       <ToastContainer />
       </body>
     </html>
