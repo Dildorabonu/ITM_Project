@@ -861,11 +861,11 @@ export default function TechProductionPage() {
             <span style={{ fontWeight:600,fontSize:13,color:"var(--text1)" }}>Asosiy ma&apos;lumotlar</span>
             <div style={{ display:"flex",gap:6,flexWrap:"wrap",alignItems:"center" }}>
               {cnDetailFiles.map(f=>(
-                <a key={f.id} href={`/api/costnorms/${cnSelected.id}/files/${f.id}`} download={f.fileName}
-                  style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:6,border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text1)",fontSize:12,textDecoration:"none",cursor:"pointer" }}>
+                <button key={f.id} onClick={()=>costNormService.downloadFile(cnSelected.id,f.id,f.fileName)}
+                  style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:6,border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text1)",fontSize:12,cursor:"pointer" }}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                   {f.fileName}
-                </a>
+                </button>
               ))}
               <button onClick={()=>setCnShowPhotos(p=>!p)} style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:6,border:"1px solid var(--border)",background:cnShowPhotos?"var(--accent-dim)":"var(--bg2)",color:cnShowPhotos?"var(--accent)":"var(--text2)",fontSize:12,cursor:"pointer" }}>
                 {cnShowPhotos?<ImageIcon size={12}/>:<ImageOff size={12}/>} {cnShowPhotos?"Fotolarni yashirish":"Fotolarni ko'rsatish"}
