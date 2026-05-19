@@ -6,13 +6,14 @@ import { type CostNormItemResponse, type CostNormMetadata } from "@/lib/userServ
 import { type MaterialRow } from "../_types";
 import { PhotoCell } from "./PhotoCell";
 
-// 96dpi: 1mm = 3.7795px → A4 portrait
+// 96dpi: 1mm = 3.7795px → A4 portrait minimum, sheet kengayadi screen da
 const MM_TO_PX = 96 / 25.4;
-const A4_W = Math.round(210 * MM_TO_PX);
+const A4_MIN_W = Math.round(210 * MM_TO_PX);  // 794 — print A4 minimum
+const SHEET_MAX_W = 1200;                     // screen da maksimum kenglik
 const PAD_TOP = Math.round(12 * MM_TO_PX);
 const PAD_BOTTOM = Math.round(12 * MM_TO_PX);
-const PAD_LEFT = Math.round(15 * MM_TO_PX);
-const PAD_RIGHT = Math.round(15 * MM_TO_PX);
+const PAD_LEFT = Math.round(10 * MM_TO_PX);
+const PAD_RIGHT = Math.round(10 * MM_TO_PX);
 
 type NormRow = {
   isSection: boolean; sectionName: string | null; name: string | null; unit: string | null;
@@ -120,6 +121,8 @@ export function CostNormA4Sheet({ rows, showPhotos, title, contractNo, productTy
           color: #999;
           font-size: 11px;
         }
+        .cn-a4-sheet td.cn-import-cell { white-space: nowrap; min-width: 88px; }
+        .cn-a4-sheet td.cn-action-col { white-space: nowrap; min-width: 96px; width: 96px; }
         .cn-a4-sheet .cn-section-row td {
           background: #f7eed1;
           border-top: 2px solid #b8860b;
@@ -149,7 +152,7 @@ export function CostNormA4Sheet({ rows, showPhotos, title, contractNo, productTy
       `}</style>
 
       {sections.some(s => s.sectionName) && (
-        <div className="cn-a4-toolbar" style={{ width: A4_W, maxWidth: "100%", display: "flex", justifyContent: "flex-end", padding: "0 4px" }}>
+        <div className="cn-a4-toolbar" style={{ width: "100%", maxWidth: SHEET_MAX_W, display: "flex", justifyContent: "flex-end", padding: "0 4px" }}>
           <button onClick={allCollapsed ? expandAll : collapseAll}
             style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: "var(--radius)", border: "1px solid var(--border)", background: "var(--bg2)", color: "var(--text2)", fontSize: 11, cursor: "pointer" }}>
             {allCollapsed ? <ChevronsUpDown size={11} /> : <ChevronsDownUp size={11} />}
@@ -165,8 +168,9 @@ export function CostNormA4Sheet({ rows, showPhotos, title, contractNo, productTy
           color: "#000",
           fontFamily: "Times New Roman, serif",
           fontSize: 13,
-          width: A4_W,
-          maxWidth: "100%",
+          width: "100%",
+          minWidth: A4_MIN_W,
+          maxWidth: SHEET_MAX_W,
           minHeight: 400,
           padding: `${PAD_TOP}px ${PAD_RIGHT}px ${PAD_BOTTOM}px ${PAD_LEFT}px`,
           boxSizing: "border-box",
@@ -271,10 +275,10 @@ export function CostNormA4Sheet({ rows, showPhotos, title, contractNo, productTy
                             <td style={{ textAlign: "center", fontFamily: "Times New Roman, serif" }}>{row.wasteQty || "—"}</td>
                             <td style={{ textAlign: "center", fontFamily: "Times New Roman, serif" }}>{row.totalQty || "—"}</td>
                             {showPhotos && <><td className="cn-photo-cell"><PhotoCell src={row.photoRaw} /></td><td className="cn-photo-cell"><PhotoCell src={row.photoSemi} /></td></>}
-                            <td style={{ textAlign: "center" }}>
+                            <td className="cn-import-cell" style={{ textAlign: "center" }}>
                               {row.importType ? (
                                 <span style={{
-                                  display: "inline-block", padding: "1px 7px", borderRadius: 20, fontSize: 10, fontWeight: 600, fontFamily: "Arial, sans-serif",
+                                  display: "inline-block", padding: "1px 7px", borderRadius: 20, fontSize: 10, fontWeight: 600, fontFamily: "Arial, sans-serif", whiteSpace: "nowrap",
                                   background: row.importType.toLowerCase().includes("местный") || row.importType.toLowerCase().includes("локал") ? "#e6f4ea" : "#e8f0fe",
                                   color: row.importType.toLowerCase().includes("местный") || row.importType.toLowerCase().includes("локал") ? "#1e7e34" : "#1a56db",
                                   border: `1px solid ${row.importType.toLowerCase().includes("местный") || row.importType.toLowerCase().includes("локал") ? "#a8d5b5" : "#a4c0f4"}`,
@@ -310,13 +314,35 @@ export function CostNormA4Sheet({ rows, showPhotos, title, contractNo, productTy
           </tbody>
         </table>
 
-        {/* Signature block */}
+        {/* Signature block — original DOCX layout: title chap, ism o'ng */}
         {hasSignatures && (
-          <div style={{ marginTop: 28, display: "grid", gridTemplateColumns: `repeat(${Math.min(metadata!.signatures.length, 3)}, 1fr)`, gap: 20, fontFamily: "Times New Roman, serif" }}>
+          <div style={{
+            marginTop: 32,
+            fontFamily: "Times New Roman, serif",
+            pageBreakInside: "avoid",
+            breakInside: "avoid",
+          }}>
             {metadata!.signatures.map((s, i) => (
-              <div key={i} style={{ fontSize: 11, lineHeight: 1.5 }}>
-                <div style={{ fontWeight: 700, textTransform: "uppercase", borderBottom: "1px solid #999", paddingBottom: 2, marginBottom: 4 }}>{s.title}</div>
-                <div style={{ minHeight: 18 }}>{s.name}</div>
+              <div key={i} style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1fr) auto",
+                columnGap: 40,
+                alignItems: "start",
+                marginBottom: 18,
+                fontSize: 12,
+                lineHeight: 1.5,
+              }}>
+                <div style={{
+                  color: "#000",
+                  wordBreak: "break-word",
+                  whiteSpace: "pre-wrap",
+                }}>{s.title}</div>
+                <div style={{
+                  color: "#000",
+                  whiteSpace: "nowrap",
+                  textAlign: "right",
+                  paddingTop: 1,
+                }}>{s.name}</div>
               </div>
             ))}
           </div>
