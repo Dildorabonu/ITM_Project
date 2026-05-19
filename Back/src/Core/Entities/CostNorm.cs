@@ -9,6 +9,10 @@ public class CostNorm
     public Guid? ContractProductId { get; set; }
     public string Title { get; set; } = string.Empty;
     public string? Notes { get; set; }
+    // JSON payload of design/metadata extracted from the user's uploaded DOCX:
+    // approval blocks (KELISHILGAN/TASDIQLAYMAN lines), signature footer rows, and
+    // the bottom note. Read on regenerate so the output preserves what the user uploaded.
+    public string? MetadataJson { get; set; }
     public DrawingStatus Status { get; set; } = DrawingStatus.Draft;
     public bool IsActive { get; set; } = true;
     public Guid CreatedBy { get; set; }

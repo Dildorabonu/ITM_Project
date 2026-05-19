@@ -7,10 +7,19 @@ import {
   type CostNormResponse,
   type CostNormItemResponse,
   type TechnicalDrawingResponse,
+  type CostNormMetadata,
+  type CostNormSignatureLine,
 } from "@/lib/userService";
 
 
-export type { TechProcessResponse, CostNormResponse, CostNormItemResponse, TechnicalDrawingResponse };
+export type {
+  TechProcessResponse,
+  CostNormResponse,
+  CostNormItemResponse,
+  TechnicalDrawingResponse,
+  CostNormMetadata,
+  CostNormSignatureLine,
+};
 export { ProcessStatus, DrawingStatus, PROCESS_STATUS_LABELS, DRAWING_STATUS_LABELS };
 
 // ─── Modes ────────────────────────────────────────────────────────────────────
@@ -173,6 +182,73 @@ export function parseMainTables(html: string): { tables: ParsedTable[]; error: s
     if (rows.length>0) results.push({ title:`Jadval ${idx}`, rows });
   }
   return { tables: results, error: null };
+}
+
+// ─── DOCX metadata extraction ─────────────────────────────────────────────────
+//
+// Extracts design/metadata blocks from a docx already converted to HTML by mammoth.
+// Approval blocks are the floating tables at the top (containing "KELISHILGAN"
+// or "TASDIQLAYMAN"); signatures are the bottom table containing position titles
+// like "Технолог" / "Конструктор"; footer note is the paragraph starting with "Изоҳ".
+export function parseDocxMetadata(html: string): CostNormMetadata {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+  const tables = Array.from(doc.querySelectorAll("table"));
+
+  const tableLines = (t: Element): string[] => {
+    const out: string[] = [];
+    for (const tr of Array.from(t.querySelectorAll("tr"))) {
+      const txt = (tr.textContent || "").trim();
+      if (txt) out.push(txt);
+    }
+    return out;
+  };
+
+  const approvalLeft: string[] = [];
+  const approvalRight: string[] = [];
+  const signatures: CostNormSignatureLine[] = [];
+
+  // Approval blocks: tables whose text contains KELISHILGAN or TASDIQLAYMAN.
+  for (const t of tables) {
+    const txt = (t.textContent || "").toUpperCase();
+    if (txt.includes("KELISHILGAN") && approvalLeft.length === 0) {
+      approvalLeft.push(...tableLines(t));
+    } else if (txt.includes("TASDIQLAYMAN") && approvalRight.length === 0) {
+      approvalRight.push(...tableLines(t));
+    }
+  }
+
+  // Signature footer: pick the LAST table containing "Технолог" or "Конструктор"
+  // or "Начальник цеха" — these are clearly position labels, not the main table.
+  for (let i = tables.length - 1; i >= 0; i--) {
+    const t = tables[i];
+    const txt = (t.textContent || "");
+    if (!/Технолог|Конструктор|Начальник цеха|Началник цеха/.test(txt)) continue;
+    if (t.querySelector("thead")) continue; // skip the items data table
+    for (const tr of Array.from(t.querySelectorAll("tr"))) {
+      const cells = Array.from(tr.querySelectorAll("td, th"));
+      if (cells.length < 2) continue;
+      const texts = cells.map(c => (c.textContent || "").trim());
+      const title = texts[0] || "";
+      // Pick the last non-empty cell that isn't just underscores/dashes as the name.
+      const nameCandidates = texts.slice(1).reverse();
+      const isPlaceholder = (s: string) => !s || /^[\s_–—-]+$/.test(s);
+      let name = nameCandidates.find(s => !isPlaceholder(s)) || "";
+      if (!name && nameCandidates.length > 0) name = nameCandidates[0];
+      if (!title.trim()) continue;
+      signatures.push({ title, name });
+    }
+    break;
+  }
+
+  // Footer note: any paragraph starting with "Изоҳ".
+  let footerNote: string | null = null;
+  for (const p of Array.from(doc.querySelectorAll("p"))) {
+    const t = (p.textContent || "").trim();
+    if (t.startsWith("Изоҳ")) { footerNote = t; break; }
+  }
+
+  return { approvalLeft, approvalRight, signatures, footerNote };
 }
 
 // ─── Status styles ────────────────────────────────────────────────────────────

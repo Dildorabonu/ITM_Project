@@ -24,7 +24,9 @@ import {
   type TechProcessResponse,
   type CostNormResponse,
   type CostNormItemResponse,
+  type CostNormMetadata,
   parseMainTables,
+  parseDocxMetadata,
   fmt,
   scopeKey,
 } from "./_types";
@@ -99,12 +101,13 @@ export default function TechProductionPage() {
   const cnEditFileRef = useRef<HTMLInputElement>(null);
   const [cnFormFile, setCnFormFile] = useState<File|null>(null);
   const [cnParsedTables, setCnParsedTables] = useState<ParsedTable[]>([]);
+  const [cnParsedMetadata, setCnParsedMetadata] = useState<CostNormMetadata|null>(null);
   const [cnParseLoading, setCnParseLoading] = useState(false);
   const [cnParseError, setCnParseError] = useState<string|null>(null);
   const cnFormFileRef = useRef<HTMLInputElement>(null);
   const [cnFileOverlayVisible, setCnFileOverlayVisible] = useState(false);
   const [cnFileParseReady, setCnFileParseReady] = useState(false);
-  const cnPendingParseResult = useRef<{tables:ParsedTable[];error:string|null;fileName:string}|null>(null);
+  const cnPendingParseResult = useRef<{tables:ParsedTable[];metadata:CostNormMetadata|null;error:string|null;fileName:string}|null>(null);
 
   // ── Selected scope (contract + product) for inline detail panel ─────────────
   const [selectedScopeKey, setSelectedScopeKey] = useState<string|null>(null);
@@ -257,21 +260,22 @@ export default function TechProductionPage() {
     const file=e.target.files?.[0];
     if(!file) return;
     if(!file.name.toLowerCase().endsWith(".docx")) { setCnParseError("Faqat .docx format"); return; }
-    setCnFormFile(file); setCnParseError(null); setCnParsedTables([]); setCnParseLoading(true); setCnFileParseReady(false); setCnFileOverlayVisible(true); cnPendingParseResult.current=null;
+    setCnFormFile(file); setCnParseError(null); setCnParsedTables([]); setCnParsedMetadata(null); setCnParseLoading(true); setCnFileParseReady(false); setCnFileOverlayVisible(true); cnPendingParseResult.current=null;
     try {
       const mammoth=await import("mammoth");
       const ab=await file.arrayBuffer();
       const res=await mammoth.convertToHtml({arrayBuffer:ab});
       const {tables:parsed,error:colError}=parseMainTables(res.value);
-      if(colError) cnPendingParseResult.current={tables:[],error:colError,fileName:file.name};
-      else if(parsed.length===0) cnPendingParseResult.current={tables:[],error:"Faylda mos jadval topilmadi.",fileName:file.name};
-      else cnPendingParseResult.current={tables:parsed,error:null,fileName:file.name};
-    } catch { cnPendingParseResult.current={tables:[],error:"Faylni o'qishda xatolik",fileName:file.name}; }
+      const metadata=parseDocxMetadata(res.value);
+      if(colError) cnPendingParseResult.current={tables:[],metadata,error:colError,fileName:file.name};
+      else if(parsed.length===0) cnPendingParseResult.current={tables:[],metadata,error:"Faylda mos jadval topilmadi.",fileName:file.name};
+      else cnPendingParseResult.current={tables:parsed,metadata,error:null,fileName:file.name};
+    } catch { cnPendingParseResult.current={tables:[],metadata:null,error:"Faylni o'qishda xatolik",fileName:file.name}; }
     setCnFileParseReady(true);
   }
 
   async function openCnCreate(prefilledContractId?: string, prefilledContractProductId?: string | null) {
-    setCnForm({contractId:prefilledContractId||"",contractProductId:prefilledContractProductId??"",title:"",notes:""}); setCnFormFile(null); setCnParsedTables([]); setCnParseError(null); setCnSaveError(null); setCnSubmitted(false); setCnActiveTab(0); setCnCreateTab("form");
+    setCnForm({contractId:prefilledContractId||"",contractProductId:prefilledContractProductId??"",title:"",notes:""}); setCnFormFile(null); setCnParsedTables([]); setCnParsedMetadata(null); setCnParseError(null); setCnSaveError(null); setCnSubmitted(false); setCnActiveTab(0); setCnCreateTab("form");
     window.history.pushState({mode:"create"},"");
     setCnMode("create");
   }
@@ -290,8 +294,7 @@ export default function TechProductionPage() {
     try {
       const allRows=cnParsedTables.flatMap(t=>t.rows);
       const items=allRows.map((row,idx)=>({ isSection:row.isSection,sectionName:row.isSection?row.sectionName:null,no:row.no||null,name:row.name||null,unit:row.unit||null,readyQty:row.readyQty||null,wasteQty:row.wasteQty||null,totalQty:row.totalQty||null,photoRaw:row.photoRaw||null,photoSemi:row.photoSemi||null,importType:row.importType||null,sortOrder:idx }));
-      const newId=await costNormService.create({contractId:cnForm.contractId,contractProductId:cnForm.contractProductId||null,title:cnForm.title||cnFormFile?.name?.replace(/\.docx$/i,"")||"",notes:cnForm.notes||null,items});
-      if(cnFormFile&&newId) await costNormService.uploadFile(newId,cnFormFile);
+      await costNormService.create({contractId:cnForm.contractId,contractProductId:cnForm.contractProductId||null,title:cnForm.title||cnFormFile?.name?.replace(/\.docx$/i,"")||"",notes:cnForm.notes||null,items,metadata:cnParsedMetadata});
       await Promise.all([loadCn(), loadReadiness()]);
       setCnDraftWarning(null); setCnMode("list");
       showToast("Me'yoriy sarf muvaffaqiyatli yaratildi!");
@@ -353,10 +356,11 @@ export default function TechProductionPage() {
     try {
       const mammoth=await import("mammoth"); const ab=await file.arrayBuffer(); const res=await mammoth.convertToHtml({arrayBuffer:ab});
       const {tables:parsed,error}=parseMainTables(res.value);
-      if(error) cnPendingParseResult.current={tables:[],error,fileName:file.name};
-      else if(parsed.length>0) { cnPendingParseResult.current={tables:parsed,error:null,fileName:file.name}; }
-      else cnPendingParseResult.current={tables:[],error:null,fileName:file.name};
-    } catch { cnPendingParseResult.current={tables:[],error:"Faylni o'qishda xatolik",fileName:file.name}; }
+      const metadata=parseDocxMetadata(res.value);
+      if(error) cnPendingParseResult.current={tables:[],metadata,error,fileName:file.name};
+      else if(parsed.length>0) { cnPendingParseResult.current={tables:parsed,metadata,error:null,fileName:file.name}; }
+      else cnPendingParseResult.current={tables:[],metadata,error:null,fileName:file.name};
+    } catch { cnPendingParseResult.current={tables:[],metadata:null,error:"Faylni o'qishda xatolik",fileName:file.name}; }
     setCnFileParseReady(true);
   }
 
@@ -364,8 +368,8 @@ export default function TechProductionPage() {
     if(!cnEditingNorm) return; setCnEditSaving(true); setCnEditSaveError(null);
     try {
       const items=cnEditItems.map((row,idx)=>({isSection:row.isSection,sectionName:row.isSection?row.sectionName:null,no:row.no||null,name:row.name||null,unit:row.unit||null,readyQty:row.readyQty||null,wasteQty:row.wasteQty||null,totalQty:row.totalQty||null,photoRaw:row.photoRaw||null,photoSemi:row.photoSemi||null,importType:row.importType||null,sortOrder:idx}));
-      await costNormService.update(cnEditingNorm.id,{title:cnEditForm.title,notes:cnEditForm.notes||null,items});
-      if(cnEditNewFile) { for(const f of cnEditFiles) await costNormService.deleteFile(cnEditingNorm.id,f.id); await costNormService.uploadFile(cnEditingNorm.id,cnEditNewFile); }
+      const newMeta=cnPendingParseResult.current?.metadata ?? null;
+      await costNormService.update(cnEditingNorm.id,{title:cnEditForm.title,notes:cnEditForm.notes||null,items,metadata:newMeta});
       await Promise.all([loadCn(), loadReadiness()]);
       setCnMode("list"); setCnEditingNorm(null);
     } catch { setCnEditSaveError("Saqlashda xatolik yuz berdi"); }
@@ -517,7 +521,7 @@ export default function TechProductionPage() {
             const res=cnPendingParseResult.current;
             if(res) {
               if(res.error) setCnParseError(res.error);
-              else { setCnParsedTables(res.tables); setCnCreateTab("table"); if(!cnForm.title) setCnForm(f=>({...f,title:res.fileName.replace(/\.docx$/i,"")})); }
+              else { setCnParsedTables(res.tables); setCnParsedMetadata(res.metadata); setCnCreateTab("table"); if(!cnForm.title) setCnForm(f=>({...f,title:res.fileName.replace(/\.docx$/i,"")})); }
             }
           }}/>
         )}
