@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(dotnet ef:*)",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "Bash(python -c \"import docx; print\\('python-docx mavjud:', docx.__version__\\)\")"
     ]
   }
 }

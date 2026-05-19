@@ -18,4 +18,5 @@ public class CostNormResponseDto
     public DateTime CreatedAt { get; set; }
     public bool IsActive { get; set; }
     public List<CostNormItemResponseDto> Items { get; set; } = [];
+    public CostNormMetadataDto? Metadata { get; set; }
 }

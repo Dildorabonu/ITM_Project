@@ -1150,6 +1150,18 @@ export interface CostNormItemResponse {
   sortOrder: number;
 }
 
+export interface CostNormSignatureLine {
+  title: string;
+  name: string;
+}
+
+export interface CostNormMetadata {
+  approvalLeft: string[];
+  approvalRight: string[];
+  signatures: CostNormSignatureLine[];
+  footerNote?: string | null;
+}
+
 export interface CostNormResponse {
   id: string;
   contractId: string;
@@ -1165,6 +1177,7 @@ export interface CostNormResponse {
   createdAt: string;
   isActive: boolean;
   items: CostNormItemResponse[];
+  metadata?: CostNormMetadata | null;
 }
 
 export interface CostNormItemCreatePayload {
@@ -1188,6 +1201,7 @@ export interface CostNormCreatePayload {
   title: string;
   notes?: string | null;
   items: CostNormItemCreatePayload[];
+  metadata?: CostNormMetadata | null;
 }
 
 export const costNormService = {
@@ -1213,7 +1227,7 @@ export const costNormService = {
     return res.data?.result as string;
   },
 
-  update: async (id: string, dto: { title?: string; notes?: string | null; items?: CostNormItemCreatePayload[] }): Promise<void> => {
+  update: async (id: string, dto: { title?: string; notes?: string | null; items?: CostNormItemCreatePayload[]; metadata?: CostNormMetadata | null }): Promise<void> => {
     await api.put(`/api/costnorm/${id}`, dto);
   },
 

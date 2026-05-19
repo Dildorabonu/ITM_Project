@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Application.DTOs;
 using Application.DTOs.CostNorms;
 using Application.Helpers;
@@ -111,6 +112,7 @@ public class CostNormService : ICostNormService
             ContractProductId = dto.ContractProductId,
             Title = dto.Title,
             Notes = dto.Notes,
+            MetadataJson = SerializeMetadata(dto.Metadata),
             Status = DrawingStatus.InProgress,
             CreatedBy = createdBy,
             CreatedAt = DateTime.UtcNow,
@@ -134,6 +136,8 @@ public class CostNormService : ICostNormService
 
         _context.CostNorms.Add(costNorm);
         await _context.SaveChangesAsync();
+
+        await RegenerateDocxAsync(costNorm, createdBy);
 
         var contract = await _context.Contracts
             .Include(c => c.ContractUsers)
@@ -190,6 +194,7 @@ public class CostNormService : ICostNormService
 
         if (dto.Title is not null) costNorm.Title = dto.Title;
         if (dto.Notes is not null) costNorm.Notes = dto.Notes;
+        if (dto.Metadata is not null) costNorm.MetadataJson = SerializeMetadata(dto.Metadata);
 
         if (dto.ClearContractProduct)
         {
@@ -230,6 +235,15 @@ public class CostNormService : ICostNormService
 
         await _context.SaveChangesAsync();
 
+        // Reload items: in the items-update branch we add rows via the DbSet directly,
+        // so the navigation collection on costNorm is stale at this point.
+        costNorm.Items = await _context.CostNormItems
+            .Where(i => i.CostNormId == costNorm.Id)
+            .OrderBy(i => i.SortOrder)
+            .AsNoTracking()
+            .ToListAsync();
+        await RegenerateDocxAsync(costNorm, costNorm.CreatedBy);
+
         return ApiResult<int>.Success(200);
     }
 
@@ -265,6 +279,60 @@ public class CostNormService : ICostNormService
         return ApiResult<int>.Success(200);
     }
 
+    // DB rows are the source of truth; the attachment is a generated artifact we
+    // rebuild on every Create/Update so the file always matches the latest items.
+    private async SysTask RegenerateDocxAsync(CostNorm costNorm, Guid uploaderId)
+    {
+        await _attachmentService.DeleteAllAsync("costnorm", costNorm.Id);
+
+        var contract = await _context.Contracts
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == costNorm.ContractId);
+        var product = costNorm.ContractProductId.HasValue
+            ? await _context.ContractProducts
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == costNorm.ContractProductId.Value)
+            : null;
+
+        var metadata = DeserializeMetadata(costNorm.MetadataJson);
+        var bytes = CostNormDocxGenerator.Generate(costNorm, contract, product, metadata);
+        var fileName = CostNormDocxGenerator.BuildFileName(costNorm.Title);
+        using var stream = new MemoryStream(bytes);
+        await _attachmentService.UploadAsync(
+            "costnorm",
+            costNorm.Id,
+            stream,
+            fileName,
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            bytes.Length,
+            uploaderId);
+    }
+
+    private static readonly JsonSerializerOptions MetadataJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true,
+    };
+
+    private static string? SerializeMetadata(CostNormMetadataDto? metadata)
+    {
+        if (metadata is null) return null;
+        return JsonSerializer.Serialize(metadata, MetadataJsonOptions);
+    }
+
+    private static CostNormMetadataDto? DeserializeMetadata(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            return JsonSerializer.Deserialize<CostNormMetadataDto>(json, MetadataJsonOptions);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static CostNormResponseDto MapToResponse(CostNorm c) => new()
     {
         Id = c.Id,
@@ -282,6 +350,7 @@ public class CostNormService : ICostNormService
             : null,
         CreatedAt = c.CreatedAt,
         IsActive = c.IsActive,
+        Metadata = DeserializeMetadata(c.MetadataJson),
         Items = c.Items.Select(i => new CostNormItemResponseDto
         {
             Id = i.Id,
