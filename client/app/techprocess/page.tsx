@@ -33,6 +33,7 @@ import {
 import { TpBadge } from "./_components/TpBadge";
 import { CnBadge } from "./_components/CnBadge";
 import { CollapsibleItemsTable } from "./_components/CollapsibleItemsTable";
+import { CostNormA4Sheet } from "./_components/CostNormA4Sheet";
 import { FileParsingOverlay } from "./_components/FileParsingOverlay";
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -654,30 +655,42 @@ export default function TechProductionPage() {
           </div>
         )}
         {cnCreateTab==="table"&&(
-          <div className="itm-card" style={{ flex:1,display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden" }}>
-            <div style={{ display:"flex",alignItems:"center",gap:10,padding:"8px 14px",borderBottom:"1px solid var(--border)",flexShrink:0,flexWrap:"wrap" }}>
-              <span style={{ fontSize:12,color:"var(--text3)" }}>{cnParsedTables.length} ta jadval · {cnDataCount} ta yozuv</span>
-              {cnParsedTables.length>1&&(
-                <div style={{ display:"flex",gap:4 }}>
-                  {cnParsedTables.map((t,i)=>(
-                    <button key={i} onClick={()=>setCnActiveTab(i)}
-                      style={{ padding:"3px 10px",borderRadius:"var(--radius)",border:"1px solid var(--border)",fontSize:12,cursor:"pointer",fontWeight:cnActiveTab===i?700:400,background:cnActiveTab===i?"var(--accent,#1a56db)":"var(--bg2)",color:cnActiveTab===i?"#fff":"var(--text2)",whiteSpace:"nowrap" }}>
-                      {t.title} <span style={{ opacity:0.75 }}>({t.rows.filter(r=>!r.isSection).length})</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-              <div style={{ flex:1 }}/>
-              <button onClick={()=>setCnShowPhotos(p=>!p)} style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"0 10px",height:30,borderRadius:"var(--radius)",border:"1px solid var(--border)",background:cnShowPhotos?"var(--accent-dim,#e8f0fe)":"var(--bg2)",color:cnShowPhotos?"var(--accent,#1a56db)":"var(--text2)",fontSize:12,cursor:"pointer" }}>
-                {cnShowPhotos?<ImageIcon size={12}/>:<ImageOff size={12}/>} {cnShowPhotos?"Yashirish":"Fotolar"}
-              </button>
-            </div>
-            <div style={{ flex:1,overflowX:"auto",overflowY:"auto" }}>
-              <CollapsibleItemsTable rows={cnCurrentRows} showPhotos={cnShowPhotos}
-                onUpdateRow={(flatIdx,updated)=>{ setCnParsedTables(prev=>{ const next=[...prev]; const tab={...next[cnActiveTab],rows:[...next[cnActiveTab].rows]}; tab.rows[flatIdx]={...tab.rows[flatIdx],...updated}; next[cnActiveTab]=tab; return next; }); }}
-                onDeleteRow={(flatIdx)=>{ setCnParsedTables(prev=>{ const next=[...prev]; const tab={...next[cnActiveTab],rows:[...next[cnActiveTab].rows]}; tab.rows.splice(flatIdx,1); next[cnActiveTab]=tab; return next; }); }}
-              />
-            </div>
+          <div className="cn-a4-toolbar itm-card" style={{ display:"flex",alignItems:"center",gap:10,padding:"8px 14px",flexShrink:0,flexWrap:"wrap",marginBottom:12 }}>
+            <span style={{ fontSize:12,color:"var(--text3)" }}>{cnParsedTables.length} ta jadval · {cnDataCount} ta yozuv</span>
+            {cnParsedTables.length>1&&(
+              <div style={{ display:"flex",gap:4 }}>
+                {cnParsedTables.map((t,i)=>(
+                  <button key={i} onClick={()=>setCnActiveTab(i)}
+                    style={{ padding:"3px 10px",borderRadius:"var(--radius)",border:"1px solid var(--border)",fontSize:12,cursor:"pointer",fontWeight:cnActiveTab===i?700:400,background:cnActiveTab===i?"var(--accent,#1a56db)":"var(--bg2)",color:cnActiveTab===i?"#fff":"var(--text2)",whiteSpace:"nowrap" }}>
+                    {t.title} <span style={{ opacity:0.75 }}>({t.rows.filter(r=>!r.isSection).length})</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <div style={{ flex:1 }}/>
+            <button onClick={()=>setCnShowPhotos(p=>!p)} style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"0 10px",height:30,borderRadius:"var(--radius)",border:"1px solid var(--border)",background:cnShowPhotos?"var(--accent-dim,#e8f0fe)":"var(--bg2)",color:cnShowPhotos?"var(--accent,#1a56db)":"var(--text2)",fontSize:12,cursor:"pointer" }}>
+              {cnShowPhotos?<ImageIcon size={12}/>:<ImageOff size={12}/>} {cnShowPhotos?"Yashirish":"Fotolar"}
+            </button>
+          </div>
+        )}
+        {cnCreateTab==="table"&&(
+          <div style={{ flex:1,overflowX:"auto",overflowY:"auto",minHeight:0 }}>
+            {(() => {
+              const cnContract = contractList.find(c => c.id === cnForm.contractId);
+              const cnProduct = cnContract?.products.find(p => p.id === cnForm.contractProductId);
+              return (
+                <CostNormA4Sheet
+                  rows={cnCurrentRows}
+                  showPhotos={cnShowPhotos}
+                  title={cnForm.title || cnFormFile?.name?.replace(/\.docx$/i,"") || cnParsedTables[cnActiveTab]?.title}
+                  contractNo={cnContract?.contractNo}
+                  productType={cnProduct?.productType}
+                  metadata={cnParsedMetadata}
+                  onUpdateRow={(flatIdx,updated)=>{ setCnParsedTables(prev=>{ const next=[...prev]; const tab={...next[cnActiveTab],rows:[...next[cnActiveTab].rows]}; tab.rows[flatIdx]={...tab.rows[flatIdx],...updated}; next[cnActiveTab]=tab; return next; }); }}
+                  onDeleteRow={(flatIdx)=>{ setCnParsedTables(prev=>{ const next=[...prev]; const tab={...next[cnActiveTab],rows:[...next[cnActiveTab].rows]}; tab.rows.splice(flatIdx,1); next[cnActiveTab]=tab; return next; }); }}
+                />
+              );
+            })()}
           </div>
         )}
       </div>
