@@ -62,19 +62,13 @@ interface MaterialCheckItem {
 // ─── Animations ────────────────────────────────────────────────────────────
 
 const statusKeyframes = `
-@keyframes drawCheck { 0% { stroke-dashoffset: 24; } 100% { stroke-dashoffset: 0; } }
-@keyframes drawCircle { 0% { stroke-dashoffset: 63; } 100% { stroke-dashoffset: 0; } }
 @keyframes fadeSlideIn { 0% { opacity: 0; transform: translateY(6px) scale(0.95); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
-@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
-@keyframes ringPulse { 0% { transform: scale(1); opacity: 0.4; } 100% { transform: scale(1.8); opacity: 0; } }
-@keyframes dotBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 @keyframes overlayFadeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
 @keyframes overlayFadeOut { 0% { opacity: 1; } 100% { opacity: 0; } }
 @keyframes spinRing { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 @keyframes orbitDot { 0% { transform: rotate(0deg) translateX(52px) rotate(0deg); opacity: 0.9; } 50% { opacity: 0.4; } 100% { transform: rotate(360deg) translateX(52px) rotate(-360deg); opacity: 0.9; } }
 @keyframes pulseCore { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.3); } 50% { transform: scale(1.08); box-shadow: 0 0 30px 8px rgba(59, 130, 246, 0.15); } }
 @keyframes textFadeUp { 0% { opacity: 0; transform: translateY(12px); } 100% { opacity: 1; transform: translateY(0); } }
-@keyframes dataStreamLine { 0% { transform: translateX(-100%); opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { transform: translateX(100%); opacity: 0; } }
 `;
 
 function StatusBadgeBig({ status, available, required }: { status: MaterialStatus; available: number; required: number }) {
