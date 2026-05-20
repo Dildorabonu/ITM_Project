@@ -1,10 +1,9 @@
 import { useRef } from "react";
-import type { ContractResponse } from "@/lib/userService";
 import type { DrawingFormValues } from "../_types";
 
 interface DrawingFormProps {
   mode: "create" | "edit";
-  contract: ContractResponse | { contractNo: string; products?: { id: string; productType: string; quantity: number; unit: string }[] };
+  contract: { contractNo: string; products?: { id: string; productType: string; quantity: number; unit: string }[] };
   form: DrawingFormValues;
   setForm: React.Dispatch<React.SetStateAction<DrawingFormValues>>;
   submitted: boolean;

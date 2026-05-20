@@ -1,4 +1,4 @@
-import { DrawingStatus, type TechnicalDrawingResponse, type ContractResponse } from "@/lib/userService";
+import { DrawingStatus } from "@/lib/userService";
 
 // ─── Status styles ─────────────────────────────────────────────────────────────
 
@@ -7,14 +7,6 @@ export const STATUS_STYLE: Record<DrawingStatus, { bg: string; color: string; bo
   [DrawingStatus.InProgress]: { bg: "#e8f0fe",             color: "#1a56db",        border: "#a4c0f4" },
   [DrawingStatus.Approved]:   { bg: "var(--success-dim)", color: "var(--success)", border: "rgba(15,123,69,0.2)" },
 };
-
-// ─── Row type ──────────────────────────────────────────────────────────────────
-
-export type EmptyRowProduct = { id: string; productType: string; quantity: number; unit: string };
-
-export type MergedRow =
-  | { kind: "drawing"; drawing: TechnicalDrawingResponse }
-  | { kind: "empty"; contract: ContractResponse; existingCount: number; product: EmptyRowProduct | null };
 
 // ─── Form ──────────────────────────────────────────────────────────────────────
 
