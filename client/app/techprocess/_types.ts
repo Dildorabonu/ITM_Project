@@ -24,7 +24,7 @@ export { ProcessStatus, DrawingStatus, PROCESS_STATUS_LABELS, DRAWING_STATUS_LAB
 
 // ─── Modes ────────────────────────────────────────────────────────────────────
 
-export type TpMode = "list" | "detail" | "edit";
+export type TpMode = "list" | "detail";
 export type CnMode = "list" | "create" | "detail" | "edit";
 
 // ─── Material row types ───────────────────────────────────────────────────────
