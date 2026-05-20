@@ -67,7 +67,7 @@ public class ProductService : IProductService
         };
 
         var query = _context.RequisitionItems
-            .Include(i => i.ReservedProduct).ThenInclude(p => p!.Department)
+            .Include(i => i.ReservedProduct)
             .Include(i => i.Requisition).ThenInclude(r => r!.Department)
             .Where(i => i.ReservedProductId != null
                 && i.Requisition != null
@@ -103,18 +103,14 @@ public class ProductService : IProductService
             ProductName = i.ReservedProduct.Name,
             InvoiceNumber = i.ReservedProduct.InvoiceNumber,
             Unit = i.ReservedProduct.Unit,
-            WarehouseDepartmentId = i.ReservedProduct.DepartmentId,
-            WarehouseDepartmentName = i.ReservedProduct.Department?.Name ?? string.Empty,
             ReservedQuantity = i.Quantity,
             RequisitionId = i.Requisition!.Id,
             RequisitionNo = i.Requisition.RequisitionNo,
             Purpose = i.Requisition.Purpose,
-            TargetDepartmentId = i.Requisition.DepartmentId,
             TargetDepartmentName = i.Requisition.Department?.Name,
             Status = i.Requisition.Status,
             StatusLabel = ReservationStatusLabel(i.Requisition.Status),
-            WarehouseCheckedAt = i.Requisition.WarehouseCheckedAt,
-            ApprovedAt = i.Requisition.ApprovedAt
+            WarehouseCheckedAt = i.Requisition.WarehouseCheckedAt
         });
 
         var paged = PagedResult<ProductReservationDto>.Create(dtos, totalCount, pagination);
@@ -340,7 +336,6 @@ public class ProductService : IProductService
         InvoiceNumber = product.InvoiceNumber,
         Description = product.Description,
         Quantity = product.Quantity,
-        ReservedQuantity = product.ReservedQuantity,
         AvailableQuantity = Math.Max(0m, product.Quantity - product.ReservedQuantity),
         Unit = product.Unit,
         DepartmentId = product.DepartmentId,
