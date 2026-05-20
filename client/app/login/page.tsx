@@ -147,7 +147,7 @@ export default function LoginPage() {
     try {
       await loginAction({ login: loginVal, password });
       // Tell the browser to save/suggest these credentials next time
-      if (typeof window !== "undefined" && "PasswordCredential" in window) {
+      if ("PasswordCredential" in window) {
         const cred = new (window as unknown as { PasswordCredential: new (init: { id: string; password: string }) => Credential }).PasswordCredential({
           id: loginVal,
           password,
@@ -467,10 +467,6 @@ export default function LoginPage() {
       </div>
 
       <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to   { transform: rotate(360deg); }
-        }
         input::placeholder { color: var(--text3); opacity: 0.7; }
       `}</style>
     </div>
