@@ -12,7 +12,6 @@ public class ManufacturedProductCreateDto
     public ProductUnit Unit { get; set; }
     public ManufacturingStatus Status { get; set; } = ManufacturingStatus.InProgress;
     public Guid DepartmentId { get; set; }
-    public Guid? ContractId { get; set; }
     public DateTime? StartedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public string? Notes { get; set; }
