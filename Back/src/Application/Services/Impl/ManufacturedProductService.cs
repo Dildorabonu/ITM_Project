@@ -415,8 +415,10 @@ public class ManufacturedProductService : IManufacturedProductService
     }
 
     /// <summary>
-    /// Vazifa progress logi yoki update qilinganda chaqiriladi — faqat tegishli mahsulotning
-    /// ProducedQuantity-ni jonli ravishda yangilaydi (full sync ishlamasdan).
+    /// Vazifa progress logi yoki update qilinganda chaqiriladi — tegishli mahsulotning
+    /// ProducedQuantity-ni jonli yangilaydi va ombor topshirish 100% ga yetsa
+    /// ContractProduct.Status'ni Completed ga o'tkazib, shartnoma umumiy holatini
+    /// qayta hisoblaydi.
     /// </summary>
     public async SysTask UpdateProducedQuantityAsync(Guid contractId, Guid? contractProductId)
     {
@@ -436,6 +438,38 @@ public class ManufacturedProductService : IManufacturedProductService
         if (warehouseTask is null) return;
 
         row.ProducedQuantity = warehouseTask.CompletedAmount;
+
+        // Ombor topshirish to'liq bajarilganda mahsulot Completed ga o'tadi.
+        // Bu yagona joy bo'lib, bunda ContractProduct, ManufacturedProduct va Contract
+        // statuslari atom tarzda sinxronlanadi.
+        var fullyDelivered = warehouseTask.TotalAmount > 0
+                             && warehouseTask.CompletedAmount >= warehouseTask.TotalAmount;
+
+        if (fullyDelivered)
+        {
+            var product = await _context.ContractProducts
+                .FirstOrDefaultAsync(p => p.Id == contractProductId.Value);
+
+            if (product is not null && product.Status == ContractProductStatus.InProduction)
+            {
+                product.Status = ContractProductStatus.Completed;
+                row.Status = ManufacturingStatus.Completed;
+                row.CompletedAt ??= DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+                await ContractStatusHelper.RecomputeContractStatusAsync(_context, contractId);
+                await _context.SaveChangesAsync();
+
+                await _activityLogService.LogAsync(
+                    kind: "manufactured",
+                    title: $"Yakunlandi: {row.Name}",
+                    subtitle: row.Code,
+                    actorId: null,
+                    refId: row.Id);
+                return;
+            }
+        }
+
         await _context.SaveChangesAsync();
     }
 
