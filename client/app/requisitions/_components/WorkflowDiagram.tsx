@@ -230,7 +230,6 @@ function SplitDiagram({
 function getBranchLineColor(child: RequisitionChildSummary | undefined, finalColor: string): string {
   if (!child) return "var(--border)";
   if (child.status === RequisitionStatus.ReadyForWarehouseRelease || child.status === RequisitionStatus.ReadyForPurchase) return finalColor;
-  if (child.status === RequisitionStatus.Rejected) return "var(--border)";
   return "var(--border)";
 }
 
