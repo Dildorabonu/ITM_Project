@@ -12,7 +12,6 @@ import {
   type ManufacturedProductResponse,
   type ManufacturedProductStats,
   type ManufacturedProductCreatePayload,
-  type ManufacturedProductUpdatePayload,
   type DepartmentOption,
 } from "@/lib/userService";
 import { CheckSelect } from "@/app/_components/CheckSelect";
@@ -265,8 +264,7 @@ export default function ManufacturedProductsPage() {
       };
 
       if (editTarget) {
-        const updatePayload: ManufacturedProductUpdatePayload = { ...payload };
-        await manufacturedProductService.update(editTarget.id, updatePayload);
+        await manufacturedProductService.update(editTarget.id, payload);
         showToast("Mahsulot yangilandi");
       } else {
         await manufacturedProductService.create(payload);

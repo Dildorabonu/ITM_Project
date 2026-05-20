@@ -20,8 +20,6 @@ public class ManufacturedProductResponseDto
     public DateTime? StartedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public string? Notes { get; set; }
-    public Guid CreatedBy { get; set; }
-    public string? CreatedByFullName { get; set; }
     public DateTime CreatedAt { get; set; }
 }
 
