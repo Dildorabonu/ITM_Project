@@ -1,22 +1,12 @@
 import {
-  RequisitionType,
   RequisitionStatus,
-  RequisitionSource,
   REQUISITION_STATUS_LABELS,
-  REQUISITION_SOURCE_LABELS,
+  RequisitionSource,
   type RequisitionResponse,
-  type RequisitionChildSummary,
-  type RequisitionItemResponse,
 } from "@/lib/userService";
 
-export {
-  RequisitionType,
-  RequisitionStatus,
-  RequisitionSource,
-  REQUISITION_STATUS_LABELS,
-  REQUISITION_SOURCE_LABELS,
-};
-export type { RequisitionResponse, RequisitionChildSummary, RequisitionItemResponse };
+export { RequisitionStatus, REQUISITION_STATUS_LABELS };
+export type { RequisitionResponse };
 
 // ─── Status styles ─────────────────────────────────────────────────────────────
 
@@ -32,14 +22,9 @@ export const STATUS_STYLE: Partial<Record<RequisitionStatus, { bg: string; color
   [RequisitionStatus.Released]:                 { bg: "var(--success-dim)", color: "var(--success)", border: "rgba(15,123,69,0.35)" },
 };
 
-export const SOURCE_STYLE: Record<RequisitionSource, { bg: string; color: string; border: string }> = {
-  [RequisitionSource.Warehouse]: { bg: "var(--success-dim)", color: "var(--success)", border: "rgba(15,123,69,0.2)" },
-  [RequisitionSource.Purchase]:  { bg: "var(--accent-dim)",  color: "var(--accent)",  border: "rgba(26,110,235,0.25)" },
-};
-
 // ─── Workflow ─────────────────────────────────────────────────────────────────
 
-export type WorkflowStepKey =
+type WorkflowStepKey =
   | RequisitionStatus.Draft
   | RequisitionStatus.PendingWarehouseCheck
   | RequisitionStatus.WarehouseChecked
