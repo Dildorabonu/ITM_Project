@@ -31,7 +31,6 @@ public class ManufacturedProductService : IManufacturedProductService
         var query = _context.ManufacturedProducts
             .Include(p => p.Department)
             .Include(p => p.Contract)
-            .Include(p => p.Creator)
             .AsNoTracking()
             // Auto-derived (ContractProductId != null) yoki qo'lda kiritilgan (kontraktga
             // umuman bog'lanmagan) yozuvlar — orphan auto-rows ko'rinmasligi uchun aniq filter.
@@ -91,7 +90,6 @@ public class ManufacturedProductService : IManufacturedProductService
         var product = await _context.ManufacturedProducts
             .Include(p => p.Department)
             .Include(p => p.Contract)
-            .Include(p => p.Creator)
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == id);
 
@@ -493,8 +491,6 @@ public class ManufacturedProductService : IManufacturedProductService
         StartedAt = p.StartedAt,
         CompletedAt = p.CompletedAt,
         Notes = p.Notes,
-        CreatedBy = p.CreatedBy,
-        CreatedByFullName = p.Creator is null ? null : $"{p.Creator.FirstName} {p.Creator.LastName}".Trim(),
         CreatedAt = p.CreatedAt,
     };
 }

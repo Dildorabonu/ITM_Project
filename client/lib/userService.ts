@@ -1667,8 +1667,6 @@ export interface ManufacturedProductResponse {
   startedAt: string | null;
   completedAt: string | null;
   notes: string | null;
-  createdBy: string;
-  createdByFullName: string | null;
   createdAt: string;
 }
 
@@ -1681,7 +1679,6 @@ export interface ManufacturedProductCreatePayload {
   unit: ProductUnit;
   status: ManufacturingStatus;
   departmentId: string;
-  contractId?: string | null;
   startedAt?: string | null;
   completedAt?: string | null;
   notes?: string | null;
@@ -1696,7 +1693,6 @@ export interface ManufacturedProductUpdatePayload {
   unit?: ProductUnit;
   status?: ManufacturingStatus;
   departmentId?: string;
-  contractId?: string | null;
   startedAt?: string | null;
   completedAt?: string | null;
   notes?: string | null;
