@@ -145,6 +145,14 @@ public class ContractTaskService : IContractTaskService
         if (task is null)
             return ApiResult<int>.Failure([$"ContractTask with id '{id}' not found."], 404);
 
+        if (dto.CompletedAmount.HasValue && task.Name == WarehouseTaskName)
+        {
+            var cap = await GetWarehouseCompletedCapAsync(task);
+            if (cap.HasValue && dto.CompletedAmount.Value > cap.Value)
+                return ApiResult<int>.Failure(
+                    [$"Omborga topshirish miqdori boshqa vazifalarning eng kam bajarilgan qiymatidan ({cap.Value}) oshmasligi kerak."]);
+        }
+
         if (dto.Name is not null) task.Name = dto.Name;
         if (dto.CompletedAmount.HasValue) task.CompletedAmount = dto.CompletedAmount.Value;
         if (dto.TotalAmount.HasValue) task.TotalAmount = dto.TotalAmount.Value;
@@ -189,6 +197,17 @@ public class ContractTaskService : IContractTaskService
 
         if (dto.Amount <= 0)
             return ApiResult<Guid>.Failure(["Miqdor 0 dan katta bo'lishi kerak."], 400);
+
+        if (task.Name == WarehouseTaskName)
+        {
+            var cap = await GetWarehouseCompletedCapAsync(task);
+            if (cap.HasValue && task.CompletedAmount + dto.Amount > cap.Value)
+            {
+                var remaining = Math.Max(0m, cap.Value - task.CompletedAmount);
+                return ApiResult<Guid>.Failure(
+                    [$"Omborga topshirish miqdori boshqa vazifalarning eng kam bajarilgan qiymatidan ({cap.Value}) oshmasligi kerak. Qoldiq: {remaining}."]);
+            }
+        }
 
         var log = new ContractTaskDailyLog
         {
@@ -251,6 +270,25 @@ public class ContractTaskService : IContractTaskService
             CreatedByFullName = l.Creator is not null ? $"{l.Creator.FirstName} {l.Creator.LastName}" : null,
             CreatedAt = l.CreatedAt,
         }));
+    }
+
+    // Warehouse task uchun cap — bir xil scope ichidagi boshqa vazifalarning eng kam
+    // CompletedAmount qiymati. Boshqa vazifa yo'q bo'lsa null (cap qo'yilmaydi).
+    private async Task<decimal?> GetWarehouseCompletedCapAsync(ContractTask warehouseTask)
+    {
+        var query = _context.ContractTasks
+            .AsNoTracking()
+            .Where(t => t.IsActive
+                        && t.Id != warehouseTask.Id
+                        && t.ContractId == warehouseTask.ContractId
+                        && t.Name != WarehouseTaskName);
+
+        query = warehouseTask.ContractProductId.HasValue
+            ? query.Where(t => t.ContractProductId == warehouseTask.ContractProductId)
+            : query.Where(t => t.ContractProductId == null);
+
+        var siblings = await query.Select(t => t.CompletedAmount).ToListAsync();
+        return siblings.Count == 0 ? null : siblings.Min();
     }
 
     private static ContractTaskResponseDto MapToResponse(ContractTask t)
