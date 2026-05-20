@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useDraft } from "@/lib/useDraft";
 import { useToastStore } from "@/lib/store/toastStore";
@@ -380,8 +380,6 @@ export default function TechProductionPage() {
 
   // ── CN computed ────────────────────────────────────────────────────────────
 
-  const cnDetailTables = useMemo(()=>cnSelected?[{title:cnSelected.title,rows:cnDetailItems}]:[],[cnSelected,cnDetailItems]);
-  const cnDetailRows = cnDetailTables[cnActiveTab]?.rows??[];
   const cnDataCount = cnParsedTables[cnActiveTab]?.rows.filter(r=>!r.isSection).length??0;
   const cnCurrentRows = cnParsedTables[cnActiveTab]?.rows??[];
 
@@ -907,7 +905,7 @@ export default function TechProductionPage() {
         </div>
         <div className="itm-card" style={{ flex:1,display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden" }}>
           <div style={{ flex:1,overflowX:"auto",overflowY:"auto" }}>
-            <CollapsibleItemsTable rows={cnDetailRows} showPhotos={cnShowPhotos}/>
+            <CollapsibleItemsTable rows={cnDetailItems} showPhotos={cnShowPhotos}/>
           </div>
         </div>
       </div>
