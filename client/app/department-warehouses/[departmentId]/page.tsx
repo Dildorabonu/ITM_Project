@@ -94,7 +94,6 @@ export default function DepartmentWarehouseDetailPage() {
   const [search, setSearch] = useState("");
   const [filterUnit, setFilterUnit] = useState<string>("");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -103,23 +102,15 @@ export default function DepartmentWarehouseDetailPage() {
 
     let active = true;
     (async () => {
-      try {
-        setLoading(true);
-        setError("");
-        const [dept, list] = await Promise.all([
-          departmentService.getById(departmentId).catch(() => null),
-          productService.getByDepartment(departmentId).catch(() => [] as ProductResponse[]),
-        ]);
-        if (!active) return;
-        setDepartment(dept);
-        setProducts(list);
-      } catch {
-        if (active) {
-          setError("Bo'lim mahsulotlarini yuklashda xatolik yuz berdi.");
-        }
-      } finally {
-        if (active) setLoading(false);
-      }
+      setLoading(true);
+      const [dept, list] = await Promise.all([
+        departmentService.getById(departmentId).catch(() => null),
+        productService.getByDepartment(departmentId).catch(() => [] as ProductResponse[]),
+      ]);
+      if (!active) return;
+      setDepartment(dept);
+      setProducts(list);
+      setLoading(false);
     })();
     return () => { active = false; };
   }, [hasHydrated, departmentId, isAuthorized]);
@@ -237,8 +228,6 @@ export default function DepartmentWarehouseDetailPage() {
       <div className="itm-card" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "clip" } as React.CSSProperties}>
         {loading ? (
           <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
-        ) : error ? (
-          <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--danger)" }}>{error}</div>
         ) : (
           <div style={{ overflowX: "auto", overflowY: "auto", flex: 1, minHeight: 0 }}>
             <table className="itm-table">

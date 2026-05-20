@@ -301,7 +301,6 @@ export interface DepartmentWarehouseSummary {
   departmentType: number;
   productCount: number;
   totalQuantity: number;
-  lastUpdatedAt: string | null;
 }
 
 export interface ProductReservationResponse {

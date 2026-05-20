@@ -143,8 +143,7 @@ public class ProductService : IProductService
             {
                 DepartmentId = g.Key,
                 ProductCount = g.Count(),
-                TotalQuantity = g.Sum(p => p.Quantity),
-                LastUpdatedAt = g.Max(p => p.CreatedAt)
+                TotalQuantity = g.Sum(p => p.Quantity)
             })
             .ToListAsync();
 
@@ -159,8 +158,7 @@ public class ProductService : IProductService
                 DepartmentName = d.Name,
                 DepartmentType = d.Type,
                 ProductCount = s?.ProductCount ?? 0,
-                TotalQuantity = s?.TotalQuantity ?? 0m,
-                LastUpdatedAt = s?.LastUpdatedAt
+                TotalQuantity = s?.TotalQuantity ?? 0m
             };
         });
 
