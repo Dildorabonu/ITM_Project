@@ -12,12 +12,4 @@ public static class EnumExtensions
             ?.GetCustomAttribute<DisplayAttribute>();
         return attr?.Name ?? value.ToString();
     }
-
-    public static string GetDisplayIcon(this Enum value)
-    {
-        var attr = value.GetType()
-            .GetField(value.ToString())
-            ?.GetCustomAttribute<DisplayAttribute>();
-        return attr?.Description ?? string.Empty;
-    }
 }

@@ -171,7 +171,6 @@ public class RoleService : IRoleService
         Id = role.Id,
         Name = role.Name,
         Description = role.Description,
-        IsActive = role.IsActive,
-        CreatedAt = role.CreatedAt
+        IsActive = role.IsActive
     };
 }
