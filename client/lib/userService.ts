@@ -209,7 +209,6 @@ export interface DepartmentResponse {
   name: string;
   type: DepartmentType;
   employeeCount: number;
-  createdAt: string;
   headUserName?: string | null;
   isActive: boolean;
 }

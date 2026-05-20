@@ -8,7 +8,6 @@ public class DepartmentResponseDto
     public string Name { get; set; } = string.Empty;
     public DepartmentType Type { get; set; }
     public int EmployeeCount { get; set; }
-    public DateTime CreatedAt { get; set; }
     public string? HeadUserName { get; set; }
     public bool IsActive { get; set; }
 }
