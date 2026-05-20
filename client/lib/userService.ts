@@ -271,7 +271,6 @@ export interface ProductResponse {
   invoiceNumber: string;
   description: string | null;
   quantity: number;
-  reservedQuantity: number;
   availableQuantity: number;
   unit: ProductUnit;
   departmentId: string;
@@ -311,18 +310,14 @@ export interface ProductReservationResponse {
   productName: string;
   invoiceNumber: string;
   unit: ProductUnit;
-  warehouseDepartmentId: string;
-  warehouseDepartmentName: string;
   reservedQuantity: number;
   requisitionId: string;
   requisitionNo: string;
   purpose: string;
-  targetDepartmentId: string | null;
   targetDepartmentName: string | null;
   status: number;
   statusLabel: string;
   warehouseCheckedAt: string | null;
-  approvedAt: string | null;
 }
 
 export const productService = {
