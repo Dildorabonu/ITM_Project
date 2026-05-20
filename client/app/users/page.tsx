@@ -313,8 +313,6 @@ function UsersPageInner() {
       <div className="page-transition" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
         <UserListView
           filtered={filtered}
-          users={users}
-          departments={departments}
           page={page}
           totalPages={totalPages}
           totalCount={totalCount}
