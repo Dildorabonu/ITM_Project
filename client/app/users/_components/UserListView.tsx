@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { DepartmentType, DEPARTMENT_TYPE_LABELS, type UserResponse, type DepartmentOption } from "@/lib/userService";
+import { DepartmentType, DEPARTMENT_TYPE_LABELS, type UserResponse } from "@/lib/userService";
 import { CheckSelect } from "@/app/_components/CheckSelect";
 
 interface UserListViewProps {
   filtered: UserResponse[];
-  users: UserResponse[];
-  departments: DepartmentOption[];
   page: number;
   totalPages: number;
   totalCount: number;
@@ -30,7 +28,7 @@ interface UserListViewProps {
 }
 
 export function UserListView({
-  filtered, departments,
+  filtered,
   page, totalPages, totalCount,
   loading, error,
   search, setSearch,
