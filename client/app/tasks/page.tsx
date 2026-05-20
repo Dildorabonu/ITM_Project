@@ -459,7 +459,6 @@ function EditTaskModal({
 }) {
   const [name, setName] = useState(task.name);
   const [completedAmount, setCompletedAmount] = useState(String(task.completedAmount));
-  const [totalAmount, setTotalAmount] = useState(String(task.totalAmount));
   // importanceMap: id → string value for all tasks
   const [importanceMap, setImportanceMap] = useState<Record<string, string>>(() =>
     Object.fromEntries(allTasks.map(t => [t.id, String(t.importance)]))
@@ -513,7 +512,7 @@ function EditTaskModal({
         {
           name: name.trim(),
           completedAmount: parseFloat(completedAmount) || 0,
-          totalAmount: parseFloat(totalAmount) || 0,
+          totalAmount: task.totalAmount,
           importance: parseFloat(importanceMap[task.id]) || 0,
         },
         otherUpdates
@@ -695,7 +694,7 @@ function DailyLogModal({
 }: {
   task: ContractTaskResponse;
   allTasks: ContractTaskResponse[];
-  onSave: (taskId: string, amount: number, note: string) => Promise<void>;
+  onSave: (taskId: string, amount: number) => Promise<void>;
   onCancel: () => void;
 }) {
   const [amount, setAmount] = useState("");
@@ -739,7 +738,7 @@ function DailyLogModal({
     if (exceedsCap) return;
     setSaving(true);
     try {
-      await onSave(task.id, parsed, "");
+      await onSave(task.id, parsed);
     } catch (e) {
       const err = e as { response?: { data?: { errors?: string[] } } };
       setServerError(err?.response?.data?.errors?.[0] ?? "Saqlashda xatolik yuz berdi.");
@@ -1220,7 +1219,6 @@ function ShipmentsModal({
 
 interface NewTaskForm {
   name: string;
-  totalAmount: string;
   importance: string;
 }
 
@@ -1238,7 +1236,7 @@ function AddTaskForm({
   existingTasks: ContractTaskResponse[];
   scopeQuantity: number;
 }) {
-  const emptyForm = (): NewTaskForm => ({ name: "", totalAmount: String(scopeQuantity), importance: "" });
+  const emptyForm = (): NewTaskForm => ({ name: "", importance: "" });
   const [forms, setForms] = useState<NewTaskForm[]>([emptyForm()]);
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -1286,7 +1284,7 @@ function AddTaskForm({
       forms.map(f => ({
         name: f.name.trim(),
         completedAmount: 0,
-        totalAmount: parseFloat(f.totalAmount) || 0,
+        totalAmount: scopeQuantity,
         importance: parseFloat(f.importance) || 0,
       })),
       existingUpdates
@@ -1577,9 +1575,9 @@ function TaskPanel({ scope, hideHeader }: { scope: Scope; hideHeader?: boolean }
     setEditingId(null);
   };
 
-  const handleLogProgress = async (taskId: string, amount: number, note: string) => {
+  const handleLogProgress = async (taskId: string, amount: number) => {
     const today = new Date().toISOString().slice(0, 10);
-    await contractTaskService.logProgress(taskId, { amount, note: note || undefined, date: today });
+    await contractTaskService.logProgress(taskId, { amount, date: today });
     await refreshScopeTasks();
     setLoggingId(null);
   };
