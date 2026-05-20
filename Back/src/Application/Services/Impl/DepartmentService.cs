@@ -160,7 +160,6 @@ public class DepartmentService : IDepartmentService
         Name = department.Name,
         Type = department.Type,
         EmployeeCount = department.EmployeeCount,
-        CreatedAt = department.CreatedAt,
         HeadUserName = headUserName,
         IsActive = department.IsActive,
     };

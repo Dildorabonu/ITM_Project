@@ -67,7 +67,6 @@ export default function DepartmentsPage() {
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const [toggleId, setToggleId] = useState<string | null>(null);
   const [toggleTarget, setToggleTarget] = useState<DepartmentResponse | null>(null);
   const [toggling, setToggling] = useState(false);
   const [toggleError, setToggleError] = useState("");
@@ -204,7 +203,6 @@ export default function DepartmentsPage() {
       await departmentService.delete(toggleTarget.id);
       const wasActive = toggleTarget.isActive !== false;
       showToast(wasActive ? "Bo'lim noaktiv qilindi!" : "Bo'lim muvaffaqiyatli faollashtirildi!");
-      setToggleId(null);
       setToggleTarget(null);
       await load(page);
     } catch {
@@ -605,7 +603,7 @@ export default function DepartmentsPage() {
                                   ? { color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }
                                   : { color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }
                                 }
-                                onClick={() => { setToggleId(d.id); setToggleTarget(d); setToggleError(""); }}
+                                onClick={() => { setToggleTarget(d); setToggleError(""); }}
                               >
                                 {inactive ? (
                                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -688,8 +686,8 @@ export default function DepartmentsPage() {
       </div>
 
       {/* Delete confirm */}
-      {toggleId && toggleTarget && createPortal(
-        <div className="modal-overlay" onClick={() => { setToggleId(null); setToggleTarget(null); setToggleError(""); }}>
+      {toggleTarget && createPortal(
+        <div className="modal-overlay" onClick={() => { setToggleTarget(null); setToggleError(""); }}>
           <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 400 }}>
             <div className="modal-header" style={{ color: toggleTarget.isActive === false ? "#22c55e" : "var(--danger)", borderBottom: "1px solid var(--border)" }}>
               <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -713,7 +711,7 @@ export default function DepartmentsPage() {
               )}
               <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
                 <button className="btn btn-outline"
-                  onClick={() => { setToggleId(null); setToggleTarget(null); setToggleError(""); }}
+                  onClick={() => { setToggleTarget(null); setToggleError(""); }}
                   disabled={toggling}>Bekor qilish</button>
                 <button className="btn"
                   style={{
