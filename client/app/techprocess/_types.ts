@@ -220,6 +220,17 @@ export function parseDocxMetadata(html: string): CostNormMetadata {
 
   // Signature footer: pick the LAST table containing "Технолог" or "Конструктор"
   // or "Начальник цеха" — these are clearly position labels, not the main table.
+  const isPlaceholder = (s: string) => !s || /^[\s_–—-]+$/.test(s);
+  // Mammoth renders each docx paragraph as a <p>; namuna stacks the last two
+  // signatures inside a single cell as two <p> siblings, so we split on them.
+  const cellParas = (cell: Element): string[] => {
+    const paras = Array.from(cell.querySelectorAll(":scope > p"));
+    if (paras.length > 0) {
+      return paras.map(p => (p.textContent || "").trim()).filter(s => s.length > 0);
+    }
+    const t = (cell.textContent || "").trim();
+    return t ? [t] : [];
+  };
   for (let i = tables.length - 1; i >= 0; i--) {
     const t = tables[i];
     const txt = (t.textContent || "");
@@ -228,15 +239,29 @@ export function parseDocxMetadata(html: string): CostNormMetadata {
     for (const tr of Array.from(t.querySelectorAll("tr"))) {
       const cells = Array.from(tr.querySelectorAll("td, th"));
       if (cells.length < 2) continue;
-      const texts = cells.map(c => (c.textContent || "").trim());
-      const title = texts[0] || "";
-      // Pick the last non-empty cell that isn't just underscores/dashes as the name.
-      const nameCandidates = texts.slice(1).reverse();
-      const isPlaceholder = (s: string) => !s || /^[\s_–—-]+$/.test(s);
-      let name = nameCandidates.find(s => !isPlaceholder(s)) || "";
-      if (!name && nameCandidates.length > 0) name = nameCandidates[0];
-      if (!title.trim()) continue;
-      signatures.push({ title, name });
+      const titleParas = cellParas(cells[0]);
+      if (titleParas.length === 0) continue;
+
+      // Pick the rightmost cell whose paragraphs aren't all placeholders as the name column.
+      let nameCellIdx = cells.length - 1;
+      for (let ci = cells.length - 1; ci > 0; ci--) {
+        const parts = cellParas(cells[ci]);
+        if (parts.some(p => !isPlaceholder(p))) { nameCellIdx = ci; break; }
+      }
+      const nameParas = cellParas(cells[nameCellIdx]);
+
+      if (titleParas.length === 1) {
+        const name = nameParas.find(p => !isPlaceholder(p)) || "";
+        signatures.push({ title: titleParas[0], name });
+      } else {
+        // Multiple signatures stacked in one row: pair title paragraphs with the
+        // corresponding name paragraphs by index, leaving extras blank.
+        for (let pi = 0; pi < titleParas.length; pi++) {
+          const candidate = nameParas[pi] || "";
+          const name = isPlaceholder(candidate) ? "" : candidate;
+          signatures.push({ title: titleParas[pi], name });
+        }
+      }
     }
     break;
   }
