@@ -81,10 +81,10 @@ export default function RolesPage() {
     },
   );
 
-  const loadRoles = useCallback(async (p = page) => {
+  const loadRoles = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await roleService.getPaged(p, PAGE_SIZE, search.trim() ? { search: search.trim() } : {});
+      const data = await roleService.getPaged(page, PAGE_SIZE, search.trim() ? { search: search.trim() } : {});
       setRoles(data.items);
       setTotalPages(data.totalPages);
       setTotalCount(data.totalCount);
@@ -95,7 +95,6 @@ export default function RolesPage() {
     } finally {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, search]);
 
   // Reset to page 1 when search changes
@@ -103,7 +102,7 @@ export default function RolesPage() {
 
   // Reload when page or search changes (debounce search)
   useEffect(() => {
-    const t = setTimeout(() => { loadRoles(page); }, search ? 250 : 0);
+    const t = setTimeout(() => { loadRoles(); }, search ? 250 : 0);
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, search]);
@@ -205,7 +204,7 @@ export default function RolesPage() {
         await roleService.setPermissions(roleId, Array.from(selectedPerms));
       }
       setShowRoleModal(false);
-      await loadRoles(page);
+      await loadRoles();
       showToast(editRole ? "Rol muvaffaqiyatli tahrirlandi!" : "Rol muvaffaqiyatli yaratildi!");
     } catch {
       showToast("Rolni saqlashda xatolik yuz berdi.", "Xatolik");
@@ -222,7 +221,7 @@ export default function RolesPage() {
     try {
       await roleService.delete(deleteConfirmId);
       setDeleteConfirmId(null);
-      await loadRoles(page);
+      await loadRoles();
       showToast("Rol muvaffaqiyatli noaktiv qilindi!");
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { errors?: string[] } } };
@@ -239,7 +238,7 @@ export default function RolesPage() {
     try {
       await roleService.update(activateConfirmId, { isActive: true });
       setActivateConfirmId(null);
-      await loadRoles(page);
+      await loadRoles();
       showToast("Rol muvaffaqiyatli aktiv qilindi!");
     } catch {
       showToast("Rolni aktiv qilishda xatolik yuz berdi.", "Xatolik");
@@ -280,7 +279,7 @@ export default function RolesPage() {
           roles={roles}
           search={search}
           setSearch={setSearch}
-          fetchAll={() => loadRoles(page)}
+          fetchAll={loadRoles}
           page={page}
           pageSize={PAGE_SIZE}
           totalPages={totalPages}

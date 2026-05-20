@@ -29,13 +29,11 @@ public class PermissionService : IPermissionService
             {
                 Module = g.Key.ToString(),
                 ModuleName = g.Key.GetDisplayName(),
-                ModuleIcon = g.Key.GetDisplayIcon(),
                 Actions = g.OrderBy(p => (int)p.Action).Select(p => new PermissionResponseDto
                 {
                     Id = p.Id,
                     Action = p.Action.ToString(),
                     ActionName = p.Action.GetDisplayName(),
-                    ActionIcon = p.Action.GetDisplayIcon(),
                 }).ToList()
             });
 
@@ -56,7 +54,6 @@ public class PermissionService : IPermissionService
             Id = permission.Id,
             Action = permission.Action.ToString(),
             ActionName = permission.Action.GetDisplayName(),
-            ActionIcon = permission.Action.GetDisplayIcon(),
         });
     }
 }
