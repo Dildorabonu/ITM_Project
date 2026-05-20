@@ -118,7 +118,6 @@ export interface RoleResponse {
   name: string;
   description: string | null;
   isActive: boolean;
-  createdAt: string;
 }
 
 export interface RoleCreatePayload {
@@ -136,13 +135,11 @@ export interface PermissionActionResponse {
   id: string;
   action: string;
   actionName: string;
-  actionIcon: string;
 }
 
 export interface PermissionModuleResponse {
   module: string;
   moduleName: string;
-  moduleIcon: string;
   actions: PermissionActionResponse[];
 }
 
