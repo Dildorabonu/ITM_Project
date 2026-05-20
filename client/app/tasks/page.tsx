@@ -467,6 +467,18 @@ function EditTaskModal({
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [importanceError, setImportanceError] = useState("");
+  const [serverError, setServerError] = useState("");
+
+  const isWarehouse = task.name === WAREHOUSE_TASK_NAME;
+  const warehouseCap = isWarehouse
+    ? (() => {
+        const others = allTasks.filter(t => t.id !== task.id && t.name !== WAREHOUSE_TASK_NAME);
+        return others.length === 0 ? null : Math.min(...others.map(t => t.completedAmount));
+      })()
+    : null;
+  const parsedCompleted = parseFloat(completedAmount);
+  const completedExceedsCap =
+    isWarehouse && warehouseCap !== null && !isNaN(parsedCompleted) && parsedCompleted > warehouseCap;
 
   const total = Math.round(
     allTasks.reduce((s, t) => s + (parseFloat(importanceMap[t.id]) || 0), 0) * 100
@@ -480,7 +492,9 @@ function EditTaskModal({
 
   const handleSave = async () => {
     setSubmitted(true);
+    setServerError("");
     if (!name.trim()) return;
+    if (completedExceedsCap) return;
     if (diff !== 0) {
       setImportanceError(
         diff > 0
@@ -493,17 +507,23 @@ function EditTaskModal({
     const otherUpdates = allTasks
       .filter(t => t.id !== task.id)
       .map(t => ({ id: t.id, importance: parseFloat(importanceMap[t.id]) || 0 }));
-    await onSave(
-      task.id,
-      {
-        name: name.trim(),
-        completedAmount: parseFloat(completedAmount) || 0,
-        totalAmount: parseFloat(totalAmount) || 0,
-        importance: parseFloat(importanceMap[task.id]) || 0,
-      },
-      otherUpdates
-    );
-    setSaving(false);
+    try {
+      await onSave(
+        task.id,
+        {
+          name: name.trim(),
+          completedAmount: parseFloat(completedAmount) || 0,
+          totalAmount: parseFloat(totalAmount) || 0,
+          importance: parseFloat(importanceMap[task.id]) || 0,
+        },
+        otherUpdates
+      );
+    } catch (e) {
+      const err = e as { response?: { data?: { errors?: string[] } } };
+      setServerError(err?.response?.data?.errors?.[0] ?? "Saqlashda xatolik yuz berdi.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return createPortal(
@@ -535,14 +555,30 @@ function EditTaskModal({
           </div>
 
           <div className="atf-field">
-            <label className="atf-label">Bajarilgan miqdor</label>
+            <label className="atf-label">
+              Bajarilgan miqdor
+              {isWarehouse && warehouseCap !== null && (
+                <span style={{ color: "var(--text3)", fontWeight: 500, marginLeft: 6 }}>
+                  (eng ko&apos;pi {warehouseCap.toLocaleString()})
+                </span>
+              )}
+            </label>
             <input
               className="form-input"
               type="number" min="0"
               value={completedAmount}
-              onChange={e => setCompletedAmount(e.target.value)}
+              onChange={e => { setCompletedAmount(e.target.value); setServerError(""); }}
               onWheel={e => (e.target as HTMLInputElement).blur()}
+              style={submitted && completedExceedsCap ? { borderColor: "var(--danger)" } : undefined}
             />
+            {submitted && completedExceedsCap && warehouseCap !== null && (
+              <div style={{ color: "var(--danger)", fontSize: 12 }}>
+                Boshqa vazifalar shu darajada bajarilmagan — eng ko&apos;pi {warehouseCap.toLocaleString()}.
+              </div>
+            )}
+            {serverError && (
+              <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>{serverError}</div>
+            )}
           </div>
 
           {/* All tasks importance editor */}
@@ -653,10 +689,12 @@ function EditTaskModal({
 
 function DailyLogModal({
   task,
+  allTasks,
   onSave,
   onCancel,
 }: {
   task: ContractTaskResponse;
+  allTasks: ContractTaskResponse[];
   onSave: (taskId: string, amount: number, note: string) => Promise<void>;
   onCancel: () => void;
 }) {
@@ -665,6 +703,17 @@ function DailyLogModal({
   const [submitted, setSubmitted] = useState(false);
   const [logs, setLogs] = useState<ContractTaskLogResponse[]>([]);
   const [logsLoading, setLogsLoading] = useState(true);
+  const [serverError, setServerError] = useState("");
+
+  const isWarehouse = task.name === WAREHOUSE_TASK_NAME;
+  // Warehouse uchun cap — boshqa scoped vazifalarning eng kam bajarilgan qiymati.
+  // Boshqa vazifa yo'q bo'lsa cap qo'yilmaydi.
+  const warehouseCap = isWarehouse
+    ? (() => {
+        const others = allTasks.filter(t => t.id !== task.id && t.name !== WAREHOUSE_TASK_NAME);
+        return others.length === 0 ? null : Math.min(...others.map(t => t.completedAmount));
+      })()
+    : null;
 
   useEffect(() => {
     contractTaskService.getLogs(task.id).then(data => {
@@ -673,16 +722,31 @@ function DailyLogModal({
     });
   }, [task.id]);
 
+  const parsed = parseFloat(amount);
+  const remaining = Math.max(0, task.totalAmount - task.completedAmount);
+  const warehouseRemaining = warehouseCap !== null
+    ? Math.max(0, warehouseCap - task.completedAmount)
+    : null;
+  const effectiveMax = warehouseRemaining !== null
+    ? Math.min(remaining, warehouseRemaining)
+    : remaining;
+  const exceedsCap = !isNaN(parsed) && parsed > effectiveMax;
+
   const handleSave = async () => {
     setSubmitted(true);
-    const amt = parseFloat(amount);
-    if (!amount || isNaN(amt) || amt <= 0) return;
+    setServerError("");
+    if (!amount || isNaN(parsed) || parsed <= 0) return;
+    if (exceedsCap) return;
     setSaving(true);
-    await onSave(task.id, amt, "");
-    setSaving(false);
+    try {
+      await onSave(task.id, parsed, "");
+    } catch (e) {
+      const err = e as { response?: { data?: { errors?: string[] } } };
+      setServerError(err?.response?.data?.errors?.[0] ?? "Saqlashda xatolik yuz berdi.");
+    } finally {
+      setSaving(false);
+    }
   };
-
-  const remaining = Math.max(0, task.totalAmount - task.completedAmount);
 
   return createPortal(
     <div className="modal-overlay" onClick={onCancel}>
@@ -725,18 +789,36 @@ function DailyLogModal({
 
           {/* Input fields */}
           <div className="atf-field">
-            <label className="atf-label">Bugun bajarildi <span style={{ color: "var(--danger)" }}>*</span></label>
+            <label className="atf-label">
+              Bugun bajarildi <span style={{ color: "var(--danger)" }}>*</span>
+              {isWarehouse && warehouseRemaining !== null && (
+                <span style={{ color: "var(--text3)", fontWeight: 500, marginLeft: 6 }}>
+                  (eng ko&apos;pi {warehouseRemaining.toLocaleString()})
+                </span>
+              )}
+            </label>
             <input
               className="form-input"
               type="number" min="0.01" step="any"
               placeholder="Miqdorni kiriting"
               value={amount}
-              onChange={e => setAmount(e.target.value)}
+              onChange={e => { setAmount(e.target.value); setServerError(""); }}
               onWheel={e => (e.target as HTMLInputElement).blur()}
-              style={submitted && (!amount || parseFloat(amount) <= 0) ? { borderColor: "var(--danger)" } : undefined}
+              disabled={isWarehouse && warehouseRemaining !== null && warehouseRemaining <= 0}
+              style={submitted && ((!amount || parsed <= 0) || exceedsCap) ? { borderColor: "var(--danger)" } : undefined}
             />
-            {submitted && (!amount || parseFloat(amount) <= 0) && (
+            {submitted && (!amount || parsed <= 0) && (
               <div style={{ color: "var(--danger)", fontSize: 12 }}>Miqdorni kiriting</div>
+            )}
+            {submitted && amount && parsed > 0 && exceedsCap && (
+              <div style={{ color: "var(--danger)", fontSize: 12 }}>
+                {isWarehouse && warehouseRemaining !== null && parsed > warehouseRemaining
+                  ? `Boshqa vazifalar shu darajada bajarilmagan — eng ko'pi ${warehouseRemaining.toLocaleString()}.`
+                  : `Qoldiq miqdordan oshib ketdi — eng ko'pi ${remaining.toLocaleString()}.`}
+              </div>
+            )}
+            {serverError && (
+              <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>{serverError}</div>
             )}
           </div>
 
@@ -1766,6 +1848,7 @@ function TaskPanel({ scope, hideHeader }: { scope: Scope; hideHeader?: boolean }
       {loggingTask && (
         <DailyLogModal
           task={loggingTask}
+          allTasks={tasks}
           onSave={handleLogProgress}
           onCancel={() => setLoggingId(null)}
         />
