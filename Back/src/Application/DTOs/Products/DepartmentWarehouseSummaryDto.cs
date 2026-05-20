@@ -9,5 +9,4 @@ public class DepartmentWarehouseSummaryDto
     public DepartmentType DepartmentType { get; set; }
     public int ProductCount { get; set; }
     public decimal TotalQuantity { get; set; }
-    public DateTime? LastUpdatedAt { get; set; }
 }
