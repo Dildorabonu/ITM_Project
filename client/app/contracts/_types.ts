@@ -1,5 +1,4 @@
 import { ContractStatus, ContractProductStatus, ContractType, CONTRACT_STATUS_LABELS, CONTRACT_TYPE_LABELS, type UserLookup } from "@/lib/userService";
-
 // ─── Form types ───────────────────────────────────────────────────────────────
 
 export interface ContractProductForm {
@@ -128,7 +127,3 @@ export const STATUS_FILTER_OPTIONS: SelectOption[] = [
   { value: "", label: "Barcha holat" },
   ...VISIBLE_STATUSES.map(k => ({ value: String(k), label: CONTRACT_STATUS_LABELS[k], color: STATUS_STYLE[k].color })),
 ];
-
-export const STATUS_CHANGE_OPTIONS: SelectOption[] = VISIBLE_STATUSES.map(k => ({
-  value: String(k), label: CONTRACT_STATUS_LABELS[k], color: STATUS_STYLE[k].color,
-}));
