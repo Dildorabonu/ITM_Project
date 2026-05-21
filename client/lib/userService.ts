@@ -91,11 +91,6 @@ export const userService = {
     return res.data?.result ?? res.data;
   },
 
-  getById: async (id: string): Promise<UserResponse> => {
-    const res = await api.get(`/api/user/${id}`);
-    return res.data?.result ?? res.data;
-  },
-
   create: async (dto: UserCreatePayload): Promise<void> => {
     await api.post("/api/user", dto);
   },
@@ -156,11 +151,6 @@ export const roleService = {
     const res = await api.get("/api/role");
     const data = res.data?.result ?? res.data ?? [];
     return data.map((r: { id: string; name: string }) => ({ id: r.id, name: r.name }));
-  },
-
-  getAllFull: async (): Promise<RoleResponse[]> => {
-    const res = await api.get("/api/role");
-    return res.data?.result ?? res.data ?? [];
   },
 
   getPaged: async (
@@ -345,11 +335,6 @@ export const productService = {
     return res.data?.result ?? res.data;
   },
 
-  getById: async (id: string): Promise<ProductResponse> => {
-    const res = await api.get(`/api/product/${id}`);
-    return res.data?.result ?? res.data;
-  },
-
   create: async (dto: ProductCreatePayload): Promise<void> => {
     await api.post("/api/product", dto);
   },
@@ -392,13 +377,6 @@ export enum ContractStatus {
   Cancelled = 6,
 }
 
-export enum Priority {
-  Low = 0,
-  Medium = 1,
-  High = 2,
-  Urgent = 3,
-}
-
 export enum ContractType {
   Mahalliy = 0,
   Tashqi = 1,
@@ -431,13 +409,6 @@ export const CONTRACT_PRODUCT_STATUS_LABELS: Record<ContractProductStatus, strin
   [ContractProductStatus.InProduction]:   "Ishlab chiqarishda",
   [ContractProductStatus.Completed]:      "Yakunlandi",
   [ContractProductStatus.Cancelled]:      "Bekor qilindi",
-};
-
-export const PRIORITY_LABELS: Record<Priority, string> = {
-  [Priority.Low]:    "Past",
-  [Priority.Medium]: "O'rta",
-  [Priority.High]:   "Yuqori",
-  [Priority.Urgent]: "Shoshilinch",
 };
 
 export interface ContractDepartmentInfo {
@@ -549,8 +520,6 @@ export interface ContractUpdatePayload {
   products?: ContractProductPayload[];
 }
 
-export const ContractUserRole = { Responsible: 0, Supervisor: 1, Observer: 2 } as const;
-
 export interface ContractUserResponse {
   userId: string;
   fullName: string;
@@ -640,10 +609,6 @@ export const contractService = {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   },
 
-  deleteFile: async (id: string, fileId: string): Promise<void> => {
-    await api.delete(`/api/contract/${id}/files/${fileId}`);
-  },
-
   getTzFiles: async (id: string): Promise<AttachmentResponse[]> => {
     const res = await api.get(`/api/contract/${id}/tz-files`);
     return res.data?.result ?? res.data ?? [];
@@ -668,10 +633,6 @@ export const contractService = {
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-  },
-
-  deleteTzFile: async (id: string, fileId: string): Promise<void> => {
-    await api.delete(`/api/contract/${id}/tz-files/${fileId}`);
   },
 
   getProductTzFiles: async (id: string, productId: string): Promise<AttachmentResponse[]> => {
@@ -700,21 +661,9 @@ export const contractService = {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   },
 
-  deleteProductTzFile: async (id: string, productId: string, fileId: string): Promise<void> => {
-    await api.delete(`/api/contract/${id}/products/${productId}/tz-files/${fileId}`);
-  },
-
   getUsers: async (id: string): Promise<ContractUserResponse[]> => {
     const res = await api.get(`/api/contract/${id}/users`);
     return res.data?.result ?? res.data ?? [];
-  },
-
-  assignUsers: async (id: string, users: { userId: string; role: number }[]): Promise<void> => {
-    await api.post(`/api/contract/${id}/users`, { users });
-  },
-
-  removeUser: async (id: string, userId: string): Promise<void> => {
-    await api.delete(`/api/contract/${id}/users/${userId}`);
   },
 
   getMyProductionTasks: async (isActive?: boolean): Promise<ContractResponse[]> => {
@@ -889,10 +838,6 @@ export const techProcessService = {
     return res.data?.result ?? res.data;
   },
 
-  deleteFile: async (id: string, fileId: string): Promise<void> => {
-    await api.delete(`/api/techprocess/${id}/files/${fileId}`);
-  },
-
   downloadFile: async (id: string, fileId: string, fileName: string): Promise<void> => {
     const res = await api.get(`/api/techprocess/${id}/files/${fileId}/download`, { responseType: "blob" });
     const url = URL.createObjectURL(res.data);
@@ -905,94 +850,6 @@ export const techProcessService = {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   },
 
-};
-
-// ─── Material (Ombor) ─────────────────────────────────────────────────────────
-
-export interface MaterialOption {
-  id: string;
-  name: string;
-  unit: string;
-  quantity: number;
-}
-
-export interface MaterialResponse {
-  id: string;
-  code: string;
-  name: string;
-  category: string;
-  unit: string;
-  quantity: number;
-  minQuantity: number;
-  location: string | null;
-  status: number;
-  updatedAt: string;
-}
-
-export interface MaterialCreatePayload {
-  code: string;
-  name: string;
-  category: string;
-  unit: string;
-  quantity: number;
-  minQuantity: number;
-  location?: string | null;
-}
-
-export interface MaterialUpdatePayload {
-  code?: string;
-  name?: string;
-  category?: string;
-  unit?: string;
-  quantity?: number;
-  minQuantity?: number;
-  location?: string | null;
-}
-
-export const materialService = {
-  getAll: async (category?: string): Promise<MaterialResponse[]> => {
-    const params: Record<string, string> = {};
-    if (category) params.category = category;
-    try {
-      const res = await api.get("/api/material", { params });
-      return res.data?.result ?? res.data ?? [];
-    } catch {
-      return [];
-    }
-  },
-
-  getOptions: async (): Promise<MaterialOption[]> => {
-    try {
-      const res = await api.get("/api/material");
-      const data = res.data?.result ?? res.data ?? [];
-      return data.map((m: MaterialResponse) => ({
-        id: m.id, name: m.name, unit: m.unit, quantity: m.quantity,
-      }));
-    } catch {
-      return [];
-    }
-  },
-
-  getById: async (id: string): Promise<MaterialResponse> => {
-    const res = await api.get(`/api/material/${id}`);
-    return res.data?.result ?? res.data;
-  },
-
-  create: async (dto: MaterialCreatePayload): Promise<void> => {
-    await api.post("/api/material", dto);
-  },
-
-  createBulk: async (dtos: MaterialCreatePayload[]): Promise<void> => {
-    await api.post("/api/material/bulk", dtos);
-  },
-
-  update: async (id: string, dto: MaterialUpdatePayload): Promise<void> => {
-    await api.put(`/api/material/${id}`, dto);
-  },
-
-  delete: async (id: string): Promise<void> => {
-    await api.delete(`/api/material/${id}`);
-  },
 };
 
 // ─── Technical Drawings ───────────────────────────────────────────────────────
@@ -1241,10 +1098,6 @@ export const costNormService = {
       headers: { "Content-Type": "multipart/form-data" },
     });
     return res.data?.result ?? res.data;
-  },
-
-  deleteFile: async (id: string, fileId: string): Promise<void> => {
-    await api.delete(`/api/costnorm/${id}/files/${fileId}`);
   },
 
   downloadFile: async (id: string, fileId: string, fileName: string): Promise<void> => {
