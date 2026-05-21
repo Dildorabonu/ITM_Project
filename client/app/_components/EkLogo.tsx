@@ -1,13 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-
-interface EkLogoProps {
-  size?: number;
-  animated?: boolean;
-  className?: string;
-  ariaLabel?: string;
-}
+import { useEffect, useState } from "react";
 
 function useReducedMotion() {
   const [reduced, setReduced] = useState(false);
@@ -21,14 +14,8 @@ function useReducedMotion() {
   return reduced;
 }
 
-export default function EkLogo({
-  size = 128,
-  animated = true,
-  className,
-  ariaLabel = "ek logo",
-}: EkLogoProps) {
-  const reducedMotion = useReducedMotion();
-  const play = animated && !reducedMotion;
+export default function EkLogo({ size = 128 }: { size?: number }) {
+  const play = !useReducedMotion();
 
   return (
     <svg
@@ -37,8 +24,7 @@ export default function EkLogo({
       viewBox="0 0 512 512"
       xmlns="http://www.w3.org/2000/svg"
       role="img"
-      aria-label={ariaLabel}
-      className={className}
+      aria-label="ek logo"
     >
       <defs>
         <linearGradient id="ekBgGrad" x1="0%" y1="0%" x2="100%" y2="100%">

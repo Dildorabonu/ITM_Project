@@ -706,7 +706,7 @@ export default function ContractsPage() {
                   <CheckSelect
                     value={pendingStatus}
                     onChange={setPendingStatus}
-                    options={STATUS_FILTER_OPTIONS.filter(o => o.value !== "").map(o => ({ id: o.value, name: o.label, color: o.color }))}
+                    options={STATUS_FILTER_OPTIONS.map(o => ({ id: o.value, name: o.label, color: o.color }))}
                     placeholder="Barcha holat"
                     disablePortal
                   />
