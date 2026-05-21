@@ -19,32 +19,12 @@ export function isoToDisplayDate(iso: string) {
   return `${d}.${m}.${y}`;
 }
 
-export function maskDate(val: string): string {
-  const digits = val.replace(/\D/g, "").slice(0, 8);
-  if (digits.length === 0) return "";
-  let day = digits.slice(0, 2);
-  if (digits.length >= 2 && parseInt(day, 10) > 31) day = "31";
-  if (digits.length < 2) return day;
-  let month = digits.slice(2, 4);
-  if (digits.length >= 4 && parseInt(month, 10) > 12) month = "12";
-  if (digits.length < 4) return `${day}.${month}`;
-  return `${day}.${month}.${digits.slice(4)}`;
-}
-
-export function displayToIso(disp: string): string {
-  const parts = disp.split(".");
-  if (parts.length !== 3 || parts[2].length !== 4) return "";
-  const [d, m, y] = parts;
-  return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
-}
-
-export function DatePickerField({ value, displayValue, onDisplayChange, onDateSelect, hasError, dropUp }: {
+export function DatePickerField({ value, displayValue, onDisplayChange, onDateSelect, hasError }: {
   value: string;
   displayValue: string;
   onDisplayChange: (d: string) => void;
   onDateSelect: (iso: string) => void;
   hasError?: boolean;
-  dropUp?: boolean;
 }) {
   const today = new Date();
   const todayIso = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
@@ -100,7 +80,7 @@ export function DatePickerField({ value, displayValue, onDisplayChange, onDateSe
       </div>
       {open && (
         <div style={{
-          position:"absolute", ...(dropUp ? { bottom:"calc(100% + 6px)" } : { top:"calc(100% + 6px)" }), left:0, zIndex:9999,
+          position:"absolute", top:"calc(100% + 6px)", left:0, zIndex:9999,
           background:"var(--surface)", border:"1.5px solid var(--border)",
           borderRadius:12, boxShadow:"0 12px 40px rgba(0,0,0,0.13)", width:272, padding:"14px 12px 10px",
         }}>
