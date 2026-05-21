@@ -67,12 +67,12 @@ export const WORKFLOW_STEPS: { status: ContractStatus; label: string; shortLabel
   { status: ContractStatus.Completed,      label: "Yakunlandi",                           shortLabel: "Yakunlandi" },
 ];
 
-export const STEP_COLORS: Record<ContractStatus, { active: string; done: string; text: string }> = {
-  [ContractStatus.DrawingPending]:      { active: "#7c3aed", done: "#7c3aed", text: "#fff" },
-  [ContractStatus.TechProcessing]:      { active: "#c2410c", done: "#c2410c", text: "#fff" },
-  [ContractStatus.InProduction]:        { active: "#1e7e34", done: "#1e7e34", text: "#fff" },
-  [ContractStatus.Completed]:           { active: "#1a56db", done: "#1a56db", text: "#fff" },
-  [ContractStatus.Cancelled]:           { active: "#dc2626", done: "#dc2626", text: "#fff" },
+export const STEP_COLORS: Record<ContractStatus, { active: string; text: string }> = {
+  [ContractStatus.DrawingPending]:      { active: "#7c3aed", text: "#fff" },
+  [ContractStatus.TechProcessing]:      { active: "#c2410c", text: "#fff" },
+  [ContractStatus.InProduction]:        { active: "#1e7e34", text: "#fff" },
+  [ContractStatus.Completed]:           { active: "#1a56db", text: "#fff" },
+  [ContractStatus.Cancelled]:           { active: "#dc2626", text: "#fff" },
 };
 
 // Per-product workflow mirrors the contract one but is keyed on ContractProductStatus.
@@ -84,12 +84,12 @@ export const PRODUCT_WORKFLOW_STEPS: { status: ContractProductStatus; label: str
   { status: ContractProductStatus.Completed,      label: "Yakunlandi",                           shortLabel: "Yakunlandi" },
 ];
 
-export const PRODUCT_STEP_COLORS: Record<ContractProductStatus, { active: string; done: string; text: string }> = {
-  [ContractProductStatus.DrawingPending]: { active: "#7c3aed", done: "#7c3aed", text: "#fff" },
-  [ContractProductStatus.TechProcessing]: { active: "#c2410c", done: "#c2410c", text: "#fff" },
-  [ContractProductStatus.InProduction]:   { active: "#1e7e34", done: "#1e7e34", text: "#fff" },
-  [ContractProductStatus.Completed]:      { active: "#1a56db", done: "#1a56db", text: "#fff" },
-  [ContractProductStatus.Cancelled]:      { active: "#dc2626", done: "#dc2626", text: "#fff" },
+export const PRODUCT_STEP_COLORS: Record<ContractProductStatus, { active: string; text: string }> = {
+  [ContractProductStatus.DrawingPending]: { active: "#7c3aed", text: "#fff" },
+  [ContractProductStatus.TechProcessing]: { active: "#c2410c", text: "#fff" },
+  [ContractProductStatus.InProduction]:   { active: "#1e7e34", text: "#fff" },
+  [ContractProductStatus.Completed]:      { active: "#1a56db", text: "#fff" },
+  [ContractProductStatus.Cancelled]:      { active: "#dc2626", text: "#fff" },
 };
 
 export const PRODUCT_STATUS_STYLE: Record<ContractProductStatus, { bg: string; color: string; border: string }> = {
@@ -123,7 +123,6 @@ export const CONTRACT_TYPE_OPTIONS: SelectOption[] = [
   { value: String(ContractType.Tashqi),   label: CONTRACT_TYPE_LABELS[ContractType.Tashqi],   color: CONTRACT_TYPE_STYLE[ContractType.Tashqi].color },
 ];
 
-export const STATUS_FILTER_OPTIONS: SelectOption[] = [
-  { value: "", label: "Barcha holat" },
-  ...VISIBLE_STATUSES.map(k => ({ value: String(k), label: CONTRACT_STATUS_LABELS[k], color: STATUS_STYLE[k].color })),
-];
+export const STATUS_FILTER_OPTIONS: SelectOption[] = VISIBLE_STATUSES.map(
+  k => ({ value: String(k), label: CONTRACT_STATUS_LABELS[k], color: STATUS_STYLE[k].color }),
+);
