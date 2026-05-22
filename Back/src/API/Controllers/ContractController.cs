@@ -243,8 +243,8 @@ public class ContractController : ControllerBase
     [RequestSizeLimit(50 * 1024 * 1024)] // 50 MB
     public async Task<IActionResult> UploadFile(Guid id, IFormFile file)
     {
-        if (file is null || file.Length == 0)
-            return BadRequest("Fayl tanlanmagan.");
+        if (!FileValidator.TryValidate(file, out var validationError))
+            return BadRequest(validationError);
 
         var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!Guid.TryParse(userIdClaim, out var userId))
@@ -303,8 +303,8 @@ public class ContractController : ControllerBase
     [RequestSizeLimit(50 * 1024 * 1024)]
     public async Task<IActionResult> UploadTzFile(Guid id, IFormFile file)
     {
-        if (file is null || file.Length == 0)
-            return BadRequest("Fayl tanlanmagan.");
+        if (!FileValidator.TryValidate(file, out var validationError))
+            return BadRequest(validationError);
 
         var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!Guid.TryParse(userIdClaim, out var userId))
@@ -365,8 +365,8 @@ public class ContractController : ControllerBase
     [RequestSizeLimit(50 * 1024 * 1024)]
     public async Task<IActionResult> UploadProductTzFile(Guid id, Guid productId, IFormFile file)
     {
-        if (file is null || file.Length == 0)
-            return BadRequest("Fayl tanlanmagan.");
+        if (!FileValidator.TryValidate(file, out var validationError))
+            return BadRequest(validationError);
 
         var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!Guid.TryParse(userIdClaim, out var userId))

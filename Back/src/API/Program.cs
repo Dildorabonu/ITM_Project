@@ -135,12 +135,24 @@ namespace API
 
             app.UseCors();
 
+            // Barcha javoblarda MIME sniffing'ni o'chirish — yuklangan fayllarni
+            // browser noto'g'ri turdek talqin qilishining oldini oladi.
+            app.Use(async (ctx, next) =>
+            {
+                ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
+                await next();
+            });
+
             // Yuklangan fayllarni (rasmlarni) statik fayl sifatida serve qilish
             var uploadsPath = app.Services.GetRequiredService<IOptions<FileStorageOptions>>().Value.UploadsPath;
             app.UseStaticFiles(new StaticFileOptions
             {
                 FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadsPath),
-                RequestPath = "/uploads"
+                RequestPath = "/uploads",
+                OnPrepareResponse = ctx =>
+                {
+                    ctx.Context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+                }
             });
 
             app.UseAuthentication();

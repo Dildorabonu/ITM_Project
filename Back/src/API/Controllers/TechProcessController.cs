@@ -1,5 +1,6 @@
 using API.Authorization;
 using Application.DTOs.TechProcesses;
+using Application.Helpers;
 using Application.Services;
 using Core.Enums;
 using Microsoft.AspNetCore.Authorization;
@@ -119,8 +120,8 @@ public class TechProcessController : ControllerBase
     [RequestSizeLimit(50 * 1024 * 1024)]
     public async Task<IActionResult> UploadFile(Guid id, IFormFile file)
     {
-        if (file is null || file.Length == 0)
-            return BadRequest("Fayl tanlanmagan.");
+        if (!FileValidator.TryValidate(file, out var validationError))
+            return BadRequest(validationError);
 
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         await using var stream = file.OpenReadStream();

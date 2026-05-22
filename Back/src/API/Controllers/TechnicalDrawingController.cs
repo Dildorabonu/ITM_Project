@@ -104,8 +104,8 @@ public class TechnicalDrawingController : ControllerBase
     [RequestSizeLimit(50 * 1024 * 1024)]
     public async Task<IActionResult> UploadFile(Guid id, IFormFile file)
     {
-        if (file is null || file.Length == 0)
-            return BadRequest("Fayl tanlanmagan.");
+        if (!FileValidator.TryValidate(file, out var validationError))
+            return BadRequest(validationError);
 
         var status = await _context.TechnicalDrawings
             .Where(d => d.Id == id)
