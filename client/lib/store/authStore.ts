@@ -1,29 +1,9 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import axios from "axios";
+import { api } from "@/lib/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5223";
-
-// JWT default short names (after JwtSecurityTokenHandler outbound mapping) + long URI fallbacks
-const CLAIM_NAMEID_SHORT     = "nameid";
-const CLAIM_NAMEID_LONG      = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier";
-const CLAIM_NAME_SHORT       = "unique_name";
-const CLAIM_NAME_LONG        = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name";
-const CLAIM_ROLE_SHORT       = "role";
-const CLAIM_ROLE_LONG        = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role";
-const CLAIM_GIVEN_NAME_SHORT = "given_name";
-const CLAIM_GIVEN_NAME_LONG  = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname";
-const CLAIM_SURNAME_SHORT    = "family_name";
-const CLAIM_SURNAME_LONG     = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname";
-
-function readClaim(payload: Record<string, unknown> | null, ...keys: string[]): string {
-  if (!payload) return "";
-  for (const k of keys) {
-    const v = payload[k];
-    if (typeof v === "string" && v.length > 0) return v;
-  }
-  return "";
-}
 
 export interface User {
   id: string;
@@ -38,35 +18,34 @@ export interface User {
 interface AuthState {
   _hasHydrated: boolean;
   setHasHydrated: (v: boolean) => void;
-  accessToken: string | null;
-  refreshToken: string | null;
   user: User | null;
   login: (credentials: { login: string; password: string }) => Promise<void>;
   logout: () => Promise<void>;
+  refreshMe: () => Promise<void>;
   hasPermission: (permission: string) => boolean;
   hasModulePermission: (module: string) => boolean;
 }
 
-function parseJwt(token: string): Record<string, unknown> | null {
-  try {
-    const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-    const json = decodeURIComponent(
-      atob(base64)
-        .split("")
-        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-        .join("")
-    );
-    return JSON.parse(json);
-  } catch {
-    return null;
-  }
+interface AuthUserResponse {
+  id: string;
+  login: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  departmentId: string | null;
+  permissions: string[];
 }
 
-function extractPermissions(payload: Record<string, unknown>): string[] {
-  const raw = payload["perm"];
-  if (!raw) return [];
-  if (Array.isArray(raw)) return raw.map(String);
-  return [String(raw)];
+function toUser(dto: AuthUserResponse): User {
+  return {
+    id: dto.id,
+    login: dto.login,
+    role: dto.role ?? "",
+    firstName: dto.firstName ?? "",
+    lastName: dto.lastName ?? "",
+    permissions: Array.isArray(dto.permissions) ? dto.permissions : [],
+    departmentId: dto.departmentId ?? null,
+  };
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -74,40 +53,36 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       _hasHydrated: false,
       setHasHydrated: (v) => set({ _hasHydrated: v }),
-      accessToken: null,
-      refreshToken: null,
       user: null,
 
       login: async ({ login, password }) => {
-        const res = await axios.post(`${API_URL}/api/auth/login`, {
-          login,
-          password,
-        });
-        const { accessToken, refreshToken } = res.data.result;
-        const payload = parseJwt(accessToken);
-        const deptClaim = readClaim(payload, "dept");
-        const user: User = {
-          id: readClaim(payload, CLAIM_NAMEID_SHORT, CLAIM_NAMEID_LONG),
-          login: readClaim(payload, CLAIM_NAME_SHORT, CLAIM_NAME_LONG) || login,
-          role: readClaim(payload, CLAIM_ROLE_SHORT, CLAIM_ROLE_LONG),
-          firstName: readClaim(payload, CLAIM_GIVEN_NAME_SHORT, CLAIM_GIVEN_NAME_LONG),
-          lastName: readClaim(payload, CLAIM_SURNAME_SHORT, CLAIM_SURNAME_LONG),
-          permissions: payload ? extractPermissions(payload) : [],
-          departmentId: deptClaim || null,
-        };
-        set({ accessToken, refreshToken, user });
+        // withCredentials so the server-set httpOnly auth cookies are stored by the browser
+        const res = await axios.post(
+          `${API_URL}/api/auth/login`,
+          { login, password },
+          { withCredentials: true }
+        );
+        const dto: AuthUserResponse = res.data.result;
+        set({ user: toUser(dto) });
       },
 
       logout: async () => {
-        const { refreshToken } = get();
-        if (refreshToken) {
-          try {
-            await axios.post(`${API_URL}/api/auth/revoke`, { refreshToken });
-          } catch {
-            // ignore revoke errors
-          }
+        try {
+          await api.post("/api/auth/logout");
+        } catch {
+          // ignore — server may have already invalidated the session
         }
-        set({ accessToken: null, refreshToken: null, user: null });
+        set({ user: null });
+      },
+
+      refreshMe: async () => {
+        try {
+          const res = await api.get("/api/auth/me");
+          const dto: AuthUserResponse = res.data.result;
+          set({ user: toUser(dto) });
+        } catch {
+          set({ user: null });
+        }
       },
 
       hasPermission: (permission: string) => {
@@ -122,6 +97,10 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: "itm_auth",
+      // Persist only the user object as a hint that the user is signed in. The actual
+      // session lives in httpOnly cookies on the server; on a stale cookie the API
+      // client's 401 interceptor will refresh or bounce to /login.
+      partialize: (state) => ({ user: state.user }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
       },

@@ -150,9 +150,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   const user = useAuthStore((s) => s.user);
   const logoutAction = useAuthStore((s) => s.logout);
-  const accessToken = useAuthStore((s) => s.accessToken);
   const hasHydrated = useAuthStore((s) => s._hasHydrated);
   const hasPermission = useAuthStore((s) => s.hasPermission);
+  const isAuthenticated = !!user;
 
   const [notifCount, setNotifCount] = useState(0);
   const [bellOpen, setBellOpen] = useState(false);
@@ -200,7 +200,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   }, []);
 
   useEffect(() => {
-    if (!accessToken) return;
+    if (!isAuthenticated) return;
     fetchUnreadNotifs();
     const interval = setInterval(fetchUnreadNotifs, 30000);
     window.addEventListener("notif-read", fetchUnreadNotifs);
@@ -208,7 +208,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       clearInterval(interval);
       window.removeEventListener("notif-read", fetchUnreadNotifs);
     };
-  }, [accessToken, fetchUnreadNotifs]);
+  }, [isAuthenticated, fetchUnreadNotifs]);
 
   const visibleNavGroups = navGroups.map((group) => ({
     ...group,
@@ -341,10 +341,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     if (!hasHydrated) return;
-    if (!isLoginPage && !accessToken) {
+    if (!isLoginPage && !isAuthenticated) {
       router.replace("/login");
     }
-  }, [hasHydrated, isLoginPage, accessToken, router]);
+  }, [hasHydrated, isLoginPage, isAuthenticated, router]);
 
   async function handleLogout() {
     await logoutAction();
@@ -367,7 +367,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           ? { background: "var(--bg)", color: "var(--text)" }
           : { height: "100vh", overflow: "hidden", background: "var(--bg)", color: "var(--text)" }),
       }}>
-      {!splashFading ? null : isLoginPage ? children : !accessToken ? null : (<div id="app-root" style={{ display: "flex", width: "100%", height: "100%" }}>
+      {!splashFading ? null : isLoginPage ? children : !isAuthenticated ? null : (<div id="app-root" style={{ display: "flex", width: "100%", height: "100%" }}>
 
         {/* ===== SIDEBAR ===== */}
         <aside style={{

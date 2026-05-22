@@ -1,4 +1,5 @@
 using System.Text;
+using API.Authentication;
 using API.Authorization;
 using Application;
 using Application.Options;
@@ -37,6 +38,21 @@ namespace API
                 .GetSection(JwtOptions.SectionName)
                 .Get<JwtOptions>()!;
 
+            var authCookieOptions = builder.Configuration
+                .GetSection(AuthCookieOptions.SectionName)
+                .Get<AuthCookieOptions>() ?? new AuthCookieOptions();
+
+            // Development'da HTTP localhost ishlatilganda Secure=true cookie'ni bloklaydi —
+            // shuning uchun Development'da default tarzda Secure=false ga o'tkazamiz, agar
+            // konfiguratsiyada aniq qiymat yo'q bo'lsa.
+            if (builder.Environment.IsDevelopment()
+                && builder.Configuration.GetSection(AuthCookieOptions.SectionName)["Secure"] is null)
+            {
+                builder.Services.PostConfigure<AuthCookieOptions>(o => o.Secure = false);
+            }
+
+            builder.Services.AddSingleton<IAuthCookieWriter, AuthCookieWriter>();
+
             builder.Services
                 .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 .AddJwtBearer(options =>
@@ -52,6 +68,21 @@ namespace API
                         IssuerSigningKey = new SymmetricSecurityKey(
                             Encoding.UTF8.GetBytes(jwtOptions.SecretKey)),
                         ClockSkew = TimeSpan.Zero
+                    };
+
+                    // Authorization headerda token yo'q bo'lsa, httpOnly access_token cookie'dan o'qish
+                    options.Events = new JwtBearerEvents
+                    {
+                        OnMessageReceived = ctx =>
+                        {
+                            if (string.IsNullOrEmpty(ctx.Token))
+                            {
+                                var cookie = ctx.Request.Cookies[authCookieOptions.AccessTokenName];
+                                if (!string.IsNullOrEmpty(cookie))
+                                    ctx.Token = cookie;
+                            }
+                            return Task.CompletedTask;
+                        }
                     };
                 });
 
@@ -156,6 +187,12 @@ namespace API
             });
 
             app.UseAuthentication();
+
+            // CSRF Double-Submit Cookie himoyasi — autentifikatsiyadan keyin, lekin
+            // authorization'gacha tekshiramiz. Login va refresh'dan tashqari barcha
+            // state-changing (POST/PUT/PATCH/DELETE) /api so'rovlari uchun majburiy.
+            app.UseMiddleware<CsrfValidationMiddleware>();
+
             app.UseAuthorization();
 
             app.MapControllers();

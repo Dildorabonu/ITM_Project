@@ -12,6 +12,7 @@ public static class ApplicationDependencyInjection
     {
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<FileStorageOptions>(configuration.GetSection(FileStorageOptions.SectionName));
+        services.Configure<AuthCookieOptions>(configuration.GetSection(AuthCookieOptions.SectionName));
 
         services.AddHttpContextAccessor();
 
