@@ -34,7 +34,7 @@ public class AuthService : IAuthService
         if (user is null || !PasswordHelper.VerifyPassword(dto.Password, user.PasswordHash))
             return ApiResult<AuthResponseDto>.Failure(["Invalid login or password."]);
 
-        var accessToken = BuildAccessToken(user);
+        var (accessToken, accessExpiresAt) = BuildAccessToken(user);
 
         var refreshToken = CreateRefreshToken(user.Id, familyId: Guid.NewGuid());
         _context.RefreshTokens.Add(refreshToken);
@@ -43,7 +43,10 @@ public class AuthService : IAuthService
         return ApiResult<AuthResponseDto>.Success(new AuthResponseDto
         {
             AccessToken = accessToken,
-            RefreshToken = refreshToken.Token
+            RefreshToken = refreshToken.Token,
+            AccessTokenExpiresAt = accessExpiresAt,
+            RefreshTokenExpiresAt = refreshToken.ExpiresAt,
+            User = BuildUserDto(user)
         });
     }
 
@@ -84,12 +87,15 @@ public class AuthService : IAuthService
 
         await _context.SaveChangesAsync();
 
-        var accessToken = BuildAccessToken(token.User);
+        var (accessToken, accessExpiresAt) = BuildAccessToken(token.User);
 
         return ApiResult<AuthResponseDto>.Success(new AuthResponseDto
         {
             AccessToken = accessToken,
-            RefreshToken = newToken.Token
+            RefreshToken = newToken.Token,
+            AccessTokenExpiresAt = accessExpiresAt,
+            RefreshTokenExpiresAt = newToken.ExpiresAt,
+            User = BuildUserDto(token.User)
         });
     }
 
@@ -107,18 +113,46 @@ public class AuthService : IAuthService
         return ApiResult<bool>.Success(true);
     }
 
-    private string BuildAccessToken(User user)
+    public async Task<ApiResult<AuthUserDto>> GetUserAsync(Guid userId)
+    {
+        var user = await _context.Users
+            .Include(u => u.Role)
+                .ThenInclude(r => r!.RolePermissions)
+                    .ThenInclude(rp => rp.Permission)
+            .FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
+
+        if (user is null)
+            return ApiResult<AuthUserDto>.Failure(["User not found."]);
+
+        return ApiResult<AuthUserDto>.Success(BuildUserDto(user));
+    }
+
+    private (string Token, DateTime ExpiresAt) BuildAccessToken(User user)
     {
         var roleName = user.Role?.Name ?? string.Empty;
         var permissions = user.Role?.RolePermissions
             .Select(rp => rp.Permission.Key)
             .ToList() ?? [];
 
-        var (accessToken, _) = TokenHelper.GenerateToken(
+        return TokenHelper.GenerateToken(
             user.Id, user.Login, roleName, _jwtOptions,
             user.FirstName, user.LastName, permissions, user.DepartmentId);
+    }
 
-        return accessToken;
+    private static AuthUserDto BuildUserDto(User user)
+    {
+        return new AuthUserDto
+        {
+            Id = user.Id,
+            Login = user.Login,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            Role = user.Role?.Name ?? string.Empty,
+            DepartmentId = user.DepartmentId,
+            Permissions = user.Role?.RolePermissions
+                .Select(rp => rp.Permission.Key)
+                .ToList() ?? []
+        };
     }
 
     private RefreshToken CreateRefreshToken(Guid userId, Guid familyId)

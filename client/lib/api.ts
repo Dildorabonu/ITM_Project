@@ -1,52 +1,57 @@
-import axios from "axios";
+import axios, { AxiosRequestConfig } from "axios";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5223";
 
+const CSRF_COOKIE = "XSRF-TOKEN";
+const CSRF_HEADER = "X-CSRF-Token";
+
+function getCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const prefix = name + "=";
+  for (const part of document.cookie.split(";")) {
+    const c = part.trim();
+    if (c.startsWith(prefix)) return decodeURIComponent(c.slice(prefix.length));
+  }
+  return null;
+}
+
 export const api = axios.create({
   baseURL: API_URL,
-  headers: { "Content-Type": "application/json" },
+  withCredentials: true,
+  headers: {
+    "Content-Type": "application/json",
+    "X-Requested-With": "XMLHttpRequest",
+  },
 });
 
-// Attach access token from localStorage
+// CSRF token: read non-httpOnly XSRF-TOKEN cookie and mirror it in X-CSRF-Token
+// header on every state-changing request (Double-Submit Cookie pattern).
 api.interceptors.request.use((config) => {
-  if (typeof window !== "undefined") {
-    try {
-      const raw = localStorage.getItem("itm_auth");
-      if (raw) {
-        const { state } = JSON.parse(raw);
-        if (state?.accessToken) {
-          config.headers.Authorization = `Bearer ${state.accessToken}`;
-        }
-      }
-    } catch {
-      // ignore parse errors
+  const method = (config.method || "get").toLowerCase();
+  if (method !== "get" && method !== "head" && method !== "options") {
+    const csrf = getCookie(CSRF_COOKIE);
+    if (csrf) {
+      config.headers = config.headers ?? {};
+      (config.headers as Record<string, string>)[CSRF_HEADER] = csrf;
     }
   }
   return config;
 });
 
 // Refresh lock — prevents multiple concurrent refresh calls
-let refreshPromise: Promise<string> | null = null;
+let refreshPromise: Promise<void> | null = null;
 
-function doRefresh(): Promise<string> {
+function doRefresh(): Promise<void> {
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
     try {
-      const raw = localStorage.getItem("itm_auth");
-      if (!raw) throw new Error("no token");
-      const stored = JSON.parse(raw);
-      const refreshToken = stored?.state?.refreshToken;
-      if (!refreshToken) throw new Error("no refresh token");
-
-      const res = await axios.post(`${API_URL}/api/auth/refresh`, { refreshToken });
-      const { accessToken, refreshToken: newRefreshToken } = res.data.result ?? res.data;
-
-      stored.state.accessToken = accessToken;
-      stored.state.refreshToken = newRefreshToken;
-      localStorage.setItem("itm_auth", JSON.stringify(stored));
-
-      return accessToken as string;
+      // Refresh token cookie auto-sends with credentials; backend rotates cookies in the response.
+      await axios.post(
+        `${API_URL}/api/auth/refresh`,
+        {},
+        { withCredentials: true }
+      );
     } finally {
       refreshPromise = null;
     }
@@ -55,20 +60,30 @@ function doRefresh(): Promise<string> {
   return refreshPromise;
 }
 
-// On 401, attempt token refresh
+// On 401, attempt token refresh once, then retry the original request.
 api.interceptors.response.use(
   (res) => res,
   async (error) => {
-    const original = error.config;
-    if (error.response?.status === 401 && !original._retry) {
+    const original: (AxiosRequestConfig & { _retry?: boolean; url?: string }) | undefined = error.config;
+    const status = error.response?.status;
+    const url = original?.url || "";
+
+    // Don't try to refresh on the refresh/login endpoints themselves
+    const isAuthEndpoint = url.includes("/api/auth/refresh") || url.includes("/api/auth/login");
+
+    if (status === 401 && original && !original._retry && !isAuthEndpoint) {
       original._retry = true;
       try {
-        const accessToken = await doRefresh();
-        original.headers.Authorization = `Bearer ${accessToken}`;
+        await doRefresh();
         return api(original);
       } catch {
-        localStorage.removeItem("itm_auth");
-        window.location.href = "/login";
+        if (typeof window !== "undefined") {
+          // Clear persisted user hint and bounce to login
+          try { localStorage.removeItem("itm_auth"); } catch { /* noop */ }
+          if (window.location.pathname !== "/login") {
+            window.location.href = "/login";
+          }
+        }
       }
     }
     return Promise.reject(error);

@@ -1955,7 +1955,7 @@ function RangeCalendarPicker({
 export default function DashboardPage() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const accessToken = useAuthStore((s) => s.accessToken);
+  const isAuthenticated = !!user;
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -1970,7 +1970,7 @@ export default function DashboardPage() {
   const [trendRange, setTrendRange] = useState<DateRange>(() => getDefaultRange());
 
   const loadSummary = useCallback(async () => {
-    if (!accessToken) return;
+    if (!isAuthenticated) return;
     try {
       setErr(null);
       setRefreshing(true);
@@ -1990,7 +1990,7 @@ export default function DashboardPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [accessToken, trendRange]);
+  }, [isAuthenticated, trendRange]);
 
   useEffect(() => {
     void loadSummary();
