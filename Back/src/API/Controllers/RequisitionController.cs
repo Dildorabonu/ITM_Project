@@ -160,8 +160,8 @@ public class RequisitionController : ControllerBase
             !User.HasClaim("perm", "Requisitions.WarehouseCheck"))
             return Forbid();
 
-        if (file is null || file.Length == 0)
-            return BadRequest("Fayl tanlanmagan.");
+        if (!FileValidator.TryValidate(file, out var validationError))
+            return BadRequest(validationError);
 
         var userId = GetUserId();
         if (userId is null) return Unauthorized();
