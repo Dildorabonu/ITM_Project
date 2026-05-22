@@ -23,5 +23,10 @@ Back/**/*.user
 .dotnet/
 .nuget/
 
+# Maxfiy sozlamalar — har bir muhit o'z fayli, repoga tushmaydi
+**/appsettings.Development.json
+**/appsettings.Production.json
+**/appsettings.Local.json
+
 # Uploads
 Back/src/API/uploads/
