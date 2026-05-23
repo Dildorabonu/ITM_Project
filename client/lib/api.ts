@@ -1,6 +1,5 @@
 import axios, { AxiosRequestConfig } from "axios";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5223";
+import { getApiBase } from "@/lib/apiBase";
 
 const CSRF_COOKIE = "XSRF-TOKEN";
 const CSRF_HEADER = "X-CSRF-Token";
@@ -16,7 +15,6 @@ function getCookie(name: string): string | null {
 }
 
 export const api = axios.create({
-  baseURL: API_URL,
   withCredentials: true,
   headers: {
     "Content-Type": "application/json",
@@ -24,9 +22,14 @@ export const api = axios.create({
   },
 });
 
-// CSRF token: read non-httpOnly XSRF-TOKEN cookie and mirror it in X-CSRF-Token
-// header on every state-changing request (Double-Submit Cookie pattern).
+// Har bir so'rovda baseURL'ni qayta hisoblaymiz — foydalanuvchi qaysi host orqali
+// kirgan bo'lsa (localhost, LAN IP, va h.k.) backend ham o'sha host'ga ketadi.
+// Bu same-site cookie tartibini saqlash uchun majburiy.
 api.interceptors.request.use((config) => {
+  config.baseURL = getApiBase();
+
+  // CSRF token: read non-httpOnly XSRF-TOKEN cookie and mirror it in X-CSRF-Token
+  // header on every state-changing request (Double-Submit Cookie pattern).
   const method = (config.method || "get").toLowerCase();
   if (method !== "get" && method !== "head" && method !== "options") {
     const csrf = getCookie(CSRF_COOKIE);
@@ -48,7 +51,7 @@ function doRefresh(): Promise<void> {
     try {
       // Refresh token cookie auto-sends with credentials; backend rotates cookies in the response.
       await axios.post(
-        `${API_URL}/api/auth/refresh`,
+        `${getApiBase()}/api/auth/refresh`,
         {},
         { withCredentials: true }
       );

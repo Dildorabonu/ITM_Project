@@ -2,8 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import axios from "axios";
 import { api } from "@/lib/api";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5223";
+import { getApiBase } from "@/lib/apiBase";
 
 export interface User {
   id: string;
@@ -58,7 +57,7 @@ export const useAuthStore = create<AuthState>()(
       login: async ({ login, password }) => {
         // withCredentials so the server-set httpOnly auth cookies are stored by the browser
         const res = await axios.post(
-          `${API_URL}/api/auth/login`,
+          `${getApiBase()}/api/auth/login`,
           { login, password },
           { withCredentials: true }
         );
