@@ -6,6 +6,7 @@ using Application.Options;
 using Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 
 namespace API.Controllers;
@@ -28,6 +29,7 @@ public class AuthController : ControllerBase
         _cookieOptions = cookieOptions.Value;
     }
 
+    [EnableRateLimiting("login")]
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
@@ -41,6 +43,7 @@ public class AuthController : ControllerBase
         return Ok(ApiResult<AuthUserDto>.Success(result.Result.User));
     }
 
+    [EnableRateLimiting("refresh")]
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh()
     {

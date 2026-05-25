@@ -13,10 +13,12 @@ namespace API.Controllers;
 public class UserController : ControllerBase
 {
     private readonly IUserService _userService;
+    private readonly IAuthService _authService;
 
-    public UserController(IUserService userService)
+    public UserController(IUserService userService, IAuthService authService)
     {
         _userService = userService;
+        _authService = authService;
     }
 
     [HttpGet("lookup")]
@@ -80,5 +82,13 @@ public class UserController : ControllerBase
     {
         var result = await _userService.UpdateAsync(id, new Application.DTOs.Users.UserUpdateDto { IsActive = true });
         return StatusCode(result.Succeeded ? result.Result : result.StatusCode, result);
+    }
+
+    [HasPermission("Users.Update")]
+    [HttpPatch("{id:guid}/unlock")]
+    public async Task<IActionResult> UnlockUser(Guid id)
+    {
+        var result = await _authService.UnlockUserAsync(id);
+        return StatusCode(result.StatusCode, result);
     }
 }

@@ -13,4 +13,5 @@ public class UserResponseDto
     public bool IsActive { get; set; }
     public bool IsHead { get; set; }
     public DateTime CreatedAt { get; set; }
+    public DateTime? LockoutEnd { get; set; }
 }

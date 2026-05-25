@@ -514,6 +514,35 @@ namespace DataAccess.Migrations
                     b.ToTable("Departments");
                 });
 
+            modelBuilder.Entity("Core.Entities.LoginAttempt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("AttemptedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("IpAddress")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Login")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("Success")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("LoginAttempts");
+                });
+
             modelBuilder.Entity("Core.Entities.ManufacturedProduct", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1280,6 +1309,9 @@ namespace DataAccess.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<DateTime?>("LockoutEnd")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Login")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1499,6 +1531,15 @@ namespace DataAccess.Migrations
                         .IsRequired();
 
                     b.Navigation("CostNorm");
+                });
+
+            modelBuilder.Entity("Core.Entities.LoginAttempt", b =>
+                {
+                    b.HasOne("Core.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Core.Entities.ManufacturedProduct", b =>

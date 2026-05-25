@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using System.Text;
+using System.Threading.RateLimiting;
 using API.Authentication;
 using API.Authorization;
 using Application;
@@ -9,6 +11,7 @@ using Core.Enums;
 using DataAccess.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -122,6 +125,62 @@ namespace API
             });
 
             builder.Services.AddMemoryCache();
+
+            builder.Services.AddRateLimiter(options =>
+            {
+                options.AddPolicy("login", httpContext =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: GetClientIp(httpContext),
+                        factory: _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 5,
+                            Window = TimeSpan.FromMinutes(1),
+                            QueueLimit = 0
+                        }));
+
+                options.AddPolicy("refresh", httpContext =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: GetClientIp(httpContext),
+                        factory: _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 10,
+                            Window = TimeSpan.FromMinutes(1),
+                            QueueLimit = 0
+                        }));
+
+                options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+                {
+                    if (!httpContext.Request.Path.StartsWithSegments("/api"))
+                        return RateLimitPartition.GetNoLimiter("__skip");
+
+                    var key = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
+                              ?? GetClientIp(httpContext);
+
+                    return RateLimitPartition.GetSlidingWindowLimiter(
+                        partitionKey: key,
+                        factory: _ => new SlidingWindowRateLimiterOptions
+                        {
+                            PermitLimit = 300,
+                            Window = TimeSpan.FromMinutes(1),
+                            SegmentsPerWindow = 6,
+                            QueueLimit = 0
+                        });
+                });
+
+                options.OnRejected = async (ctx, token) =>
+                {
+                    ctx.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+                    if (ctx.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retry))
+                        ctx.HttpContext.Response.Headers.RetryAfter = ((int)retry.TotalSeconds).ToString();
+                    await ctx.HttpContext.Response.WriteAsJsonAsync(new
+                    {
+                        succeeded = false,
+                        statusCode = 429,
+                        errors = new[] { "So'rovlar chegarasi oshib ketdi. Iltimos, biroz kutib turing." }
+                    }, token);
+                };
+            });
+
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
@@ -186,6 +245,8 @@ namespace API
                 }
             });
 
+            app.UseRateLimiter();
+
             app.UseAuthentication();
 
             // CSRF Double-Submit Cookie himoyasi — autentifikatsiyadan keyin, lekin
@@ -234,5 +295,8 @@ namespace API
 
             app.Run();
         }
+
+        private static string GetClientIp(HttpContext httpContext)
+            => httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
     }
 }

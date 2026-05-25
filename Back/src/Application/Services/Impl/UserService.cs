@@ -197,7 +197,8 @@ public class UserService : IUserService
         DepartmentName = user.Department?.Name,
         IsActive = user.IsActive,
         IsHead = user.IsHead,
-        CreatedAt = user.CreatedAt
+        CreatedAt = user.CreatedAt,
+        LockoutEnd = user.LockoutEnd
     };
 
 }

@@ -12,6 +12,7 @@ public class User
     public bool IsActive { get; set; } = true;
     public bool IsHead { get; set; } = false;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? LockoutEnd { get; set; }
 
     // Navigation properties
     public Role? Role { get; set; }
