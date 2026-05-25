@@ -39,6 +39,7 @@ public class DatabaseContext : DbContext
     public DbSet<ManufacturedProduct> ManufacturedProducts { get; set; }
     public DbSet<ShipmentBatch> ShipmentBatches { get; set; }
     public DbSet<ActivityLog> ActivityLogs { get; set; }
+    public DbSet<LoginAttempt> LoginAttempts { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

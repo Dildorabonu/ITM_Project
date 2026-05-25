@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import axios from "axios";
 import { useAuthStore } from "@/lib/store/authStore";
 import EkLogo from "@/app/_components/EkLogo";
 
@@ -156,8 +157,20 @@ export default function LoginPage() {
       }
       setExitAnim(true);
       setTimeout(() => router.replace("/"), 600);
-    } catch {
-      setError("Login yoki parol noto'g'ri. Qayta urinib ko'ring.");
+    } catch (err) {
+      let msg = "Login yoki parol noto'g'ri. Qayta urinib ko'ring.";
+      if (axios.isAxiosError(err)) {
+        const status = err.response?.status;
+        const serverMsg = err.response?.data?.errors?.[0];
+        if (status === 423) {
+          msg = serverMsg ?? "Hisob vaqtincha bloklangan. Iltimos, keyinroq urinib ko'ring.";
+        } else if (status === 429) {
+          msg = serverMsg ?? "Juda ko'p urinish. Iltimos, biroz kutib turing.";
+        } else if (typeof serverMsg === "string" && serverMsg.length > 0 && status !== 401) {
+          msg = serverMsg;
+        }
+      }
+      setError(msg);
       setLoading(false);
     }
   }

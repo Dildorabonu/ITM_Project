@@ -3,8 +3,7 @@ import {
   type RequisitionResponse,
   type RequisitionItemResponse,
 } from "@/lib/userService";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5223";
+import { getApiBase } from "@/lib/apiBase";
 
 // ─── A4 geometry (print sahifasi bilan bir xil) ───────────────────────────────
 // 96dpi: 1mm ≈ 3.78px
@@ -41,7 +40,7 @@ function escapeHtml(s: string): string {
 function resolvePhoto(url?: string | null): string {
   if (!url) return "";
   if (/^(blob:|data:|https?:)/i.test(url)) return url;
-  if (url.startsWith("/")) return API_URL + url;
+  if (url.startsWith("/")) return getApiBase() + url;
   return url;
 }
 

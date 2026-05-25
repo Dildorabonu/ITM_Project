@@ -12,6 +12,9 @@ namespace Application.Services.Impl;
 
 public class AuthService : IAuthService
 {
+    private const int MaxFailedAttempts = 5;
+    private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
+
     private readonly DatabaseContext _context;
     private readonly JwtOptions _jwtOptions;
     private readonly IHttpContextAccessor _httpContextAccessor;
@@ -25,14 +28,47 @@ public class AuthService : IAuthService
 
     public async Task<ApiResult<AuthResponseDto>> LoginAsync(LoginDto dto)
     {
+        var (ip, _) = GetRequestContext();
+        var now = DateTime.UtcNow;
+
         var user = await _context.Users
             .Include(u => u.Role)
                 .ThenInclude(r => r!.RolePermissions)
                     .ThenInclude(rp => rp.Permission)
             .FirstOrDefaultAsync(u => u.Login == dto.Login && u.IsActive);
 
+        if (user is not null && user.LockoutEnd.HasValue && user.LockoutEnd.Value > now)
+        {
+            await RecordAttemptAsync(user.Id, dto.Login, ip, success: false);
+            var minutesLeft = Math.Max(1, (int)Math.Ceiling((user.LockoutEnd.Value - now).TotalMinutes));
+            return ApiResult<AuthResponseDto>.Failure(
+                [$"Hisob {minutesLeft} daqiqaga vaqtincha bloklangan. Iltimos, keyinroq urinib ko'ring."],
+                statusCode: 423);
+        }
+
         if (user is null || !PasswordHelper.VerifyPassword(dto.Password, user.PasswordHash))
-            return ApiResult<AuthResponseDto>.Failure(["Invalid login or password."]);
+        {
+            await RecordAttemptAsync(user?.Id, dto.Login, ip, success: false);
+
+            if (user is not null)
+            {
+                var recentFailures = await CountConsecutiveFailuresAsync(user.Id);
+                if (recentFailures >= MaxFailedAttempts)
+                {
+                    user.LockoutEnd = now.Add(LockoutDuration);
+                    await _context.SaveChangesAsync();
+                    return ApiResult<AuthResponseDto>.Failure(
+                        [$"Hisob {(int)LockoutDuration.TotalMinutes} daqiqaga bloklandi. Ko'p marta noto'g'ri parol kiritildi."],
+                        statusCode: 423);
+                }
+            }
+
+            return ApiResult<AuthResponseDto>.Failure(["Invalid login or password."], statusCode: 401);
+        }
+
+        await RecordAttemptAsync(user.Id, dto.Login, ip, success: true);
+        if (user.LockoutEnd.HasValue)
+            user.LockoutEnd = null;
 
         var (accessToken, accessExpiresAt) = BuildAccessToken(user);
 
@@ -48,6 +84,47 @@ public class AuthService : IAuthService
             RefreshTokenExpiresAt = refreshToken.ExpiresAt,
             User = BuildUserDto(user)
         });
+    }
+
+    public async Task<ApiResult<bool>> UnlockUserAsync(Guid userId)
+    {
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        if (user is null)
+            return ApiResult<bool>.Failure([$"User with id '{userId}' not found."], statusCode: 404);
+
+        if (user.LockoutEnd is null)
+            return ApiResult<bool>.Success(true);
+
+        user.LockoutEnd = null;
+        await _context.SaveChangesAsync();
+        return ApiResult<bool>.Success(true);
+    }
+
+    private async System.Threading.Tasks.Task RecordAttemptAsync(Guid? userId, string login, string? ip, bool success)
+    {
+        _context.LoginAttempts.Add(new LoginAttempt
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            Login = login.Length > 64 ? login[..64] : login,
+            IpAddress = ip,
+            AttemptedAt = DateTime.UtcNow,
+            Success = success
+        });
+        await _context.SaveChangesAsync();
+    }
+
+    private async Task<int> CountConsecutiveFailuresAsync(Guid userId)
+    {
+        var lastSuccess = await _context.LoginAttempts
+            .Where(a => a.UserId == userId && a.Success)
+            .OrderByDescending(a => a.AttemptedAt)
+            .Select(a => (DateTime?)a.AttemptedAt)
+            .FirstOrDefaultAsync();
+
+        var since = lastSuccess ?? DateTime.MinValue;
+        return await _context.LoginAttempts
+            .CountAsync(a => a.UserId == userId && !a.Success && a.AttemptedAt > since);
     }
 
     public async Task<ApiResult<AuthResponseDto>> RefreshTokenAsync(string refreshToken)
