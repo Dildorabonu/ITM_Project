@@ -1,4 +1,5 @@
 using DataAccess.Persistence;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 namespace Application.Tests.Infrastructure;
@@ -21,5 +22,42 @@ public static class TestDbContextFactory
         var context = new DatabaseContext(options);
         context.Database.EnsureCreated();
         return context;
+    }
+
+    /// <summary>
+    /// SQLite in-memory (real relational) <see cref="DatabaseContext"/>. Use when a test
+    /// exercises code that calls relational-only APIs such as <c>ExecuteUpdateAsync</c> /
+    /// <c>ExecuteDeleteAsync</c>, which the EF InMemory provider does not translate.
+    /// Returned context owns the underlying <see cref="SqliteConnection"/>.
+    /// </summary>
+    public static DatabaseContext CreateSqlite()
+    {
+        var connection = new SqliteConnection("DataSource=:memory:");
+        connection.Open();
+
+        var options = new DbContextOptionsBuilder<DatabaseContext>()
+            .UseSqlite(connection)
+            .EnableSensitiveDataLogging()
+            .Options;
+
+        var context = new SqliteDatabaseContext(options, connection);
+        context.Database.EnsureCreated();
+        return context;
+    }
+
+    private sealed class SqliteDatabaseContext(DbContextOptions<DatabaseContext> options, SqliteConnection connection)
+        : DatabaseContext(options)
+    {
+        public override void Dispose()
+        {
+            base.Dispose();
+            connection.Dispose();
+        }
+
+        public override async ValueTask DisposeAsync()
+        {
+            await base.DisposeAsync();
+            await connection.DisposeAsync();
+        }
     }
 }
