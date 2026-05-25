@@ -515,6 +515,20 @@ public class RequisitionService : IRequisitionService
             .Where(p => p.DepartmentId == targetDeptId)
             .ToListAsync();
 
+        // Korxona omborxonasidagi muzlatilgan Productlarni oldindan yuklab olish
+        var reservedIds = r.Items.Where(i => i.ReservedProductId.HasValue)
+            .Select(i => i.ReservedProductId!.Value).Distinct().ToList();
+        var sourceProducts = reservedIds.Count > 0
+            ? await _context.Products.Where(p => reservedIds.Contains(p.Id)).ToListAsync()
+            : new List<Product>();
+        var sourceProductMap = sourceProducts.ToDictionary(p => p.Id);
+
+        await using var tx = await _context.Database.BeginTransactionAsync();
+
+        var stockOutNoteBase = string.IsNullOrWhiteSpace(r.Purpose)
+            ? $"Talabnoma: {r.RequisitionNo}"
+            : $"Talabnoma: {r.RequisitionNo} — {r.Purpose}";
+
         var itemIndex = 0;
         foreach (var item in r.Items)
         {
@@ -544,7 +558,7 @@ public class RequisitionService : IRequisitionService
                     ContractId = r.ContractId,
                     IssuedBy = releaserId,
                     IssuedAt = DateTime.UtcNow,
-                    Notes = $"Talabnoma: {r.RequisitionNo}"
+                    Notes = stockOutNoteBase
                 });
 
                 productName = material.Name;
@@ -554,6 +568,18 @@ public class RequisitionService : IRequisitionService
             {
                 productName = item.FreeTextName ?? "Noma'lum mahsulot";
                 unit = ParseProductUnit(item.FreeTextUnit);
+            }
+
+            // Korxona omborxonasidan ayirish: muzlatilgan Productni real chiqarish
+            if (item.ReservedProductId.HasValue
+                && sourceProductMap.TryGetValue(item.ReservedProductId.Value, out var source))
+            {
+                if (source.Quantity < qty)
+                    return ApiResult<bool>.Failure(
+                        [$"Korxona omborxonasida '{source.Name}' yetarli emas (mavjud: {source.Quantity}, kerak: {qty})."]);
+
+                source.Quantity -= qty;
+                source.ReservedQuantity = Math.Max(0m, source.ReservedQuantity - qty);
             }
 
             // Bo'lim omboriga upsert
@@ -585,6 +611,7 @@ public class RequisitionService : IRequisitionService
         r.Status = RequisitionStatus.Released;
 
         await _context.SaveChangesAsync();
+        await tx.CommitAsync();
 
         await _notificationService.CreateAsync(r.CreatedBy,
             $"Talabnoma chiqarib berildi: {r.RequisitionNo}",

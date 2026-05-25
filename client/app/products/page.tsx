@@ -7,6 +7,8 @@ import * as XLSX from "xlsx";
 import {
   productService,
   departmentService,
+  requisitionService,
+  RequisitionStatus,
   DepartmentType,
   ProductUnit,
   PRODUCT_UNIT_LABELS,
@@ -17,6 +19,7 @@ import {
   type DepartmentOption,
 } from "@/lib/userService";
 import { useAuthStore } from "@/lib/store/authStore";
+import { useToastStore } from "@/lib/store/toastStore";
 import { ConfirmModal } from "@/app/_components/ConfirmModal";
 import { CheckSelect } from "@/app/_components/CheckSelect";
 
@@ -57,6 +60,8 @@ export default function ProductsPage() {
   const canCreate = hasPermission("Products.Create");
   const canUpdate = hasPermission("Products.Update");
   const canDelete = hasPermission("Products.Delete");
+  const canRelease = hasPermission("Requisitions.WarehouseCheck");
+  const showToast = useToastStore(s => s.show);
 
   const [products, setProducts] = useState<ProductResponse[]>([]);
   const [page, setPage] = useState(1);
@@ -83,12 +88,14 @@ export default function ProductsPage() {
   // Reservations (muzlatilgan mahsulotlar) view
   const [showFrozen, setShowFrozen] = useState(false);
   const [frozenItems, setFrozenItems] = useState<ProductReservationResponse[]>([]);
-  const [frozenPage, setFrozenPage] = useState(1);
-  const [frozenTotalPages, setFrozenTotalPages] = useState(1);
   const [frozenTotalCount, setFrozenTotalCount] = useState(0);
   const [frozenSearch, setFrozenSearch] = useState("");
   const [frozenLoading, setFrozenLoading] = useState(false);
   const [frozenError, setFrozenError] = useState("");
+  const [frozenStatusFilter, setFrozenStatusFilter] = useState<"all" | "ready" | "pending">("all");
+  const [expandedReq, setExpandedReq] = useState<Set<string>>(new Set());
+  const [releaseConfirm, setReleaseConfirm] = useState<{ id: string; no: string } | null>(null);
+  const [releasing, setReleasing] = useState(false);
 
   // Delete confirm
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -164,13 +171,13 @@ export default function ProductsPage() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, [showForm]);
 
-  const loadFrozen = async (p = frozenPage, q = frozenSearch) => {
+  const loadFrozen = async (q = frozenSearch) => {
     try {
       setFrozenLoading(true);
       setFrozenError("");
-      const data = await productService.getReservations(p, 50, q || undefined);
+      // pageSize katta — guruhlash mijoz tomonida bo'lgani uchun barcha rezervlarni yuklaymiz
+      const data = await productService.getReservations(1, 1000, q || undefined);
       setFrozenItems(data.items);
-      setFrozenTotalPages(data.totalPages);
       setFrozenTotalCount(data.totalCount);
     } catch {
       setFrozenError("Muzlatilgan mahsulotlar yuklanmadi.");
@@ -181,9 +188,9 @@ export default function ProductsPage() {
 
   useEffect(() => {
     if (!showFrozen) return;
-    loadFrozen(frozenPage, frozenSearch);
+    loadFrozen(frozenSearch);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showFrozen, frozenPage, frozenSearch]);
+  }, [showFrozen, frozenSearch]);
 
   useEffect(() => {
     if (!showFrozen) return;
@@ -193,8 +200,9 @@ export default function ProductsPage() {
   }, [showFrozen]);
 
   const openFrozen = () => {
-    setFrozenPage(1);
     setFrozenSearch("");
+    setFrozenStatusFilter("all");
+    setExpandedReq(new Set());
     window.history.pushState({ frozen: true }, "");
     setShowFrozen(true);
   };
@@ -202,6 +210,31 @@ export default function ProductsPage() {
   const closeFrozen = () => {
     setShowFrozen(false);
     window.history.back();
+  };
+
+  const toggleReqExpanded = (reqId: string) => {
+    setExpandedReq(prev => {
+      const next = new Set(prev);
+      if (next.has(reqId)) next.delete(reqId);
+      else next.add(reqId);
+      return next;
+    });
+  };
+
+  const handleRelease = async () => {
+    if (!releaseConfirm) return;
+    setReleasing(true);
+    try {
+      await requisitionService.release(releaseConfirm.id);
+      showToast(`Talabnoma "${releaseConfirm.no}" bo'yicha mahsulotlar berib yuborildi`, "success");
+      setReleaseConfirm(null);
+      await Promise.all([loadFrozen(frozenSearch), load()]);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
+      showToast(msg ?? "Berib yuborishda xatolik yuz berdi", "Xatolik");
+    } finally {
+      setReleasing(false);
+    }
   };
 
   const openCreate = () => {
@@ -1111,16 +1144,66 @@ export default function ProductsPage() {
     );
   }
 
-  /* ===== Frozen products inline view ===== */
+  /* ===== Frozen products inline view (grouped by requisition) ===== */
   if (showFrozen) {
     const fmtDate = (s: string | null) => {
       if (!s) return "—";
       const d = s.slice(0, 10).split("-");
       return d.length === 3 ? `${d[2]}-${d[1]}-${d[0].slice(-2)}` : "—";
     };
+
+    type FrozenGroup = {
+      requisitionId: string;
+      requisitionNo: string;
+      purpose: string;
+      targetDepartmentName: string | null;
+      status: RequisitionStatus;
+      statusLabel: string;
+      warehouseCheckedAt: string | null;
+      items: ProductReservationResponse[];
+      totalReserved: number;
+    };
+
+    const groups: FrozenGroup[] = (() => {
+      const map = new Map<string, FrozenGroup>();
+      for (const r of frozenItems) {
+        let g = map.get(r.requisitionId);
+        if (!g) {
+          g = {
+            requisitionId: r.requisitionId,
+            requisitionNo: r.requisitionNo,
+            purpose: r.purpose,
+            targetDepartmentName: r.targetDepartmentName,
+            status: r.status,
+            statusLabel: r.statusLabel,
+            warehouseCheckedAt: r.warehouseCheckedAt,
+            items: [],
+            totalReserved: 0,
+          };
+          map.set(r.requisitionId, g);
+        }
+        g.items.push(r);
+        g.totalReserved += r.reservedQuantity;
+      }
+      return Array.from(map.values()).sort((a, b) => {
+        const ta = a.warehouseCheckedAt ?? "";
+        const tb = b.warehouseCheckedAt ?? "";
+        return tb.localeCompare(ta);
+      });
+    })();
+
+    const filteredGroups = groups.filter(g => {
+      if (frozenStatusFilter === "ready") return g.status === RequisitionStatus.ReadyForWarehouseRelease;
+      if (frozenStatusFilter === "pending") return g.status === RequisitionStatus.PendingApproval;
+      return true;
+    });
+
+    const readyCount = groups.filter(g => g.status === RequisitionStatus.ReadyForWarehouseRelease).length;
+    const pendingCount = groups.filter(g => g.status === RequisitionStatus.PendingApproval).length;
+
     return (
       <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-        <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, padding: "8px 14px", flexWrap: "wrap" }}>
+        <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, padding: "8px 14px", flexWrap: "wrap" }}>
           <button
             onClick={closeFrozen}
             style={{
@@ -1135,7 +1218,7 @@ export default function ProductsPage() {
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
             <span style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)" }}>Muzlatilgan mahsulotlar</span>
             <span style={{ fontSize: 12, color: "var(--text3)" }}>
-              {frozenTotalCount} ta rezerv
+              {groups.length} ta talabnoma · {frozenTotalCount} ta rezerv
             </span>
           </div>
           <div className="search-wrap" style={{ maxWidth: "none", flex: 1, minWidth: 200 }}>
@@ -1146,12 +1229,30 @@ export default function ProductsPage() {
               className="search-input"
               placeholder="Qidirish: mahsulot, talabnoma, sabab, bo'lim..."
               value={frozenSearch}
-              onChange={e => { setFrozenSearch(e.target.value); setFrozenPage(1); }}
+              onChange={e => setFrozenSearch(e.target.value)}
             />
           </div>
+          {([
+            { key: "all" as const, label: `Barchasi (${groups.length})` },
+            { key: "ready" as const, label: `Berishga tayyor (${readyCount})` },
+            { key: "pending" as const, label: `Tasdiqlash kutmoqda (${pendingCount})` },
+          ]).map(f => (
+            <button key={f.key} onClick={() => setFrozenStatusFilter(f.key)}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 5,
+                padding: "0 12px", height: 32, borderRadius: "var(--radius)",
+                border: `1px solid ${frozenStatusFilter === f.key ? "var(--accent)" : "var(--border)"}`,
+                background: frozenStatusFilter === f.key ? "var(--accent-dim)" : "var(--bg2)",
+                color: frozenStatusFilter === f.key ? "var(--accent)" : "var(--text2)",
+                fontSize: 12, fontWeight: 500, cursor: "pointer",
+              }}
+            >
+              {f.label}
+            </button>
+          ))}
           <button
             className="btn-icon"
-            onClick={() => loadFrozen(frozenPage, frozenSearch)}
+            onClick={() => loadFrozen(frozenSearch)}
             title="Yangilash"
             style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}
           >
@@ -1163,98 +1264,150 @@ export default function ProductsPage() {
           </button>
         </div>
 
-        <div className="itm-card" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "clip" } as React.CSSProperties}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 12 }}>
           {frozenLoading ? (
-            <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
+            <div className="itm-card" style={{ padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
           ) : frozenError ? (
-            <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--danger)" }}>{frozenError}</div>
-          ) : (
-            <div style={{ overflowX: "auto", overflowY: "auto", flex: 1, minHeight: 0 }}>
-              <table className="itm-table">
-                <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
-                  <tr>
-                    <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>T/r</th>
-                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>Mahsulot nomi</th>
-                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>Invoice raqami</th>
-                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>Muzlatilgan miqdor</th>
-                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>Muzlatilish sababi</th>
-                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>Qaysi bo&apos;lim uchun</th>
-                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>Talabnoma</th>
-                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>Holati</th>
-                    <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>Sana</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {frozenItems.length === 0 ? (
-                    <tr>
-                      <td colSpan={9} style={{ textAlign: "center", color: "var(--text3)", padding: 40, fontSize: 13 }}>
-                        {frozenSearch ? "Natija topilmadi" : "Muzlatilgan mahsulotlar yo'q"}
-                      </td>
-                    </tr>
-                  ) : frozenItems.map((r, i) => (
-                    <tr key={`${r.requisitionId}-${r.productId}-${i}`}>
-                      <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>
-                        {String((frozenPage - 1) * 50 + i + 1).padStart(2, "0")}
-                      </td>
-                      <td style={{ textAlign: "center", color: "var(--text1)", fontWeight: 500 }}>{r.productName}</td>
-                      <td style={{ textAlign: "center", color: "var(--accent)", fontFamily: "var(--font-mono)", fontSize: 13 }}>{r.invoiceNumber || "—"}</td>
-                      <td style={{ textAlign: "center", fontFamily: "var(--font-mono)", fontWeight: 600, color: "var(--warn)" }}>
-                        {r.reservedQuantity} <span style={{ color: "var(--text3)", fontWeight: 400, marginLeft: 4 }}>{PRODUCT_UNIT_LABELS[r.unit] ?? ""}</span>
-                      </td>
-                      <td title={r.purpose} style={{ textAlign: "center", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text1)" }}>
-                        {r.purpose || "—"}
-                      </td>
-                      <td style={{ textAlign: "center", color: "var(--text1)" }}>{r.targetDepartmentName || "—"}</td>
-                      <td style={{ textAlign: "center", fontFamily: "var(--font-mono)", color: "var(--accent)", fontSize: 13 }}>{r.requisitionNo}</td>
-                      <td style={{ textAlign: "center" }}>
-                        <span style={{
-                          display: "inline-block", padding: "2px 10px", borderRadius: 20,
-                          fontSize: 11, fontWeight: 600,
-                          background: r.status === 9 ? "var(--success-dim)" : "var(--warn-dim)",
-                          color: r.status === 9 ? "var(--success)" : "var(--warn)",
-                        }}>
-                          {r.statusLabel}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: "center", color: "var(--text2)", fontSize: 12 }}>{fmtDate(r.warehouseCheckedAt)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="itm-card" style={{ padding: 40, textAlign: "center", color: "var(--danger)" }}>{frozenError}</div>
+          ) : filteredGroups.length === 0 ? (
+            <div className="itm-card" style={{ padding: 60, textAlign: "center", color: "var(--text3)", fontSize: 13, display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" strokeWidth="1.5">
+                <line x1="12" y1="2" x2="12" y2="22" />
+                <line x1="2" y1="12" x2="22" y2="12" />
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                <line x1="19.07" y1="4.93" x2="4.93" y2="19.07" />
+              </svg>
+              <div>{frozenSearch || frozenStatusFilter !== "all" ? "Natija topilmadi" : "Muzlatilgan mahsulotlar yo'q"}</div>
             </div>
-          )}
+          ) : filteredGroups.map((g) => {
+            const ready = g.status === RequisitionStatus.ReadyForWarehouseRelease;
+            const expanded = expandedReq.has(g.requisitionId);
+            return (
+              <div key={g.requisitionId} className="itm-card" style={{ padding: 0, overflow: "hidden" }}>
+                {/* Group header */}
+                <div
+                  onClick={() => toggleReqExpanded(g.requisitionId)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 14, padding: "14px 18px",
+                    cursor: "pointer", userSelect: "none",
+                    borderBottom: expanded ? "1px solid var(--border)" : "none",
+                    background: expanded ? "var(--bg2)" : "transparent",
+                    transition: "background 0.15s",
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" strokeWidth="2.5"
+                    style={{ transform: expanded ? "rotate(90deg)" : "none", transition: "transform 0.15s", flexShrink: 0 }}>
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+                      <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 700, color: "var(--accent)" }}>
+                        {g.requisitionNo}
+                      </span>
+                      <span style={{ fontSize: 13, color: "var(--text1)", fontWeight: 500 }}>{g.purpose || "—"}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 4, fontSize: 12, color: "var(--text3)", flexWrap: "wrap" }}>
+                      {g.targetDepartmentName && (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="2" y="7" width="20" height="14" rx="2"/>
+                            <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+                          </svg>
+                          {g.targetDepartmentName}
+                        </span>
+                      )}
+                      <span>{fmtDate(g.warehouseCheckedAt)}</span>
+                      <span>{g.items.length} ta mahsulot</span>
+                    </div>
+                  </div>
+
+                  <span style={{
+                    display: "inline-flex", alignItems: "center", gap: 5,
+                    padding: "3px 10px", borderRadius: 20,
+                    fontSize: 11, fontWeight: 600,
+                    background: ready ? "var(--success-dim)" : "var(--warn-dim)",
+                    color: ready ? "var(--success)" : "var(--warn)",
+                  }}>
+                    <span style={{
+                      width: 6, height: 6, borderRadius: "50%",
+                      background: ready ? "var(--success)" : "var(--warn)",
+                    }} />
+                    {g.statusLabel}
+                  </span>
+
+                  {canRelease && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); if (ready) setReleaseConfirm({ id: g.requisitionId, no: g.requisitionNo }); }}
+                      disabled={!ready}
+                      title={ready ? "Talabnoma bo'yicha mahsulotlarni berib yuborish" : "Direktor hali tasdiqlamagan"}
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: 6,
+                        padding: "8px 16px", borderRadius: "var(--radius)",
+                        border: `1px solid ${ready ? "var(--success)" : "var(--border)"}`,
+                        background: ready ? "var(--success)" : "var(--bg3)",
+                        color: ready ? "#fff" : "var(--text3)",
+                        fontSize: 12, fontWeight: 600,
+                        cursor: ready ? "pointer" : "not-allowed",
+                        transition: "all 0.15s",
+                      }}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                        <path d="M5 12h14M13 5l7 7-7 7" />
+                      </svg>
+                      Berib yuborish
+                    </button>
+                  )}
+                </div>
+
+                {/* Items table */}
+                {expanded && (
+                  <div style={{ overflowX: "auto" }}>
+                    <table className="itm-table">
+                      <thead>
+                        <tr>
+                          <th style={{ width: 48, minWidth: 48, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>T/r</th>
+                          <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>Mahsulot nomi</th>
+                          <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>Invoice raqami</th>
+                          <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>Muzlatilgan miqdor</th>
+                          <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>O&apos;lchov</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {g.items.map((r, i) => (
+                          <tr key={`${r.requisitionId}-${r.productId}-${i}`}>
+                            <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 48, padding: "0 8px" }}>
+                              {String(i + 1).padStart(2, "0")}
+                            </td>
+                            <td style={{ textAlign: "center", color: "var(--text1)", fontWeight: 500 }}>{r.productName}</td>
+                            <td style={{ textAlign: "center", color: "var(--accent)", fontFamily: "var(--font-mono)", fontSize: 13 }}>{r.invoiceNumber || "—"}</td>
+                            <td style={{ textAlign: "center", fontFamily: "var(--font-mono)", fontWeight: 600, color: "var(--warn)" }}>
+                              {r.reservedQuantity}
+                            </td>
+                            <td style={{ textAlign: "center", color: "var(--text2)" }}>{PRODUCT_UNIT_LABELS[r.unit] ?? "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
-        {/* Pagination */}
-        {frozenTotalCount > 50 && (
-          <div style={{
-            flexShrink: 0,
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "8px 14px", marginTop: 8,
-          }}>
-            <span style={{ fontSize: 17, color: "var(--text)", fontFamily: "var(--font-mono)", fontWeight: 450 }}>
-              {frozenTotalCount} tadan {frozenTotalCount === 0 ? 0 : (frozenPage - 1) * 50 + 1}&nbsp;–&nbsp;{Math.min(frozenPage * 50, frozenTotalCount)}&nbsp;ko&apos;rsatilmoqda
-            </span>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <button
-                className="btn-secondary"
-                disabled={frozenPage <= 1}
-                onClick={() => setFrozenPage(p => p - 1)}
-                style={{ padding: "5px 12px", fontSize: 12 }}
-              >
-                ← Oldingi
-              </button>
-              <button
-                className="btn-secondary"
-                disabled={frozenPage >= frozenTotalPages}
-                onClick={() => setFrozenPage(p => p + 1)}
-                style={{ padding: "5px 12px", fontSize: 12 }}
-              >
-                Keyingi →
-              </button>
-            </div>
-          </div>
-        )}
+        <ConfirmModal
+          open={!!releaseConfirm}
+          title="Mahsulotlarni berib yuborish"
+          message={releaseConfirm
+            ? `Talabnoma "${releaseConfirm.no}" bo'yicha barcha muzlatilgan mahsulotlar bo'lim omboriga o'tkaziladi va korxona omborxonasidan ayriladi. Davom etasizmi?`
+            : ""}
+          confirmLabel="Berib yuborish"
+          loadingLabel="Berilmoqda..."
+          variant="primary"
+          loading={releasing}
+          onConfirm={handleRelease}
+          onCancel={() => setReleaseConfirm(null)}
+        />
       </div>
     );
   }
