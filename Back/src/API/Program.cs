@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.RateLimiting;
 using API.Authentication;
@@ -217,6 +218,59 @@ namespace API
 
             if (app.Environment.IsDevelopment())
             {
+                var swaggerUser = builder.Configuration["SWAGGER_USERNAME"];
+                var swaggerPass = builder.Configuration["SWAGGER_PASSWORD"];
+
+                app.UseWhen(
+                    ctx => ctx.Request.Path.StartsWithSegments("/swagger"),
+                    branch => branch.Use(async (ctx, next) =>
+                    {
+                        if (string.IsNullOrEmpty(swaggerUser) || string.IsNullOrEmpty(swaggerPass))
+                        {
+                            ctx.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                            await ctx.Response.WriteAsync(
+                                "Swagger ochiq emas — SWAGGER_USERNAME va SWAGGER_PASSWORD env o'zgaruvchilari sozlanmagan.");
+                            return;
+                        }
+
+                        string? authHeader = ctx.Request.Headers["Authorization"];
+                        if (authHeader != null
+                            && authHeader.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase))
+                        {
+                            try
+                            {
+                                var encoded = authHeader.Substring("Basic ".Length).Trim();
+                                var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(encoded));
+                                var sep = decoded.IndexOf(':');
+                                if (sep > 0)
+                                {
+                                    var user = decoded.Substring(0, sep);
+                                    var pass = decoded.Substring(sep + 1);
+
+                                    var userBytes = Encoding.UTF8.GetBytes(user);
+                                    var expectedUserBytes = Encoding.UTF8.GetBytes(swaggerUser);
+                                    var passBytes = Encoding.UTF8.GetBytes(pass);
+                                    var expectedPassBytes = Encoding.UTF8.GetBytes(swaggerPass);
+
+                                    var userOk = userBytes.Length == expectedUserBytes.Length
+                                        && CryptographicOperations.FixedTimeEquals(userBytes, expectedUserBytes);
+                                    var passOk = passBytes.Length == expectedPassBytes.Length
+                                        && CryptographicOperations.FixedTimeEquals(passBytes, expectedPassBytes);
+
+                                    if (userOk && passOk)
+                                    {
+                                        await next();
+                                        return;
+                                    }
+                                }
+                            }
+                            catch (FormatException) { }
+                        }
+
+                        ctx.Response.Headers["WWW-Authenticate"] = "Basic realm=\"ITM Swagger\", charset=\"UTF-8\"";
+                        ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    }));
+
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }
