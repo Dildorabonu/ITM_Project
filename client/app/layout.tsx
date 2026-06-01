@@ -27,7 +27,7 @@ const navGroups: NavGroup[] = [
     icon: "layers",
     items: [
       { name: "Shartnomalar",           href: "/contracts",        icon: "file",         permission: ["Contracts.View", "Contracts.ViewAll"] },
-      { name: "Texnik chizmalar",       href: "/technicaldrawings",icon: "file",         permission: ["TechnicalDrawings.View", "TechnicalDrawings.ViewAll"] },
+      { name: "Texnik chizmalar",       href: "/technicaldrawings",icon: "ruler",        permission: ["TechnicalDrawings.View", "TechnicalDrawings.ViewAll"] },
       { name: "Tex jarayon & Normalar", href: "/techprocess",      icon: "activity",     permission: ["TechProcess.View", "TechProcess.ViewAll", "CostNorm.View", "CostNorm.ViewAll"] },
       { name: "Vazifalar",              href: "/tasks",            icon: "check-square", permission: ["Tasks.View", "Tasks.ViewAll"] },
     ],
@@ -82,6 +82,7 @@ function NavIcon({ type, size = 16, strokeWidth = 2, color }: { type: string; si
   if (type === "shopping-bag") return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>;
   if (type === "layers")      return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><polygon points="12,2 2,7 12,12 22,7"/><polyline points="2,17 12,22 22,17"/><polyline points="2,12 12,17 22,12"/></svg>;
   if (type === "factory")     return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><path d="M2 20V8l6 4V8l6 4V8l6 4v8z"/><line x1="2" y1="20" x2="22" y2="20"/><line x1="7" y1="16" x2="7" y2="16.01"/><line x1="12" y1="16" x2="12" y2="16.01"/><line x1="17" y1="16" x2="17" y2="16.01"/></svg>;
+  if (type === "ruler")       return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.4 2.4 0 0 1 0-3.4l2.6-2.6a2.4 2.4 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg>;
   return null;
 }
 
