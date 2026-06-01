@@ -113,7 +113,12 @@ public class RequisitionService : IRequisitionService
         var totalCount = await query.CountAsync();
 
         var items = await query
-            .OrderByDescending(r => r.CreatedAt)
+            .OrderBy(r =>
+                r.Status == RequisitionStatus.PendingWarehouseCheck ? 1 :
+                (r.Children.Any()
+                    ? r.Children.All(c => TerminalStatuses.Contains(c.Status))
+                    : TerminalStatuses.Contains(r.Status)) ? 3 : 2)
+            .ThenByDescending(r => r.CreatedAt)
             .Skip((pagination.Page - 1) * pagination.PageSize)
             .Take(pagination.PageSize)
             .ToListAsync();
