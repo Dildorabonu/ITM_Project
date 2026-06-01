@@ -39,9 +39,15 @@ const navGroups: NavGroup[] = [
       { name: "Korxona omborxonasi", href: "/products",     icon: "shopping-bag", permission: "Products.View" },
       { name: "Tayyor mahsulotlar",  href: "/manufactured", icon: "factory",      permission: "ManufacturedProducts.View" },
       { name: "Bo'lim omborlari", href: "/department-warehouses", icon: "briefcase", permission: "Products.View" },
-      { name: "Talabnomalar",     href: "/requisitions", icon: "clipboard",    permission: ["Requisitions.View", "Requisitions.ViewAll"] },
-      { name: "Tasdiqlash",       href: "/requisitions/approvals", icon: "check-square", permission: "Requisitions.Approve" },
       { name: "Ombor tekshiruvi", href: "/warehouse",    icon: "package",      permission: "WarehouseCheck.View" },
+    ],
+  },
+  {
+    label: "Hujjatlar",
+    icon: "file-text",
+    items: [
+      { name: "Talabnomalar", href: "/requisitions",            icon: "clipboard",    permission: ["Requisitions.View", "Requisitions.ViewAll"] },
+      { name: "Tasdiqlash",   href: "/requisitions/approvals",  icon: "check-square", permission: "Requisitions.Approve" },
     ],
   },
   {
