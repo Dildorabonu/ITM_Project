@@ -30,7 +30,6 @@ const navGroups: NavGroup[] = [
       { name: "Texnik chizmalar",       href: "/technicaldrawings",icon: "file",         permission: ["TechnicalDrawings.View", "TechnicalDrawings.ViewAll"] },
       { name: "Tex jarayon & Normalar", href: "/techprocess",      icon: "activity",     permission: ["TechProcess.View", "TechProcess.ViewAll", "CostNorm.View", "CostNorm.ViewAll"] },
       { name: "Vazifalar",              href: "/tasks",            icon: "check-square", permission: ["Tasks.View", "Tasks.ViewAll"] },
-      { name: "Tayyor mahsulotlar",     href: "/manufactured",     icon: "factory",      permission: "ManufacturedProducts.View" },
     ],
   },
   {
@@ -38,6 +37,7 @@ const navGroups: NavGroup[] = [
     icon: "package",
     items: [
       { name: "Korxona omborxonasi", href: "/products",     icon: "shopping-bag", permission: "Products.View" },
+      { name: "Tayyor mahsulotlar",  href: "/manufactured", icon: "factory",      permission: "ManufacturedProducts.View" },
       { name: "Bo'lim omborlari", href: "/department-warehouses", icon: "briefcase", permission: "Products.View" },
       { name: "Talabnomalar",     href: "/requisitions", icon: "clipboard",    permission: ["Requisitions.View", "Requisitions.ViewAll"] },
       { name: "Tasdiqlash",       href: "/requisitions/approvals", icon: "check-square", permission: "Requisitions.Approve" },
