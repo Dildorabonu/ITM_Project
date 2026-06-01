@@ -240,6 +240,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const trackRef = useRef<HTMLDivElement>(null);
   const dragState = useRef<{ startY: number; startScrollTop: number } | null>(null);
   const didDrag = useRef(false);
+  const [navAnimRev, setNavAnimRev] = useState(0);
+  const [groupAnims, setGroupAnims] = useState<Record<string, { rev: number; speed: "slow" | "fast" }>>({});
+  const wasSidebarCollapsed = useRef(false);
 
   const updateScrollState = () => {
     const el = navRef.current;
@@ -343,7 +346,27 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     "--profile-avatar-bg": "linear-gradient(135deg,var(--accent-dim) 0%,var(--accent-mid) 50%,var(--accent-dim) 100%)",
   } as React.CSSProperties : {} as React.CSSProperties;
   const toggleGroup = (label: string) =>
-    setCollapsedGroups((prev) => ({ ...prev, [label]: !prev[label] }));
+    setCollapsedGroups((prev) => {
+      const wasCollapsed = !!prev[label];
+      if (wasCollapsed) {
+        setGroupAnims((g) => ({ ...g, [label]: { rev: (g[label]?.rev ?? 0) + 1, speed: "fast" } }));
+      }
+      return { ...prev, [label]: !wasCollapsed };
+    });
+
+  useEffect(() => {
+    if (wasSidebarCollapsed.current && !sidebarCollapsed) {
+      setNavAnimRev((r) => r + 1);
+      setGroupAnims((prev) => {
+        const next: Record<string, { rev: number; speed: "slow" | "fast" }> = {};
+        for (const g of visibleNavGroups) {
+          next[g.label] = { rev: (prev[g.label]?.rev ?? 0) + 1, speed: "slow" };
+        }
+        return next;
+      });
+    }
+    wasSidebarCollapsed.current = sidebarCollapsed;
+  }, [sidebarCollapsed, visibleNavGroups]);
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -447,9 +470,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <nav ref={navRef} onScroll={updateScrollState} style={{ padding: "16px 0", flex: 1, overflowY: "scroll", overflowX: "hidden", scrollbarWidth: "none" }}>
             {(() => { let _ni = 0; return visibleNavGroups.map((group) => {
               const isCollapsed = !!collapsedGroups[group.label];
-              const _gd = 480 + _ni++ * 70;
+              const _gd = 150 + _ni++ * 45;
+              const ga = groupAnims[group.label] ?? { rev: 0, speed: "slow" as const };
+              const isFast = ga.speed === "fast";
               return (
-                <div key={group.label} style={{ marginBottom: 10 }}>
+                <div key={`${group.label}-${navAnimRev}`} style={{ marginBottom: 10 }}>
                   <div
                     className="nav-item"
                     onClick={() => !sidebarCollapsed && toggleGroup(group.label)}
@@ -460,7 +485,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       justifyContent: sidebarCollapsed ? "center" : "space-between",
                       cursor: sidebarCollapsed ? "default" : "pointer", userSelect: "none",
                       margin: "0 8px", borderRadius: 8, position: "relative",
-                      animation: `navItemIn 0.32s ease ${_gd}ms backwards`,
+                      animation: `navItemIn 0.28s ease ${_gd}ms backwards`,
                     }}
                     onMouseEnter={e => { if (!sidebarCollapsed) (e.currentTarget as HTMLElement).style.background = "linear-gradient(to right, transparent 6px, var(--sidebar-hover) 6px)"; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
@@ -485,10 +510,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       </>
                     )}
                   </div>
-                  {!sidebarCollapsed && !isCollapsed && group.items.map((item) => {
+                  {!sidebarCollapsed && !isCollapsed && group.items.map((item, idx) => {
                     const isActive = pathname === item.href;
                     return (
-                      <Link key={item.href} href={item.href} className="nav-item" style={{
+                      <Link key={`${item.href}-${ga.rev}`} href={item.href} className="nav-item" style={{
                         display: "flex", alignItems: "center", gap: 10,
                         padding: "9px 12px 9px 32px",
                         color: isActive ? "var(--accent)" : "var(--sidebar-text)",
@@ -497,7 +522,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         whiteSpace: "nowrap", overflow: "hidden",
                         position: "relative", transition: "all 0.14s",
                         margin: "0 8px", borderRadius: 8,
-                        animation: `navItemIn 0.32s ease ${480 + _ni++ * 70}ms backwards`,
+                        animation: isFast
+                          ? `navItemIn 0.22s ease ${idx * 28}ms backwards`
+                          : `navItemIn 0.28s ease ${150 + _ni++ * 45}ms backwards`,
                       }}
                       onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "linear-gradient(to right, transparent 22px, var(--sidebar-hover) 22px)"; } }}
                       onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "transparent"; } }}
