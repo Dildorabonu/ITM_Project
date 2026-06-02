@@ -285,6 +285,15 @@ export interface ProductUpdatePayload {
   departmentId?: string;
 }
 
+export interface ProductSimilar {
+  id: string;
+  name: string;
+  invoiceNumber: string;
+  departmentId: string;
+  departmentName: string;
+  similarity: number;
+}
+
 export interface DepartmentWarehouseSummary {
   departmentId: string;
   departmentName: string;
@@ -333,6 +342,13 @@ export const productService = {
     if (search) params.search = search;
     const res = await api.get("/api/product/reservations", { params });
     return res.data?.result ?? res.data;
+  },
+
+  findSimilar: async (name: string, departmentId?: string): Promise<ProductSimilar[]> => {
+    const params: Record<string, unknown> = { name };
+    if (departmentId) params.departmentId = departmentId;
+    const res = await api.get("/api/product/similar", { params });
+    return res.data?.result ?? res.data ?? [];
   },
 
   create: async (dto: ProductCreatePayload): Promise<void> => {

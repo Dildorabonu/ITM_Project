@@ -189,6 +189,57 @@ public class ProductService : IProductService
         return ApiResult<ProductResponseDto>.Success(MapToResponse(product));
     }
 
+    // Berilgan nomga "o'xshash" mavjud mahsulotlarni topadi (pg_trgm similarity).
+    // Maqsad: foydalanuvchi bir xil mahsulotni biroz boshqacha nom bilan (katta/kichik
+    // harf, ortiqcha probel, bitta-ikki harf farqi) qayta kiritib yuborishining oldini olish.
+    // Bloklamaydi — faqat ogohlantirish uchun ro'yxat qaytaradi.
+    public async Task<ApiResult<IEnumerable<ProductSimilarDto>>> FindSimilarAsync(string name, Guid? departmentId, Guid? restrictToDepartmentId = null)
+    {
+        var term = name?.Trim() ?? string.Empty;
+        if (term.Length < 2)
+            return ApiResult<IEnumerable<ProductSimilarDto>>.Success([]);
+
+        // Kirill/lotin, katta-kichik harf, probel farqini yo'qotib taqqoslash uchun
+        // kiritilgan nomni ham kanonik ko'rinishga keltiramiz.
+        var normTerm = TextNormalizer.Normalize(term);
+        if (normTerm.Length < 2)
+            return ApiResult<IEnumerable<ProductSimilarDto>>.Success([]);
+
+        // 0..1 oralig'ida; pastroq qiymat ko'proq (shovqinli) natija beradi.
+        const double threshold = 0.4;
+
+        var query = _context.Products
+            .Include(p => p.Department)
+            .AsNoTracking()
+            .AsQueryable();
+
+        // Mahsulot nomi takrorlanmasligi bo'lim ichida tekshiriladi, shuning uchun
+        // o'xshashlikni ham tanlangan bo'lim doirasida qidiramiz.
+        if (departmentId.HasValue)
+            query = query.Where(p => p.DepartmentId == departmentId.Value);
+
+        // Permission cheklovi: ViewAll yo'q foydalanuvchi faqat o'z bo'limini ko'radi.
+        if (restrictToDepartmentId.HasValue)
+            query = query.Where(p => p.DepartmentId == restrictToDepartmentId.Value);
+
+        var matches = await query
+            .Where(p => EF.Functions.TrigramsSimilarity(p.NameNormalized, normTerm) >= threshold)
+            .OrderByDescending(p => EF.Functions.TrigramsSimilarity(p.NameNormalized, normTerm))
+            .Take(5)
+            .Select(p => new ProductSimilarDto
+            {
+                Id = p.Id,
+                Name = p.Name,
+                InvoiceNumber = p.InvoiceNumber,
+                DepartmentId = p.DepartmentId,
+                DepartmentName = p.Department!.Name,
+                Similarity = EF.Functions.TrigramsSimilarity(p.NameNormalized, normTerm)
+            })
+            .ToListAsync();
+
+        return ApiResult<IEnumerable<ProductSimilarDto>>.Success(matches);
+    }
+
     public async Task<ApiResult<int>> CreateAsync(ProductCreateDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.InvoiceNumber))
@@ -207,6 +258,7 @@ public class ProductService : IProductService
         {
             Id = Guid.NewGuid(),
             Name = dto.Name,
+            NameNormalized = TextNormalizer.Normalize(dto.Name),
             InvoiceNumber = dto.InvoiceNumber.Trim(),
             Description = dto.Description,
             Quantity = dto.Quantity,
@@ -252,6 +304,7 @@ public class ProductService : IProductService
         {
             Id = Guid.NewGuid(),
             Name = dto.Name,
+            NameNormalized = TextNormalizer.Normalize(dto.Name),
             InvoiceNumber = dto.InvoiceNumber.Trim(),
             Description = dto.Description,
             Quantity = dto.Quantity,
@@ -288,6 +341,7 @@ public class ProductService : IProductService
                 return ApiResult<int>.Failure([$"Product with name '{dto.Name}' already exists in this department."]);
 
             product.Name = dto.Name;
+            product.NameNormalized = TextNormalizer.Normalize(dto.Name);
         }
 
         if (dto.InvoiceNumber is not null)

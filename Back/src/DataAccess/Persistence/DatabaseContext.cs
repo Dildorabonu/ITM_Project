@@ -44,6 +44,11 @@ public class DatabaseContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // Mahsulot nomlari bo'yicha "o'xshashlik" (fuzzy) qidiruvi uchun PostgreSQL
+        // pg_trgm kengaytmasi. EF.Functions.TrigramsSimilarity shu orqali ishlaydi.
+        modelBuilder.HasPostgresExtension("pg_trgm");
+
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(DatabaseContext).Assembly);
     }
 }

@@ -601,6 +601,7 @@ public class RequisitionService : IRequisitionService
                 {
                     Id = Guid.NewGuid(),
                     Name = productName,
+                    NameNormalized = TextNormalizer.Normalize(productName),
                     InvoiceNumber = $"{r.RequisitionNo}-{itemIndex:D2}",
                     Description = item.Notes,
                     Quantity = qty,
