@@ -16,6 +16,10 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(p => p.InvoiceNumber)
             .IsRequired();
 
+        builder.Property(p => p.NameNormalized)
+            .IsRequired()
+            .HasDefaultValue("");
+
         builder.HasIndex(p => p.InvoiceNumber)
             .IsUnique();
 

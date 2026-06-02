@@ -68,6 +68,15 @@ public class ProductController : ControllerBase
     }
 
     [HasPermission("Products.View")]
+    [HttpGet("similar")]
+    public async Task<IActionResult> FindSimilar([FromQuery] string name, [FromQuery] Guid? departmentId = null)
+    {
+        var restrict = GetRestrictDepartmentId();
+        var result = await _productService.FindSimilarAsync(name ?? string.Empty, departmentId, restrict);
+        return Ok(result);
+    }
+
+    [HasPermission("Products.View")]
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id)
     {

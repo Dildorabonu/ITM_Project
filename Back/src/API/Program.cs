@@ -5,6 +5,7 @@ using System.Threading.RateLimiting;
 using API.Authentication;
 using API.Authorization;
 using Application;
+using Application.Helpers;
 using Application.Options;
 using Application.Services;
 using Microsoft.Extensions.Options;
@@ -338,6 +339,20 @@ namespace API
                 var ctx = scope.ServiceProvider.GetRequiredService<DatabaseContext>();
                 if (!await ctx.ActivityLogs.AnyAsync())
                     await ActivityLogBackfill.RunAsync(ctx);
+            }
+
+            // NameNormalized hali to'ldirilmagan mahsulotlar uchun bir martalik backfill
+            // (yangi ustun qo'shilganda mavjud yozuvlar bo'sh bo'ladi).
+            using (var scope = app.Services.CreateScope())
+            {
+                var ctx = scope.ServiceProvider.GetRequiredService<DatabaseContext>();
+                var toFix = await ctx.Products.Where(p => p.NameNormalized == "").ToListAsync();
+                if (toFix.Count > 0)
+                {
+                    foreach (var p in toFix)
+                        p.NameNormalized = TextNormalizer.Normalize(p.Name);
+                    await ctx.SaveChangesAsync();
+                }
             }
 
             // Pre-warm user lookup cache so first request is instant

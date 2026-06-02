@@ -16,6 +16,7 @@ import {
   type ProductCreatePayload,
   type ProductUpdatePayload,
   type ProductReservationResponse,
+  type ProductSimilar,
   type DepartmentOption,
 } from "@/lib/userService";
 import { useAuthStore } from "@/lib/store/authStore";
@@ -54,6 +55,57 @@ const UNIT_OPTIONS = (Object.keys(PRODUCT_UNIT_LABELS) as unknown as ProductUnit
 // Products are filtered to departments of type Omborxona; all dropdowns,
 // the Excel template, and import validation honor this constraint.
 const WAREHOUSE_DEPARTMENT_TYPE = DepartmentType.Omborxona;
+
+// Yangi mahsulot nomi kiritilayotganda tanlangan bo'lim ichidan "o'xshash"
+// mavjud mahsulotlarni topib, ogohlantirish ko'rsatadi. Bloklamaydi —
+// foydalanuvchini bir xil mahsulotni qayta kiritib yuborishdan saqlaydi.
+function SimilarNameWarning({ name, departmentId }: { name: string; departmentId: string }) {
+  const [matches, setMatches] = useState<ProductSimilar[]>([]);
+
+  useEffect(() => {
+    const term = name.trim();
+    if (term.length < 2 || !departmentId) {
+      setMatches([]);
+      return;
+    }
+    let active = true;
+    const t = setTimeout(async () => {
+      try {
+        const res = await productService.findSimilar(term, departmentId);
+        if (!active) return;
+        // Aynan bir xil nom (faqat harf-katta-kichikligi farqi) — bu backend allaqachon
+        // bloklaydigan holat, uni ro'yxatdan chiqarib tashlaymiz; qolgani "o'xshash".
+        setMatches(res.filter(m => m.name.trim().toLowerCase() !== term.toLowerCase()));
+      } catch {
+        /* qidiruv xatosi — jim o'tkazib yuboramiz */
+      }
+    }, 400);
+    return () => { active = false; clearTimeout(t); };
+  }, [name, departmentId]);
+
+  if (matches.length === 0) return null;
+
+  return (
+    <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: "var(--radius)", background: "var(--warn-dim)", border: "1px solid var(--warn)44", fontSize: 12, color: "var(--warn)" }}>
+      <div style={{ fontWeight: 600, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+          <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+        O&apos;xshash mahsulot bor — balki shu kerakdir?
+      </div>
+      <ul style={{ margin: 0, paddingLeft: 18 }}>
+        {matches.map(m => (
+          <li key={m.id} style={{ marginBottom: 2 }}>
+            <span style={{ color: "var(--text1)", fontWeight: 500 }}>{m.name}</span>
+            <span style={{ color: "var(--text3)", fontFamily: "var(--font-mono)" }}> · {m.invoiceNumber}</span>
+            <span style={{ color: "var(--text3)" }}> · {Math.round(m.similarity * 100)}% mos</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 export default function ProductsPage() {
   const hasPermission = useAuthStore(s => s.hasPermission);
@@ -596,6 +648,7 @@ export default function ProductsPage() {
                   style={formSubmitted && !form.name.trim() ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : undefined}
                 />
                 {formSubmitted && !form.name.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Mahsulot nomini kiriting</div>}
+                <SimilarNameWarning name={form.name} departmentId={form.departmentId} />
               </div>
               <div>
                 <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !form.invoiceNumber.trim() ? "var(--danger)" : "var(--text2)" }}>
@@ -1043,6 +1096,7 @@ export default function ProductsPage() {
                   style={formSubmitted && !f.name.trim() ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : undefined}
                 />
                 {formSubmitted && !f.name.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Mahsulot nomini kiriting</div>}
+                <SimilarNameWarning name={f.name} departmentId={f.departmentId} />
               </div>
               <div>
                 <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !f.invoiceNumber.trim() ? "var(--danger)" : "var(--text2)" }}>

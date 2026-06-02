@@ -6,6 +6,10 @@ public class Product
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
+
+    // Nomning kanonik (translit + normalize) ko'rinishi — fuzzy/dublikat qidiruvi uchun.
+    // TextNormalizer.Normalize(Name) orqali to'ldiriladi, qo'lda o'zgartirilmaydi.
+    public string NameNormalized { get; set; } = string.Empty;
     public string InvoiceNumber { get; set; } = string.Empty;
     public string? Description { get; set; }
     public decimal Quantity { get; set; }
