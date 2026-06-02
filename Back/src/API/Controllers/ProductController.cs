@@ -76,6 +76,15 @@ public class ProductController : ControllerBase
         return Ok(result);
     }
 
+    [HasPermission("Products.Create")]
+    [HttpPost("check-duplicates")]
+    public async Task<IActionResult> CheckDuplicates([FromBody] IEnumerable<ProductDuplicateCheckItemDto> items)
+    {
+        var restrict = GetRestrictDepartmentId();
+        var result = await _productService.CheckDuplicatesAsync(items, restrict);
+        return Ok(result);
+    }
+
     [HasPermission("Products.View")]
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id)

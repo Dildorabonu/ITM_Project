@@ -294,6 +294,13 @@ export interface ProductSimilar {
   similarity: number;
 }
 
+export interface ProductDuplicateCheckResult {
+  index: number;
+  exactDuplicate: ProductSimilar | null;
+  duplicateInFile: boolean;
+  similar: ProductSimilar[];
+}
+
 export interface DepartmentWarehouseSummary {
   departmentId: string;
   departmentName: string;
@@ -348,6 +355,13 @@ export const productService = {
     const params: Record<string, unknown> = { name };
     if (departmentId) params.departmentId = departmentId;
     const res = await api.get("/api/product/similar", { params });
+    return res.data?.result ?? res.data ?? [];
+  },
+
+  checkDuplicates: async (
+    items: { index: number; name: string; departmentId: string }[]
+  ): Promise<ProductDuplicateCheckResult[]> => {
+    const res = await api.post("/api/product/check-duplicates", items);
     return res.data?.result ?? res.data ?? [];
   },
 

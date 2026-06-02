@@ -17,6 +17,7 @@ import {
   type ProductUpdatePayload,
   type ProductReservationResponse,
   type ProductSimilar,
+  type ProductDuplicateCheckResult,
   type DepartmentOption,
 } from "@/lib/userService";
 import { useAuthStore } from "@/lib/store/authStore";
@@ -34,6 +35,7 @@ interface ParsedImportRow {
   unit: ProductUnit;
   description: string;
   errors: string[];
+  similar?: ProductSimilar[];
 }
 
 interface ProductForm {
@@ -61,6 +63,7 @@ const WAREHOUSE_DEPARTMENT_TYPE = DepartmentType.Omborxona;
 // foydalanuvchini bir xil mahsulotni qayta kiritib yuborishdan saqlaydi.
 function SimilarNameWarning({ name, departmentId }: { name: string; departmentId: string }) {
   const [matches, setMatches] = useState<ProductSimilar[]>([]);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     const term = name.trim();
@@ -76,6 +79,7 @@ function SimilarNameWarning({ name, departmentId }: { name: string; departmentId
         // Aynan bir xil nom (faqat harf-katta-kichikligi farqi) — bu backend allaqachon
         // bloklaydigan holat, uni ro'yxatdan chiqarib tashlaymiz; qolgani "o'xshash".
         setMatches(res.filter(m => m.name.trim().toLowerCase() !== term.toLowerCase()));
+        setExpanded(false);
       } catch {
         /* qidiruv xatosi — jim o'tkazib yuboramiz */
       }
@@ -85,24 +89,47 @@ function SimilarNameWarning({ name, departmentId }: { name: string; departmentId
 
   if (matches.length === 0) return null;
 
+  const top = matches[0];
+  const rest = matches.slice(1);
+
   return (
-    <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: "var(--radius)", background: "var(--warn-dim)", border: "1px solid var(--warn)44", fontSize: 12, color: "var(--warn)" }}>
-      <div style={{ fontWeight: 600, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <div style={{ marginTop: 8, padding: "6px 10px", borderRadius: "var(--radius)", background: "var(--warn-dim)", border: "1px solid var(--warn)44", fontSize: 12, color: "var(--warn)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
           <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
           <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
         </svg>
-        O&apos;xshash mahsulot bor — balki shu kerakdir?
+        <span style={{ fontWeight: 600, flexShrink: 0 }}>O&apos;xshash bor:</span>
+        <span style={{ color: "var(--text1)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }} title={`${top.name} · ${top.invoiceNumber}`}>
+          {top.name}
+        </span>
+        <span style={{ color: "var(--text3)", flexShrink: 0 }}>· {Math.round(top.similarity * 100)}%</span>
+        {rest.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setExpanded(v => !v)}
+            style={{ marginLeft: "auto", flexShrink: 0, background: "transparent", border: "none", color: "var(--warn)", fontSize: 11, fontWeight: 600, cursor: "pointer", padding: 0, display: "inline-flex", alignItems: "center", gap: 2 }}
+          >
+            {expanded ? "Yopish" : `+${rest.length} ta yana`}
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+        )}
       </div>
-      <ul style={{ margin: 0, paddingLeft: 18 }}>
-        {matches.map(m => (
-          <li key={m.id} style={{ marginBottom: 2 }}>
-            <span style={{ color: "var(--text1)", fontWeight: 500 }}>{m.name}</span>
-            <span style={{ color: "var(--text3)", fontFamily: "var(--font-mono)" }}> · {m.invoiceNumber}</span>
-            <span style={{ color: "var(--text3)" }}> · {Math.round(m.similarity * 100)}% mos</span>
-          </li>
-        ))}
-      </ul>
+      {expanded && rest.length > 0 && (
+        <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px solid var(--warn)22", display: "flex", flexDirection: "column", gap: 3 }}>
+          {rest.map(m => (
+            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+              <span style={{ color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }} title={`${m.name} · ${m.invoiceNumber}`}>
+                {m.name}
+              </span>
+              <span style={{ color: "var(--text3)", fontFamily: "var(--font-mono)", flexShrink: 0 }}>{m.invoiceNumber}</span>
+              <span style={{ color: "var(--text3)", marginLeft: "auto", flexShrink: 0 }}>{Math.round(m.similarity * 100)}%</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -517,11 +544,40 @@ export default function ProductsPage() {
         }
 
         setImportRows(parsed);
+        // Bazadagi / fayl ichidagi dublikat va o'xshashlarni backendda tekshiramiz.
+        void runDuplicateCheck(parsed);
       } catch {
         setImportErrors(["Faylni o'qishda xatolik. Excel formatini tekshiring."]);
       }
     };
     reader.readAsArrayBuffer(file);
+  };
+
+  // Import preview qatorlari uchun dublikat tekshiruvi: aniq dublikat (bazada yoki
+  // fayl ichida) qator xatosiga aylanadi (import bloklanadi); o'xshashlar esa
+  // ogohlantirish sifatida saqlanadi (bloklamaydi).
+  const runDuplicateCheck = async (rows: ParsedImportRow[]) => {
+    const items = rows
+      .map((r, i) => ({ index: i, name: r.name, departmentId: r.departmentId ?? "" }))
+      .filter(it => it.name.trim() && it.departmentId);
+    if (items.length === 0) return;
+
+    try {
+      const res = await productService.checkDuplicates(items);
+      const byIndex = new Map<number, ProductDuplicateCheckResult>(res.map(r => [r.index, r]));
+      setImportRows(prev => prev.map((row, i) => {
+        const r = byIndex.get(i);
+        if (!r) return row;
+        const errors = [...row.errors];
+        if (r.exactDuplicate)
+          errors.push(`Bu bo'limda bir xil mahsulot bor: "${r.exactDuplicate.name}" (${r.exactDuplicate.invoiceNumber})`);
+        if (r.duplicateInFile)
+          errors.push("Bir xil mahsulot faylda takrorlangan");
+        return { ...row, errors, similar: r.similar };
+      }));
+    } catch {
+      /* tekshiruv xatosi — importni to'xtatmaymiz */
+    }
   };
 
   const handleImport = async () => {
@@ -582,44 +638,47 @@ export default function ProductsPage() {
   const saveEditImportRow = () => {
     if (editingImportRowIdx === null || !editingImportRowData) return;
     const d = editingImportRowData;
-    setImportRows(prev => {
-      const dept = departments.find(dep => dep.id === d.departmentId);
-      const quantity = d.quantity !== "" ? Number(d.quantity) : 0;
+    const dept = departments.find(dep => dep.id === d.departmentId);
+    const quantity = d.quantity !== "" ? Number(d.quantity) : 0;
 
-      const updated = prev.map((r, i) => i === editingImportRowIdx ? {
-        ...r,
-        name: d.name,
-        invoiceNumber: d.invoiceNumber,
-        departmentId: dept?.id,
-        departmentName: dept?.name ?? r.departmentName,
-        quantity: isNaN(quantity) ? 0 : quantity,
-        unit: d.unit,
-        description: d.description,
-        errors: [] as string[],
-      } : r);
+    const updated = importRows.map((r, i) => i === editingImportRowIdx ? {
+      ...r,
+      name: d.name,
+      invoiceNumber: d.invoiceNumber,
+      departmentId: dept?.id,
+      departmentName: dept?.name ?? r.departmentName,
+      quantity: isNaN(quantity) ? 0 : quantity,
+      unit: d.unit,
+      description: d.description,
+      errors: [] as string[],
+      similar: undefined,
+    } : r);
 
-      // Recompute invoice duplicates across the whole batch
-      const invCounts = new Map<string, number>();
-      for (const r of updated) {
-        const k = r.invoiceNumber.trim().toLowerCase();
-        if (k) invCounts.set(k, (invCounts.get(k) ?? 0) + 1);
+    // Recompute invoice duplicates across the whole batch
+    const invCounts = new Map<string, number>();
+    for (const r of updated) {
+      const k = r.invoiceNumber.trim().toLowerCase();
+      if (k) invCounts.set(k, (invCounts.get(k) ?? 0) + 1);
+    }
+
+    const revalidated = updated.map(r => {
+      const errors: string[] = [];
+      if (!r.name.trim()) errors.push("Mahsulot nomi kiritilmagan");
+      if (!r.invoiceNumber.trim()) errors.push("Invoice raqami kiritilmagan");
+      const dep = departments.find(x => x.id === r.departmentId);
+      if (!dep) errors.push(`"${r.departmentName || "(bo'sh)"}" bo'limi topilmadi`);
+      const k = r.invoiceNumber.trim().toLowerCase();
+      if (k && (invCounts.get(k) ?? 0) > 1) {
+        errors.push(`Invoice raqami "${r.invoiceNumber}" faylda takrorlangan`);
       }
-
-      return updated.map(r => {
-        const errors: string[] = [];
-        if (!r.name.trim()) errors.push("Mahsulot nomi kiritilmagan");
-        if (!r.invoiceNumber.trim()) errors.push("Invoice raqami kiritilmagan");
-        const dep = departments.find(x => x.id === r.departmentId);
-        if (!dep) errors.push(`"${r.departmentName || "(bo'sh)"}" bo'limi topilmadi`);
-        const k = r.invoiceNumber.trim().toLowerCase();
-        if (k && (invCounts.get(k) ?? 0) > 1) {
-          errors.push(`Invoice raqami "${r.invoiceNumber}" faylda takrorlangan`);
-        }
-        return { ...r, errors };
-      });
+      return { ...r, errors };
     });
+
+    setImportRows(revalidated);
     setEditingImportRowIdx(null);
     setEditingImportRowData(null);
+    // Tahrirdan keyin dublikat/o'xshashlikni qayta tekshiramiz.
+    void runDuplicateCheck(revalidated);
   };
 
   const cancelEditImportRow = () => {
@@ -723,6 +782,7 @@ export default function ProductsPage() {
     // Multi-create / file-import form
     const importValidRows = importRows.filter(r => r.errors.length === 0);
     const importErrorRows = importRows.filter(r => r.errors.length > 0);
+    const importWarnRows = importRows.filter(r => r.errors.length === 0 && r.similar && r.similar.length > 0);
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* Header + tabs */}
@@ -840,6 +900,11 @@ export default function ProductsPage() {
                   {importErrorRows.length > 0 && (
                     <span style={{ fontSize: 12, padding: "2px 10px", borderRadius: 20, background: "var(--danger-dim)", color: "var(--danger)", fontWeight: 600 }}>
                       {importErrorRows.length} ta xatolik
+                    </span>
+                  )}
+                  {importWarnRows.length > 0 && (
+                    <span style={{ fontSize: 12, padding: "2px 10px", borderRadius: 20, background: "var(--warn-dim)", color: "var(--warn)", fontWeight: 600 }}>
+                      {importWarnRows.length} ta o&apos;xshash
                     </span>
                   )}
                 </div>
@@ -978,6 +1043,14 @@ export default function ProductsPage() {
                                 <span title={row.errors.join("; ")} style={{ color: "var(--danger)", fontSize: 12, cursor: "help", fontWeight: 600 }}>
                                   ✗ {row.errors[0]}
                                 </span>
+                              )}
+                              {row.similar && row.similar.length > 0 && (
+                                <div
+                                  title={row.similar.map(s => `${s.name} (${s.invoiceNumber}) — ${Math.round(s.similarity * 100)}% mos`).join("; ")}
+                                  style={{ marginTop: 4, color: "var(--warn)", fontSize: 11, fontWeight: 600, cursor: "help" }}
+                                >
+                                  ⚠ o&apos;xshash: {row.similar[0].name}
+                                </div>
                               )}
                             </td>
                             <td style={{ textAlign: "center" }}>

@@ -41,4 +41,34 @@ public static class TextNormalizer
 
         return sb.ToString();
     }
+
+    // pg_trgm similarity() ga mos keladigan C# implementatsiyasi — import paytida
+    // butun faylni bitta so'rovda (DB ga har qator uchun alohida bormasdan) tekshirish uchun.
+    // Kirish satrlari allaqachon Normalize() qilingan bo'lishi kutiladi.
+    public static double TrigramSimilarity(string normA, string normB)
+    {
+        if (normA.Length == 0 && normB.Length == 0) return 1d;
+
+        var a = Trigrams(normA);
+        var b = Trigrams(normB);
+        if (a.Count == 0 || b.Count == 0) return 0d;
+
+        var intersection = 0;
+        foreach (var t in a)
+            if (b.Contains(t)) intersection++;
+
+        var union = a.Count + b.Count - intersection;
+        return union == 0 ? 0d : (double)intersection / union;
+    }
+
+    // pg_trgm kabi: so'zni 2 ta oldingi + 1 ta keyingi probel bilan to'ldirib,
+    // 3 belgili oynalarni (distinct) ajratadi. "boltm8" → {"  b"," bo","bol",...,"m8 "}.
+    private static HashSet<string> Trigrams(string s)
+    {
+        var padded = "  " + s + " ";
+        var set = new HashSet<string>();
+        for (var i = 0; i + 3 <= padded.Length; i++)
+            set.Add(padded.Substring(i, 3));
+        return set;
+    }
 }
