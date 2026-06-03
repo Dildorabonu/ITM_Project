@@ -1,105 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import {
   manufacturedProductService,
   departmentService,
   ManufacturingStatus,
-  MANUFACTURING_STATUS_LABELS,
-  ProductUnit,
   PRODUCT_UNIT_LABELS,
   type ManufacturedProductResponse,
   type ManufacturedProductStats,
-  type ManufacturedProductCreatePayload,
   type DepartmentOption,
 } from "@/lib/userService";
 import { CheckSelect } from "@/app/_components/CheckSelect";
 import { ConfirmModal } from "@/app/_components/ConfirmModal";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useToastStore } from "@/lib/store/toastStore";
-import { shipmentBatchService, type ShipmentBatch } from "@/lib/shipments";
-
-const STATUS_FILTER_OPTIONS = [
-  { id: "", name: "Barcha holatlar" },
-  { id: String(ManufacturingStatus.InProgress), name: MANUFACTURING_STATUS_LABELS[ManufacturingStatus.InProgress] },
-  { id: String(ManufacturingStatus.Completed),  name: MANUFACTURING_STATUS_LABELS[ManufacturingStatus.Completed] },
-];
-
-const UNIT_OPTIONS = (Object.keys(PRODUCT_UNIT_LABELS) as unknown as ProductUnit[]).map(key => ({
-  id: String(key),
-  name: PRODUCT_UNIT_LABELS[key],
-}));
-
-const STATUS_OPTIONS = [
-  { id: String(ManufacturingStatus.InProgress), name: MANUFACTURING_STATUS_LABELS[ManufacturingStatus.InProgress] },
-  { id: String(ManufacturingStatus.Completed),  name: MANUFACTURING_STATUS_LABELS[ManufacturingStatus.Completed] },
-];
-
-interface ProductForm {
-  name: string;
-  code: string;
-  departmentId: string;
-  quantity: string;
-  producedQuantity: string;
-  unit: string;
-  status: string;
-  startedAt: string;
-  completedAt: string;
-  description: string;
-  notes: string;
-}
-
-const emptyForm: ProductForm = {
-  name: "", code: "", departmentId: "", quantity: "", producedQuantity: "0",
-  unit: String(ProductUnit.Dona), status: String(ManufacturingStatus.InProgress),
-  startedAt: "", completedAt: "", description: "", notes: "",
-};
-
-const isManualEntry = (p: ManufacturedProductResponse) => p.contractProductId === null;
-
-function StatusBadge({ status }: { status: ManufacturingStatus }) {
-  const isCompleted = status === ManufacturingStatus.Completed;
-  const bg = isCompleted ? "var(--success-dim)" : "var(--warn-dim)";
-  const fg = isCompleted ? "var(--success)" : "var(--warn)";
-  return (
-    <span style={{
-      display: "inline-flex", alignItems: "center", gap: 6,
-      padding: "3px 10px", borderRadius: 999,
-      background: bg, color: fg,
-      fontSize: 11, fontWeight: 600, fontFamily: "var(--font-mono)",
-      whiteSpace: "nowrap",
-    }}>
-      <span style={{
-        width: 6, height: 6, borderRadius: "50%",
-        background: fg,
-        animation: isCompleted ? undefined : "dotPulse 1.6s infinite",
-      }} />
-      {MANUFACTURING_STATUS_LABELS[status]}
-    </span>
-  );
-}
-
-function ProgressBar({ produced, total }: { produced: number; total: number }) {
-  const pct = total > 0 ? Math.min(100, Math.round((produced / total) * 100)) : 0;
-  const isDone = pct >= 100;
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 120 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--text2)" }}>
-        <span>{produced} / {total}</span>
-        <span style={{ color: isDone ? "var(--success)" : "var(--accent)", fontWeight: 600 }}>{pct}%</span>
-      </div>
-      <div style={{ position: "relative", height: 6, background: "var(--bg3)", borderRadius: 999, overflow: "hidden" }}>
-        <div style={{
-          position: "absolute", left: 0, top: 0, bottom: 0,
-          width: `${pct}%`,
-          background: isDone ? "var(--success)" : "var(--accent)",
-          transition: "width 0.4s ease",
-        }} />
-      </div>
-    </div>
-  );
-}
+import { STATUS_FILTER_OPTIONS, isManualEntry } from "./_types";
+import { StatusBadge } from "./_components/StatusBadge";
+import { ProgressBar } from "./_components/ProgressBar";
+import { ManufacturedViewDrawer } from "./_components/ManufacturedViewDrawer";
+import { ManufacturedFormDrawer } from "./_components/ManufacturedFormDrawer";
 
 export default function ManufacturedProductsPage() {
   const hasPermission = useAuthStore(s => s.hasPermission);
@@ -122,16 +41,10 @@ export default function ManufacturedProductsPage() {
 
   // View drawer
   const [viewProduct, setViewProduct] = useState<ManufacturedProductResponse | null>(null);
-  const [viewBatches, setViewBatches] = useState<ShipmentBatch[]>([]);
-  const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
 
   // Create / Edit form drawer
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState<ManufacturedProductResponse | null>(null);
-  const [form, setForm] = useState<ProductForm>(emptyForm);
-  const [formSubmitted, setFormSubmitted] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState("");
 
   // Delete confirm
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -142,19 +55,6 @@ export default function ManufacturedProductsPage() {
     else document.body.style.overflow = "";
     return () => { document.body.style.overflow = ""; };
   }, [viewProduct, showForm]);
-
-  useEffect(() => {
-    let ignore = false;
-    if (viewProduct?.contractId) {
-      shipmentBatchService
-        .getByContract(viewProduct.contractId, viewProduct.contractProductId ?? undefined)
-        .then(list => { if (!ignore) setViewBatches(list); })
-        .catch(() => { if (!ignore) setViewBatches([]); });
-    } else {
-      setViewBatches([]);
-    }
-    return () => { ignore = true; };
-  }, [viewProduct]);
 
   const load = async () => {
     try {
@@ -194,96 +94,14 @@ export default function ManufacturedProductsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [page, search, filterDept, filterStatus]);
 
-  /* ===== Form handlers ===== */
   const openCreate = () => {
     setEditTarget(null);
-    setForm(emptyForm);
-    setFormSubmitted(false);
-    setFormError("");
     setShowForm(true);
   };
 
   const openEdit = (p: ManufacturedProductResponse) => {
     setEditTarget(p);
-    setForm({
-      name: p.name,
-      code: p.code ?? "",
-      departmentId: p.departmentId,
-      quantity: String(p.quantity),
-      producedQuantity: String(p.producedQuantity),
-      unit: String(p.unit),
-      status: String(p.status),
-      startedAt: p.startedAt ? p.startedAt.slice(0, 10) : "",
-      completedAt: p.completedAt ? p.completedAt.slice(0, 10) : "",
-      description: p.description ?? "",
-      notes: p.notes ?? "",
-    });
-    setFormSubmitted(false);
-    setFormError("");
     setShowForm(true);
-  };
-
-  const closeForm = () => {
-    if (saving) return;
-    setShowForm(false);
-    setEditTarget(null);
-    setForm(emptyForm);
-    setFormSubmitted(false);
-    setFormError("");
-  };
-
-  const handleSave = async () => {
-    setFormSubmitted(true);
-    const qty = Number(form.quantity);
-    const produced = Number(form.producedQuantity || "0");
-
-    if (!form.name.trim() || !form.departmentId || !form.unit || !form.quantity ||
-        Number.isNaN(qty) || qty < 0 || Number.isNaN(produced) || produced < 0) {
-      return;
-    }
-    if (produced > qty) {
-      setFormError("Bajarilgan miqdor umumiy miqdordan ko'p bo'lishi mumkin emas.");
-      return;
-    }
-
-    setSaving(true);
-    setFormError("");
-    try {
-      const payload: ManufacturedProductCreatePayload = {
-        name: form.name.trim(),
-        code: form.code.trim() || null,
-        description: form.description.trim() || null,
-        quantity: qty,
-        producedQuantity: produced,
-        unit: Number(form.unit) as ProductUnit,
-        status: Number(form.status) as ManufacturingStatus,
-        departmentId: form.departmentId,
-        startedAt: form.startedAt || null,
-        completedAt: form.completedAt || null,
-        notes: form.notes.trim() || null,
-      };
-
-      if (editTarget) {
-        await manufacturedProductService.update(editTarget.id, payload);
-        showToast("Mahsulot yangilandi");
-      } else {
-        await manufacturedProductService.create(payload);
-        showToast("Mahsulot qo'shildi");
-      }
-
-      setShowForm(false);
-      setEditTarget(null);
-      setForm(emptyForm);
-      await Promise.all([load(), loadStats()]);
-    } catch (e) {
-      const msg = (e as { response?: { data?: { errors?: string[]; message?: string } } })
-        ?.response?.data?.errors?.[0]
-        ?? (e as { response?: { data?: { message?: string } } })?.response?.data?.message
-        ?? "Saqlashda xatolik yuz berdi.";
-      setFormError(msg);
-    } finally {
-      setSaving(false);
-    }
   };
 
   const handleDelete = async () => {
@@ -553,394 +371,18 @@ export default function ManufacturedProductsPage() {
       </div>
 
       {/* View drawer */}
-      {viewProduct && createPortal(
-        <div
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(2px)", zIndex: 1000, display: "flex", justifyContent: "flex-end" }}
-          onClick={() => setViewProduct(null)}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{
-              width: 720, maxWidth: "95vw", height: "calc(100vh - 32px)", margin: "16px 16px 16px 0",
-              background: "var(--bg2)", borderRadius: 14,
-              boxShadow: "-4px 0 32px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column",
-              padding: "28px 28px 32px", overflowY: "auto",
-              animation: "panel-appear 0.28s ease",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-              <span style={{ fontWeight: 700, fontSize: 17, color: "var(--text1)" }}>Mahsulot tafsilotlari</span>
-              <button onClick={() => setViewProduct(null)}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
-            </div>
-
-            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 10 }}>Umumiy</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 22 }}>
-              <div style={{ gridColumn: "1 / -1", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
-                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Mahsulot nomi</div>
-                <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text1)" }}>{viewProduct.name}</div>
-                {viewProduct.code && (
-                  <div style={{ marginTop: 6, fontSize: 12, fontFamily: "var(--font-mono)", color: "var(--accent)" }}>
-                    Kod: {viewProduct.code}
-                  </div>
-                )}
-              </div>
-              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
-                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Sex / Bo&apos;lim</div>
-                <div style={{ fontWeight: 700, fontSize: 16, color: "var(--accent)" }}>{viewProduct.departmentName}</div>
-              </div>
-              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
-                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Holati</div>
-                <div style={{ marginTop: 4 }}><StatusBadge status={viewProduct.status} /></div>
-              </div>
-            </div>
-
-            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 10 }}>Miqdor</div>
-            <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px", marginBottom: 22 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <div>
-                  <div style={{ fontSize: 12, color: "var(--text3)" }}>Bajarilgani</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--text1)" }}>
-                    {viewProduct.producedQuantity} / {viewProduct.quantity} {PRODUCT_UNIT_LABELS[viewProduct.unit] ?? ""}
-                  </div>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 12, color: "var(--text3)" }}>Foiz</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, fontFamily: "var(--font-mono)", color: viewProduct.status === ManufacturingStatus.Completed ? "var(--success)" : "var(--accent)" }}>
-                    {viewProduct.quantity > 0 ? Math.min(100, Math.round((viewProduct.producedQuantity / viewProduct.quantity) * 100)) : 0}%
-                  </div>
-                </div>
-              </div>
-              <ProgressBar produced={viewProduct.producedQuantity} total={viewProduct.quantity} />
-            </div>
-
-            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 10 }}>Bog&apos;liq ma&apos;lumotlar</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 22 }}>
-              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
-                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Shartnoma</div>
-                <div style={{ fontWeight: 600, fontSize: 14, color: viewProduct.contractNo ? "var(--text1)" : "var(--text3)", fontFamily: "var(--font-mono)" }}>
-                  {viewProduct.contractNo ?? "—"}
-                </div>
-              </div>
-              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
-                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Yaratilgan sana</div>
-                <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text1)" }}>
-                  {(() => { const d = viewProduct.createdAt?.slice(0, 10).split("-"); return d && d.length === 3 ? `${d[2]}-${d[1]}-${d[0]}` : "—"; })()}
-                </div>
-              </div>
-              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
-                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Boshlangan</div>
-                <div style={{ fontWeight: 600, fontSize: 14, color: viewProduct.startedAt ? "var(--text1)" : "var(--text3)" }}>
-                  {viewProduct.startedAt ? new Date(viewProduct.startedAt).toLocaleDateString("uz-UZ") : "—"}
-                </div>
-              </div>
-              <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
-                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Tugallangan</div>
-                <div style={{ fontWeight: 600, fontSize: 14, color: viewProduct.completedAt ? "var(--success)" : "var(--text3)" }}>
-                  {viewProduct.completedAt ? new Date(viewProduct.completedAt).toLocaleDateString("uz-UZ") : "—"}
-                </div>
-              </div>
-            </div>
-
-            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 10 }}>
-              Partiyalar
-              {viewBatches.length > 0 && (
-                <span style={{ marginLeft: 8, color: "var(--text3)", fontWeight: 500 }}>
-                  ({viewBatches.length} ta jo&apos;natma &mdash; jami{" "}
-                  {viewBatches.reduce((s, b) => s + b.amount, 0).toLocaleString()}{" "}
-                  {PRODUCT_UNIT_LABELS[viewProduct.unit] ?? ""})
-                </span>
-              )}
-            </div>
-            <div style={{ marginBottom: 22 }}>
-              {!viewProduct.contractId ? (
-                <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px", fontSize: 13, color: "var(--text3)" }}>
-                  Mahsulot shartnomaga bog&apos;lanmagan &mdash; partiyalar mavjud emas.
-                </div>
-              ) : viewBatches.length === 0 ? (
-                <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px", fontSize: 13, color: "var(--text3)" }}>
-                  Hali jo&apos;natma yo&apos;q. Vazifalardan partiya yuborilganida bu yerda ko&apos;rinadi.
-                </div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 320, overflowY: "auto" }}>
-                  {[...viewBatches].sort((a, b) => b.batchNo - a.batchNo).map(b => {
-                    const isExpanded = expandedBatchId === b.id;
-                    const hasDetails = !!(b.createdByFullName || b.departmentName);
-                    return (
-                      <div
-                        key={b.id}
-                        onClick={() => hasDetails && setExpandedBatchId(isExpanded ? null : b.id)}
-                        style={{
-                          display: "flex", flexDirection: "column", gap: 8,
-                          padding: "10px 14px", borderRadius: "var(--radius)",
-                          background: "var(--surface2, var(--bg3))",
-                          border: `1px solid ${isExpanded ? "var(--accent)" : "var(--accent-mid)"}`,
-                          fontSize: 13,
-                          cursor: hasDetails ? "pointer" : "default",
-                          transition: "border-color 0.15s ease",
-                        }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <span style={{
-                            display: "inline-flex", alignItems: "center", justifyContent: "center",
-                            minWidth: 32, height: 22, padding: "0 8px",
-                            borderRadius: 6, background: "var(--accent)", color: "#fff",
-                            fontSize: 11, fontWeight: 800, flexShrink: 0,
-                          }}>
-                            #{b.batchNo}
-                          </span>
-                          <span style={{ fontWeight: 700, color: "var(--accent)", flexShrink: 0 }}>
-                            {b.amount.toLocaleString()}{" "}
-                            <span style={{ color: "var(--text3)", fontWeight: 500, fontSize: 11 }}>
-                              {PRODUCT_UNIT_LABELS[viewProduct.unit] ?? ""}
-                            </span>
-                          </span>
-                          <span style={{ marginLeft: "auto", color: "var(--text3)", fontSize: 12, fontFamily: "var(--font-mono)" }}>
-                            {new Date(b.createdAt).toLocaleString("uz-UZ", {
-                              day: "2-digit", month: "2-digit", year: "numeric",
-                              hour: "2-digit", minute: "2-digit",
-                            })}
-                          </span>
-                          {hasDetails && (
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                              style={{ transition: "transform 0.2s ease", transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}>
-                              <polyline points="6 9 12 15 18 9" />
-                            </svg>
-                          )}
-                        </div>
-                        {isExpanded && hasDetails && (
-                          <div style={{
-                            display: "flex", flexWrap: "wrap", gap: 14,
-                            paddingTop: 8, borderTop: "1px solid var(--accent-mid)",
-                            fontSize: 12,
-                          }}>
-                            {b.createdByFullName && (
-                              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                                  <circle cx="12" cy="7" r="4" />
-                                </svg>
-                                <span style={{ color: "var(--text3)" }}>Yuboruvchi:</span>
-                                <span style={{ color: "var(--text1)", fontWeight: 600 }}>{b.createdByFullName}</span>
-                              </div>
-                            )}
-                            {b.departmentName && (
-                              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="M3 21h18" />
-                                  <path d="M5 21V7l8-4v18" />
-                                  <path d="M19 21V11l-6-4" />
-                                </svg>
-                                <span style={{ color: "var(--text3)" }}>Bo&apos;lim:</span>
-                                <span style={{ color: "var(--text1)", fontWeight: 600 }}>{b.departmentName}</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {(viewProduct.description || viewProduct.notes) && (
-              <>
-                <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 10 }}>Qo&apos;shimcha</div>
-                {viewProduct.description && (
-                  <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px", marginBottom: 12 }}>
-                    <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 6 }}>Tavsif</div>
-                    <div style={{ fontSize: 14, color: "var(--text1)", lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{viewProduct.description}</div>
-                  </div>
-                )}
-                {viewProduct.notes && (
-                  <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
-                    <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 6 }}>Izoh</div>
-                    <div style={{ fontSize: 14, color: "var(--text1)", lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{viewProduct.notes}</div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </div>,
-        document.body
+      {viewProduct && (
+        <ManufacturedViewDrawer product={viewProduct} onClose={() => setViewProduct(null)} />
       )}
 
       {/* Create / Edit drawer */}
-      {showForm && createPortal(
-        <div
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(2px)", zIndex: 1000, display: "flex", justifyContent: "flex-end" }}
-          onClick={closeForm}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{
-              width: 640, maxWidth: "95vw", height: "calc(100vh - 32px)", margin: "16px 16px 16px 0",
-              background: "var(--bg2)", borderRadius: 14,
-              boxShadow: "-4px 0 32px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column",
-              padding: "28px 28px 24px", overflowY: "auto",
-              animation: "panel-appear 0.28s ease",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <span style={{ fontWeight: 700, fontSize: 17, color: "var(--text1)" }}>
-                {editTarget ? "Mahsulotni tahrirlash" : "Yangi mahsulot qo'shish"}
-              </span>
-              <button onClick={closeForm}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
-            </div>
-
-            {formError && (
-              <div style={{
-                marginBottom: 14, padding: "10px 14px",
-                background: "var(--danger-dim)", border: "1px solid var(--danger)33",
-                borderRadius: "var(--radius)", color: "var(--danger)", fontSize: 13,
-              }}>{formError}</div>
-            )}
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-              <FormField label="Mahsulot nomi" required error={formSubmitted && !form.name.trim()}>
-                <input
-                  value={form.name}
-                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  className="form-input"
-                  placeholder="Masalan: Maxsus paket"
-                />
-              </FormField>
-              <FormField label="Kod / Artikul">
-                <input
-                  value={form.code}
-                  onChange={e => setForm(f => ({ ...f, code: e.target.value }))}
-                  className="form-input"
-                  placeholder="Ixtiyoriy"
-                />
-              </FormField>
-
-              <FormField label="Bo'lim" required error={formSubmitted && !form.departmentId}>
-                <CheckSelect
-                  value={form.departmentId}
-                  onChange={v => setForm(f => ({ ...f, departmentId: v }))}
-                  options={departments.map(d => ({ id: d.id, name: d.name }))}
-                  placeholder="Bo'limni tanlang"
-                />
-              </FormField>
-              <FormField label="O'lchov birligi" required error={formSubmitted && !form.unit}>
-                <CheckSelect
-                  value={form.unit}
-                  onChange={v => setForm(f => ({ ...f, unit: v }))}
-                  options={UNIT_OPTIONS}
-                  placeholder="O'lchov"
-                />
-              </FormField>
-
-              <FormField label="Umumiy miqdor" required error={formSubmitted && (!form.quantity || Number(form.quantity) < 0)}>
-                <input
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={form.quantity}
-                  onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))}
-                  className="form-input"
-                  placeholder="0"
-                />
-              </FormField>
-              <FormField label="Bajarilgan miqdor">
-                <input
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={form.producedQuantity}
-                  onChange={e => setForm(f => ({ ...f, producedQuantity: e.target.value }))}
-                  className="form-input"
-                  placeholder="0"
-                />
-              </FormField>
-
-              <FormField label="Holati">
-                <CheckSelect
-                  value={form.status}
-                  onChange={v => setForm(f => ({ ...f, status: v }))}
-                  options={STATUS_OPTIONS}
-                  placeholder="Holat"
-                />
-              </FormField>
-              <div />
-
-              <FormField label="Boshlangan sana">
-                <input
-                  type="date"
-                  value={form.startedAt}
-                  onChange={e => setForm(f => ({ ...f, startedAt: e.target.value }))}
-                  className="form-input"
-                />
-              </FormField>
-              <FormField label="Tugallangan sana">
-                <input
-                  type="date"
-                  value={form.completedAt}
-                  onChange={e => setForm(f => ({ ...f, completedAt: e.target.value }))}
-                  className="form-input"
-                />
-              </FormField>
-
-              <div style={{ gridColumn: "1 / -1" }}>
-                <FormField label="Tavsif">
-                  <textarea
-                    value={form.description}
-                    onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                    className="form-input"
-                    rows={2}
-                    style={{ resize: "vertical", minHeight: 60 }}
-                    placeholder="Mahsulot haqida qisqacha"
-                  />
-                </FormField>
-              </div>
-              <div style={{ gridColumn: "1 / -1" }}>
-                <FormField label="Izoh">
-                  <textarea
-                    value={form.notes}
-                    onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-                    className="form-input"
-                    rows={2}
-                    style={{ resize: "vertical", minHeight: 60 }}
-                    placeholder="Ichki eslatma"
-                  />
-                </FormField>
-              </div>
-            </div>
-
-            <div style={{
-              display: "flex", justifyContent: "flex-end", gap: 10,
-              marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--border)",
-            }}>
-              <button
-                onClick={closeForm}
-                disabled={saving}
-                style={{
-                  padding: "8px 18px", borderRadius: "var(--radius)",
-                  border: "1.5px solid var(--border2)", background: "transparent",
-                  color: "var(--text2)", fontSize: 13, fontWeight: 500,
-                  cursor: saving ? "not-allowed" : "pointer",
-                }}
-              >
-                Bekor qilish
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                style={{
-                  padding: "8px 22px", borderRadius: "var(--radius)",
-                  border: "none", background: "var(--accent)",
-                  color: "#fff", fontSize: 13, fontWeight: 600,
-                  cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1,
-                }}
-              >
-                {saving ? "Saqlanmoqda..." : editTarget ? "Saqlash" : "Qo'shish"}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
+      {showForm && (
+        <ManufacturedFormDrawer
+          editTarget={editTarget}
+          departments={departments}
+          onClose={() => { setShowForm(false); setEditTarget(null); }}
+          onSaved={() => Promise.all([load(), loadStats()]).then(() => {})}
+        />
       )}
 
       <ConfirmModal
@@ -951,27 +393,6 @@ export default function ManufacturedProductsPage() {
         onConfirm={handleDelete}
         onCancel={() => !deleting && setDeleteId(null)}
       />
-    </div>
-  );
-}
-
-function FormField({
-  label, required, error, children,
-}: {
-  label: string;
-  required?: boolean;
-  error?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <label style={{
-        fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5,
-        color: error ? "var(--danger)" : "var(--text3)",
-      }}>
-        {label}{required && <span style={{ color: "var(--danger)" }}> *</span>}
-      </label>
-      {children}
     </div>
   );
 }
