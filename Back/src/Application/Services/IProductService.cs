@@ -8,8 +8,6 @@ namespace Application.Services;
 public interface IProductService
 {
     Task<ApiResult<PagedResult<ProductResponseDto>>> GetAllAsync(int page, int pageSize, string? search, Guid? departmentId, Guid? restrictToDepartmentId = null, DepartmentType? departmentType = null);
-    Task<ApiResult<IEnumerable<ProductResponseDto>>> GetByDepartmentAsync(Guid departmentId);
-    Task<ApiResult<IEnumerable<DepartmentWarehouseSummaryDto>>> GetDepartmentSummariesAsync(Guid? restrictToDepartmentId = null);
     Task<ApiResult<ProductResponseDto>> GetByIdAsync(Guid id);
     Task<ApiResult<PagedResult<ProductReservationDto>>> GetReservationsAsync(int page, int pageSize, string? search, Guid? restrictToDepartmentId = null);
     Task<ApiResult<IEnumerable<ProductSimilarDto>>> FindSimilarAsync(string name, Guid? departmentId, Guid? restrictToDepartmentId = null);

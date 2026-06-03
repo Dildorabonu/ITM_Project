@@ -335,12 +335,12 @@ export const productService = {
   },
 
   getByDepartment: async (departmentId: string): Promise<ProductResponse[]> => {
-    const res = await api.get(`/api/product/by-department/${departmentId}`);
+    const res = await api.get(`/api/departmentwarehouse/by-department/${departmentId}`);
     return res.data?.result ?? res.data ?? [];
   },
 
   getDepartmentSummaries: async (): Promise<DepartmentWarehouseSummary[]> => {
-    const res = await api.get("/api/product/department-summaries");
+    const res = await api.get("/api/departmentwarehouse/department-summaries");
     return res.data?.result ?? res.data ?? [];
   },
 

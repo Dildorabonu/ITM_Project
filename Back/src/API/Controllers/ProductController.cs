@@ -47,27 +47,6 @@ public class ProductController : ControllerBase
     }
 
     [HasPermission("Products.View")]
-    [HttpGet("by-department/{departmentId:guid}")]
-    public async Task<IActionResult> GetByDepartment(Guid departmentId)
-    {
-        var restrict = GetRestrictDepartmentId();
-        if (restrict.HasValue && restrict.Value != departmentId)
-            return Forbid();
-
-        var result = await _productService.GetByDepartmentAsync(departmentId);
-        return Ok(result);
-    }
-
-    [HasPermission("Products.View")]
-    [HttpGet("department-summaries")]
-    public async Task<IActionResult> GetDepartmentSummaries()
-    {
-        var restrict = GetRestrictDepartmentId();
-        var result = await _productService.GetDepartmentSummariesAsync(restrict);
-        return Ok(result);
-    }
-
-    [HasPermission("Products.View")]
     [HttpGet("similar")]
     public async Task<IActionResult> FindSimilar([FromQuery] string name, [FromQuery] Guid? departmentId = null)
     {
