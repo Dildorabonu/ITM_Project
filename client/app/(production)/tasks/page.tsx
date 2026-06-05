@@ -65,7 +65,7 @@ const STATUS_LABELS: Record<ContractStatus, string> = {
 const STATUS_DESCRIPTIONS: Record<ContractStatus, string> = {
   [ContractStatus.DrawingPending]:      "Konstruktor mahsulot uchun texnik chizmani tayyorlamoqda.",
   [ContractStatus.TechProcessing]:      "Texnolog ishlab chiqarish bosqichlarini va xarajat normalarini hisoblamoqda.",
-  [ContractStatus.InProduction]:        "Sex mahsulotni tayyorlamoqda — vazifalar bajarilish jarayonida.",
+  [ContractStatus.InProduction]:        "Uchastka mahsulotni tayyorlamoqda — vazifalar bajarilish jarayonida.",
   [ContractStatus.Completed]:           "Mahsulot tayyor va mijozga topshirilgan. Shartnoma yopildi.",
   [ContractStatus.Cancelled]:           "Shartnoma to'xtatildi yoki bekor qilindi.",
 };

@@ -67,7 +67,7 @@ export function ManufacturedViewDrawer({ product, onClose }: Props) {
             )}
           </div>
           <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
-            <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Sex / Bo&apos;lim</div>
+            <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Uchastka / Bo&apos;lim</div>
             <div style={{ fontWeight: 700, fontSize: 16, color: "var(--accent)" }}>{product.departmentName}</div>
           </div>
           <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
