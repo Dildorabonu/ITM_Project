@@ -254,7 +254,7 @@ export default function ManufacturedProductsPage() {
                 <tr>
                   <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Mahsulot</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Sex</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Uchastka</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>Shartnoma</th>
                   <th style={{ textAlign: "center", color: "var(--text1)", minWidth: 160 }}>Bajarilgani</th>
                   <th style={{ textAlign: "center", color: "var(--text1)" }}>O&apos;lchov</th>

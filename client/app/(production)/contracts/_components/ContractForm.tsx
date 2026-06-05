@@ -133,7 +133,7 @@ export function ContractForm({
             </label>
             <input className="form-input" value={form.contractParty}
               onChange={e => setForm(f => ({ ...f, contractParty: e.target.value }))}
-              placeholder="Masalan: Ichki ishlar vazirligi, 3-sex, Texnologiya bo'limi..."
+              placeholder="Masalan: Ichki ishlar vazirligi, 3-uchastka, Texnologiya bo'limi..."
             />
           </div>
 
