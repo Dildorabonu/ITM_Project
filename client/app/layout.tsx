@@ -36,10 +36,10 @@ const navGroups: NavGroup[] = [
     label: "Omborxona",
     icon: "package",
     items: [
-      { name: "Korxona omborxonasi", href: "/products",     icon: "shopping-bag", permission: "Products.View" },
+      { name: "Korxona omborxonasi", href: "/warehouse-inventory", icon: "shopping-bag", permission: "Products.View" },
       { name: "Tayyor mahsulotlar",  href: "/manufactured", icon: "factory",      permission: "ManufacturedProducts.View" },
       { name: "Bo'lim omborlari", href: "/department-warehouses", icon: "briefcase", permission: "Products.View" },
-      { name: "Ombor tekshiruvi", href: "/warehouse",    icon: "package",      permission: "WarehouseCheck.View" },
+      { name: "Ombor tekshiruvi", href: "/warehouse-check", icon: "package",      permission: "WarehouseCheck.View" },
     ],
   },
   {
@@ -122,7 +122,7 @@ function applyAppearanceFont(family: string, scale: number) {
 }
 
 // Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
-const readyRoutes = new Set(["/", "/users", "/roles", "/login", "/departments", "/products", "/warehouse", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions", "/requisitions/approvals", "/manufactured", "/department-warehouses"]);
+const readyRoutes = new Set(["/", "/users", "/roles", "/login", "/departments", "/warehouse-inventory", "/warehouse-check", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions", "/requisitions/approvals", "/manufactured", "/department-warehouses"]);
 const readyPrefixes = ["/requisitions/", "/contracts/", "/techprocess/", "/technicaldrawings/", "/requisitions/print", "/department-warehouses/"];
 
 const pageTitles: Record<string, string> = {
@@ -131,13 +131,13 @@ const pageTitles: Record<string, string> = {
   "/contracts":     "Shartnomalar",
   "/techprocess":   "Tex jarayon & Normalar",
   "/technicaldrawings": "Texnik chizmalar",
-  "/warehouse":     "Ombor Zaxirasi",
+  "/warehouse-check": "Ombor tekshiruvi",
   "/tasks":         "Vazifalar",
   "/manufactured":  "Tayyor mahsulotlar",
   "/users":         "Foydalanuvchilar",
   "/roles":         "Rollar",
   "/departments":   "Tuzilma",
-  "/products":      "Korxona omborxonasi",
+  "/warehouse-inventory": "Korxona omborxonasi",
   "/department-warehouses": "Bo'lim Omborlari",
   "/appearance":    "Tashqi ko'rinish",
   "/requisitions":           "Talabnomalar",
