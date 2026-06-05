@@ -6,7 +6,7 @@ import { requisitionService } from "@/lib/userService";
 export async function attachChildPdfs(childIds: string[]): Promise<number> {
   if (childIds.length === 0) return 0;
   const { generateRequisitionPdfBlob, buildPdfFileName } =
-    await import("../../requisitions/_utils/generateRequisitionPdf");
+    await import("@/app/(documents)/requisitions/_utils/generateRequisitionPdf");
 
   let failures = 0;
   for (const childId of childIds) {

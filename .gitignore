@@ -18,6 +18,7 @@ server/node_modules/
 # .NET
 Back/**/bin/
 Back/**/obj/
+Back/**/publish/
 Back/.vs/
 Back/**/*.user
 .dotnet/
