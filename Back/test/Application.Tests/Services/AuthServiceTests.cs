@@ -203,6 +203,45 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task LoginAsync_AfterLockoutExpires_DoesNotImmediatelyReLock_DosPrevention()
+    {
+        // DoS himoyasi: blok muddati tugagach, uni keltirib chiqargan eski
+        // muvaffaqiyatsiz urinishlar hisobga olinmasligi kerak — aks holda hujumchi
+        // hisobni abadiy bloklab qo'yardi (har safar bitta urinish bilan qayta blok).
+        await using var db = TestDbContextFactory.Create();
+        var now = DateTime.UtcNow;
+        // Blok yaqinda qo'yilib, hozir tugagan (10 soniya oldin).
+        var user = SeedActiveUser(db, login: "ali", password: ValidPassword,
+            lockoutEnd: now.AddSeconds(-10));
+
+        // Blokni keltirib chiqargan 5 ta urinish — oyna ichida (2 daqiqa oldin),
+        // lekin LockoutEnd dan oldin yozilgan.
+        for (var i = 0; i < 5; i++)
+        {
+            db.LoginAttempts.Add(new LoginAttempt
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                Login = "ali",
+                AttemptedAt = now.AddMinutes(-2),
+                Success = false,
+            });
+        }
+        await db.SaveChangesAsync();
+
+        var sut = CreateService(db);
+
+        // Act — endi bitta noto'g'ri urinish
+        var result = await sut.LoginAsync(new LoginDto { Login = "ali", Password = "wrong" });
+
+        // Assert — qayta bloklanmaydi (423 emas, 401), eski urinishlar sanalmaydi
+        result.StatusCode.Should().Be(401, "eski urinishlar LockoutEnd dan oldin — hisobga olinmaydi");
+
+        var persisted = await db.Users.SingleAsync(u => u.Id == user.Id);
+        persisted.LockoutEnd!.Value.Should().BeBefore(now, "hisob qayta bloklanmasligi kerak");
+    }
+
+    [Fact]
     public async Task LoginAsync_OnSuccess_ClearsExistingLockoutEnd()
     {
         // Arrange — qulf muddati o'tib ketgan (lekin hali tozalanmagan)

@@ -306,6 +306,54 @@ public class ContractServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_WithNoValidProducts_ReturnsValidationError_AndCreatesNothing()
+    {
+        // Faqat bo'sh ProductType li qatorlar — bitta ham to'g'ri mahsulot yo'q.
+        // Orphan (mahsulotsiz) shartnoma yaratilmasligi kerak.
+        await using var db = TestDbContextFactory.Create();
+        var dept = SeedDept(db);
+        var sut = CreateSut(db);
+
+        var result = await sut.Service.CreateAsync(new ContractCreateDto
+        {
+            ContractNo = "C-EMPTY",
+            ContractType = ContractType.Mahalliy,
+            ContractParty = "X",
+            DepartmentIds = [dept.Id],
+            Products =
+            [
+                MakeProductDto(productType: "   ", departmentIds: [dept.Id]),
+                MakeProductDto(productType: "", departmentIds: [dept.Id]),
+            ],
+        }, Guid.NewGuid());
+
+        result.Succeeded.Should().BeFalse();
+        result.StatusCode.Should().Be(400);
+        result.Errors.Should().Contain(e => e.Contains("kamida bitta"));
+        db.Contracts.Should().BeEmpty("orphan shartnoma yaratilmasligi kerak");
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithEmptyProductList_ReturnsValidationError()
+    {
+        await using var db = TestDbContextFactory.Create();
+        var sut = CreateSut(db);
+
+        var result = await sut.Service.CreateAsync(new ContractCreateDto
+        {
+            ContractNo = "C-EMPTY2",
+            ContractType = ContractType.Mahalliy,
+            ContractParty = "X",
+            DepartmentIds = [],
+            Products = [],
+        }, Guid.NewGuid());
+
+        result.Succeeded.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.Contains("kamida bitta"));
+        db.Contracts.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task CreateAsync_MissingDepartment_ReturnsValidationError()
     {
         await using var db = TestDbContextFactory.Create();
@@ -729,14 +777,12 @@ public class ContractServiceTests
     }
 
     [Fact]
-    public async Task UpdateStatusAsync_CompletedReversedToDrawingPending_PropagatesToProducts()
+    public async Task UpdateStatusAsync_CannotRegressAdvancedProductToEarlierStage()
     {
-        // Hozirgi xulq: servis status o'tishlarini cheklamaydi. Operatorga
-        // tahriri ruxsat etilgan, RecomputeContractStatusAsync esa min-stage
-        // bo'yicha aggregatni qayta yig'adi (hamma product DrawingPending bo'lsa
-        // shartnoma ham DrawingPending bo'lib qoladi). Agar kelajakda monotonic
-        // transition guard qo'shilsa, bu test failure ga aylanishi va yangilanishi
-        // kerak.
+        // Monotonic transition guard: ilgarilab ketgan mahsulotni (Completed) qo'lda
+        // orqaga (DrawingPending) qaytarib bo'lmaydi — aks holda ishlab chiqarilgan
+        // mahsulot kuzatuvi yo'qolardi. Mahsulot Completed bo'lib qoladi va
+        // RecomputeContractStatusAsync aggregatni yana Completed ga tiklaydi.
         await using var db = TestDbContextFactory.Create();
         var (contract, product) = SeedContractWithProduct(db,
             status: ContractStatus.Completed,
@@ -745,11 +791,31 @@ public class ContractServiceTests
 
         var result = await sut.Service.UpdateStatusAsync(contract.Id, ContractStatus.DrawingPending);
 
-        result.Succeeded.Should().BeTrue("hozirgi implementatsiya bunday o'tishni rad etmaydi");
-        var savedContract = db.Contracts.AsNoTracking().Single(c => c.Id == contract.Id);
-        savedContract.Status.Should().Be(ContractStatus.DrawingPending);
+        result.Succeeded.Should().BeTrue();
         db.ContractProducts.AsNoTracking().Single(p => p.Id == product.Id)
-            .Status.Should().Be(ContractProductStatus.DrawingPending);
+            .Status.Should().Be(ContractProductStatus.Completed, "regressiya bloklanadi");
+
+        // Aggregat product holatidan qayta hisoblanadi — yagona product Completed,
+        // shuning uchun shartnoma ham Completed bo'lib qoladi.
+        var savedContract = db.Contracts.AsNoTracking().Single(c => c.Id == contract.Id);
+        savedContract.Status.Should().Be(ContractStatus.Completed);
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_AdvancesProductForward_WhenStatusMovesUp()
+    {
+        // Oldinga siljish (DrawingPending → InProduction) odatdagidek tarqaladi.
+        await using var db = TestDbContextFactory.Create();
+        var (contract, product) = SeedContractWithProduct(db,
+            status: ContractStatus.DrawingPending,
+            productStatus: ContractProductStatus.DrawingPending);
+        var sut = CreateSut(db);
+
+        var result = await sut.Service.UpdateStatusAsync(contract.Id, ContractStatus.InProduction);
+
+        result.Succeeded.Should().BeTrue();
+        db.ContractProducts.AsNoTracking().Single(p => p.Id == product.Id)
+            .Status.Should().Be(ContractProductStatus.InProduction);
     }
 
     // ─────────────────────────────────────────────────────────────────────

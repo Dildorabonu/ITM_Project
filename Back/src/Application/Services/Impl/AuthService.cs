@@ -12,17 +12,20 @@ namespace Application.Services.Impl;
 
 public class AuthService : IAuthService
 {
-    private const int MaxFailedAttempts = 5;
-    private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
-
     private readonly DatabaseContext _context;
     private readonly JwtOptions _jwtOptions;
+    private readonly LockoutOptions _lockout;
     private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public AuthService(DatabaseContext context, IOptions<JwtOptions> jwtOptions, IHttpContextAccessor httpContextAccessor)
+    public AuthService(
+        DatabaseContext context,
+        IOptions<JwtOptions> jwtOptions,
+        IHttpContextAccessor httpContextAccessor,
+        IOptions<LockoutOptions>? lockoutOptions = null)
     {
         _context = context;
         _jwtOptions = jwtOptions.Value;
+        _lockout = lockoutOptions?.Value ?? new LockoutOptions();
         _httpContextAccessor = httpContextAccessor;
     }
 
@@ -52,13 +55,13 @@ public class AuthService : IAuthService
 
             if (user is not null)
             {
-                var recentFailures = await CountConsecutiveFailuresAsync(user.Id);
-                if (recentFailures >= MaxFailedAttempts)
+                var recentFailures = await CountFailuresInWindowAsync(user.Id, now, user.LockoutEnd);
+                if (recentFailures >= _lockout.MaxFailedAttempts)
                 {
-                    user.LockoutEnd = now.Add(LockoutDuration);
+                    user.LockoutEnd = now.Add(_lockout.LockoutDuration);
                     await _context.SaveChangesAsync();
                     return ApiResult<AuthResponseDto>.Failure(
-                        [$"Hisob {(int)LockoutDuration.TotalMinutes} daqiqaga bloklandi. Ko'p marta noto'g'ri parol kiritildi."],
+                        [$"Hisob {_lockout.LockoutMinutes} daqiqaga bloklandi. Ko'p marta noto'g'ri parol kiritildi."],
                         statusCode: 423);
                 }
             }
@@ -114,15 +117,32 @@ public class AuthService : IAuthService
         await _context.SaveChangesAsync();
     }
 
-    private async Task<int> CountConsecutiveFailuresAsync(Guid userId)
+    /// <summary>
+    /// Faqat aktiv oyna ichidagi muvaffaqiyatsiz urinishlarni sanaydi. Hisoblash boshlanish
+    /// nuqtasi quyidagilarning eng kechi: (1) aylanma oyna boshi, (2) oxirgi muvaffaqiyatli
+    /// kirish, (3) oldingi blokning tugash vaqti.
+    ///
+    /// (3) — abadiy bloklanish (DoS) hujumini bartaraf etadigan asosiy shart: blokni
+    /// keltirib chiqargan urinishlar har doim <c>LockoutEnd</c> dan oldin yoziladi, shuning
+    /// uchun blok muddati tugagach ular hisobdan chiqib ketadi va hisob qayta bloklanmaydi.
+    /// Blok davomida yozilgan urinishlar ham (vaqti &lt; LockoutEnd) shu tarzda chiqarib tashlanadi.
+    /// </summary>
+    private async Task<int> CountFailuresInWindowAsync(Guid userId, DateTime now, DateTime? currentLockoutEnd)
     {
+        var since = now - _lockout.AttemptWindow;
+
         var lastSuccess = await _context.LoginAttempts
             .Where(a => a.UserId == userId && a.Success)
             .OrderByDescending(a => a.AttemptedAt)
             .Select(a => (DateTime?)a.AttemptedAt)
             .FirstOrDefaultAsync();
 
-        var since = lastSuccess ?? DateTime.MinValue;
+        if (lastSuccess.HasValue && lastSuccess.Value > since)
+            since = lastSuccess.Value;
+
+        if (currentLockoutEnd.HasValue && currentLockoutEnd.Value > since)
+            since = currentLockoutEnd.Value;
+
         return await _context.LoginAttempts
             .CountAsync(a => a.UserId == userId && !a.Success && a.AttemptedAt > since);
     }

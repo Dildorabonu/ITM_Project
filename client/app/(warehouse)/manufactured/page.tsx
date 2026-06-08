@@ -56,7 +56,7 @@ export default function ManufacturedProductsPage() {
     return () => { document.body.style.overflow = ""; };
   }, [viewProduct, showForm]);
 
-  const load = async () => {
+  const load = async (signal?: AbortSignal) => {
     try {
       setLoading(true);
       setError("");
@@ -66,14 +66,21 @@ export default function ManufacturedProductsPage() {
         search || undefined,
         filterDept || undefined,
         status,
+        signal,
       );
       setProducts(data.items);
       setTotalPages(data.totalPages);
       setTotalCount(data.totalCount);
-    } catch {
+    } catch (e) {
+      // Bekor qilingan (eskirgan) so'rov — natijani e'tiborga olmaymiz, xato ko'rsatmaymiz.
+      if (signal?.aborted || (e as { code?: string; name?: string })?.code === "ERR_CANCELED"
+          || (e as { name?: string })?.name === "CanceledError") {
+        return;
+      }
       setError("Ma'lumotlarni yuklashda xatolik yuz berdi.");
     } finally {
-      setLoading(false);
+      // Faqat eng so'nggi (bekor qilinmagan) so'rov loading holatini yopadi.
+      if (!signal?.aborted) setLoading(false);
     }
   };
 
@@ -85,14 +92,23 @@ export default function ManufacturedProductsPage() {
   };
 
   useEffect(() => {
-    load();
     loadStats();
     departmentService.getAll().then(setDepartments).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Debounce + AbortController: tez ketma-ket o'zgarishlarda (ayniqsa qidiruv yozilganda)
+  // har bir oldingi so'rov bekor qilinadi, faqat eng so'nggi natija ko'rsatiladi.
+  // Bu eskirgan javob yangisini bosib ketishining (race condition) oldini oladi.
+  useEffect(() => {
+    const controller = new AbortController();
+    const t = setTimeout(() => { load(controller.signal); }, 300);
+    return () => {
+      clearTimeout(t);
+      controller.abort();
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { load(); }, [page, search, filterDept, filterStatus]);
+  }, [page, search, filterDept, filterStatus]);
 
   const openCreate = () => {
     setEditTarget(null);

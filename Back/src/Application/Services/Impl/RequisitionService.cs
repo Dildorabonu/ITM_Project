@@ -575,10 +575,18 @@ public class RequisitionService : IRequisitionService
                 unit = ParseProductUnit(item.FreeTextUnit);
             }
 
-            // Korxona omborxonasidan ayirish: muzlatilgan Productni real chiqarish
-            if (item.ReservedProductId.HasValue
-                && sourceProductMap.TryGetValue(item.ReservedProductId.Value, out var source))
+            // Korxona omborxonasidan ayirish: muzlatilgan Productni real chiqarish.
+            // ReservedProductId belgilangan bo'lsa, manba Product ALBATTA topilishi shart —
+            // aks holda hech narsadan zaxira yaratilgan bo'lar edi (phantom inventory):
+            // bo'lim omboriga qo'shilardi-yu, hech qaysi manbadan ayrilmasdi. Manba
+            // topilmasa (oraliqda o'chirilgan bo'lsa) butun chiqarishni bekor qilamiz.
+            if (item.ReservedProductId.HasValue)
             {
+                if (!sourceProductMap.TryGetValue(item.ReservedProductId.Value, out var source))
+                    return ApiResult<bool>.Failure(
+                        [$"'{productName}' uchun zaxiralangan ombor mahsuloti topilmadi (ehtimol o'chirilgan). " +
+                         "Talabnomani qayta tekshiruvdan o'tkazing."]);
+
                 if (source.Quantity < qty)
                     return ApiResult<bool>.Failure(
                         [$"Korxona omborxonasida '{source.Name}' yetarli emas (mavjud: {source.Quantity}, kerak: {qty})."]);

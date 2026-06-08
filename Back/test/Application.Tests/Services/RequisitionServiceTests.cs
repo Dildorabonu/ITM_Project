@@ -936,6 +936,40 @@ public class RequisitionServiceTests
         result.Errors.Should().ContainSingle().Which.Should().Contain("bo'limga bog'lanmagan");
     }
 
+    [Fact]
+    public async Task ReleaseAsync_ReservedSourceProductMissing_FailsAndCreatesNoPhantomInventory()
+    {
+        // Phantom inventory regressiyasi: ReservedProductId belgilangan, lekin manba
+        // Product mavjud emas (oraliqda o'chirilgan). Bunday holda chiqarish bekor
+        // qilinishi va bo'lim omboriga HECH NARSA qo'shilmasligi kerak — aks holda
+        // hech qaysi manbadan ayrilmagan zaxira "yo'qdan" paydo bo'lardi.
+        await using var db = CreateDb();
+        var targetDept = SeedDept(db, name: "Sex-1", type: DepartmentType.Bolim);
+        var creator = TestData.SeedUser(db, login: "c");
+        var releaser = TestData.SeedUser(db, login: "rel");
+
+        var missingProductId = Guid.NewGuid(); // DB da yo'q
+        var child = SeedParentRequisition(db, creator.Id, no: "REQ-PHANTOM",
+            departmentId: targetDept.Id,
+            status: RequisitionStatus.ReadyForWarehouseRelease,
+            items: [MakeItem(quantity: 10m, freeName: "Sement", reservedProductId: missingProductId)]);
+        child.Items.First().FreeTextUnit = "kg";
+        db.SaveChanges();
+
+        var result = await CreateService(db).ReleaseAsync(child.Id, releaser.Id);
+
+        result.Succeeded.Should().BeFalse();
+        result.Errors.Should().ContainSingle().Which.Should().Contain("zaxiralangan ombor mahsuloti topilmadi");
+
+        // Bo'lim omborida hech narsa yaratilmagan bo'lishi kerak
+        db.Products.Any(p => p.DepartmentId == targetDept.Id).Should().BeFalse(
+            "manba topilmaganda phantom zaxira yaratilmasligi shart");
+
+        // Talabnoma hali Released bo'lmasligi kerak
+        db.Requisitions.Single(r => r.Id == child.Id).Status
+            .Should().Be(RequisitionStatus.ReadyForWarehouseRelease);
+    }
+
     // ─────────────────────────────────────────────────────────────────────
     //  SplitAsync (legacy: WarehouseChecked → manual split)
     // ─────────────────────────────────────────────────────────────────────

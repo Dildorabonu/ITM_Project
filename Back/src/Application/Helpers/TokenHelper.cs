@@ -2,6 +2,7 @@ using Application.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace Application.Helpers;
@@ -47,5 +48,12 @@ public static class TokenHelper
         return (new JwtSecurityTokenHandler().WriteToken(token), expiresAt);
     }
 
-    public static string GenerateRefreshToken() => Guid.NewGuid().ToString();
+    // Refresh tokenlar autentifikatsiya sirlari — Guid emas, kriptografik jihatdan
+    // xavfsiz tasodifiy 256-bit qiymat ishlatamiz. Hex kodlash cookie/URL uchun xavfsiz
+    // (faqat 0-9a-f), va to'qnashuv ehtimoli amalda nolga teng.
+    public static string GenerateRefreshToken()
+    {
+        var bytes = RandomNumberGenerator.GetBytes(32);
+        return Convert.ToHexString(bytes);
+    }
 }

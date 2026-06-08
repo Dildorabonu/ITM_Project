@@ -54,6 +54,35 @@ export interface ParseProductsResult {
   errors: string[];
 }
 
+// Miqdorni mahalliy formatlarni hisobga olib parse qiladi.
+// Qo'llab-quvvatlanadi: "1.5", "1,5" (vergulli o'nlik), shuningdek mingliklar ajratgichi:
+// "1 234,56", "1.234,56" (Yevropa) va "1,234.56" (AQSH). Noto'g'ri qiymatda NaN qaytaradi.
+export function parseQuantity(raw: string): number {
+  let s = (raw ?? "").trim();
+  if (!s) return NaN;
+  s = s.replace(/\s/g, ""); // mingliklar uchun bo'sh joylarni olib tashlash
+
+  const hasComma = s.includes(",");
+  const hasDot = s.includes(".");
+
+  if (hasComma && hasDot) {
+    // Oxirgi kelgan ajratgich — o'nlik nuqta; ikkinchisi mingliklar ajratgichi.
+    if (s.lastIndexOf(",") > s.lastIndexOf(".")) {
+      s = s.replace(/\./g, "").replace(",", ".");
+    } else {
+      s = s.replace(/,/g, "");
+    }
+  } else if (hasComma) {
+    // Faqat vergul — o'nlik ajratgich sifatida ("1,5" → "1.5").
+    s = s.replace(",", ".");
+  }
+
+  // Bir nechta nuqta qolsa (masalan "1.2.3") — noto'g'ri.
+  if ((s.match(/\./g)?.length ?? 0) > 1) return NaN;
+
+  return Number(s);
+}
+
 // Yuklangan Excel faylni o'qib, import preview qatorlariga aylantiradi.
 // Qatorlardagi format/bo'lim/dublikat xatolari `errors` maydonida belgilanadi.
 // Bazadagi dublikat/o'xshashlik tekshiruvi alohida (backend) amalga oshiriladi.
@@ -101,8 +130,10 @@ export function parseProductsExcel(
           const dept = deptMap.get((deptName ?? "").toLowerCase().trim());
           if (!dept) errors.push(`"${deptName || "(bo'sh)"}" bo'limi topilmadi`);
 
-          const quantity = qty ? Number(qty) : 0;
-          if (qty && isNaN(Number(qty))) errors.push("Miqdor noto'g'ri format");
+          const parsedQty = qty ? parseQuantity(qty) : 0;
+          if (qty && isNaN(parsedQty)) errors.push(`Miqdor noto'g'ri format: "${qty}" (masalan: 1.5 yoki 1,5)`);
+          else if (parsedQty < 0) errors.push("Miqdor manfiy bo'lishi mumkin emas");
+          const quantity = isNaN(parsedQty) || parsedQty < 0 ? 0 : parsedQty;
 
           const unit = unitLabel
             ? (unitMap.get(unitLabel.toLowerCase().trim()) ?? ProductUnit.Dona)
@@ -114,7 +145,7 @@ export function parseProductsExcel(
             invoiceNumber: invoiceNumber ?? "",
             departmentName: deptName ?? "",
             departmentId: dept?.id,
-            quantity: isNaN(quantity) ? 0 : quantity,
+            quantity,
             unit,
             description: desc ?? "",
             errors,

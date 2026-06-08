@@ -47,14 +47,9 @@ namespace API
                 .GetSection(AuthCookieOptions.SectionName)
                 .Get<AuthCookieOptions>() ?? new AuthCookieOptions();
 
-            // Development'da HTTP localhost ishlatilganda Secure=true cookie'ni bloklaydi —
-            // shuning uchun Development'da default tarzda Secure=false ga o'tkazamiz, agar
-            // konfiguratsiyada aniq qiymat yo'q bo'lsa.
-            if (builder.Environment.IsDevelopment()
-                && builder.Configuration.GetSection(AuthCookieOptions.SectionName)["Secure"] is null)
-            {
-                builder.Services.PostConfigure<AuthCookieOptions>(o => o.Secure = false);
-            }
+            // Cookie Secure attribute endi har bir so'rov sxemasiga qarab hisoblanadi
+            // (AuthCookieOptions.SecurePolicy = SameAsRequest). HTTP LAN'da Secure qo'yilmaydi,
+            // HTTPS orqasida esa avtomatik qo'yiladi — alohida Development override kerak emas.
 
             builder.Services.AddSingleton<IAuthCookieWriter, AuthCookieWriter>();
 
@@ -109,17 +104,10 @@ namespace API
             {
                 options.AddDefaultPolicy(policy =>
                 {
-                    policy.SetIsOriginAllowed(origin =>
-                          {
-                              if (string.IsNullOrEmpty(origin)) return false;
-                              if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri)) return false;
-                              var host = uri.Host;
-                              return host == "localhost"
-                                  || host == "127.0.0.1"
-                                  || host.StartsWith("192.168.")
-                                  || host.StartsWith("10.")
-                                  || host.StartsWith("172.");
-                          })
+                    // Origin host majburiy ravishda haqiqiy xususiy/loopback IP (yoki localhost)
+                    // bo'lishi tekshiriladi — hujumchi nazoratidagi domen nomlari rad etiladi.
+                    // Shu sababli AllowCredentials xavfsiz: faqat ishonchli LAN origin'larga beriladi.
+                    policy.SetIsOriginAllowed(TrustedOriginValidator.IsTrustedLanOrigin)
                           .AllowAnyHeader()
                           .AllowAnyMethod()
                           .AllowCredentials();
