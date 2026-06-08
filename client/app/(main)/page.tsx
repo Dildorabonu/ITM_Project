@@ -1564,13 +1564,14 @@ function getDefaultRange(): DateRange {
   return RANGE_PRESETS.find(p => p.key === "last_30_days")!.range();
 }
 
-type KpiDelta = { kind: "up" | "down" | "flat" | "new" | "none"; pct: number };
+type KpiDelta = { kind: "up" | "down" | "flat" | "new" | "none" | "empty"; pct: number };
 
 function computeKpiDelta(current: number, previous: number): KpiDelta {
-  if (previous <= 0) {
-    if (current > 0) return { kind: "new", pct: 0 };
-    return { kind: "none", pct: 0 };
-  }
+  // These KPIs are period-scoped (this week's activity). A zero current period
+  // means "no activity this week" — not a meaningful −100% drop — so surface it
+  // as a neutral empty state instead of an alarming red delta.
+  if (current <= 0) return { kind: "empty", pct: 0 };
+  if (previous <= 0) return { kind: "new", pct: 0 };
   const pct = ((current - previous) / previous) * 100;
   if (Math.abs(pct) < 0.05) return { kind: "flat", pct: 0 };
   return { kind: pct > 0 ? "up" : "down", pct };
@@ -1645,6 +1646,14 @@ function Sparkline({
 }
 
 function DeltaLine({ delta, periodLabel }: { delta: KpiDelta; periodLabel: string }) {
+  if (delta.kind === "empty") {
+    return (
+      <div className="dx-mini-delta dx-mini-delta-none">
+        <span className="dx-mini-delta-pct">—</span>
+        <span className="dx-mini-delta-label">Bu hafta faollik yo&apos;q</span>
+      </div>
+    );
+  }
   if (delta.kind === "none") {
     return (
       <div className="dx-mini-delta dx-mini-delta-none">
