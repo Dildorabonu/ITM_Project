@@ -89,13 +89,7 @@ public class DepartmentService : IDepartmentService
         if (department is null)
             return ApiResult<DepartmentResponseDto>.Failure([$"Department with id '{id}' not found."]);
 
-        var headUser = await _context.Users
-            .AsNoTracking()
-            .Where(u => u.DepartmentId == id && u.IsHead)
-            .Select(u => u.FirstName + " " + u.LastName)
-            .FirstOrDefaultAsync();
-
-        return ApiResult<DepartmentResponseDto>.Success(MapToResponse(department, headUser));
+        return ApiResult<DepartmentResponseDto>.Success(MapToResponse(department));
     }
 
     public async Task<ApiResult<int>> CreateAsync(DepartmentCreateDto dto)
