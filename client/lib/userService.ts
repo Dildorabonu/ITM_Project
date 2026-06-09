@@ -1321,9 +1321,7 @@ export interface RequisitionCreate {
 
 export interface RequisitionItemResponse {
   id: string;
-  materialId?: string;
   materialName: string;
-  materialCode: string;
   unit: string;
   freeTextSpec?: string;
   freeTextPhoto?: string;
@@ -1353,7 +1351,6 @@ export interface RequisitionResponse {
   statusLabel: string;
   contractId?: string;
   contractNo?: string;
-  departmentId?: string;
   departmentName?: string;
   purpose: string;
   notes?: string;
@@ -1368,17 +1365,14 @@ export interface RequisitionResponse {
   sourceLabel?: string;
   children: RequisitionChildSummary[];
 
-  warehouseCheckedBy?: string;
   warehouseCheckedByName?: string;
   warehouseCheckedAt?: string;
   warehouseCheckQrCodeData?: string;
 
-  approvedBy?: string;
   approvedByName?: string;
   approvedAt?: string;
   qrCodeData?: string;
 
-  createdBy: string;
   createdByName: string;
   createdAt: string;
   items: RequisitionItemResponse[];
@@ -1451,11 +1445,6 @@ export const requisitionService = {
 
   warehouseCheck: async (id: string, items: RequisitionWarehouseCheckItem[]): Promise<string[]> => {
     const res = await api.post(`/api/requisition/${id}/warehouse-check`, { items });
-    return (res.data?.result ?? []) as string[];
-  },
-
-  split: async (id: string): Promise<string[]> => {
-    const res = await api.post(`/api/requisition/${id}/split`);
     return (res.data?.result ?? []) as string[];
   },
 

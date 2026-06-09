@@ -16,7 +16,6 @@ public class RequisitionResponseDto
     public string? ContractNo { get; set; }
 
     // Individual
-    public Guid? DepartmentId { get; set; }
     public string? DepartmentName { get; set; }
 
     public string Purpose { get; set; } = string.Empty;
@@ -36,19 +35,16 @@ public class RequisitionResponseDto
     public List<RequisitionChildSummaryDto> Children { get; set; } = [];
 
     // Ombor tekshiruvi
-    public Guid? WarehouseCheckedBy { get; set; }
     public string? WarehouseCheckedByName { get; set; }
     public DateTime? WarehouseCheckedAt { get; set; }
     public string? WarehouseCheckQrCodeData { get; set; }  // Base64 PNG — omborchi imzosi
 
     // Tasdiqlash
-    public Guid? ApprovedBy { get; set; }
     public string? ApprovedByName { get; set; }
     public DateTime? ApprovedAt { get; set; }
     public string? QrCodeData { get; set; }  // Base64 PNG — direktor imzosi
 
     // Yaratuvchi
-    public Guid CreatedBy { get; set; }
     public string CreatedByName { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
 

@@ -297,36 +297,6 @@ public class RequisitionService : IRequisitionService
         return ApiResult<List<Guid>>.Success(children.Select(c => c.Id).ToList());
     }
 
-    public async Task<ApiResult<List<Guid>>> SplitAsync(Guid id, Guid currentUserId)
-    {
-        var parent = await _context.Requisitions
-            .Include(r => r.Items)
-            .FirstOrDefaultAsync(r => r.Id == id);
-
-        if (parent is null)
-            return ApiResult<List<Guid>>.Failure([$"Requisition '{id}' topilmadi."], 404);
-
-        if (parent.Status != RequisitionStatus.WarehouseChecked)
-            return ApiResult<List<Guid>>.Failure(["Faqat ombor tekshiruvidan o'tgan talabnomani bo'lish mumkin."]);
-
-        if (parent.CreatedBy != currentUserId)
-            return ApiResult<List<Guid>>.Failure(["Faqat talabnoma yaratuvchisi uni bo'lib yuborishi mumkin."], 403);
-
-        var children = BuildChildren(parent);
-
-        if (children.Count == 0)
-            return ApiResult<List<Guid>>.Failure(["Bo'lish uchun item topilmadi."]);
-
-        foreach (var c in children) _context.Requisitions.Add(c);
-        parent.Status = RequisitionStatus.Split;
-
-        await _context.SaveChangesAsync();
-
-        await NotifyDirectorsAsync(parent.RequisitionNo, children.Count);
-
-        return ApiResult<List<Guid>>.Success(children.Select(c => c.Id).ToList());
-    }
-
     private static List<Requisition> BuildChildren(Requisition parent)
     {
         var warehouseItems = new List<RequisitionItem>();
@@ -790,7 +760,6 @@ public class RequisitionService : IRequisitionService
         StatusLabel = StatusLabel(r.Status),
         ContractId = r.ContractId,
         ContractNo = r.Contract?.ContractNo,
-        DepartmentId = r.DepartmentId,
         DepartmentName = r.Department?.Name,
         Purpose = r.Purpose,
         Notes = r.Notes,
@@ -812,23 +781,18 @@ public class RequisitionService : IRequisitionService
             SourceLabel = c.Source.HasValue ? SourceLabel(c.Source.Value) : string.Empty,
             ItemCount = c.Items.Count
         }).ToList(),
-        WarehouseCheckedBy = r.WarehouseCheckedBy,
         WarehouseCheckedByName = r.WarehouseChecker is null ? null : $"{r.WarehouseChecker.FirstName} {r.WarehouseChecker.LastName}",
         WarehouseCheckedAt = r.WarehouseCheckedAt,
         WarehouseCheckQrCodeData = r.WarehouseCheckQrCodeData,
-        ApprovedBy = r.ApprovedBy,
         ApprovedByName = r.Approver is null ? null : $"{r.Approver.FirstName} {r.Approver.LastName}",
         ApprovedAt = r.ApprovedAt,
         QrCodeData = r.QrCodeData,
-        CreatedBy = r.CreatedBy,
         CreatedByName = r.Creator is null ? string.Empty : $"{r.Creator.FirstName} {r.Creator.LastName}",
         CreatedAt = r.CreatedAt,
         Items = r.Items.Select(i => new RequisitionItemResponseDto
         {
             Id = i.Id,
-            MaterialId = i.MaterialId,
             MaterialName = i.Material?.Name ?? i.FreeTextName ?? string.Empty,
-            MaterialCode = i.Material?.Code ?? string.Empty,
             Unit = i.Material?.Unit ?? i.FreeTextUnit ?? string.Empty,
             FreeTextSpec = i.FreeTextSpec,
             FreeTextPhoto = i.FreeTextPhoto,

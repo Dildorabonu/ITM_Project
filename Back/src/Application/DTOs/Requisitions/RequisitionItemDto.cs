@@ -18,9 +18,7 @@ public class RequisitionItemCreateDto
 public class RequisitionItemResponseDto
 {
     public Guid Id { get; set; }
-    public Guid? MaterialId { get; set; }
     public string MaterialName { get; set; } = string.Empty;
-    public string MaterialCode { get; set; } = string.Empty;
     public string Unit { get; set; } = string.Empty;
     public string? FreeTextSpec { get; set; }
     public string? FreeTextPhoto { get; set; }
