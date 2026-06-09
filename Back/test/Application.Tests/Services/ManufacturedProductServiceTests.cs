@@ -544,39 +544,6 @@ public class ManufacturedProductServiceTests
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    //  GetByIdAsync
-    // ─────────────────────────────────────────────────────────────────────
-
-    [Fact]
-    public async Task GetByIdAsync_Existing_ReturnsMappedDto()
-    {
-        await using var db = TestDbContextFactory.Create();
-        var dept = SeedDepartment(db, name: "Yig'ish sexi");
-        var row = SeedProduct(db, dept.Id, name: "Rama", quantity: 7, producedQuantity: 3);
-        var sut = CreateSut(db);
-
-        var result = await sut.Service.GetByIdAsync(row.Id);
-
-        result.Succeeded.Should().BeTrue();
-        result.Result!.Name.Should().Be("Rama");
-        result.Result.Quantity.Should().Be(7);
-        result.Result.ProducedQuantity.Should().Be(3);
-        result.Result.DepartmentName.Should().Be("Yig'ish sexi");
-    }
-
-    [Fact]
-    public async Task GetByIdAsync_NonExistent_ReturnsFailure()
-    {
-        await using var db = TestDbContextFactory.Create();
-        var sut = CreateSut(db);
-
-        var result = await sut.Service.GetByIdAsync(Guid.NewGuid());
-
-        result.Succeeded.Should().BeFalse();
-        result.Errors.Should().ContainSingle().Which.Should().Contain("not found");
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
     //  GetAllAsync — filters, search, orphan exclusion
     // ─────────────────────────────────────────────────────────────────────
 

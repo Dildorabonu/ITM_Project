@@ -41,18 +41,6 @@ public class ManufacturedProductController : ControllerBase
         return Ok(result);
     }
 
-    [HasPermission("ManufacturedProducts.View")]
-    [HttpGet("{id:guid}")]
-    public async Task<IActionResult> GetById(Guid id)
-    {
-        var result = await _service.GetByIdAsync(id);
-
-        if (!result.Succeeded)
-            return NotFound(result);
-
-        return Ok(result);
-    }
-
     [HasPermission("ManufacturedProducts.Create")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] ManufacturedProductCreateDto dto)
