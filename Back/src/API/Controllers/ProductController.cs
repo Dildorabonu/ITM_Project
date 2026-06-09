@@ -64,18 +64,6 @@ public class ProductController : ControllerBase
         return Ok(result);
     }
 
-    [HasPermission("Products.View")]
-    [HttpGet("{id:guid}")]
-    public async Task<IActionResult> GetById(Guid id)
-    {
-        var result = await _productService.GetByIdAsync(id);
-
-        if (!result.Succeeded)
-            return NotFound(result);
-
-        return Ok(result);
-    }
-
     [HasPermission("Products.Create")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] ProductCreateDto dto)

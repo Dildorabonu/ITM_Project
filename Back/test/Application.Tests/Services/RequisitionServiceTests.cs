@@ -396,7 +396,7 @@ public class RequisitionServiceTests
         // Assert
         result.Succeeded.Should().BeTrue();
         result.Result!.Should().HaveCount(2)
-            .And.OnlyContain(r => r.CreatedBy == me);
+            .And.OnlyContain(r => r.RequisitionNo.StartsWith("REQ-MINE"));
     }
 
     [Fact]
@@ -970,42 +970,4 @@ public class RequisitionServiceTests
             .Should().Be(RequisitionStatus.ReadyForWarehouseRelease);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    //  SplitAsync (legacy: WarehouseChecked → manual split)
-    // ─────────────────────────────────────────────────────────────────────
-
-    [Fact]
-    public async Task SplitAsync_OwnerOnWarehouseChecked_CreatesChildrenAndMarksParentSplit()
-    {
-        await using var db = CreateDb();
-        var creator = TestData.SeedUser(db, login: "c");
-        var parent = SeedParentRequisition(db, creator.Id, no: "REQ-WC",
-            status: RequisitionStatus.WarehouseChecked,
-            items: [MakeItem(quantity: 30m, freeName: "X", available: 10m)]);
-
-        var result = await CreateService(db).SplitAsync(parent.Id, creator.Id);
-
-        result.Succeeded.Should().BeTrue();
-        result.Result!.Should().HaveCount(2);
-        db.Requisitions.Single(r => r.Id == parent.Id).Status
-            .Should().Be(RequisitionStatus.Split);
-    }
-
-    [Fact]
-    public async Task SplitAsync_NonOwner_Returns403()
-    {
-        await using var db = CreateDb();
-        var creator = TestData.SeedUser(db, login: "c");
-        var other = TestData.SeedUser(db, login: "other");
-        var parent = SeedParentRequisition(db, creator.Id,
-            status: RequisitionStatus.WarehouseChecked,
-            items: [MakeItem(quantity: 5m, freeName: "X", available: 2m)]);
-
-        var result = await CreateService(db).SplitAsync(parent.Id, other.Id);
-
-        result.Succeeded.Should().BeFalse();
-        result.StatusCode.Should().Be(403);
-        db.Requisitions.Single(r => r.Id == parent.Id).Status
-            .Should().Be(RequisitionStatus.WarehouseChecked, "status o'zgarmasligi kerak");
-    }
 }

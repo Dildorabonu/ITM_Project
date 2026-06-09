@@ -89,19 +89,6 @@ public class RequisitionController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Legacy: yaratuvchi WarehouseChecked statusdagi parent ni 2 ta childga bo'ladi.</summary>
-    [HasPermission("Requisitions.Create")]
-    [HttpPost("{id:guid}/split")]
-    public async Task<IActionResult> Split(Guid id)
-    {
-        var userId = GetUserId();
-        if (userId is null) return Unauthorized();
-
-        var result = await _requisitionService.SplitAsync(id, userId.Value);
-        if (!result.Succeeded) return BadRequest(result);
-        return Ok(result);
-    }
-
     /// <summary>Direktor tasdiqlaydi: PendingApproval → ReadyForWarehouseRelease yoki ReadyForPurchase + QR</summary>
     [HasPermission("Requisitions.Approve")]
     [HttpPost("{id:guid}/approve")]

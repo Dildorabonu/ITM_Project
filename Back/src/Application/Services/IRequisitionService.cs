@@ -15,9 +15,6 @@ public interface IRequisitionService
     // Omborchi tekshiruvi: PendingWarehouseCheck → Split (avto-bo'linish), child IDlarni qaytaradi
     Task<ApiResult<List<Guid>>> WarehouseCheckAsync(Guid id, RequisitionWarehouseCheckDto dto, Guid checkerId);
 
-    // Yaratuvchi bo'lib yuboradi (legacy: WarehouseChecked statusdagi talabnomalar uchun)
-    Task<ApiResult<List<Guid>>> SplitAsync(Guid id, Guid currentUserId);
-
     // Direktor: PendingApproval → ReadyForWarehouseRelease yoki ReadyForPurchase + QR
     Task<ApiResult<bool>> ApproveAsync(Guid id, Guid directorId);
 

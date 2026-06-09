@@ -7,7 +7,5 @@ public class ProductSimilarDto
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string InvoiceNumber { get; set; } = string.Empty;
-    public Guid DepartmentId { get; set; }
-    public string DepartmentName { get; set; } = string.Empty;
     public double Similarity { get; set; }
 }
