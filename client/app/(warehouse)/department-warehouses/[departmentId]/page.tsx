@@ -9,7 +9,7 @@ import {
   PRODUCT_UNIT_LABELS,
   DepartmentType,
   DEPARTMENT_TYPE_LABELS,
-  type ProductResponse,
+  type DepartmentProduct,
   type DepartmentResponse,
 } from "@/lib/userService";
 import { useAuthStore } from "@/lib/store/authStore";
@@ -31,7 +31,7 @@ export default function DepartmentWarehouseDetailPage() {
   const isAuthorized = canViewAll || isOwnDept;
 
   const [department, setDepartment] = useState<DepartmentResponse | null>(null);
-  const [products, setProducts] = useState<ProductResponse[]>([]);
+  const [products, setProducts] = useState<DepartmentProduct[]>([]);
   const [search, setSearch] = useState("");
   const [filterUnit, setFilterUnit] = useState<string>("");
   const [loading, setLoading] = useState(true);
@@ -46,7 +46,7 @@ export default function DepartmentWarehouseDetailPage() {
       setLoading(true);
       const [dept, list] = await Promise.all([
         departmentService.getById(departmentId).catch(() => null),
-        productService.getByDepartment(departmentId).catch(() => [] as ProductResponse[]),
+        productService.getByDepartment(departmentId).catch(() => [] as DepartmentProduct[]),
       ]);
       if (!active) return;
       setDepartment(dept);

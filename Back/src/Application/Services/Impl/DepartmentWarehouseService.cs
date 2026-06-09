@@ -1,6 +1,5 @@
 using Application.DTOs;
 using Application.DTOs.Products;
-using Core.Entities;
 using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -58,28 +57,23 @@ public class DepartmentWarehouseService : IDepartmentWarehouseService
         return ApiResult<IEnumerable<DepartmentWarehouseSummaryDto>>.Success(result);
     }
 
-    public async Task<ApiResult<IEnumerable<ProductResponseDto>>> GetByDepartmentAsync(Guid departmentId)
+    public async Task<ApiResult<IEnumerable<DepartmentProductDto>>> GetByDepartmentAsync(Guid departmentId)
     {
         var products = await _context.Products
-            .Include(p => p.Department)
             .Where(p => p.DepartmentId == departmentId)
             .AsNoTracking()
+            .Select(p => new DepartmentProductDto
+            {
+                Id = p.Id,
+                Name = p.Name,
+                InvoiceNumber = p.InvoiceNumber,
+                Description = p.Description,
+                Quantity = p.Quantity,
+                Unit = p.Unit,
+                CreatedAt = p.CreatedAt
+            })
             .ToListAsync();
 
-        return ApiResult<IEnumerable<ProductResponseDto>>.Success(products.Select(MapToResponse));
+        return ApiResult<IEnumerable<DepartmentProductDto>>.Success(products);
     }
-
-    private static ProductResponseDto MapToResponse(Product product) => new()
-    {
-        Id = product.Id,
-        Name = product.Name,
-        InvoiceNumber = product.InvoiceNumber,
-        Description = product.Description,
-        Quantity = product.Quantity,
-        AvailableQuantity = Math.Max(0m, product.Quantity - product.ReservedQuantity),
-        Unit = product.Unit,
-        DepartmentId = product.DepartmentId,
-        DepartmentName = product.Department?.Name ?? string.Empty,
-        CreatedAt = product.CreatedAt
-    };
 }

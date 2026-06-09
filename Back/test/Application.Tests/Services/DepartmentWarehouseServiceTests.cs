@@ -85,7 +85,7 @@ public class DepartmentWarehouseServiceTests
         // Assert
         result.Succeeded.Should().BeTrue();
         result.Result!.Should().HaveCount(2)
-            .And.OnlyContain(p => p.DepartmentId == depA.Id);
+            .And.OnlyContain(p => p.InvoiceNumber == "INV-A1" || p.InvoiceNumber == "INV-A2");
     }
 
     // ─────────────────────────────────────────────────────────────────────

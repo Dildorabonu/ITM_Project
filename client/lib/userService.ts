@@ -309,6 +309,18 @@ export interface DepartmentWarehouseSummary {
   totalQuantity: number;
 }
 
+// "Bo'lim ombori" jadvali uchun yengil model — by-department endpointi
+// faqat shu maydonlarni qaytaradi (ProductResponse dan ajratilgan).
+export interface DepartmentProduct {
+  id: string;
+  name: string;
+  invoiceNumber: string;
+  description: string | null;
+  quantity: number;
+  unit: ProductUnit;
+  createdAt: string;
+}
+
 export interface ProductReservationResponse {
   productId: string;
   productName: string;
@@ -334,7 +346,7 @@ export const productService = {
     return res.data?.result ?? res.data;
   },
 
-  getByDepartment: async (departmentId: string): Promise<ProductResponse[]> => {
+  getByDepartment: async (departmentId: string): Promise<DepartmentProduct[]> => {
     const res = await api.get(`/api/departmentwarehouse/by-department/${departmentId}`);
     return res.data?.result ?? res.data ?? [];
   },
