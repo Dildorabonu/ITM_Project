@@ -28,15 +28,6 @@ public class ContractTaskController : ControllerBase
         return StatusCode(result.StatusCode, result);
     }
 
-    // GET /api/contracttask/{id}
-    [HasPermission("Tasks.View")]
-    [HttpGet("{id:guid}")]
-    public async Task<IActionResult> GetById(Guid id)
-    {
-        var result = await _service.GetByIdAsync(id);
-        return StatusCode(result.StatusCode, result);
-    }
-
     // POST /api/contracttask
     [HasPermission("Tasks.Create")]
     [HttpPost]

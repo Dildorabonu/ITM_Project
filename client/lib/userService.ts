@@ -1142,7 +1142,6 @@ export const costNormService = {
 
 export interface ContractTaskResponse {
   id: string;
-  contractId: string;
   contractProductId: string | null;
   productType: string | null;
   orderNo: number;
@@ -1151,9 +1150,6 @@ export interface ContractTaskResponse {
   totalAmount: number;
   importance: number;
   percentComplete: number;
-  createdBy: string;
-  createdByFullName: string | null;
-  createdAt: string;
 }
 
 export interface ContractTaskCreatePayload {
@@ -1183,11 +1179,7 @@ export interface ContractTaskLogCreatePayload {
 
 export interface ContractTaskLogResponse {
   id: string;
-  taskId: string;
   amount: number;
-  note: string | null;
-  date: string;
-  createdBy: string;
   createdByFullName: string | null;
   createdAt: string;
 }
