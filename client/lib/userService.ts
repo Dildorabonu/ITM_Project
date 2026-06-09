@@ -1596,11 +1596,6 @@ export const manufacturedProductService = {
     return res.data?.result ?? res.data;
   },
 
-  getById: async (id: string): Promise<ManufacturedProductResponse> => {
-    const res = await api.get(`/api/manufacturedproduct/${id}`);
-    return res.data?.result ?? res.data;
-  },
-
   create: async (dto: ManufacturedProductCreatePayload): Promise<void> => {
     await api.post("/api/manufacturedproduct", dto);
   },

@@ -85,20 +85,6 @@ public class ManufacturedProductService : IManufacturedProductService
         return ApiResult<ManufacturedProductStatsDto>.Success(stats);
     }
 
-    public async Task<ApiResult<ManufacturedProductResponseDto>> GetByIdAsync(Guid id)
-    {
-        var product = await _context.ManufacturedProducts
-            .Include(p => p.Department)
-            .Include(p => p.Contract)
-            .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == id);
-
-        if (product is null)
-            return ApiResult<ManufacturedProductResponseDto>.Failure([$"Manufactured product with id '{id}' not found."]);
-
-        return ApiResult<ManufacturedProductResponseDto>.Success(MapToResponse(product));
-    }
-
     // ─── Write operations ────────────────────────────────────────────────────
     // Faqat qo'lda kiritilgan yozuvlar uchun (ContractProductId == null). Auto-derived
     // yozuvlar shartnoma jarayoni orqali boshqariladi va to'g'ridan-to'g'ri tahrir/o'chirish
