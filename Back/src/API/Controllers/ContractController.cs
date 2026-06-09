@@ -146,7 +146,6 @@ public class ContractController : ControllerBase
     // ── My Production Tasks ───────────────────────────────────────────────────
 
     [HttpGet("my-tasks")]
-    [Authorize]
     public async Task<IActionResult> GetMyProductionTasks([FromQuery] bool? isActive = null)
     {
         var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);

@@ -627,7 +627,7 @@ public class ContractTaskServiceTests
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    //  GetByContractIdAsync / GetByIdAsync / GetLogsAsync
+    //  GetByContractIdAsync / GetLogsAsync
     // ─────────────────────────────────────────────────────────────────────
 
     [Fact]
@@ -659,29 +659,17 @@ public class ContractTaskServiceTests
     }
 
     [Fact]
-    public async Task GetByIdAsync_NotFound_Returns404()
-    {
-        await using var db = TestDbContextFactory.Create();
-        var sut = CreateSut(db);
-
-        var result = await sut.Service.GetByIdAsync(Guid.NewGuid());
-
-        result.Succeeded.Should().BeFalse();
-        result.StatusCode.Should().Be(404);
-    }
-
-    [Fact]
-    public async Task GetByIdAsync_ComputesPercentComplete()
+    public async Task GetByContractIdAsync_ComputesPercentComplete()
     {
         await using var db = TestDbContextFactory.Create();
         var contract = SeedContract(db);
-        var task = SeedTask(db, contract.Id, completedAmount: 25, totalAmount: 100);
+        SeedTask(db, contract.Id, completedAmount: 25, totalAmount: 100);
         var sut = CreateSut(db);
 
-        var result = await sut.Service.GetByIdAsync(task.Id);
+        var result = await sut.Service.GetByContractIdAsync(contract.Id);
 
         result.Succeeded.Should().BeTrue();
-        result.Result!.PercentComplete.Should().Be(25.0m);
+        result.Result!.Single().PercentComplete.Should().Be(25.0m);
     }
 
     [Fact]

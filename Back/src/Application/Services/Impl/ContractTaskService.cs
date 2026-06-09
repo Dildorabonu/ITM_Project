@@ -31,7 +31,6 @@ public class ContractTaskService : IContractTaskService
             return ApiResult<IEnumerable<ContractTaskResponseDto>>.Failure([$"Contract with id '{contractId}' not found."], 404);
 
         var tasks = await _context.ContractTasks
-            .Include(t => t.Creator)
             .Include(t => t.ContractProduct)
             .AsNoTracking()
             .Where(t => t.ContractId == contractId)
@@ -39,20 +38,6 @@ public class ContractTaskService : IContractTaskService
             .ToListAsync();
 
         return ApiResult<IEnumerable<ContractTaskResponseDto>>.Success(tasks.Select(MapToResponse));
-    }
-
-    public async Task<ApiResult<ContractTaskResponseDto>> GetByIdAsync(Guid id)
-    {
-        var task = await _context.ContractTasks
-            .Include(t => t.Creator)
-            .Include(t => t.ContractProduct)
-            .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Id == id);
-
-        if (task is null)
-            return ApiResult<ContractTaskResponseDto>.Failure([$"ContractTask with id '{id}' not found."], 404);
-
-        return ApiResult<ContractTaskResponseDto>.Success(MapToResponse(task));
     }
 
     public async Task<ApiResult<Guid>> CreateAsync(ContractTaskCreateDto dto, Guid createdBy)
@@ -262,11 +247,7 @@ public class ContractTaskService : IContractTaskService
         return ApiResult<IEnumerable<ContractTaskLogResponseDto>>.Success(logs.Select(l => new ContractTaskLogResponseDto
         {
             Id = l.Id,
-            TaskId = l.TaskId,
             Amount = l.Amount,
-            Note = l.Note,
-            Date = l.Date,
-            CreatedBy = l.CreatedBy,
             CreatedByFullName = l.Creator is not null ? $"{l.Creator.FirstName} {l.Creator.LastName}" : null,
             CreatedAt = l.CreatedAt,
         }));
@@ -297,7 +278,6 @@ public class ContractTaskService : IContractTaskService
         return new ContractTaskResponseDto
         {
             Id = t.Id,
-            ContractId = t.ContractId,
             ContractProductId = t.ContractProductId,
             ProductType = t.ContractProduct?.ProductType,
             OrderNo = t.OrderNo,
@@ -306,11 +286,6 @@ public class ContractTaskService : IContractTaskService
             TotalAmount = t.TotalAmount,
             Importance = t.Importance,
             PercentComplete = pct,
-            CreatedBy = t.CreatedBy,
-            CreatedByFullName = t.Creator is not null
-                ? $"{t.Creator.FirstName} {t.Creator.LastName}"
-                : null,
-            CreatedAt = t.CreatedAt,
         };
     }
 }
