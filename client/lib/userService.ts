@@ -1592,12 +1592,13 @@ export const manufacturedProductService = {
     search?: string,
     departmentId?: string,
     status?: ManufacturingStatus,
+    signal?: AbortSignal,
   ): Promise<PagedResult<ManufacturedProductResponse>> => {
     const params: Record<string, unknown> = { page, pageSize };
     if (search) params.search = search;
     if (departmentId) params.departmentId = departmentId;
     if (status !== undefined) params.status = status;
-    const res = await api.get("/api/manufacturedproduct", { params });
+    const res = await api.get("/api/manufacturedproduct", { params, signal });
     return res.data?.result ?? res.data;
   },
 

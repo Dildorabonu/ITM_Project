@@ -46,7 +46,7 @@ public class DashboardService : IDashboardService
         var trendFromUtc = AsUtc(trendRangeFrom, TimeOnly.MinValue);
         var trendToUtc   = AsUtc(trendRangeTo,   TimeOnly.MaxValue);
 
-        // ── KPI period (user-selectable; default = previous calendar week Mon-Sun) ──
+        // ── KPI period (user-selectable; default = current week Mon..today) ──
         DateOnly kpiFrom, kpiTo;
         if (from.HasValue && to.HasValue && from.Value <= to.Value)
         {
@@ -55,10 +55,13 @@ public class DashboardService : IDashboardService
         }
         else
         {
+            // Current week to date (Mon..today). Newly created contracts/products
+            // must show up immediately, so the KPI window is the *current* week —
+            // not the previous completed week — and is compared against the
+            // equal-length window immediately before it (see prevKpi* below).
             var dow = ((int)today.DayOfWeek + 6) % 7;     // Mon=0 .. Sun=6
-            var thisMonday = today.AddDays(-dow);
-            kpiTo   = thisMonday.AddDays(-1);             // last Sunday
-            kpiFrom = kpiTo.AddDays(-6);                  // last Monday
+            kpiFrom = today.AddDays(-dow);                // this Monday
+            kpiTo   = today;                              // today
         }
         var kpiFromUtc = AsUtc(kpiFrom, TimeOnly.MinValue);
         var kpiToUtc   = AsUtc(kpiTo,   TimeOnly.MaxValue);
@@ -403,10 +406,12 @@ public class DashboardService : IDashboardService
             };
         }).ToList();
 
-        // ── Recent activity feed (ActivityLog) — scoped to KPI period ─────
+        // ── Recent activity feed (ActivityLog) — always the latest entries ─
+        // Not scoped to the KPI period: a "recent activity" feed must show the
+        // most recent events regardless of the selected calendar window, else
+        // it reads empty whenever nothing happened in (e.g.) last week.
         var recentActivity = await _context.ActivityLogs
             .AsNoTracking()
-            .Where(a => a.CreatedAt >= kpiFromUtc && a.CreatedAt <= kpiToUtc)
             .OrderByDescending(a => a.CreatedAt)
             .Take(12)
             .Select(a => new RecentActivityDto

@@ -35,6 +35,9 @@ public class ContractService : IContractService
             .Include(c => c.Products).ThenInclude(p => p.ProductDepartments).ThenInclude(pd => pd.Department)
             .Include(c => c.Products).ThenInclude(p => p.ProductUsers).ThenInclude(pu => pu.User).ThenInclude(u => u.Department)
             .AsNoTracking()
+            // Bir nechta collection Include — Cartesian explosion'ni oldini olish uchun
+            // split query ishlatamiz (har bir collection alohida so'rov bilan yuklanadi).
+            .AsSplitQuery()
             .AsQueryable();
 
         if (!viewAll)
@@ -85,6 +88,7 @@ public class ContractService : IContractService
             .Include(c => c.Products).ThenInclude(p => p.ProductDepartments).ThenInclude(pd => pd.Department)
             .Include(c => c.Products).ThenInclude(p => p.ProductUsers).ThenInclude(pu => pu.User).ThenInclude(u => u.Department)
             .AsNoTracking()
+            .AsSplitQuery()
             .AsQueryable();
 
         if (!viewAll)
@@ -118,7 +122,10 @@ public class ContractService : IContractService
         var totalCount = await query.CountAsync();
 
         var contracts = await query
+            // Split query + Skip/Take uchun barqaror tartib shart — CreatedAt yetarli
+            // unikal bo'lmasligi mumkin, shuning uchun Id bilan ham tartiblaymiz.
             .OrderByDescending(c => c.CreatedAt)
+            .ThenBy(c => c.Id)
             .Skip((pagination.Page - 1) * pagination.PageSize)
             .Take(pagination.PageSize)
             .ToListAsync();
@@ -161,6 +168,7 @@ public class ContractService : IContractService
             .Include(c => c.Products).ThenInclude(p => p.ProductDepartments).ThenInclude(pd => pd.Department)
             .Include(c => c.Products).ThenInclude(p => p.ProductUsers).ThenInclude(pu => pu.User).ThenInclude(u => u!.Department)
             .AsNoTracking()
+            .AsSplitQuery()
             .FirstOrDefaultAsync(c => c.Id == id);
 
         if (contract is null)
@@ -289,6 +297,15 @@ public class ContractService : IContractService
     private async Task<List<string>> ValidateProductsAsync(IEnumerable<ContractProductCreateDto> products)
     {
         var errors = new List<string>();
+
+        // Bo'sh shartnomalarga yo'l qo'ymaymiz — kamida bitta to'g'ri mahsulot bo'lishi shart.
+        // Aks holda ProductType bo'sh qatorlar quyida tashlab yuborilib, hech bir mahsulotsiz
+        // (orphan) shartnoma yaratilib qolardi.
+        if (!products.Any(p => !string.IsNullOrWhiteSpace(p.ProductType)))
+        {
+            errors.Add("Shartnomada kamida bitta to'g'ri mahsulot bo'lishi shart.");
+            return errors;
+        }
 
         var idx = 0;
         foreach (var p in products)
@@ -482,12 +499,18 @@ public class ContractService : IContractService
 
         // Manual status changes propagate to active products so the per-product
         // workflow stays in sync with whatever the operator forced at the
-        // contract level.
+        // contract level — BUT only forward. Regressing a product to an earlier
+        // stage (e.g. InProduction → DrawingPending) would silently discard
+        // manufactured-product tracking, so backward moves are ignored. A product
+        // that is already further along keeps its advanced state.
         var productStatus = MapToProductStatus(status);
         if (productStatus.HasValue)
         {
             foreach (var p in contract.Products.Where(p => p.IsActive && p.Status != ContractProductStatus.Cancelled))
-                p.Status = productStatus.Value;
+            {
+                if (ProductStageRank(productStatus.Value) > ProductStageRank(p.Status))
+                    p.Status = productStatus.Value;
+            }
         }
 
         contract.Status = status;
@@ -518,6 +541,19 @@ public class ContractService : IContractService
 
         return ApiResult<int>.Success(200);
     }
+
+    // Mahsulot ish bosqichlarining tartibi. Faqat oldinga siljishga ruxsat berish uchun
+    // ishlatiladi. Cancelled — alohida terminal holat (Deactivate orqali boshqariladi),
+    // shuning uchun bu yerda eng yuqori darajada.
+    private static int ProductStageRank(ContractProductStatus status) => status switch
+    {
+        ContractProductStatus.DrawingPending => 0,
+        ContractProductStatus.TechProcessing => 1,
+        ContractProductStatus.InProduction   => 2,
+        ContractProductStatus.Completed      => 3,
+        ContractProductStatus.Cancelled      => 4,
+        _ => 0,
+    };
 
     private static ContractProductStatus? MapToProductStatus(ContractStatus status) => status switch
     {
@@ -808,6 +844,7 @@ public class ContractService : IContractService
                 .Include(c => c.Products).ThenInclude(p => p.ProductDepartments).ThenInclude(pd => pd.Department)
                 .Include(c => c.Products).ThenInclude(p => p.ProductUsers).ThenInclude(pu => pu.User).ThenInclude(u => u!.Department)
                 .AsNoTracking()
+                .AsSplitQuery()
                 .AsQueryable();
 
             if (isActive.HasValue)
@@ -840,7 +877,8 @@ public class ContractService : IContractService
             .Include(c => c.ContractUsers).ThenInclude(cu => cu.User).ThenInclude(u => u!.Department)
             .Include(c => c.Products).ThenInclude(p => p.ProductDepartments).ThenInclude(pd => pd.Department)
             .Include(c => c.Products).ThenInclude(p => p.ProductUsers).ThenInclude(pu => pu.User).ThenInclude(u => u!.Department)
-            .AsNoTracking();
+            .AsNoTracking()
+            .AsSplitQuery();
 
         if (isActive.HasValue)
             contractsQuery = contractsQuery.Where(c => c.IsActive == isActive.Value);

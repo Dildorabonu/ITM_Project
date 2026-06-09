@@ -26,8 +26,9 @@ public class AuthCookieWriter : IAuthCookieWriter
     public void WriteAuthCookies(HttpResponse response, string accessToken, DateTime accessExpiresAt,
                                  string refreshToken, DateTime refreshExpiresAt)
     {
-        response.Cookies.Append(_options.AccessTokenName, accessToken, BuildAccessOptions(accessExpiresAt));
-        response.Cookies.Append(_options.RefreshTokenName, refreshToken, BuildRefreshOptions(refreshExpiresAt));
+        var secure = ResolveSecure(response);
+        response.Cookies.Append(_options.AccessTokenName, accessToken, BuildAccessOptions(accessExpiresAt, secure));
+        response.Cookies.Append(_options.RefreshTokenName, refreshToken, BuildRefreshOptions(refreshExpiresAt, secure));
         WriteCsrfCookie(response, refreshExpiresAt);
     }
 
@@ -38,7 +39,7 @@ public class AuthCookieWriter : IAuthCookieWriter
         response.Cookies.Append(_options.CsrfTokenName, GenerateCsrfToken(), new CookieOptions
         {
             HttpOnly = false,
-            Secure = _options.Secure,
+            Secure = ResolveSecure(response),
             SameSite = _options.SameSite,
             Path = "/",
             Domain = _options.Domain,
@@ -48,12 +49,13 @@ public class AuthCookieWriter : IAuthCookieWriter
 
     public void ClearAuthCookies(HttpResponse response)
     {
+        var secure = ResolveSecure(response);
         // Match Path/Domain to ensure browser deletes the cookies
         response.Cookies.Delete(_options.AccessTokenName, new CookieOptions
         {
             Path = "/",
             Domain = _options.Domain,
-            Secure = _options.Secure,
+            Secure = secure,
             SameSite = _options.SameSite,
             HttpOnly = true
         });
@@ -61,7 +63,7 @@ public class AuthCookieWriter : IAuthCookieWriter
         {
             Path = _options.RefreshTokenPath,
             Domain = _options.Domain,
-            Secure = _options.Secure,
+            Secure = secure,
             SameSite = _options.SameSite,
             HttpOnly = true
         });
@@ -69,7 +71,7 @@ public class AuthCookieWriter : IAuthCookieWriter
         {
             Path = "/",
             Domain = _options.Domain,
-            Secure = _options.Secure,
+            Secure = secure,
             SameSite = _options.SameSite,
             HttpOnly = false
         });
@@ -81,20 +83,30 @@ public class AuthCookieWriter : IAuthCookieWriter
         return Convert.ToBase64String(bytes);
     }
 
-    private CookieOptions BuildAccessOptions(DateTime expiresAt) => new()
+    // The Secure flag is computed per-request so the same binary works on an internal
+    // HTTP LAN (Secure omitted → browser persists the cookie) and behind HTTPS
+    // (Secure set → cookie only travels over TLS). Behaviour is configurable via SecurePolicy.
+    private bool ResolveSecure(HttpResponse response) => _options.SecurePolicy switch
+    {
+        CookieSecurePolicy.Always => true,
+        CookieSecurePolicy.None => false,
+        _ => response.HttpContext.Request.IsHttps,
+    };
+
+    private CookieOptions BuildAccessOptions(DateTime expiresAt, bool secure) => new()
     {
         HttpOnly = true,
-        Secure = _options.Secure,
+        Secure = secure,
         SameSite = _options.SameSite,
         Path = "/",
         Domain = _options.Domain,
         Expires = expiresAt
     };
 
-    private CookieOptions BuildRefreshOptions(DateTime expiresAt) => new()
+    private CookieOptions BuildRefreshOptions(DateTime expiresAt, bool secure) => new()
     {
         HttpOnly = true,
-        Secure = _options.Secure,
+        Secure = secure,
         SameSite = _options.SameSite,
         Path = _options.RefreshTokenPath,
         Domain = _options.Domain,

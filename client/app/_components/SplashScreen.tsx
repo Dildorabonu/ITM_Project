@@ -85,8 +85,12 @@ export default function SplashScreen({ fading }: SplashScreenProps) {
 
       <style>{`
         @keyframes splashLogoPulse {
-          0%, 100% { transform: scale(1);    filter: drop-shadow(0 0 0 transparent); }
-          50%      { transform: scale(1.035); filter: drop-shadow(0 0 18px var(--accent-mid)); }
+          0%, 100% { transform: scale(1);     }
+          50%      { transform: scale(1.035); }
+        }
+        @keyframes splashLogoGlow {
+          0%, 100% { opacity: 0; }
+          50%      { opacity: 1; }
         }
         @keyframes splashDot {
           0%, 70%, 100% { transform: scale(0.6); opacity: 0.3; }
@@ -96,7 +100,13 @@ export default function SplashScreen({ fading }: SplashScreenProps) {
           from { opacity: 0; transform: translateY(8px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-        .splash-logo  { animation: splashLogoPulse 2.4s ease-in-out infinite, splashEnter 0.55s ease both; }
+        .splash-logo  { position: relative; animation: splashLogoPulse 2.4s ease-in-out infinite, splashEnter 0.55s ease both; }
+        .splash-logo::before {
+          content: ""; position: absolute; inset: -30%; border-radius: 50%; z-index: -1;
+          background: radial-gradient(circle, var(--accent-mid), transparent 70%);
+          filter: blur(14px); opacity: 0;
+          animation: splashLogoGlow 2.4s ease-in-out infinite;
+        }
         .splash-title { animation: splashEnter 0.55s ease 0.12s both; }
         .splash-sub   { animation: splashEnter 0.55s ease 0.22s both; }
         .splash-dots  { animation: splashEnter 0.55s ease 0.32s both; }
