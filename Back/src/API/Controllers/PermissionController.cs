@@ -22,15 +22,4 @@ public class PermissionController : ControllerBase
         var result = await _permissionService.GetAllGroupedAsync();
         return Ok(result);
     }
-
-    [HttpGet("{id:guid}")]
-    public async Task<IActionResult> GetById(Guid id)
-    {
-        var result = await _permissionService.GetByIdAsync(id);
-
-        if (!result.Succeeded)
-            return NotFound(result);
-
-        return Ok(result);
-    }
 }

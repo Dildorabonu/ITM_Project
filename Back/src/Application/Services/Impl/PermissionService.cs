@@ -39,21 +39,4 @@ public class PermissionService : IPermissionService
 
         return ApiResult<IEnumerable<PermissionModuleResponseDto>>.Success(grouped);
     }
-
-    public async Task<ApiResult<PermissionResponseDto>> GetByIdAsync(Guid id)
-    {
-        var permission = await _context.Permissions
-            .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == id);
-
-        if (permission is null)
-            return ApiResult<PermissionResponseDto>.Failure([$"Permission with id '{id}' not found."], 404);
-
-        return ApiResult<PermissionResponseDto>.Success(new PermissionResponseDto
-        {
-            Id = permission.Id,
-            Action = permission.Action.ToString(),
-            ActionName = permission.Action.GetDisplayName(),
-        });
-    }
 }
