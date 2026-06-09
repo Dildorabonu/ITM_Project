@@ -7,7 +7,6 @@ namespace Application.Services;
 
 public interface ITechnicalDrawingService
 {
-    Task<ApiResult<IEnumerable<TechnicalDrawingResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, DrawingStatus? status = null, bool? isActive = null);
     Task<ApiResult<PagedResult<TechnicalDrawingRowDto>>> GetPagedAsync(
         Guid currentUserId,
         bool viewAll,

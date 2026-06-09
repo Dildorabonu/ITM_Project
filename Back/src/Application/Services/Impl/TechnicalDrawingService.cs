@@ -21,38 +21,6 @@ public class TechnicalDrawingService : ITechnicalDrawingService
         _notificationService = notificationService;
     }
 
-    public async Task<ApiResult<IEnumerable<TechnicalDrawingResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, DrawingStatus? status = null, bool? isActive = null)
-    {
-        var query = _context.TechnicalDrawings
-            .Include(d => d.Contract)
-            .Include(d => d.ContractProduct)
-            .Include(d => d.Creator)
-            .AsNoTracking()
-            .AsQueryable();
-
-        if (!viewAll)
-        {
-            query = query.Where(d =>
-                _context.ContractUsers.Any(cu => cu.ContractId == d.ContractId && cu.UserId == currentUserId) ||
-                _context.ContractDepartments.Any(cd => cd.ContractId == d.ContractId &&
-                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == cd.DepartmentId)) ||
-                (d.ContractProductId != null && (
-                    _context.ContractProductUsers.Any(pu => pu.ContractProductId == d.ContractProductId && pu.UserId == currentUserId) ||
-                    _context.ContractProductDepartments.Any(pd => pd.ContractProductId == d.ContractProductId &&
-                        _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == pd.DepartmentId))
-                )));
-        }
-
-        if (status.HasValue)
-            query = query.Where(d => d.Status == status.Value);
-
-        if (isActive.HasValue)
-            query = query.Where(d => d.IsActive == isActive.Value);
-
-        var list = await query.OrderByDescending(d => d.CreatedAt).ToListAsync();
-        return ApiResult<IEnumerable<TechnicalDrawingResponseDto>>.Success(list.Select(MapToResponse));
-    }
-
     public async Task<ApiResult<PagedResult<TechnicalDrawingRowDto>>> GetPagedAsync(
         Guid currentUserId,
         bool viewAll,
@@ -375,7 +343,6 @@ public class TechnicalDrawingService : ITechnicalDrawingService
         Title = d.Title,
         Notes = d.Notes,
         Status = d.Status,
-        CreatedBy = d.CreatedBy,
         CreatedByFullName = d.Creator is not null ? $"{d.Creator.FirstName} {d.Creator.LastName}" : null,
         CreatedAt = d.CreatedAt,
         IsActive = d.IsActive,

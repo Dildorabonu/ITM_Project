@@ -27,20 +27,6 @@ public class TechnicalDrawingController : ControllerBase
         _context = context;
     }
 
-    [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] DrawingStatus? status = null, [FromQuery] bool? isActive = null)
-    {
-        var canView = User.HasClaim("perm", "TechnicalDrawings.View");
-        var viewAll = User.HasClaim("perm", "TechnicalDrawings.ViewAll");
-
-        if (!canView && !viewAll)
-            return Forbid();
-
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var result = await _drawingService.GetAllAsync(userId, viewAll, status, isActive);
-        return StatusCode(result.StatusCode, result);
-    }
-
     [HttpGet("paged")]
     public async Task<IActionResult> GetPaged(
         [FromQuery] int page = 1,
