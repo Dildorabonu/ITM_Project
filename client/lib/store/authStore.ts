@@ -5,7 +5,6 @@ import { api } from "@/lib/api";
 import { getApiBase } from "@/lib/apiBase";
 
 export interface User {
-  id: string;
   login: string;
   role: string;
   firstName: string;
@@ -26,7 +25,6 @@ interface AuthState {
 }
 
 interface AuthUserResponse {
-  id: string;
   login: string;
   firstName: string;
   lastName: string;
@@ -37,7 +35,6 @@ interface AuthUserResponse {
 
 function toUser(dto: AuthUserResponse): User {
   return {
-    id: dto.id,
     login: dto.login,
     role: dto.role ?? "",
     firstName: dto.firstName ?? "",

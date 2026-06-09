@@ -1099,14 +1099,9 @@ public class ContractService : IContractService
         Status = contract.Status,
         Notes = contract.Notes,
         IsActive = contract.IsActive,
-        DeactivationReason = contract.DeactivationReason,
-        DeactivationNote = contract.DeactivationNote,
-        DeactivatedAt = contract.DeactivatedAt,
-        CreatedBy = contract.CreatedBy,
         CreatedByFullName = contract.Creator is not null
             ? $"{contract.Creator.FirstName} {contract.Creator.LastName}"
             : null,
-        CreatedAt = contract.CreatedAt,
         AssignedUsers = contract.ContractUsers
             .Select(cu => new ContractUserDto
             {

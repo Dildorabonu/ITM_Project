@@ -519,12 +519,7 @@ export interface ContractResponse {
   status: ContractStatus;
   notes: string | null;
   isActive: boolean;
-  deactivationReason: ContractDeactivationReason | null;
-  deactivationNote: string | null;
-  deactivatedAt: string | null;
-  createdBy: string;
   createdByFullName: string | null;
-  createdAt: string;
   products: ContractProductResponse[];
 }
 

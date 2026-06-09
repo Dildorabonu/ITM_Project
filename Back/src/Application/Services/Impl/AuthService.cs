@@ -240,7 +240,6 @@ public class AuthService : IAuthService
     {
         return new AuthUserDto
         {
-            Id = user.Id,
             Login = user.Login,
             FirstName = user.FirstName,
             LastName = user.LastName,
