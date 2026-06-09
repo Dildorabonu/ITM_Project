@@ -95,7 +95,6 @@ public class ShipmentBatchService : IShipmentBatchService
             DepartmentId = dto.DepartmentId,
             BatchNo = nextBatchNo + 1,
             Amount = dto.Amount,
-            Notes = dto.Notes,
             CreatedBy = userId,
             CreatedAt = DateTime.UtcNow,
         };
@@ -136,14 +135,9 @@ public class ShipmentBatchService : IShipmentBatchService
     private static ShipmentBatchResponseDto MapToResponse(ShipmentBatch s) => new()
     {
         Id = s.Id,
-        ContractId = s.ContractId,
-        ContractProductId = s.ContractProductId,
-        DepartmentId = s.DepartmentId,
         DepartmentName = s.Department?.Name,
         BatchNo = s.BatchNo,
         Amount = s.Amount,
-        Notes = s.Notes,
-        CreatedBy = s.CreatedBy,
         CreatedByFullName = s.Creator is null ? null : $"{s.Creator.FirstName} {s.Creator.LastName}".Trim(),
         CreatedAt = s.CreatedAt,
     };

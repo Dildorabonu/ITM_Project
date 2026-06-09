@@ -83,7 +83,6 @@ public class ScanController : ControllerBase
             return StatusCode(501, new { message = "Skaner faqat Windows da qo'llab-quvvatlanadi." });
 
         byte[]? imageBytes = null;
-        string? fileName = null;
         Exception? err = null;
 
         var thread = new Thread(() =>
@@ -140,7 +139,6 @@ public class ScanController : ControllerBase
                 imageFile.SaveFile(tempPath);
 
                 imageBytes = System.IO.File.ReadAllBytes(tempPath);
-                fileName = $"scan_{DateTime.Now:yyyyMMdd_HHmmss}.jpg";
                 System.IO.File.Delete(tempPath);
             }
             catch (Exception ex)
@@ -158,7 +156,7 @@ public class ScanController : ControllerBase
             return StatusCode(500, new { message = err.Message });
         }
 
-        return File(imageBytes!, "image/jpeg", fileName!);
+        return File(imageBytes!, "image/jpeg");
     }
 
     private static void SetWiaProperty(dynamic properties, int propertyId, int value)
