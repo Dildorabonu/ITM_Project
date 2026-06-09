@@ -903,7 +903,6 @@ export interface TechnicalDrawingResponse {
   title: string;
   notes: string | null;
   status: DrawingStatus;
-  createdBy: string;
   createdByFullName: string | null;
   createdAt: string;
   isActive: boolean;
@@ -941,18 +940,6 @@ export interface TechnicalDrawingUpdatePayload {
 }
 
 export const technicalDrawingService = {
-  getAll: async (status?: DrawingStatus, isActive?: boolean): Promise<TechnicalDrawingResponse[]> => {
-    const params: Record<string, string> = {};
-    if (status !== undefined) params.status = String(status);
-    if (isActive !== undefined) params.isActive = String(isActive);
-    try {
-      const res = await api.get("/api/technicaldrawing", { params });
-      return res.data?.result ?? res.data ?? [];
-    } catch {
-      return [];
-    }
-  },
-
   getPaged: async (
     page = 1,
     pageSize = 20,
