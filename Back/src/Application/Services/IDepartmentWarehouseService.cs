@@ -8,5 +8,5 @@ namespace Application.Services;
 public interface IDepartmentWarehouseService
 {
     Task<ApiResult<IEnumerable<DepartmentWarehouseSummaryDto>>> GetDepartmentSummariesAsync(Guid? restrictToDepartmentId = null);
-    Task<ApiResult<IEnumerable<ProductResponseDto>>> GetByDepartmentAsync(Guid departmentId);
+    Task<ApiResult<IEnumerable<DepartmentProductDto>>> GetByDepartmentAsync(Guid departmentId);
 }
