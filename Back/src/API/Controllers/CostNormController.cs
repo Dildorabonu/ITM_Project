@@ -37,24 +37,6 @@ public class CostNormController : ControllerBase
         return StatusCode(result.StatusCode, result);
     }
 
-    // GET /api/costnorm/{id}
-    [HasPermission("CostNorm.View")]
-    [HttpGet("{id:guid}")]
-    public async Task<IActionResult> GetById(Guid id)
-    {
-        var result = await _costNormService.GetByIdAsync(id);
-        return StatusCode(result.StatusCode, result);
-    }
-
-    // GET /api/costnorm/by-contract/{contractId}
-    [HasPermission("CostNorm.View")]
-    [HttpGet("by-contract/{contractId:guid}")]
-    public async Task<IActionResult> GetByContract(Guid contractId)
-    {
-        var result = await _costNormService.GetByContractIdAsync(contractId);
-        return StatusCode(result.StatusCode, result);
-    }
-
     // POST /api/costnorm
     [HasPermission("CostNorm.Create")]
     [HttpPost]
