@@ -2,14 +2,9 @@ import { api } from "./api";
 
 export interface ShipmentBatch {
   id: string;
-  contractId: string;
-  contractProductId: string | null;
-  departmentId: string | null;
   departmentName: string | null;
   batchNo: number;
   amount: number;
-  notes: string | null;
-  createdBy: string;
   createdByFullName: string | null;
   createdAt: string;
 }
@@ -19,7 +14,6 @@ export interface ShipmentBatchCreatePayload {
   contractProductId?: string | null;
   departmentId?: string | null;
   amount: number;
-  notes?: string | null;
 }
 
 export const shipmentBatchService = {

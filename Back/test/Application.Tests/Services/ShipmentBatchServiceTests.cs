@@ -400,7 +400,6 @@ public class ShipmentBatchServiceTests
         {
             ContractId = contract.Id,
             Amount = 20,
-            Notes = "Birinchi partiya",
         }, creator);
 
         result.Succeeded.Should().BeTrue();
@@ -412,7 +411,6 @@ public class ShipmentBatchServiceTests
         saved.ContractId.Should().Be(contract.Id);
         saved.BatchNo.Should().Be(1);
         saved.Amount.Should().Be(20);
-        saved.Notes.Should().Be("Birinchi partiya");
         saved.CreatedBy.Should().Be(creator);
     }
 
@@ -500,8 +498,7 @@ public class ShipmentBatchServiceTests
         }, EnsureUser(db));
 
         result.Succeeded.Should().BeTrue();
-        result.Result!.DepartmentId.Should().Be(dept.Id);
-        result.Result.DepartmentName.Should().Be("Tayyor mahsulot ombori");
+        result.Result!.DepartmentName.Should().Be("Tayyor mahsulot ombori");
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -537,7 +534,7 @@ public class ShipmentBatchServiceTests
         var result = await sut.Service.GetByContractAsync(contract.Id, null);
 
         result.Succeeded.Should().BeTrue();
-        result.Result!.Should().ContainSingle().Which.ContractId.Should().Be(contract.Id);
+        result.Result!.Should().ContainSingle().Which.Amount.Should().Be(5);
     }
 
     [Fact]
@@ -556,7 +553,7 @@ public class ShipmentBatchServiceTests
 
         result.Succeeded.Should().BeTrue();
         result.Result!.Should().HaveCount(2);
-        result.Result!.Should().OnlyContain(b => b.ContractProductId == productA.Id);
+        result.Result!.Select(b => b.BatchNo).Should().BeEquivalentTo(new[] { 1, 2 });
     }
 
     [Fact]
