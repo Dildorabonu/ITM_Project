@@ -2,7 +2,6 @@ namespace Application.DTOs.CostNorms;
 
 public class CostNormItemResponseDto
 {
-    public Guid Id { get; set; }
     public bool IsSection { get; set; }
     public string? SectionName { get; set; }
     public string? No { get; set; }

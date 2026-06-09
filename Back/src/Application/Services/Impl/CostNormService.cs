@@ -35,7 +35,6 @@ public class CostNormService : ICostNormService
         var query = _context.CostNorms
             .Include(c => c.Contract)
             .Include(c => c.ContractProduct)
-            .Include(c => c.Creator)
             .Include(c => c.Items.OrderBy(i => i.SortOrder))
             .AsNoTracking()
             .AsQueryable();
@@ -64,31 +63,6 @@ public class CostNormService : ICostNormService
             .ToListAsync();
 
         return ApiResult<IEnumerable<CostNormResponseDto>>.Success(list.Select(MapToResponse));
-    }
-
-    public async Task<ApiResult<CostNormResponseDto>> GetByIdAsync(Guid id)
-    {
-        var costNorm = await _context.CostNorms
-            .Include(c => c.Contract)
-            .Include(c => c.ContractProduct)
-            .Include(c => c.Creator)
-            .Include(c => c.Items.OrderBy(i => i.SortOrder))
-            .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.Id == id);
-
-        if (costNorm is null)
-            return ApiResult<CostNormResponseDto>.Failure([$"CostNorm with id '{id}' not found."], 404);
-
-        return ApiResult<CostNormResponseDto>.Success(MapToResponse(costNorm));
-    }
-
-    public async Task<ApiResult<IEnumerable<CostNormResponseDto>>> GetByContractIdAsync(Guid contractId)
-    {
-        var contractExists = await _context.Contracts.AnyAsync(c => c.Id == contractId);
-        if (!contractExists)
-            return ApiResult<IEnumerable<CostNormResponseDto>>.Failure([$"Contract with id '{contractId}' not found."], 404);
-
-        return await GetAllAsync(Guid.Empty, viewAll: true, contractId);
     }
 
     public async Task<ApiResult<Guid>> CreateAsync(CostNormCreateDto dto, Guid createdBy)
@@ -336,7 +310,6 @@ public class CostNormService : ICostNormService
     private static CostNormResponseDto MapToResponse(CostNorm c) => new()
     {
         Id = c.Id,
-        ContractId = c.ContractId,
         ContractNo = c.Contract?.ContractNo ?? string.Empty,
         ContractProductId = c.ContractProductId,
         ProductType = c.ContractProduct?.ProductType,
@@ -344,16 +317,10 @@ public class CostNormService : ICostNormService
         Title = c.Title,
         Notes = c.Notes,
         Status = c.Status,
-        CreatedBy = c.CreatedBy,
-        CreatedByFullName = c.Creator is not null
-            ? $"{c.Creator.FirstName} {c.Creator.LastName}"
-            : null,
-        CreatedAt = c.CreatedAt,
         IsActive = c.IsActive,
         Metadata = DeserializeMetadata(c.MetadataJson),
         Items = c.Items.Select(i => new CostNormItemResponseDto
         {
-            Id = i.Id,
             IsSection = i.IsSection,
             SectionName = i.SectionName,
             No = i.No,

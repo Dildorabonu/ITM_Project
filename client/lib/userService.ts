@@ -1007,7 +1007,6 @@ export const technicalDrawingService = {
 // ─── CostNorm ─────────────────────────────────────────────────────────────────
 
 export interface CostNormItemResponse {
-  id: string;
   isSection: boolean;
   sectionName: string | null;
   no: string | null;
@@ -1036,7 +1035,6 @@ export interface CostNormMetadata {
 
 export interface CostNormResponse {
   id: string;
-  contractId: string;
   contractProductId: string | null;
   productType: string | null;
   contractQuantity: number;
@@ -1044,9 +1042,6 @@ export interface CostNormResponse {
   contractNo: string;
   title: string;
   notes: string | null;
-  createdBy: string;
-  createdByFullName: string | null;
-  createdAt: string;
   isActive: boolean;
   items: CostNormItemResponse[];
   metadata?: CostNormMetadata | null;
@@ -1087,11 +1082,6 @@ export const costNormService = {
     } catch {
       return [];
     }
-  },
-
-  getById: async (id: string): Promise<CostNormResponse> => {
-    const res = await api.get(`/api/costnorm/${id}`);
-    return res.data?.result ?? res.data;
   },
 
   create: async (dto: CostNormCreatePayload): Promise<string> => {
