@@ -16,15 +16,6 @@ public class RoleService : IRoleService
         _context = context;
     }
 
-    public async Task<ApiResult<IEnumerable<RoleResponseDto>>> GetAllAsync()
-    {
-        var roles = await _context.Roles
-            .AsNoTracking()
-            .ToListAsync();
-
-        return ApiResult<IEnumerable<RoleResponseDto>>.Success(roles.Select(MapToResponse));
-    }
-
     public async Task<ApiResult<PagedResult<RoleResponseDto>>> GetPagedAsync(PaginationParams pagination, string? search = null)
     {
         var query = _context.Roles.AsNoTracking().AsQueryable();
@@ -49,15 +40,16 @@ public class RoleService : IRoleService
         return ApiResult<PagedResult<RoleResponseDto>>.Success(paged);
     }
 
-    public async Task<ApiResult<IEnumerable<RoleResponseDto>>> GetLookupAsync()
+    public async Task<ApiResult<IEnumerable<RoleLookupDto>>> GetLookupAsync()
     {
         var roles = await _context.Roles
             .AsNoTracking()
             .Where(r => r.IsActive)
             .OrderBy(r => r.Name)
+            .Select(r => new RoleLookupDto { Id = r.Id, Name = r.Name })
             .ToListAsync();
 
-        return ApiResult<IEnumerable<RoleResponseDto>>.Success(roles.Select(MapToResponse));
+        return ApiResult<IEnumerable<RoleLookupDto>>.Success(roles);
     }
 
     public async Task<ApiResult<object>> CreateAsync(RoleCreateDto dto)

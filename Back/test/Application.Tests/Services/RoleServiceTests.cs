@@ -303,29 +303,8 @@ public class RoleServiceTests
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    //  GetAllAsync / GetLookupAsync / GetPermissionsAsync
+    //  GetLookupAsync / GetPermissionsAsync
     // ─────────────────────────────────────────────────────────────────────
-
-    [Fact]
-    public async Task GetAllAsync_ReturnsAllRolesIncludingInactive()
-    {
-        // Arrange — SuperAdmin avtomatik seeded; tashqari 3 ta qo'shamiz
-        await using var db = TestDbContextFactory.Create();
-        TestData.SeedRole(db, "Admin");
-        TestData.SeedRole(db, "Operator");
-        TestData.SeedRole(db, "Arxiv", isActive: false);
-        var sut = CreateService(db);
-
-        // Act
-        var result = await sut.GetAllAsync();
-
-        // Assert
-        result.Succeeded.Should().BeTrue();
-        var names = result.Result!.Select(r => r.Name).ToList();
-        names.Should().Contain(["SuperAdmin", "Admin", "Operator", "Arxiv"]);
-        result.Result!.Should().Contain(r => r.Name == "Arxiv" && !r.IsActive,
-            "GetAll faol va nofaol rollarni ham qaytarishi kerak");
-    }
 
     [Fact]
     public async Task GetLookupAsync_ReturnsOnlyActiveRolesOrderedByName()
