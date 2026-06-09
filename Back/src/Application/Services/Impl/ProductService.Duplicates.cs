@@ -30,7 +30,6 @@ public partial class ProductService
         const double threshold = 0.4;
 
         var query = _context.Products
-            .Include(p => p.Department)
             .AsNoTracking()
             .AsQueryable();
 
@@ -52,8 +51,6 @@ public partial class ProductService
                 Id = p.Id,
                 Name = p.Name,
                 InvoiceNumber = p.InvoiceNumber,
-                DepartmentId = p.DepartmentId,
-                DepartmentName = p.Department!.Name,
                 Similarity = EF.Functions.TrigramsSimilarity(p.NameNormalized, normTerm)
             })
             .ToListAsync();
@@ -82,7 +79,6 @@ public partial class ProductService
         var deptIds = prepared.Select(p => p.DepartmentId).Distinct().ToList();
 
         var existingQuery = _context.Products
-            .Include(p => p.Department)
             .AsNoTracking()
             .Where(p => deptIds.Contains(p.DepartmentId));
 
@@ -96,8 +92,7 @@ public partial class ProductService
                 p.Name,
                 p.NameNormalized,
                 p.InvoiceNumber,
-                p.DepartmentId,
-                DepartmentName = p.Department!.Name
+                p.DepartmentId
             })
             .ToListAsync();
 
@@ -128,8 +123,6 @@ public partial class ProductService
                             Id = exact.Id,
                             Name = exact.Name,
                             InvoiceNumber = exact.InvoiceNumber,
-                            DepartmentId = exact.DepartmentId,
-                            DepartmentName = exact.DepartmentName,
                             Similarity = 1d
                         };
 
@@ -144,8 +137,6 @@ public partial class ProductService
                             Id = x.e.Id,
                             Name = x.e.Name,
                             InvoiceNumber = x.e.InvoiceNumber,
-                            DepartmentId = x.e.DepartmentId,
-                            DepartmentName = x.e.DepartmentName,
                             Similarity = x.sim
                         })
                         .ToList();

@@ -61,19 +61,6 @@ public partial class ProductService : IProductService
         return ApiResult<PagedResult<ProductResponseDto>>.Success(paged);
     }
 
-    public async Task<ApiResult<ProductResponseDto>> GetByIdAsync(Guid id)
-    {
-        var product = await _context.Products
-            .Include(p => p.Department)
-            .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == id);
-
-        if (product is null)
-            return ApiResult<ProductResponseDto>.Failure([$"Product with id '{id}' not found."]);
-
-        return ApiResult<ProductResponseDto>.Success(MapToResponse(product));
-    }
-
     public async Task<ApiResult<int>> CreateAsync(ProductCreateDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.InvoiceNumber))

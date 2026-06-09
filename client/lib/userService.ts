@@ -289,8 +289,6 @@ export interface ProductSimilar {
   id: string;
   name: string;
   invoiceNumber: string;
-  departmentId: string;
-  departmentName: string;
   similarity: number;
 }
 
