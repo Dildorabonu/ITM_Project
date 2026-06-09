@@ -146,13 +146,6 @@ export const roleService = {
     return data.map((r: { id: string; name: string }) => ({ id: r.id, name: r.name }));
   },
 
-  // Returns all roles (active + inactive) — use in management page
-  getAll: async (): Promise<RoleOption[]> => {
-    const res = await api.get("/api/role");
-    const data = res.data?.result ?? res.data ?? [];
-    return data.map((r: { id: string; name: string }) => ({ id: r.id, name: r.name }));
-  },
-
   getPaged: async (
     page = 1,
     pageSize = 20,

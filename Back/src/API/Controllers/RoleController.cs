@@ -20,14 +20,6 @@ public class RoleController : ControllerBase
     }
 
     [HasPermission("Roles.View")]
-    [HttpGet]
-    public async Task<IActionResult> GetAll()
-    {
-        var result = await _roleService.GetAllAsync();
-        return Ok(result);
-    }
-
-    [HasPermission("Roles.View")]
     [HttpGet("paged")]
     public async Task<IActionResult> GetPaged(
         [FromQuery] int page = 1,
