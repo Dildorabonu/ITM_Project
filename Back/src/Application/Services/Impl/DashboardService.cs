@@ -16,8 +16,6 @@ public class DashboardService : IDashboardService
     }
 
     public async Task<ApiResult<DashboardSummaryDto>> GetSummaryAsync(
-        DateOnly? from = null,
-        DateOnly? to = null,
         DateOnly? trendFrom = null,
         DateOnly? trendTo = null)
     {
@@ -46,23 +44,14 @@ public class DashboardService : IDashboardService
         var trendFromUtc = AsUtc(trendRangeFrom, TimeOnly.MinValue);
         var trendToUtc   = AsUtc(trendRangeTo,   TimeOnly.MaxValue);
 
-        // ── KPI period (user-selectable; default = current week Mon..today) ──
-        DateOnly kpiFrom, kpiTo;
-        if (from.HasValue && to.HasValue && from.Value <= to.Value)
-        {
-            kpiFrom = from.Value;
-            kpiTo   = to.Value;
-        }
-        else
-        {
-            // Current week to date (Mon..today). Newly created contracts/products
-            // must show up immediately, so the KPI window is the *current* week —
-            // not the previous completed week — and is compared against the
-            // equal-length window immediately before it (see prevKpi* below).
-            var dow = ((int)today.DayOfWeek + 6) % 7;     // Mon=0 .. Sun=6
-            kpiFrom = today.AddDays(-dow);                // this Monday
-            kpiTo   = today;                              // today
-        }
+        // ── KPI period = current week to date (Mon..today) ──
+        // Newly created contracts/products must show up immediately, so the KPI
+        // window is the *current* week — not the previous completed week — and is
+        // compared against the equal-length window immediately before it (see
+        // prevKpi* below).
+        var dow = ((int)today.DayOfWeek + 6) % 7;     // Mon=0 .. Sun=6
+        var kpiFrom = today.AddDays(-dow);            // this Monday
+        var kpiTo   = today;                          // today
         var kpiFromUtc = AsUtc(kpiFrom, TimeOnly.MinValue);
         var kpiToUtc   = AsUtc(kpiTo,   TimeOnly.MaxValue);
 
@@ -96,12 +85,6 @@ public class DashboardService : IDashboardService
             c.Status != ContractStatus.Completed &&
             c.Status != ContractStatus.Cancelled &&
             c.EndDate < today);
-
-        var criticalDeadlines = contracts.Count(c =>
-            c.Status != ContractStatus.Completed &&
-            c.Status != ContractStatus.Cancelled &&
-            c.EndDate >= today &&
-            c.EndDate <= today.AddDays(7));
 
         // Status distribution — counted at the product level. Contract.Status
         // collapses to the earliest stage of its products, which hides advanced
@@ -488,7 +471,6 @@ public class DashboardService : IDashboardService
                     ? Math.Round((double)completedContracts / totalContracts * 100.0, 1)
                     : 0,
                 OverdueContracts = overdueContracts,
-                CriticalDeadlines = criticalDeadlines,
                 TotalProducts = totalProducts,
                 InProductionProducts = inProductionProducts,
                 ManufacturedInProgress = mfgInProgress,
@@ -501,7 +483,6 @@ public class DashboardService : IDashboardService
                 TotalProducedAmount = totalProducedAmount,
                 TotalBatchedAmount = totalBatchedAmount,
             },
-            KpiPeriod = new KpiPeriodDto { From = kpiFrom, To = kpiTo },
             PreviousKpis = new DashboardKpiDeltaDto
             {
                 ActiveContracts = prevActiveContracts,
@@ -509,7 +490,6 @@ public class DashboardService : IDashboardService
                 ManufacturedInProgress = prevMfgInProgress,
                 TotalEmployees = prevTotalEmployees,
             },
-            PreviousKpiPeriod = new KpiPeriodDto { From = prevKpiFrom, To = prevKpiTo },
             KpiSparkline = kpiSparkline,
             ContractStatus = statusBuckets,
             ProductionTrend = productionTrend,
