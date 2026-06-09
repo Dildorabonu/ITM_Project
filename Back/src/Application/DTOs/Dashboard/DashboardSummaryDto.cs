@@ -5,9 +5,7 @@ namespace Application.DTOs.Dashboard;
 public class DashboardSummaryDto
 {
     public DashboardKpiDto Kpis { get; set; } = new();
-    public KpiPeriodDto KpiPeriod { get; set; } = new();
     public DashboardKpiDeltaDto PreviousKpis { get; set; } = new();
-    public KpiPeriodDto PreviousKpiPeriod { get; set; } = new();
     public IEnumerable<KpiSparklinePointDto> KpiSparkline { get; set; } = [];
     public IEnumerable<ContractStatusBucketDto> ContractStatus { get; set; } = [];
     public IEnumerable<ProductionTrendPointDto> ProductionTrend { get; set; } = [];
@@ -20,12 +18,6 @@ public class DashboardSummaryDto
     public IEnumerable<HeatmapCellDto> ActivityHeatmap { get; set; } = [];
 }
 
-public class KpiPeriodDto
-{
-    public DateOnly From { get; set; }
-    public DateOnly To { get; set; }
-}
-
 public class DashboardKpiDto
 {
     public int TotalContracts { get; set; }
@@ -34,7 +26,6 @@ public class DashboardKpiDto
     public int CancelledContracts { get; set; }
     public double CompletionRate { get; set; }
     public int OverdueContracts { get; set; }
-    public int CriticalDeadlines { get; set; }
     public int TotalProducts { get; set; }
     public int InProductionProducts { get; set; }
     public int ManufacturedInProgress { get; set; }
