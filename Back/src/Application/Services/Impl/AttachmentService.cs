@@ -181,13 +181,9 @@ public class AttachmentService : IAttachmentService
     private static AttachmentResponseDto MapToResponse(Attachment a) => new()
     {
         Id = a.Id,
-        EntityType = a.EntityType,
-        EntityId = a.EntityId,
         FileName = a.FileName,
-        ContentType = a.ContentType,
         FileSize = a.FileSize,
         UploadedAt = a.UploadedAt,
-        UploadedBy = a.UploadedBy,
         UploadedByFullName = a.Uploader is not null
             ? $"{a.Uploader.FirstName} {a.Uploader.LastName}"
             : null,
