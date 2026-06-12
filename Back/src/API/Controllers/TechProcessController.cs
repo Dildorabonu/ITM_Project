@@ -47,22 +47,12 @@ public class TechProcessController : ControllerBase
         return StatusCode(result.StatusCode, result);
     }
 
-    // GET /api/techprocess/by-contract/{contractId}
-    [HasPermission("TechProcess.View")]
-    [HttpGet("by-contract/{contractId:guid}")]
-    public async Task<IActionResult> GetByContract(Guid contractId)
-    {
-        var result = await _techProcessService.GetByContractIdAsync(contractId);
-        return StatusCode(result.StatusCode, result);
-    }
-
     // POST /api/techprocess
     [HasPermission("TechProcess.Create")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] TechProcessCreateDto dto)
     {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var result = await _techProcessService.CreateAsync(dto, userId);
+        var result = await _techProcessService.CreateAsync(dto);
         return StatusCode(result.StatusCode, result);
     }
 
@@ -82,24 +72,6 @@ public class TechProcessController : ControllerBase
     {
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         var result = await _techProcessService.ApproveAsync(id, userId);
-        return StatusCode(result.StatusCode, result);
-    }
-
-    // PUT /api/techprocess/{id}/send-to-warehouse
-    [HasPermission("TechProcess.Update")]
-    [HttpPut("{id:guid}/send-to-warehouse")]
-    public async Task<IActionResult> SendToWarehouse(Guid id)
-    {
-        var result = await _techProcessService.SendToWarehouseAsync(id);
-        return StatusCode(result.StatusCode, result);
-    }
-
-    // DELETE /api/techprocess/{id}
-    [HasPermission("TechProcess.Delete")]
-    [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id)
-    {
-        var result = await _techProcessService.DeleteAsync(id);
         return StatusCode(result.StatusCode, result);
     }
 
@@ -143,13 +115,4 @@ public class TechProcessController : ControllerBase
         var bytes = await System.IO.File.ReadAllBytesAsync(filePath);
         return File(bytes, contentType, fileName);
     }
-
-    [HasPermission("TechProcess.Delete")]
-    [HttpDelete("{id:guid}/files/{fileId:guid}")]
-    public async Task<IActionResult> DeleteFile(Guid id, Guid fileId)
-    {
-        var result = await _attachmentService.DeleteAsync(EntityType, id, fileId);
-        return StatusCode(result.StatusCode, result);
-    }
-
 }

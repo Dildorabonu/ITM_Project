@@ -72,21 +72,7 @@ public class TechProcessService : ITechProcessService
         return ApiResult<TechProcessResponseDto>.Success(MapToResponse(tp));
     }
 
-    public async Task<ApiResult<IEnumerable<TechProcessResponseDto>>> GetByContractIdAsync(Guid contractId)
-    {
-        var list = await _context.TechProcesses
-            .Include(t => t.Contract)
-            .Include(t => t.ContractProduct)
-            .Include(t => t.Approver)
-            .AsNoTracking()
-            .Where(t => t.ContractId == contractId)
-            .OrderByDescending(t => t.CreatedAt)
-            .ToListAsync();
-
-        return ApiResult<IEnumerable<TechProcessResponseDto>>.Success(list.Select(MapToResponse));
-    }
-
-    public async Task<ApiResult<Guid>> CreateAsync(TechProcessCreateDto dto, Guid createdBy)
+    public async Task<ApiResult<Guid>> CreateAsync(TechProcessCreateDto dto)
     {
         var contractExists = await _context.Contracts.AnyAsync(c => c.Id == dto.ContractId);
         if (!contractExists)
@@ -250,49 +236,19 @@ public class TechProcessService : ITechProcessService
         return ApiResult<int>.Success(1);
     }
 
-    public async Task<ApiResult<int>> SendToWarehouseAsync(Guid id)
-    {
-        var tp = await _context.TechProcesses.FirstOrDefaultAsync(t => t.Id == id);
-        if (tp is null)
-            return ApiResult<int>.Failure([$"TechProcess '{id}' topilmadi."], 404);
-
-        if (tp.Status != ProcessStatus.Approved)
-            return ApiResult<int>.Failure(["Faqat tasdiqlangan jarayonni omborga yuborish mumkin."]);
-
-        tp.Status = ProcessStatus.Completed;
-        await _context.SaveChangesAsync();
-        return ApiResult<int>.Success(1);
-    }
-
-    public async Task<ApiResult<int>> DeleteAsync(Guid id)
-    {
-        var tp = await _context.TechProcesses.FirstOrDefaultAsync(t => t.Id == id);
-        if (tp is null)
-            return ApiResult<int>.Failure([$"TechProcess '{id}' topilmadi."], 404);
-
-        _context.TechProcesses.Remove(tp);
-        await _context.SaveChangesAsync();
-        return ApiResult<int>.Success(1);
-    }
-
     // ── Mapping ────────────────────────────────────────────────────────────────
 
     private static TechProcessResponseDto MapToResponse(TechProcess tp) => new()
     {
         Id = tp.Id,
-        ContractId = tp.ContractId,
         ContractNo = tp.Contract?.ContractNo ?? string.Empty,
-        ContractProductId = tp.ContractProductId,
         ProductType = tp.ContractProduct?.ProductType,
         Title = tp.Title,
         Notes = tp.Notes,
         Status = tp.Status,
-        CurrentStep = tp.CurrentStep,
-        ApprovedBy = tp.ApprovedBy,
         ApprovedByFullName = tp.Approver is null ? null
             : $"{tp.Approver.FirstName} {tp.Approver.LastName}",
         ApprovedAt = tp.ApprovedAt,
         CreatedAt = tp.CreatedAt,
-        IsActive = tp.IsActive,
     };
 }

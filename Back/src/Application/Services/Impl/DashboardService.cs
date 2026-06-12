@@ -44,40 +44,26 @@ public class DashboardService : IDashboardService
         var trendFromUtc = AsUtc(trendRangeFrom, TimeOnly.MinValue);
         var trendToUtc   = AsUtc(trendRangeTo,   TimeOnly.MaxValue);
 
-        // ── KPI period = current week to date (Mon..today) ──
-        // Newly created contracts/products must show up immediately, so the KPI
-        // window is the *current* week — not the previous completed week — and is
-        // compared against the equal-length window immediately before it (see
-        // prevKpi* below).
-        var dow = ((int)today.DayOfWeek + 6) % 7;     // Mon=0 .. Sun=6
-        var kpiFrom = today.AddDays(-dow);            // this Monday
-        var kpiTo   = today;                          // today
-        var kpiFromUtc = AsUtc(kpiFrom, TimeOnly.MinValue);
-        var kpiToUtc   = AsUtc(kpiTo,   TimeOnly.MaxValue);
+        // ── KPI cards: the headline is the current grand total, the sparkline
+        // shows how that total accumulated over the last 31 days, and the delta
+        // is how many items were added this month. Window/anchors below. ──
+        const int sparkWindow = 31;
+        var sparkFrom = today.AddDays(-(sparkWindow - 1));
+        var sparkFromUtc = AsUtc(sparkFrom, TimeOnly.MinValue);
+        var firstOfMonth = new DateOnly(today.Year, today.Month, 1);
+        var firstOfMonthUtc = AsUtc(firstOfMonth, TimeOnly.MinValue);
 
-        // Previous KPI window — equal length, immediately before current
-        var kpiDays = kpiTo.DayNumber - kpiFrom.DayNumber + 1;
-        var prevKpiTo   = kpiFrom.AddDays(-1);
-        var prevKpiFrom = prevKpiTo.AddDays(-(kpiDays - 1));
-        var prevKpiFromUtc = AsUtc(prevKpiFrom, TimeOnly.MinValue);
-        var prevKpiToUtc   = AsUtc(prevKpiTo,   TimeOnly.MaxValue);
-
-        // ── Contracts (state snapshot + period totals) ─────────────────────
+        // ── Contracts (state snapshot) ─────────────────────────────────────
         var contracts = await _context.Contracts
             .AsNoTracking()
             .Select(c => new { c.Id, c.Status, c.EndDate, c.IsActive, c.CreatedAt })
             .ToListAsync();
 
         var totalContracts = contracts.Count;
-        // Period-scoped: contracts created in selected range and still active
+        // Currently active (all-time snapshot, not period-scoped)
         var activeContracts = contracts.Count(c =>
             c.Status != ContractStatus.Completed
-            && c.Status != ContractStatus.Cancelled
-            && c.CreatedAt >= kpiFromUtc && c.CreatedAt <= kpiToUtc);
-        var prevActiveContracts = contracts.Count(c =>
-            c.Status != ContractStatus.Completed
-            && c.Status != ContractStatus.Cancelled
-            && c.CreatedAt >= prevKpiFromUtc && c.CreatedAt <= prevKpiToUtc);
+            && c.Status != ContractStatus.Cancelled);
         var completedContracts = contracts.Count(c => c.Status == ContractStatus.Completed);
         var cancelledContracts = contracts.Count(c => c.Status == ContractStatus.Cancelled);
 
@@ -113,22 +99,11 @@ public class DashboardService : IDashboardService
             .Where(p => p.IsActive && p.Status == ContractProductStatus.InProduction)
             .CountAsync();
 
-        // Period-scoped: in-progress products created during the range
+        // Current totals (all-time snapshot)
         var mfgInProgress = await _context.ManufacturedProducts
-            .CountAsync(m => m.Status == ManufacturingStatus.InProgress
-                          && m.CreatedAt >= kpiFromUtc && m.CreatedAt <= kpiToUtc);
-        var prevMfgInProgress = await _context.ManufacturedProducts
-            .CountAsync(m => m.Status == ManufacturingStatus.InProgress
-                          && m.CreatedAt >= prevKpiFromUtc && m.CreatedAt <= prevKpiToUtc);
-        // Period-scoped: products completed during the range
+            .CountAsync(m => m.Status == ManufacturingStatus.InProgress);
         var mfgCompleted = await _context.ManufacturedProducts
-            .CountAsync(m => m.Status == ManufacturingStatus.Completed
-                          && m.CompletedAt != null
-                          && m.CompletedAt >= kpiFromUtc && m.CompletedAt <= kpiToUtc);
-        var prevMfgCompleted = await _context.ManufacturedProducts
-            .CountAsync(m => m.Status == ManufacturingStatus.Completed
-                          && m.CompletedAt != null
-                          && m.CompletedAt >= prevKpiFromUtc && m.CompletedAt <= prevKpiToUtc);
+            .CountAsync(m => m.Status == ManufacturingStatus.Completed);
 
         // ── Shipments ─────────────────────────────────────────────────────
         var totalShipments = await _context.ShipmentBatches.CountAsync();
@@ -147,81 +122,70 @@ public class DashboardService : IDashboardService
         var totalUsers = await _context.Users.Where(u => u.IsActive).CountAsync();
         var departments = await _context.Departments.AsNoTracking().ToListAsync();
         var activeDepartments = departments.Count(d => d.IsActive);
-        // Period-scoped: employees onboarded (created) in selected range
+        // Current total active employees (assigned to a department)
         var totalEmployees = await _context.Users
-            .CountAsync(u => u.IsActive && u.DepartmentId != null
-                          && u.CreatedAt >= kpiFromUtc && u.CreatedAt <= kpiToUtc);
-        var prevTotalEmployees = await _context.Users
-            .CountAsync(u => u.IsActive && u.DepartmentId != null
-                          && u.CreatedAt >= prevKpiFromUtc && u.CreatedAt <= prevKpiToUtc);
+            .CountAsync(u => u.IsActive && u.DepartmentId != null);
 
-        // ── Sparkline window — current + previous KPI period (default = 14 days).
-        // For each day D in the window we report a rolling 7-day count
-        // (items dated within [D-6, D]). The rightmost point matches the KPI value.
-        var sparkFrom = prevKpiFrom;
-        var sparkTo   = kpiTo;
-        var sparkDays = sparkTo.DayNumber - sparkFrom.DayNumber + 1;
-        const int rollWindow = 7;
-        var rawFrom = sparkFrom.AddDays(-(rollWindow - 1));
-        var rawTo   = sparkTo;
-        var rawFromUtc = AsUtc(rawFrom, TimeOnly.MinValue);
-        var rawToUtc   = AsUtc(rawTo,   TimeOnly.MaxValue);
-
-        var rawActiveByDate = contracts
+        // ── Cumulative KPI sparkline (last 31 days) ───────────────────────
+        // Each series rises to the current grand total: for every day D we plot
+        // how many of today's counted items had been anchored (created/completed)
+        // by D. The rightmost point therefore equals the headline KPI, and the
+        // month-to-date increment is surfaced separately as the card delta.
+        var activeAnchors = contracts
             .Where(c => c.Status != ContractStatus.Completed
                         && c.Status != ContractStatus.Cancelled
-                        && c.CreatedAt >= rawFromUtc && c.CreatedAt <= rawToUtc)
-            .GroupBy(c => DateOnly.FromDateTime(c.CreatedAt))
-            .ToDictionary(g => g.Key, g => g.Count());
-
-        var rawMfgCompletedDates = await _context.ManufacturedProducts
+                        && c.CreatedAt >= sparkFromUtc)
+            .Select(c => c.CreatedAt)
+            .ToList();
+        var completedAnchors = await _context.ManufacturedProducts
             .Where(m => m.Status == ManufacturingStatus.Completed
-                        && m.CompletedAt != null
-                        && m.CompletedAt >= rawFromUtc && m.CompletedAt <= rawToUtc)
+                        && m.CompletedAt != null && m.CompletedAt >= sparkFromUtc)
             .Select(m => m.CompletedAt!.Value)
             .ToListAsync();
-        var rawMfgCompletedByDate = rawMfgCompletedDates
-            .GroupBy(d => DateOnly.FromDateTime(d))
-            .ToDictionary(g => g.Key, g => g.Count());
-
-        var rawMfgInProgressDates = await _context.ManufacturedProducts
+        var inProgressAnchors = await _context.ManufacturedProducts
             .Where(m => m.Status == ManufacturingStatus.InProgress
-                        && m.CreatedAt >= rawFromUtc && m.CreatedAt <= rawToUtc)
+                        && m.CreatedAt >= sparkFromUtc)
             .Select(m => m.CreatedAt)
             .ToListAsync();
-        var rawMfgInProgressByDate = rawMfgInProgressDates
-            .GroupBy(d => DateOnly.FromDateTime(d))
-            .ToDictionary(g => g.Key, g => g.Count());
-
-        var rawEmployeesDates = await _context.Users
+        var employeeAnchors = await _context.Users
             .Where(u => u.IsActive && u.DepartmentId != null
-                        && u.CreatedAt >= rawFromUtc && u.CreatedAt <= rawToUtc)
+                        && u.CreatedAt >= sparkFromUtc)
             .Select(u => u.CreatedAt)
             .ToListAsync();
-        var rawEmployeesByDate = rawEmployeesDates
-            .GroupBy(d => DateOnly.FromDateTime(d))
-            .ToDictionary(g => g.Key, g => g.Count());
 
-        var kpiSparkline = new List<KpiSparklinePointDto>(sparkDays);
-        for (int i = 0; i < sparkDays; i++)
+        // Builds the cumulative series ending at `total`, plus this-month adds.
+        (int[] Series, int MonthAdded) BuildCumulative(List<DateTime> anchors, int total)
         {
-            var d = sparkFrom.AddDays(i);
-            int active = 0, completed = 0, inProgress = 0, employees = 0;
-            for (int j = 0; j < rollWindow; j++)
+            var addsByDate = anchors
+                .GroupBy(a => DateOnly.FromDateTime(a))
+                .ToDictionary(g => g.Key, g => g.Count());
+            var baseline = total - addsByDate.Values.Sum();   // counted items dated before the window
+            var series = new int[sparkWindow];
+            var run = baseline;
+            for (int i = 0; i < sparkWindow; i++)
             {
-                var dd = d.AddDays(-j);
-                active     += rawActiveByDate.GetValueOrDefault(dd);
-                completed  += rawMfgCompletedByDate.GetValueOrDefault(dd);
-                inProgress += rawMfgInProgressByDate.GetValueOrDefault(dd);
-                employees  += rawEmployeesByDate.GetValueOrDefault(dd);
+                run += addsByDate.GetValueOrDefault(sparkFrom.AddDays(i));
+                series[i] = run;
             }
+            var monthAdded = anchors.Count(a => a >= firstOfMonthUtc);
+            return (series, monthAdded);
+        }
+
+        var (activeSeries, activeMonthAdded)         = BuildCumulative(activeAnchors, activeContracts);
+        var (completedSeries, completedMonthAdded)   = BuildCumulative(completedAnchors, mfgCompleted);
+        var (inProgressSeries, inProgressMonthAdded) = BuildCumulative(inProgressAnchors, mfgInProgress);
+        var (employeeSeries, employeeMonthAdded)     = BuildCumulative(employeeAnchors, totalEmployees);
+
+        var kpiSparkline = new List<KpiSparklinePointDto>(sparkWindow);
+        for (int i = 0; i < sparkWindow; i++)
+        {
             kpiSparkline.Add(new KpiSparklinePointDto
             {
-                Date = d,
-                ActiveContracts        = active,
-                ManufacturedCompleted  = completed,
-                ManufacturedInProgress = inProgress,
-                TotalEmployees         = employees,
+                Date = sparkFrom.AddDays(i),
+                ActiveContracts        = activeSeries[i],
+                ManufacturedCompleted  = completedSeries[i],
+                ManufacturedInProgress = inProgressSeries[i],
+                TotalEmployees         = employeeSeries[i],
             });
         }
 
@@ -483,12 +447,12 @@ public class DashboardService : IDashboardService
                 TotalProducedAmount = totalProducedAmount,
                 TotalBatchedAmount = totalBatchedAmount,
             },
-            PreviousKpis = new DashboardKpiDeltaDto
+            MonthlyAdded = new DashboardKpiMonthlyDto
             {
-                ActiveContracts = prevActiveContracts,
-                ManufacturedCompleted = prevMfgCompleted,
-                ManufacturedInProgress = prevMfgInProgress,
-                TotalEmployees = prevTotalEmployees,
+                ActiveContracts = activeMonthAdded,
+                ManufacturedCompleted = completedMonthAdded,
+                ManufacturedInProgress = inProgressMonthAdded,
+                TotalEmployees = employeeMonthAdded,
             },
             KpiSparkline = kpiSparkline,
             ContractStatus = statusBuckets,

@@ -2354,13 +2354,20 @@ body {
 }
 
 .dx-row { display: grid; gap: 16px; position: relative; z-index: 1; }
-.dx-row-2-1 { grid-template-columns: 2fr 1fr; }
-.dx-row-3   { grid-template-columns: 1fr 1fr 1fr; }
+/* All multi-column rows share the same 3-track grid so column boundaries
+   line up vertically across rows. Wide cards span 2 of the 3 tracks instead
+   of using 2fr/1fr — which would shift the divider by gap/3 and misalign. */
+.dx-row-2-1 { grid-template-columns: repeat(3, 1fr); }
+.dx-row-2-1 > :first-child { grid-column: span 2; }
+.dx-row-3   { grid-template-columns: repeat(3, 1fr); }
 
 .dx-section-framed {
   background: #e2e8f0;
   padding: 10px;
   gap: 0;
+  /* Concentric corners: outer radius = inner body radius (--radius) + padding (10px)
+     so the gray frame nests cleanly around the inner white card. */
+  border-radius: calc(var(--radius) + 10px);
 }
 html.dark .dx-section-framed {
   background: var(--surface2);
@@ -2381,10 +2388,11 @@ html.dark .dx-section-framed {
 }
 
 .dx-row-strip-feed {
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   align-items: stretch;
 }
 .dx-strip-left {
+  grid-column: span 2;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -4058,8 +4066,10 @@ html.dark .dx-section-framed {
 @media (max-width: 1100px) {
   .dx-kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .dx-row-2-1 { grid-template-columns: 1fr; }
+  .dx-row-2-1 > :first-child { grid-column: auto; }
   .dx-row-3   { grid-template-columns: 1fr 1fr; }
   .dx-row-strip-feed { grid-template-columns: 1fr; }
+  .dx-strip-left { grid-column: auto; }
 }
 @media (max-width: 800px) {
   .dx-hero { flex-direction: column; }
