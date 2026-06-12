@@ -782,19 +782,14 @@ export const PROCESS_STATUS_LABELS: Record<ProcessStatus, string> = {
 
 export interface TechProcessResponse {
   id: string;
-  contractId: string;
   contractNo: string;
-  contractProductId: string | null;
   productType: string | null;
   title: string;
   notes: string | null;
   status: ProcessStatus;
-  currentStep: number;
-  approvedBy: string | null;
   approvedByFullName: string | null;
   approvedAt: string | null;
   createdAt: string;
-  isActive: boolean;
 }
 
 export interface TechProcessCreatePayload {
@@ -826,11 +821,6 @@ export const techProcessService = {
     return res.data?.result ?? res.data;
   },
 
-  getByContract: async (contractId: string): Promise<TechProcessResponse[]> => {
-    const res = await api.get(`/api/techprocess/by-contract/${contractId}`);
-    return res.data?.result ?? res.data ?? [];
-  },
-
   create: async (dto: TechProcessCreatePayload): Promise<string> => {
     const res = await api.post("/api/techprocess", dto);
     return res.data?.result as string;
@@ -842,14 +832,6 @@ export const techProcessService = {
 
   approve: async (id: string): Promise<void> => {
     await api.put(`/api/techprocess/${id}/approve`);
-  },
-
-  sendToWarehouse: async (id: string): Promise<void> => {
-    await api.put(`/api/techprocess/${id}/send-to-warehouse`);
-  },
-
-  delete: async (id: string): Promise<void> => {
-    await api.delete(`/api/techprocess/${id}`);
   },
 
   getFiles: async (id: string): Promise<AttachmentResponse[]> => {
