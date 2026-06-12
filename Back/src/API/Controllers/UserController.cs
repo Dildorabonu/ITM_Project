@@ -13,12 +13,10 @@ namespace API.Controllers;
 public class UserController : ControllerBase
 {
     private readonly IUserService _userService;
-    private readonly IAuthService _authService;
 
-    public UserController(IUserService userService, IAuthService authService)
+    public UserController(IUserService userService)
     {
         _userService = userService;
-        _authService = authService;
     }
 
     [HttpGet("lookup")]
@@ -72,7 +70,7 @@ public class UserController : ControllerBase
     [HttpPatch("{id:guid}/deactivate")]
     public async Task<IActionResult> Deactivate(Guid id)
     {
-        var result = await _userService.UpdateAsync(id, new Application.DTOs.Users.UserUpdateDto { IsActive = false });
+        var result = await _userService.UpdateAsync(id, new UserUpdateDto { IsActive = false });
         return StatusCode(result.Succeeded ? result.Result : result.StatusCode, result);
     }
 
@@ -80,15 +78,7 @@ public class UserController : ControllerBase
     [HttpPatch("{id:guid}/activate")]
     public async Task<IActionResult> Activate(Guid id)
     {
-        var result = await _userService.UpdateAsync(id, new Application.DTOs.Users.UserUpdateDto { IsActive = true });
+        var result = await _userService.UpdateAsync(id, new UserUpdateDto { IsActive = true });
         return StatusCode(result.Succeeded ? result.Result : result.StatusCode, result);
-    }
-
-    [HasPermission("Users.Update")]
-    [HttpPatch("{id:guid}/unlock")]
-    public async Task<IActionResult> UnlockUser(Guid id)
-    {
-        var result = await _authService.UnlockUserAsync(id);
-        return StatusCode(result.StatusCode, result);
     }
 }

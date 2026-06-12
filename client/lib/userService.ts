@@ -44,7 +44,6 @@ export interface UserResponse {
   departmentName: string | null;
   isActive: boolean;
   isHead: boolean;
-  createdAt: string;
 }
 
 export interface UserCreatePayload {
