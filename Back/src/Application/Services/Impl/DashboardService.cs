@@ -10,6 +10,10 @@ public class DashboardService : IDashboardService
 {
     private readonly DatabaseContext _context;
 
+    // Har bir mahsulot uchun avtomatik yaratiladigan ombor vazifasining nomi —
+    // haqiqiy ishlab chiqarilgan miqdor shu vazifaning CompletedAmount'idan olinadi.
+    private const string WarehouseTaskName = "Tayyor mahsulotni omborga topshirish";
+
     public DashboardService(DatabaseContext context)
     {
         _context = context;
@@ -109,12 +113,25 @@ public class DashboardService : IDashboardService
         var totalShipments = await _context.ShipmentBatches.CountAsync();
 
         // ── Completion aggregates (all-time, active products) ──────────────
-        var totalContractedAmount = await _context.ContractProducts
+        // Haqiqiy ishlab chiqarilgan miqdor — har mahsulot uchun avtomatik
+        // yaratiladigan "Tayyor mahsulotni omborga topshirish" vazifasining
+        // CompletedAmount'idan olinadi (boshqa bosqich-vazifalar hisobga olinmaydi).
+        // Per-product capping: ortiqcha topshirilgan bitta mahsulot boshqa
+        // mahsulotning kamomadini yashirmasligi uchun har birini o'z miqdorida
+        // cheklab, keyin yig'amiz.
+        var productCompletion = await _context.ContractProducts
             .Where(p => p.IsActive)
-            .SumAsync(p => (decimal?)p.Quantity) ?? 0m;
-        var totalProducedAmount = await _context.ContractTaskDailyLogs
-            .Where(l => l.IsActive)
-            .SumAsync(l => (decimal?)l.Amount) ?? 0m;
+            .Select(p => new
+            {
+                Quantity = (decimal)p.Quantity,
+                Produced = p.ContractTasks
+                    .Where(t => t.IsActive && t.Name == WarehouseTaskName)
+                    .Select(t => (decimal?)t.CompletedAmount)
+                    .FirstOrDefault() ?? 0m,
+            })
+            .ToListAsync();
+        var totalContractedAmount = productCompletion.Sum(x => x.Quantity);
+        var totalProducedAmount = productCompletion.Sum(x => Math.Min(x.Quantity, x.Produced));
         var totalBatchedAmount = await _context.ShipmentBatches
             .SumAsync(s => (decimal?)s.Amount) ?? 0m;
 

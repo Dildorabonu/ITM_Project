@@ -1947,6 +1947,8 @@ export default function DashboardPage() {
   const [staticNonce, setStaticNonce] = useState(0);
   const firstLoadRef = useRef(true);
   const [trendRange, setTrendRange] = useState<DateRange>(() => getDefaultRange());
+  // "Bajarish ulushi" sarlavhasidagi info tooltip pozitsiyasi
+  const [pieTipPos, setPieTipPos] = useState<{ x: number; y: number } | null>(null);
 
   const loadSummary = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -2192,7 +2194,19 @@ export default function DashboardPage() {
         <RevealSection key={`pie-${staticNonce}`} className="dx-section dx-section-framed">
           <div className="dx-section-header">
             <Ico.PieChart />
-            <h3 className="dx-section-title">Bajarish ulushi</h3>
+            <span className="dx-info-wrap" style={{ gap: 6 }}>
+              <h3 className="dx-section-title">Bajarish ulushi</h3>
+              <span
+                className="dx-info-ico"
+                onMouseEnter={(e) => {
+                  const r = e.currentTarget.getBoundingClientRect();
+                  setPieTipPos({ x: r.left + r.width / 2, y: r.bottom + 8 });
+                }}
+                onMouseLeave={() => setPieTipPos(null)}
+              >
+                i
+              </span>
+            </span>
           </div>
           <div className="dx-section-body">
             <CompletionPieChart
@@ -2263,6 +2277,16 @@ export default function DashboardPage() {
         </div>
         <Heatmap cells={data.activityHeatmap} />
       </RevealSection>
+
+      {pieTipPos && createPortal(
+        <div className="dx-info-tip" style={{ left: pieTipPos.x, top: pieTipPos.y }}>
+          Ishlab chiqarilgan miqdor har mahsulotning &laquo;Tayyor mahsulotni omborga
+          topshirish&raquo; vazifasidan olinadi — oraliq bosqichlar hisobga olinmaydi.
+          Har mahsulot alohida hisoblanadi: bittasini ortiqcha ishlab chiqarish boshqasining
+          kamomadini yopmaydi.
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
