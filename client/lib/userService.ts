@@ -389,13 +389,9 @@ export const productService = {
 
 export interface AttachmentResponse {
   id: string;
-  entityType: string;
-  entityId: string;
   fileName: string;
-  contentType: string;
   fileSize: number;
   uploadedAt: string;
-  uploadedBy: string;
   uploadedByFullName: string | null;
   label: string | null;
 }
