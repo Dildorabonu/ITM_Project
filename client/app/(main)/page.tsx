@@ -1564,17 +1564,13 @@ function getDefaultRange(): DateRange {
   return RANGE_PRESETS.find(p => p.key === "last_30_days")!.range();
 }
 
-type KpiDelta = { kind: "up" | "down" | "flat" | "new" | "none" | "empty"; pct: number };
+type KpiDelta = { kind: "up" | "flat"; added: number };
 
-function computeKpiDelta(current: number, previous: number): KpiDelta {
-  // These KPIs are period-scoped (this week's activity). A zero current period
-  // means "no activity this week" — not a meaningful −100% drop — so surface it
-  // as a neutral empty state instead of an alarming red delta.
-  if (current <= 0) return { kind: "empty", pct: 0 };
-  if (previous <= 0) return { kind: "new", pct: 0 };
-  const pct = ((current - previous) / previous) * 100;
-  if (Math.abs(pct) < 0.05) return { kind: "flat", pct: 0 };
-  return { kind: pct > 0 ? "up" : "down", pct };
+// The card headline is the grand total; the delta reports how many items were
+// added this month (the increment that lifts the cumulative sparkline). A zero
+// month is shown as a neutral "unchanged" state rather than an alarming drop.
+function monthlyDelta(added: number): KpiDelta {
+  return { kind: added > 0 ? "up" : "flat", added: Math.max(0, added) };
 }
 
 function Sparkline({
@@ -1645,45 +1641,19 @@ function Sparkline({
   );
 }
 
-function DeltaLine({ delta, periodLabel }: { delta: KpiDelta; periodLabel: string }) {
-  if (delta.kind === "empty") {
-    return (
-      <div className="dx-mini-delta dx-mini-delta-none">
-        <span className="dx-mini-delta-pct">—</span>
-        <span className="dx-mini-delta-label">Bu hafta faollik yo&apos;q</span>
-      </div>
-    );
-  }
-  if (delta.kind === "none") {
-    return (
-      <div className="dx-mini-delta dx-mini-delta-none">
-        <span className="dx-mini-delta-pct">—</span>
-        <span className="dx-mini-delta-label">{periodLabel}</span>
-      </div>
-    );
-  }
-  if (delta.kind === "new") {
-    return (
-      <div className="dx-mini-delta dx-mini-delta-new">
-        <span className="dx-mini-delta-pct">↑ YANGI</span>
-        <span className="dx-mini-delta-label">vs {periodLabel}</span>
-      </div>
-    );
-  }
+function DeltaLine({ delta }: { delta: KpiDelta }) {
   if (delta.kind === "flat") {
     return (
       <div className="dx-mini-delta dx-mini-delta-flat">
-        <span className="dx-mini-delta-pct">→ 0%</span>
-        <span className="dx-mini-delta-label">vs {periodLabel}</span>
+        <span className="dx-mini-delta-pct">→ 0</span>
+        <span className="dx-mini-delta-label">bu oy o&apos;zgarishsiz</span>
       </div>
     );
   }
-  const sign = delta.kind === "up" ? "+" : "−";
-  const arrow = delta.kind === "up" ? "↑" : "↓";
   return (
-    <div className={`dx-mini-delta dx-mini-delta-${delta.kind}`}>
-      <span className="dx-mini-delta-pct">{arrow} {sign}{Math.abs(delta.pct).toFixed(1)}%</span>
-      <span className="dx-mini-delta-label">vs {periodLabel}</span>
+    <div className="dx-mini-delta dx-mini-delta-up">
+      <span className="dx-mini-delta-pct">↑ +{delta.added.toLocaleString("en-US").replace(/,/g, " ")}</span>
+      <span className="dx-mini-delta-label">bu oy</span>
     </div>
   );
 }
@@ -2007,18 +1977,17 @@ export default function DashboardPage() {
 
   // Animated KPI counters (called unconditionally)
   const k = data?.kpis;
-  const prevK = data?.previousKpis;
-  // State (always-now)
+  const m = data?.monthlyAdded;
+  // Headline = current grand total
   const animActive     = useCountUp(k?.activeContracts ?? 0,        1400, 0,   kpiNonce);
   const animMfgDone    = useCountUp(k?.manufacturedCompleted ?? 0,  1400, 120, kpiNonce);
   const animMfgIp      = useCountUp(k?.manufacturedInProgress ?? 0, 1400, 240, kpiNonce);
   const animEmployees  = useCountUp(k?.totalEmployees ?? 0,         1400, 360, kpiNonce);
 
-  const KPI_PERIOD_LABEL = "o'tgan hafta";
-  const deltaActive     = computeKpiDelta(k?.activeContracts ?? 0,        prevK?.activeContracts ?? 0);
-  const deltaMfgDone    = computeKpiDelta(k?.manufacturedCompleted ?? 0,  prevK?.manufacturedCompleted ?? 0);
-  const deltaMfgIp      = computeKpiDelta(k?.manufacturedInProgress ?? 0, prevK?.manufacturedInProgress ?? 0);
-  const deltaEmployees  = computeKpiDelta(k?.totalEmployees ?? 0,         prevK?.totalEmployees ?? 0);
+  const deltaActive     = monthlyDelta(m?.activeContracts ?? 0);
+  const deltaMfgDone    = monthlyDelta(m?.manufacturedCompleted ?? 0);
+  const deltaMfgIp      = monthlyDelta(m?.manufacturedInProgress ?? 0);
+  const deltaEmployees  = monthlyDelta(m?.totalEmployees ?? 0);
 
   const sparklinePoints = data?.kpiSparkline ?? [];
   const sparkActive    = sparklinePoints.map(p => p.activeContracts);
@@ -2026,10 +1995,7 @@ export default function DashboardPage() {
   const sparkMfgIp     = sparklinePoints.map(p => p.manufacturedInProgress);
   const sparkEmployees = sparklinePoints.map(p => p.totalEmployees);
   const sparkTone = (d: KpiDelta): "up" | "down" | "flat" | "neutral" =>
-    d.kind === "up" || d.kind === "new" ? "up" :
-    d.kind === "down"                   ? "down" :
-    d.kind === "flat"                   ? "flat" :
-                                          "neutral";
+    d.kind === "up" ? "up" : "neutral";
 
   const greeting = getGreeting();
   const today = new Date();
@@ -2135,7 +2101,7 @@ export default function DashboardPage() {
                   <div className="dx-mini-val">{animActive}</div>
                   <Sparkline data={sparkActive} tone={sparkTone(deltaActive)} />
                 </div>
-                <DeltaLine delta={deltaActive} periodLabel={KPI_PERIOD_LABEL} />
+                <DeltaLine delta={deltaActive} />
               </div>
             </button>
             <button
@@ -2152,7 +2118,7 @@ export default function DashboardPage() {
                   <div className="dx-mini-val">{animMfgDone}</div>
                   <Sparkline data={sparkMfgDone} tone={sparkTone(deltaMfgDone)} />
                 </div>
-                <DeltaLine delta={deltaMfgDone} periodLabel={KPI_PERIOD_LABEL} />
+                <DeltaLine delta={deltaMfgDone} />
               </div>
             </button>
             <button
@@ -2169,7 +2135,7 @@ export default function DashboardPage() {
                   <div className="dx-mini-val">{animMfgIp}</div>
                   <Sparkline data={sparkMfgIp} tone={sparkTone(deltaMfgIp)} />
                 </div>
-                <DeltaLine delta={deltaMfgIp} periodLabel={KPI_PERIOD_LABEL} />
+                <DeltaLine delta={deltaMfgIp} />
               </div>
             </button>
             <button
@@ -2186,7 +2152,7 @@ export default function DashboardPage() {
                   <div className="dx-mini-val">{animEmployees}</div>
                   <Sparkline data={sparkEmployees} tone={sparkTone(deltaEmployees)} />
                 </div>
-                <DeltaLine delta={deltaEmployees} periodLabel={KPI_PERIOD_LABEL} />
+                <DeltaLine delta={deltaEmployees} />
               </div>
             </button>
           </div>

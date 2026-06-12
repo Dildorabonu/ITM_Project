@@ -93,7 +93,8 @@ export interface HeatmapCell {
   logCount: number;
 }
 
-export interface DashboardKpiDelta {
+// Month-to-date increment for each KPI card (how many items were added this month).
+export interface DashboardKpiMonthly {
   activeContracts: number;
   manufacturedCompleted: number;
   manufacturedInProgress: number;
@@ -110,7 +111,7 @@ export interface KpiSparklinePoint {
 
 export interface DashboardSummary {
   kpis: DashboardKpis;
-  previousKpis: DashboardKpiDelta;
+  monthlyAdded: DashboardKpiMonthly;
   kpiSparkline: KpiSparklinePoint[];
   contractStatus: ContractStatusBucket[];
   productionTrend: ProductionTrendPoint[];

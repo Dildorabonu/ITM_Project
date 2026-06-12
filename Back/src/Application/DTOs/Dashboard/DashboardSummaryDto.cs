@@ -5,7 +5,7 @@ namespace Application.DTOs.Dashboard;
 public class DashboardSummaryDto
 {
     public DashboardKpiDto Kpis { get; set; } = new();
-    public DashboardKpiDeltaDto PreviousKpis { get; set; } = new();
+    public DashboardKpiMonthlyDto MonthlyAdded { get; set; } = new();
     public IEnumerable<KpiSparklinePointDto> KpiSparkline { get; set; } = [];
     public IEnumerable<ContractStatusBucketDto> ContractStatus { get; set; } = [];
     public IEnumerable<ProductionTrendPointDto> ProductionTrend { get; set; } = [];
@@ -39,7 +39,8 @@ public class DashboardKpiDto
     public decimal TotalBatchedAmount { get; set; }
 }
 
-public class DashboardKpiDeltaDto
+// Month-to-date increment for each KPI card (how many items were added this month).
+public class DashboardKpiMonthlyDto
 {
     public int ActiveContracts { get; set; }
     public int ManufacturedCompleted { get; set; }
