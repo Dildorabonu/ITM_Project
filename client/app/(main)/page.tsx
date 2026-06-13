@@ -203,7 +203,7 @@ function RevealSection({
    HELPERS
 ═══════════════════════════════════════════════════════════════════ */
 
-const UZ_MONTHS_SHORT = ["yan","fev","mar","apr","may","iyn","iyl","avg","sen","okt","noy","dek"];
+const UZ_MONTHS_SHORT = ["yan","fev","mar","apr","may","iyun","iyul","avg","sen","okt","noy","dek"];
 const UZ_MONTHS = ["yanvar","fevral","mart","aprel","may","iyun","iyul","avgust","sentyabr","oktyabr","noyabr","dekabr"];
 const UZ_WEEKDAYS = ["yakshanba","dushanba","seshanba","chorshanba","payshanba","juma","shanba"];
 
@@ -473,18 +473,23 @@ function DualAreaChart({
   const [hover, setHover] = useState<number | null>(null);
   const [animKey, setAnimKey] = useState(0);
   const firstRunRef = useRef(true);
-  const realData = prod.map((p, i) => ({ date: p.date, prod: p.amount, ship: ship[i]?.amount ?? 0, future: false }));
-  const FUTURE_DAYS = 3;
-  const data = (() => {
-    if (realData.length === 0) return realData;
-    const last = new Date(realData[realData.length - 1].date);
-    const tail = Array.from({ length: FUTURE_DAYS }, (_, k) => {
-      const d = new Date(last);
-      d.setDate(d.getDate() + k + 1);
-      return { date: d.toISOString(), prod: 0, ship: 0, future: true };
-    });
-    return [...realData, ...tail];
-  })();
+  // "Kelgusi" (future) — bugungi sanaga nisbatan aniqlanadi, tanlangan
+  // diapazon oxiriga emas. Bugundan keyingi kunlar hali kelmagan, shu sabab
+  // ular kulrang ko'rsatiladi. Sun'iy "tail" qo'shilmaydi — o'q tanlangan
+  // diapazonga aniq mos keladi.
+  const now = new Date();
+  const todayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const dayMs = (iso: string) => {
+    const d = new Date(iso);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  };
+  const data = prod.map((p, i) => ({
+    date: p.date,
+    prod: p.amount,
+    ship: ship[i]?.amount ?? 0,
+    future: dayMs(p.date) > todayMs,
+  }));
+  const realData = data;
 
   // Content-based change detector — array reference changes on every load
   // even when the underlying values (last 30 days) didn't change. Avoid
@@ -506,7 +511,7 @@ function DualAreaChart({
 
   const W = 800;
   const H = height;
-  const padL = 44, padR = 14, padT = 18, padB = 28;
+  const padL = 44, padR = 24, padT = 18, padB = 28;
   const cw = W - padL - padR;
   const ch = H - padT - padB;
   const maxVal = Math.max(1, ...realData.map(d => Math.max(d.prod, d.ship)));
@@ -556,14 +561,39 @@ function DualAreaChart({
 
   const prodLine = buildSmooth("prod");
   const shipLine = buildSmooth("ship");
-  const lastRealIdx = Math.max(0, realData.length - 1);
-  const lineEndIdx = Math.min(data.length - 1, realData.length);
+  const lineEndIdx = data.length - 1;
   const prodArea = `${prodLine} L${xAt(lineEndIdx)},${padT + ch} L${padL},${padT + ch} Z`;
   const shipArea = `${shipLine} L${xAt(lineEndIdx)},${padT + ch} L${padL},${padT + ch} Z`;
 
+  // Kelgusi (kulrang) band chegarasi — bugungi kungacha bo'lgan oxirgi nuqta.
+  // Undan keyingi barcha kunlar hali kelmagan deb hisoblanadi.
+  let lastPastIdx = -1;
+  for (let i = 0; i < data.length; i++) if (!data[i].future) lastPastIdx = i;
+  const hasFuture = lastPastIdx < data.length - 1;
+  const futureBoundaryX = xAt(Math.max(0, lastPastIdx));
+
   const grid = 4;
-  const xLabelCount = Math.min(realData.length, 10);
-  const step = Math.max(1, Math.floor(realData.length / xLabelCount));
+
+  // X-o'q yorliqlari: tanlangan diapazon kattaligidan qat'i nazar har doim
+  // teng piksel masofada joylashadi va kelgusi (kulrang) kunlarni ham qamrab
+  // o'ng chetgacha boradi. Yorliq o'rni kasrli pozitsiyadan to'g'ridan-to'g'ri
+  // hisoblanadi (indeksni yaxlitlamasdan) — shu sabab oraliqlar har doim aniq
+  // teng; sana matni esa eng yaqin kundan olinadi. Kelgusi kunlar `future`
+  // bayrog'i bilan belgilanadi va xira (lighter) ko'rsatiladi.
+  const fullIdx = Math.max(0, data.length - 1);
+  const desiredTicks = 10; // maksimal oraliqlar soni
+  const xLabels: { x: number; idx: number; future: boolean }[] = (() => {
+    if (fullIdx === 0) return [{ x: padL, idx: 0, future: data[0]?.future ?? false }];
+    const tickCount = Math.min(desiredTicks, fullIdx);
+    return Array.from({ length: tickCount + 1 }, (_, k) => {
+      const pos = (k / tickCount) * fullIdx;       // 0 … fullIdx teng qadamlar
+      const idx = Math.round(pos);
+      // Yorliq/belgini aniq kun ustuniga (`xAt(idx)`) joylashtiramiz — aks
+      // holda belgi kasrli teng-qadam pozitsiyada turadi-yu, hover ko'rsatkichi
+      // esa eng yaqin kunga (`xAt(idx)`) tortilib, ikkisi bir-biridan siljiydi.
+      return { x: xAt(idx), idx, future: data[idx].future };
+    });
+  })();
 
   // Guard against stale hover index after the trend range shrinks.
   const validHover =
@@ -581,6 +611,10 @@ function DualAreaChart({
             <stop offset="0%"  stopColor="var(--success)" stopOpacity="0.40" />
             <stop offset="100%" stopColor="var(--success)" stopOpacity="0" />
           </linearGradient>
+          <linearGradient id="dxGradFuture" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%"  stopColor="var(--text3)" stopOpacity="0" />
+            <stop offset="100%" stopColor="var(--text3)" stopOpacity="0.10" />
+          </linearGradient>
         </defs>
 
         {Array.from({ length: grid + 1 }).map((_, i) => {
@@ -596,20 +630,41 @@ function DualAreaChart({
           );
         })}
 
+        {/* Kelgusi (hali kelmagan) kunlar — kulrang band bilan to'ldiriladi,
+            shunda diagramma o'ng chetgacha to'liq va izchil ko'rinadi. */}
+        {hasFuture && (
+          <g>
+            <rect x={futureBoundaryX} y={padT} width={(W - padR) - futureBoundaryX} height={ch}
+              fill="url(#dxGradFuture)" />
+            <line x1={futureBoundaryX} y1={padT} x2={futureBoundaryX} y2={padT + ch}
+              stroke="var(--text3)" strokeWidth="1" strokeDasharray="3,3" opacity="0.4" />
+            <text x={(futureBoundaryX + (W - padR)) / 2} y={padT + 11} textAnchor="middle"
+              fill="var(--text3)" fontSize="9" opacity="0.7"
+              style={{ letterSpacing: "0.08em", textTransform: "uppercase" }}>
+              Kelgusi
+            </text>
+          </g>
+        )}
+
         <path key={`area-prod-${animKey}`} className="dx-chart-area" d={prodArea} fill="url(#dxGradProd)" />
         <path key={`area-ship-${animKey}`} className="dx-chart-area dx-chart-area-ship" d={shipArea} fill="url(#dxGradShip)" />
         <path key={`line-prod-${animKey}`} className="dx-chart-line" pathLength={1} d={prodLine} fill="none" stroke="var(--accent)" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
         <path key={`line-ship-${animKey}`} className="dx-chart-line dx-chart-line-ship" pathLength={1} d={shipLine} fill="none" stroke="var(--success)" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
 
-        {data.map((d, i) => {
-          if (d.future && i !== lineEndIdx) return null;
-          if (!d.future && i % step !== 0) return null;
-          const x = xAt(i);
-          const date = new Date(d.date);
+        {xLabels.map(({ x, idx, future }, k) => {
+          const date = new Date(data[idx].date);
+          // Barcha yorliqlar (chetdagilari ham) o'rtaga tekislanadi — `padR`
+          // kengaytirilgani uchun oxirgi yorliq viewBox chetidan qirqilmaydi.
+          const anchor = "middle";
           return (
-            <text key={i} x={x} y={H - 8} textAnchor="middle" fill="var(--text3)" fontSize="10">
-              {`${date.getDate()}/${date.getMonth() + 1}`}
-            </text>
+            <g key={k}>
+              <line x1={x} y1={padT + ch + 2} x2={x} y2={padT + ch + 8}
+                stroke="var(--text3)" strokeWidth="1.5" opacity={future ? 0.4 : 0.85} />
+              <text x={x} y={H - 8} textAnchor={anchor} fill="var(--text3)" fontSize="10"
+                opacity={future ? 0.55 : 1}>
+                {`${date.getDate()}-${UZ_MONTHS_SHORT[date.getMonth()]}`}
+              </text>
+            </g>
           );
         })}
 
