@@ -2315,6 +2315,42 @@ body {
   color: var(--text);
   margin: 0;
 }
+.dx-info-wrap { position: relative; display: inline-flex; align-items: center; }
+.dx-info-ico {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 1px solid var(--text3); color: var(--text3);
+  font-size: 10px; font-weight: 700; font-style: italic;
+  font-family: Georgia, serif; line-height: 1; cursor: default;
+  transition: color 0.15s, border-color 0.15s;
+}
+.dx-info-wrap:hover .dx-info-ico { color: var(--accent); border-color: var(--accent); }
+.dx-info-tip {
+  position: fixed; transform: translateX(-50%);
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; width: 260px;
+  font-family: var(--font-inter), Inter, sans-serif;
+  font-size: 12px; font-weight: 400; font-style: normal;
+  text-transform: none; letter-spacing: 0; line-height: 1.55;
+  text-align: left; white-space: normal;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  pointer-events: none; z-index: 1000;
+  animation: dx-tip-fade 0.15s ease-out;
+}
+@keyframes dx-tip-fade {
+  from { opacity: 0; transform: translateX(-50%) translateY(-4px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+.dx-info-tip::before, .dx-info-tip::after {
+  content: ""; position: absolute; left: 50%; bottom: 100%;
+  border: 6px solid transparent; border-bottom-color: var(--border);
+  transform: translateX(-50%);
+}
+.dx-info-tip::after {
+  border-width: 5px; border-bottom-color: var(--surface);
+  transform: translateX(-50%) translateY(1px);
+}
 .dx-section-meta {
   font-size: 11px;
   color: var(--text3);
