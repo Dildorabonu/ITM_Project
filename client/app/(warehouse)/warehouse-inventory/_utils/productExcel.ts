@@ -4,7 +4,7 @@ import {
   PRODUCT_UNIT_LABELS,
   type DepartmentOption,
 } from "@/lib/userService";
-import type { ParsedImportRow } from "../_types";
+import type { ParsedImportRow, RowError } from "../_types";
 
 // Mahsulotlarni ommaviy import qilish uchun Excel namuna faylini yaratib yuklab beradi.
 // 3 ta varaq: Mahsulotlar (to'ldirish uchun), Bo'limlar va O'lchov birliklari (ma'lumotnoma).
@@ -123,16 +123,16 @@ export function parseProductsExcel(
         const parsed: ParsedImportRow[] = dataRows.map((row, i) => {
           const cols = (row as unknown[]).map(c => String(c ?? "").trim());
           const [name, invoiceNumber, deptName, qty, unitLabel, desc] = cols;
-          const errors: string[] = [];
+          const errors: RowError[] = [];
 
-          if (!name) errors.push("Mahsulot nomi kiritilmagan");
-          if (!invoiceNumber) errors.push("Invoice raqami kiritilmagan");
+          if (!name) errors.push({ field: "name", message: "Mahsulot nomi kiritilmagan" });
+          if (!invoiceNumber) errors.push({ field: "invoice", message: "Invoice raqami kiritilmagan" });
           const dept = deptMap.get((deptName ?? "").toLowerCase().trim());
-          if (!dept) errors.push(`"${deptName || "(bo'sh)"}" bo'limi topilmadi`);
+          if (!dept) errors.push({ field: "department", message: `"${deptName || "(bo'sh)"}" bo'limi topilmadi` });
 
           const parsedQty = qty ? parseQuantity(qty) : 0;
-          if (qty && isNaN(parsedQty)) errors.push(`Miqdor noto'g'ri format: "${qty}" (masalan: 1.5 yoki 1,5)`);
-          else if (parsedQty < 0) errors.push("Miqdor manfiy bo'lishi mumkin emas");
+          if (qty && isNaN(parsedQty)) errors.push({ field: "quantity", message: `Miqdor noto'g'ri format: "${qty}" (masalan: 1.5 yoki 1,5)` });
+          else if (parsedQty < 0) errors.push({ field: "quantity", message: "Miqdor manfiy bo'lishi mumkin emas" });
           const quantity = isNaN(parsedQty) || parsedQty < 0 ? 0 : parsedQty;
 
           const unit = unitLabel
@@ -161,7 +161,7 @@ export function parseProductsExcel(
         for (const r of parsed) {
           const k = r.invoiceNumber.trim().toLowerCase();
           if (k && (invCounts.get(k) ?? 0) > 1) {
-            r.errors.push(`Invoice raqami "${r.invoiceNumber}" faylda takrorlangan`);
+            r.errors.push({ field: "invoice", message: `Invoice raqami "${r.invoiceNumber}" faylda takrorlangan` });
           }
         }
 

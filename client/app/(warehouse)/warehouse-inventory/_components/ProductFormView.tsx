@@ -19,6 +19,7 @@ import {
   BULK_LIMIT,
   type ProductForm,
   type ParsedImportRow,
+  type RowError,
 } from "../_types";
 import { downloadProductsTemplate, parseProductsExcel } from "../_utils/productExcel";
 
@@ -171,11 +172,11 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
         if (!r) return row;
         const errors = [...row.errors];
         if (r.exactDuplicate)
-          errors.push(`Bu bo'limda shu nomli mahsulot allaqachon bor (mavjud: ${r.exactDuplicate.invoiceNumber})`);
+          errors.push({ field: "name", message: `Bu bo'limda shu nomli mahsulot allaqachon bor (mavjud: ${r.exactDuplicate.invoiceNumber})` });
         if (r.duplicateInFile)
-          errors.push("Shu nom faylda takrorlangan");
+          errors.push({ field: "name", message: "Shu nom faylda takrorlangan" });
         if (r.invoiceDuplicate)
-          errors.push("Bu invoice raqami bazada allaqachon mavjud");
+          errors.push({ field: "invoice", message: "Bu invoice raqami bazada allaqachon mavjud" });
         return { ...row, errors, similar: r.similar };
       }));
     } catch {
@@ -250,7 +251,7 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
       quantity: isNaN(quantity) ? 0 : quantity,
       unit: d.unit,
       description: d.description,
-      errors: [] as string[],
+      errors: [] as RowError[],
       similar: undefined,
     } : r);
 
@@ -262,14 +263,14 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
     }
 
     const revalidated = updated.map(r => {
-      const errors: string[] = [];
-      if (!r.name.trim()) errors.push("Mahsulot nomi kiritilmagan");
-      if (!r.invoiceNumber.trim()) errors.push("Invoice raqami kiritilmagan");
+      const errors: RowError[] = [];
+      if (!r.name.trim()) errors.push({ field: "name", message: "Mahsulot nomi kiritilmagan" });
+      if (!r.invoiceNumber.trim()) errors.push({ field: "invoice", message: "Invoice raqami kiritilmagan" });
       const dep = departments.find(x => x.id === r.departmentId);
-      if (!dep) errors.push(`"${r.departmentName || "(bo'sh)"}" bo'limi topilmadi`);
+      if (!dep) errors.push({ field: "department", message: `"${r.departmentName || "(bo'sh)"}" bo'limi topilmadi` });
       const k = r.invoiceNumber.trim().toLowerCase();
       if (k && (invCounts.get(k) ?? 0) > 1) {
-        errors.push(`Invoice raqami "${r.invoiceNumber}" faylda takrorlangan`);
+        errors.push({ field: "invoice", message: `Invoice raqami "${r.invoiceNumber}" faylda takrorlangan` });
       }
       return { ...r, errors };
     });
@@ -627,10 +628,10 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
                       return (
                         <tr key={row.rowNum} style={row.errors.length > 0 ? { background: "var(--danger-dim)" } : undefined}>
                           <td style={{ textAlign: "center", color: "var(--text3)", fontSize: 12 }}>{row.rowNum}</td>
-                          <td style={row.errors.some(e => e.includes("nomi")) ? { color: "var(--danger)", fontWeight: 600 } : undefined}>
+                          <td style={row.errors.some(e => e.field === "name") ? { color: "var(--danger)", fontWeight: 600 } : undefined}>
                             {row.name || <span style={{ color: "var(--text3)" }}>—</span>}
                           </td>
-                          <td style={{ fontFamily: "var(--font-mono)", fontSize: 12, ...(row.errors.some(e => e.toLowerCase().includes("invoice")) ? { color: "var(--danger)", fontWeight: 600 } : {}) }}>
+                          <td style={{ fontFamily: "var(--font-mono)", fontSize: 12, ...(row.errors.some(e => e.field === "invoice") ? { color: "var(--danger)", fontWeight: 600 } : {}) }}>
                             {row.invoiceNumber || <span style={{ color: "var(--text3)", fontFamily: "var(--font-inter)" }}>—</span>}
                           </td>
                           <td>{row.departmentName || <span style={{ color: "var(--text3)" }}>—</span>}</td>
@@ -647,9 +648,13 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
                                 <span style={{ color: "#22c55e", fontSize: 12, fontWeight: 600 }}>✓</span>
                               )
                             ) : (
-                              <span style={{ lineHeight: 1.35, color: "var(--danger)", fontSize: 12, fontWeight: 600 }}>
-                                ✗ {row.errors[0]}
-                              </span>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 3, alignItems: "flex-start", textAlign: "left" }}>
+                                {row.errors.map((e, ei) => (
+                                  <span key={ei} style={{ lineHeight: 1.35, color: "var(--danger)", fontSize: 12, fontWeight: 600 }}>
+                                    ✗ {e.message}
+                                  </span>
+                                ))}
+                              </div>
                             )}
                           </td>
                           <td style={{ textAlign: "center" }}>
