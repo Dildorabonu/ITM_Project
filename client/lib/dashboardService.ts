@@ -129,9 +129,22 @@ export interface DashboardSummaryParams {
   trendTo?: string;
 }
 
+// Backend "So'nggi faollik" bir sahifada nechtadan qaytaradi (cursor-based scroll).
+// Qaytgan yozuvlar soni shundan kam bo'lsa — oxiriga yetildi.
+export const ACTIVITY_PAGE_SIZE = 20;
+
 export const dashboardService = {
   getSummary: async (params?: DashboardSummaryParams): Promise<DashboardSummary> => {
     const res = await api.get("/api/dashboard/summary", { params });
     return res.data?.result ?? res.data;
+  },
+
+  // `before` — oxirgi ko'rilgan yozuvning `at` (ISO sana) qiymati; bo'sh bo'lsa
+  // eng yangi sahifa. Pastga scroll qilinganda keyingi sahifani yuklash uchun.
+  getActivity: async (before?: string): Promise<RecentActivity[]> => {
+    const res = await api.get("/api/dashboard/activity", {
+      params: before ? { before } : undefined,
+    });
+    return res.data?.result ?? res.data ?? [];
   },
 };
