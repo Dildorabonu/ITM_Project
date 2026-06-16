@@ -67,7 +67,7 @@ public partial class ProductService
     public async Task<ApiResult<IEnumerable<ProductDuplicateCheckResultDto>>> CheckDuplicatesAsync(IEnumerable<ProductDuplicateCheckItemDto> items, Guid? restrictToDepartmentId = null)
     {
         var prepared = (items ?? [])
-            .Select(i => new { i.Index, i.Name, i.DepartmentId, Norm = TextNormalizer.Normalize(i.Name) })
+            .Select(i => new { i.Index, i.Name, i.DepartmentId, Invoice = (i.InvoiceNumber ?? string.Empty).Trim(), Norm = TextNormalizer.Normalize(i.Name) })
             .ToList();
 
         var results = new List<ProductDuplicateCheckResultDto>();
@@ -106,9 +106,28 @@ public partial class ProductService
             .GroupBy(p => (p.DepartmentId, p.Norm))
             .ToDictionary(g => g.Key, g => g.Count());
 
+        // Invoice raqami butun baza bo'yicha unikal (bo'lim ahamiyatsiz) — create shu qoidani
+        // qo'llaydi. Kiritilayotgan invoice'lar bazada bor-yo'qligini bitta global so'rovda olamiz.
+        var batchInvoices = prepared
+            .Select(p => p.Invoice)
+            .Where(inv => inv.Length > 0)
+            .Distinct()
+            .ToList();
+
+        var existingInvoices = batchInvoices.Count == 0
+            ? new HashSet<string>()
+            : (await _context.Products
+                .AsNoTracking()
+                .Where(p => batchInvoices.Contains(p.InvoiceNumber))
+                .Select(p => p.InvoiceNumber)
+                .ToListAsync())
+                .ToHashSet();
+
         foreach (var p in prepared)
         {
             var res = new ProductDuplicateCheckResultDto { Index = p.Index };
+
+            res.InvoiceDuplicate = p.Invoice.Length > 0 && existingInvoices.Contains(p.Invoice);
 
             if (p.Norm.Length >= 2)
             {

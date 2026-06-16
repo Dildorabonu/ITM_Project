@@ -288,6 +288,7 @@ export interface ProductDuplicateCheckResult {
   index: number;
   exactDuplicate: ProductSimilar | null;
   duplicateInFile: boolean;
+  invoiceDuplicate: boolean;
   similar: ProductSimilar[];
 }
 
@@ -361,7 +362,7 @@ export const productService = {
   },
 
   checkDuplicates: async (
-    items: { index: number; name: string; departmentId: string }[]
+    items: { index: number; name: string; invoiceNumber: string; departmentId: string }[]
   ): Promise<ProductDuplicateCheckResult[]> => {
     const res = await api.post("/api/product/check-duplicates", items);
     return res.data?.result ?? res.data ?? [];
