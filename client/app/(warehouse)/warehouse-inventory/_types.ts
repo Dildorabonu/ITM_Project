@@ -9,6 +9,16 @@ import {
 // Mahsulotlar faqat Omborxona tipidagi bo'limlar bilan ishlaydi — barcha dropdown,
 // Excel shablon va import validatsiyasi shu cheklovga amal qiladi.
 
+// Import preview qatoridagi xato qaysi ustunga tegishli ekanini belgilaydi.
+// Rang berish shu maydon (field) bo'yicha aniqlanadi — xato matnidan so'z
+// qidirish (fragile) o'rniga. `null` — umumiy / ustunga bog'lanmagan xato.
+export type RowErrorField = "name" | "invoice" | "department" | "quantity";
+
+export interface RowError {
+  field: RowErrorField | null;
+  message: string;
+}
+
 export interface ParsedImportRow {
   rowNum: number;
   name: string;
@@ -18,7 +28,7 @@ export interface ParsedImportRow {
   quantity: number;
   unit: ProductUnit;
   description: string;
-  errors: string[];
+  errors: RowError[];
   similar?: ProductSimilar[];
 }
 
