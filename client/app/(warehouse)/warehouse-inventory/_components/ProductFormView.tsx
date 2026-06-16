@@ -35,6 +35,14 @@ interface Props {
   onUpdated: (updated: ProductResponse) => void;
 }
 
+// Import preview qatorlari holat bo'yicha tartiblanadi: avval xatolar (qizil),
+// keyin o'xshashlik ogohlantirishi (sariq), oxirida toza qatorlar (yashil).
+function statusRank(r: ParsedImportRow): number {
+  if (r.errors.length > 0) return 0;
+  if (r.similar && r.similar.length > 0) return 1;
+  return 2;
+}
+
 // Yangi mahsulot(lar) yaratish (qo'lda yoki Excel import) hamda mavjud
 // mahsulotni tahrirlash formasi. Ko'p qatorli create va import holatini o'zi boshqaradi.
 export function ProductFormView({ editTarget, departments, form, setForm, onClose, onCreated, onUpdated }: Props) {
@@ -151,7 +159,7 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
   // ogohlantirish sifatida saqlanadi (bloklamaydi).
   const runDuplicateCheck = async (rows: ParsedImportRow[]) => {
     const items = rows
-      .map((r, i) => ({ index: i, name: r.name, departmentId: r.departmentId ?? "" }))
+      .map((r, i) => ({ index: i, name: r.name, invoiceNumber: r.invoiceNumber, departmentId: r.departmentId ?? "" }))
       .filter(it => it.name.trim() && it.departmentId);
     if (items.length === 0) return;
 
@@ -163,9 +171,11 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
         if (!r) return row;
         const errors = [...row.errors];
         if (r.exactDuplicate)
-          errors.push(`Bu bo'limda bir xil mahsulot bor: "${r.exactDuplicate.name}" (${r.exactDuplicate.invoiceNumber})`);
+          errors.push(`Bu bo'limda shu nomli mahsulot allaqachon bor (mavjud: ${r.exactDuplicate.invoiceNumber})`);
         if (r.duplicateInFile)
-          errors.push("Bir xil mahsulot faylda takrorlangan");
+          errors.push("Shu nom faylda takrorlangan");
+        if (r.invoiceDuplicate)
+          errors.push("Bu invoice raqami bazada allaqachon mavjud");
         return { ...row, errors, similar: r.similar };
       }));
     } catch {
@@ -501,18 +511,21 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
                   <thead>
                     <tr>
                       <th style={{ textAlign: "center" }}>Qator</th>
-                      <th>Mahsulot nomi</th>
-                      <th>Invoice raqami</th>
-                      <th>Bo&apos;lim</th>
+                      <th style={{ textAlign: "center" }}>Mahsulot nomi</th>
+                      <th style={{ textAlign: "center" }}>Invoice raqami</th>
+                      <th style={{ textAlign: "center" }}>Bo&apos;lim</th>
                       <th style={{ textAlign: "center" }}>Miqdor</th>
                       <th style={{ textAlign: "center" }}>O&apos;lchov</th>
-                      <th>Tavsif</th>
+                      <th style={{ textAlign: "center" }}>Tavsif</th>
                       <th style={{ textAlign: "center" }}>Holat</th>
                       <th style={{ textAlign: "center" }}>Tahrirlash</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {importRows.map((row, i) => {
+                    {importRows
+                      .map((row, originalIndex) => ({ row, originalIndex }))
+                      .sort((a, b) => statusRank(a.row) - statusRank(b.row))
+                      .map(({ row, originalIndex: i }) => {
                       const isEditing = editingImportRowIdx === i && editingImportRowData !== null;
                       if (isEditing && editingImportRowData) {
                         return (
@@ -624,21 +637,19 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
                           <td style={{ textAlign: "center" }}>{row.quantity}</td>
                           <td style={{ textAlign: "center" }}>{PRODUCT_UNIT_LABELS[row.unit]}</td>
                           <td style={{ color: "var(--text2)", fontSize: 12 }}>{row.description || "—"}</td>
-                          <td style={{ textAlign: "center" }}>
+                          <td style={{ textAlign: "center", whiteSpace: "normal", overflow: "visible", textOverflow: "clip" }}>
                             {row.errors.length === 0 ? (
-                              <span style={{ color: "#22c55e", fontSize: 12, fontWeight: 600 }}>✓</span>
+                              row.similar && row.similar.length > 0 ? (
+                                <span style={{ lineHeight: 1.35, color: "var(--warn)", fontSize: 11, fontWeight: 600 }}>
+                                  ⚠ o&apos;xshash: {row.similar[0].name}
+                                </span>
+                              ) : (
+                                <span style={{ color: "#22c55e", fontSize: 12, fontWeight: 600 }}>✓</span>
+                              )
                             ) : (
-                              <span title={row.errors.join("; ")} style={{ color: "var(--danger)", fontSize: 12, cursor: "help", fontWeight: 600 }}>
+                              <span style={{ lineHeight: 1.35, color: "var(--danger)", fontSize: 12, fontWeight: 600 }}>
                                 ✗ {row.errors[0]}
                               </span>
-                            )}
-                            {row.similar && row.similar.length > 0 && (
-                              <div
-                                title={row.similar.map(s => `${s.name} (${s.invoiceNumber}) — ${Math.round(s.similarity * 100)}% mos`).join("; ")}
-                                style={{ marginTop: 4, color: "var(--warn)", fontSize: 11, fontWeight: 600, cursor: "help" }}
-                              >
-                                ⚠ o&apos;xshash: {row.similar[0].name}
-                              </div>
                             )}
                           </td>
                           <td style={{ textAlign: "center" }}>

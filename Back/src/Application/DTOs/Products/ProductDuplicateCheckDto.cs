@@ -5,6 +5,7 @@ public class ProductDuplicateCheckItemDto
 {
     public int Index { get; set; }
     public string Name { get; set; } = string.Empty;
+    public string InvoiceNumber { get; set; } = string.Empty;
     public Guid DepartmentId { get; set; }
 }
 
@@ -18,6 +19,9 @@ public class ProductDuplicateCheckResultDto
 
     // Shu fayl ichida normalized bo'yicha takror (xuddi shu bo'limda) — bloklanadi.
     public bool DuplicateInFile { get; set; }
+
+    // Invoice raqami bazada allaqachon mavjud (bo'limdan qat'i nazar, global unikal) — bloklanadi.
+    public bool InvoiceDuplicate { get; set; }
 
     // 40%+ o'xshash mavjud mahsulotlar — faqat ogohlantirish.
     public IEnumerable<ProductSimilarDto> Similar { get; set; } = [];
