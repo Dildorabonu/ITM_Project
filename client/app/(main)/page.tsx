@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { useAuthStore } from "@/lib/store/authStore";
 import {
   dashboardService,
+  ACTIVITY_PAGE_SIZE,
   type DashboardSummary,
   type ProductionTrendPoint,
   type DepartmentWorkload,
@@ -1400,14 +1401,53 @@ function ActivityFeed({ items }: { items: RecentActivity[] }) {
     return () => clearInterval(id);
   }, []);
 
+  // Infinite scroll: `items` — summary'dan kelgan birinchi sahifa (eng yangi 20 ta).
+  // Pastga scroll qilinganda cursor (oxirgi yozuv sanasi) bilan keyingi sahifa
+  // yuklanadi va `list`ga qo'shiladi. Komponent kpiNonce o'zgarganda remount
+  // bo'ladi (parentdagi key), shu sabab `items` har yangilanishda toza keladi.
+  const [list, setList] = useState<RecentActivity[]>(items);
+  const [hasMore, setHasMore] = useState(items.length >= ACTIVITY_PAGE_SIZE);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  const loadMore = useCallback(async () => {
+    setLoadingMore(true);
+    try {
+      const cursor = list[list.length - 1]?.at;
+      const next = await dashboardService.getActivity(cursor);
+      setList(prev => [...prev, ...next]);
+      if (next.length < ACTIVITY_PAGE_SIZE) setHasMore(false);
+    } catch {
+      setHasMore(false); // xatoda to'xtatamiz — cheksiz qayta urinishning oldini olamiz
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [list]);
+
+  // Sentinel ko'rinishga kirganda keyingi sahifani yuklash. Qidiruv faolligida
+  // o'chiriladi (qidiruv faqat yuklangan yozuvlar ichida ishlaydi).
+  useEffect(() => {
+    if (query || !hasMore || loadingMore) return;
+    const root = scrollRef.current;
+    const target = sentinelRef.current;
+    if (!root || !target) return;
+    const io = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) loadMore(); },
+      { root, rootMargin: "120px" },
+    );
+    io.observe(target);
+    return () => io.disconnect();
+  }, [query, hasMore, loadingMore, loadMore]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLocaleLowerCase("uz");
-    if (!q) return items;
-    return items.filter(a => {
+    if (!q) return list;
+    return list.filter(a => {
       const hay = `${a.title} ${a.subtitle ?? ""} ${a.actorName ?? ""} ${a.kind}`.toLocaleLowerCase("uz");
       return hay.includes(q);
     });
-  }, [items, query]);
+  }, [list, query]);
 
   function relTime(at: string): string {
     const diff = (now - new Date(at).getTime()) / 1000;
@@ -1462,12 +1502,12 @@ function ActivityFeed({ items }: { items: RecentActivity[] }) {
         )}
       </div>
 
-      {items.length === 0 ? (
+      {list.length === 0 ? (
         <div className="dx-empty"><Ico.CheckCircle /><span>Faollik yo&apos;q</span></div>
       ) : filtered.length === 0 ? (
         <div className="dx-empty"><Ico.Search /><span>Hech narsa topilmadi</span></div>
       ) : (
-        <div className="dx-feed">
+        <div className="dx-feed" ref={scrollRef}>
           {filtered.map((a, i) => (
             <div key={`${a.at}-${i}`} className={`dx-feed-item dx-fadein-${Math.min(i, 5)}`}>
               <div className={`dx-feed-icon dxc-${kindClass(a.kind)}`}>{kindIcon(a.kind)}</div>
@@ -1481,6 +1521,16 @@ function ActivityFeed({ items }: { items: RecentActivity[] }) {
               <div className="dx-feed-time">{relTime(a.at)}</div>
             </div>
           ))}
+
+          {/* Infinite scroll sentinel + holat — faqat qidiruvsiz holatda */}
+          {!query && hasMore && (
+            <div ref={sentinelRef} className="dx-feed-sentinel">
+              {loadingMore && <span className="nd-spinner dx-feed-spinner" />}
+            </div>
+          )}
+          {!query && !hasMore && list.length > ACTIVITY_PAGE_SIZE && (
+            <div className="dx-feed-end">Barchasi ko&apos;rsatildi</div>
+          )}
         </div>
       )}
     </div>

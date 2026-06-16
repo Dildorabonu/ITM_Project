@@ -14,6 +14,9 @@ public class DashboardService : IDashboardService
     // haqiqiy ishlab chiqarilgan miqdor shu vazifaning CompletedAmount'idan olinadi.
     private const string WarehouseTaskName = "Tayyor mahsulotni omborga topshirish";
 
+    // "So'nggi faollik" feedi bir sahifada nechtadan yuklanadi (cursor-based scroll).
+    private const int ActivityPageSize = 20;
+
     public DashboardService(DatabaseContext context)
     {
         _context = context;
@@ -377,7 +380,7 @@ public class DashboardService : IDashboardService
         var recentActivity = await _context.ActivityLogs
             .AsNoTracking()
             .OrderByDescending(a => a.CreatedAt)
-            .Take(12)
+            .Take(ActivityPageSize)
             .Select(a => new RecentActivityDto
             {
                 Kind = a.Kind,
@@ -484,6 +487,38 @@ public class DashboardService : IDashboardService
         };
 
         return ApiResult<DashboardSummaryDto>.Success(summary);
+    }
+
+    // Cursor-based "So'nggi faollik" sahifalash. `before` — oxirgi ko'rilgan yozuv
+    // sanasi; null bo'lsa eng yangi sahifa qaytadi. CreatedAt bo'yicha kamayuvchi
+    // index tufayli har bir so'rov index seek (OFFSET skanер yo'q).
+    public async Task<ApiResult<IEnumerable<RecentActivityDto>>> GetRecentActivityAsync(
+        DateTime? before = null)
+    {
+        var query = _context.ActivityLogs.AsNoTracking();
+
+        if (before.HasValue)
+        {
+            // Npgsql timestamptz uchun Kind=Utc shart.
+            var cursor = before.Value.ToUniversalTime();
+            query = query.Where(a => a.CreatedAt < cursor);
+        }
+
+        var items = await query
+            .OrderByDescending(a => a.CreatedAt)
+            .Take(ActivityPageSize)
+            .Select(a => new RecentActivityDto
+            {
+                Kind = a.Kind,
+                Title = a.Title,
+                Subtitle = a.Subtitle,
+                ActorName = a.ActorName,
+                At = a.CreatedAt,
+                RefId = a.RefId,
+            })
+            .ToListAsync();
+
+        return ApiResult<IEnumerable<RecentActivityDto>>.Success(items);
     }
 
     // DateOnly.ToDateTime returns Kind=Unspecified; Npgsql requires Kind=Utc for timestamptz.

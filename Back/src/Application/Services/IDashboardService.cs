@@ -8,4 +8,7 @@ public interface IDashboardService
     Task<ApiResult<DashboardSummaryDto>> GetSummaryAsync(
         DateOnly? trendFrom = null,
         DateOnly? trendTo = null);
+
+    Task<ApiResult<IEnumerable<RecentActivityDto>>> GetRecentActivityAsync(
+        DateTime? before = null);
 }

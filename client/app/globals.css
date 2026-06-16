@@ -4042,6 +4042,27 @@ html.dark .dx-section-framed {
   white-space: nowrap;
 }
 
+/* ─── INFINITE SCROLL ─── */
+
+.dx-feed-sentinel {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 28px; padding: 6px 0;
+}
+.dx-feed-spinner {
+  width: 16px; height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  margin: 0;
+}
+.dx-feed-end {
+  text-align: center;
+  padding: 8px 0 4px;
+  font-size: 10px; letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text3);
+}
+
 /* ─── EMPTY ─── */
 
 .dx-empty {
