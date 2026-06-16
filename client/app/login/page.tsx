@@ -474,7 +474,7 @@ export default function LoginPage() {
             textAlign: "center",
             fontSize: 12, color: "#475569",
           }}>
-            © {new Date().getFullYear()} OmborPro — Barcha huquqlar himoyalangan
+            © {new Date().getFullYear()} ITM — Barcha huquqlar himoyalangan
           </div>
         </form>
       </div>
