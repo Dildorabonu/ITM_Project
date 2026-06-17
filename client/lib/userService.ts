@@ -361,6 +361,14 @@ export const productService = {
     return res.data?.result ?? res.data ?? [];
   },
 
+  // Nom maydoni typeahead'i — kiritilgan matn bilan boshlanadigan mahsulotlar.
+  autocomplete: async (name: string, departmentId?: string): Promise<ProductSimilar[]> => {
+    const params: Record<string, unknown> = { name };
+    if (departmentId) params.departmentId = departmentId;
+    const res = await api.get("/api/product/autocomplete", { params });
+    return res.data?.result ?? res.data ?? [];
+  },
+
   checkDuplicates: async (
     items: { index: number; name: string; invoiceNumber: string; departmentId: string }[]
   ): Promise<ProductDuplicateCheckResult[]> => {

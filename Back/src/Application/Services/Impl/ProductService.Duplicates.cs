@@ -58,6 +58,43 @@ public partial class ProductService
         return ApiResult<IEnumerable<ProductSimilarDto>>.Success(matches);
     }
 
+    // Nom maydoni uchun typeahead — kiritilgan matn bilan BOSHLANADIGAN (StartsWith)
+    // mavjud mahsulotlarni qaytaradi. Trigram "o'xshashlik"dan farqli o'laroq, faqat
+    // ilk harflarga mos keladiganlarni ko'rsatadi (autocomplete uchun).
+    public async Task<ApiResult<IEnumerable<ProductSimilarDto>>> SearchByNamePrefixAsync(string name, Guid? departmentId, Guid? restrictToDepartmentId = null)
+    {
+        var term = (name ?? string.Empty).Trim();
+        if (term.Length < 1)
+            return ApiResult<IEnumerable<ProductSimilarDto>>.Success([]);
+
+        var lower = term.ToLower();
+
+        var query = _context.Products.AsNoTracking().AsQueryable();
+
+        // Bo'lim ichida qidiramiz (nom takrorlanmasligi bo'lim doirasida tekshiriladi).
+        if (departmentId.HasValue)
+            query = query.Where(p => p.DepartmentId == departmentId.Value);
+
+        // Permission cheklovi: ViewAll yo'q foydalanuvchi faqat o'z bo'limini ko'radi.
+        if (restrictToDepartmentId.HasValue)
+            query = query.Where(p => p.DepartmentId == restrictToDepartmentId.Value);
+
+        var matches = await query
+            .Where(p => p.Name.ToLower().StartsWith(lower))
+            .OrderBy(p => p.Name)
+            .Take(8)
+            .Select(p => new ProductSimilarDto
+            {
+                Id = p.Id,
+                Name = p.Name,
+                InvoiceNumber = p.InvoiceNumber,
+                Similarity = 1d
+            })
+            .ToListAsync();
+
+        return ApiResult<IEnumerable<ProductSimilarDto>>.Success(matches);
+    }
+
     // Fayldan import qilishda butun ro'yxatni bitta so'rovda tekshiradi:
     //  - bazada normalized-aynan bir xil (chinakam dublikat) — ExactDuplicate
     //  - shu fayl ichida normalized-takror — DuplicateInFile
