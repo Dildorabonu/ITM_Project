@@ -67,7 +67,12 @@ public partial class ProductService
         if (term.Length < 1)
             return ApiResult<IEnumerable<ProductSimilarDto>>.Success([]);
 
-        var lower = term.ToLower();
+        // Kirill/lotin, katta-kichik harf, probel farqini yo'qotib taqqoslash uchun
+        // kiritilgan matnni ham kanonik ko'rinishga keltiramiz va NameNormalized ustuni
+        // bo'yicha qidiramiz — shunda "Болт" mahsuloti "bolt" deb yozilganda ham chiqadi.
+        var normTerm = TextNormalizer.Normalize(term);
+        if (normTerm.Length < 1)
+            return ApiResult<IEnumerable<ProductSimilarDto>>.Success([]);
 
         var query = _context.Products.AsNoTracking().AsQueryable();
 
@@ -80,7 +85,7 @@ public partial class ProductService
             query = query.Where(p => p.DepartmentId == restrictToDepartmentId.Value);
 
         var matches = await query
-            .Where(p => p.Name.ToLower().StartsWith(lower))
+            .Where(p => p.NameNormalized.StartsWith(normTerm))
             .OrderBy(p => p.Name)
             .Take(8)
             .Select(p => new ProductSimilarDto
