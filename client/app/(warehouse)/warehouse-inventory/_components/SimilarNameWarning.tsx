@@ -1,80 +1,138 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { productService, type ProductSimilar } from "@/lib/userService";
 
-// Yangi mahsulot nomi kiritilayotganda tanlangan bo'lim ichidan "o'xshash"
-// mavjud mahsulotlarni topib, ogohlantirish ko'rsatadi. Bloklamaydi —
-// foydalanuvchini bir xil mahsulotni qayta kiritib yuborishdan saqlaydi.
-export function SimilarNameWarning({ name, departmentId }: { name: string; departmentId: string }) {
+// Mahsulot nomi yozilayotganda, ilk harflardan boshlab (StartsWith) tanlangan bo'lim
+// ichidan mos keluvchi mavjud mahsulotlarni input ostida dropdown (typeahead) ko'rsatadi.
+// Maqsad: foydalanuvchini bir xil mahsulotni qayta kiritib yuborishdan saqlash.
+// Elementga bosilganda uning nomi inputga to'ldiriladi (autocomplete kabi).
+// Dropdown portal orqali <body> ga chiqariladi — shunda `.itm-card` ning
+// overflow:hidden klipi tufayli kesilib qolmaydi va ichida scroll ishlaydi.
+// excludeId — tahrirlashda mahsulotning o'zini ro'yxatda ko'rsatmaslik uchun.
+export function SimilarNameWarning({
+  name,
+  departmentId,
+  excludeId,
+  onSelect,
+}: {
+  name: string;
+  departmentId: string;
+  excludeId?: string;
+  onSelect?: (name: string) => void;
+}) {
   const [matches, setMatches] = useState<ProductSimilar[]>([]);
-  const [expanded, setExpanded] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ left: number; top: number; width: number } | null>(null);
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  // Element tanlangach onSelect nomni o'zgartiradi — keyingi qidiruvni o'tkazib yuborib,
+  // dropdown darhol qayta ochilib ketishining oldini olamiz.
+  const skipNext = useRef(false);
 
   useEffect(() => {
+    if (skipNext.current) {
+      skipNext.current = false;
+      return;
+    }
     const term = name.trim();
-    if (term.length < 2 || !departmentId) {
+    if (term.length < 1 || !departmentId) {
       setMatches([]);
       return;
     }
     let active = true;
     const t = setTimeout(async () => {
       try {
-        const res = await productService.findSimilar(term, departmentId);
+        const res = await productService.autocomplete(term, departmentId);
         if (!active) return;
-        // Aynan bir xil nom (faqat harf-katta-kichikligi farqi) — bu backend allaqachon
-        // bloklaydigan holat, uni ro'yxatdan chiqarib tashlaymiz; qolgani "o'xshash".
-        setMatches(res.filter(m => m.name.trim().toLowerCase() !== term.toLowerCase()));
-        setExpanded(false);
+        setMatches(res.filter(m => m.id !== excludeId));
+        setOpen(true);
       } catch {
         /* qidiruv xatosi — jim o'tkazib yuboramiz */
       }
-    }, 400);
+    }, 250);
     return () => { active = false; clearTimeout(t); };
-  }, [name, departmentId]);
+  }, [name, departmentId, excludeId]);
 
-  if (matches.length === 0) return null;
+  // Dropdown joylashuvini input (anchor o'rovi) bo'yicha hisoblaymiz; scroll/resize
+  // da yangilanadi, chunki portal <body> ga fixed joylashuvda chiqariladi.
+  useLayoutEffect(() => {
+    if (!open || matches.length === 0) return;
+    const update = () => {
+      const wrap = anchorRef.current?.parentElement;
+      if (!wrap) return;
+      const r = wrap.getBoundingClientRect();
+      setPos({ left: r.left, top: r.bottom + 4, width: r.width });
+    };
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [open, matches]);
 
-  const top = matches[0];
-  const rest = matches.slice(1);
+  // Tashqariga bosilganda yopiladi (input va dropdownning o'zi bundan mustasno).
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      const wrap = anchorRef.current?.parentElement;
+      const target = e.target as Node;
+      if (wrap?.contains(target) || dropdownRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  const pick = (m: ProductSimilar) => {
+    skipNext.current = true;
+    onSelect?.(m.name);
+    setOpen(false);
+  };
+
+  const showList = open && matches.length > 0 && pos;
 
   return (
-    <div style={{ marginTop: 8, padding: "6px 10px", borderRadius: "var(--radius)", background: "var(--warn-dim)", border: "1px solid var(--warn)44", fontSize: 12, color: "var(--warn)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
-          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-          <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
-        </svg>
-        <span style={{ fontWeight: 600, flexShrink: 0 }}>O&apos;xshash bor:</span>
-        <span style={{ color: "var(--text1)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }} title={`${top.name} · ${top.invoiceNumber}`}>
-          {top.name}
-        </span>
-        <span style={{ color: "var(--text3)", flexShrink: 0 }}>· {Math.round(top.similarity * 100)}%</span>
-        {rest.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setExpanded(v => !v)}
-            style={{ marginLeft: "auto", flexShrink: 0, background: "transparent", border: "none", color: "var(--warn)", fontSize: 11, fontWeight: 600, cursor: "pointer", padding: 0, display: "inline-flex", alignItems: "center", gap: 2 }}
-          >
-            {expanded ? "Yopish" : `+${rest.length} ta yana`}
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </button>
-        )}
-      </div>
-      {expanded && rest.length > 0 && (
-        <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px solid var(--warn)22", display: "flex", flexDirection: "column", gap: 3 }}>
-          {rest.map(m => (
-            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-              <span style={{ color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }} title={`${m.name} · ${m.invoiceNumber}`}>
+    <span ref={anchorRef} style={{ position: "absolute", width: 0, height: 0 }}>
+      {showList && createPortal(
+        <div
+          ref={dropdownRef}
+          style={{
+            position: "fixed", left: pos.left, top: pos.top, width: pos.width, zIndex: 1000,
+            background: "var(--surface)", border: "1px solid var(--border)",
+            borderRadius: "var(--radius)", boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+            maxHeight: 240, overflowY: "auto",
+          }}
+        >
+          <div style={{ padding: "6px 10px", fontSize: 11, fontWeight: 600, color: "var(--text3)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0, background: "var(--surface)" }}>
+            Mavjud mahsulotlar
+          </div>
+          {matches.map(m => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => pick(m)}
+              style={{
+                display: "flex", alignItems: "center", gap: 8, width: "100%",
+                padding: "7px 10px", background: "transparent", border: "none",
+                borderBottom: "1px solid var(--border)", cursor: "pointer",
+                textAlign: "left", fontSize: 12, color: "var(--text1)",
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = "var(--accent-dim)")}
+              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+            >
+              <span style={{ fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flex: 1 }} title={`${m.name} · ${m.invoiceNumber}`}>
                 {m.name}
               </span>
-              <span style={{ color: "var(--text3)", fontFamily: "var(--font-mono)", flexShrink: 0 }}>{m.invoiceNumber}</span>
-              <span style={{ color: "var(--text3)", marginLeft: "auto", flexShrink: 0 }}>{Math.round(m.similarity * 100)}%</span>
-            </div>
+              <span style={{ color: "var(--text3)", fontFamily: "var(--font-mono)", fontSize: 11, flexShrink: 0 }}>{m.invoiceNumber}</span>
+            </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </span>
   );
 }

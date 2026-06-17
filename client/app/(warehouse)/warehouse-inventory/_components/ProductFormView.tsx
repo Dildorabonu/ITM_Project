@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import {
   productService,
   ProductUnit,
@@ -12,6 +12,7 @@ import {
   type DepartmentOption,
 } from "@/lib/userService";
 import { CheckSelect } from "@/app/_components/CheckSelect";
+import { useToastStore } from "@/lib/store/toastStore";
 import { SimilarNameWarning } from "./SimilarNameWarning";
 import {
   emptyForm,
@@ -47,6 +48,7 @@ function statusRank(r: ParsedImportRow): number {
 // Yangi mahsulot(lar) yaratish (qo'lda yoki Excel import) hamda mavjud
 // mahsulotni tahrirlash formasi. Ko'p qatorli create va import holatini o'zi boshqaradi.
 export function ProductFormView({ editTarget, departments, form, setForm, onClose, onCreated, onUpdated }: Props) {
+  const showToast = useToastStore(s => s.show);
   const [forms, setForms] = useState<ProductForm[]>([{ ...emptyForm }]);
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -63,6 +65,24 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
   const [editingImportRowData, setEditingImportRowData] = useState<{
     name: string; invoiceNumber: string; departmentId: string; quantity: string; unit: ProductUnit; description: string;
   } | null>(null);
+
+  // Bu sahifa faqat ombor turidagi bo'limlarni ko'rsatadi. Agar bittagina bo'lim
+  // (Omborxona) bo'lsa, foydalanuvchiga tanlatmasdan uni avtomatik biriktiramiz va
+  // UI dagi "Bo'lim" tanlovini yashiramiz. Bir nechta bo'lim bo'lsa — tanlov qaytadi.
+  const autoDept = departments.length === 1 ? departments[0] : null;
+
+  // Avtomatik bo'limni forma holatiga singdiramiz (SimilarNameWarning va validatsiya
+  // to'g'ri ishlashi uchun). Bo'lim allaqachon belgilangan qatorlarga tegmaymiz.
+  useEffect(() => {
+    if (!autoDept) return;
+    if (editTarget) {
+      setForm(f => f.departmentId ? f : { ...f, departmentId: autoDept.id });
+    } else {
+      setForms(prev => prev.every(f => f.departmentId)
+        ? prev
+        : prev.map(f => f.departmentId ? f : { ...f, departmentId: autoDept.id }));
+    }
+  }, [autoDept, editTarget, setForm]);
 
   const handleSave = async () => {
     setFormSubmitted(true);
@@ -96,6 +116,7 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
           departmentName: dept?.name ?? editTarget.departmentName,
         };
         onUpdated(updated);
+        showToast(`"${updated.name}" mahsuloti yangilandi.`, "Saqlandi");
         onClose();
       } catch (err: unknown) {
         const msg = (err as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
@@ -128,6 +149,12 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
         }));
 
         await productService.createBulk(payloads);
+        showToast(
+          payloads.length === 1
+            ? `"${payloads[0].name}" mahsuloti qo'shildi.`
+            : `${payloads.length} ta mahsulot qo'shildi.`,
+          "Qo'shildi"
+        );
         onClose();
         await onCreated();
       } catch (err: unknown) {
@@ -199,6 +226,7 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
         departmentId: r.departmentId!,
       }));
       await productService.createBulk(payloads);
+      showToast(`${payloads.length} ta mahsulot import qilindi.`, "Qo'shildi");
       await onCreated();
       onClose();
       setImportRows([]);
@@ -216,7 +244,7 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
   };
 
   const addFormRow = () => {
-    setForms(prev => prev.length < BULK_LIMIT ? [...prev, { ...emptyForm }] : prev);
+    setForms(prev => prev.length < BULK_LIMIT ? [...prev, { ...emptyForm, departmentId: autoDept?.id ?? "" }] : prev);
   };
 
   const removeFormRow = (index: number) => {
@@ -300,13 +328,16 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
               <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !form.name.trim() ? "var(--danger)" : "var(--text2)" }}>
                 Mahsulot nomi <span style={{ color: "var(--danger)" }}>*</span>
               </label>
-              <input className="form-input" value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="Mahsulot nomini kiriting"
-                style={formSubmitted && !form.name.trim() ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : undefined}
-              />
+              <div style={{ position: "relative" }}>
+                <input className="form-input" value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="Mahsulot nomini kiriting"
+                  style={formSubmitted && !form.name.trim() ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : undefined}
+                />
+                <SimilarNameWarning name={form.name} departmentId={form.departmentId} excludeId={editTarget.id}
+                  onSelect={n => setForm(f => ({ ...f, name: n }))} />
+              </div>
               {formSubmitted && !form.name.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Mahsulot nomini kiriting</div>}
-              <SimilarNameWarning name={form.name} departmentId={form.departmentId} />
             </div>
             <div>
               <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !form.invoiceNumber.trim() ? "var(--danger)" : "var(--text2)" }}>
@@ -319,19 +350,21 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
               />
               {formSubmitted && !form.invoiceNumber.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Invoice raqamini kiriting</div>}
             </div>
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !form.departmentId ? "var(--danger)" : "var(--text2)" }}>
-                Bo&apos;lim <span style={{ color: "var(--danger)" }}>*</span>
-              </label>
-              <CheckSelect
-                value={form.departmentId}
-                onChange={v => setForm(f => ({ ...f, departmentId: v }))}
-                options={departments.map(d => ({ id: d.id, name: d.name }))}
-                placeholder="— Bo'lim tanlang —"
-                error={formSubmitted && !form.departmentId}
-              />
-              {formSubmitted && !form.departmentId && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Bo&apos;limni tanlang</div>}
-            </div>
+            {!autoDept && (
+              <div>
+                <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !form.departmentId ? "var(--danger)" : "var(--text2)" }}>
+                  Bo&apos;lim <span style={{ color: "var(--danger)" }}>*</span>
+                </label>
+                <CheckSelect
+                  value={form.departmentId}
+                  onChange={v => setForm(f => ({ ...f, departmentId: v }))}
+                  options={departments.map(d => ({ id: d.id, name: d.name }))}
+                  placeholder="— Bo'lim tanlang —"
+                  error={formSubmitted && !form.departmentId}
+                />
+                {formSubmitted && !form.departmentId && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Bo&apos;limni tanlang</div>}
+              </div>
+            )}
             <div>
               <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Soni</label>
               <input className="form-input" type="number" min="0" step="any" value={form.quantity}
@@ -766,13 +799,16 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
                   <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !f.name.trim() ? "var(--danger)" : "var(--text2)" }}>
                     Mahsulot nomi <span style={{ color: "var(--danger)" }}>*</span>
                   </label>
-                  <input className="form-input" value={f.name}
-                    onChange={e => updateFormRow(index, "name", e.target.value)}
-                    placeholder="Mahsulot nomini kiriting"
-                    style={formSubmitted && !f.name.trim() ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : undefined}
-                  />
+                  <div style={{ position: "relative" }}>
+                    <input className="form-input" value={f.name}
+                      onChange={e => updateFormRow(index, "name", e.target.value)}
+                      placeholder="Mahsulot nomini kiriting"
+                      style={formSubmitted && !f.name.trim() ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : undefined}
+                    />
+                    <SimilarNameWarning name={f.name} departmentId={f.departmentId}
+                      onSelect={n => updateFormRow(index, "name", n)} />
+                  </div>
                   {formSubmitted && !f.name.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Mahsulot nomini kiriting</div>}
-                  <SimilarNameWarning name={f.name} departmentId={f.departmentId} />
                 </div>
                 <div>
                   <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !f.invoiceNumber.trim() ? "var(--danger)" : "var(--text2)" }}>
@@ -785,19 +821,21 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
                   />
                   {formSubmitted && !f.invoiceNumber.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Invoice raqamini kiriting</div>}
                 </div>
-                <div>
-                  <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !f.departmentId ? "var(--danger)" : "var(--text2)" }}>
-                    Bo&apos;lim <span style={{ color: "var(--danger)" }}>*</span>
-                  </label>
-                  <CheckSelect
-                    value={f.departmentId}
-                    onChange={v => updateFormRow(index, "departmentId", v)}
-                    options={departments.map(d => ({ id: d.id, name: d.name }))}
-                    placeholder="— Bo'lim tanlang —"
-                    error={formSubmitted && !f.departmentId}
-                  />
-                  {formSubmitted && !f.departmentId && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Bo&apos;limni tanlang</div>}
-                </div>
+                {!autoDept && (
+                  <div>
+                    <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !f.departmentId ? "var(--danger)" : "var(--text2)" }}>
+                      Bo&apos;lim <span style={{ color: "var(--danger)" }}>*</span>
+                    </label>
+                    <CheckSelect
+                      value={f.departmentId}
+                      onChange={v => updateFormRow(index, "departmentId", v)}
+                      options={departments.map(d => ({ id: d.id, name: d.name }))}
+                      placeholder="— Bo'lim tanlang —"
+                      error={formSubmitted && !f.departmentId}
+                    />
+                    {formSubmitted && !f.departmentId && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Bo&apos;limni tanlang</div>}
+                  </div>
+                )}
                 <div>
                   <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Soni</label>
                   <input className="form-input" type="number" min="0" step="any" value={f.quantity}

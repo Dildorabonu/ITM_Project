@@ -10,6 +10,7 @@ public interface IProductService
     Task<ApiResult<PagedResult<ProductResponseDto>>> GetAllAsync(int page, int pageSize, string? search, Guid? departmentId, Guid? restrictToDepartmentId = null, DepartmentType? departmentType = null);
     Task<ApiResult<PagedResult<ProductReservationDto>>> GetReservationsAsync(int page, int pageSize, string? search, Guid? restrictToDepartmentId = null);
     Task<ApiResult<IEnumerable<ProductSimilarDto>>> FindSimilarAsync(string name, Guid? departmentId, Guid? restrictToDepartmentId = null);
+    Task<ApiResult<IEnumerable<ProductSimilarDto>>> SearchByNamePrefixAsync(string name, Guid? departmentId, Guid? restrictToDepartmentId = null);
     Task<ApiResult<IEnumerable<ProductDuplicateCheckResultDto>>> CheckDuplicatesAsync(IEnumerable<ProductDuplicateCheckItemDto> items, Guid? restrictToDepartmentId = null);
     Task<ApiResult<int>> CreateAsync(ProductCreateDto dto);
     Task<ApiResult<int>> CreateBulkAsync(IEnumerable<ProductCreateDto> dtos);

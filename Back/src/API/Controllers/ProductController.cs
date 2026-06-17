@@ -55,6 +55,15 @@ public class ProductController : ControllerBase
         return Ok(result);
     }
 
+    [HasPermission("Products.View")]
+    [HttpGet("autocomplete")]
+    public async Task<IActionResult> Autocomplete([FromQuery] string name, [FromQuery] Guid? departmentId = null)
+    {
+        var restrict = GetRestrictDepartmentId();
+        var result = await _productService.SearchByNamePrefixAsync(name ?? string.Empty, departmentId, restrict);
+        return Ok(result);
+    }
+
     [HasPermission("Products.Create")]
     [HttpPost("check-duplicates")]
     public async Task<IActionResult> CheckDuplicates([FromBody] IEnumerable<ProductDuplicateCheckItemDto> items)
