@@ -1144,7 +1144,7 @@ function HBarList({ data }: { data: DepartmentWorkload[] }) {
             </div>
             <div className="dx-hbar-right">
               <span className="dx-hbar-num">{total}</span>
-              <span className="dx-hbar-meta">{d.activeContracts}c · {d.activeManufactured}p</span>
+              <span className="dx-hbar-meta">{d.activeContracts} sh · {d.activeManufactured} m</span>
             </div>
 
             <div className="dx-hbar-tip" role="tooltip">
