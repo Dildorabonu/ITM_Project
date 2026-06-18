@@ -20,8 +20,14 @@ public class Product
 
     public ProductUnit Unit { get; set; }
     public Guid DepartmentId { get; set; }
+
+    // Katalog mahsulotiga (Material) bog'lanish — string-match upsert o'rniga.
+    // FreeText (katalogda yo'q) mahsulotlar uchun null bo'ladi.
+    public Guid? MaterialId { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation properties
     public Department? Department { get; set; }
+    public Material? Material { get; set; }
 }

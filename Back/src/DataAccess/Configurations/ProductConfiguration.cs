@@ -30,5 +30,14 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
             .WithMany(d => d.Products)
             .HasForeignKey(p => p.DepartmentId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // Material o'chsa inventar o'chmaydi — faqat bog'lanish uziladi (unlinked).
+        builder.HasOne(p => p.Material)
+            .WithMany()
+            .HasForeignKey(p => p.MaterialId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // Unique EMAS — mavjud dublikatlarda migration sinmasligi uchun.
+        builder.HasIndex(p => new { p.DepartmentId, p.MaterialId });
     }
 }

@@ -167,7 +167,10 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
   };
 
   const isChild = !!req.parentRequisitionId;
-  const isApproved = req.status === RequisitionStatus.ReadyForWarehouseRelease || req.status === RequisitionStatus.ReadyForPurchase;
+  const isApproved = req.status === RequisitionStatus.ReadyForWarehouseRelease
+    || req.status === RequisitionStatus.ReadyForPurchase
+    || req.status === RequisitionStatus.Released
+    || req.status === RequisitionStatus.Delivered;
 
   return createPortal(
     <>

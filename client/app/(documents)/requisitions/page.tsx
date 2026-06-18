@@ -22,7 +22,8 @@ const COMPLETED_FILTER = "completed";
 
 const TERMINAL_STATUSES = new Set<RequisitionStatus>([
   RequisitionStatus.ReadyForWarehouseRelease,
-  RequisitionStatus.ReadyForPurchase,
+  RequisitionStatus.Released,
+  RequisitionStatus.Delivered,
   RequisitionStatus.Rejected,
 ]);
 

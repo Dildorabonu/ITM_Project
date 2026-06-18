@@ -51,7 +51,6 @@ public class RequisitionService : IRequisitionService
     private static readonly RequisitionStatus[] TerminalStatuses =
     [
         RequisitionStatus.ReadyForWarehouseRelease,
-        RequisitionStatus.ReadyForPurchase,
         RequisitionStatus.Rejected,
     ];
 
@@ -267,6 +266,11 @@ public class RequisitionService : IRequisitionService
             var product = await _context.Products.FindAsync(productId);
             if (product is null) continue;
             product.ReservedQuantity += delta;
+
+            // Ledger: ombor tekshiruvida markaziy ombor mahsuloti rezervga olindi
+            AddMovement(StockMovementType.Reserve, product, delta, null,
+                null, warehouseDept.Id, r.Id, r.ContractId, checkerId,
+                $"Ombor tekshiruvi: {r.RequisitionNo}");
         }
 
         r.WarehouseCheckedBy = checkerId;
@@ -550,6 +554,7 @@ public class RequisitionService : IRequisitionService
             // aks holda hech narsadan zaxira yaratilgan bo'lar edi (phantom inventory):
             // bo'lim omboriga qo'shilardi-yu, hech qaysi manbadan ayrilmasdi. Manba
             // topilmasa (oraliqda o'chirilgan bo'lsa) butun chiqarishni bekor qilamiz.
+            Product? releasedSource = null;
             if (item.ReservedProductId.HasValue)
             {
                 if (!sourceProductMap.TryGetValue(item.ReservedProductId.Value, out var source))
@@ -563,15 +568,21 @@ public class RequisitionService : IRequisitionService
 
                 source.Quantity -= qty;
                 source.ReservedQuantity = Math.Max(0m, source.ReservedQuantity - qty);
+                releasedSource = source;
             }
 
-            // Bo'lim omboriga upsert
-            var existing = existingProducts.FirstOrDefault(p =>
-                p.Name.Equals(productName, StringComparison.OrdinalIgnoreCase) && p.Unit == unit);
+            // Bo'lim omboriga upsert: katalog itemlar MaterialId bo'yicha,
+            // FreeText itemlar normalize(nom) + birlik bo'yicha.
+            var normalized = TextNormalizer.Normalize(productName);
+            var existing = item.MaterialId.HasValue
+                ? existingProducts.FirstOrDefault(p => p.MaterialId == item.MaterialId.Value)
+                : existingProducts.FirstOrDefault(p => p.NameNormalized == normalized && p.Unit == unit);
 
+            Product targetProduct;
             if (existing is not null)
             {
                 existing.Quantity += qty;
+                targetProduct = existing;
             }
             else
             {
@@ -579,20 +590,34 @@ public class RequisitionService : IRequisitionService
                 {
                     Id = Guid.NewGuid(),
                     Name = productName,
-                    NameNormalized = TextNormalizer.Normalize(productName),
+                    NameNormalized = normalized,
                     InvoiceNumber = $"{r.RequisitionNo}-{itemIndex:D2}",
                     Description = item.Notes,
                     Quantity = qty,
                     Unit = unit,
                     DepartmentId = targetDeptId,
+                    MaterialId = item.MaterialId,
                     CreatedAt = DateTime.UtcNow
                 };
                 _context.Products.Add(newProduct);
                 existingProducts.Add(newProduct);
+                targetProduct = newProduct;
             }
+
+            // Ledger: markaziy ombordan bo'lim omboriga ko'chirish (+ rezervni bo'shatish)
+            var sourceDeptId = releasedSource?.DepartmentId;
+            AddMovement(StockMovementType.Transfer, targetProduct, qty, item.MaterialId,
+                sourceDeptId, targetDeptId, r.Id, r.ContractId, releaserId, stockOutNoteBase);
+            if (releasedSource is not null)
+                AddMovement(StockMovementType.Release, releasedSource, qty, item.MaterialId,
+                    sourceDeptId, targetDeptId, r.Id, r.ContractId, releaserId, stockOutNoteBase);
         }
 
-        r.Status = RequisitionStatus.Released;
+        // Xarid orqali kelgan tovar omborxonadan tranzit qildi → Delivered;
+        // oddiy ombor qoldig'idan berilgani esa avvalgidek Released.
+        r.Status = r.Source == RequisitionSource.Purchase
+            ? RequisitionStatus.Delivered
+            : RequisitionStatus.Released;
 
         await _context.SaveChangesAsync();
         await tx.CommitAsync();
@@ -600,6 +625,124 @@ public class RequisitionService : IRequisitionService
         await _notificationService.CreateAsync(r.CreatedBy,
             $"Talabnoma chiqarib berildi: {r.RequisitionNo}",
             "Mahsulotlar bo'lim omboriga tushdi.",
+            NotificationType.Info);
+
+        return ApiResult<bool>.Success(true);
+    }
+
+    public async Task<ApiResult<bool>> ReceivePurchaseAsync(Guid id, Guid receiverId)
+    {
+        var r = await GetWithIncludes(id);
+        if (r is null)
+            return ApiResult<bool>.Failure([$"Requisition '{id}' topilmadi."], 404);
+
+        if (r.Status != RequisitionStatus.ReadyForPurchase || r.Source != RequisitionSource.Purchase)
+            return ApiResult<bool>.Failure(["Faqat sotib olishga tasdiqlangan (xarid) talabnomani omborga qabul qilish mumkin."]);
+
+        var warehouseDept = await _context.Departments
+            .FirstOrDefaultAsync(d => d.Type == DepartmentType.Omborxona && d.IsActive);
+        if (warehouseDept is null)
+            return ApiResult<bool>.Failure(["Omborxona bo'limi sozlanmagan."]);
+
+        // Markaziy ombordagi mavjud Productlarni upsert uchun oldindan yuklab olish
+        var warehouseProducts = await _context.Products
+            .Where(p => p.DepartmentId == warehouseDept.Id)
+            .ToListAsync();
+
+        var noteBase = string.IsNullOrWhiteSpace(r.Purpose)
+            ? $"Xarid: {r.RequisitionNo}"
+            : $"Xarid: {r.RequisitionNo} — {r.Purpose}";
+
+        await using var tx = await _context.Database.BeginTransactionAsync();
+
+        var itemIndex = 0;
+        foreach (var item in r.Items)
+        {
+            itemIndex++;
+            var qty = item.Quantity;
+
+            string productName;
+            ProductUnit unit;
+
+            if (item.MaterialId.HasValue && item.Material is not null)
+            {
+                var material = item.Material;
+                productName = material.Name;
+                unit = ParseProductUnit(material.Unit);
+
+                // Material katalogiga kirim + audit yozuvi (faqat Material-asosli itemlar)
+                material.Quantity += qty;
+                material.UpdatedAt = DateTime.UtcNow;
+
+                _context.StockIns.Add(new StockIn
+                {
+                    Id = Guid.NewGuid(),
+                    MaterialId = material.Id,
+                    Quantity = qty,
+                    ContractId = r.ContractId,
+                    ReceivedBy = receiverId,
+                    ReceivedAt = DateTime.UtcNow,
+                    Notes = noteBase
+                });
+            }
+            else
+            {
+                productName = item.FreeTextName ?? "Noma'lum mahsulot";
+                unit = ParseProductUnit(item.FreeTextUnit);
+            }
+
+            // Markaziy ombor Productiga upsert: katalog itemlar MaterialId bo'yicha
+            // (string-match drift yo'q), FreeText itemlar normalize(nom) + birlik bo'yicha.
+            var normalized = TextNormalizer.Normalize(productName);
+            var existing = item.MaterialId.HasValue
+                ? warehouseProducts.FirstOrDefault(p => p.MaterialId == item.MaterialId.Value)
+                : warehouseProducts.FirstOrDefault(p => p.NameNormalized == normalized && p.Unit == unit);
+
+            Product target;
+            if (existing is not null)
+            {
+                existing.Quantity += qty;
+                target = existing;
+            }
+            else
+            {
+                target = new Product
+                {
+                    Id = Guid.NewGuid(),
+                    Name = productName,
+                    NameNormalized = normalized,
+                    InvoiceNumber = $"{r.RequisitionNo}-{itemIndex:D2}",
+                    Description = item.Notes,
+                    Quantity = qty,
+                    Unit = unit,
+                    DepartmentId = warehouseDept.Id,
+                    MaterialId = item.MaterialId,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.Products.Add(target);
+                warehouseProducts.Add(target);
+            }
+
+            // Shu talabnomaga band qilib qo'yamiz — Release keyin ayiradi
+            target.ReservedQuantity += qty;
+            item.ReservedProductId = target.Id;
+
+            // Ledger: omborga kirim + rezerv (FreeText itemlar ham shu yerda iz qoldiradi)
+            AddMovement(StockMovementType.In, target, qty, item.MaterialId,
+                null, warehouseDept.Id, r.Id, r.ContractId, receiverId, noteBase);
+            AddMovement(StockMovementType.Reserve, target, qty, item.MaterialId,
+                null, warehouseDept.Id, r.Id, r.ContractId, receiverId, noteBase);
+        }
+
+        // Endi ombordan berishga tayyor: mavjud Release oqimiga qo'shiladi
+        r.Status = RequisitionStatus.ReadyForWarehouseRelease;
+
+        await _context.SaveChangesAsync();
+        await tx.CommitAsync();
+
+        await _notificationService.CreateAsync(r.CreatedBy,
+            $"Xarid omborga qabul qilindi: {r.RequisitionNo}",
+            "Sotib olingan mahsulotlar omborxonaga kirdi va bo'limga berishga tayyor.",
             NotificationType.Info);
 
         return ApiResult<bool>.Success(true);
@@ -622,6 +765,31 @@ public class RequisitionService : IRequisitionService
             "to'plam" or "toplam" or "set"           => ProductUnit.Toʻplam,
             _                                        => ProductUnit.Dona,
         };
+    }
+
+    // Ombor harakatlari jurnaliga (StockMovement) bitta qator qo'shadi.
+    // QuantityAfter aniq bo'lishi uchun shu mahsulot miqdori o'zgargandan KEYIN,
+    // o'sha tranzaksiya ichida chaqirilishi shart. qty har doim musbat beriladi.
+    private void AddMovement(StockMovementType type, Product product, decimal qty,
+        Guid? materialId, Guid? sourceDeptId, Guid? targetDeptId,
+        Guid? requisitionId, Guid? contractId, Guid userId, string? notes)
+    {
+        _context.StockMovements.Add(new StockMovement
+        {
+            Id = Guid.NewGuid(),
+            Type = type,
+            ProductId = product.Id,
+            MaterialId = materialId,
+            SourceDepartmentId = sourceDeptId,
+            TargetDepartmentId = targetDeptId,
+            Quantity = qty,
+            QuantityAfter = product.Quantity,
+            RequisitionId = requisitionId,
+            ContractId = contractId,
+            UserId = userId,
+            CreatedAt = DateTime.UtcNow,
+            Notes = notes
+        });
     }
 
     // ─── Yordamchi metodlar ───────────────────────────────────────────────────
@@ -735,6 +903,8 @@ public class RequisitionService : IRequisitionService
         RequisitionStatus.Rejected                 => "Rad etilgan",
         RequisitionStatus.ReadyForWarehouseRelease => "Ombordan olishga",
         RequisitionStatus.ReadyForPurchase         => "Sotib olishga",
+        RequisitionStatus.Released                 => "Chiqarib berildi",
+        RequisitionStatus.Delivered                => "Xarid yetkazildi",
         _                                          => s.ToString()
     };
 

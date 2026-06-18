@@ -1233,6 +1233,7 @@ export enum RequisitionStatus {
   ReadyForWarehouseRelease = 9,
   ReadyForPurchase         = 10,
   Released                 = 11,
+  Delivered                = 12,
 }
 
 export enum RequisitionSource {
@@ -1250,6 +1251,7 @@ export const REQUISITION_STATUS_LABELS: Record<RequisitionStatus, string> = {
   [RequisitionStatus.ReadyForWarehouseRelease]: "Ombordan olishga",
   [RequisitionStatus.ReadyForPurchase]:         "Sotib olishga",
   [RequisitionStatus.Released]:                 "Chiqarib berildi",
+  [RequisitionStatus.Delivered]:                "Xarid yetkazildi",
 };
 
 export const REQUISITION_SOURCE_LABELS: Record<RequisitionSource, string> = {
@@ -1407,6 +1409,10 @@ export const requisitionService = {
 
   release: async (id: string): Promise<void> => {
     await api.post(`/api/requisition/${id}/release`);
+  },
+
+  receivePurchase: async (id: string): Promise<void> => {
+    await api.post(`/api/requisition/${id}/receive-purchase`);
   },
 
   warehouseCheck: async (id: string, items: RequisitionWarehouseCheckItem[]): Promise<string[]> => {

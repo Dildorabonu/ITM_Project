@@ -128,6 +128,19 @@ public class RequisitionController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Omborchi sotib olingan mahsulotni omborga qabul qiladi: ReadyForPurchase → ReadyForWarehouseRelease.</summary>
+    [HasPermission("Requisitions.WarehouseCheck")]
+    [HttpPost("{id:guid}/receive-purchase")]
+    public async Task<IActionResult> ReceivePurchase(Guid id)
+    {
+        var userId = GetUserId();
+        if (userId is null) return Unauthorized();
+
+        var result = await _requisitionService.ReceivePurchaseAsync(id, userId.Value);
+        if (!result.Succeeded) return BadRequest(result);
+        return Ok(result);
+    }
+
     // ── Files ────────────────────────────────────────────────────────────────
 
     [HasPermission("Requisitions.View")]

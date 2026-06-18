@@ -24,6 +24,7 @@ public class DatabaseContext : DbContext
     public DbSet<Material> Materials { get; set; }
     public DbSet<StockIn> StockIns { get; set; }
     public DbSet<StockOut> StockOuts { get; set; }
+    public DbSet<StockMovement> StockMovements { get; set; }
     public DbSet<Core.Entities.Task> Tasks { get; set; }
     public DbSet<Notification> Notifications { get; set; }
     public DbSet<RefreshToken> RefreshTokens { get; set; }
