@@ -18,9 +18,9 @@ namespace DataAccess.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasAnnotation("ProductVersion", "8.0.4")
-                .HasAnnotation("Relational:MaxIdentifierLength", 63)
-                .HasAnnotation("Npgsql:PostgresExtension:pg_trgm", ",,");
+                .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "pg_trgm");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("Core.Entities.ActivityLog", b =>
@@ -735,6 +735,9 @@ namespace DataAccess.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("MaterialId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
@@ -760,10 +763,12 @@ namespace DataAccess.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("DepartmentId");
-
                     b.HasIndex("InvoiceNumber")
                         .IsUnique();
+
+                    b.HasIndex("MaterialId");
+
+                    b.HasIndex("DepartmentId", "MaterialId");
 
                     b.HasIndex("Name", "DepartmentId")
                         .IsUnique();
@@ -1111,6 +1116,71 @@ namespace DataAccess.Migrations
                     b.HasIndex("ReceivedBy");
 
                     b.ToTable("StockIns");
+                });
+
+            modelBuilder.Entity("Core.Entities.StockMovement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ContractId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("MaterialId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<decimal>("QuantityAfter")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<Guid?>("RequisitionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("SourceDepartmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TargetDepartmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContractId");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("MaterialId");
+
+                    b.HasIndex("RequisitionId");
+
+                    b.HasIndex("SourceDepartmentId");
+
+                    b.HasIndex("TargetDepartmentId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("ProductId", "CreatedAt");
+
+                    b.ToTable("StockMovements");
                 });
 
             modelBuilder.Entity("Core.Entities.StockOut", b =>
@@ -1608,7 +1678,14 @@ namespace DataAccess.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Core.Entities.Material", "Material")
+                        .WithMany()
+                        .HasForeignKey("MaterialId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Department");
+
+                    b.Navigation("Material");
                 });
 
             modelBuilder.Entity("Core.Entities.RefreshToken", b =>
@@ -1769,6 +1846,60 @@ namespace DataAccess.Migrations
                     b.Navigation("Material");
 
                     b.Navigation("Receiver");
+                });
+
+            modelBuilder.Entity("Core.Entities.StockMovement", b =>
+                {
+                    b.HasOne("Core.Entities.Contract", "Contract")
+                        .WithMany()
+                        .HasForeignKey("ContractId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Core.Entities.Material", "Material")
+                        .WithMany()
+                        .HasForeignKey("MaterialId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Core.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Core.Entities.Requisition", "Requisition")
+                        .WithMany()
+                        .HasForeignKey("RequisitionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Core.Entities.Department", "SourceDepartment")
+                        .WithMany()
+                        .HasForeignKey("SourceDepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Core.Entities.Department", "TargetDepartment")
+                        .WithMany()
+                        .HasForeignKey("TargetDepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Core.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Contract");
+
+                    b.Navigation("Material");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("Requisition");
+
+                    b.Navigation("SourceDepartment");
+
+                    b.Navigation("TargetDepartment");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Core.Entities.StockOut", b =>

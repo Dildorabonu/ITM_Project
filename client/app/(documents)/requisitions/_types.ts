@@ -20,6 +20,7 @@ export const STATUS_STYLE: Partial<Record<RequisitionStatus, { bg: string; color
   [RequisitionStatus.ReadyForWarehouseRelease]: { bg: "var(--success-dim)", color: "var(--success)", border: "rgba(15,123,69,0.2)" },
   [RequisitionStatus.ReadyForPurchase]:         { bg: "var(--accent-dim)",  color: "var(--accent)",  border: "rgba(26,110,235,0.25)" },
   [RequisitionStatus.Released]:                 { bg: "var(--success-dim)", color: "var(--success)", border: "rgba(15,123,69,0.35)" },
+  [RequisitionStatus.Delivered]:                { bg: "var(--success-dim)", color: "var(--success)", border: "rgba(15,123,69,0.35)" },
 };
 
 // ─── Workflow ─────────────────────────────────────────────────────────────────
@@ -55,15 +56,26 @@ export function getWorkflowIndex(status: RequisitionStatus): number {
     case RequisitionStatus.ReadyForWarehouseRelease: return 4;
     case RequisitionStatus.ReadyForPurchase:         return 4;
     case RequisitionStatus.Released:                 return 4;
+    case RequisitionStatus.Delivered:                return 4;
     default:                                         return -1;
   }
 }
 
-export function getFinalStepInfo(source?: RequisitionSource): { label: string; shortLabel: string; color: string } {
+export function getFinalStepInfo(source?: RequisitionSource, status?: RequisitionStatus): { label: string; shortLabel: string; color: string } {
+  if (status === RequisitionStatus.Delivered) {
+    return { label: "Xarid yetkazildi", shortLabel: "Yetkazildi", color: "#0f7b45" };
+  }
+  if (status === RequisitionStatus.Released) {
+    return { label: "Bo'lim omboriga berildi", shortLabel: "Berildi", color: "#0f7b45" };
+  }
   if (source === RequisitionSource.Warehouse) {
     return { label: "Ombordan olishga tayyor", shortLabel: "Ombordan", color: "#0f7b45" };
   }
   if (source === RequisitionSource.Purchase) {
+    // Qabul qilingach status 9 ga o'tadi — endi omborda, berishga tayyor
+    if (status === RequisitionStatus.ReadyForWarehouseRelease) {
+      return { label: "Omborda — berishga tayyor", shortLabel: "Omborda", color: "#0f7b45" };
+    }
     return { label: "Sotib olishga tayyor", shortLabel: "Sotib olish", color: "#1a6eeb" };
   }
   return { label: "Yakunlandi", shortLabel: "Yakuniy", color: "#0f7b45" };

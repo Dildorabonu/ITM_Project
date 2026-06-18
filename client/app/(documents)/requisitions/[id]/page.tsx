@@ -36,6 +36,9 @@ export default function RequisitionDetailPage() {
 
   const [releaseOpen, setReleaseOpen] = useState(false);
 
+  const [receiving, setReceiving] = useState(false);
+  const [receiveOpen, setReceiveOpen] = useState(false);
+
   const [files, setFiles] = useState<AttachmentResponse[]>([]);
   const [filesLoading, setFilesLoading] = useState(false);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
@@ -155,6 +158,22 @@ export default function RequisitionDetailPage() {
     }
   };
 
+  const handleReceivePurchase = async () => {
+    if (!req) return;
+    setReceiving(true);
+    try {
+      await requisitionService.receivePurchase(req.id);
+      showToast("Xarid omborga qabul qilindi", "success");
+      setReceiveOpen(false);
+      await refresh();
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
+      showToast(msg ?? "Qabul qilishda xatolik yuz berdi", "error");
+    } finally {
+      setReceiving(false);
+    }
+  };
+
   if (loading) {
     return <div style={{ textAlign: "center", padding: 80, color: "var(--text3)" }}>Yuklanmoqda…</div>;
   }
@@ -165,13 +184,16 @@ export default function RequisitionDetailPage() {
 
   const canDoApproval = canApprove && req.status === RequisitionStatus.PendingApproval;
   const canDoRelease = canRelease
-    && req.status === RequisitionStatus.ReadyForWarehouseRelease
-    && req.source === RequisitionSource.Warehouse;
+    && req.status === RequisitionStatus.ReadyForWarehouseRelease;
+  const canDoReceivePurchase = canRelease
+    && req.status === RequisitionStatus.ReadyForPurchase
+    && req.source === RequisitionSource.Purchase;
   const isChild = !!req.parentRequisitionId;
   const showAvailability = req.status === RequisitionStatus.WarehouseChecked;
   const isApproved = req.status === RequisitionStatus.ReadyForWarehouseRelease
     || req.status === RequisitionStatus.ReadyForPurchase
-    || req.status === RequisitionStatus.Released;
+    || req.status === RequisitionStatus.Released
+    || req.status === RequisitionStatus.Delivered;
 
   return (
     <div>
@@ -473,12 +495,28 @@ export default function RequisitionDetailPage() {
               {releasing ? "Chiqarilmoqda…" : "Mahsulotlarni chiqarib berish"}
             </button>
           )}
-          {req.status === RequisitionStatus.Released && (
+          {canDoReceivePurchase && (
+            <button
+              disabled={receiving}
+              onClick={() => setReceiveOpen(true)}
+              style={{ padding: "12px", borderRadius: "var(--radius)", background: "var(--accent)", color: "#fff", border: "none", fontWeight: 600, fontSize: 14, cursor: receiving ? "not-allowed" : "pointer", opacity: receiving ? 0.7 : 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                <polyline points="7.5 4.21 12 6.81 16.5 4.21"/>
+                <line x1="12" y1="22.08" x2="12" y2="12"/>
+              </svg>
+              {receiving ? "Qabul qilinmoqda…" : "Omborga qabul qilindi"}
+            </button>
+          )}
+          {(req.status === RequisitionStatus.Released || req.status === RequisitionStatus.Delivered) && (
             <div style={{ padding: "12px 16px", borderRadius: "var(--radius)", background: "var(--success-dim)", color: "var(--success)", border: "1px solid rgba(15,123,69,0.25)", fontSize: 13, display: "inline-flex", alignItems: "center", gap: 8 }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
-              Mahsulotlar bo&apos;lim omboriga tushdi
+              {req.status === RequisitionStatus.Delivered
+                ? "Sotib olinib, bo'lim omboriga yetkazildi"
+                : "Mahsulotlar bo'lim omboriga tushdi"}
             </div>
           )}
         </div>
@@ -511,6 +549,38 @@ export default function RequisitionDetailPage() {
                 style={{ flex: 1, padding: "9px", background: "var(--success)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: releasing ? "not-allowed" : "pointer", fontWeight: 600, opacity: releasing ? 0.7 : 1 }}
               >
                 {releasing ? "Chiqarilmoqda…" : "Chiqarish"}
+              </button>
+            </div>
+          </div>
+        </div>
+      , document.body)}
+
+      {/* Receive purchase confirm modal */}
+      {receiveOpen && createPortal(
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000 }}
+          onClick={() => !receiving && setReceiveOpen(false)}
+        >
+          <div onClick={e => e.stopPropagation()} style={{ background: "var(--bg2)", borderRadius: 14, padding: 28, width: 460, maxWidth: "90vw", boxShadow: "var(--shadow2)" }}>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8, color: "var(--text1)" }}>Sotib olingan mahsulotni omborga qabul qilish</div>
+            <div style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.5, marginBottom: 16 }}>
+              Sotib olingan <b>{req.items.length} ta</b> mahsulot markaziy omborxonaga kirim qilinadi va{" "}
+              <b style={{ color: "var(--accent)" }}>{req.departmentName ?? "bo'lim"}</b> omboriga berishga tayyor holatga o&apos;tadi.
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                disabled={receiving}
+                onClick={() => setReceiveOpen(false)}
+                style={{ flex: 1, padding: "9px", background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: "var(--radius)", cursor: receiving ? "not-allowed" : "pointer", fontWeight: 600, color: "var(--text2)" }}
+              >
+                Bekor
+              </button>
+              <button
+                disabled={receiving}
+                onClick={handleReceivePurchase}
+                style={{ flex: 1, padding: "9px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: receiving ? "not-allowed" : "pointer", fontWeight: 600, opacity: receiving ? 0.7 : 1 }}
+              >
+                {receiving ? "Qabul qilinmoqda…" : "Qabul qilish"}
               </button>
             </div>
           </div>

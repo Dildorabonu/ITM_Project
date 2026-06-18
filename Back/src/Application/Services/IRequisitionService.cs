@@ -24,4 +24,9 @@ public interface IRequisitionService
     // Omborchi: ReadyForWarehouseRelease → Released
     // Material qty kamaytiriladi, StockOut yoziladi, bo'lim Productiga avto qo'shiladi
     Task<ApiResult<bool>> ReleaseAsync(Guid id, Guid releaserId);
+
+    // Omborchi: sotib olingan mahsulot kelganda omborxonaga qabul qiladi
+    // ReadyForPurchase → ReadyForWarehouseRelease. Markaziy ombor Productiga upsert,
+    // StockIn yoziladi, item.ReservedProductId band qilinadi (keyin Release bo'limga beradi)
+    Task<ApiResult<bool>> ReceivePurchaseAsync(Guid id, Guid receiverId);
 }

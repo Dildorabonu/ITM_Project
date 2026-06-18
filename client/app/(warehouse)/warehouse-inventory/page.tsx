@@ -15,6 +15,7 @@ import { CheckSelect } from "@/app/_components/CheckSelect";
 import { emptyForm, WAREHOUSE_DEPARTMENT_TYPE, type ProductForm } from "./_types";
 import { ProductFormView } from "./_components/ProductFormView";
 import { FrozenProductsView } from "./_components/FrozenProductsView";
+import { PurchaseReceiveView } from "./_components/PurchaseReceiveView";
 import { ProductViewDrawer } from "./_components/ProductViewDrawer";
 
 export default function ProductsPage() {
@@ -44,6 +45,9 @@ export default function ProductsPage() {
 
   // Frozen (reserved) products inline view
   const [showFrozen, setShowFrozen] = useState(false);
+
+  // Purchase-receive (ReadyForPurchase) inline view
+  const [showPurchase, setShowPurchase] = useState(false);
 
   // Delete confirm
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -122,6 +126,23 @@ export default function ProductsPage() {
     window.history.back();
   };
 
+  useEffect(() => {
+    if (!showPurchase) return;
+    const handlePopState = () => setShowPurchase(false);
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [showPurchase]);
+
+  const openPurchase = () => {
+    window.history.pushState({ purchase: true }, "");
+    setShowPurchase(true);
+  };
+
+  const closePurchase = () => {
+    setShowPurchase(false);
+    window.history.back();
+  };
+
   const openCreate = () => {
     setEditTarget(null);
     setForm(emptyForm);
@@ -177,6 +198,17 @@ export default function ProductsPage() {
     );
   }
 
+  /* ===== Purchase-receive inline view ===== */
+  if (showPurchase) {
+    return (
+      <PurchaseReceiveView
+        canReceive={canRelease}
+        onClose={closePurchase}
+        onReceived={load}
+      />
+    );
+  }
+
   /* ===== List view ===== */
   return (
     <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
@@ -226,6 +258,25 @@ export default function ProductsPage() {
             <line x1="19.07" y1="4.93" x2="4.93" y2="19.07" />
           </svg>
           Muzlatilgan
+        </button>
+        <button
+          onClick={openPurchase}
+          title="Sotib olingan mahsulotlarni omborga qabul qilish"
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            padding: "8px 14px", fontSize: 13, fontWeight: 600,
+            borderRadius: "var(--radius)",
+            background: "var(--accent-dim)", border: "1.5px solid var(--accent)44",
+            color: "var(--accent)", cursor: "pointer",
+            transition: "all 0.15s",
+          }}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            <polyline points="7.5 4.21 12 6.81 16.5 4.21"/>
+            <line x1="12" y1="22.08" x2="12" y2="12"/>
+          </svg>
+          Sotib olinganlar
         </button>
         {canCreate && (
           <button

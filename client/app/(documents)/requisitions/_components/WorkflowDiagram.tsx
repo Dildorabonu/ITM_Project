@@ -31,7 +31,7 @@ export function WorkflowDiagram({ status, source, splitChildren }: Props) {
   }
 
   const currentIdx = getWorkflowIndex(status);
-  const finalInfo = getFinalStepInfo(source);
+  const finalInfo = getFinalStepInfo(source, status);
 
   const colorForStep = (idx: number) => {
     const step = WORKFLOW_STEPS[idx];
@@ -229,7 +229,12 @@ function SplitDiagram({
 
 function getBranchLineColor(child: RequisitionChildSummary | undefined, finalColor: string): string {
   if (!child) return "var(--border)";
-  if (child.status === RequisitionStatus.ReadyForWarehouseRelease || child.status === RequisitionStatus.ReadyForPurchase) return finalColor;
+  if (
+    child.status === RequisitionStatus.ReadyForWarehouseRelease ||
+    child.status === RequisitionStatus.ReadyForPurchase ||
+    child.status === RequisitionStatus.Released ||
+    child.status === RequisitionStatus.Delivered
+  ) return finalColor;
   return "var(--border)";
 }
 
@@ -342,7 +347,10 @@ function BranchPair({
 }) {
   const approvalColor = STEP_COLORS[RequisitionStatus.PendingApproval].active;
 
-  const isApproved = child.status === RequisitionStatus.ReadyForWarehouseRelease || child.status === RequisitionStatus.ReadyForPurchase;
+  const isApproved = child.status === RequisitionStatus.ReadyForWarehouseRelease
+    || child.status === RequisitionStatus.ReadyForPurchase
+    || child.status === RequisitionStatus.Released
+    || child.status === RequisitionStatus.Delivered;
   const isPending  = child.status === RequisitionStatus.PendingApproval;
   const isRejected = child.status === RequisitionStatus.Rejected;
 
