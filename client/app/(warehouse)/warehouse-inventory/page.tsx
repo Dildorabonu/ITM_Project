@@ -17,6 +17,7 @@ import { ProductFormView } from "./_components/ProductFormView";
 import { FrozenProductsView } from "./_components/FrozenProductsView";
 import { PurchaseReceiveView } from "./_components/PurchaseReceiveView";
 import { ProductViewDrawer } from "./_components/ProductViewDrawer";
+import { StockMovementDrawer } from "./_components/StockMovementDrawer";
 
 export default function ProductsPage() {
   const hasPermission = useAuthStore(s => s.hasPermission);
@@ -43,6 +44,9 @@ export default function ProductsPage() {
   // View drawer
   const [viewProduct, setViewProduct] = useState<ProductResponse | null>(null);
 
+  // Harakat tarixi (StockMovement) drawer
+  const [historyProduct, setHistoryProduct] = useState<ProductResponse | null>(null);
+
   // Frozen (reserved) products inline view
   const [showFrozen, setShowFrozen] = useState(false);
 
@@ -61,13 +65,13 @@ export default function ProductsPage() {
   );
 
   useEffect(() => {
-    if (viewProduct) {
+    if (viewProduct || historyProduct) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
     }
     return () => { document.body.style.overflow = ""; };
-  }, [viewProduct]);
+  }, [viewProduct, historyProduct]);
 
   const load = async () => {
     try {
@@ -328,6 +332,14 @@ export default function ProductsPage() {
                     <td style={{ textAlign: "center", color: "var(--text1)" }}>{p.description ?? "—"}</td>
                     <td style={{ borderLeft: "2px solid var(--border)" }}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                        <button className="btn-icon" title="Harakat tarixi" onClick={() => setHistoryProduct(p)}
+                          style={{ color: "var(--accent)", borderColor: "var(--accent)33", background: "var(--accent-dim)" }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M3 3v5h5" />
+                            <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
+                            <path d="M12 7v5l4 2" />
+                          </svg>
+                        </button>
                         <button className="btn-icon" title="Ko'rish" onClick={() => setViewProduct(p)}
                           style={{ color: "#0ea5e9", borderColor: "#0ea5e933", background: "#0ea5e912" }}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -428,6 +440,15 @@ export default function ProductsPage() {
       {/* View drawer */}
       {viewProduct && (
         <ProductViewDrawer product={viewProduct} onClose={() => setViewProduct(null)} />
+      )}
+
+      {/* Harakat tarixi drawer */}
+      {historyProduct && (
+        <StockMovementDrawer
+          productId={historyProduct.id}
+          productName={historyProduct.name}
+          onClose={() => setHistoryProduct(null)}
+        />
       )}
 
       {/* Delete confirm */}

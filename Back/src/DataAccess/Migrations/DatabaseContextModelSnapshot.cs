@@ -770,7 +770,7 @@ namespace DataAccess.Migrations
 
                     b.HasIndex("DepartmentId", "MaterialId");
 
-                    b.HasIndex("Name", "DepartmentId")
+                    b.HasIndex("Name", "DepartmentId", "Unit")
                         .IsUnique();
 
                     b.ToTable("Products");

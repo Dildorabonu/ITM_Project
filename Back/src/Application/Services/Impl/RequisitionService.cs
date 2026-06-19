@@ -698,6 +698,18 @@ public class RequisitionService : IRequisitionService
                 ? warehouseProducts.FirstOrDefault(p => p.MaterialId == item.MaterialId.Value)
                 : warehouseProducts.FirstOrDefault(p => p.NameNormalized == normalized && p.Unit == unit);
 
+            // (Name, DepartmentId, Unit) DB unikal cheklovi NameNormalized/MaterialId
+            // kalitlaridan farq qiladi. Mavjud mahsulot boshqa yo'l bilan yaratilgan
+            // bo'lsa (NameNormalized bo'sh yoki MaterialId farqlansa), aniq nom + birlik
+            // bo'yicha ham qidiramiz — aks holda xuddi shu (nom, birlik) li yangi yozuv
+            // IX_Products_Name_DepartmentId_Unit duplicate key xatosini keltirib chiqaradi.
+            existing ??= warehouseProducts.FirstOrDefault(p => p.Name == productName && p.Unit == unit);
+
+            // (Name, DepartmentId) DB unikal cheklovi yuqoridagi kalitlardan torroq:
+            // bir xil nomli mahsulot bo'lsa, MaterialId/Unit farqlansa ham unga birlashtiramiz —
+            // aks holda IX_Products_Name_DepartmentId duplicate key xatosi tushadi.
+            existing ??= warehouseProducts.FirstOrDefault(p => p.Name == productName);
+
             Product target;
             if (existing is not null)
             {

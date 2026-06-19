@@ -13,6 +13,7 @@ import {
 } from "@/lib/userService";
 import { RequisitionStatusBadge } from "../_components/StatusBadge";
 import { WorkflowDiagram } from "../_components/WorkflowDiagram";
+import { RequisitionMovements } from "../_components/RequisitionMovements";
 import { downloadRequisitionPdf, openRequisitionPdfInNewTab } from "../_utils/downloadRequisitionPdf";
 import { fmtDateTime, type RequisitionResponse } from "../_types";
 
@@ -370,6 +371,9 @@ export default function RequisitionDetailPage() {
             </table>
           </div>
         </div>
+
+        {/* Ombor harakatlari izi (audit trail) — harakat bo'lsa ko'rsatiladi */}
+        <RequisitionMovements requisitionId={req.id} />
 
         {/* Warehouse check info */}
         {req.warehouseCheckedAt && (
