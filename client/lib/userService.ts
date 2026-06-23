@@ -724,7 +724,7 @@ export const contractService = {
 
 export const departmentService = {
   getAll: async (): Promise<DepartmentOption[]> => {
-    const res = await api.get("/api/department");
+    const res = await api.get("/api/department/lookup");
     const data = res.data?.result ?? res.data ?? [];
     return data
       .filter((d: { id: string; name: string; type: DepartmentType; isActive: boolean }) => d.isActive !== false)
@@ -732,7 +732,7 @@ export const departmentService = {
   },
 
   getAllFull: async (): Promise<DepartmentResponse[]> => {
-    const res = await api.get("/api/department");
+    const res = await api.get("/api/department/lookup");
     return res.data?.result ?? res.data ?? [];
   },
 

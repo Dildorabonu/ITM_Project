@@ -17,6 +17,24 @@ public class DepartmentService : IDepartmentService
         _context = context;
     }
 
+    public async Task<ApiResult<IEnumerable<DepartmentResponseDto>>> GetLookupAsync()
+    {
+        var departments = await _context.Departments
+            .AsNoTracking()
+            .OrderBy(d => d.Name)
+            .Select(d => new DepartmentResponseDto
+            {
+                Id = d.Id,
+                Name = d.Name,
+                Type = d.Type,
+                IsActive = d.IsActive,
+                EmployeeCount = d.EmployeeCount,
+            })
+            .ToListAsync();
+
+        return ApiResult<IEnumerable<DepartmentResponseDto>>.Success(departments);
+    }
+
     public async Task<ApiResult<IEnumerable<DepartmentResponseDto>>> GetAllAsync()
     {
         var departments = await _context.Departments

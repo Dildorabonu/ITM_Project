@@ -20,6 +20,13 @@ public class DepartmentController : ControllerBase
         _departmentService = departmentService;
     }
 
+    [HttpGet("lookup")]
+    public async Task<IActionResult> GetLookup()
+    {
+        var result = await _departmentService.GetLookupAsync();
+        return Ok(result);
+    }
+
     [HasPermission("Departments.View")]
     [HttpGet]
     public async Task<IActionResult> GetAll()
