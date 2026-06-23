@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useDraft } from "@/lib/useDraft";
 import { useToastStore } from "@/lib/store/toastStore";
+import { useAuthStore } from "@/lib/store/authStore";
 import { Upload, X, Image as ImageIcon, ImageOff } from "lucide-react";
 import {
   techProcessService,
@@ -75,6 +76,11 @@ export default function TechProductionPage() {
 
   // ── Toast ──────────────────────────────────────────────────────────────────
   const showToast = useToastStore((s) => s.show);
+  const hasPermission = useAuthStore(s => s.hasPermission);
+  const canCreateTp = hasPermission("TechProcess.Create");
+  const canUpdateTp = hasPermission("TechProcess.Update");
+  const canCreateCn = hasPermission("CostNorm.Create");
+  const canUpdateCn = hasPermission("CostNorm.Update");
 
   useDraft("draft_techprocess", tpShowForm, tpForm, (d)=>{ if(d.contractId) { setTpForm(d); setTpShowForm(true); } else { sessionStorage.removeItem("draft_techprocess"); } });
 
@@ -747,7 +753,7 @@ export default function TechProductionPage() {
             <span style={{ fontWeight:700,fontSize:17,color:"var(--text1)" }}>Texnologik jarayon</span>
             <TpBadge status={tpSelected.status}/>
           </div>
-          {canApprove&&(
+          {canApprove&&canUpdateTp&&(
             <button onClick={()=>setTpApproveTarget({id:tpSelected.id,title:tpSelected.title})} disabled={tpApproving}
               style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"7px 16px",borderRadius:"var(--radius)",border:"1px solid rgba(15,123,69,0.3)",background:"var(--success-dim)",color:"var(--success)",fontSize:13,fontWeight:600,cursor:"pointer",opacity:tpApproving?0.6:1 }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
@@ -1135,7 +1141,7 @@ export default function TechProductionPage() {
               </div>
               {tpEffective&&!tpInlineEditing&&drawingApproved&&(
                 <div style={{ display:"flex",gap:4 }}>
-                  {tpEffective.status===ProcessStatus.InProgress&&(
+                  {tpEffective.status===ProcessStatus.InProgress&&canUpdateTp&&(
                     <button onClick={()=>setTpApproveTarget({id:tpEffective.id,title:tpEffective.title})} disabled={tpApproving}
                       style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--success-dim)",border:"1px solid rgba(15,123,69,0.2)",color:"var(--success)",cursor:"pointer",opacity:tpApproving?0.6:1 }}>
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
@@ -1147,11 +1153,13 @@ export default function TechProductionPage() {
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                     Ko&apos;rish
                   </button>
+                  {canUpdateTp&&(
                   <button onClick={()=>{ const full=tpList.find(t=>t.id===tpEffective.id); if(!full) return; setTpSelected(full); setTpEditForm({title:full.title,notes:full.notes||""}); setTpEditNewFile(null); setTpInlineEditing(true); }}
                     style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--text2)",cursor:"pointer" }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     Tahrirlash
                   </button>
+                  )}
                 </div>
               )}
             </div>
@@ -1171,7 +1179,7 @@ export default function TechProductionPage() {
               {!tpEffective?(
                 <div style={{ textAlign:"center",padding:"20px 0" }}>
                   <div style={{ fontSize:13,color:"var(--text3)",marginBottom:12 }}>Texnologik jarayon yaratilmagan</div>
-                  {drawingApproved&&(
+                  {drawingApproved&&canCreateTp&&(
                   <button onClick={()=>openTpCreate(selectedItem.contractId, selectedItem.contractProductId)} className="btn-create-accent"
                     style={{ display:"inline-flex",alignItems:"center",gap:6,fontSize:12,padding:"7px 14px",fontWeight:600,borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer",transition:"border-color 0.2s,box-shadow 0.2s,background 0.2s,color 0.2s" }}
                     onMouseEnter={e=>{const b=e.currentTarget;b.style.borderColor="var(--accent)";b.style.boxShadow="0 0 0 2px var(--accent-mid),0 0 8px rgba(26,110,235,0.35)";b.style.background="var(--accent-dim)";b.style.color="var(--accent)"}}
@@ -1253,7 +1261,7 @@ export default function TechProductionPage() {
               </div>
               {cnEffective&&(
                 <div style={{ display:"flex",gap:4 }}>
-                  {cnEffective.status===DrawingStatus.InProgress&&(
+                  {cnEffective.status===DrawingStatus.InProgress&&canUpdateCn&&(
                     <button onClick={()=>handleCnApprove({ id: cnEffective.id, title: cnEffective.title })} disabled={cnApproving}
                       style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--success-dim)",border:"1px solid rgba(15,123,69,0.2)",color:"var(--success)",cursor:"pointer",opacity:cnApproving?0.6:1 }}>
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
@@ -1265,11 +1273,13 @@ export default function TechProductionPage() {
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                     Ko&apos;rish
                   </button>
+                  {canUpdateCn&&(
                   <button onClick={()=>{ const full=cnList.find(n=>n.id===cnEffective.id); if(full) openCnEdit(full); }}
                     style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--text2)",cursor:"pointer" }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     Tahrirlash
                   </button>
+                  )}
                 </div>
               )}
             </div>
@@ -1277,13 +1287,13 @@ export default function TechProductionPage() {
               {!cnEffective?(
                 <div style={{ textAlign:"center",padding:"20px 0" }}>
                   <div style={{ fontSize:13,color:"var(--text3)",marginBottom:12 }}>Me&apos;yoriy sarf yaratilmagan</div>
-                  <button onClick={()=>openCnCreate(selectedItem.contractId, selectedItem.contractProductId)} className="btn-create-accent"
+                  {canCreateCn&&(<button onClick={()=>openCnCreate(selectedItem.contractId, selectedItem.contractProductId)} className="btn-create-accent"
                     style={{ display:"inline-flex",alignItems:"center",gap:6,fontSize:12,padding:"7px 14px",fontWeight:600,borderRadius:"var(--radius)",border:"1.5px solid var(--border)",background:"var(--bg3)",color:"var(--text2)",cursor:"pointer",transition:"border-color 0.2s,box-shadow 0.2s,background 0.2s,color 0.2s" }}
                     onMouseEnter={e=>{const b=e.currentTarget;b.style.borderColor="var(--accent)";b.style.boxShadow="0 0 0 2px var(--accent-mid),0 0 8px rgba(26,110,235,0.35)";b.style.background="var(--accent-dim)";b.style.color="var(--accent)"}}
                     onMouseLeave={e=>{const b=e.currentTarget;b.style.borderColor="var(--border)";b.style.boxShadow="";b.style.background="var(--bg3)";b.style.color="var(--text2)"}}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                     Me&apos;yoriy sarf yaratish
-                  </button>
+                  </button>)}
                 </div>
               ):(
                 <div style={{ display:"flex",flexWrap:"wrap",gap:16 }}>
