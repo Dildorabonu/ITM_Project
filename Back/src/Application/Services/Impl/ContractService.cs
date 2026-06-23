@@ -159,6 +159,25 @@ public class ContractService : IContractService
         }
     }
 
+    public async Task<ApiResult<IEnumerable<ContractProductResponseDto>>> GetProductsLookupAsync(Guid contractId)
+    {
+        var products = await _context.ContractProducts
+            .AsNoTracking()
+            .Where(p => p.ContractId == contractId)
+            .OrderBy(p => p.OrderIndex)
+            .Select(p => new ContractProductResponseDto
+            {
+                Id = p.Id,
+                ContractId = p.ContractId,
+                ProductType = p.ProductType,
+                Quantity = p.Quantity,
+                Unit = p.Unit,
+            })
+            .ToListAsync();
+
+        return ApiResult<IEnumerable<ContractProductResponseDto>>.Success(products);
+    }
+
     public async Task<ApiResult<ContractResponseDto>> GetByIdAsync(Guid id)
     {
         var contract = await _context.Contracts

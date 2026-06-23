@@ -593,6 +593,11 @@ export const contractService = {
     return res.data?.result ?? res.data;
   },
 
+  getProductsLookup: async (id: string): Promise<ContractProductResponse[]> => {
+    const res = await api.get(`/api/contract/${id}/products-lookup`);
+    return res.data?.result ?? res.data ?? [];
+  },
+
   create: async (dto: ContractCreatePayload): Promise<ContractCreateResult> => {
     const res = await api.post("/api/contract", dto);
     return res.data?.result as ContractCreateResult;
