@@ -7,6 +7,7 @@ namespace Application.Services;
 
 public interface IDepartmentService
 {
+    Task<ApiResult<IEnumerable<DepartmentResponseDto>>> GetLookupAsync();
     Task<ApiResult<IEnumerable<DepartmentResponseDto>>> GetAllAsync();
     Task<ApiResult<PagedResult<DepartmentResponseDto>>> GetPagedAsync(PaginationParams pagination, string? search = null, DepartmentType? type = null);
     Task<ApiResult<DepartmentResponseDto>> GetByIdAsync(Guid id);
