@@ -10,22 +10,22 @@ public enum PermissionModule
     [Display(Name = "Rollar", Description = "shield")]
     Roles = 2,
 
-    [Display(Name = "Bo'limlar", Description = "briefcase")]
+    [Display(Name = "Tuzilma", Description = "briefcase")]
     Departments = 3,
 
-    [Display(Name = "Mahsulotlar", Description = "package")]
+    [Display(Name = "Omborxona mahsulotlari", Description = "package")]
     Products = 4,
 
     [Display(Name = "Shartnomalar", Description = "file-text")]
     Contracts = 5,
 
-    [Display(Name = "Texnologik jarayon", Description = "settings")]
+    [Display(Name = "Tex jarayon", Description = "settings")]
     TechProcess = 6,
 
     [Display(Name = "Texnik chizmalar", Description = "pen-tool")]
     TechnicalDrawings = 7,
 
-    [Display(Name = "Xarajat me'yorlari", Description = "calculator")]
+    [Display(Name = "Xarajat normalar", Description = "calculator")]
     CostNorm = 8,
 
     [Display(Name = "Ombor tekshiruvi", Description = "package")]
@@ -40,7 +40,7 @@ public enum PermissionModule
     [Display(Name = "Talabnomalar", Description = "clipboard")]
     Requisitions = 12,
 
-    [Display(Name = "Ishlab chiqarilgan mahsulotlar", Description = "factory")]
+    [Display(Name = "Tayyor mahsulotlar", Description = "factory")]
     ManufacturedProducts = 13,
 
     [Display(Name = "Jo'natmalar", Description = "send")]
