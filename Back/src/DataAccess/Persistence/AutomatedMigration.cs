@@ -20,6 +20,128 @@ public static class AutomatedMigration
         await SeedDepartmentsAsync(context);
         await MigrateLegacyRequisitionStatusesAsync(context);
         await MigrateLegacyContractStatusesAsync(context);
+        await SeedWorkflowTemplatesAndBackfillAsync(context);
+    }
+
+    private static readonly Guid StandartWorkflowId = new("a1000000-0000-0000-0000-000000000001");
+    private static readonly Guid ChizmasizWorkflowId = new("a1000000-0000-0000-0000-000000000002");
+
+    /// <summary>
+    /// Dinamik ish jarayoni uchun standart shablonlarni seed qiladi va mavjud
+    /// (eski) aktiv mahsulotlarga bosqich qatorlarini backfill qiladi. Idempotent —
+    /// har startda ishlaydi, lekin faqat yetishmayotgan ma'lumotni qo'shadi.
+    /// </summary>
+    private static async System.Threading.Tasks.Task SeedWorkflowTemplatesAndBackfillAsync(DatabaseContext context)
+    {
+        var superAdminUserId = new Guid("00000000-0000-0000-0000-000000000001");
+        var seedDate = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        // 1. Shablonlarni seed qilish (fixed Guid, idempotent).
+        if (!await context.WorkflowTemplates.AnyAsync(t => t.Id == StandartWorkflowId))
+        {
+            context.WorkflowTemplates.Add(new WorkflowTemplate
+            {
+                Id = StandartWorkflowId,
+                Name = "Standart",
+                IsActive = true,
+                IsDefault = true,
+                CreatedBy = superAdminUserId,
+                CreatedAt = seedDate,
+                Stages = MakeTemplateStages(StandartWorkflowId,
+                    [StageType.Drawing, StageType.TechProcess, StageType.CostNorm, StageType.Tasks]),
+            });
+            await context.SaveChangesAsync();
+        }
+
+        if (!await context.WorkflowTemplates.AnyAsync(t => t.Id == ChizmasizWorkflowId))
+        {
+            context.WorkflowTemplates.Add(new WorkflowTemplate
+            {
+                Id = ChizmasizWorkflowId,
+                Name = "Chizmasiz",
+                IsActive = true,
+                IsDefault = false,
+                CreatedBy = superAdminUserId,
+                CreatedAt = seedDate,
+                Stages = MakeTemplateStages(ChizmasizWorkflowId,
+                    [StageType.TechProcess, StageType.CostNorm, StageType.Tasks]),
+            });
+            await context.SaveChangesAsync();
+        }
+
+        // 2. Eski aktiv mahsulotlar uchun bosqich qatorlarini backfill qilish.
+        //    Joriy Status'dan ketma-ket (bitta InProgress) bosqich holatini chiqaramiz —
+        //    WorkflowEngine'ning standart shablon uchun bergan natijasiga mos.
+        var productsNeedingStages = await context.ContractProducts
+            .Where(p => p.IsActive && !context.ContractProductStages.Any(s => s.ContractProductId == p.Id))
+            .Select(p => new { p.Id, p.Status })
+            .ToListAsync();
+
+        if (productsNeedingStages.Count > 0)
+        {
+            StageType[] order = [StageType.Drawing, StageType.TechProcess, StageType.CostNorm, StageType.Tasks];
+
+            foreach (var p in productsNeedingStages)
+            {
+                // Joriy bosqich indeksi (standart 4-bosqich tartibida).
+                var currentIdx = p.Status switch
+                {
+                    ContractProductStatus.DrawingPending => 0,
+                    ContractProductStatus.TechProcessing => 1,
+                    ContractProductStatus.InProduction   => 3,
+                    ContractProductStatus.Completed      => 4, // hammasi Done
+                    _                                    => 0,
+                };
+
+                for (var i = 0; i < order.Length; i++)
+                {
+                    var status = i < currentIdx ? StageStatus.Done
+                        : i == currentIdx ? StageStatus.InProgress
+                        : StageStatus.Pending;
+
+                    context.ContractProductStages.Add(new ContractProductStage
+                    {
+                        Id = Guid.NewGuid(),
+                        ContractProductId = p.Id,
+                        StageType = order[i],
+                        OrderIndex = i,
+                        Status = status,
+                        StartedAt = status != StageStatus.Pending ? seedDate : null,
+                        CompletedAt = status == StageStatus.Done ? seedDate : null,
+                    });
+                }
+            }
+
+            await context.SaveChangesAsync();
+        }
+
+        // 3. Shablonsiz eski shartnomalarni Standart shablonga bog'lash.
+        var contractsToLink = await context.Contracts
+            .Where(c => c.WorkflowTemplateId == null)
+            .ToListAsync();
+
+        if (contractsToLink.Count > 0)
+        {
+            foreach (var c in contractsToLink)
+                c.WorkflowTemplateId = StandartWorkflowId;
+            await context.SaveChangesAsync();
+        }
+    }
+
+    private static List<WorkflowTemplateStage> MakeTemplateStages(Guid templateId, StageType[] types)
+    {
+        var list = new List<WorkflowTemplateStage>();
+        for (var i = 0; i < types.Length; i++)
+        {
+            list.Add(new WorkflowTemplateStage
+            {
+                Id = Guid.NewGuid(),
+                WorkflowTemplateId = templateId,
+                StageType = types[i],
+                OrderIndex = i,
+            });
+        }
+        return list;
     }
 
     /// <summary>
@@ -66,6 +188,7 @@ public static class AutomatedMigration
         [PermissionModule.Requisitions]       = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.ViewAll, PermissionAction.Approve, PermissionAction.WarehouseCheck],
         [PermissionModule.ManufacturedProducts] = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete],
         [PermissionModule.Shipments]          = [PermissionAction.View, PermissionAction.Create, PermissionAction.Delete],
+        [PermissionModule.Workflows]          = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete],
     };
 
     private static async System.Threading.Tasks.Task SeedPermissionsAsync(DatabaseContext context)

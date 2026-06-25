@@ -137,26 +137,6 @@ public class CostNormService : ICostNormService
         return ApiResult<Guid>.Success(costNorm.Id, 201);
     }
 
-    // After a CN approval, a single product may now have both TP+CN approved
-    // and can move to InProduction independently of its siblings.
-    private async SysTask AdvanceProductIfReadyAsync(Guid? productId)
-    {
-        if (!productId.HasValue) return;
-
-        var product = await _context.ContractProducts.FirstOrDefaultAsync(p => p.Id == productId.Value);
-        if (product is null) return;
-        if (product.Status == ContractProductStatus.InProduction
-            || product.Status == ContractProductStatus.Completed
-            || product.Status == ContractProductStatus.Cancelled)
-            return;
-
-        if (!await ContractStatusHelper.IsProductReadyForProductionAsync(_context, product.Id))
-            return;
-
-        product.Status = ContractProductStatus.InProduction;
-        await _context.SaveChangesAsync();
-    }
-
     public async Task<ApiResult<int>> UpdateAsync(Guid id, CostNormUpdateDto dto)
     {
         var costNorm = await _context.CostNorms
@@ -232,8 +212,8 @@ public class CostNormService : ICostNormService
 
         costNorm.Status = DrawingStatus.Approved;
         await _context.SaveChangesAsync();
-        await AdvanceProductIfReadyAsync(costNorm.ContractProductId);
-        await ContractStatusHelper.RecomputeContractStatusAsync(_context, costNorm.ContractId);
+        // Approval may complete the CostNorm stage and advance the product(s).
+        await WorkflowEngine.RecomputeContractAsync(_context, costNorm.ContractId);
         await _context.SaveChangesAsync();
         await _manufacturedProductService.SyncForContractAsync(costNorm.ContractId);
         return ApiResult<int>.Success(1);

@@ -11,6 +11,7 @@ public class Contract
     public ContractType ContractType { get; set; }
     public string ContractParty { get; set; } = string.Empty;
     public ContractStatus Status { get; set; }
+    public Guid? WorkflowTemplateId { get; set; }
     public string? Notes { get; set; }
     public bool IsActive { get; set; } = true;
     public ContractDeactivationReason? DeactivationReason { get; set; }
@@ -21,6 +22,7 @@ public class Contract
 
     // Navigation properties
     public User? Creator { get; set; }
+    public WorkflowTemplate? WorkflowTemplate { get; set; }
     public ICollection<ContractProduct> Products { get; set; } = [];
     public ICollection<ContractDepartment> ContractDepartments { get; set; } = [];
     public ICollection<ContractUser> ContractUsers { get; set; } = [];

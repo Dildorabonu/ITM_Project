@@ -28,7 +28,8 @@ const navGroups: NavGroup[] = [
     items: [
       { name: "Shartnomalar",           href: "/contracts",        icon: "file",         permission: ["Contracts.View", "Contracts.ViewAll"] },
       { name: "Texnik chizmalar",       href: "/technicaldrawings",icon: "ruler",        permission: ["TechnicalDrawings.View", "TechnicalDrawings.ViewAll"] },
-      { name: "Tex jarayon & Normalar", href: "/techprocess",      icon: "activity",     permission: ["TechProcess.View", "TechProcess.ViewAll", "CostNorm.View", "CostNorm.ViewAll"] },
+      { name: "Tex jarayon",            href: "/techprocess",      icon: "activity",     permission: ["TechProcess.View", "TechProcess.ViewAll"] },
+      { name: "Me'yoriy sarf",          href: "/costnorm",         icon: "file-text",    permission: ["CostNorm.View", "CostNorm.ViewAll"] },
       { name: "Vazifalar",              href: "/tasks",            icon: "check-square", permission: ["Tasks.View", "Tasks.ViewAll"] },
     ],
   },
@@ -58,6 +59,7 @@ const navGroups: NavGroup[] = [
       { name: "Tuzilma",            href: "/departments", icon: "briefcase", permission: "Departments.View" },
       { name: "Foydalanuvchilar",   href: "/users",       icon: "users",     permission: "Users.View" },
       { name: "Rollar",             href: "/roles",       icon: "shield",    permission: "Roles.View" },
+      { name: "Ish jarayonlari",    href: "/workflows",   icon: "git-branch", permission: "Workflows.View" },
       { name: "Tashqi ko'rinish",   href: "/appearance",  icon: "palette" },
     ],
   },
@@ -84,6 +86,7 @@ function NavIcon({ type, size = 16, strokeWidth = 2, color }: { type: string; si
   if (type === "layers")      return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><polygon points="12,2 2,7 12,12 22,7"/><polyline points="2,17 12,22 22,17"/><polyline points="2,12 12,17 22,12"/></svg>;
   if (type === "factory")     return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><path d="M2 20V8l6 4V8l6 4V8l6 4v8z"/><line x1="2" y1="20" x2="22" y2="20"/><line x1="7" y1="16" x2="7" y2="16.01"/><line x1="12" y1="16" x2="12" y2="16.01"/><line x1="17" y1="16" x2="17" y2="16.01"/></svg>;
   if (type === "ruler")       return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.4 2.4 0 0 1 0-3.4l2.6-2.6a2.4 2.4 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg>;
+  if (type === "git-branch")  return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>;
   return null;
 }
 
@@ -123,14 +126,15 @@ function applyAppearanceFont(family: string, scale: number) {
 }
 
 // Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
-const readyRoutes = new Set(["/", "/users", "/roles", "/login", "/departments", "/warehouse-inventory", "/warehouse-check", "/warehouse-movements", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions", "/requisitions/approvals", "/manufactured", "/department-warehouses"]);
+const readyRoutes = new Set(["/", "/users", "/roles", "/login", "/departments", "/warehouse-inventory", "/warehouse-check", "/warehouse-movements", "/contracts", "/techprocess", "/costnorm", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions", "/requisitions/approvals", "/manufactured", "/department-warehouses", "/workflows"]);
 const readyPrefixes = ["/requisitions/", "/contracts/", "/techprocess/", "/technicaldrawings/", "/requisitions/print", "/department-warehouses/"];
 
 const pageTitles: Record<string, string> = {
   "/":              "Dashboard",
   "/notifications": "Bildirishnomalar",
   "/contracts":     "Shartnomalar",
-  "/techprocess":   "Tex jarayon & Normalar",
+  "/techprocess":   "Tex jarayon",
+  "/costnorm":      "Me'yoriy sarf",
   "/technicaldrawings": "Texnik chizmalar",
   "/warehouse-check": "Ombor tekshiruvi",
   "/warehouse-movements": "Harakatlar jurnali",
@@ -142,6 +146,7 @@ const pageTitles: Record<string, string> = {
   "/warehouse-inventory": "Korxona omborxonasi",
   "/department-warehouses": "Bo'lim Omborlari",
   "/appearance":    "Tashqi ko'rinish",
+  "/workflows":     "Ish jarayonlari",
   "/requisitions":           "Talabnomalar",
   "/requisitions/approvals": "Talabnomalar — Tasdiqlash",
   "/requisitions/print":     "Talabnoma",

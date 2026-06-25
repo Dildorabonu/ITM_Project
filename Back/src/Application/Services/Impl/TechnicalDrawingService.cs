@@ -80,7 +80,7 @@ public class TechnicalDrawingService : ITechnicalDrawingService
         if (includeEmpty)
         {
             var contractsQuery = _context.Contracts
-                .Include(c => c.Products)
+                .Include(c => c.Products).ThenInclude(p => p.Stages)
                 .Where(c => c.IsActive)
                 .AsNoTracking()
                 .AsQueryable();
@@ -126,6 +126,7 @@ public class TechnicalDrawingService : ITechnicalDrawingService
                                 ProductType = p.ProductType,
                                 Quantity = p.Quantity,
                                 Unit = p.Unit,
+                                DrawingReachable = IsStageReachable(p.Stages, StageType.Drawing),
                             });
                         }
                     }
@@ -184,6 +185,21 @@ public class TechnicalDrawingService : ITechnicalDrawingService
 
         var paged = PagedResult<TechnicalDrawingRowDto>.Create(pageItems, totalCount, pagination);
         return ApiResult<PagedResult<TechnicalDrawingRowDto>>.Success(paged);
+    }
+
+    // Dinamik workflow gating: bosqich shu mahsulot uchun hozir ish uchun ochiqmi.
+    // Bosqich qatorlari yo'q (eski ma'lumot) → har doim ochiq (legacy xulq-atvor).
+    // Bosqich workflowda yo'q → ochiq emas. Aks holda joriy bosqichdan keyin
+    // turgan bosqichlar hali ochilmagan hisoblanadi.
+    private static bool IsStageReachable(ICollection<ContractProductStage> stages, StageType target)
+    {
+        var ordered = stages.OrderBy(s => s.OrderIndex).Select(s => s.StageType).ToList();
+        if (ordered.Count == 0) return true;
+        var idx = ordered.IndexOf(target);
+        if (idx < 0) return false;
+        var current = WorkflowEngine.CurrentStage(stages);
+        var curIdx = current is not null ? ordered.IndexOf(current.Value) : ordered.Count;
+        return curIdx >= idx;
     }
 
     public async Task<ApiResult<Guid>> CreateAsync(TechnicalDrawingCreateDto dto, Guid createdBy)
@@ -269,35 +285,15 @@ public class TechnicalDrawingService : ITechnicalDrawingService
             return ApiResult<int>.Failure([$"Texnik chizma '{id}' topilmadi."], 404);
 
         drawing.Status = status;
+        await _context.SaveChangesAsync();
 
+        // Approving a drawing may complete the Drawing stage and advance the
+        // affected product(s) to the next stage in their workflow.
         var contractMoved = false;
         if (status == DrawingStatus.Approved && drawing.Contract is not null)
         {
-            // Per-product flow: lift the specific product (or every product
-            // when the drawing is contract-level legacy) past DrawingPending.
-            if (drawing.ContractProductId.HasValue)
-            {
-                var product = await _context.ContractProducts
-                    .FirstOrDefaultAsync(p => p.Id == drawing.ContractProductId.Value);
-                if (product is not null)
-                    ContractStatusHelper.TryAdvanceToTechProcessing(product);
-            }
-            else
-            {
-                var products = await _context.ContractProducts
-                    .Where(p => p.ContractId == drawing.ContractId && p.IsActive)
-                    .ToListAsync();
-                foreach (var p in products)
-                    ContractStatusHelper.TryAdvanceToTechProcessing(p);
-            }
-        }
-
-        await _context.SaveChangesAsync();
-
-        if (status == DrawingStatus.Approved && drawing.Contract is not null)
-        {
             var prevStatus = drawing.Contract.Status;
-            await ContractStatusHelper.RecomputeContractStatusAsync(_context, drawing.ContractId);
+            await WorkflowEngine.RecomputeContractAsync(_context, drawing.ContractId);
             await _context.SaveChangesAsync();
             contractMoved = drawing.Contract.Status != prevStatus;
         }

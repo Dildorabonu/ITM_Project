@@ -1,6 +1,7 @@
 import {
   ProcessStatus,
   DrawingStatus,
+  StageType,
   PROCESS_STATUS_LABELS,
   DRAWING_STATUS_LABELS,
   type TechProcessResponse,
@@ -20,7 +21,7 @@ export type {
   CostNormMetadata,
   CostNormSignatureLine,
 };
-export { ProcessStatus, DrawingStatus, PROCESS_STATUS_LABELS, DRAWING_STATUS_LABELS };
+export { ProcessStatus, DrawingStatus, StageType, PROCESS_STATUS_LABELS, DRAWING_STATUS_LABELS };
 
 // ─── Modes ────────────────────────────────────────────────────────────────────
 
@@ -80,12 +81,62 @@ export interface ContractReadinessScope {
   drawing: ReadinessDrawingSummary | null;
   tp: ReadinessTechProcessSummary | null;
   cn: ReadinessCostNormSummary | null;
+  /** Mahsulotning dinamik workflow bosqichlari (tartiblangan) — gating uchun. */
+  stages: StageType[];
+  /** Joriy (InProgress) bosqich; barcha bosqich tugagan bo'lsa null. */
+  currentStage: StageType | null;
   /** Backend hisoblaydi: 0=chizma OK + TP/CN pending, 1=chizma tasdiqlanmagan, 2=chizma yaratilmagan, 3=yakunlangan */
   priority: number;
 }
 
 export function scopeKey(contractId: string, contractProductId: string | null): string {
   return `${contractId}::${contractProductId ?? "umumiy"}`;
+}
+
+// ─── Stage gating ─────────────────────────────────────────────────────────────
+//
+// Bitta scope uchun barcha bosqich holatlari va gating qoidalarini hisoblaydi.
+// Ham `/techprocess`, ham `/costnorm` sahifalari, ham jadval qatorlari, ham
+// detal paneli shu yagona manbadan foydalanadi — gating mantig'i bir joyda.
+export interface ScopeGating {
+  drawingApproved: boolean;
+  drawingDone: boolean;
+  /** Texnologik jarayon bosqichi ish uchun ochilganmi. */
+  tpReachable: boolean;
+  /** Me'yoriy sarf bosqichi ish uchun ochilganmi. */
+  cnReachable: boolean;
+  /** TP uchun tasdiqlanmagan chizma haqiqiy to'siq bo'lsa true. */
+  drawingBlocksTp: boolean;
+  tp: ReadinessTechProcessSummary | null;
+  cn: ReadinessCostNormSummary | null;
+  tpDone: boolean;
+  cnDone: boolean;
+}
+
+export function computeGating(item: ContractReadinessScope): ScopeGating {
+  const drawingApproved = item.drawing?.status === DrawingStatus.Approved;
+  const stages = item.stages ?? [];
+  const hasDrawingStage = stages.includes(StageType.Drawing);
+  const curStageIdx = item.currentStage != null
+    ? stages.indexOf(item.currentStage)
+    : stages.length; // null currentStage = barcha bosqich tugagan
+  const stageReachable = (st: StageType, legacyDefault: boolean) => {
+    if (stages.length === 0) return legacyDefault;
+    const idx = stages.indexOf(st);
+    return idx >= 0 && curStageIdx >= idx;
+  };
+  const tpReachable = stageReachable(StageType.TechProcess, drawingApproved);
+  const cnReachable = stageReachable(StageType.CostNorm, true);
+  const drawingBlocksTp = !tpReachable && (stages.length === 0 || hasDrawingStage);
+  const tp = item.tp?.status !== ProcessStatus.Pending ? item.tp : null;
+  const cn = item.cn && item.cn.itemCount > 0 ? item.cn : null;
+  const tpDone = !!tp && (tp.status === ProcessStatus.Approved || tp.status === ProcessStatus.Completed);
+  const cnDone = !!cn && cn.status === DrawingStatus.Approved;
+  return {
+    drawingApproved, drawingDone: drawingApproved,
+    tpReachable, cnReachable, drawingBlocksTp,
+    tp, cn, tpDone, cnDone,
+  };
 }
 
 // ─── DOCX column definitions ──────────────────────────────────────────────────

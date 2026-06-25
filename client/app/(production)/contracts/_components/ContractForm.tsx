@@ -5,11 +5,13 @@ import {
   type ContractResponse,
   type UserLookup,
   type DepartmentResponse,
+  type WorkflowTemplateResponse,
 } from "@/lib/userService";
 import { ContractForm as ContractFormType, UNIT_OPTIONS, CONTRACT_TYPE_OPTIONS, emptyProduct } from "../_types";
 import { CheckSelect } from "@/app/_components/CheckSelect";
 import { DatePickerField } from "./DatePickerField";
 import { CustomGroupedMultiSelect } from "./CustomGroupedMultiSelect";
+import { WorkflowStagePicker } from "./WorkflowStagePicker";
 
 type PickerKey = `${number}:${0 | 1 | 2}` | null;
 
@@ -36,6 +38,7 @@ interface Props {
   onCancel: () => void;
   canCreate: boolean;
   canUpdate: boolean;
+  workflowTemplates: WorkflowTemplateResponse[];
 }
 
 const USER_CATEGORIES = [
@@ -54,6 +57,7 @@ export function ContractForm({
   allUsers, departments,
   handleSave, openScanModal, onCancel,
   canCreate, canUpdate,
+  workflowTemplates,
 }: Props) {
   const fieldErr = (val: string) => submitted && !val.trim();
   const startDateErr = submitted && !form.startDate;
@@ -177,6 +181,17 @@ export function ContractForm({
               placeholder="— Tanlang —"
             />
           </div>
+
+          {/* ── Ish jarayoni (faqat yangi shartnoma yaratishda) ──────────────── */}
+          {!editTarget && (
+            <WorkflowStagePicker
+              templates={workflowTemplates}
+              templateId={form.workflowTemplateId}
+              stages={form.workflowStages}
+              onTemplateChange={id => setForm(f => ({ ...f, workflowTemplateId: id }))}
+              onStagesChange={stages => setForm(f => ({ ...f, workflowStages: stages }))}
+            />
+          )}
 
           {/* ── Mahsulotlar ─────────────────────────────────────────────────── */}
           <div style={{ gridColumn: "1 / -1" }}>

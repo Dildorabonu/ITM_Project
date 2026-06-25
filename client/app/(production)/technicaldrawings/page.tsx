@@ -631,9 +631,12 @@ export default function TechnicalDrawingsPage() {
                       if (row.kind === 1 && row.empty) {
                         const e = row.empty;
                         const rowKey = `empty-${e.contractId}-${e.productId ?? "general"}`;
+                        // Dinamik workflow: chizma bosqichi hali navbatga kelmagan bo'lsa
+                        // shoshilinch qizil holat ham, "+" yaratish tugmasi ham ko'rsatilmaydi.
+                        const reachable = e.drawingReachable;
                         return (
-                          <tr key={rowKey} className="td-row-empty">
-                            <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px", color: "var(--danger)", fontWeight: 700 }}>
+                          <tr key={rowKey} className={reachable ? "td-row-empty" : undefined}>
+                            <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px", color: reachable ? "var(--danger)" : undefined, fontWeight: reachable ? 700 : undefined }}>
                               {ordinal}
                             </td>
                             <td style={{ textAlign: "center", fontSize: 13, color: "var(--text1)", fontWeight: 600 }}>{e.contractNo}</td>
@@ -642,26 +645,31 @@ export default function TechnicalDrawingsPage() {
                             </td>
                             <td style={{ textAlign: "center", color: "var(--text3)", fontSize: 13 }}>—</td>
                             <td style={{ textAlign: "center" }}>
+                              {/* Status mustaqil fakt: chizma yo'q. Navbati kelganda
+                                  qator/badge pulslaydi (td-empty-badge), aks holda
+                                  statik qizil — boshqa bosqich sahifalaridagidek. */}
                               <span
-                                className="td-empty-badge"
+                                className={reachable ? "td-empty-badge" : undefined}
+                                title={reachable ? undefined : "Chizma bosqichi hali navbatga kelmagan"}
                                 style={{
                                   display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
                                   padding: "3px 12px", minWidth: 120,
                                   borderRadius: 20, fontSize: 12, fontWeight: 700,
+                                  ...(reachable ? {} : { background: "var(--danger-dim)", color: "var(--danger)", border: "1px solid rgba(217,48,37,0.4)" }),
                                 }}
                               >
                                 <span style={{
                                   width: 6, height: 6, borderRadius: "50%",
                                   background: "currentColor",
                                 }} />
-                                Chizma yo&apos;q
+                                Yaratilmagan
                               </span>
                             </td>
                             <td style={{ textAlign: "center", color: "var(--text3)", fontSize: 13 }}>—</td>
                             <td style={{ textAlign: "center", color: "var(--text3)", fontSize: 13 }}>—</td>
                             <td style={{ borderLeft: "2px solid var(--border)" }}>
                               <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-                                {canCreate && (
+                                {canCreate && reachable ? (
                                   <button
                                     className="btn-icon"
                                     onClick={() => openCreate({
@@ -676,6 +684,8 @@ export default function TechnicalDrawingsPage() {
                                   >
                                     +
                                   </button>
+                                ) : (
+                                  <span style={{ color: "var(--text3)", fontSize: 13 }}>—</span>
                                 )}
                               </div>
                             </td>

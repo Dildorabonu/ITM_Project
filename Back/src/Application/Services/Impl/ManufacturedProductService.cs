@@ -431,16 +431,19 @@ public class ManufacturedProductService : IManufacturedProductService
 
         if (fullyDelivered)
         {
+            // Persist the produced quantity first so the WorkflowEngine reads the
+            // committed warehouse-task state when evaluating the Tasks stage.
+            await _context.SaveChangesAsync();
+
+            var statusChanged = await WorkflowEngine.RecomputeProductStagesAsync(_context, contractProductId.Value);
             var product = await _context.ContractProducts
                 .FirstOrDefaultAsync(p => p.Id == contractProductId.Value);
 
-            if (product is not null && product.Status == ContractProductStatus.InProduction)
+            if (statusChanged && product?.Status == ContractProductStatus.Completed)
             {
-                product.Status = ContractProductStatus.Completed;
                 row.Status = ManufacturingStatus.Completed;
                 row.CompletedAt ??= DateTime.UtcNow;
 
-                await _context.SaveChangesAsync();
                 await ContractStatusHelper.RecomputeContractStatusAsync(_context, contractId);
                 await _context.SaveChangesAsync();
 

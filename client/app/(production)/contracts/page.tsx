@@ -8,6 +8,7 @@ import {
   userService,
   scanService,
   departmentService,
+  workflowService,
   ContractStatus,
   ContractDeactivationReason,
   ContractType,
@@ -19,6 +20,7 @@ import {
   type ContractProductPayload,
   type UserLookup,
   type DepartmentResponse,
+  type WorkflowTemplateResponse,
 } from "@/lib/userService";
 
 import {
@@ -84,6 +86,7 @@ export default function ContractsPage() {
   const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
   const [formError, setFormError]       = useState("");
   const [pendingContractFiles, setPendingContractFiles] = useState<File[]>([]);
+  const [workflowTemplates, setWorkflowTemplates] = useState<WorkflowTemplateResponse[]>([]);
   const [openPickerKey, setOpenPickerKey]     = useState<`${number}:${0 | 1 | 2}` | null>(null);
   const pickerRef                             = useRef<HTMLDivElement | null>(null);
 
@@ -133,7 +136,7 @@ export default function ContractsPage() {
     "draft_contracts",
     showForm && !editTarget,
     { form, editTarget },
-    (d) => { if (!d.editTarget) { setForm(d.form); ensureDataLoaded().then(() => setShowForm(true)); } },
+    (d) => { if (!d.editTarget) { setForm({ ...emptyForm, ...d.form }); ensureDataLoaded().then(() => setShowForm(true)); } },
   );
 
   // ── Load drawer ────────────────────────────────────────────────────────────
@@ -248,13 +251,24 @@ export default function ContractsPage() {
 
   const openCreate = async () => {
     setEditTarget(null);
-    setForm(emptyForm);
     setStartDateDisp("");
     setEndDateDisp("");
     setSubmitted(false);
     setFormError("");
     setPendingContractFiles([]);
     await ensureDataLoaded();
+
+    // Load workflow templates and preselect the default so the form opens with
+    // a sensible workflow already chosen (zero extra clicks for the common case).
+    const templates = workflowTemplates.length > 0 ? workflowTemplates : await workflowService.getLookup();
+    if (templates !== workflowTemplates) setWorkflowTemplates(templates);
+    const def = templates.find(t => t.isDefault) ?? templates[0];
+    setForm({
+      ...emptyForm,
+      workflowTemplateId: def?.id ?? "",
+      workflowStages: def ? [...def.stages] : emptyForm.workflowStages,
+    });
+
     window.history.pushState({ showForm: true }, "");
     setShowForm(true);
   };
@@ -292,6 +306,9 @@ export default function ContractsPage() {
             pendingTzFiles: [],
           }))
         : [{ productType: "", quantity: "", unit: "", notes: "", departmentIds: [], responsibleUsers: [], supervisorUsers: [], observerUsers: [], pendingTzFiles: [] }],
+      // Workflow is chosen at creation only; edit mode hides the picker.
+      workflowTemplateId: "",
+      workflowStages: [],
     });
     setStartDateDisp(c.startDate ? isoToDisplayDate(c.startDate.slice(0, 10)) : "");
     setEndDateDisp(c.endDate ? isoToDisplayDate(c.endDate.slice(0, 10)) : "");
@@ -360,6 +377,8 @@ export default function ContractsPage() {
           contractParty: form.contractParty || undefined,
           notes:         form.notes || null,
           products:      productsPayload.length > 0 ? productsPayload : undefined,
+          workflowTemplateId: form.workflowTemplateId || null,
+          workflowStages:     form.workflowStages,
         };
         result = await contractService.create(dto);
         for (const file of pendingContractFiles)
@@ -514,6 +533,7 @@ export default function ContractsPage() {
           pickerRef={pickerRef}
           allUsers={allUsers}
           departments={departments}
+          workflowTemplates={workflowTemplates}
           handleSave={requestSave}
           openScanModal={openScanModal}
           onCancel={() => { setShowForm(false); setPendingContractFiles([]); }}

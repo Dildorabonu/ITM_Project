@@ -21,4 +21,9 @@ public class TechnicalDrawingEmptyRowDto
     public string? ProductType { get; set; }
     public int? Quantity { get; set; }
     public string? Unit { get; set; }
+
+    // Dinamik workflow: chizma bosqichi shu mahsulot uchun hozir ish kerakmi
+    // (joriy bosqich yoki undan oldin). false bo'lsa frontend "+" yaratishni
+    // ko'rsatmaydi — bosqich hali navbatga kelmagan.
+    public bool DrawingReachable { get; set; } = true;
 }

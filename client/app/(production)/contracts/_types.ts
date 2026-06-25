@@ -1,4 +1,4 @@
-import { ContractStatus, ContractProductStatus, ContractType, CONTRACT_STATUS_LABELS, CONTRACT_TYPE_LABELS, type UserLookup } from "@/lib/userService";
+import { ContractStatus, ContractProductStatus, ContractType, StageType, CONTRACT_STATUS_LABELS, CONTRACT_TYPE_LABELS, STAGE_TYPE_LABELS, type UserLookup } from "@/lib/userService";
 // ─── Form types ───────────────────────────────────────────────────────────────
 
 export interface ContractProductForm {
@@ -27,6 +27,8 @@ export interface ContractForm {
   contractParty: string;
   notes: string;
   products: ContractProductForm[];
+  workflowTemplateId: string;
+  workflowStages: StageType[];
 }
 
 export const emptyForm: ContractForm = {
@@ -34,6 +36,8 @@ export const emptyForm: ContractForm = {
   startDate: "", endDate: "",
   contractType: String(ContractType.Mahalliy), contractParty: "", notes: "",
   products: [{ ...emptyProduct, departmentIds: [], responsibleUsers: [], supervisorUsers: [], observerUsers: [], pendingTzFiles: [] }],
+  workflowTemplateId: "",
+  workflowStages: [StageType.Drawing, StageType.TechProcess, StageType.CostNorm, StageType.Tasks],
 };
 
 // ─── Status / Contract type styles ────────────────────────────────────────────
@@ -74,6 +78,22 @@ export const STEP_COLORS: Record<ContractStatus, { active: string; text: string 
   [ContractStatus.Completed]:           { active: "#1a56db", text: "#fff" },
   [ContractStatus.Cancelled]:           { active: "#dc2626", text: "#fff" },
 };
+
+// ─── Dynamic stage metadata ─────────────────────────────────────────────────
+// Per-StageType label + colors. Drives the dynamic per-product workflow diagram
+// and the stage picker in the contract form.
+
+export const STAGE_TYPE_META: Record<StageType, { label: string; shortLabel: string; active: string; text: string }> = {
+  [StageType.Drawing]:     { label: STAGE_TYPE_LABELS[StageType.Drawing],     shortLabel: "Chizma",      active: "#7c3aed", text: "#fff" },
+  [StageType.TechProcess]: { label: STAGE_TYPE_LABELS[StageType.TechProcess], shortLabel: "Tex jarayon", active: "#c2410c", text: "#fff" },
+  [StageType.CostNorm]:    { label: STAGE_TYPE_LABELS[StageType.CostNorm],    shortLabel: "Me'yor",      active: "#0d9488", text: "#fff" },
+  [StageType.Tasks]:       { label: STAGE_TYPE_LABELS[StageType.Tasks],       shortLabel: "Vazifalar",   active: "#1e7e34", text: "#fff" },
+};
+
+// Canonical order used when offering the full stage set in the form picker.
+export const ALL_STAGE_TYPES: StageType[] = [
+  StageType.Drawing, StageType.TechProcess, StageType.CostNorm, StageType.Tasks,
+];
 
 // Per-product workflow mirrors the contract one but is keyed on ContractProductStatus.
 // The shared shape lets WorkflowDiagram render either flow with the same component.

@@ -41,6 +41,9 @@ public class DatabaseContext : DbContext
     public DbSet<ShipmentBatch> ShipmentBatches { get; set; }
     public DbSet<ActivityLog> ActivityLogs { get; set; }
     public DbSet<LoginAttempt> LoginAttempts { get; set; }
+    public DbSet<WorkflowTemplate> WorkflowTemplates { get; set; }
+    public DbSet<WorkflowTemplateStage> WorkflowTemplateStages { get; set; }
+    public DbSet<ContractProductStage> ContractProductStages { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
