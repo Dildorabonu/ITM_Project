@@ -34,7 +34,6 @@ public class ContractService : IContractService
             .Include(c => c.Creator)
             .Include(c => c.Products).ThenInclude(p => p.ProductDepartments).ThenInclude(pd => pd.Department)
             .Include(c => c.Products).ThenInclude(p => p.ProductUsers).ThenInclude(pu => pu.User).ThenInclude(u => u.Department)
-            .Include(c => c.Products).ThenInclude(p => p.Stages)
             .AsNoTracking()
             // Bir nechta collection Include — Cartesian explosion'ni oldini olish uchun
             // split query ishlatamiz (har bir collection alohida so'rov bilan yuklanadi).
@@ -88,7 +87,6 @@ public class ContractService : IContractService
             .Include(c => c.Creator)
             .Include(c => c.Products).ThenInclude(p => p.ProductDepartments).ThenInclude(pd => pd.Department)
             .Include(c => c.Products).ThenInclude(p => p.ProductUsers).ThenInclude(pu => pu.User).ThenInclude(u => u.Department)
-            .Include(c => c.Products).ThenInclude(p => p.Stages)
             .AsNoTracking()
             .AsSplitQuery()
             .AsQueryable();
@@ -188,7 +186,6 @@ public class ContractService : IContractService
             .Include(c => c.ContractUsers).ThenInclude(cu => cu.User).ThenInclude(u => u!.Department)
             .Include(c => c.Products).ThenInclude(p => p.ProductDepartments).ThenInclude(pd => pd.Department)
             .Include(c => c.Products).ThenInclude(p => p.ProductUsers).ThenInclude(pu => pu.User).ThenInclude(u => u!.Department)
-            .Include(c => c.Products).ThenInclude(p => p.Stages)
             .AsNoTracking()
             .AsSplitQuery()
             .FirstOrDefaultAsync(c => c.Id == id);
@@ -208,12 +205,6 @@ public class ContractService : IContractService
         if (validationErrors.Count > 0)
             return ApiResult<ContractCreateResultDto>.Failure(validationErrors, 400);
 
-        // Resolve the production workflow: explicit override → chosen template →
-        // default template → hardcoded fallback. Applied to every product.
-        var (workflowTemplateId, workflowStages) = await ResolveWorkflowAsync(dto);
-        if (workflowStages.Count == 0)
-            return ApiResult<ContractCreateResultDto>.Failure(["Ish jarayoni uchun kamida bitta bosqich tanlanishi shart."], 400);
-
         var contract = new Contract
         {
             Id = Guid.NewGuid(),
@@ -224,7 +215,6 @@ public class ContractService : IContractService
             ContractParty = dto.ContractParty,
             Status = ContractStatus.DrawingPending,
             Notes = dto.Notes,
-            WorkflowTemplateId = workflowTemplateId,
             CreatedBy = createdBy,
             CreatedAt = DateTime.UtcNow
         };
@@ -269,19 +259,6 @@ public class ContractService : IContractService
             });
             productResults.Add(new ContractProductIdResultDto { Id = productId, OrderIndex = thisOrderIdx });
 
-            // Snapshot the chosen workflow onto this product (so it can later diverge).
-            for (var si = 0; si < workflowStages.Count; si++)
-            {
-                _context.ContractProductStages.Add(new ContractProductStage
-                {
-                    Id = Guid.NewGuid(),
-                    ContractProductId = productId,
-                    StageType = workflowStages[si],
-                    OrderIndex = si,
-                    Status = StageStatus.Pending,
-                });
-            }
-
             foreach (var dId in p.DepartmentIds.Distinct())
             {
                 _context.ContractProductDepartments.Add(new ContractProductDepartment
@@ -303,11 +280,6 @@ public class ContractService : IContractService
             }
         }
 
-        await _context.SaveChangesAsync();
-
-        // Initialise each product's stage statuses from current (empty) state —
-        // marks the first enabled stage InProgress.
-        await WorkflowEngine.RecomputeContractAsync(_context, contract.Id);
         await _context.SaveChangesAsync();
 
         await _activityLogService.LogAsync(
@@ -339,48 +311,6 @@ public class ContractService : IContractService
             Products = productResults,
         };
         return ApiResult<ContractCreateResultDto>.Success(createResult, 201);
-    }
-
-    // Resolves the ordered workflow stages + the template id to record on the
-    // contract: explicit per-contract override → chosen template → default
-    // template → hardcoded canonical fallback (when no templates are seeded).
-    private async Task<(Guid? TemplateId, List<StageType> Stages)> ResolveWorkflowAsync(ContractCreateDto dto)
-    {
-        var defaultTemplateId = await _context.WorkflowTemplates
-            .Where(t => t.IsDefault && t.IsActive)
-            .Select(t => (Guid?)t.Id)
-            .FirstOrDefaultAsync();
-
-        // 1. Explicit ordered override for this contract.
-        if (dto.WorkflowStages is { Count: > 0 })
-            return (dto.WorkflowTemplateId ?? defaultTemplateId, dto.WorkflowStages.Distinct().ToList());
-
-        // 2. Chosen template's stages.
-        if (dto.WorkflowTemplateId.HasValue)
-        {
-            var stages = await _context.WorkflowTemplateStages
-                .Where(s => s.WorkflowTemplateId == dto.WorkflowTemplateId.Value)
-                .OrderBy(s => s.OrderIndex)
-                .Select(s => s.StageType)
-                .ToListAsync();
-            if (stages.Count > 0)
-                return (dto.WorkflowTemplateId, stages);
-        }
-
-        // 3. Default template's stages.
-        if (defaultTemplateId.HasValue)
-        {
-            var defaultStages = await _context.WorkflowTemplateStages
-                .Where(s => s.WorkflowTemplateId == defaultTemplateId.Value)
-                .OrderBy(s => s.OrderIndex)
-                .Select(s => s.StageType)
-                .ToListAsync();
-            if (defaultStages.Count > 0)
-                return (defaultTemplateId, defaultStages);
-        }
-
-        // 4. Canonical fallback (templates not yet seeded).
-        return (defaultTemplateId, [StageType.Drawing, StageType.TechProcess, StageType.CostNorm, StageType.Tasks]);
     }
 
     private async Task<List<string>> ValidateProductsAsync(IEnumerable<ContractProductCreateDto> products)
@@ -654,6 +584,23 @@ public class ContractService : IContractService
         _ => null,
     };
 
+    // Re-derives a product's stage from its current TP/CN/drawing state. Used
+    // when reactivating a contract — frozen Cancelled status would otherwise
+    // hide the product from /manufactured even after its work resumes.
+    private async Task<ContractProductStatus> ResolveProductStageAsync(Guid productId)
+    {
+        if (await ContractStatusHelper.IsProductReadyForProductionAsync(_context, productId))
+            return ContractProductStatus.InProduction;
+
+        var hasTpOrApprovedDrawing = await _context.TechProcesses.AnyAsync(t => t.ContractProductId == productId)
+            || await _context.TechnicalDrawings
+                .AnyAsync(d => d.ContractProductId == productId && d.Status == DrawingStatus.Approved);
+
+        return hasTpOrApprovedDrawing
+            ? ContractProductStatus.TechProcessing
+            : ContractProductStatus.DrawingPending;
+    }
+
     public async Task<ApiResult<int>> DeactivateAsync(Guid id, ContractDeactivateDto dto)
     {
         if (!Enum.IsDefined(typeof(ContractDeactivationReason), dto.Reason))
@@ -757,9 +704,10 @@ public class ContractService : IContractService
         foreach (var p in contract.Products)
         {
             p.IsActive = true;
-            // Clear the frozen Cancelled state so the WorkflowEngine (below) can
-            // re-derive the real stage from current TP/CN/drawing/task state.
-            p.Status = ContractProductStatus.DrawingPending;
+            // Recompute the stage from current TP/CN/drawing state so the
+            // product re-enters the workflow at the right place rather than
+            // staying frozen at Cancelled.
+            p.Status = await ResolveProductStageAsync(p.Id);
             foreach (var pd in p.ProductDepartments) pd.IsActive = true;
             foreach (var pu in p.ProductUsers) pu.IsActive = true;
         }
@@ -778,10 +726,9 @@ public class ContractService : IContractService
 
         await _context.SaveChangesAsync();
 
-        // Re-derive each product's stages + the aggregate from current state, so
-        // the contract re-enters the workflow at the right place rather than
-        // staying frozen at its pre-deactivation status.
-        await WorkflowEngine.RecomputeContractAsync(_context, contract.Id);
+        // After per-product stages were rederived, the aggregate may differ
+        // from the frozen pre-deactivation status.
+        await ContractStatusHelper.RecomputeContractStatusAsync(_context, contract.Id);
         await _context.SaveChangesAsync();
 
         var activateTitle = $"Shartnoma faollashtirildi: {contract.ContractNo}";
@@ -915,7 +862,6 @@ public class ContractService : IContractService
                 .Include(c => c.ContractUsers).ThenInclude(cu => cu.User).ThenInclude(u => u!.Department)
                 .Include(c => c.Products).ThenInclude(p => p.ProductDepartments).ThenInclude(pd => pd.Department)
                 .Include(c => c.Products).ThenInclude(p => p.ProductUsers).ThenInclude(pu => pu.User).ThenInclude(u => u!.Department)
-                .Include(c => c.Products).ThenInclude(p => p.Stages)
                 .AsNoTracking()
                 .AsSplitQuery()
                 .AsQueryable();
@@ -950,7 +896,6 @@ public class ContractService : IContractService
             .Include(c => c.ContractUsers).ThenInclude(cu => cu.User).ThenInclude(u => u!.Department)
             .Include(c => c.Products).ThenInclude(p => p.ProductDepartments).ThenInclude(pd => pd.Department)
             .Include(c => c.Products).ThenInclude(p => p.ProductUsers).ThenInclude(pu => pu.User).ThenInclude(u => u!.Department)
-            .Include(c => c.Products).ThenInclude(p => p.Stages)
             .AsNoTracking()
             .AsSplitQuery();
 
@@ -972,11 +917,9 @@ public class ContractService : IContractService
         var query = _context.Contracts
             .Include(c => c.Products).ThenInclude(p => p.ProductUsers)
             .Include(c => c.Products).ThenInclude(p => p.ProductDepartments)
-            .Include(c => c.Products).ThenInclude(p => p.Stages)
             .Include(c => c.ContractUsers)
             .Include(c => c.ContractDepartments)
             .AsNoTracking()
-            .AsSplitQuery()
             .AsQueryable();
 
         if (!viewAll)
@@ -1132,10 +1075,6 @@ public class ContractService : IContractService
                 ItemCount = bestCn.ItemCount,
                 CreatedAt = bestCn.CreatedAt,
             },
-            Stages = productInfo is null
-                ? []
-                : productInfo.Stages.OrderBy(s => s.OrderIndex).Select(s => s.StageType).ToList(),
-            CurrentStage = productInfo is null ? null : WorkflowEngine.CurrentStage(productInfo.Stages),
         };
 
         dto.Priority = ComputeReadinessPriority(dto);
@@ -1219,15 +1158,6 @@ public class ContractService : IContractService
                         DepartmentName = pu.User.Department?.Name,
                         Role           = pu.Role,
                     }).ToList(),
-                Stages = p.Stages
-                    .OrderBy(s => s.OrderIndex)
-                    .Select(s => new ProductStageDto
-                    {
-                        StageType  = s.StageType,
-                        OrderIndex = s.OrderIndex,
-                        Status     = s.Status,
-                    }).ToList(),
-                CurrentStage = WorkflowEngine.CurrentStage(p.Stages),
             }).ToList(),
     };
 }

@@ -448,35 +448,6 @@ export const CONTRACT_PRODUCT_STATUS_LABELS: Record<ContractProductStatus, strin
   [ContractProductStatus.Cancelled]:      "Bekor qilindi",
 };
 
-// ─── Dynamic workflow ──────────────────────────────────────────────────────────
-
-export enum StageType {
-  Drawing     = 1,
-  TechProcess = 2,
-  CostNorm    = 3,
-  Tasks       = 4,
-}
-
-export enum StageStatus {
-  Pending    = 0,
-  InProgress = 1,
-  Done       = 2,
-  Skipped    = 3,
-}
-
-export const STAGE_TYPE_LABELS: Record<StageType, string> = {
-  [StageType.Drawing]:     "Texnik chizmalar",
-  [StageType.TechProcess]: "Tex jarayon",
-  [StageType.CostNorm]:    "Me'yoriy sarf",
-  [StageType.Tasks]:       "Vazifalar",
-};
-
-export interface ProductStage {
-  stageType: StageType;
-  orderIndex: number;
-  status: StageStatus;
-}
-
 export interface ContractDepartmentInfo {
   id: string;
   name: string;
@@ -521,8 +492,6 @@ export interface ContractProductResponse {
   status: ContractProductStatus;
   departments: ContractProductDepartmentInfo[];
   assignedUsers: ContractProductUserInfo[];
-  stages: ProductStage[];
-  currentStage: StageType | null;
 }
 
 export interface ContractProductIdResult {
@@ -570,8 +539,6 @@ export interface ContractCreatePayload {
   contractParty?: string;
   notes?: string | null;
   products?: ContractProductPayload[];
-  workflowTemplateId?: string | null;
-  workflowStages?: StageType[];
 }
 
 export interface ContractUpdatePayload {
@@ -760,64 +727,6 @@ export const contractService = {
   },
 };
 
-// ─── Workflow templates ──────────────────────────────────────────────────────
-
-export interface WorkflowTemplateResponse {
-  id: string;
-  name: string;
-  isActive: boolean;
-  isDefault: boolean;
-  stages: StageType[];
-  createdByFullName: string | null;
-  createdAt: string;
-}
-
-export interface WorkflowTemplatePayload {
-  name: string;
-  isDefault: boolean;
-  stages: StageType[];
-}
-
-export const workflowService = {
-  // Active templates for the contract-create picker (no special permission).
-  getLookup: async (): Promise<WorkflowTemplateResponse[]> => {
-    try {
-      const res = await api.get("/api/workflow/lookup");
-      return res.data?.result ?? res.data ?? [];
-    } catch {
-      return [];
-    }
-  },
-
-  getAll: async (isActive?: boolean): Promise<WorkflowTemplateResponse[]> => {
-    const params: Record<string, string> = {};
-    if (isActive !== undefined) params.isActive = String(isActive);
-    try {
-      const res = await api.get("/api/workflow", { params });
-      return res.data?.result ?? res.data ?? [];
-    } catch {
-      return [];
-    }
-  },
-
-  create: async (payload: WorkflowTemplatePayload): Promise<string> => {
-    const res = await api.post("/api/workflow", payload);
-    return res.data?.result ?? res.data;
-  },
-
-  update: async (id: string, payload: Partial<WorkflowTemplatePayload> & { isActive?: boolean }): Promise<void> => {
-    await api.put(`/api/workflow/${id}`, payload);
-  },
-
-  setDefault: async (id: string): Promise<void> => {
-    await api.put(`/api/workflow/${id}/default`, {});
-  },
-
-  remove: async (id: string): Promise<void> => {
-    await api.delete(`/api/workflow/${id}`);
-  },
-};
-
 export const departmentService = {
   getAll: async (): Promise<DepartmentOption[]> => {
     const res = await api.get("/api/department/lookup");
@@ -997,8 +906,6 @@ export interface TechnicalDrawingEmptyRow {
   productType: string | null;
   quantity: number | null;
   unit: string | null;
-  /** Chizma bosqichi hozir ish uchun ochiqmi (dinamik workflow tartibi bo'yicha). */
-  drawingReachable: boolean;
 }
 
 export type TechnicalDrawingRowKind = 0 | 1; // 0 = drawing, 1 = empty

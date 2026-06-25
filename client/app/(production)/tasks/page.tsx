@@ -10,8 +10,6 @@ import {
   ContractResponse,
   ContractProductResponse,
   ContractStatus,
-  ContractProductStatus,
-  StageType,
   contractTaskService,
   ContractTaskResponse,
   ContractTaskCreatePayload,
@@ -144,21 +142,6 @@ function ContractBar({
 // vazifa yaratish ochiladi. Boshqa mahsulot DrawingPending'da bo'lishi muhim emas —
 // har scope alohida tekshiriladi.
 const ACTIONABLE_STATUSES = new Set([ContractStatus.InProduction, ContractStatus.Completed]);
-
-// Dinamik workflow: Tasks bosqichi scope uchun ochiqmi?
-// — Tasks bosqichi mahsulot workflow'ida bo'lsa VA joriy bosqich Tasks bo'lsa
-//   (yoki mahsulot yakunlangan bo'lsa) — ochiq.
-// — Tasks bosqichi yo'q workflow — hech qachon ochilmaydi.
-// — Bosqich ma'lumoti bo'lmaganda (eski/mahsulotsiz scope) — status setiga qaytamiz.
-function isTasksActionable(s: Scope): boolean {
-  const stages = s.product?.stages ?? [];
-  if (stages.length > 0) {
-    if (!stages.some(st => st.stageType === StageType.Tasks)) return false;
-    return s.product!.currentStage === StageType.Tasks
-      || s.product!.status === ContractProductStatus.Completed;
-  }
-  return ACTIONABLE_STATUSES.has(scopeStatus(s));
-}
 
 function ContractCard({
   scope,
@@ -1991,9 +1974,10 @@ export default function TasksPage() {
   const handleSelect = (s: Scope) => {
     if (phase !== "grid") return;
 
-    // Backend `ContractProduct.Status`/stages source of truth: scope Tasks bosqichiga
-    // yetganida ochiladi. Frontendda qayta hisoblamaymiz, shu maydonga qaraymiz.
-    if (!isTasksActionable(s)) {
+    // Backend `ContractProduct.Status` allaqachon source of truth: tex jarayon +
+    // xarajat normasi tasdiqlanganida `InProduction` ga o'tadi. Frontendda qayta
+    // hisoblamaymiz, shu maydonga qaraymiz.
+    if (!ACTIONABLE_STATUSES.has(scopeStatus(s))) {
       setBlockModal(s);
       return;
     }
@@ -2380,8 +2364,8 @@ export default function TasksPage() {
             <div className="tasks-contract-grid">
               {[...filteredScopes]
                 .sort((a, b) => {
-                  const aOk = isTasksActionable(a) ? 0 : 1;
-                  const bOk = isTasksActionable(b) ? 0 : 1;
+                  const aOk = ACTIONABLE_STATUSES.has(scopeStatus(a)) ? 0 : 1;
+                  const bOk = ACTIONABLE_STATUSES.has(scopeStatus(b)) ? 0 : 1;
                   if (aOk !== bOk) return aOk - bOk;
                   // Bir kontrakt ichida — Umumiy oxirida, mahsulotlar productType bo'yicha
                   if (a.contract.id === b.contract.id) {
@@ -2398,7 +2382,7 @@ export default function TasksPage() {
                       key={key}
                       scope={s}
                       selected={selected ? scopeKey(selected) === key : false}
-                      isActionable={isTasksActionable(s)}
+                      isActionable={ACTIONABLE_STATUSES.has(scopeStatus(s))}
                       onClick={() => handleSelect(s)}
                     />
                   );
@@ -2435,7 +2419,7 @@ export default function TasksPage() {
               </p>
               <p style={{ fontSize: 14, color: "var(--text)", lineHeight: 1.65 }}>
                 {blockModal.product
-                  ? "Bu mahsulot hali Vazifalar bosqichiga yetmagan. Vazifa yaratish uchun undan oldingi bosqichlar (masalan, texnik chizma, tex jarayon yoki xarajat normasi) yakunlanishi kerak."
+                  ? "Bu mahsulot uchun texnik chizma, tex jarayon va xarajat normasi to'liq tasdiqlanmagan. Vazifa yaratish uchun mahsulot “Ishlab chiqarishda” holatiga o'tishi kerak."
                   : "Bu shartnoma bo'yicha tex jarayon bo'limidagi umumiy holat hali yakunlanmagan. Vazifalar bo'limiga kirish uchun umumiy holat “Yakunlangan” bo'lishi kerak."}
               </p>
             </div>

@@ -46,13 +46,6 @@ public class ContractProductDepartmentDto
     public DepartmentType Type { get; set; }
 }
 
-public class ProductStageDto
-{
-    public StageType StageType { get; set; }
-    public int OrderIndex { get; set; }
-    public StageStatus Status { get; set; }
-}
-
 public class ContractProductResponseDto
 {
     public Guid Id { get; set; }
@@ -65,8 +58,4 @@ public class ContractProductResponseDto
     public ContractProductStatus Status { get; set; }
     public List<ContractProductDepartmentDto> Departments { get; set; } = [];
     public List<ContractProductUserDto> AssignedUsers { get; set; } = [];
-
-    // Dynamic workflow: the product's ordered, enabled stages + the current one.
-    public List<ProductStageDto> Stages { get; set; } = [];
-    public StageType? CurrentStage { get; set; }
 }

@@ -99,12 +99,27 @@ public class TechProcessService : ITechProcessService
         };
 
         _context.TechProcesses.Add(tp);
-        await _context.SaveChangesAsync();
 
-        // Recompute the contract's per-product stages + aggregate. Creating a
-        // draft TP does not by itself advance past an unfinished earlier stage —
-        // the WorkflowEngine derives status from the actual approval state.
-        await WorkflowEngine.RecomputeContractAsync(_context, dto.ContractId);
+        // Lift the affected product(s) past DrawingPending. Contract.Status is
+        // recomputed below from the per-product aggregate.
+        if (dto.ContractProductId.HasValue)
+        {
+            var product = await _context.ContractProducts
+                .FirstOrDefaultAsync(p => p.Id == dto.ContractProductId.Value);
+            if (product is not null)
+                ContractStatusHelper.TryAdvanceToTechProcessing(product);
+        }
+        else
+        {
+            var products = await _context.ContractProducts
+                .Where(p => p.ContractId == dto.ContractId && p.IsActive)
+                .ToListAsync();
+            foreach (var p in products)
+                ContractStatusHelper.TryAdvanceToTechProcessing(p);
+        }
+
+        await _context.SaveChangesAsync();
+        await ContractStatusHelper.RecomputeContractStatusAsync(_context, dto.ContractId);
         await _context.SaveChangesAsync();
 
         var contract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == dto.ContractId);
@@ -126,6 +141,26 @@ public class TechProcessService : ITechProcessService
         }
 
         return ApiResult<Guid>.Success(tp.Id, 201);
+    }
+
+    // After a TP or CN approval, a single product may now have both approved
+    // and can move to InProduction independently of its siblings.
+    private async SysTask AdvanceProductIfReadyAsync(Guid? productId)
+    {
+        if (!productId.HasValue) return;
+
+        var product = await _context.ContractProducts.FirstOrDefaultAsync(p => p.Id == productId.Value);
+        if (product is null) return;
+        if (product.Status == ContractProductStatus.InProduction
+            || product.Status == ContractProductStatus.Completed
+            || product.Status == ContractProductStatus.Cancelled)
+            return;
+
+        if (!await ContractStatusHelper.IsProductReadyForProductionAsync(_context, product.Id))
+            return;
+
+        product.Status = ContractProductStatus.InProduction;
+        await _context.SaveChangesAsync();
     }
 
     public async Task<ApiResult<int>> UpdateAsync(Guid id, TechProcessUpdateDto dto)
@@ -171,8 +206,8 @@ public class TechProcessService : ITechProcessService
         tp.ApprovedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
-        // Approval may complete the TechProcess stage and advance the product(s).
-        await WorkflowEngine.RecomputeContractAsync(_context, tp.ContractId);
+        await AdvanceProductIfReadyAsync(tp.ContractProductId);
+        await ContractStatusHelper.RecomputeContractStatusAsync(_context, tp.ContractId);
         await _context.SaveChangesAsync();
         await _manufacturedProductService.SyncForContractAsync(tp.ContractId);
 

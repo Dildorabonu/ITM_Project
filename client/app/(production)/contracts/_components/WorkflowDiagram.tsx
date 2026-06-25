@@ -1,8 +1,7 @@
-import { ContractStatus, ContractProductStatus, StageStatus, StageType, type ProductStage, type ContractProductResponse } from "@/lib/userService";
+import { ContractStatus, ContractProductStatus, type ContractProductResponse } from "@/lib/userService";
 import {
   WORKFLOW_STEPS, STEP_COLORS,
-  PRODUCT_WORKFLOW_STEPS,
-  STAGE_TYPE_META,
+  PRODUCT_WORKFLOW_STEPS, PRODUCT_STEP_COLORS,
 } from "../_types";
 
 interface Props {
@@ -28,7 +27,7 @@ export function WorkflowDiagram({ status, products }: Props) {
             Mahsulotlar bo&apos;yicha bosqichlar
           </div>
           {visibleProducts.map((p, i) => (
-            <ProductWorkflowRow key={p.id} index={i + 1} product={p} />
+            <ProductWorkflowRow key={p.id} index={i + 1} name={p.productType} status={p.status} />
           ))}
         </div>
       )}
@@ -36,140 +35,7 @@ export function WorkflowDiagram({ status, products }: Props) {
   );
 }
 
-// Canonical stage order for the contract aggregate: every product starts from
-// the same chosen workflow, but we union by orderIndex to stay correct even if
-// a product later overrides its own stage set.
-function buildStageSequence(products: ContractProductResponse[]): StageType[] {
-  const minOrder = new Map<StageType, number>();
-  for (const p of products)
-    for (const s of p.stages ?? []) {
-      const cur = minOrder.get(s.stageType);
-      if (cur === undefined || s.orderIndex < cur) minOrder.set(s.stageType, s.orderIndex);
-    }
-  return [...minOrder.entries()].sort((a, b) => a[1] - b[1]).map(([st]) => st);
-}
-
-// Contract aggregate stepper, driven by the contract's ACTUAL chosen stage order
-// (e.g. Me'yor → Chizma → Tex jarayon → Vazifalar) instead of the fixed legacy
-// status flow. The first not-yet-finished stage is the one that "lights up".
 function ContractWorkflowRow({ status, products }: { status: ContractStatus; products: ContractProductResponse[] }) {
-  const seq = buildStageSequence(products);
-
-  // Legacy contracts created before dynamic stages carry no stage rows — fall
-  // back to the fixed status stepper.
-  if (seq.length === 0) return <LegacyContractWorkflowRow status={status} products={products} />;
-
-  // Aggregate each stage across all products: Done only when every product that
-  // includes it is Done; "active" (the bottleneck) when any product is on it.
-  const aggOf = (st: StageType): StageStatus => {
-    const rows = products
-      .map(p => (p.stages ?? []).find(s => s.stageType === st))
-      .filter((s): s is ProductStage => !!s);
-    if (rows.length === 0) return StageStatus.Done;
-    if (rows.every(s => s.status === StageStatus.Done)) return StageStatus.Done;
-    if (rows.some(s => s.status === StageStatus.InProgress)) return StageStatus.InProgress;
-    return StageStatus.Pending;
-  };
-
-  const aggs = seq.map(aggOf);
-  const firstUnfinished = aggs.findIndex(a => a !== StageStatus.Done);
-  const allDone = firstUnfinished < 0;
-  const activeIdx = allDone ? seq.length : firstUnfinished;
-  const activeColor = allDone ? "#1a56db" : STAGE_TYPE_META[seq[activeIdx]].active;
-
-  const summary = allDone
-    ? "Barcha bosqichlar yakunlandi"
-    : products.length > 1
-      ? `${products.length} mahsulot · ${seq
-          .map(st => ({ count: products.filter(p => p.currentStage === st).length, label: STAGE_TYPE_META[st].shortLabel }))
-          .filter(x => x.count > 0)
-          .map(x => `${x.count} ta ${x.label}`)
-          .join(", ")}`
-      : STAGE_TYPE_META[seq[activeIdx]].label;
-
-  return (
-    <div style={{ position: "relative" }}>
-      <div style={{
-        position: "absolute", top: 16,
-        left: `${50 / seq.length}%`,
-        right: `${50 / seq.length}%`,
-        height: 2, background: "var(--border)", zIndex: 0,
-      }} />
-      {activeIdx > 0 && (
-        <div style={{
-          position: "absolute", top: 16,
-          left: `${50 / seq.length}%`,
-          width: `${activeIdx * 100 / seq.length}%`,
-          height: 2, background: activeColor, zIndex: 0, transition: "width 0.4s",
-        }} />
-      )}
-      <div style={{ display: "flex", justifyContent: "space-between", position: "relative", zIndex: 1 }}>
-        {seq.map((st, idx) => {
-          const meta = STAGE_TYPE_META[st];
-          const isDone = idx < activeIdx;
-          const isActive = idx === activeIdx;
-          const isReached = idx <= activeIdx;
-          const productsHere = products.filter(p => p.currentStage === st);
-          return (
-            <div key={st} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flex: 1 }}>
-              <div style={{
-                width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
-                background: isReached ? meta.active : "var(--bg3)",
-                border: `2px solid ${isReached ? meta.active : "var(--border)"}`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                boxShadow: isActive ? `0 0 0 4px ${meta.active}33` : "none",
-                transition: "all 0.3s",
-              }}>
-                {isDone ? (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={meta.text} strokeWidth="2.5">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                ) : (
-                  <span style={{ fontSize: 11, fontWeight: 700, color: isReached ? meta.text : "var(--text3)" }}>
-                    {idx + 1}
-                  </span>
-                )}
-              </div>
-              <span style={{
-                fontSize: 10, fontWeight: isActive ? 700 : 500, textAlign: "center", lineHeight: 1.3,
-                color: isActive ? meta.active : isReached ? "var(--text2)" : "var(--text3)",
-                maxWidth: 72,
-              }}>
-                {meta.shortLabel}
-              </span>
-              {products.length > 1 && productsHere.length > 0 && (
-                <div style={{ display: "flex", gap: 3, alignItems: "center", marginTop: 2 }}>
-                  {productsHere.slice(0, 4).map(p => (
-                    <div key={p.id} style={{
-                      width: 7, height: 7, borderRadius: "50%",
-                      background: meta.active,
-                    }} />
-                  ))}
-                  {productsHere.length > 4 && (
-                    <span style={{ fontSize: 9, fontWeight: 700, color: meta.active, fontFamily: "var(--font-mono)" }}>
-                      +{productsHere.length - 4}
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      <div style={{
-        marginTop: 14, padding: "8px 14px", borderRadius: 8,
-        background: `${activeColor}14`,
-        border: `1.5px solid ${activeColor}44`,
-        fontSize: 13, fontWeight: 600, color: activeColor,
-        textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-      }}>
-        {summary}
-      </div>
-    </div>
-  );
-}
-
-function LegacyContractWorkflowRow({ status, products }: { status: ContractStatus; products: ContractProductResponse[] }) {
   // currentIdx = the contract's derived stage (backend = earliest active product).
   // For multi-product contracts the connecting line still fills to the FURTHEST
   // reached stage so users see overall forward motion; the "active" ring stays
@@ -272,19 +138,10 @@ function LegacyContractWorkflowRow({ status, products }: { status: ContractStatu
   );
 }
 
-// Renders the product's OWN dynamic stage list (which may differ per product —
-// e.g. a "Chizmasiz" workflow has no Drawing stage). Each enabled stage is a dot;
-// done = filled, in-progress = ringed. Falls back to the status badge if a legacy
-// product has no stage rows yet.
-function ProductWorkflowRow({ index, product }: { index: number; product: ContractProductResponse }) {
-  const name = product.productType;
-  const stages = [...(product.stages ?? [])].sort((a, b) => a.orderIndex - b.orderIndex);
-
-  const allDone = stages.length > 0 && stages.every(s => s.status === StageStatus.Done);
-  const current = stages.find(s => s.status === StageStatus.InProgress);
-  const currentMeta = current ? STAGE_TYPE_META[current.stageType] : null;
-  const stageLabel = allDone ? "Yakunlandi" : currentMeta?.shortLabel ?? "—";
-  const labelCol = allDone ? "#1a56db" : currentMeta?.active ?? "#64748b";
+function ProductWorkflowRow({ index, name, status }: { index: number; name: string; status: ContractProductStatus }) {
+  const currentIdx = PRODUCT_WORKFLOW_STEPS.findIndex(s => s.status === status);
+  const col = PRODUCT_STEP_COLORS[status];
+  const stageLabel = PRODUCT_WORKFLOW_STEPS[currentIdx]?.shortLabel ?? "—";
 
   return (
     <div style={{
@@ -307,24 +164,23 @@ function ProductWorkflowRow({ index, product }: { index: number; product: Contra
 
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          {stages.map((s, idx) => {
-            const meta = STAGE_TYPE_META[s.stageType];
-            const isDone = s.status === StageStatus.Done;
-            const isActive = s.status === StageStatus.InProgress;
-            const filled = isDone || isActive;
+          {PRODUCT_WORKFLOW_STEPS.map((step, idx) => {
+            const isDone = idx < currentIdx;
+            const isActive = idx === currentIdx;
+            const dotCol = PRODUCT_STEP_COLORS[step.status];
             return (
-              <div key={s.stageType} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <div title={meta.label} style={{
+              <div key={step.status} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <div style={{
                   width: 10, height: 10, borderRadius: "50%",
-                  background: filled ? meta.active : "var(--bg2)",
-                  border: `1.5px solid ${filled ? meta.active : "var(--border)"}`,
-                  boxShadow: isActive ? `0 0 0 3px ${meta.active}33` : "none",
+                  background: isDone || isActive ? dotCol.active : "var(--bg2)",
+                  border: `1.5px solid ${isDone || isActive ? dotCol.active : "var(--border)"}`,
+                  boxShadow: isActive ? `0 0 0 3px ${dotCol.active}33` : "none",
                   transition: "all 0.2s",
                 }} />
-                {idx < stages.length - 1 && (
+                {idx < PRODUCT_WORKFLOW_STEPS.length - 1 && (
                   <div style={{
                     width: 14, height: 1.5,
-                    background: isDone ? meta.active : "var(--border)",
+                    background: isDone ? dotCol.active : "var(--border)",
                     transition: "background 0.2s",
                   }} />
                 )}
@@ -335,8 +191,8 @@ function ProductWorkflowRow({ index, product }: { index: number; product: Contra
         <span style={{
           fontSize: 11, fontWeight: 700,
           padding: "2px 8px", borderRadius: 999,
-          background: `${labelCol}14`, color: labelCol,
-          border: `1px solid ${labelCol}44`,
+          background: `${col.active}14`, color: col.active,
+          border: `1px solid ${col.active}44`,
           whiteSpace: "nowrap",
         }}>
           {stageLabel}

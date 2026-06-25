@@ -45,7 +45,4 @@ public enum PermissionModule
 
     [Display(Name = "Jo'natmalar", Description = "send")]
     Shipments = 14,
-
-    [Display(Name = "Ish jarayonlari", Description = "git-branch")]
-    Workflows = 15,
 }

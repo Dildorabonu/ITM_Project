@@ -23,5 +23,4 @@ public class ContractProduct
     public ICollection<ContractTask> ContractTasks { get; set; } = [];
     public ICollection<ContractProductDepartment> ProductDepartments { get; set; } = [];
     public ICollection<ContractProductUser> ProductUsers { get; set; } = [];
-    public ICollection<ContractProductStage> Stages { get; set; } = [];
 }

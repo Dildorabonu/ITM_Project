@@ -165,9 +165,6 @@ namespace DataAccess.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
-                    b.Property<Guid?>("WorkflowTemplateId")
-                        .HasColumnType("uuid");
-
                     b.HasKey("Id");
 
                     b.HasIndex("ContractNo")
@@ -175,8 +172,6 @@ namespace DataAccess.Migrations
                         .HasFilter("\"IsActive\" = TRUE");
 
                     b.HasIndex("CreatedBy");
-
-                    b.HasIndex("WorkflowTemplateId");
 
                     b.ToTable("Contracts");
                 });
@@ -259,38 +254,6 @@ namespace DataAccess.Migrations
                     b.HasIndex("DepartmentId");
 
                     b.ToTable("ContractProductDepartments");
-                });
-
-            modelBuilder.Entity("Core.Entities.ContractProductStage", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("CompletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("ContractProductId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("OrderIndex")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("StageType")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("StartedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ContractProductId", "StageType")
-                        .IsUnique();
-
-                    b.ToTable("ContractProductStages");
                 });
 
             modelBuilder.Entity("Core.Entities.ContractProductUser", b =>
@@ -1446,63 +1409,6 @@ namespace DataAccess.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("Core.Entities.WorkflowTemplate", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("CreatedBy")
-                        .HasColumnType("uuid");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsDefault")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CreatedBy");
-
-                    b.HasIndex("IsDefault")
-                        .IsUnique()
-                        .HasFilter("\"IsDefault\" = TRUE");
-
-                    b.ToTable("WorkflowTemplates");
-                });
-
-            modelBuilder.Entity("Core.Entities.WorkflowTemplateStage", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("OrderIndex")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("StageType")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("WorkflowTemplateId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("WorkflowTemplateId", "StageType")
-                        .IsUnique();
-
-                    b.ToTable("WorkflowTemplateStages");
-                });
-
             modelBuilder.Entity("Core.Entities.ActivityLog", b =>
                 {
                     b.HasOne("Core.Entities.User", "Actor")
@@ -1532,13 +1438,7 @@ namespace DataAccess.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Core.Entities.WorkflowTemplate", "WorkflowTemplate")
-                        .WithMany()
-                        .HasForeignKey("WorkflowTemplateId");
-
                     b.Navigation("Creator");
-
-                    b.Navigation("WorkflowTemplate");
                 });
 
             modelBuilder.Entity("Core.Entities.ContractDepartment", b =>
@@ -1588,17 +1488,6 @@ namespace DataAccess.Migrations
                     b.Navigation("Department");
 
                     b.Navigation("Product");
-                });
-
-            modelBuilder.Entity("Core.Entities.ContractProductStage", b =>
-                {
-                    b.HasOne("Core.Entities.ContractProduct", "ContractProduct")
-                        .WithMany("Stages")
-                        .HasForeignKey("ContractProductId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ContractProduct");
                 });
 
             modelBuilder.Entity("Core.Entities.ContractProductUser", b =>
@@ -2141,28 +2030,6 @@ namespace DataAccess.Migrations
                     b.Navigation("Role");
                 });
 
-            modelBuilder.Entity("Core.Entities.WorkflowTemplate", b =>
-                {
-                    b.HasOne("Core.Entities.User", "Creator")
-                        .WithMany()
-                        .HasForeignKey("CreatedBy")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Creator");
-                });
-
-            modelBuilder.Entity("Core.Entities.WorkflowTemplateStage", b =>
-                {
-                    b.HasOne("Core.Entities.WorkflowTemplate", "WorkflowTemplate")
-                        .WithMany("Stages")
-                        .HasForeignKey("WorkflowTemplateId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("WorkflowTemplate");
-                });
-
             modelBuilder.Entity("Core.Entities.Contract", b =>
                 {
                     b.Navigation("ContractDepartments");
@@ -2193,8 +2060,6 @@ namespace DataAccess.Migrations
                     b.Navigation("ProductDepartments");
 
                     b.Navigation("ProductUsers");
-
-                    b.Navigation("Stages");
 
                     b.Navigation("TechProcesses");
 
@@ -2279,11 +2144,6 @@ namespace DataAccess.Migrations
                     b.Navigation("ReceivedStockIns");
 
                     b.Navigation("WarehouseCheckedRequisitions");
-                });
-
-            modelBuilder.Entity("Core.Entities.WorkflowTemplate", b =>
-                {
-                    b.Navigation("Stages");
                 });
 #pragma warning restore 612, 618
         }

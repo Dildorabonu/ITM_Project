@@ -38,7 +38,6 @@ public static class ApplicationDependencyInjection
         services.AddScoped<IShipmentBatchService, ShipmentBatchService>();
         services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<IActivityLogService, ActivityLogService>();
-        services.AddScoped<IWorkflowTemplateService, WorkflowTemplateService>();
 
         return services;
     }

@@ -52,11 +52,6 @@ public class ContractReadinessDto
     [JsonPropertyName("cn")]
     public ContractReadinessCostNormDto? CostNorm { get; set; }
 
-    // Dynamic workflow: the product's ordered, enabled stages + the current one.
-    // Pages use these to decide whether a scope belongs to / is reachable at their stage.
-    public List<StageType> Stages { get; set; } = [];
-    public StageType? CurrentStage { get; set; }
-
     /// <summary>
     /// 0 — drawing tasdiqlangan, lekin TP yoki Me'yoriy sarf tasdiqlanmagan (eng yuqori prioritet).<br/>
     /// 1 — texnik chizma yaratilgan, lekin tasdiqlanmagan.<br/>
