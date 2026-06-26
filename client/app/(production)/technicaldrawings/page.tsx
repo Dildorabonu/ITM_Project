@@ -227,8 +227,8 @@ export default function TechnicalDrawingsPage() {
     window.history.pushState(null, "");
     setShowEditForm(true);
     try {
-      const contract = await contractService.getById(item.contractId);
-      setEditProducts((contract.products ?? []).map((p) => ({ id: p.id, productType: p.productType, quantity: p.quantity, unit: p.unit })));
+      const products = await contractService.getProductsLookup(item.contractId);
+      setEditProducts(products.map((p) => ({ id: p.id, productType: p.productType, quantity: p.quantity, unit: p.unit })));
     } catch {
       setEditProducts([]);
     }

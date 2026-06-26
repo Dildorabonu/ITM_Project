@@ -1473,6 +1473,7 @@ function sortTasksWithWarehouseLast(data: ContractTaskResponse[]): ContractTaskR
 function TaskPanel({ scope, hideHeader }: { scope: Scope; hideHeader?: boolean }) {
   const { contract, product } = scope;
   const productScopeId = product?.id ?? null;
+  const hasPermission = useAuthStore(s => s.hasPermission);
   const [tasks, setTasks] = useState<ContractTaskResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -1524,13 +1525,14 @@ function TaskPanel({ scope, hideHeader }: { scope: Scope; hideHeader?: boolean }
 
   // Load shipments for this scope (contract + product) from backend.
   useEffect(() => {
+    if (!hasPermission("Shipments.View")) return;
     let ignore = false;
     shipmentBatchService
       .getByContract(contract.id, productScopeId ?? undefined)
       .then(list => { if (!ignore) setShipments(list); })
       .catch(() => { if (!ignore) setShipments([]); });
     return () => { ignore = true; };
-  }, [contract.id, productScopeId]);
+  }, [contract.id, productScopeId, hasPermission]);
 
   const handleShipmentsChange = (next: ShipmentBatch[]) => {
     setShipments(next);

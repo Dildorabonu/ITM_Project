@@ -67,6 +67,13 @@ public class ContractController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("{id:guid}/products-lookup")]
+    public async Task<IActionResult> GetProductsLookup(Guid id)
+    {
+        var result = await _contractService.GetProductsLookupAsync(id);
+        return Ok(result);
+    }
+
     [HasPermission("Contracts.View")]
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id)

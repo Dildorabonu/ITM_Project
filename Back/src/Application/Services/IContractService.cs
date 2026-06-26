@@ -20,4 +20,5 @@ public interface IContractService
     Task<ApiResult<int>> RemoveUserAsync(Guid contractId, Guid userId);
     Task<ApiResult<IEnumerable<ContractResponseDto>>> GetMyProductionTasksAsync(Guid userId, bool viewAll, bool? isActive = null);
     Task<ApiResult<PagedResult<ContractReadinessDto>>> GetReadinessOverviewAsync(Guid currentUserId, bool viewAll, PaginationParams pagination, string? search = null, bool? isActive = null);
+    Task<ApiResult<IEnumerable<ContractProductResponseDto>>> GetProductsLookupAsync(Guid contractId);
 }
