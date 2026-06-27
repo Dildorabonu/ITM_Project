@@ -2,6 +2,7 @@
 
 import { createPortal } from "react-dom";
 import { type PermissionModuleResponse, type RoleResponse } from "@/lib/userService";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   viewRole: RoleResponse;
@@ -17,6 +18,7 @@ export default function RoleViewDrawer({
   viewRole, viewPerms, viewPermsLoading, permissions,
   expandedViewModules, toggleViewModule, onClose,
 }: Props) {
+  const t = useT();
   return createPortal(
     <div
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(2px)", zIndex: 1000, display: "flex", justifyContent: "flex-end" }}
@@ -32,7 +34,7 @@ export default function RoleViewDrawer({
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-          <span style={{ fontWeight: 700, fontSize: 17, color: "var(--text1)" }}>Rol tafsilotlari</span>
+          <span style={{ fontWeight: 700, fontSize: 17, color: "var(--text1)" }}>{t("Rol tafsilotlari")}</span>
           <button onClick={onClose}
             style={{ background: "none", border: "1.5px solid var(--danger)", cursor: "pointer", color: "var(--danger)", fontSize: 18, lineHeight: 1, padding: "2px 6px", borderRadius: "var(--radius)", transition: "background 0.14s, transform 0.14s" }}
             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--danger-dim)"; }}
@@ -41,26 +43,26 @@ export default function RoleViewDrawer({
             onMouseUp={e => { (e.currentTarget as HTMLButtonElement).style.transform = "scale(1)"; }}>✕</button>
         </div>
 
-        <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 10 }}>Umumiy</div>
+        <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 10 }}>{t("Umumiy")}</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 22 }}>
           <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
-            <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Rol nomi</div>
+            <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>{t("Rol nomi")}</div>
             <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text1)" }}>{viewRole.name}</div>
           </div>
           <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
-            <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Ruxsatlar</div>
+            <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>{t("Ruxsatlar")}</div>
             <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text1)" }}>{viewPermsLoading ? "..." : viewPerms.size}</div>
           </div>
         </div>
 
         <div style={{ marginBottom: 22 }}>
-          <div style={{ fontSize: 13, color: "var(--text2)", fontWeight: 600, marginBottom: 6 }}>Tavsif</div>
+          <div style={{ fontSize: 13, color: "var(--text2)", fontWeight: 600, marginBottom: 6 }}>{t("Tavsif")}</div>
           <div style={{ fontSize: 14, color: "var(--text1)", whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "break-word" }}>{viewRole.description || "—"}</div>
         </div>
 
-        <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 10 }}>Ruxsatlar</div>
+        <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 10 }}>{t("Ruxsatlar")}</div>
         {viewPermsLoading ? (
-          <div style={{ textAlign: "center", color: "var(--text3)", padding: 20 }}>Yuklanmoqda...</div>
+          <div style={{ textAlign: "center", color: "var(--text3)", padding: 20 }}>{t("Yuklanmoqda...")}</div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {permissions.map(mod => {
@@ -81,7 +83,7 @@ export default function RoleViewDrawer({
                     </svg>
                     <div style={{ flex: 1, textAlign: "left" }}>
                       <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text1)" }}>{mod.moduleName}</div>
-                      <div style={{ fontSize: 12, color: "var(--text3)" }}>{mod.actions.length} ta ruxsatdan {selectedCount} tasi berilgan</div>
+                      <div style={{ fontSize: 12, color: "var(--text3)" }}>{mod.actions.length} {t("ta ruxsatdan")} {selectedCount} {t("tasi berilgan")}</div>
                     </div>
                     <span style={{
                       background: selectedCount > 0 ? "var(--accent)" : "var(--bg3)",

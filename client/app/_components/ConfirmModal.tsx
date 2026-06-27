@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
+import { useT } from "@/lib/i18n";
 
 type ConfirmVariant = "danger" | "warn" | "primary";
 
@@ -56,19 +57,24 @@ const VARIANT_STYLES: Record<ConfirmVariant, { color: string; btnClass: string; 
 
 export function ConfirmModal({
   open,
-  title = "O'chirishni tasdiqlang",
-  message = "Bu amal qaytarib bo'lmaydi.",
-  confirmLabel = "O'chirish",
-  cancelLabel = "Bekor qilish",
+  title,
+  message,
+  confirmLabel,
+  cancelLabel,
   loading = false,
   loadingLabel,
   variant = "danger",
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
+  const t = useT();
   if (!open) return null;
   const v = VARIANT_STYLES[variant];
-  const defaultLoadingLabel = variant === "danger" ? "O'chirilmoqda..." : "Yuklanmoqda...";
+  const resolvedTitle = title ?? t("O'chirishni tasdiqlang");
+  const resolvedMessage = message ?? t("Bu amal qaytarib bo'lmaydi.");
+  const resolvedConfirmLabel = confirmLabel ?? t("O'chirish");
+  const resolvedCancelLabel = cancelLabel ?? t("Bekor qilish");
+  const defaultLoadingLabel = variant === "danger" ? t("O'chirilmoqda...") : t("Yuklanmoqda...");
 
   return (
     <div className="modal-overlay" onClick={onCancel}>
@@ -79,19 +85,19 @@ export function ConfirmModal({
         >
           <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
             {v.icon}
-            {title}
+            {resolvedTitle}
           </span>
         </div>
         <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
           <p style={{ margin: 0, fontSize: 14, color: "var(--text2)", lineHeight: 1.6 }}>
-            {message}
+            {resolvedMessage}
           </p>
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
             <button className="btn btn-outline" onClick={onCancel} disabled={loading}>
-              {cancelLabel}
+              {resolvedCancelLabel}
             </button>
             <button className={v.btnClass} onClick={onConfirm} disabled={loading}>
-              {loading ? (loadingLabel ?? defaultLoadingLabel) : confirmLabel}
+              {loading ? (loadingLabel ?? defaultLoadingLabel) : resolvedConfirmLabel}
             </button>
           </div>
         </div>

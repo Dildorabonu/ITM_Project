@@ -7,6 +7,7 @@ import {
   type RequisitionResponse,
 } from "@/lib/userService";
 import { useToastStore } from "@/lib/store/toastStore";
+import { useT } from "@/lib/i18n";
 import { ConfirmModal } from "@/app/_components/ConfirmModal";
 
 interface Props {
@@ -26,6 +27,7 @@ const fmtDate = (s?: string | null) => {
 // va sotib olingan mahsulot kelganda "Omborga qabul qilindi" amalini bajaradi.
 // Qabuldan keyin talabnoma "Berishga tayyor" (Muzlatilgan) navbatiga o'tadi.
 export function PurchaseReceiveView({ canReceive, onClose, onReceived }: Props) {
+  const t = useT();
   const showToast = useToastStore(s => s.show);
 
   const [items, setItems] = useState<RequisitionResponse[]>([]);
@@ -43,7 +45,7 @@ export function PurchaseReceiveView({ canReceive, onClose, onReceived }: Props) 
       const data = await requisitionService.getAll(RequisitionStatus.ReadyForPurchase);
       setItems(data);
     } catch {
-      setError("Sotib olingan talabnomalar yuklanmadi.");
+      setError(t("Sotib olingan talabnomalar yuklanmadi."));
     } finally {
       setLoading(false);
     }
@@ -68,12 +70,12 @@ export function PurchaseReceiveView({ canReceive, onClose, onReceived }: Props) 
     setReceiving(true);
     try {
       await requisitionService.receivePurchase(receiveConfirm.id);
-      showToast(`Talabnoma "${receiveConfirm.no}" bo'yicha xarid omborga qabul qilindi`, "success");
+      showToast(`${t("Talabnoma")} "${receiveConfirm.no}" ${t("bo'yicha xarid omborga qabul qilindi")}`, "success");
       setReceiveConfirm(null);
       await Promise.all([load(), onReceived()]);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
-      showToast(msg ?? "Qabul qilishda xatolik yuz berdi", "error");
+      showToast(msg ?? t("Qabul qilishda xatolik yuz berdi"), "error");
     } finally {
       setReceiving(false);
     }
@@ -100,12 +102,12 @@ export function PurchaseReceiveView({ canReceive, onClose, onReceived }: Props) 
             color: "var(--text2)", fontSize: 13, cursor: "pointer",
           }}
         >
-          ← Orqaga
+          ← {t("Orqaga")}
         </button>
         <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-          <span style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)" }}>Sotib olinganlar</span>
+          <span style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)" }}>{t("Sotib olinganlar")}</span>
           <span style={{ fontSize: 12, color: "var(--text3)" }}>
-            {items.length} ta talabnoma qabul kutmoqda
+            {items.length} {t("ta talabnoma qabul kutmoqda")}
           </span>
         </div>
         <div className="search-wrap" style={{ maxWidth: "none", flex: 1, minWidth: 200 }}>
@@ -114,7 +116,7 @@ export function PurchaseReceiveView({ canReceive, onClose, onReceived }: Props) 
           </svg>
           <input
             className="search-input"
-            placeholder="Qidirish: mahsulot, talabnoma, sabab, bo'lim..."
+            placeholder={t("Qidirish: mahsulot, talabnoma, sabab, bo'lim...")}
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -122,7 +124,7 @@ export function PurchaseReceiveView({ canReceive, onClose, onReceived }: Props) 
         <button
           className="btn-icon"
           onClick={load}
-          title="Yangilash"
+          title={t("Yangilash")}
           style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -135,7 +137,7 @@ export function PurchaseReceiveView({ canReceive, onClose, onReceived }: Props) 
 
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 12 }}>
         {loading ? (
-          <div className="itm-card" style={{ padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
+          <div className="itm-card" style={{ padding: 40, textAlign: "center", color: "var(--text2)" }}>{t("Yuklanmoqda...")}</div>
         ) : error ? (
           <div className="itm-card" style={{ padding: 40, textAlign: "center", color: "var(--danger)" }}>{error}</div>
         ) : filtered.length === 0 ? (
@@ -144,7 +146,7 @@ export function PurchaseReceiveView({ canReceive, onClose, onReceived }: Props) 
               <rect x="2" y="7" width="20" height="14" rx="2" />
               <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
             </svg>
-            <div>{search ? "Natija topilmadi" : "Qabul kutayotgan xarid yo'q"}</div>
+            <div>{search ? t("Natija topilmadi") : t("Qabul kutayotgan xarid yo'q")}</div>
           </div>
         ) : filtered.map((r) => {
           const isOpen = expanded.has(r.id);
@@ -183,7 +185,7 @@ export function PurchaseReceiveView({ canReceive, onClose, onReceived }: Props) 
                       </span>
                     )}
                     <span>{fmtDate(r.approvedAt ?? r.createdAt)}</span>
-                    <span>{r.items.length} ta mahsulot</span>
+                    <span>{r.items.length} {t("ta mahsulot")}</span>
                   </div>
                 </div>
 
@@ -200,7 +202,7 @@ export function PurchaseReceiveView({ canReceive, onClose, onReceived }: Props) 
                 {canReceive && (
                   <button
                     onClick={(e) => { e.stopPropagation(); setReceiveConfirm({ id: r.id, no: r.requisitionNo }); }}
-                    title="Sotib olingan mahsulotni omborga qabul qilish"
+                    title={t("Sotib olingan mahsulotni omborga qabul qilish")}
                     style={{
                       display: "inline-flex", alignItems: "center", gap: 6,
                       padding: "8px 16px", borderRadius: "var(--radius)",
@@ -214,7 +216,7 @@ export function PurchaseReceiveView({ canReceive, onClose, onReceived }: Props) 
                       <polyline points="7.5 4.21 12 6.81 16.5 4.21"/>
                       <line x1="12" y1="22.08" x2="12" y2="12"/>
                     </svg>
-                    Omborga qabul qilindi
+                    {t("Omborga qabul qilindi")}
                   </button>
                 )}
               </div>
@@ -225,11 +227,11 @@ export function PurchaseReceiveView({ canReceive, onClose, onReceived }: Props) 
                   <table className="itm-table">
                     <thead>
                       <tr>
-                        <th style={{ width: 48, minWidth: 48, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>T/r</th>
-                        <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>Mahsulot nomi</th>
-                        <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>Miqdor</th>
-                        <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>O&apos;lchov</th>
-                        <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>Izoh</th>
+                        <th style={{ width: 48, minWidth: 48, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>{t("T/r")}</th>
+                        <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>{t("Mahsulot nomi")}</th>
+                        <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>{t("Miqdor")}</th>
+                        <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>{t("O'lchov")}</th>
+                        <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>{t("Izoh")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -257,12 +259,12 @@ export function PurchaseReceiveView({ canReceive, onClose, onReceived }: Props) 
 
       <ConfirmModal
         open={!!receiveConfirm}
-        title="Xaridni omborga qabul qilish"
+        title={t("Xaridni omborga qabul qilish")}
         message={receiveConfirm
-          ? `Talabnoma "${receiveConfirm.no}" bo'yicha sotib olingan mahsulotlar markaziy omborxonaga kirim qilinadi va bo'lim omboriga berishga tayyor holatga o'tadi. Davom etasizmi?`
+          ? `${t("Talabnoma")} "${receiveConfirm.no}" ${t("bo'yicha sotib olingan mahsulotlar markaziy omborxonaga kirim qilinadi va bo'lim omboriga berishga tayyor holatga o'tadi. Davom etasizmi?")}`
           : ""}
-        confirmLabel="Qabul qilish"
-        loadingLabel="Qabul qilinmoqda..."
+        confirmLabel={t("Qabul qilish")}
+        loadingLabel={t("Qabul qilinmoqda...")}
         variant="primary"
         loading={receiving}
         onConfirm={handleReceive}

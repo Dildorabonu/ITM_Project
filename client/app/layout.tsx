@@ -9,6 +9,7 @@ import { api } from "@/lib/api";
 import ToastContainer from "@/app/_components/ToastContainer";
 import EkLogo from "@/app/_components/EkLogo";
 import SplashScreen from "@/app/_components/SplashScreen";
+import { useT } from "@/lib/i18n";
 
 type NavItem = { name: string; href: string; icon: string; badge?: number; badgeWarn?: boolean; permission?: string | string[] };
 type NavGroup = { label: string; icon: string; items: NavItem[] };
@@ -150,6 +151,7 @@ const pageTitles: Record<string, string> = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const t = useT();
   const pageTitle = pageTitles[pathname]
     ?? Object.keys(pageTitles)
       .filter(k => k !== "/" && pathname.startsWith(k + "/"))
@@ -495,14 +497,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   >
                     {!sidebarCollapsed && <span className="nav-border" style={{ position: "absolute", left: 6, top: 0, bottom: 0, width: 3 }} />}
                     {sidebarCollapsed ? (
-                      <span title={group.label} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span title={t(group.label)} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <NavIcon type={group.icon} size={21} />
                       </span>
                     ) : (
                       <>
                         <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
                           <NavIcon type={group.icon} size={21} />
-                          {group.label}
+                          {t(group.label)}
                         </span>
                         <svg
                           width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
@@ -536,7 +538,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         <span style={{ opacity: isActive ? 1 : 0.75 }}>
                           <NavIcon type={item.icon} strokeWidth={2.5} color={isActive ? "var(--accent)" : "var(--sidebar-text)"} />
                         </span>
-                        {item.name}
+                        {t(item.name)}
                         {item.badge && (
                           <span style={{
                             marginLeft: "auto", minWidth: 19, height: 19, borderRadius: 9,
@@ -640,7 +642,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     <polyline points="11,17 6,12 11,7"/>
                     <polyline points="18,17 13,12 18,7"/>
                   </svg>
-                  <span>Yig&apos;ish</span>
+                  <span>{t("Yig'ish")}</span>
                 </>
               )}
             </button>
@@ -660,7 +662,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             animation: "topbarEnter 0.55s cubic-bezier(0.22,1,0.36,1) 0.38s backwards",
           }}>
             <div className="font-head-itm" style={{ fontSize: 20, fontWeight: 800, letterSpacing: 2, color: "var(--text)", textTransform: "uppercase" }}>
-              {pageTitle}
+              {t(pageTitle)}
             </div>
             <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
               {/* Profile card */}
@@ -726,7 +728,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                           <polyline points="16,17 21,12 16,7"/>
                           <line x1="21" y1="12" x2="9" y2="12"/>
                         </svg>
-                        Chiqish
+                        {t("Chiqish")}
                       </button>
                     </div>
                   </>
@@ -765,7 +767,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   background: darkMode ? "#ffffff" : "#1a2332",
                   color: darkMode ? "#1a2332" : "#ffffff",
                 }}>
-                  {darkMode ? "Kunduzgi rejimga o'tkazish" : "Tungi rejimga o'tkazish"}
+                  {darkMode ? t("Kunduzgi rejimga o'tkazish") : t("Tungi rejimga o'tkazish")}
                 </div>
               </div>
               {/* Notification bell */}
@@ -801,14 +803,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       width: 320, zIndex: 100, overflow: "hidden",
                     }}>
                       <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>O&apos;qilmagan xabarlar</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{t("O'qilmagan xabarlar")}</span>
                         <span style={{ fontSize: 12, fontWeight: 700, background: "var(--danger)", color: "#fff", borderRadius: 9, padding: "1px 8px", fontFamily: "var(--font-mono)" }}>
                           {unreadNotifs.length}
                         </span>
                       </div>
                       {unreadNotifs.length === 0 ? (
                         <div style={{ padding: "24px 16px", textAlign: "center", fontSize: 13, color: "var(--text3)" }}>
-                          O&apos;qilmagan xabar yo&apos;q
+                          {t("O'qilmagan xabar yo'q")}
                         </div>
                       ) : (
                         <div style={{ maxHeight: 320, overflowY: "auto" }}>
@@ -822,7 +824,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       )}
                       <div style={{ padding: "10px 16px", borderTop: "1px solid var(--border)" }}>
                         <Link href="/notifications" onClick={() => setBellOpen(false)} style={{ fontSize: 13, color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}>
-                          Barchasini ko&apos;rish →
+                          {t("Barchasini ko'rish →")}
                         </Link>
                       </div>
                     </div>
@@ -851,10 +853,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     <polyline points="12,6 12,12 16,14"/>
                   </svg>
                   <div className="font-head-itm" style={{ fontSize: 26, fontWeight: 800, color: "#e8f0fa", letterSpacing: 3, textTransform: "uppercase" }}>
-                    Tez kunda
+                    {t("Tez kunda")}
                   </div>
                   <div className="font-body-itm" style={{ fontSize: 11, color: "#6ab0ff", letterSpacing: 1.5 }}>
-                    Bu bo&apos;lim hozircha ishlab chiqilmoqda
+                    {t("Bu bo'lim hozircha ishlab chiqilmoqda")}
                   </div>
                 </div>
               )}

@@ -3,10 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { statusKeyframes } from "../_types";
+import { useT } from "@/lib/i18n";
 
 // Talabnoma tafsilotiga o'tishdan oldin ko'rsatiladigan animatsiyali yuklash overlay'i.
 // Ma'lumot tayyor bo'lsa va minimal davomiylik o'tsa — onComplete chaqiriladi.
 export function DetailLoadingOverlay({ dataReady, onComplete }: { dataReady: boolean; onComplete: () => void }) {
+  const t = useT();
   const [progress, setProgress] = useState(0);
   const [phase, setPhase] = useState(0);
   const [fadeOut, setFadeOut] = useState(false);
@@ -43,9 +45,9 @@ export function DetailLoadingOverlay({ dataReady, onComplete }: { dataReady: boo
   }, [dataReady, onComplete]);
 
   const phaseTexts = [
-    "Ma‘lumotlar yuklanmoqda...",
-    "Materiallar tahlil qilinmoqda...",
-    "Tayyorlanmoqda...",
+    t("Ma‘lumotlar yuklanmoqda..."),
+    t("Materiallar tahlil qilinmoqda..."),
+    t("Tayyorlanmoqda..."),
   ];
 
   return createPortal(

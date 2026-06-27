@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { DepartmentType, DEPARTMENT_TYPE_LABELS, type DepartmentOption } from "@/lib/userService";
+import { useT } from "@/lib/i18n";
 
 export function CustomGroupedSelect({
   value, onChange, departments, placeholder, hasError,
@@ -13,6 +14,7 @@ export function CustomGroupedSelect({
   placeholder: string;
   hasError?: boolean;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -93,7 +95,7 @@ export function CustomGroupedSelect({
             position: "sticky",
             top: 0,
           }}>
-            {DEPARTMENT_TYPE_LABELS[g.type]}
+            {t(DEPARTMENT_TYPE_LABELS[g.type])}
           </div>
 
           {g.items.map(d => {

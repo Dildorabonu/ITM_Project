@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { useT } from "@/lib/i18n";
 import type { DrawingFormValues } from "../_types";
 
 interface DrawingFormProps {
@@ -22,12 +23,13 @@ export function DrawingForm({
   onSave,
   onCancel,
 }: DrawingFormProps) {
+  const t = useT();
   const products = contract.products ?? [];
   const hasProducts = products.length > 0;
   const selectedProduct = form.contractProductId
     ? products.find((p) => p.id === form.contractProductId) ?? null
     : null;
-  const title = mode === "create" ? "Yangi texnik chizma" : "Texnik chizmani tahrirlash";
+  const title = mode === "create" ? t("Yangi texnik chizma") : t("Texnik chizmani tahrirlash");
   const hasError = submitted && !form.title.trim();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -85,7 +87,7 @@ export function DrawingForm({
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <polyline points="15 18 9 12 15 6" />
           </svg>
-          Orqaga
+          {t("Orqaga")}
         </button>
         <span style={{ fontWeight: 800, fontSize: 24, color: "var(--text1)" }}>{title}</span>
       </div>
@@ -98,7 +100,7 @@ export function DrawingForm({
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             <div>
               <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: "var(--text2)" }}>
-                Shartnoma
+                {t("Shartnoma")}
               </label>
               <div style={{
                 height: 44, display: "flex", alignItems: "center", padding: "0 14px",
@@ -111,7 +113,7 @@ export function DrawingForm({
 
             <div>
               <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: "var(--text2)" }}>
-                Mahsulot
+                {t("Mahsulot")}
               </label>
               <div style={{
                 minHeight: 44, display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -151,7 +153,7 @@ export function DrawingForm({
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
                     </svg>
-                    Umumiy — butun shartnoma uchun
+                    {t("Umumiy — butun shartnoma uchun")}
                   </span>
                 )}
               </div>
@@ -162,31 +164,31 @@ export function DrawingForm({
                 fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7,
                 color: hasError ? "var(--danger)" : "var(--text2)",
               }}>
-                Nomi <span style={{ color: "var(--danger)" }}>*</span>
+                {t("Nomi")} <span style={{ color: "var(--danger)" }}>*</span>
               </label>
               <input
                 className="form-input"
                 value={form.title}
                 onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                placeholder="Avtomatik to'ldiriladi"
+                placeholder={t("Avtomatik to'ldiriladi")}
                 autoFocus={mode === "create"}
                 style={{ height: 44, fontSize: 14, ...(hasError ? { borderColor: "var(--danger)" } : {}) }}
               />
               {hasError && (
-                <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Nomi kiritish shart</div>
+                <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>{t("Nomi kiritish shart")}</div>
               )}
             </div>
 
             <div>
               <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 7, color: "var(--text2)" }}>
-                Izoh
+                {t("Izoh")}
               </label>
               <textarea
                 className="form-input"
                 value={form.notes}
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                 rows={8}
-                placeholder="Qo'shimcha izoh (ixtiyoriy)"
+                placeholder={t("Qo'shimcha izoh (ixtiyoriy)")}
                 style={{ fontSize: 14, resize: "none" }}
               />
             </div>
@@ -195,7 +197,7 @@ export function DrawingForm({
           {/* Right: file upload */}
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text2)" }}>
-              Fayllar
+              {t("Fayllar")}
             </label>
 
             {/* Drop zone */}
@@ -231,10 +233,10 @@ export function DrawingForm({
                 <line x1="12" y1="3" x2="12" y2="15" />
               </svg>
               <div style={{ fontSize: 14, color: "var(--text2)", fontWeight: 600 }}>
-                Fayllarni bu yerga tashlang
+                {t("Fayllarni bu yerga tashlang")}
               </div>
               <div style={{ fontSize: 12, color: "var(--text3)" }}>
-                yoki <span style={{ color: "var(--accent)", textDecoration: "underline" }}>tanlang</span>
+                {t("yoki")} <span style={{ color: "var(--accent)", textDecoration: "underline" }}>{t("tanlang")}</span>
               </div>
               <input
                 ref={fileInputRef}
@@ -280,7 +282,7 @@ export function DrawingForm({
                     <button
                       type="button"
                       onClick={() => removeFile()}
-                      title="O'chirish"
+                      title={t("O'chirish")}
                       style={{
                         background: "none", border: "none", cursor: "pointer",
                         color: "var(--danger)", padding: 4, display: "flex", alignItems: "center",
@@ -299,7 +301,7 @@ export function DrawingForm({
 
             {form.files.length === 0 && (
               <div style={{ fontSize: 12, color: "var(--text3)", textAlign: "center" }}>
-                Hech qanday fayl tanlanmagan
+                {t("Hech qanday fayl tanlanmagan")}
               </div>
             )}
           </div>
@@ -312,7 +314,7 @@ export function DrawingForm({
             onClick={onCancel}
             style={{ fontSize: 13, padding: "10px 20px" }}
           >
-            Bekor qilish
+            {t("Bekor qilish")}
           </button>
           <button
             className="btn btn-primary"
@@ -320,7 +322,7 @@ export function DrawingForm({
             disabled={saving}
             style={{ fontSize: 13, padding: "10px 22px" }}
           >
-            {saving ? "Saqlanmoqda..." : "Saqlash"}
+            {saving ? t("Saqlanmoqda...") : t("Saqlash")}
           </button>
         </div>
       </div>

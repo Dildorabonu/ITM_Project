@@ -2,6 +2,7 @@
 
 import { createPortal } from "react-dom";
 import { technicalDrawingService, type TechnicalDrawingResponse, type AttachmentResponse } from "@/lib/userService";
+import { useT } from "@/lib/i18n";
 import { StatusBadge } from "./StatusBadge";
 
 function fmtDate(value: string) {
@@ -21,6 +22,7 @@ interface DrawingDrawerProps {
 export function DrawingDrawer({
   drawer, drawerFiles, drawerLoading, onClose,
 }: DrawingDrawerProps) {
+  const t = useT();
   return createPortal(
     <div
       style={{
@@ -47,7 +49,7 @@ export function DrawingDrawer({
           background: "var(--bg2)", zIndex: 10, paddingBottom: 8,
         }}>
           <span style={{ fontWeight: 700, fontSize: 17, color: "var(--text1)" }}>
-            Texnik chizma tafsilotlari
+            {t("Texnik chizma tafsilotlari")}
           </span>
           <button
             onClick={onClose}
@@ -62,24 +64,24 @@ export function DrawingDrawer({
         </div>
 
         {/* Info grid */}
-        <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Umumiy</div>
+        <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>{t("Umumiy")}</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 22 }}>
           <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
-            <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Shartnoma</div>
+            <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>{t("Shartnoma")}</div>
             <div style={{ fontWeight: 700, fontSize: 15, color: "var(--accent)", fontFamily: "Inter, sans-serif", wordBreak: "break-all" }}>
               {drawer.contractNo}
             </div>
           </div>
           <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
-            <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Status</div>
+            <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>{t("Status")}</div>
             <StatusBadge status={drawer.status} />
           </div>
           <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
-            <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Yaratilgan</div>
+            <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>{t("Yaratilgan")}</div>
             <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)" }}>{fmtDate(drawer.createdAt)}</div>
           </div>
           <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
-            <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Faollik</div>
+            <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>{t("Faollik")}</div>
             <span style={{
               display: "inline-flex", alignItems: "center", padding: "2px 10px",
               borderRadius: 20, fontSize: 13, fontWeight: 600,
@@ -87,20 +89,20 @@ export function DrawingDrawer({
               color: drawer.isActive ? "#16a34a" : "var(--danger)",
               border: `1px solid ${drawer.isActive ? "#86efac" : "var(--danger)"}`,
             }}>
-              {drawer.isActive ? "Faol" : "Nofaol"}
+              {drawer.isActive ? t("Faol") : t("Nofaol")}
             </span>
           </div>
           <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
-            <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Yaratuvchi</div>
+            <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>{t("Yaratuvchi")}</div>
             <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)" }}>{drawer.createdByFullName ?? "—"}</div>
           </div>
           <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px" }}>
-            <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Nomi</div>
+            <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>{t("Nomi")}</div>
             <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text1)", wordBreak: "break-word" }}>{drawer.title}</div>
           </div>
           {drawer.notes && (
             <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px", gridColumn: "1 / -1" }}>
-              <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Izoh</div>
+              <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>{t("Izoh")}</div>
               <div style={{ fontSize: 14, color: "var(--text1)", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{drawer.notes}</div>
             </div>
           )}
@@ -109,7 +111,7 @@ export function DrawingDrawer({
 
         {/* Files */}
         <div style={{ borderTop: "1.5px solid var(--border)", paddingTop: 20, marginTop: 4 }}>
-          <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 16 }}>Fayllar</div>
+          <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 16 }}>{t("Fayllar")}</div>
 
           <div style={{ border: "1.5px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
             <div style={{
@@ -123,13 +125,13 @@ export function DrawingDrawer({
               }}>
                 {drawerFiles.length > 0 ? drawerFiles.length : "—"}
               </span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)" }}>Yuklangan fayllar</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)" }}>{t("Yuklangan fayllar")}</span>
             </div>
 
             {drawerLoading ? (
-              <div style={{ fontSize: 13, color: "var(--text3)", padding: "12px 14px" }}>Yuklanmoqda...</div>
+              <div style={{ fontSize: 13, color: "var(--text3)", padding: "12px 14px" }}>{t("Yuklanmoqda...")}</div>
             ) : drawerFiles.length === 0 ? (
-              <div style={{ fontSize: 12, color: "var(--text3)", padding: "12px 14px", fontStyle: "italic" }}>Fayl yuklanmagan</div>
+              <div style={{ fontSize: 12, color: "var(--text3)", padding: "12px 14px", fontStyle: "italic" }}>{t("Fayl yuklanmagan")}</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column" }}>
                 {drawerFiles.map((file, i) => (
@@ -153,7 +155,7 @@ export function DrawingDrawer({
                       </div>
                     </div>
                     <button
-                      title="Yuklab olish"
+                      title={t("Yuklab olish")}
                       onClick={() => technicalDrawingService.downloadFile(drawer.id, file.id, file.fileName)}
                       style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent)", padding: 4, flexShrink: 0 }}
                     >

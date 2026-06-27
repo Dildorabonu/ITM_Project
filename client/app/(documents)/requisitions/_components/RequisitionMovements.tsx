@@ -8,6 +8,7 @@ import {
   STOCK_MOVEMENT_DIM,
   type StockMovement,
 } from "@/lib/stockMovements";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   requisitionId: string;
@@ -32,6 +33,7 @@ function directionLabel(m: StockMovement): string | null {
 // bo'limga ko'chirish ketma-ketligi. requisitionId bo'yicha StockMovementlarni oladi.
 // Harakat bo'lmasa umuman ko'rsatilmaydi (talabnomaning erta bosqichlari uchun).
 export function RequisitionMovements({ requisitionId }: Props) {
+  const t = useT();
   const [items, setItems] = useState<StockMovement[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -58,7 +60,7 @@ export function RequisitionMovements({ requisitionId }: Props) {
   return (
     <div className="itm-card" style={{ padding: 22 }}>
       <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 16 }}>
-        Ombor harakatlari izi ({items.length})
+        {t("Ombor harakatlari izi")} ({items.length})
       </div>
       <div style={{ position: "relative" }}>
         <div style={{ position: "absolute", left: 6, top: 6, bottom: 6, width: 2, background: "var(--border)" }} />
@@ -86,7 +88,7 @@ export function RequisitionMovements({ requisitionId }: Props) {
                   <span style={{ fontSize: 13, color: "var(--text1)", fontWeight: 500 }}>{m.productName}</span>
                   <span style={{ fontSize: 13, fontWeight: 700, fontFamily: "var(--font-mono)", color }}>{sign}{m.quantity}</span>
                   <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--text3)", fontFamily: "var(--font-mono)" }}>
-                    qoldiq: <span style={{ color: "var(--text1)", fontWeight: 600 }}>{m.quantityAfter}</span>
+                    {t("qoldiq")}: <span style={{ color: "var(--text1)", fontWeight: 600 }}>{m.quantityAfter}</span>
                   </span>
                 </div>
                 {dir && (

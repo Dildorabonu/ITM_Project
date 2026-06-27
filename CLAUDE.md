@@ -99,6 +99,17 @@ Tashqi ko'rinish sozlamalari `localStorage` da saqlanadi va sahifa yuklanishida 
 | `appearance_radius` | `"small"` \| `"medium"` \| `"large"` | `applyAppearanceRadius()` |
 | `appearance_font` | Font family nomi | `applyAppearanceFont()` |
 | `appearance_scale` | Raqam (50–150) | `applyAppearanceFont()` |
+| `appearance_lang` | `"uz"` \| `"ru"` | Interfeys tili (i18n) |
+
+## Til (i18n) Tizimi
+
+Faqat **frontend UI matni** tarjima qilinadi — backend/DB ma'lumotlari emas. Manba til o'zbekcha (Latin), qo'shimcha til ruscha.
+
+- **`lib/i18n/index.ts`** — `useLangStore` (zustand, `localStorage: "appearance_lang"`) + `useT()` hook. Til `appearance` sahifasidagi "Til / Язык" kartasidan tanlanadi.
+- **`lib/i18n/ru.ts`** — `ru: Record<string,string>` — o'zbekcha (manba satr) → ruscha lug'at. Kalit — kodda `t("...")` ichida yoziladigan **aniq o'zbekcha satr**.
+- **Pattern**: komponent ichida `const t = useT();`, so'ng matnni `{t("Saqlash")}` ga o'rash. Rus tili tanlansa lug'atdan oladi, topilmasa o'zbekcha qoladi (fallback).
+- **SSR**: `useT()` mount bo'lguncha manba (o'zbekcha) qaytaradi — hydration mosligi uchun.
+- **Yangi matn qo'shganda**: UI satrini `t("...")` ga o'rang **va** uning ruscha tarjimasini `ru.ts` ga qo'shing. Tarjima qilinmaydi: permission satrlari (`"Contracts.View"`), API maydon nomlari, enum/status kodlari, CSS, icon `type`, data ID/kodlar.
 
 **`applyAppearanceAccent(hex)`** — bitta hex rangdan avtomatik 6 ta CSS token hisoblaydi:
 ```

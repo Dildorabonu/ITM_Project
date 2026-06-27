@@ -15,6 +15,7 @@ import { useAuthStore } from "@/lib/store/authStore";
 import { useToastStore } from "@/lib/store/toastStore";
 import { ConfirmModal } from "@/app/_components/ConfirmModal";
 import { approveWithPdf } from "../_utils/approveWithPdf";
+import { useT } from "@/lib/i18n";
 
 // ─── Source filter ─────────────────────────────────────────────────────────────
 
@@ -30,6 +31,7 @@ const SOURCE_TABS: { id: SourceFilter; label: string }[] = [
 
 export default function RequisitionApprovalsPage() {
   const router = useRouter();
+  const t = useT();
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const showToast = useToastStore((s) => s.show);
 
@@ -101,14 +103,14 @@ export default function RequisitionApprovalsPage() {
     try {
       const { pdfUploaded } = await approveWithPdf(approveId);
       showToast(
-        pdfUploaded ? "Talabnoma tasdiqlandi" : "Talabnoma tasdiqlandi (PDF yaratilmadi)",
-        pdfUploaded ? "success" : "Ogohlantirish",
+        pdfUploaded ? t("Talabnoma tasdiqlandi") : t("Talabnoma tasdiqlandi (PDF yaratilmadi)"),
+        pdfUploaded ? "success" : t("Ogohlantirish"),
       );
       setApproveId(null);
       setDrawerReq(null);
       await load();
     } catch {
-      showToast("Xatolik yuz berdi", "error");
+      showToast(t("Xatolik yuz berdi"), "error");
     } finally { setActing(false); }
   };
 
@@ -117,13 +119,13 @@ export default function RequisitionApprovalsPage() {
     setActing(true);
     try {
       await requisitionService.reject(rejectId, rejectReason.trim());
-      showToast("Talabnoma rad etildi", "success");
+      showToast(t("Talabnoma rad etildi"), "success");
       setRejectId(null);
       setRejectReason("");
       setDrawerReq(null);
       await load();
     } catch {
-      showToast("Xatolik yuz berdi", "error");
+      showToast(t("Xatolik yuz berdi"), "error");
     } finally { setActing(false); }
   };
 
@@ -133,7 +135,7 @@ export default function RequisitionApprovalsPage() {
       <div className="page-transition" style={{ padding: 24 }}>
         <div className="itm-card" style={{ padding: 60, textAlign: "center" }}>
           <div style={{ fontSize: 14, color: "var(--text3)" }}>
-            Bu sahifani ko'rish uchun ruxsat yo'q
+            {t("Bu sahifani ko'rish uchun ruxsat yo'q")}
           </div>
         </div>
       </div>
@@ -159,7 +161,7 @@ export default function RequisitionApprovalsPage() {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
             <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
           </svg>
-          Barcha talabnomalar
+          {t("Barcha talabnomalar")}
         </button>
       </div>
 
@@ -167,7 +169,7 @@ export default function RequisitionApprovalsPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 18 }}>
         <StatCard
           delay={0}
-          label="Tasdiq kutmoqda"
+          label={t("Tasdiq kutmoqda")}
           value={stats.pending}
           icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
           accent="var(--warn)"
@@ -175,7 +177,7 @@ export default function RequisitionApprovalsPage() {
         />
         <StatCard
           delay={1}
-          label="Ombordan"
+          label={t("Ombordan")}
           value={stats.warehouse}
           icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27,6.96 12,12.01 20.73,6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>}
           accent="var(--success)"
@@ -183,7 +185,7 @@ export default function RequisitionApprovalsPage() {
         />
         <StatCard
           delay={2}
-          label="Sotib olishga"
+          label={t("Sotib olishga")}
           value={stats.purchase}
           icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>}
           accent="var(--purple)"
@@ -199,7 +201,7 @@ export default function RequisitionApprovalsPage() {
           </svg>
           <input
             className="search-input"
-            placeholder="Raqam, maqsad, shartnoma, bo'lim, yaratuvchi"
+            placeholder={t("Raqam, maqsad, shartnoma, bo'lim, yaratuvchi")}
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -219,7 +221,7 @@ export default function RequisitionApprovalsPage() {
                   cursor: "pointer", transition: "background 0.15s, color 0.15s",
                 }}
               >
-                {tab.label}
+                {t(tab.label)}
               </button>
             );
           })}
@@ -229,7 +231,7 @@ export default function RequisitionApprovalsPage() {
       {/* ─── List ────────────────────────────────────────────────────── */}
       {loading ? (
         <div className="itm-card" style={{ padding: 60, textAlign: "center", color: "var(--text3)" }}>
-          Yuklanmoqda…
+          {t("Yuklanmoqda…")}
         </div>
       ) : filtered.length === 0 ? (
         <div className="itm-card" style={{ padding: 60, textAlign: "center" }}>
@@ -238,11 +240,11 @@ export default function RequisitionApprovalsPage() {
               <polyline points="20 6 9 17 4 12"/>
             </svg>
           </div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text)" }}>Tasdiq kutayotgan talabnomalar yo&apos;q</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text)" }}>{t("Tasdiq kutayotgan talabnomalar yo'q")}</div>
           <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 4 }}>
             {search || sourceFilter !== "all"
-              ? "Filtrga mos keladigan talabnoma topilmadi"
-              : "Hozircha hammasi ko'rib chiqilgan"}
+              ? t("Filtrga mos keladigan talabnoma topilmadi")
+              : t("Hozircha hammasi ko'rib chiqilgan")}
           </div>
         </div>
       ) : (
@@ -263,11 +265,11 @@ export default function RequisitionApprovalsPage() {
       {/* ─── Approve confirm ────────────────────────────────────────── */}
       <ConfirmModal
         open={!!approveId}
-        title="Talabnomani tasdiqlash"
-        message="Tasdiqlangach, talabnoma bo'yicha keyingi qadamga (ombordan olish yoki sotib olish) o'tiladi. Davom etasizmi?"
+        title={t("Talabnomani tasdiqlash")}
+        message={t("Tasdiqlangach, talabnoma bo'yicha keyingi qadamga (ombordan olish yoki sotib olish) o'tiladi. Davom etasizmi?")}
         variant="primary"
-        confirmLabel="Tasdiqlash"
-        loadingLabel="Tasdiqlanmoqda..."
+        confirmLabel={t("Tasdiqlash")}
+        loadingLabel={t("Tasdiqlanmoqda...")}
         loading={acting}
         onConfirm={handleApprove}
         onCancel={() => setApproveId(null)}
@@ -283,14 +285,14 @@ export default function RequisitionApprovalsPage() {
             onClick={e => e.stopPropagation()}
             style={{ background: "var(--bg2)", borderRadius: "var(--radius2)", padding: 28, width: 440, maxWidth: "90vw", boxShadow: "var(--shadow2)", border: "1.5px solid var(--border)" }}
           >
-            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6, color: "var(--text)" }}>Rad etish sababi</div>
-            <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 14 }}>Yaratuvchiga sabab ko&apos;rsatiladi</div>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6, color: "var(--text)" }}>{t("Rad etish sababi")}</div>
+            <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 14 }}>{t("Yaratuvchiga sabab ko'rsatiladi")}</div>
             <textarea
               autoFocus
               value={rejectReason}
               onChange={e => setRejectReason(e.target.value)}
               rows={4}
-              placeholder="Sababni kiriting…"
+              placeholder={t("Sababni kiriting…")}
               style={{
                 width: "100%", padding: "10px 12px",
                 border: "1.5px solid var(--border)", borderRadius: "var(--radius)",
@@ -305,7 +307,7 @@ export default function RequisitionApprovalsPage() {
                 disabled={acting}
                 style={{ flex: 1, padding: "10px", background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: acting ? "not-allowed" : "pointer", fontWeight: 600, color: "var(--text2)", fontSize: 13 }}
               >
-                Bekor
+                {t("Bekor")}
               </button>
               <button
                 disabled={!rejectReason.trim() || acting}
@@ -318,7 +320,7 @@ export default function RequisitionApprovalsPage() {
                   opacity: !rejectReason.trim() || acting ? 0.6 : 1,
                 }}
               >
-                {acting ? "…" : "Rad etish"}
+                {acting ? "…" : t("Rad etish")}
               </button>
             </div>
           </div>
@@ -395,6 +397,7 @@ function ApprovalCard({ req, fadeIdx, onView, onApprove, onReject }: {
   onApprove: () => void;
   onReject: () => void;
 }) {
+  const t = useT();
   const ageDays = Math.floor((Date.now() - new Date(req.createdAt).getTime()) / (1000 * 60 * 60 * 24));
   const ageColor = ageDays >= 3 ? "var(--danger)" : ageDays >= 1 ? "var(--warn)" : "var(--text3)";
 
@@ -406,7 +409,7 @@ function ApprovalCard({ req, fadeIdx, onView, onApprove, onReject }: {
     req.source === RequisitionSource.Warehouse ? "var(--success-dim)" :
     req.source === RequisitionSource.Purchase  ? "var(--purple-dim)" :
     "var(--accent-dim)";
-  const sourceLabel = req.sourceLabel ?? "Asosiy";
+  const sourceLabel = req.sourceLabel ?? t("Asosiy");
 
   return (
     <div
@@ -445,10 +448,10 @@ function ApprovalCard({ req, fadeIdx, onView, onApprove, onReject }: {
             {(req.contractNo ?? req.departmentName) && (
               <Meta icon="briefcase" text={req.contractNo ?? req.departmentName ?? ""} />
             )}
-            <Meta icon="package"   text={`${req.items.length} ta material`} />
+            <Meta icon="package"   text={`${req.items.length} ${t("ta material")}`} />
             <Meta icon="calendar"  text={fmtDate(req.createdAt)} />
             <span style={{ color: ageColor, fontWeight: 600 }}>
-              {ageDays === 0 ? "bugun" : `${ageDays} kun oldin`}
+              {ageDays === 0 ? t("bugun") : `${ageDays} ${t("kun oldin")}`}
             </span>
           </div>
         </div>
@@ -460,7 +463,7 @@ function ApprovalCard({ req, fadeIdx, onView, onApprove, onReject }: {
         >
           <button
             onClick={onReject}
-            title="Rad etish"
+            title={t("Rad etish")}
             style={{
               padding: "8px 14px", fontSize: 12, fontWeight: 600,
               background: "var(--danger-dim)", color: "var(--danger)",
@@ -474,11 +477,11 @@ function ApprovalCard({ req, fadeIdx, onView, onApprove, onReject }: {
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
-            Rad etish
+            {t("Rad etish")}
           </button>
           <button
             onClick={onApprove}
-            title="Tasdiqlash"
+            title={t("Tasdiqlash")}
             style={{
               padding: "8px 16px", fontSize: 12, fontWeight: 600,
               background: "var(--success)", color: "#fff",
@@ -492,7 +495,7 @@ function ApprovalCard({ req, fadeIdx, onView, onApprove, onReject }: {
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
               <polyline points="20 6 9 17 4 12"/>
             </svg>
-            Tasdiqlash
+            {t("Tasdiqlash")}
           </button>
         </div>
       </div>

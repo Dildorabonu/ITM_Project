@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { ContractStatus } from "@/lib/userService";
+import { useT } from "@/lib/i18n";
 
 type Notif = {
   id: string;
@@ -57,14 +58,14 @@ const statusLabels: Record<number, string> = {
   [ContractStatus.Cancelled]: "Bekor qilindi",
 };
 
-function formatTs(iso: string): string {
+function formatTs(iso: string, t: (s: string) => string): string {
   const d = new Date(iso);
   const now = new Date();
   const diffMs = now.getTime() - d.getTime();
   const diffMin = Math.floor(diffMs / 60000);
 
-  if (diffMin < 1) return "Hozir";
-  if (diffMin < 60) return `${diffMin} daqiqa oldin`;
+  if (diffMin < 1) return t("Hozir");
+  if (diffMin < 60) return `${diffMin} ${t("daqiqa oldin")}`;
 
   const isToday = d.toDateString() === now.toDateString();
   const yesterday = new Date(now);
@@ -72,8 +73,8 @@ function formatTs(iso: string): string {
   const isYesterday = d.toDateString() === yesterday.toDateString();
 
   const time = d.toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" });
-  if (isToday) return `Bugun · ${time}`;
-  if (isYesterday) return `Kecha · ${time}`;
+  if (isToday) return `${t("Bugun")} · ${time}`;
+  if (isYesterday) return `${t("Kecha")} · ${time}`;
   const day = String(d.getDate()).padStart(2, "0");
   const mon = String(d.getMonth() + 1).padStart(2, "0");
   return `${day}.${mon}.${d.getFullYear()} · ${time}`;
@@ -104,6 +105,7 @@ function formatDate(iso: string): string {
 }
 
 export default function NotificationsPage() {
+  const t = useT();
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [loading, setLoading] = useState(true);
@@ -131,7 +133,7 @@ export default function NotificationsPage() {
       );
     } catch (err: any) {
       const status = err?.response?.status;
-      const msg = err?.response?.data?.errors?.[0] || err?.message || "Serverga ulanishda xatolik";
+      const msg = err?.response?.data?.errors?.[0] || err?.message || t("Serverga ulanishda xatolik");
       setFetchError(`${status ? `[${status}] ` : ""}${msg}`);
     } finally {
       setLoading(false);
@@ -189,7 +191,7 @@ export default function NotificationsPage() {
       if (selected?.id === id) { setSelected(null); setContractDetail(null); }
     } catch (err: any) {
       const status = err?.response?.status;
-      const msg = err?.response?.data?.errors?.[0] || err?.message || "O'chirishda xatolik yuz berdi";
+      const msg = err?.response?.data?.errors?.[0] || err?.message || t("O'chirishda xatolik yuz berdi");
       setDeleteError(msg);
       setTimeout(() => setDeleteError(null), 4000);
       if (status === 404) {
@@ -210,29 +212,29 @@ export default function NotificationsPage() {
   );
 
   if (loading) {
-    return <div style={{ textAlign: "center", padding: 40, opacity: 0.5 }}>Yuklanmoqda...</div>;
+    return <div style={{ textAlign: "center", padding: 40, opacity: 0.5 }}>{t("Yuklanmoqda...")}</div>;
   }
 
   return (
     <div className="page-transition">
       <div className="page-header">
-        <div className="ph-title">Bildirishnomalar</div>
+        <div className="ph-title">{t("Bildirishnomalar")}</div>
         <div style={{ display: "flex", gap: 6 }}>
           <button
             className={`btn btn-sm ${filter === "all" ? "btn-primary" : "btn-outline"}`}
             onClick={() => setFilter("all")}
           >
-            Barchasi ({notifs.length})
+            {t("Barchasi")} ({notifs.length})
           </button>
           <button
             className={`btn btn-sm ${filter === "unread" ? "btn-primary" : "btn-outline"}`}
             onClick={() => setFilter("unread")}
           >
-            O&apos;qilmagan ({unreadCount})
+            {t("O'qilmagan")} ({unreadCount})
           </button>
         </div>
         <button className="btn btn-ghost btn-sm" style={{ marginLeft: "auto" }} onClick={markAllRead}>
-          Barchasini o&apos;qilgan qilish
+          {t("Barchasini o'qilgan qilish")}
         </button>
       </div>
 
@@ -243,13 +245,13 @@ export default function NotificationsPage() {
           borderRadius: "var(--radius)", marginBottom: 12, fontSize: 13, fontWeight: 500,
           display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
         }}>
-          <span>Bildirishnomalar yuklanmadi: {fetchError}</span>
+          <span>{t("Bildirishnomalar yuklanmadi")}: {fetchError}</span>
           <button
             className="btn btn-ghost btn-sm"
             style={{ color: "var(--danger)", fontWeight: 600, fontSize: 12 }}
             onClick={fetchNotifs}
           >
-            Qayta urinish
+            {t("Qayta urinish")}
           </button>
         </div>
       )}
@@ -265,7 +267,7 @@ export default function NotificationsPage() {
 
       {visible.length === 0 ? (
         <div style={{ textAlign: "center", padding: 40, opacity: 0.5 }}>
-          {filter === "unread" ? "O'qilmagan bildirishnoma yo'q" : "Bildirishnomalar yo'q"}
+          {filter === "unread" ? t("O'qilmagan bildirishnoma yo'q") : t("Bildirishnomalar yo'q")}
         </div>
       ) : (
         <div className="notif-list">
@@ -280,13 +282,13 @@ export default function NotificationsPage() {
               <div style={{ flex: 1 }}>
                 <div className="notif-title">{n.title}</div>
                 <div className="notif-body">{n.body}</div>
-                <div className="notif-ts">{formatTs(n.createdAt)}</div>
+                <div className="notif-ts">{formatTs(n.createdAt, t)}</div>
               </div>
               <button
                 className="btn btn-ghost btn-sm"
                 onClick={(e) => { e.stopPropagation(); deleteNotif(n.id); }}
                 style={{ color: "var(--danger)", opacity: 0.7 }}
-                title="O'chirish"
+                title={t("O'chirish")}
               >
                 <Trash2 size={15} />
               </button>
@@ -304,16 +306,16 @@ export default function NotificationsPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="modal-header" style={{ borderLeftWidth: 4, borderLeftStyle: "solid", borderLeftColor: borderColor[selected.type] }}>
-              <span>{typeIcon[selected.type]} {typeLabel[selected.type]}</span>
+              <span>{typeIcon[selected.type]} {t(typeLabel[selected.type])}</span>
               <button className="modal-close" onClick={() => { setSelected(null); setContractDetail(null); }}>✕</button>
             </div>
             <div className="modal-body" style={{ gap: 16 }}>
               <div>
-                <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Sarlavha</div>
+                <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>{t("Sarlavha")}</div>
                 <div style={{ fontSize: 16, fontWeight: 600, color: "var(--text)", lineHeight: 1.4 }}>{selected.title}</div>
               </div>
               <div>
-                <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Batafsil</div>
+                <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>{t("Batafsil")}</div>
                 <div style={{
                   fontSize: 14, color: "var(--text2)", lineHeight: 1.6,
                   background: "var(--bg3, var(--surface2))", padding: "12px 14px",
@@ -326,30 +328,30 @@ export default function NotificationsPage() {
               {/* ── Contract Detail ── */}
               {selected.contractId && (
                 <div>
-                  <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Shartnoma ma&apos;lumotlari</div>
+                  <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>{t("Shartnoma ma'lumotlari")}</div>
                   {contractLoading ? (
-                    <div style={{ textAlign: "center", padding: 20, opacity: 0.5, fontSize: 13 }}>Yuklanmoqda...</div>
+                    <div style={{ textAlign: "center", padding: 20, opacity: 0.5, fontSize: 13 }}>{t("Yuklanmoqda...")}</div>
                   ) : contractDetail ? (
                     <div style={{
                       background: "var(--bg3, var(--surface2))", borderRadius: "var(--radius)",
                       border: "1px solid var(--border)", padding: "14px 16px",
                     }}>
-                      {infoRow("Shartnoma raqami", contractDetail.contractNo)}
-                      {infoRow("Shartnoma tomoni", contractDetail.contractParty)}
+                      {infoRow(t("Shartnoma raqami"), contractDetail.contractNo)}
+                      {infoRow(t("Shartnoma tomoni"), contractDetail.contractParty)}
                       {(contractDetail.products && contractDetail.products.length > 0) && (
                         infoRow(
-                          contractDetail.products.length > 1 ? `Mahsulotlar (${contractDetail.products.length})` : "Mahsulot",
+                          contractDetail.products.length > 1 ? `${t("Mahsulotlar")} (${contractDetail.products.length})` : t("Mahsulot"),
                           contractDetail.products.map(p => `${p.productType} — ${p.quantity} ${p.unit}`).join("; ")
                         )
                       )}
-                      {infoRow("Holati", statusLabels[contractDetail.status] || String(contractDetail.status))}
-                      {infoRow("Boshlanish sanasi", formatDate(contractDetail.startDate))}
-                      {infoRow("Tugash sanasi (Deadline)", formatDate(contractDetail.endDate))}
-                      {infoRow("Yaratgan", contractDetail.createdByFullName || "—")}
-                      {infoRow("Yaratilgan sana", formatFullDate(contractDetail.createdAt))}
+                      {infoRow(t("Holati"), statusLabels[contractDetail.status] ? t(statusLabels[contractDetail.status]) : String(contractDetail.status))}
+                      {infoRow(t("Boshlanish sanasi"), formatDate(contractDetail.startDate))}
+                      {infoRow(t("Tugash sanasi (Deadline)"), formatDate(contractDetail.endDate))}
+                      {infoRow(t("Yaratgan"), contractDetail.createdByFullName || "—")}
+                      {infoRow(t("Yaratilgan sana"), formatFullDate(contractDetail.createdAt))}
                       {contractDetail.departments.length > 0 && (
                         <div style={{ padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-                          <div style={{ fontSize: 13, color: "var(--text3)", fontWeight: 500, marginBottom: 6 }}>Bo&apos;limlar</div>
+                          <div style={{ fontSize: 13, color: "var(--text3)", fontWeight: 500, marginBottom: 6 }}>{t("Bo'limlar")}</div>
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
                             {contractDetail.departments.map(d => (
                               <span key={d.id} style={{
@@ -365,7 +367,7 @@ export default function NotificationsPage() {
                       )}
                       {contractDetail.assignedUsers.length > 0 && (
                         <div style={{ padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-                          <div style={{ fontSize: 13, color: "var(--text3)", fontWeight: 500, marginBottom: 6 }}>Tayinlangan xodimlar</div>
+                          <div style={{ fontSize: 13, color: "var(--text3)", fontWeight: 500, marginBottom: 6 }}>{t("Tayinlangan xodimlar")}</div>
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                             {contractDetail.assignedUsers.map(u => (
                               <span key={u.userId} style={{
@@ -381,7 +383,7 @@ export default function NotificationsPage() {
                       )}
                       {contractDetail.notes && (
                         <div style={{ paddingTop: 8, borderTop: "1px solid var(--border)", marginTop: 8 }}>
-                          <span style={{ fontSize: 13, color: "var(--text3)", fontWeight: 500 }}>Izoh</span>
+                          <span style={{ fontSize: 13, color: "var(--text3)", fontWeight: 500 }}>{t("Izoh")}</span>
                           <div style={{ fontSize: 13, color: "var(--text2)", marginTop: 4, lineHeight: 1.5 }}>{contractDetail.notes}</div>
                         </div>
                       )}
@@ -392,7 +394,7 @@ export default function NotificationsPage() {
                       background: "var(--bg3, var(--surface2))", borderRadius: "var(--radius)",
                       border: "1px solid var(--border)",
                     }}>
-                      Shartnoma topilmadi yoki o&apos;chirilgan
+                      {t("Shartnoma topilmadi yoki o'chirilgan")}
                     </div>
                   )}
                 </div>
@@ -400,7 +402,7 @@ export default function NotificationsPage() {
 
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Vaqt</div>
+                  <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>{t("Vaqt")}</div>
                   <div style={{ fontSize: 13, color: "var(--text2)" }}>{formatFullDate(selected.createdAt)}</div>
                 </div>
                 <span style={{
@@ -409,13 +411,13 @@ export default function NotificationsPage() {
                   color: selected.isRead ? "var(--text3)" : "var(--accent)",
                   fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5,
                 }}>
-                  {selected.isRead ? "O'qilgan" : "Yangi"}
+                  {selected.isRead ? t("O'qilgan") : t("Yangi")}
                 </span>
               </div>
             </div>
             <div className="modal-footer">
               <button className="btn btn-primary btn-sm" onClick={() => { setSelected(null); setContractDetail(null); }}>
-                Yopish
+                {t("Yopish")}
               </button>
             </div>
           </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useT, useLangStore, type Lang } from "@/lib/i18n";
 
 const ACCENT_COLORS = [
   { value: "#1a6eeb", label: "Ko'k" },
@@ -74,6 +75,9 @@ function applyFont(family: string, scale: number) {
 }
 
 export default function AppearancePage() {
+  const t = useT();
+  const lang = useLangStore((s) => s.lang);
+  const setLang = useLangStore((s) => s.setLang);
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [accent, setAccent] = useState("#1a6eeb");
   const [font, setFont] = useState("Inter");
@@ -172,11 +176,37 @@ export default function AppearancePage() {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: 15, rowGap: 15 }}>
 
+        {/* Til / Язык */}
+        <div style={cardStyle}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>{t("Til")}</h2>
+          <p style={sublabelStyle}>{t("Interfeys tilini tanlang")}</p>
+          <label style={labelStyle}>{t("Til")}</label>
+          <div style={{ position: "relative" }}>
+            <span style={{
+              position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)",
+              display: "flex", alignItems: "center", pointerEvents: "none", color: "var(--text2)",
+            }}>
+              <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+              </svg>
+            </span>
+            <select
+              value={lang}
+              onChange={(e) => setLang(e.target.value as Lang)}
+              style={{ ...selectStyle, paddingLeft: 34 }}
+            >
+              <option value="uz">{t("O'zbekcha")}</option>
+              <option value="ru">{t("Ruscha")}</option>
+            </select>
+          </div>
+        </div>
+
         {/* Mavzu */}
         <div style={cardStyle}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>Mavzu</h2>
-          <p style={sublabelStyle}>O&apos;zingizga yoqqan rang sxemasini tanlang</p>
-          <label style={labelStyle}>Rang sxemasi</label>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>{t("Mavzu")}</h2>
+          <p style={sublabelStyle}>{t("O'zingizga yoqqan rang sxemasini tanlang")}</p>
+          <label style={labelStyle}>{t("Rang sxemasi")}</label>
           <div style={{ position: "relative" }}>
             {/* Sun/Moon icon */}
             <span style={{
@@ -201,21 +231,21 @@ export default function AppearancePage() {
               onChange={(e) => handleTheme(e.target.value as "light" | "dark")}
               style={{ ...selectStyle, paddingLeft: 34 }}
             >
-              <option value="light">Yorug&apos; mavzu</option>
-              <option value="dark">Qorong&apos;i mavzu</option>
+              <option value="light">{t("Yorug' mavzu")}</option>
+              <option value="dark">{t("Qorong'i mavzu")}</option>
             </select>
           </div>
         </div>
 
         {/* Asosiy rang */}
         <div style={cardStyle}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>Asosiy rang</h2>
-          <p style={sublabelStyle}>Interfeys uchun asosiy rangni tanlang</p>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>{t("Asosiy rang")}</h2>
+          <p style={sublabelStyle}>{t("Interfeys uchun asosiy rangni tanlang")}</p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {ACCENT_COLORS.map((c) => (
               <button
                 key={c.value}
-                title={c.label}
+                title={t(c.label)}
                 onClick={() => handleAccent(c.value)}
                 style={{
                   width: 40, height: 40,
@@ -234,18 +264,18 @@ export default function AppearancePage() {
 
         {/* Tipografiya */}
         <div style={cardStyle}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>Tipografiya</h2>
-          <p style={sublabelStyle}>Shrift oilasi va masshtabni sozlang</p>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>{t("Tipografiya")}</h2>
+          <p style={sublabelStyle}>{t("Shrift oilasi va masshtabni sozlang")}</p>
 
-          <label style={labelStyle}>Shrift oilasi</label>
+          <label style={labelStyle}>{t("Shrift oilasi")}</label>
           <select value={font} onChange={(e) => handleFont(e.target.value)} style={{ ...selectStyle, marginBottom: 20 }}>
             {FONT_FAMILIES.map((f) => (
-              <option key={f.value} value={f.value}>{f.label}</option>
+              <option key={f.value} value={f.value}>{t(f.label)}</option>
             ))}
           </select>
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <label style={{ ...labelStyle, marginBottom: 0 }}>Masshtab: {scale}%</label>
+            <label style={{ ...labelStyle, marginBottom: 0 }}>{t("Masshtab")}: {scale}%</label>
           </div>
           <input
             type="range"
@@ -261,12 +291,12 @@ export default function AppearancePage() {
 
         {/* Chegara radiusi */}
         <div style={cardStyle}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>Chegara radiusi</h2>
-          <p style={sublabelStyle}>Komponentlarning yumaloqligini sozlang</p>
-          <label style={labelStyle}>Radius o&apos;lchami</label>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>{t("Chegara radiusi")}</h2>
+          <p style={sublabelStyle}>{t("Komponentlarning yumaloqligini sozlang")}</p>
+          <label style={labelStyle}>{t("Radius o'lchami")}</label>
           <select value={radius} onChange={(e) => handleRadius(e.target.value)} style={selectStyle}>
             {RADIUS_OPTIONS.map((r) => (
-              <option key={r.value} value={r.value}>{r.label}</option>
+              <option key={r.value} value={r.value}>{t(r.label)}</option>
             ))}
           </select>
 
@@ -286,7 +316,7 @@ export default function AppearancePage() {
                   transition: "background 0.2s, transform 0.1s",
                   transform: radius === r.value ? "scale(1.1)" : "scale(1)",
                 }} />
-                <span style={{ fontSize: 11, color: radius === r.value ? "var(--accent)" : "var(--text3)" }}>{r.label}</span>
+                <span style={{ fontSize: 11, color: radius === r.value ? "var(--accent)" : "var(--text3)" }}>{t(r.label)}</span>
               </button>
             ))}
           </div>

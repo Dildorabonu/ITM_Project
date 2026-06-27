@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useT } from "@/lib/i18n";
 
 const MONTHS_UZ = ["Yanvar","Fevral","Mart","Aprel","May","Iyun","Iyul","Avgust","Sentabr","Oktabr","Noyabr","Dekabr"];
 const DAYS_UZ   = ["Du","Se","Ch","Pa","Ju","Sh","Ya"];
@@ -26,6 +27,7 @@ export function DatePickerField({ value, displayValue, onDisplayChange, onDateSe
   onDateSelect: (iso: string) => void;
   hasError?: boolean;
 }) {
+  const t = useT();
   const today = new Date();
   const todayIso = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
   const initYear  = value ? parseInt(value.slice(0,4))   : today.getFullYear();
@@ -63,7 +65,7 @@ export function DatePickerField({ value, displayValue, onDisplayChange, onDateSe
   return (
     <div ref={ref} style={{ position:"relative" }}>
       <div style={{ position:"relative", display:"flex", alignItems:"center" }}>
-        <input className="form-input" type="text" value={displayValue} placeholder="kun.oy.yil"
+        <input className="form-input" type="text" value={displayValue} placeholder={t("kun.oy.yil")}
           readOnly
           onClick={() => setOpen(o => !o)}
           style={{ ...(hasError ? {borderColor:"var(--danger)"} : {}), paddingRight:38, width:"100%", cursor:"pointer" }}
@@ -86,11 +88,11 @@ export function DatePickerField({ value, displayValue, onDisplayChange, onDateSe
         }}>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
             <button type="button" onClick={prevMonth} style={{ background:"var(--surface2)", border:"none", cursor:"pointer", width:28, height:28, borderRadius:7, color:"var(--text2)", fontSize:17, display:"flex", alignItems:"center", justifyContent:"center" }}>‹</button>
-            <span style={{ fontWeight:700, fontSize:14, color:"var(--text)" }}>{MONTHS_UZ[viewMonth]} {viewYear}</span>
+            <span style={{ fontWeight:700, fontSize:14, color:"var(--text)" }}>{t(MONTHS_UZ[viewMonth])} {viewYear}</span>
             <button type="button" onClick={nextMonth} style={{ background:"var(--surface2)", border:"none", cursor:"pointer", width:28, height:28, borderRadius:7, color:"var(--text2)", fontSize:17, display:"flex", alignItems:"center", justifyContent:"center" }}>›</button>
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", marginBottom:6 }}>
-            {DAYS_UZ.map(d => <div key={d} style={{ textAlign:"center", fontSize:11, fontWeight:600, color:"var(--text3)", padding:"2px 0" }}>{d}</div>)}
+            {DAYS_UZ.map(d => <div key={d} style={{ textAlign:"center", fontSize:11, fontWeight:600, color:"var(--text3)", padding:"2px 0" }}>{t(d)}</div>)}
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:3 }}>
             {cells.map((day, i) => {
@@ -114,11 +116,11 @@ export function DatePickerField({ value, displayValue, onDisplayChange, onDateSe
           <div style={{ borderTop:"1px solid var(--border)", marginTop:10, paddingTop:8, display:"flex", justifyContent:"space-between" }}>
             <button type="button" onClick={()=>{onDateSelect("");onDisplayChange("");setOpen(false);}}
               style={{ background:"none", border:"none", cursor:"pointer", fontSize:12, color:"var(--text3)", padding:"2px 6px", borderRadius:5 }}>
-              Tozalash
+              {t("Tozalash")}
             </button>
             <button type="button" onClick={()=>{ setViewYear(today.getFullYear()); setViewMonth(today.getMonth()); pickDay(today.getDate()); }}
               style={{ background:"var(--accent-dim)", border:"none", cursor:"pointer", fontSize:12, color:"var(--accent)", fontWeight:600, padding:"2px 10px", borderRadius:5 }}>
-              Bugun
+              {t("Bugun")}
             </button>
           </div>
         </div>

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { DepartmentType, DEPARTMENT_TYPE_LABELS, type UserResponse } from "@/lib/userService";
 import { CheckSelect } from "@/app/_components/CheckSelect";
+import { useT } from "@/lib/i18n";
 
 interface UserListViewProps {
   filtered: UserResponse[];
@@ -38,6 +39,7 @@ export function UserListView({
   onOpenCreate, onOpenEdit, onRefresh,
   animOffset, setPage,
 }: UserListViewProps) {
+  const t = useT();
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [pendingTypeStr, setPendingTypeStr] = useState("");
   const filterBtnRef = useRef<HTMLButtonElement>(null);
@@ -100,7 +102,7 @@ export function UserListView({
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          <input className="search-input" placeholder="Qidirish"
+          <input className="search-input" placeholder={t("Qidirish")}
             value={search} onChange={e => setSearch(e.target.value)} />
         </div>
 
@@ -124,7 +126,7 @@ export function UserListView({
             <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
             </svg>
-            Filtrlar
+            {t("Filtrlar")}
             {activeFilterCount > 0 && (
               <span style={{
                 display: "inline-flex", alignItems: "center", justifyContent: "center",
@@ -163,7 +165,7 @@ export function UserListView({
                   <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                     <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
                   </svg>
-                  Filtrlar
+                  {t("Filtrlar")}
                 </div>
                 {pendingTypeStr !== "" && (
                   <button
@@ -180,7 +182,7 @@ export function UserListView({
                     <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
                       <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                     </svg>
-                    Tozalash
+                    {t("Tozalash")}
                   </button>
                 )}
               </div>
@@ -192,7 +194,7 @@ export function UserListView({
                     <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
                     </svg>
-                    Tuzilma turi
+                    {t("Tuzilma turi")}
                   </p>
                   <CheckSelect
                     value={pendingTypeStr}
@@ -201,8 +203,8 @@ export function UserListView({
                       DepartmentType.IshlabChiqarish,
                       DepartmentType.Bolim,
                       DepartmentType.Boshqaruv,
-                    ].map(t => ({ id: String(t), name: DEPARTMENT_TYPE_LABELS[t] }))}
-                    placeholder="Barcha tuzilma"
+                    ].map(dt => ({ id: String(dt), name: t(DEPARTMENT_TYPE_LABELS[dt]) }))}
+                    placeholder={t("Barcha tuzilma")}
                     disablePortal
                   />
                 </div>
@@ -226,7 +228,7 @@ export function UserListView({
                   <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                     <polyline points="20 6 9 17 4 12"/>
                   </svg>
-                  Filtrlarni qo&apos;llash
+                  {t("Filtrlarni qo'llash")}
                 </button>
               </div>
             </div>
@@ -236,7 +238,7 @@ export function UserListView({
         <button
           className="btn-icon"
           onClick={onRefresh}
-          title="Yangilash"
+          title={t("Yangilash")}
           style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -254,14 +256,14 @@ export function UserListView({
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            Yaratish
+            {t("Yaratish")}
           </button>
         )}
       </div>
 
       <div className="itm-card" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "clip" } as React.CSSProperties}>
         {loading ? (
-          <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
+          <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--text2)" }}>{t("Yuklanmoqda...")}</div>
         ) : error ? (
           <div style={{ flex: 1, padding: 40, textAlign: "center", color: "#e05252" }}>{error}</div>
         ) : (
@@ -269,18 +271,18 @@ export function UserListView({
             <table className="itm-table">
               <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
                 <tr>
-                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>T/r</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Ism</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Familiya</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Login</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", maxWidth: 180, background: "var(--bg2)" }}>Tuzilma nomi</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Holat</th>
-                  <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", background: "var(--bg2)" }}>Amallar</th>
+                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>{t("T/r")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Ism")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Familiya")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Login")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", maxWidth: 180, background: "var(--bg2)" }}>{t("Tuzilma nomi")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Holat")}</th>
+                  <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", background: "var(--bg2)" }}>{t("Amallar")}</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
+                  <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>{t("Ma'lumot topilmadi")}</td></tr>
                 ) : filtered.map((u, i) => {
                   return (
                     <tr key={u.id}>
@@ -303,7 +305,7 @@ export function UserListView({
                       <td style={{ textAlign: "center" }}>
                         <span
                           className={`sdot ${u.isActive ? "sdot-on" : "sdot-off"}`}
-                          title={u.isActive ? "Aktiv" : "Nofaol"}
+                          title={u.isActive ? t("Aktiv") : t("Nofaol")}
                         />
                       </td>
                       <td style={{ borderLeft: "2px solid var(--border)" }}>
@@ -311,7 +313,7 @@ export function UserListView({
                           {u.id !== "00000000-0000-0000-0000-000000000001" && (
                             <>
                               {canUpdate && (
-                                <button className="btn-icon" title="Tahrirlash" onClick={() => onOpenEdit(u)}
+                                <button className="btn-icon" title={t("Tahrirlash")} onClick={() => onOpenEdit(u)}
                                   style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
                                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -320,7 +322,7 @@ export function UserListView({
                                 </button>
                               )}
                               {canDelete && u.isActive && (
-                                <button className="btn-icon btn-icon-danger" title="Noaktiv qilish" onClick={() => setDeactivateId(u.id)}
+                                <button className="btn-icon btn-icon-danger" title={t("Noaktiv qilish")} onClick={() => setDeactivateId(u.id)}
                                   style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
                                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                     <circle cx="12" cy="12" r="10" />
@@ -329,7 +331,7 @@ export function UserListView({
                                 </button>
                               )}
                               {canDelete && !u.isActive && (
-                                <button className="btn-icon" title="Aktivlashtirish" onClick={() => setActivateConfirmId(u.id)}
+                                <button className="btn-icon" title={t("Aktivlashtirish")} onClick={() => setActivateConfirmId(u.id)}
                                   style={{ color: "#16a34a", borderColor: "#16a34a33", background: "#f0fdf4" }}>
                                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                     <polyline points="20 6 9 17 4 12" />
@@ -358,7 +360,7 @@ export function UserListView({
           marginTop: 8,
         }}>
           <span style={{ fontSize: 17, color: "var(--text)", fontFamily: "var(--font-mono)", fontWeight: 450 }}>
-            {totalCount} tadan {(page - 1) * 20 + 1}&nbsp;–&nbsp;{Math.min(page * 20, totalCount)}&nbsp;ko&apos;rsatilmoqda
+            {totalCount} {t("tadan")} {(page - 1) * 20 + 1}&nbsp;–&nbsp;{Math.min(page * 20, totalCount)}&nbsp;{t("ko'rsatilmoqda")}
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <button
@@ -367,7 +369,7 @@ export function UserListView({
               onClick={() => setPage(p => p - 1)}
               style={{ padding: "5px 12px", fontSize: 12 }}
             >
-              ← Oldingi
+              ← {t("Oldingi")}
             </button>
             {Array.from({ length: totalPages }, (_, i) => i + 1)
               .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
@@ -400,7 +402,7 @@ export function UserListView({
               onClick={() => setPage(p => p + 1)}
               style={{ padding: "5px 12px", fontSize: 12 }}
             >
-              Keyingi →
+              {t("Keyingi")} →
             </button>
           </div>
         </div>

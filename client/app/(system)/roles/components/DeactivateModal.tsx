@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/lib/i18n";
+
 interface Props {
   deleteError: string | null;
   deleting: boolean;
@@ -8,17 +10,18 @@ interface Props {
 }
 
 export default function DeactivateModal({ deleteError, deleting, onConfirm, onClose }: Props) {
+  const t = useT();
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 400 }}>
         <div className="modal-header" style={{ color: "var(--danger)", borderBottom: "1px solid var(--border)" }}>
           <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            Rolni noaktiv qilish
+            {t("Rolni noaktiv qilish")}
           </span>
         </div>
         <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
           <p style={{ margin: 0, fontSize: 14, color: "var(--text2)", lineHeight: 1.6 }}>
-            Ushbu rol noaktiv qilinadi va yangi foydalanuvchilarga biriktirib bo&apos;lmaydi. Davom etasizmi?
+            {t("Ushbu rol noaktiv qilinadi va yangi foydalanuvchilarga biriktirib bo'lmaydi. Davom etasizmi?")}
           </p>
           {deleteError && (
             <div style={{
@@ -29,10 +32,10 @@ export default function DeactivateModal({ deleteError, deleting, onConfirm, onCl
             </div>
           )}
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-            <button className="btn btn-outline" onClick={onClose} disabled={deleting}>Bekor qilish</button>
+            <button className="btn btn-outline" onClick={onClose} disabled={deleting}>{t("Bekor qilish")}</button>
             {!deleteError && (
               <button className="btn btn-danger" onClick={onConfirm} disabled={deleting}>
-                {deleting ? "Noaktiv qilinmoqda..." : "Noaktiv qilish"}
+                {deleting ? t("Noaktiv qilinmoqda...") : t("Noaktiv qilish")}
               </button>
             )}
           </div>

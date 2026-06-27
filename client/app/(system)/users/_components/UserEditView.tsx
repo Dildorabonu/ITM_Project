@@ -7,6 +7,7 @@ import { CustomSelect } from "./CustomSelect";
 import { CustomGroupedSelect } from "./CustomGroupedSelect";
 import { type UserForm } from "./constants";
 import { PasswordStrengthHint, isPasswordStrong } from "./PasswordStrengthHint";
+import { useT } from "@/lib/i18n";
 
 interface UserEditViewProps {
   form: UserForm;
@@ -28,6 +29,7 @@ export function UserEditView({
   roles, departments, confirmHead, setConfirmHead,
   handleUpdate, handleIsHeadChange, onCancel,
 }: UserEditViewProps) {
+  const t = useT();
   const [showPassword, setShowPassword] = useState(false);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -48,48 +50,48 @@ export function UserEditView({
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <polyline points="15 18 9 12 15 6" />
           </svg>
-          Orqaga
+          {t("Orqaga")}
         </button>
-        <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>Foydalanuvchini tahrirlash</span>
+        <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>{t("Foydalanuvchini tahrirlash")}</span>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <div>
           <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", marginBottom: 6, display: "block" }}>
-            Ism
+            {t("Ism")}
           </label>
           <input
             className="form-input"
             value={form.firstName}
             onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))}
-            placeholder="Ism"
+            placeholder={t("Ism")}
           />
         </div>
         <div>
           <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", marginBottom: 6, display: "block" }}>
-            Familiya
+            {t("Familiya")}
           </label>
           <input
             className="form-input"
             value={form.lastName}
             onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))}
-            placeholder="Familiya"
+            placeholder={t("Familiya")}
           />
         </div>
         <div>
           <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", marginBottom: 6, display: "block" }}>
-            Login
+            {t("Login")}
           </label>
           <input
             className="form-input"
             value={form.login}
             onChange={e => setForm(f => ({ ...f, login: e.target.value }))}
-            placeholder="Login"
+            placeholder={t("Login")}
           />
         </div>
         <div>
           <label style={{ fontSize: 13, fontWeight: 600, color: formSubmitted && form.password.trim() && !isPasswordStrong(form.password) ? "var(--danger)" : "var(--text2)", marginBottom: 6, display: "block" }}>
-            Yangi parol (o&apos;zgartirmaslik uchun bo&apos;sh qoldiring)
+            {t("Yangi parol (o'zgartirmaslik uchun bo'sh qoldiring)")}
           </label>
           <div style={{ position: "relative" }}>
             <input
@@ -133,44 +135,44 @@ export function UserEditView({
           </div>
           {form.password.length > 0 && <PasswordStrengthHint password={form.password} />}
           {formSubmitted && form.password.trim() && !isPasswordStrong(form.password) && (
-            <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Parol yetarlicha kuchli emas</div>
+            <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>{t("Parol yetarlicha kuchli emas")}</div>
           )}
         </div>
         <div>
           <label style={{ fontSize: 13, fontWeight: 600, color: formSubmitted && !form.roleId ? "var(--danger)" : "var(--text2)", marginBottom: 6, display: "block" }}>
-            Rol <span style={{ color: "var(--danger)" }}>*</span>
+            {t("Rol")} <span style={{ color: "var(--danger)" }}>*</span>
           </label>
           <CustomSelect
             value={form.roleId}
             onChange={v => setForm(f => ({ ...f, roleId: v }))}
             options={roles}
-            placeholder="— Rol tanlang —"
+            placeholder={t("— Rol tanlang —")}
             hasError={formSubmitted && !form.roleId}
           />
           {formSubmitted && !form.roleId && (
-            <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Rol tanlang</div>
+            <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>{t("Rol tanlang")}</div>
           )}
         </div>
         <div>
           <label style={{ fontSize: 13, fontWeight: 600, color: formSubmitted && !form.departmentId ? "var(--danger)" : "var(--text2)", marginBottom: 6, display: "block" }}>
-            Tuzilma <span style={{ color: "var(--danger)" }}>*</span>
+            {t("Tuzilma")} <span style={{ color: "var(--danger)" }}>*</span>
           </label>
           <CustomGroupedSelect
             value={form.departmentId}
             onChange={v => setForm(f => ({ ...f, departmentId: v }))}
             departments={departments}
-            placeholder="— Tuzilma tanlang —"
+            placeholder={t("— Tuzilma tanlang —")}
             hasError={formSubmitted && !form.departmentId}
           />
           {formSubmitted && !form.departmentId && (
-            <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Tuzilma tanlang</div>
+            <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>{t("Tuzilma tanlang")}</div>
           )}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "var(--text2)", cursor: "pointer" }}>
             <input type="checkbox" checked={form.isActive}
               onChange={e => setForm(f => ({ ...f, isActive: e.target.checked }))} />
-            Aktiv
+            {t("Aktiv")}
           </label>
         </div>
         <div style={{ gridColumn: "1 / -1" }}>
@@ -190,11 +192,11 @@ export function UserEditView({
             <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 18 }}>👑</span>
               <span style={{ fontSize: 13, fontWeight: 600, color: form.isHead ? "#92400e" : "var(--text2)" }}>
-                Tuzilma boshlig&apos;i
+                {t("Tuzilma boshlig'i")}
               </span>
               {!form.departmentId && (
                 <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400 }}>
-                  (avval bo&apos;lim tanlang)
+                  {t("(avval bo'lim tanlang)")}
                 </span>
               )}
             </span>
@@ -208,7 +210,7 @@ export function UserEditView({
         </div>
       )}
       <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 8 }}>
-        <button className="btn-secondary" onClick={onCancel}>Bekor qilish</button>
+        <button className="btn-secondary" onClick={onCancel}>{t("Bekor qilish")}</button>
         <button className="btn-primary" onClick={handleUpdate} disabled={saving}
           style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -216,7 +218,7 @@ export function UserEditView({
             <polyline points="17 21 17 13 7 13 7 21" />
             <polyline points="7 3 7 8 15 8" />
           </svg>
-          {saving ? "Saqlanmoqda..." : "Saqlash"}
+          {saving ? t("Saqlanmoqda...") : t("Saqlash")}
         </button>
       </div>
 
@@ -224,13 +226,13 @@ export function UserEditView({
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: 28, width: 360, maxWidth: "95vw", textAlign: "center" }}>
             <div style={{ fontSize: 22, marginBottom: 10 }}>👑</div>
-            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8, color: "var(--text1)" }}>Rahbar allaqachon belgilangan</div>
+            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8, color: "var(--text1)" }}>{t("Rahbar allaqachon belgilangan")}</div>
             <div style={{ color: "var(--text2)", fontSize: 13, marginBottom: 20 }}>
-              Ushbu tuzilmaning rahbari: <strong>{confirmHead.headName}</strong>.<br />
-              Yangi rahbar belgilash uchun avval mavjud rahbarni olib tashlang.
+              {t("Ushbu tuzilmaning rahbari:")} <strong>{confirmHead.headName}</strong>.<br />
+              {t("Yangi rahbar belgilash uchun avval mavjud rahbarni olib tashlang.")}
             </div>
             <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-              <button className="btn btn-outline" onClick={() => setConfirmHead(null)}>Tushundim</button>
+              <button className="btn btn-outline" onClick={() => setConfirmHead(null)}>{t("Tushundim")}</button>
             </div>
           </div>
         </div>,

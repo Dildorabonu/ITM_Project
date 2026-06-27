@@ -13,6 +13,7 @@ using Core.Enums;
 using DataAccess.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -205,6 +206,20 @@ namespace API
 
             var app = builder.Build();
 
+            // The frontend reaches the API through the Next.js rewrite proxy, so the
+            // TCP connection always originates from the proxy host. Trust X-Forwarded-For
+            // (set by Next.js) so RemoteIpAddress resolves to the real client — required
+            // for the IP-partitioned login/refresh rate-limit policies to work per-client.
+            // Internal trusted network: KnownNetworks/KnownProxies are cleared so the
+            // header is honored regardless of the proxy's (localhost or LAN) address.
+            var forwardedOptions = new ForwardedHeadersOptions
+            {
+                ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+            };
+            forwardedOptions.KnownNetworks.Clear();
+            forwardedOptions.KnownProxies.Clear();
+            app.UseForwardedHeaders(forwardedOptions);
+
             if (app.Environment.IsDevelopment())
             {
                 var swaggerUser = builder.Configuration["SWAGGER_USERNAME"];
@@ -288,9 +303,13 @@ namespace API
                 }
             });
 
-            app.UseRateLimiter();
-
             app.UseAuthentication();
+
+            // Rate limiter MUST run after authentication so the global limiter can
+            // partition by the authenticated user id (ClaimTypes.NameIdentifier).
+            // Otherwise httpContext.User is empty and every request falls back to the
+            // proxy IP — collapsing the per-user 300/min budget into one shared bucket.
+            app.UseRateLimiter();
 
             // CSRF Double-Submit Cookie himoyasi — autentifikatsiyadan keyin, lekin
             // authorization'gacha tekshiramiz. Login va refresh'dan tashqari barcha

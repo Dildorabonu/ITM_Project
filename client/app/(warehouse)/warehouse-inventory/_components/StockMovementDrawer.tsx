@@ -9,6 +9,7 @@ import {
   STOCK_MOVEMENT_DIM,
   type StockMovement,
 } from "@/lib/stockMovements";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   productId: string;
@@ -37,6 +38,7 @@ function directionLabel(m: StockMovement): string | null {
 // qoldiq snapshot — qayta hisoblash shart emas. `items` backenddan DESC keladi,
 // grafikni xronologik (ASC) chizamiz.
 function QuantityChart({ items }: { items: StockMovement[] }) {
+  const t = useT();
   const series = [...items].reverse(); // eng eskidan eng yangiga
   const W = 560, H = 132, padX = 8, padTop = 14, padBottom = 18;
 
@@ -57,7 +59,7 @@ function QuantityChart({ items }: { items: StockMovement[] }) {
   return (
     <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius2)", padding: "12px 12px 6px", marginBottom: 22, background: "var(--bg3)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4, padding: "0 4px" }}>
-        <span style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--text3)" }}>Qoldiq dinamikasi</span>
+        <span style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--text3)" }}>{t("Qoldiq dinamikasi")}</span>
         <span style={{ fontSize: 11, color: "var(--text3)", fontFamily: "var(--font-mono)" }}>
           min <span style={{ color: "var(--text1)", fontWeight: 600 }}>{min}</span>
           {" · "}max <span style={{ color: "var(--text1)", fontWeight: 600 }}>{max}</span>
@@ -85,6 +87,7 @@ function QuantityChart({ items }: { items: StockMovement[] }) {
 
 // Mahsulot bo'yicha ombor harakatlari tarixini o'ng tomonda timeline ko'rinishida ochadi.
 export function StockMovementDrawer({ productId, productName, onClose }: Props) {
+  const t = useT();
   const [items, setItems] = useState<StockMovement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -98,7 +101,7 @@ export function StockMovementDrawer({ productId, productName, onClose }: Props) 
         const data = await stockMovementService.get({ productId, pageSize: 200 });
         if (!cancelled) setItems(data.items);
       } catch {
-        if (!cancelled) setError("Harakat tarixini yuklashda xatolik yuz berdi.");
+        if (!cancelled) setError(t("Harakat tarixini yuklashda xatolik yuz berdi."));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -124,14 +127,14 @@ export function StockMovementDrawer({ productId, productName, onClose }: Props) 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "24px 28px 18px", borderBottom: "1.5px solid var(--border)" }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--text3)", marginBottom: 6 }}>
-              Harakat tarixi
+              {t("Harakat tarixi")}
             </div>
             <div style={{ fontWeight: 700, fontSize: 17, color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={productName}>
               {productName}
             </div>
             {!loading && !error && (
               <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 4, fontFamily: "var(--font-mono)" }}>
-                {items.length} ta yozuv
+                {items.length} {t("ta yozuv")}
               </div>
             )}
           </div>
@@ -158,7 +161,7 @@ export function StockMovementDrawer({ productId, productName, onClose }: Props) 
           ) : items.length === 0 ? (
             <div style={{ padding: 48, textAlign: "center", color: "var(--text3)", fontSize: 14 }}>
               <div style={{ fontSize: 32, marginBottom: 10, opacity: 0.4 }}>∅</div>
-              Bu mahsulot uchun harakat yozuvi yo&apos;q
+              {t("Bu mahsulot uchun harakat yozuvi yo'q")}
             </div>
           ) : (
             <>
@@ -199,7 +202,7 @@ export function StockMovementDrawer({ productId, productName, onClose }: Props) 
                           {sign}{m.quantity}
                         </span>
                         <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--text3)", fontFamily: "var(--font-mono)" }}>
-                          qoldiq: <span style={{ color: "var(--text1)", fontWeight: 600 }}>{m.quantityAfter}</span>
+                          {t("qoldiq:")} <span style={{ color: "var(--text1)", fontWeight: 600 }}>{m.quantityAfter}</span>
                         </span>
                       </div>
 

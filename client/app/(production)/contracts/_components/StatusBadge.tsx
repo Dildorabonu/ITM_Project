@@ -1,5 +1,6 @@
 import { ContractStatus, ContractProductStatus, ContractType, CONTRACT_STATUS_LABELS, CONTRACT_TYPE_LABELS, type ContractProductResponse } from "@/lib/userService";
 import { STATUS_STYLE, CONTRACT_TYPE_STYLE } from "../_types";
+import { useT } from "@/lib/i18n";
 
 interface StatusBadgeProps {
   status: ContractStatus;
@@ -20,6 +21,7 @@ const STAGE_PROGRESS: Record<ContractProductStatus, number> = {
 };
 
 export function StatusBadge({ status, products }: StatusBadgeProps) {
+  const t = useT();
   // Cancelled is a terminal lifecycle state — render the contract-level pill
   // unchanged; product distribution doesn't apply.
   if (status === ContractStatus.Cancelled) {
@@ -32,7 +34,7 @@ export function StatusBadge({ status, products }: StatusBadgeProps) {
         fontSize: 12, fontWeight: 600, whiteSpace: "nowrap",
         maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis",
       }}>
-        {CONTRACT_STATUS_LABELS[status]}
+        {t(CONTRACT_STATUS_LABELS[status])}
       </span>
     );
   }
@@ -73,6 +75,7 @@ export function StatusBadge({ status, products }: StatusBadgeProps) {
 }
 
 export function ContractTypeBadge({ contractType }: { contractType: ContractType }) {
+  const t = useT();
   const s = CONTRACT_TYPE_STYLE[contractType];
   return (
     <span style={{
@@ -81,7 +84,7 @@ export function ContractTypeBadge({ contractType }: { contractType: ContractType
       background: s.bg, color: s.color, border: `1px solid ${s.border}`,
       fontSize: 12, fontWeight: 600, whiteSpace: "nowrap",
     }}>
-      {CONTRACT_TYPE_LABELS[contractType]}
+      {t(CONTRACT_TYPE_LABELS[contractType])}
     </span>
   );
 }

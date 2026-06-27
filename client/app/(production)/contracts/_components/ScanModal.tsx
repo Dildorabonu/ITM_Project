@@ -1,4 +1,5 @@
 import { type ScanSource } from "@/lib/userService";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   scanSources: ScanSource[];
@@ -24,6 +25,7 @@ export function ScanModal({
   scanning, scanError,
   handleScanDocument, onClose,
 }: Props) {
+  const t = useT();
   return (
     <div className="modal-overlay" onClick={() => { if (!scanning) onClose(); }}>
       <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 440 }}>
@@ -37,7 +39,7 @@ export function ScanModal({
                 <path d="M7 17v2a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2" />
               </svg>
             </div>
-            <span style={{ fontWeight: 700, fontSize: 16, color: "var(--text1)" }}>Hujjatni skanerlash</span>
+            <span style={{ fontWeight: 700, fontSize: 16, color: "var(--text1)" }}>{t("Hujjatni skanerlash")}</span>
           </div>
           <button onClick={() => { if (!scanning) onClose(); }}
             style={{ background: "none", border: "1.5px solid var(--danger)", cursor: "pointer", color: "var(--danger)", fontSize: 18, lineHeight: 1, padding: "2px 6px", borderRadius: "var(--radius)", transition: "background 0.14s, transform 0.14s", opacity: scanning ? 0.4 : 1 }}
@@ -49,16 +51,16 @@ export function ScanModal({
 
         {/* Skanerlar ro'yxati */}
         <div>
-          <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", display: "block", marginBottom: 6 }}>Skaner tanlang</label>
+          <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", display: "block", marginBottom: 6 }}>{t("Skaner tanlang")}</label>
           {scanSourcesLoading ? (
-            <div style={{ fontSize: 13, color: "var(--text3)", padding: "10px 0" }}>Skanerlar qidirilmoqda...</div>
+            <div style={{ fontSize: 13, color: "var(--text3)", padding: "10px 0" }}>{t("Skanerlar qidirilmoqda...")}</div>
           ) : scanSourcesError ? (
             <div style={{ fontSize: 13, color: "var(--danger)", padding: "8px 12px", background: "var(--danger-dim)", borderRadius: 8, border: "1px solid var(--danger)33" }}>
               {scanSourcesError}
             </div>
           ) : scanSources.length === 0 ? (
             <div style={{ fontSize: 13, color: "var(--text3)", padding: "10px 12px", background: "var(--bg3)", borderRadius: 8, border: "1.5px dashed var(--border)" }}>
-              Ulangan skaner topilmadi. Printer/skaner ulangan va yoniqligini tekshiring.
+              {t("Ulangan skaner topilmadi. Printer/skaner ulangan va yoniqligini tekshiring.")}
             </div>
           ) : (
             <select className="form-input" value={selectedSourceId}
@@ -74,25 +76,25 @@ export function ScanModal({
         {/* Sifat sozlamalari */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
           <div>
-            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", display: "block", marginBottom: 6 }}>Rang rejimi</label>
+            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", display: "block", marginBottom: 6 }}>{t("Rang rejimi")}</label>
             <select className="form-input" value={scanColorMode}
               onChange={e => setScanColorMode(e.target.value)}
               style={{ width: "100%", cursor: "pointer" }}>
-              <option value="color">Rangli</option>
-              <option value="gray">Kulrang (grayscale)</option>
-              <option value="bw">Qora-oq</option>
+              <option value="color">{t("Rangli")}</option>
+              <option value="gray">{t("Kulrang (grayscale)")}</option>
+              <option value="bw">{t("Qora-oq")}</option>
             </select>
           </div>
           <div>
-            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", display: "block", marginBottom: 6 }}>Sifat (DPI)</label>
+            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", display: "block", marginBottom: 6 }}>{t("Sifat (DPI)")}</label>
             <select className="form-input" value={scanDpi}
               onChange={e => setScanDpi(Number(e.target.value))}
               style={{ width: "100%", cursor: "pointer" }}>
-              <option value={100}>100 DPI (tez)</option>
+              <option value={100}>{t("100 DPI (tez)")}</option>
               <option value={150}>150 DPI</option>
-              <option value={200}>200 DPI (standart)</option>
-              <option value={300}>300 DPI (yuqori)</option>
-              <option value={600}>600 DPI (maksimal)</option>
+              <option value={200}>{t("200 DPI (standart)")}</option>
+              <option value={300}>{t("300 DPI (yuqori)")}</option>
+              <option value={600}>{t("600 DPI (maksimal)")}</option>
             </select>
           </div>
         </div>
@@ -106,7 +108,7 @@ export function ScanModal({
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <button onClick={onClose} disabled={scanning}
             style={{ padding: "9px 20px", background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", color: "var(--text2)", fontSize: 13, fontWeight: 500 }}>
-            Bekor
+            {t("Bekor")}
           </button>
           <button onClick={handleScanDocument}
             disabled={scanning || !selectedSourceId || scanSources.length === 0}
@@ -121,7 +123,7 @@ export function ScanModal({
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation: "spin 1s linear infinite" }}>
                   <path d="M21 12a9 9 0 1 1-6.219-8.56" />
                 </svg>
-                Skanerlayapti...
+                {t("Skanerlayapti...")}
               </>
             ) : (
               <>
@@ -130,7 +132,7 @@ export function ScanModal({
                   <path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2" />
                   <path d="M7 17v2a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2" />
                 </svg>
-                Skanerlash
+                {t("Skanerlash")}
               </>
             )}
           </button>

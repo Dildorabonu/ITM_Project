@@ -14,6 +14,7 @@ import { CheckSelect } from "@/app/_components/CheckSelect";
 import { useToastStore } from "@/lib/store/toastStore";
 import { emptyForm, STATUS_OPTIONS, UNIT_OPTIONS, type ProductForm } from "../_types";
 import { FormField } from "./FormField";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   editTarget: ManufacturedProductResponse | null;
@@ -42,6 +43,7 @@ function initialForm(editTarget: ManufacturedProductResponse | null): ProductFor
 
 // Tayyor mahsulotni qo'lda yaratish yoki tahrirlash drawer formasi.
 export function ManufacturedFormDrawer({ editTarget, departments, onClose, onSaved }: Props) {
+  const t = useT();
   const showToast = useToastStore(s => s.show);
 
   const [form, setForm] = useState<ProductForm>(() => initialForm(editTarget));
@@ -64,7 +66,7 @@ export function ManufacturedFormDrawer({ editTarget, departments, onClose, onSav
       return;
     }
     if (produced > qty) {
-      setFormError("Bajarilgan miqdor umumiy miqdordan ko'p bo'lishi mumkin emas.");
+      setFormError(t("Bajarilgan miqdor umumiy miqdordan ko'p bo'lishi mumkin emas."));
       return;
     }
 
@@ -87,16 +89,16 @@ export function ManufacturedFormDrawer({ editTarget, departments, onClose, onSav
 
       if (editTarget) {
         await manufacturedProductService.update(editTarget.id, payload);
-        showToast("Mahsulot yangilandi");
+        showToast(t("Mahsulot yangilandi"));
       } else {
         await manufacturedProductService.create(payload);
-        showToast("Mahsulot qo'shildi");
+        showToast(t("Mahsulot qo'shildi"));
       }
     } catch (e) {
       const msg = (e as { response?: { data?: { errors?: string[]; message?: string } } })
         ?.response?.data?.errors?.[0]
         ?? (e as { response?: { data?: { message?: string } } })?.response?.data?.message
-        ?? "Saqlashda xatolik yuz berdi.";
+        ?? t("Saqlashda xatolik yuz berdi.");
       setFormError(msg);
       setSaving(false);
       return;
@@ -124,7 +126,7 @@ export function ManufacturedFormDrawer({ editTarget, departments, onClose, onSav
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <span style={{ fontWeight: 700, fontSize: 17, color: "var(--text1)" }}>
-            {editTarget ? "Mahsulotni tahrirlash" : "Yangi mahsulot qo'shish"}
+            {editTarget ? t("Mahsulotni tahrirlash") : t("Yangi mahsulot qo'shish")}
           </span>
           <button onClick={close}
             style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
@@ -139,41 +141,41 @@ export function ManufacturedFormDrawer({ editTarget, departments, onClose, onSav
         )}
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          <FormField label="Mahsulot nomi" required error={formSubmitted && !form.name.trim()}>
+          <FormField label={t("Mahsulot nomi")} required error={formSubmitted && !form.name.trim()}>
             <input
               value={form.name}
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
               className="form-input"
-              placeholder="Masalan: Maxsus paket"
+              placeholder={t("Masalan: Maxsus paket")}
             />
           </FormField>
-          <FormField label="Kod / Artikul">
+          <FormField label={t("Kod / Artikul")}>
             <input
               value={form.code}
               onChange={e => setForm(f => ({ ...f, code: e.target.value }))}
               className="form-input"
-              placeholder="Ixtiyoriy"
+              placeholder={t("Ixtiyoriy")}
             />
           </FormField>
 
-          <FormField label="Bo'lim" required error={formSubmitted && !form.departmentId}>
+          <FormField label={t("Bo'lim")} required error={formSubmitted && !form.departmentId}>
             <CheckSelect
               value={form.departmentId}
               onChange={v => setForm(f => ({ ...f, departmentId: v }))}
               options={departments.map(d => ({ id: d.id, name: d.name }))}
-              placeholder="Bo'limni tanlang"
+              placeholder={t("Bo'limni tanlang")}
             />
           </FormField>
-          <FormField label="O'lchov birligi" required error={formSubmitted && !form.unit}>
+          <FormField label={t("O'lchov birligi")} required error={formSubmitted && !form.unit}>
             <CheckSelect
               value={form.unit}
               onChange={v => setForm(f => ({ ...f, unit: v }))}
               options={UNIT_OPTIONS}
-              placeholder="O'lchov"
+              placeholder={t("O'lchov")}
             />
           </FormField>
 
-          <FormField label="Umumiy miqdor" required error={formSubmitted && (!form.quantity || Number(form.quantity) < 0)}>
+          <FormField label={t("Umumiy miqdor")} required error={formSubmitted && (!form.quantity || Number(form.quantity) < 0)}>
             <input
               type="number"
               min="0"
@@ -184,7 +186,7 @@ export function ManufacturedFormDrawer({ editTarget, departments, onClose, onSav
               placeholder="0"
             />
           </FormField>
-          <FormField label="Bajarilgan miqdor">
+          <FormField label={t("Bajarilgan miqdor")}>
             <input
               type="number"
               min="0"
@@ -196,17 +198,17 @@ export function ManufacturedFormDrawer({ editTarget, departments, onClose, onSav
             />
           </FormField>
 
-          <FormField label="Holati">
+          <FormField label={t("Holati")}>
             <CheckSelect
               value={form.status}
               onChange={v => setForm(f => ({ ...f, status: v }))}
               options={STATUS_OPTIONS}
-              placeholder="Holat"
+              placeholder={t("Holat")}
             />
           </FormField>
           <div />
 
-          <FormField label="Boshlangan sana">
+          <FormField label={t("Boshlangan sana")}>
             <input
               type="date"
               value={form.startedAt}
@@ -214,7 +216,7 @@ export function ManufacturedFormDrawer({ editTarget, departments, onClose, onSav
               className="form-input"
             />
           </FormField>
-          <FormField label="Tugallangan sana">
+          <FormField label={t("Tugallangan sana")}>
             <input
               type="date"
               value={form.completedAt}
@@ -224,26 +226,26 @@ export function ManufacturedFormDrawer({ editTarget, departments, onClose, onSav
           </FormField>
 
           <div style={{ gridColumn: "1 / -1" }}>
-            <FormField label="Tavsif">
+            <FormField label={t("Tavsif")}>
               <textarea
                 value={form.description}
                 onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                 className="form-input"
                 rows={2}
                 style={{ resize: "vertical", minHeight: 60 }}
-                placeholder="Mahsulot haqida qisqacha"
+                placeholder={t("Mahsulot haqida qisqacha")}
               />
             </FormField>
           </div>
           <div style={{ gridColumn: "1 / -1" }}>
-            <FormField label="Izoh">
+            <FormField label={t("Izoh")}>
               <textarea
                 value={form.notes}
                 onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                 className="form-input"
                 rows={2}
                 style={{ resize: "vertical", minHeight: 60 }}
-                placeholder="Ichki eslatma"
+                placeholder={t("Ichki eslatma")}
               />
             </FormField>
           </div>
@@ -263,7 +265,7 @@ export function ManufacturedFormDrawer({ editTarget, departments, onClose, onSav
               cursor: saving ? "not-allowed" : "pointer",
             }}
           >
-            Bekor qilish
+            {t("Bekor qilish")}
           </button>
           <button
             onClick={handleSave}
@@ -275,7 +277,7 @@ export function ManufacturedFormDrawer({ editTarget, departments, onClose, onSav
               cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1,
             }}
           >
-            {saving ? "Saqlanmoqda..." : editTarget ? "Saqlash" : "Qo'shish"}
+            {saving ? t("Saqlanmoqda...") : editTarget ? t("Saqlash") : t("Qo'shish")}
           </button>
         </div>
       </div>

@@ -3,6 +3,7 @@ import {
   WORKFLOW_STEPS, STEP_COLORS,
   PRODUCT_WORKFLOW_STEPS, PRODUCT_STEP_COLORS,
 } from "../_types";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   status: ContractStatus;
@@ -13,21 +14,22 @@ interface Props {
 // its own compact progress row below so users can see which item is at which
 // stage instead of guessing from the contract-level rollup.
 export function WorkflowDiagram({ status, products }: Props) {
+  const t = useT();
   const visibleProducts = (products ?? []).filter(p => p.status !== ContractProductStatus.Cancelled);
 
   return (
     <div style={{ marginBottom: 22 }}>
-      <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 12 }}>Jarayon holati</div>
+      <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 12 }}>{t("Jarayon holati")}</div>
 
-      <ContractWorkflowRow status={status} products={visibleProducts} />
+      <ContractWorkflowRow status={status} products={visibleProducts} t={t} />
 
       {visibleProducts.length > 0 && (
         <div style={{ marginTop: 18, borderTop: "1px dashed var(--border)", paddingTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
           <div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-            Mahsulotlar bo&apos;yicha bosqichlar
+            {t("Mahsulotlar bo'yicha bosqichlar")}
           </div>
           {visibleProducts.map((p, i) => (
-            <ProductWorkflowRow key={p.id} index={i + 1} name={p.productType} status={p.status} />
+            <ProductWorkflowRow key={p.id} index={i + 1} name={p.productType} status={p.status} t={t} />
           ))}
         </div>
       )}
@@ -35,7 +37,7 @@ export function WorkflowDiagram({ status, products }: Props) {
   );
 }
 
-function ContractWorkflowRow({ status, products }: { status: ContractStatus; products: ContractProductResponse[] }) {
+function ContractWorkflowRow({ status, products, t }: { status: ContractStatus; products: ContractProductResponse[]; t: (s: string) => string }) {
   // currentIdx = the contract's derived stage (backend = earliest active product).
   // For multi-product contracts the connecting line still fills to the FURTHEST
   // reached stage so users see overall forward motion; the "active" ring stays
@@ -49,12 +51,12 @@ function ContractWorkflowRow({ status, products }: { status: ContractStatus; pro
   const fillIdx = Math.max(currentIdx, maxStageIdx);
 
   const summary = products.length > 1
-    ? `${products.length} mahsulot · ${PRODUCT_WORKFLOW_STEPS
+    ? `${products.length} ${t("mahsulot")} · ${PRODUCT_WORKFLOW_STEPS
         .map(step => ({ count: products.filter(p => p.status === step.status).length, label: step.shortLabel }))
         .filter(x => x.count > 0)
-        .map(x => `${x.count} ta ${x.label}`)
+        .map(x => `${x.count} ${t("ta")} ${t(x.label)}`)
         .join(", ")}`
-    : (WORKFLOW_STEPS[currentIdx]?.label ?? "—");
+    : (WORKFLOW_STEPS[currentIdx] ? t(WORKFLOW_STEPS[currentIdx].label) : "—");
 
   return (
     <div style={{ position: "relative" }}>
@@ -104,7 +106,7 @@ function ContractWorkflowRow({ status, products }: { status: ContractStatus; pro
                 color: isActive ? col.active : isReached ? "var(--text2)" : "var(--text3)",
                 maxWidth: 72,
               }}>
-                {step.shortLabel}
+                {t(step.shortLabel)}
               </span>
               {products.length > 1 && productsHere.length > 0 && (
                 <div style={{ display: "flex", gap: 3, alignItems: "center", marginTop: 2 }}>
@@ -138,10 +140,10 @@ function ContractWorkflowRow({ status, products }: { status: ContractStatus; pro
   );
 }
 
-function ProductWorkflowRow({ index, name, status }: { index: number; name: string; status: ContractProductStatus }) {
+function ProductWorkflowRow({ index, name, status, t }: { index: number; name: string; status: ContractProductStatus; t: (s: string) => string }) {
   const currentIdx = PRODUCT_WORKFLOW_STEPS.findIndex(s => s.status === status);
   const col = PRODUCT_STEP_COLORS[status];
-  const stageLabel = PRODUCT_WORKFLOW_STEPS[currentIdx]?.shortLabel ?? "—";
+  const stageLabel = PRODUCT_WORKFLOW_STEPS[currentIdx] ? t(PRODUCT_WORKFLOW_STEPS[currentIdx].shortLabel) : "—";
 
   return (
     <div style={{

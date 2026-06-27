@@ -1,6 +1,7 @@
 "use client";
 
 import { type PermissionModuleResponse, type RoleResponse, type RoleCreatePayload } from "@/lib/userService";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   editRole: RoleResponse | null;
@@ -25,6 +26,7 @@ export default function RoleFormView({
   permissions, permsLoading, totalPermissions, formSubmitted, roleSaving,
   togglePerm, toggleAllModule, toggleEditModule, saveRole, onClose,
 }: Props) {
+  const t = useT();
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       {/* Header */}
@@ -46,17 +48,17 @@ export default function RoleFormView({
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <polyline points="15 18 9 12 15 6" />
             </svg>
-            Orqaga
+            {t("Orqaga")}
           </button>
           <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>
-            {editRole ? "Rolni tahrirlash" : "Yangi rol"}
+            {editRole ? t("Rolni tahrirlash") : t("Yangi rol")}
           </span>
         </div>
         <span style={{
           background: "var(--accent)", color: "#fff", borderRadius: 999,
           fontSize: 12, fontWeight: 700, padding: "6px 16px", letterSpacing: 0.3,
         }}>
-          {totalPermissions} TA RUXSATDAN {selectedPerms.size} TASI TANLANGAN
+          {totalPermissions} {t("TA RUXSATDAN")} {selectedPerms.size} {t("TASI TANLANGAN")}
         </span>
       </div>
 
@@ -64,28 +66,28 @@ export default function RoleFormView({
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <div>
           <label style={{ fontSize: 13, fontWeight: 600, color: formSubmitted && !roleForm.name.trim() ? "var(--danger)" : "var(--text2)", marginBottom: 6, display: "block" }}>
-            Rol nomi <span style={{ color: "var(--danger)" }}>*</span>
+            {t("Rol nomi")} <span style={{ color: "var(--danger)" }}>*</span>
           </label>
           <input
             className="form-input"
             value={roleForm.name}
             onChange={e => setRoleForm(f => ({ ...f, name: e.target.value }))}
-            placeholder="Rol nomi"
+            placeholder={t("Rol nomi")}
             style={formSubmitted && !roleForm.name.trim() ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : undefined}
           />
           {formSubmitted && !roleForm.name.trim() && (
-            <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Rol nomini kiriting</div>
+            <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>{t("Rol nomini kiriting")}</div>
           )}
         </div>
         <div>
           <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", marginBottom: 6, display: "block" }}>
-            Tavsif
+            {t("Tavsif")}
           </label>
           <textarea
             className="form-input"
             value={roleForm.description ?? ""}
             onChange={e => setRoleForm(f => ({ ...f, description: e.target.value }))}
-            placeholder="Tavsif kiriting"
+            placeholder={t("Tavsif kiriting")}
             rows={1}
             style={{ resize: "none" }}
           />
@@ -96,11 +98,11 @@ export default function RoleFormView({
       <div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, color: "var(--text3)", fontSize: 12 }}>
           <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-          Ruxsatlar umumiy ko&apos;rinishi
+          {t("Ruxsatlar umumiy ko'rinishi")}
           <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
         </div>
         {permsLoading ? (
-          <div style={{ textAlign: "center", color: "var(--text3)", padding: 20 }}>Yuklanmoqda...</div>
+          <div style={{ textAlign: "center", color: "var(--text3)", padding: 20 }}>{t("Yuklanmoqda...")}</div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
             {permissions.map(mod => {
@@ -141,7 +143,7 @@ export default function RoleFormView({
       <div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, color: "var(--text3)", fontSize: 12 }}>
           <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-          Ruxsatlar
+          {t("Ruxsatlar")}
           <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -162,9 +164,9 @@ export default function RoleFormView({
                   </svg>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text1)" }}>{mod.moduleName}</div>
-                    <div style={{ fontSize: 12, color: "var(--text3)" }}>{total} ta ruxsatdan {selected} tasi tanlangan</div>
+                    <div style={{ fontSize: 12, color: "var(--text3)" }}>{total} {t("ta ruxsatdan")} {selected} {t("tasi tanlangan")}</div>
                   </div>
-                  <button onClick={e => { e.stopPropagation(); toggleAllModule(mod); }} title="Hammasini tanlash" style={{
+                  <button onClick={e => { e.stopPropagation(); toggleAllModule(mod); }} title={t("Hammasini tanlash")} style={{
                     background: allSelected ? "var(--accent-dim)" : "none", border: "none", cursor: "pointer",
                     padding: 6, borderRadius: 6, color: allSelected ? "var(--accent)" : "var(--text3)",
                   }}>
@@ -217,7 +219,7 @@ export default function RoleFormView({
 
       {/* Footer actions */}
       <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 8 }}>
-        <button className="btn-secondary" onClick={onClose}>Bekor qilish</button>
+        <button className="btn-secondary" onClick={onClose}>{t("Bekor qilish")}</button>
         <button className="btn-primary" onClick={saveRole} disabled={roleSaving}
           style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -225,7 +227,7 @@ export default function RoleFormView({
             <polyline points="17 21 17 13 7 13 7 21" />
             <polyline points="7 3 7 8 15 8" />
           </svg>
-          {roleSaving ? "Saqlanmoqda..." : "Rolni saqlash"}
+          {roleSaving ? t("Saqlanmoqda...") : t("Rolni saqlash")}
         </button>
       </div>
     </div>

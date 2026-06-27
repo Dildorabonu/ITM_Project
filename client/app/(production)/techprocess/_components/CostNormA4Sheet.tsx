@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { type CostNormItemResponse, type CostNormMetadata } from "@/lib/userService";
+import { useT } from "@/lib/i18n";
 import { type MaterialRow } from "../_types";
 import { PhotoCell } from "./PhotoCell";
 
@@ -42,6 +43,7 @@ export interface CostNormA4SheetProps {
 }
 
 export function CostNormA4Sheet({ rows, showPhotos, title, contractNo, productType, metadata, onUpdateRow, onDeleteRow }: CostNormA4SheetProps) {
+  const t = useT();
   const editable = !!onUpdateRow;
   const normalized = useMemo(() => rows.map(normalizeRow), [rows]);
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
@@ -156,7 +158,7 @@ export function CostNormA4Sheet({ rows, showPhotos, title, contractNo, productTy
           <button onClick={allCollapsed ? expandAll : collapseAll}
             style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: "var(--radius)", border: "1px solid var(--border)", background: "var(--bg2)", color: "var(--text2)", fontSize: 11, cursor: "pointer" }}>
             {allCollapsed ? <ChevronsUpDown size={11} /> : <ChevronsDownUp size={11} />}
-            {allCollapsed ? "Barchani ochish" : "Barchani yig'ish"}
+            {allCollapsed ? t("Barchani ochish") : t("Barchani yig'ish")}
           </button>
         </div>
       )}
@@ -196,13 +198,13 @@ export function CostNormA4Sheet({ rows, showPhotos, title, contractNo, productTy
         )}
 
         <div style={{ textAlign: "center", margin: hasMetadataHeader ? "8px 0 14px" : "0 0 16px", fontFamily: "Times New Roman, serif" }}>
-          <div style={{ fontWeight: 700, fontSize: 16, letterSpacing: 0.5 }}>МЕЪЁРИЙ САРФ</div>
+          <div style={{ fontWeight: 700, fontSize: 16, letterSpacing: 0.5 }}>{t("МЕЪЁРИЙ САРФ")}</div>
           {title && <div style={{ fontSize: 13, marginTop: 4 }}>{title}</div>}
           {(contractNo || productType) && (
             <div style={{ fontSize: 11, color: "#555", marginTop: 4 }}>
-              {contractNo && <span>Шартнома: <strong style={{ color: "#000" }}>{contractNo}</strong></span>}
+              {contractNo && <span>{t("Шартнома")}: <strong style={{ color: "#000" }}>{contractNo}</strong></span>}
               {contractNo && productType && <span> &nbsp;·&nbsp; </span>}
-              {productType && <span>Маҳсулот: <strong style={{ color: "#000" }}>{productType}</strong></span>}
+              {productType && <span>{t("Маҳсулот")}: <strong style={{ color: "#000" }}>{productType}</strong></span>}
             </div>
           )}
         </div>
@@ -211,15 +213,15 @@ export function CostNormA4Sheet({ rows, showPhotos, title, contractNo, productTy
         <table style={{ tableLayout: "auto" }}>
           <thead>
             <tr>
-              <th style={{ width: 42 }}>Т/р</th>
-              <th>Материал номи</th>
-              <th>Ўлчов</th>
-              <th>Тайёр маҳсулот</th>
-              <th>Чиқинди</th>
-              <th>Умумий сарф</th>
-              {showPhotos && <><th>Хом-ашё</th><th>Ярим тайёр</th></>}
-              <th>Манба</th>
-              {editable && <th className="cn-action-col" style={{ width: 70 }}>Амал</th>}
+              <th style={{ width: 42 }}>{t("Т/р")}</th>
+              <th>{t("Материал номи")}</th>
+              <th>{t("Ўлчов")}</th>
+              <th>{t("Тайёр маҳсулот")}</th>
+              <th>{t("Чиқинди")}</th>
+              <th>{t("Умумий сарф")}</th>
+              {showPhotos && <><th>{t("Хом-ашё")}</th><th>{t("Ярим тайёр")}</th></>}
+              <th>{t("Манба")}</th>
+              {editable && <th className="cn-action-col" style={{ width: 70 }}>{t("Амал")}</th>}
             </tr>
           </thead>
           <tbody>
@@ -234,7 +236,7 @@ export function CostNormA4Sheet({ rows, showPhotos, title, contractNo, productTy
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
                           {isCollapsed ? <ChevronRight size={13} style={{ flexShrink: 0 }} /> : <ChevronDown size={13} style={{ flexShrink: 0 }} />}
                           {section.sectionName}
-                          <span style={{ marginLeft: 4, fontWeight: 400, fontSize: 10, color: "#5a3f00", background: "#fff", border: "1px solid #b8860b", borderRadius: 20, padding: "1px 7px" }}>{section.items.length} та</span>
+                          <span style={{ marginLeft: 4, fontWeight: 400, fontSize: 10, color: "#5a3f00", background: "#fff", border: "1px solid #b8860b", borderRadius: 20, padding: "1px 7px" }}>{section.items.length} {t("та")}</span>
                         </span>
                       </td>
                     </tr>
@@ -248,19 +250,19 @@ export function CostNormA4Sheet({ rows, showPhotos, title, contractNo, productTy
                         <td style={{ textAlign: "center", fontWeight: 600 }}>{String(rowNum).padStart(2, "0")}</td>
                         {isEditing ? (
                           <>
-                            <td><input className="cn-cell-input" placeholder="Nomi" value={editDraft.name ?? row.name ?? ""} onChange={e => setEditDraft(d => ({ ...d, name: e.target.value }))} /></td>
-                            <td><input className="cn-cell-input" placeholder="Birlik" value={editDraft.unit ?? row.unit ?? ""} onChange={e => setEditDraft(d => ({ ...d, unit: e.target.value }))} /></td>
-                            <td><input className="cn-cell-input" placeholder="Tayyor" value={editDraft.readyQty ?? row.readyQty ?? ""} onChange={e => setEditDraft(d => ({ ...d, readyQty: e.target.value }))} /></td>
-                            <td><input className="cn-cell-input" placeholder="Chiqindi" value={editDraft.wasteQty ?? row.wasteQty ?? ""} onChange={e => setEditDraft(d => ({ ...d, wasteQty: e.target.value }))} /></td>
-                            <td><input className="cn-cell-input" placeholder="Umumiy" value={editDraft.totalQty ?? row.totalQty ?? ""} onChange={e => setEditDraft(d => ({ ...d, totalQty: e.target.value }))} /></td>
+                            <td><input className="cn-cell-input" placeholder={t("Nomi")} value={editDraft.name ?? row.name ?? ""} onChange={e => setEditDraft(d => ({ ...d, name: e.target.value }))} /></td>
+                            <td><input className="cn-cell-input" placeholder={t("Birlik")} value={editDraft.unit ?? row.unit ?? ""} onChange={e => setEditDraft(d => ({ ...d, unit: e.target.value }))} /></td>
+                            <td><input className="cn-cell-input" placeholder={t("Tayyor")} value={editDraft.readyQty ?? row.readyQty ?? ""} onChange={e => setEditDraft(d => ({ ...d, readyQty: e.target.value }))} /></td>
+                            <td><input className="cn-cell-input" placeholder={t("Chiqindi")} value={editDraft.wasteQty ?? row.wasteQty ?? ""} onChange={e => setEditDraft(d => ({ ...d, wasteQty: e.target.value }))} /></td>
+                            <td><input className="cn-cell-input" placeholder={t("Umumiy")} value={editDraft.totalQty ?? row.totalQty ?? ""} onChange={e => setEditDraft(d => ({ ...d, totalQty: e.target.value }))} /></td>
                             {showPhotos && <><td className="cn-photo-cell"><PhotoCell src={row.photoRaw} /></td><td className="cn-photo-cell"><PhotoCell src={row.photoSemi} /></td></>}
-                            <td><input className="cn-cell-input" placeholder="Manba" value={editDraft.importType ?? row.importType ?? ""} onChange={e => setEditDraft(d => ({ ...d, importType: e.target.value }))} /></td>
+                            <td><input className="cn-cell-input" placeholder={t("Manba")} value={editDraft.importType ?? row.importType ?? ""} onChange={e => setEditDraft(d => ({ ...d, importType: e.target.value }))} /></td>
                             <td className="cn-action-col" style={{ textAlign: "center" }}>
                               <div className="cn-edit-actions">
                                 <button onClick={() => { if (onUpdateRow) onUpdateRow(flatIdx, { name: (editDraft.name ?? row.name) || "", unit: (editDraft.unit ?? row.unit) || "", readyQty: (editDraft.readyQty ?? row.readyQty) || "", wasteQty: (editDraft.wasteQty ?? row.wasteQty) || "", totalQty: (editDraft.totalQty ?? row.totalQty) || "", importType: (editDraft.importType ?? row.importType) || "" } as Partial<MaterialRow>); setEditingIdx(null); setEditDraft({}); }}
                                   style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600, background: "#22c55e22", border: "1px solid #22c55e44", color: "#1b8a3f", cursor: "pointer", fontFamily: "Arial, sans-serif" }}>
                                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
-                                  Saqlash
+                                  {t("Saqlash")}
                                 </button>
                                 <button onClick={() => { setEditingIdx(null); setEditDraft({}); }}
                                   style={{ display: "inline-flex", alignItems: "center", padding: "3px 7px", borderRadius: 4, fontSize: 11, fontWeight: 600, background: "#f3f4f6", border: "1px solid #d1d5db", color: "#4b5563", cursor: "pointer", fontFamily: "Arial, sans-serif" }}>✕</button>
@@ -291,7 +293,7 @@ export function CostNormA4Sheet({ rows, showPhotos, title, contractNo, productTy
                                   <button onClick={() => { setEditingIdx(flatIdx); setEditDraft({}); }}
                                     style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600, background: "#3b82f622", border: "1px solid #3b82f644", color: "#1e40af", cursor: "pointer", fontFamily: "Arial, sans-serif" }}>
                                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                                    Tahrir
+                                    {t("Tahrir")}
                                   </button>
                                   <button onClick={() => { if (onDeleteRow) onDeleteRow(flatIdx); }}
                                     style={{ display: "inline-flex", alignItems: "center", padding: "3px 7px", borderRadius: 4, fontSize: 11, fontWeight: 600, background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", cursor: "pointer", fontFamily: "Arial, sans-serif" }}>
@@ -309,7 +311,7 @@ export function CostNormA4Sheet({ rows, showPhotos, title, contractNo, productTy
               );
             })}
             {dataCount === 0 && (
-              <tr><td colSpan={colCount} style={{ textAlign: "center", color: "#555", padding: 32, fontFamily: "Times New Roman, serif" }}>Ma&apos;lumot topilmadi</td></tr>
+              <tr><td colSpan={colCount} style={{ textAlign: "center", color: "#555", padding: 32, fontFamily: "Times New Roman, serif" }}>{t("Ma'lumot topilmadi")}</td></tr>
             )}
           </tbody>
         </table>

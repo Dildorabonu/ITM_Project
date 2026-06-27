@@ -16,8 +16,10 @@ import RoleViewDrawer from "./components/RoleViewDrawer";
 import DeactivateModal from "./components/DeactivateModal";
 import ActivateModal from "./components/ActivateModal";
 import RoleTable from "./components/RoleTable";
+import { useT } from "@/lib/i18n";
 
 export default function RolesPage() {
+  const t = useT();
   const hasPermission = useAuthStore(s => s.hasPermission);
   const showToast = useToastStore(s => s.show);
   const canCreate = hasPermission("Roles.Create");
@@ -205,9 +207,9 @@ export default function RolesPage() {
       }
       setShowRoleModal(false);
       await loadRoles();
-      showToast(editRole ? "Rol muvaffaqiyatli tahrirlandi!" : "Rol muvaffaqiyatli yaratildi!");
+      showToast(editRole ? t("Rol muvaffaqiyatli tahrirlandi!") : t("Rol muvaffaqiyatli yaratildi!"));
     } catch {
-      showToast("Rolni saqlashda xatolik yuz berdi.", "Xatolik");
+      showToast(t("Rolni saqlashda xatolik yuz berdi."), t("Xatolik"));
     } finally {
       setRoleSaving(false);
     }
@@ -222,10 +224,10 @@ export default function RolesPage() {
       await roleService.delete(deleteConfirmId);
       setDeleteConfirmId(null);
       await loadRoles();
-      showToast("Rol muvaffaqiyatli noaktiv qilindi!");
+      showToast(t("Rol muvaffaqiyatli noaktiv qilindi!"));
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { errors?: string[] } } };
-      const msg = axiosErr?.response?.data?.errors?.[0] ?? "Xatolik yuz berdi.";
+      const msg = axiosErr?.response?.data?.errors?.[0] ?? t("Xatolik yuz berdi.");
       setDeleteError(msg);
     } finally {
       setDeleting(false);
@@ -239,9 +241,9 @@ export default function RolesPage() {
       await roleService.update(activateConfirmId, { isActive: true });
       setActivateConfirmId(null);
       await loadRoles();
-      showToast("Rol muvaffaqiyatli aktiv qilindi!");
+      showToast(t("Rol muvaffaqiyatli aktiv qilindi!"));
     } catch {
-      showToast("Rolni aktiv qilishda xatolik yuz berdi.", "Xatolik");
+      showToast(t("Rolni aktiv qilishda xatolik yuz berdi."), t("Xatolik"));
     } finally {
       setActivating(false);
     }

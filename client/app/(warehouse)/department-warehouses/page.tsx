@@ -10,8 +10,10 @@ import { useAuthStore } from "@/lib/store/authStore";
 import { CheckSelect } from "@/app/_components/CheckSelect";
 import { TYPE_FILTER_OPTIONS, buildColorMap } from "./_types";
 import { DepartmentTile } from "./_components/DepartmentTile";
+import { useT } from "@/lib/i18n";
 
 export default function DepartmentWarehousesPage() {
+  const t = useT();
   const router = useRouter();
   const hasPermission = useAuthStore(s => s.hasPermission);
   const user = useAuthStore(s => s.user);
@@ -59,7 +61,7 @@ export default function DepartmentWarehousesPage() {
       } catch {
         if (active) {
           setSummaries([]);
-          setError("Bo'lim omborlari ro'yxatini yuklashda xatolik yuz berdi.");
+          setError(t("Bo'lim omborlari ro'yxatini yuklashda xatolik yuz berdi."));
         }
       } finally {
         if (active) setLoading(false);
@@ -104,10 +106,9 @@ export default function DepartmentWarehousesPage() {
               <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
             </svg>
           </div>
-          <h2 className="font-head-itm text-lg font-bold text-[--text]">Bo&apos;limga bog&apos;lanmagan</h2>
+          <h2 className="font-head-itm text-lg font-bold text-[--text]">{t("Bo'limga bog'lanmagan")}</h2>
           <p className="text-sm text-[--text3] mt-2">
-            Sizning hisobingiz biror bo&apos;limga ulanmaganligi uchun bo&apos;lim omborini ko&apos;ra olmaysiz.
-            Iltimos, administrator bilan bog&apos;laning.
+            {t("Sizning hisobingiz biror bo'limga ulanmaganligi uchun bo'lim omborini ko'ra olmaysiz. Iltimos, administrator bilan bog'laning.")}
           </p>
         </div>
       </div>
@@ -122,14 +123,14 @@ export default function DepartmentWarehousesPage() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          <input className="search-input" placeholder="Bo'lim qidirish..."
+          <input className="search-input" placeholder={t("Bo'lim qidirish...")}
             value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <CheckSelect
           value={filterType}
           onChange={setFilterType}
           options={TYPE_FILTER_OPTIONS}
-          placeholder="Barcha turlar"
+          placeholder={t("Barcha turlar")}
           style={{ width: 200 }}
         />
       </div>
@@ -155,12 +156,12 @@ export default function DepartmentWarehousesPage() {
             </svg>
           </div>
           <p className="font-head-itm text-base font-semibold text-[--text]">
-            {search || filterType ? "Filtrga mos bo'lim topilmadi" : "Hozircha bo'limlar yo'q"}
+            {search || filterType ? t("Filtrga mos bo'lim topilmadi") : t("Hozircha bo'limlar yo'q")}
           </p>
           <p className="text-sm text-[--text3] mt-1">
             {search || filterType
-              ? "Qidiruv yoki filter shartlarini o'zgartirib ko'ring."
-              : "Bo'lim omborlari paydo bo'lganda shu yerda ko'rinadi."}
+              ? t("Qidiruv yoki filter shartlarini o'zgartirib ko'ring.")
+              : t("Bo'lim omborlari paydo bo'lganda shu yerda ko'rinadi.")}
           </p>
         </div>
       ) : (
