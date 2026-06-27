@@ -9,7 +9,7 @@ import { api } from "@/lib/api";
 import ToastContainer from "@/app/_components/ToastContainer";
 import EkLogo from "@/app/_components/EkLogo";
 import SplashScreen from "@/app/_components/SplashScreen";
-import { useT } from "@/lib/i18n";
+import { useT, useLangStore } from "@/lib/i18n";
 
 type NavItem = { name: string; href: string; icon: string; badge?: number; badgeWarn?: boolean; permission?: string | string[] };
 type NavGroup = { label: string; icon: string; items: NavItem[] };
@@ -152,6 +152,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const pathname = usePathname();
   const router = useRouter();
   const t = useT();
+  const lang = useLangStore((s) => s.lang);
+  const setLang = useLangStore((s) => s.setLang);
   const pageTitle = pageTitles[pathname]
     ?? Object.keys(pageTitles)
       .filter(k => k !== "/" && pathname.startsWith(k + "/"))
@@ -735,6 +737,37 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 )}
               </div>
               <div style={{ width: 1, height: 28, background: "var(--border2)", flexShrink: 0 }} />
+              {/* Language toggle */}
+              <div style={{ position: "relative" }} className="theme-toggle-wrap">
+                <button
+                  onClick={() => setLang(lang === "uz" ? "ru" : "uz")}
+                  className={darkMode ? "theme-btn-sun" : "theme-btn-moon"}
+                  style={{
+                    position: "relative", width: 36, height: 36, borderRadius: 8,
+                    background: "none", border: "1.5px solid",
+                    cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                    overflow: "hidden", flexShrink: 0,
+                    transition: "border-color 0.3s, color 0.3s",
+                  }}
+                >
+                  <span key={lang} className="theme-icon-morph" style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                    <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="10"/>
+                      <line x1="2" y1="12" x2="22" y2="12"/>
+                      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                    </svg>
+                    <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", fontFamily: "var(--font-mono)", lineHeight: 1 }}>
+                      {lang.toUpperCase()}
+                    </span>
+                  </span>
+                </button>
+                <div className="theme-tooltip" style={{
+                  background: darkMode ? "#ffffff" : "#1a2332",
+                  color: darkMode ? "#1a2332" : "#ffffff",
+                }}>
+                  {lang === "uz" ? "Ruschaga o'tkazish" : "Переключить на узбекский"}
+                </div>
+              </div>
               {/* Dark mode toggle */}
               <div style={{ position: "relative" }} className="theme-toggle-wrap">
                 <button
