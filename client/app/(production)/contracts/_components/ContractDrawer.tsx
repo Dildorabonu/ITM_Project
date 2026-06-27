@@ -102,10 +102,10 @@ export function ContractDrawer({
           width: 800, maxWidth: "95vw", height: "calc(100vh - 32px)", margin: "16px 16px 16px 0",
           background: "var(--bg2)", borderRadius: 14,
           boxShadow: "-4px 0 32px rgba(0,0,0,0.18)",
-          padding: "28px 28px 32px", overflowY: "auto",
+          display: "flex", flexDirection: "column", overflow: "hidden",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, position: "sticky", top: 0, background: "var(--bg2)", zIndex: 10, paddingBottom: 8 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0, background: "var(--bg2)", padding: "24px 28px 16px", borderBottom: "1.5px solid var(--border)" }}>
           <span style={{ fontWeight: 700, fontSize: 17, color: "var(--text1)" }}>{t("Shartnoma tafsilotlari")}</span>
           <button onClick={onClose}
             style={{ background: "none", border: "1.5px solid var(--danger)", cursor: "pointer", color: "var(--danger)", fontSize: 18, lineHeight: 1, padding: "2px 6px", borderRadius: "var(--radius)", transition: "background 0.14s, transform 0.14s" }}
@@ -115,6 +115,7 @@ export function ContractDrawer({
             onMouseUp={e => { (e.currentTarget as HTMLButtonElement).style.transform = "scale(1)"; }}>✕</button>
         </div>
 
+        <div style={{ flex: 1, overflowY: "auto", padding: "22px 28px 32px" }}>
         <WorkflowDiagram status={viewContract.status} products={viewContract.products} />
 
         <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 10 }}>{t("Umumiy")}</div>
@@ -452,6 +453,7 @@ export function ContractDrawer({
           </div>
         </div>
 
+        </div>
       </div>
     </div>
   , document.body);
