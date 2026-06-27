@@ -330,6 +330,7 @@ export const ru: Record<string, string> = {
   "Harakatlar jurnalini yuklashda xatolik yuz berdi.": "Ошибка при загрузке журнала движений.",
   "Hech narsa topilmadi": "Ничего не найдено",
   "Hech qanday fayl tanlanmagan": "Файлы не выбраны",
+  "Kamida bitta fayl qo'shish shart": "Необходимо добавить хотя бы один файл",
   "Hisob vaqtincha bloklangan. Iltimos, keyinroq urinib ko'ring.": "Учётная запись временно заблокирована. Пожалуйста, попробуйте позже.",
   "Holat": "Статус",
   "Holati": "Статус",

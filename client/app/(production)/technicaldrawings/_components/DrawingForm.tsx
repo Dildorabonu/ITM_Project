@@ -9,6 +9,7 @@ interface DrawingFormProps {
   setForm: React.Dispatch<React.SetStateAction<DrawingFormValues>>;
   submitted: boolean;
   saving: boolean;
+  requireFile?: boolean;
   onSave: () => void;
   onCancel: () => void;
 }
@@ -20,6 +21,7 @@ export function DrawingForm({
   setForm,
   submitted,
   saving,
+  requireFile = false,
   onSave,
   onCancel,
 }: DrawingFormProps) {
@@ -31,6 +33,7 @@ export function DrawingForm({
     : null;
   const title = mode === "create" ? t("Yangi texnik chizma") : t("Texnik chizmani tahrirlash");
   const hasError = submitted && !form.title.trim();
+  const hasFileError = requireFile && submitted && form.files.length === 0;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileDrop = (e: React.DragEvent) => {
@@ -196,8 +199,8 @@ export function DrawingForm({
 
           {/* Right: file upload */}
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text2)" }}>
-              {t("Fayllar")}
+            <label style={{ fontSize: 14, fontWeight: 600, color: hasFileError ? "var(--danger)" : "var(--text2)" }}>
+              {t("Fayllar")} {requireFile && <span style={{ color: "var(--danger)" }}>*</span>}
             </label>
 
             {/* Drop zone */}
@@ -206,7 +209,7 @@ export function DrawingForm({
               onDrop={handleFileDrop}
               onClick={() => fileInputRef.current?.click()}
               style={{
-                border: "2px dashed var(--border)",
+                border: `2px dashed ${hasFileError ? "var(--danger)" : "var(--border)"}`,
                 borderRadius: "var(--radius)",
                 padding: "36px 24px",
                 textAlign: "center",
@@ -223,7 +226,7 @@ export function DrawingForm({
                 (e.currentTarget as HTMLDivElement).style.background = "var(--accent-dim)";
               }}
               onMouseLeave={(e) => {
-                (e.currentTarget as HTMLDivElement).style.borderColor = "var(--border)";
+                (e.currentTarget as HTMLDivElement).style.borderColor = hasFileError ? "var(--danger)" : "var(--border)";
                 (e.currentTarget as HTMLDivElement).style.background = "var(--bg2)";
               }}
             >
@@ -300,8 +303,8 @@ export function DrawingForm({
             )}
 
             {form.files.length === 0 && (
-              <div style={{ fontSize: 12, color: "var(--text3)", textAlign: "center" }}>
-                {t("Hech qanday fayl tanlanmagan")}
+              <div style={{ fontSize: 12, color: hasFileError ? "var(--danger)" : "var(--text3)", textAlign: "center" }}>
+                {hasFileError ? t("Kamida bitta fayl qo'shish shart") : t("Hech qanday fayl tanlanmagan")}
               </div>
             )}
           </div>

@@ -20,6 +20,7 @@ import { StatusBadge } from "./_components/StatusBadge";
 import { DrawingForm } from "./_components/DrawingForm";
 import { DrawingDrawer } from "./_components/DrawingDrawer";
 import { CheckSelect } from "@/app/_components/CheckSelect";
+import Tooltip from "@/app/_components/Tooltip";
 
 function fmtDate(value: string) {
   if (!value) return "—";
@@ -164,7 +165,7 @@ export default function TechnicalDrawingsPage() {
 
   const handleCreateSave = () => {
     setCreateSubmitted(true);
-    if (!createForm.title.trim()) return;
+    if (!createForm.title.trim() || createForm.files.length === 0) return;
     setDraftWarning(createForm.title.trim());
   };
 
@@ -346,6 +347,7 @@ export default function TechnicalDrawingsPage() {
           setForm={setCreateForm}
           submitted={createSubmitted}
           saving={createSaving}
+          requireFile
           onSave={handleCreateSave}
           onCancel={() => setShowCreateForm(false)}
         />
@@ -726,42 +728,45 @@ export default function TechnicalDrawingsPage() {
                           </td>
                           <td style={{ borderLeft: "2px solid var(--border)" }}>
                             <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-                              <button
-                                className="btn-icon"
-                                onClick={() => openDrawer(item)}
-                                title={t("Ko'rish")}
-                                style={{ color: "#0ea5e9", borderColor: "#0ea5e933", background: "#0ea5e912" }}
-                              >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                                  <circle cx="12" cy="12" r="3" />
-                                </svg>
-                              </button>
-                              {canUpdate && item.status !== DrawingStatus.Approved && (
+                              <Tooltip label={t("Ko'rish")}>
                                 <button
                                   className="btn-icon"
-                                  onClick={() => openEdit(item)}
-                                  title={t("Tahrirlash")}
-                                  style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}
+                                  onClick={() => openDrawer(item)}
+                                  style={{ color: "#0ea5e9", borderColor: "#0ea5e933", background: "#0ea5e912" }}
                                 >
                                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                    <circle cx="12" cy="12" r="3" />
                                   </svg>
                                 </button>
+                              </Tooltip>
+                              {canUpdate && item.status !== DrawingStatus.Approved && (
+                                <Tooltip label={t("Tahrirlash")}>
+                                  <button
+                                    className="btn-icon"
+                                    onClick={() => openEdit(item)}
+                                    style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}
+                                  >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                    </svg>
+                                  </button>
+                                </Tooltip>
                               )}
                               {canUpdate && item.status !== DrawingStatus.Approved && (
-                                <button
-                                  className="btn-icon"
-                                  onClick={() => handleApprove(item)}
-                                  title={t("Tasdiqlash")}
-                                  disabled={approving}
-                                  style={{ color: "#f59e0b", borderColor: "#f59e0b33", background: "#f59e0b12" }}
-                                >
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <polyline points="20 6 9 17 4 12" />
-                                  </svg>
-                                </button>
+                                <Tooltip label={t("Tasdiqlash")}>
+                                  <button
+                                    className="btn-icon"
+                                    onClick={() => handleApprove(item)}
+                                    disabled={approving}
+                                    style={{ color: "#f59e0b", borderColor: "#f59e0b33", background: "#f59e0b12" }}
+                                  >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <polyline points="20 6 9 17 4 12" />
+                                    </svg>
+                                  </button>
+                                </Tooltip>
                               )}
                             </div>
                           </td>
