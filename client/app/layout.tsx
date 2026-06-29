@@ -757,7 +757,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
                     </svg>
                     <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", fontFamily: "var(--font-mono)", lineHeight: 1 }}>
-                      {lang.toUpperCase()}
+                      {lang === "uz" ? "RU" : "UZ"}
                     </span>
                   </span>
                 </button>
