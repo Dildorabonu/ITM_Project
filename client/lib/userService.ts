@@ -1612,6 +1612,45 @@ export interface ProductCatalogCreatePayload {
   description?: string | null;
 }
 
+// ─── "Ko'rish" (detali) infografikasi ──────────────────────────────────────
+export interface ProductCatalogStatusCount {
+  status: ContractProductStatus;
+  count: number;
+}
+
+export interface ProductCatalogContractUsage {
+  contractProductId: string;
+  contractId: string;
+  contractNo: string;
+  contractParty: string;
+  contractType: ContractType;
+  contractStatus: ContractStatus;
+  startDate: string;
+  endDate: string;
+  contractIsActive: boolean;
+  quantity: number;
+  unit: string;
+  productStatus: ContractProductStatus;
+  producedQuantity: number;
+  contractCreatedAt: string;
+}
+
+export interface ProductCatalogDetail {
+  id: string;
+  name: string;
+  code: string;
+  unit: string | null;
+  description: string | null;
+  createdAt: string;
+  contractCount: number;
+  activeContractCount: number;
+  totalOrderedQuantity: number;
+  totalProducedQuantity: number;
+  completedProductCount: number;
+  statusBreakdown: ProductCatalogStatusCount[];
+  contracts: ProductCatalogContractUsage[];
+}
+
 export interface ProductCatalogUpdatePayload {
   name: string;
   unit?: string | null;
@@ -1652,6 +1691,12 @@ export const productCatalogService = {
 
   create: async (dto: ProductCatalogCreatePayload): Promise<ProductCatalogResponse> => {
     const res = await api.post("/api/productcatalog", dto);
+    return res.data?.result ?? res.data;
+  },
+
+  // "Ko'rish" — mahsulot bo'yicha bog'langan shartnomalar va ishlab chiqarish infografikasi.
+  getDetail: async (id: string, signal?: AbortSignal): Promise<ProductCatalogDetail> => {
+    const res = await api.get(`/api/productcatalog/${id}/details`, { signal });
     return res.data?.result ?? res.data;
   },
 

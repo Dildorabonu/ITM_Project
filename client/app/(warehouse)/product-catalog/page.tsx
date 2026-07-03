@@ -7,6 +7,7 @@ import {
 } from "@/lib/userService";
 import { CheckSelect } from "@/app/_components/CheckSelect";
 import { ConfirmModal } from "@/app/_components/ConfirmModal";
+import { ProductCatalogDetailDrawer } from "./_components/ProductCatalogDetailDrawer";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useToastStore } from "@/lib/store/toastStore";
 import { useT } from "@/lib/i18n";
@@ -59,6 +60,9 @@ export default function ProductCatalogPage() {
   // Delete confirm
   const [deleteTarget, setDeleteTarget] = useState<ProductCatalogResponse | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Detail (ko'rish) drawer
+  const [detailTarget, setDetailTarget] = useState<ProductCatalogResponse | null>(null);
 
   const PAGE_SIZE = 20;
 
@@ -267,7 +271,15 @@ export default function ProductCatalogPage() {
                     </td>
                     <td>
                       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                        <span style={{ fontWeight: 600, color: "var(--text1)" }}>{p.name}</span>
+                        <span
+                          onClick={() => setDetailTarget(p)}
+                          title={t("Ko'rish")}
+                          style={{ fontWeight: 600, color: "var(--text1)", cursor: "pointer", width: "fit-content" }}
+                          onMouseEnter={e => (e.currentTarget.style.color = "var(--accent)")}
+                          onMouseLeave={e => (e.currentTarget.style.color = "var(--text1)")}
+                        >
+                          {p.name}
+                        </span>
                         {p.description && <span style={{ fontSize: 11, color: "var(--text3)" }}>{p.description}</span>}
                       </div>
                     </td>
@@ -285,6 +297,13 @@ export default function ProductCatalogPage() {
                     </td>
                     <td style={{ borderLeft: "2px solid var(--border)" }}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                        <button className="btn-icon" title={t("Ko'rish")} onClick={() => setDetailTarget(p)}
+                          style={{ color: "var(--text2)", borderColor: "var(--border)", background: "var(--bg3)" }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                        </button>
                         {canUpdate && (
                           <button className="btn-icon" title={t("Tahrirlash")} onClick={() => openEdit(p)}
                             style={{ color: "var(--accent)", borderColor: "var(--accent)33", background: "var(--accent-dim)" }}>
@@ -431,6 +450,14 @@ export default function ProductCatalogPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {detailTarget && (
+        <ProductCatalogDetailDrawer
+          productId={detailTarget.id}
+          productName={detailTarget.name}
+          onClose={() => setDetailTarget(null)}
+        />
       )}
 
       <ConfirmModal
