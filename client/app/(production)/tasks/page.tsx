@@ -47,6 +47,11 @@ function scopeStatus(s: Scope): ContractStatus {
 
 const WAREHOUSE_TASK_NAME = "Tayyor mahsulotni omborga topshirish";
 
+// Standart (default) vazifa — har doim mavjud bo'lgan warehouse vazifasi.
+// Yangi vazifa qo'shilganda uning muhimligi shu standart vazifadan avtomatik
+// ayiriladi, biroq standart vazifa muhimligi shu foizdan pastga tusha olmaydi.
+const MIN_DEFAULT_IMPORTANCE = 20;
+
 const STATUS_COLORS: Record<ContractStatus, string> = {
   [ContractStatus.DrawingPending]:      "s-purple",
   [ContractStatus.TechProcessing]:      "s-teal",
@@ -1266,27 +1271,61 @@ function AddTaskForm({
   const addRow = () => { setForms(prev => [...prev, emptyForm()]); setImportanceError(""); };
   const removeRow = (i: number) => { setForms(prev => prev.filter((_, idx) => idx !== i)); setImportanceError(""); };
 
-  const existingImportanceTotal = existingTasks.reduce((s, t) => s + (parseFloat(existingImportanceMap[t.id]) || 0), 0);
+  // Standart (default) vazifa — yangi vazifa muhimligi shundan avtomatik ayiriladi.
+  const defaultTask = existingTasks.find(t => t.name === WAREHOUSE_TASK_NAME) ?? null;
+  const otherExisting = existingTasks.filter(t => t.id !== defaultTask?.id);
+
+  const otherExistingTotal = otherExisting.reduce((s, t) => s + (parseFloat(existingImportanceMap[t.id]) || 0), 0);
   const pendingImportance = forms.reduce((s, f) => s + (parseFloat(f.importance) || 0), 0);
-  const projectedTotal = Math.round((existingImportanceTotal + pendingImportance) * 100) / 100;
+
+  // Standart vazifaning avtomatik hisoblangan yangi muhimligi:
+  // 100% − boshqa vazifalar − yangi qo'shilayotgan vazifalar.
+  const defaultImportance = defaultTask
+    ? Math.round((100 - otherExistingTotal - pendingImportance) * 100) / 100
+    : null;
+  const defaultBelowMin = defaultImportance !== null && defaultImportance < MIN_DEFAULT_IMPORTANCE;
+
+  // Standart vazifa yo'q bo'lganda — eski xatti-harakat (jami 100% bo'lishi shart).
+  const projectedTotal = Math.round((otherExistingTotal + pendingImportance) * 100) / 100;
   const diff = Math.round((projectedTotal - 100) * 100) / 100;
 
   const handleSave = async () => {
     setSubmitted(true);
     if (forms.some(f => !f.name.trim() || f.importance === "")) return;
-    if (diff !== 0) {
-      setImportanceError(
-        diff > 0
-          ? `${t("Muhimlilik jami")} ${projectedTotal}% — ${diff}% ${t("ortiqcha. Jami 100% bo'lishi kerak.")}`
-          : `${t("Muhimlilik jami")} ${projectedTotal}% — ${t("yana")} ${Math.abs(diff)}% ${t("qoldi. Jami 100% bo'lishi kerak.")}`
-      );
-      return;
+
+    let existingUpdates: { id: string; importance: number }[];
+
+    if (defaultTask && defaultImportance !== null) {
+      // Yangi vazifalar muhimligi standart vazifadan avtomatik ayiriladi.
+      // Standart vazifa muhimligi 20% dan pastga tushsa — saqlashga yo'l qo'ymaymiz.
+      if (defaultBelowMin) {
+        setImportanceError(
+          `${t("Yangi vazifalar muhimligi standart vazifadan")} — «${defaultTask.name}» — ${t("ayiriladi. Ammo uning muhimligi")} ${defaultImportance}% ${t("ga tushib ketadi, bu esa")} ${MIN_DEFAULT_IMPORTANCE}% ${t("dan past. Yangi vazifalar muhimliligini kamaytiring.")}`
+        );
+        return;
+      }
+      // Standart vazifa avtomatik yangilanadi, boshqa mavjud vazifalar o'zgarishsiz qoladi.
+      existingUpdates = [
+        ...otherExisting.map(t => ({ id: t.id, importance: parseFloat(existingImportanceMap[t.id]) || 0 })),
+        { id: defaultTask.id, importance: defaultImportance },
+      ];
+    } else {
+      // Standart vazifa yo'q — eski xatti-harakat: jami 100% bo'lishi shart.
+      if (diff !== 0) {
+        setImportanceError(
+          diff > 0
+            ? `${t("Muhimlilik jami")} ${projectedTotal}% — ${diff}% ${t("ortiqcha. Jami 100% bo'lishi kerak.")}`
+            : `${t("Muhimlilik jami")} ${projectedTotal}% — ${t("yana")} ${Math.abs(diff)}% ${t("qoldi. Jami 100% bo'lishi kerak.")}`
+        );
+        return;
+      }
+      existingUpdates = existingTasks.map(t => ({
+        id: t.id,
+        importance: parseFloat(existingImportanceMap[t.id]) || 0,
+      }));
     }
+
     setSaving(true);
-    const existingUpdates = existingTasks.map(t => ({
-      id: t.id,
-      importance: parseFloat(existingImportanceMap[t.id]) || 0,
-    }));
     // contractProductId — ota TaskPanel onSave ichida scope-dan to'ldiradi.
     await onSave(
       forms.map(f => ({
@@ -1365,14 +1404,50 @@ function AddTaskForm({
         {t("Yana vazifa qo'shish")}
       </button>
 
-      {/* Existing tasks importance editor */}
-      {existingTasks.length > 0 && (
+      {/* Standart vazifa — avtomatik zaxira ko'rsatkichi */}
+      {defaultTask && defaultImportance !== null && (
+        <div
+          className="itm-card"
+          style={{
+            padding: 14,
+            borderColor: defaultBelowMin ? "var(--danger)" : "var(--accent-mid, var(--border))",
+            background: defaultBelowMin ? "var(--danger-dim)" : "var(--accent-dim, var(--surface2))",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>
+                {t("Standart vazifa (avtomatik)")}
+              </div>
+              <div style={{ fontSize: 13, color: "var(--text2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {defaultTask.name}
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+              <span style={{
+                fontSize: 20, fontWeight: 800,
+                color: defaultBelowMin ? "var(--danger)" : "var(--accent, var(--primary))",
+              }}>
+                {defaultImportance}%
+              </span>
+            </div>
+          </div>
+          <div style={{ fontSize: 12, color: defaultBelowMin ? "var(--danger)" : "var(--text3)", marginTop: 8, lineHeight: 1.5 }}>
+            {defaultBelowMin
+              ? `${t("Muhimlilik")} ${MIN_DEFAULT_IMPORTANCE}% ${t("dan past bo'lishi mumkin emas — yangi vazifalar foizini kamaytiring.")}`
+              : `${t("Yangi vazifalar muhimligi shu vazifadan avtomatik ayiriladi (eng kami")} ${MIN_DEFAULT_IMPORTANCE}%).`}
+          </div>
+        </div>
+      )}
+
+      {/* Existing tasks importance editor (standart vazifadan tashqari) */}
+      {otherExisting.length > 0 && (
         <div className="itm-card" style={{ padding: 16 }}>
           <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
             {t("Mavjud vazifalar muhimliligini qayta taqsimlash")}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {[...existingTasks].sort((a, b) => a.orderNo - b.orderNo).map(t => (
+            {[...otherExisting].sort((a, b) => a.orderNo - b.orderNo).map(t => (
               <div key={t.id} style={{
                 display: "flex", alignItems: "center", gap: 10,
                 padding: "10px 12px", borderRadius: 8,
@@ -1430,8 +1505,8 @@ function AddTaskForm({
         document.body
       )}
 
-      {/* Live importance hint */}
-      {pendingImportance > 0 && (
+      {/* Live importance hint — faqat standart vazifa yo'q bo'lganda (fallback) */}
+      {!defaultTask && pendingImportance > 0 && (
         <div className={`atf-importance-hint${diff === 0 ? " ok" : diff > 0 ? " over" : " under"}`}>
           {diff === 0 ? (
             <>
