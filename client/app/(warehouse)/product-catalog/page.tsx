@@ -265,7 +265,7 @@ export default function ProductCatalogPage() {
                 {items.length === 0 ? (
                   <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>{t("Ma'lumot topilmadi")}</td></tr>
                 ) : items.map((p, i) => (
-                  <tr key={p.id}>
+                  <tr key={p.id} onClick={() => setDetailTarget(p)} style={{ cursor: "pointer" }}>
                     <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>
                       {String((page - 1) * PAGE_SIZE + i + 1).padStart(2, "0")}
                     </td>
@@ -297,15 +297,15 @@ export default function ProductCatalogPage() {
                     </td>
                     <td style={{ borderLeft: "2px solid var(--border)" }}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-                        <button className="btn-icon" title={t("Ko'rish")} onClick={() => setDetailTarget(p)}
-                          style={{ color: "var(--text2)", borderColor: "var(--border)", background: "var(--bg3)" }}>
+                        <button className="btn-icon" title={t("Ko'rish")} onClick={(e) => { e.stopPropagation(); setDetailTarget(p); }}
+                          style={{ color: "#0ea5e9", borderColor: "#0ea5e933", background: "#0ea5e912" }}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                             <circle cx="12" cy="12" r="3" />
                           </svg>
                         </button>
                         {canUpdate && (
-                          <button className="btn-icon" title={t("Tahrirlash")} onClick={() => openEdit(p)}
+                          <button className="btn-icon" title={t("Tahrirlash")} onClick={(e) => { e.stopPropagation(); openEdit(p); }}
                             style={{ color: "var(--accent)", borderColor: "var(--accent)33", background: "var(--accent-dim)" }}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -314,7 +314,7 @@ export default function ProductCatalogPage() {
                           </button>
                         )}
                         {canDelete && (
-                          <button className="btn-icon" title={t("O'chirish")} onClick={() => setDeleteTarget(p)}
+                          <button className="btn-icon" title={t("O'chirish")} onClick={(e) => { e.stopPropagation(); setDeleteTarget(p); }}
                             style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                               <polyline points="3 6 5 6 21 6" />
