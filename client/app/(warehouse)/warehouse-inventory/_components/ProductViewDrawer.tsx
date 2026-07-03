@@ -28,8 +28,28 @@ export function ProductViewDrawer({ product, onClose }: Props) {
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
           <span style={{ fontWeight: 700, fontSize: 17, color: "var(--text1)" }}>{t("Mahsulot tafsilotlari")}</span>
-          <button onClick={onClose}
-            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button
+              onClick={() => window.open(`/warehouse-inventory/label/${product.id}`, "_blank")}
+              title={t("Yorliq chop etish")}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "6px 12px", fontSize: 12, fontWeight: 600,
+                borderRadius: "var(--radius)",
+                background: "var(--accent-dim)", border: "1px solid var(--accent)33",
+                color: "var(--accent)", cursor: "pointer",
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="6 9 6 2 18 2 18 9" />
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                <rect x="6" y="14" width="12" height="8" />
+              </svg>
+              {t("Yorliq")}
+            </button>
+            <button onClick={onClose}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
+          </div>
         </div>
 
         <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 10 }}>{t("Umumiy")}</div>

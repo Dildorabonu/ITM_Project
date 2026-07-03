@@ -5,7 +5,6 @@ using Core.Entities;
 using Core.Enums;
 using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
-using QRCoder;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -16,11 +15,13 @@ public class RequisitionService : IRequisitionService
 {
     private readonly DatabaseContext _context;
     private readonly INotificationService _notificationService;
+    private readonly IQrCodeService _qrCodeService;
 
-    public RequisitionService(DatabaseContext context, INotificationService notificationService)
+    public RequisitionService(DatabaseContext context, INotificationService notificationService, IQrCodeService qrCodeService)
     {
         _context = context;
         _notificationService = notificationService;
+        _qrCodeService = qrCodeService;
     }
 
     public async Task<ApiResult<IEnumerable<RequisitionResponseDto>>> GetAllAsync(
@@ -508,6 +509,10 @@ public class RequisitionService : IRequisitionService
             ? $"Talabnoma: {r.RequisitionNo}"
             : $"Talabnoma: {r.RequisitionNo} — {r.Purpose}";
 
+        // Shu chiqarishda yaratiladigan yangi Productlarga noyob QR kod tayinlash uchun
+        // (SaveChanges'gacha DB ko'rmaydigan kodlarni ham hisobga olamiz).
+        var assignedQrCodes = new HashSet<string>();
+
         var itemIndex = 0;
         foreach (var item in r.Items)
         {
@@ -592,6 +597,7 @@ public class RequisitionService : IRequisitionService
                     Name = productName,
                     NameNormalized = normalized,
                     InvoiceNumber = $"{r.RequisitionNo}-{itemIndex:D2}",
+                    QrCode = await ProductCodeGenerator.NewUniqueAsync(_context, assignedQrCodes),
                     Description = item.Notes,
                     Quantity = qty,
                     Unit = unit,
@@ -652,6 +658,9 @@ public class RequisitionService : IRequisitionService
         var noteBase = string.IsNullOrWhiteSpace(r.Purpose)
             ? $"Xarid: {r.RequisitionNo}"
             : $"Xarid: {r.RequisitionNo} — {r.Purpose}";
+
+        // Shu qabulda yaratiladigan yangi Productlarga noyob QR kod tayinlash uchun.
+        var assignedQrCodes = new HashSet<string>();
 
         await using var tx = await _context.Database.BeginTransactionAsync();
 
@@ -724,6 +733,7 @@ public class RequisitionService : IRequisitionService
                     Name = productName,
                     NameNormalized = normalized,
                     InvoiceNumber = $"{r.RequisitionNo}-{itemIndex:D2}",
+                    QrCode = await ProductCodeGenerator.NewUniqueAsync(_context, assignedQrCodes),
                     Description = item.Notes,
                     Quantity = qty,
                     Unit = unit,
@@ -856,7 +866,7 @@ public class RequisitionService : IRequisitionService
         }
     }
 
-    private static string GenerateQrCode(Requisition r, User director)
+    private string GenerateQrCode(Requisition r, User director)
     {
         var directorFullName = $"{director.FirstName} {director.LastName}";
         var approvedAt = r.ApprovedAt?.ToString("yyyy-MM-ddTHH:mm:ss") ?? string.Empty;
@@ -873,10 +883,10 @@ public class RequisitionService : IRequisitionService
             hash
         });
 
-        return RenderQr(payload);
+        return _qrCodeService.RenderPngBase64(payload);
     }
 
-    private static string GenerateWarehouseQrCode(Requisition r, User checker)
+    private string GenerateWarehouseQrCode(Requisition r, User checker)
     {
         var checkerFullName = $"{checker.FirstName} {checker.LastName}";
         var checkedAt = r.WarehouseCheckedAt?.ToString("yyyy-MM-ddTHH:mm:ss") ?? string.Empty;
@@ -893,16 +903,7 @@ public class RequisitionService : IRequisitionService
             hash
         });
 
-        return RenderQr(payload);
-    }
-
-    private static string RenderQr(string payload)
-    {
-        using var qrGenerator = new QRCodeGenerator();
-        using var qrData = qrGenerator.CreateQrCode(payload, QRCodeGenerator.ECCLevel.Q);
-        using var qrCode = new PngByteQRCode(qrData);
-        var pngBytes = qrCode.GetGraphic(6);
-        return Convert.ToBase64String(pngBytes);
+        return _qrCodeService.RenderPngBase64(payload);
     }
 
     private static string StatusLabel(RequisitionStatus s) => s switch

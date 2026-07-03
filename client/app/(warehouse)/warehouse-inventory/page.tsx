@@ -334,6 +334,15 @@ export default function ProductsPage() {
                     <td style={{ textAlign: "center", color: "var(--text1)" }}>{p.description ?? "—"}</td>
                     <td style={{ borderLeft: "2px solid var(--border)" }}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                        <button className="btn-icon" title={t("Yorliq chop etish")}
+                          onClick={() => window.open(`/warehouse-inventory/label/${p.id}`, "_blank")}
+                          style={{ color: "#a855f7", borderColor: "#a855f733", background: "#a855f712" }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="6 9 6 2 18 2 18 9" />
+                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                            <rect x="6" y="14" width="12" height="8" />
+                          </svg>
+                        </button>
                         <button className="btn-icon" title={t("Harakat tarixi")} onClick={() => setHistoryProduct(p)}
                           style={{ color: "var(--accent)", borderColor: "var(--accent)33", background: "var(--accent-dim)" }}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

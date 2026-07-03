@@ -38,6 +38,8 @@ public static class ApplicationDependencyInjection
         services.AddScoped<IShipmentBatchService, ShipmentBatchService>();
         services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<IActivityLogService, ActivityLogService>();
+        services.AddScoped<IQrCodeService, QrCodeService>();
+        services.AddScoped<IScanService, ScanService>();
 
         return services;
     }

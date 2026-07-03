@@ -748,6 +748,9 @@ namespace DataAccess.Migrations
                         .HasColumnType("text")
                         .HasDefaultValue("");
 
+                    b.Property<string>("QrCode")
+                        .HasColumnType("text");
+
                     b.Property<decimal>("Quantity")
                         .HasPrecision(18, 4)
                         .HasColumnType("numeric(18,4)");
@@ -767,6 +770,10 @@ namespace DataAccess.Migrations
                         .IsUnique();
 
                     b.HasIndex("MaterialId");
+
+                    b.HasIndex("QrCode")
+                        .IsUnique()
+                        .HasFilter("\"QrCode\" IS NOT NULL");
 
                     b.HasIndex("DepartmentId", "MaterialId");
 

@@ -259,6 +259,16 @@ export interface ProductResponse {
   createdAt: string;
 }
 
+// 58mm termal yorliq uchun minimal ma'lumot — GET /api/warehouse-scan/{id}/label.
+export interface ScanLabelResponse {
+  qrPngBase64: string;
+  name: string;
+  code: string | null;
+  quantity: number;
+  unit: ProductUnit;
+  departmentName: string;
+}
+
 export interface ProductCreatePayload {
   name: string;
   invoiceNumber: string;
@@ -390,6 +400,12 @@ export const productService = {
 
   delete: async (id: string): Promise<void> => {
     await api.delete(`/api/product/${id}`);
+  },
+
+  // 58mm termal yorliq ma'lumoti (QR + nomi + miqdor + bo'lim).
+  getLabel: async (id: string): Promise<ScanLabelResponse> => {
+    const res = await api.get(`/api/warehouse-scan/${id}/label`);
+    return res.data?.result ?? res.data;
   },
 };
 

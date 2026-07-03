@@ -523,48 +523,38 @@ function DualAreaChart({
   const xAt = (i: number) => padL + (i / Math.max(1, data.length - 1)) * cw;
   const yAt = (v: number) => padT + ch - (v / maxVal) * ch;
 
-  const buildSmooth = (key: "prod" | "ship") => {
+  // Yengil silliqlash — Catmull-Rom asosidagi kardinal splayn, past "tension"
+  // (TENSION) bilan. Nuqtalar AYNAN o'z joyida qoladi (hover/tooltip aniq
+  // raqamga to'g'ri keladi), faqat ular orasidagi burchaklar biroz yumshaydi.
+  // Kuchli "monotone cubic" silliqlashdagi soxta to'lqinlar paydo bo'lmaydi,
+  // ammo "dag'il" tik burchaklar ham ketadi.
+  const buildLine = (key: "prod" | "ship") => {
     const lineData = realData.length > 0 && data.length > realData.length
       ? [...realData, data[realData.length]]
       : realData;
     const pts = lineData.map((d, i) => ({ x: xAt(i), y: yAt(d[key]) }));
     const n = pts.length;
-    if (n < 2) return `M${pts[0]?.x ?? 0},${pts[0]?.y ?? 0}`;
+    if (n === 0) return "M0,0";
+    if (n < 3) return pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
 
-    // Monotone cubic Hermite interpolation (Fritsch-Carlson) — no overshoot
-    const dx: number[] = [], dy: number[] = [], m: number[] = [];
+    const TENSION = 0.6; // 0 = to'g'ri chiziq, 1 = to'liq Catmull-Rom (egriroq)
+    let path = `M${pts[0].x},${pts[0].y}`;
     for (let i = 0; i < n - 1; i++) {
-      dx[i] = pts[i + 1].x - pts[i].x;
-      dy[i] = pts[i + 1].y - pts[i].y;
-      m[i] = dy[i] / dx[i];
+      const p0 = pts[i - 1] ?? pts[i];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[i + 2] ?? p2;
+      const c1x = p1.x + ((p2.x - p0.x) / 6) * TENSION;
+      const c1y = p1.y + ((p2.y - p0.y) / 6) * TENSION;
+      const c2x = p2.x - ((p3.x - p1.x) / 6) * TENSION;
+      const c2y = p2.y - ((p3.y - p1.y) / 6) * TENSION;
+      path += ` C${c1x},${c1y} ${c2x},${c2y} ${p2.x},${p2.y}`;
     }
-
-    const t: number[] = new Array(n);
-    t[0] = m[0];
-    t[n - 1] = m[n - 2];
-    for (let i = 1; i < n - 1; i++) {
-      if (m[i - 1] * m[i] <= 0) {
-        t[i] = 0;
-      } else {
-        const w1 = 2 * dx[i] + dx[i - 1];
-        const w2 = dx[i] + 2 * dx[i - 1];
-        t[i] = (w1 + w2) / (w1 / m[i - 1] + w2 / m[i]);
-      }
-    }
-
-    let p = `M${pts[0].x},${pts[0].y}`;
-    for (let i = 0; i < n - 1; i++) {
-      const c1x = pts[i].x + dx[i] / 3;
-      const c1y = pts[i].y + (t[i] * dx[i]) / 3;
-      const c2x = pts[i + 1].x - dx[i] / 3;
-      const c2y = pts[i + 1].y - (t[i + 1] * dx[i]) / 3;
-      p += ` C${c1x},${c1y} ${c2x},${c2y} ${pts[i + 1].x},${pts[i + 1].y}`;
-    }
-    return p;
+    return path;
   };
 
-  const prodLine = buildSmooth("prod");
-  const shipLine = buildSmooth("ship");
+  const prodLine = buildLine("prod");
+  const shipLine = buildLine("ship");
   const lineEndIdx = data.length - 1;
   const prodArea = `${prodLine} L${xAt(lineEndIdx)},${padT + ch} L${padL},${padT + ch} Z`;
   const shipArea = `${shipLine} L${xAt(lineEndIdx)},${padT + ch} L${padL},${padT + ch} Z`;

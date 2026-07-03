@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -38,6 +38,7 @@ const navGroups: NavGroup[] = [
     icon: "package",
     items: [
       { name: "Korxona omborxonasi", href: "/warehouse-inventory", icon: "shopping-bag", permission: "Products.View" },
+      { name: "Ombor skaneri", href: "/warehouse-scan", icon: "package", permission: "Products.View" },
       { name: "Tayyor mahsulotlar",  href: "/manufactured", icon: "factory",      permission: "ManufacturedProducts.View" },
       { name: "Bo'lim omborlari", href: "/department-warehouses", icon: "briefcase", permission: "Products.View" },
       { name: "Ombor tekshiruvi", href: "/warehouse-check", icon: "package",      permission: "WarehouseCheck.View" },
@@ -125,7 +126,7 @@ function applyAppearanceFont(family: string, scale: number) {
 
 // Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
 const readyRoutes = new Set(["/", "/users", "/roles", "/login", "/departments", "/warehouse-inventory", "/warehouse-check", "/warehouse-movements", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions", "/requisitions/approvals", "/manufactured", "/department-warehouses"]);
-const readyPrefixes = ["/requisitions/", "/contracts/", "/techprocess/", "/technicaldrawings/", "/requisitions/print", "/department-warehouses/"];
+const readyPrefixes = ["/requisitions/", "/contracts/", "/techprocess/", "/technicaldrawings/", "/requisitions/print", "/department-warehouses/", "/warehouse-inventory/label/"];
 
 const pageTitles: Record<string, string> = {
   "/":              "Dashboard",
@@ -141,10 +142,11 @@ const pageTitles: Record<string, string> = {
   "/roles":         "Rollar",
   "/departments":   "Tuzilma",
   "/warehouse-inventory": "Korxona omborxonasi",
+  "/warehouse-scan": "Ombor skaneri",
   "/department-warehouses": "Bo'lim Omborlari",
   "/appearance":    "Tashqi ko'rinish",
   "/requisitions":           "Talabnomalar",
-  "/requisitions/approvals": "Talabnomalar — Tasdiqlash",
+  "/requisitions/approvals": "Talabnomalar â€” Tasdiqlash",
   "/requisitions/print":     "Talabnoma",
 };
 
@@ -686,7 +688,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     <div style={{ fontSize: 14, fontWeight: 600, color: "var(--profile-text)", lineHeight: 1.2, whiteSpace: "nowrap" }}>
                       {user?.firstName && user?.lastName
                         ? `${user.firstName} ${user.lastName}`
-                        : user?.login || "—"}
+                        : user?.login || "â€”"}
                     </div>
                     <div className="font-body-itm" style={{ fontSize: 12, color: "var(--profile-text2)", letterSpacing: 0.5, lineHeight: 1.2 }}>
                       {user?.role || ""}
@@ -857,7 +859,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       )}
                       <div style={{ padding: "10px 16px", borderTop: "1px solid var(--border)" }}>
                         <Link href="/notifications" onClick={() => setBellOpen(false)} style={{ fontSize: 13, color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}>
-                          {t("Barchasini ko'rish →")}
+                          {t("Barchasini ko'rish â†’")}
                         </Link>
                       </div>
                     </div>
