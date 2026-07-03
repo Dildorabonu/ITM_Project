@@ -545,9 +545,16 @@ function DualAreaChart({
       const p2 = pts[i + 1];
       const p3 = pts[i + 2] ?? p2;
       const c1x = p1.x + ((p2.x - p0.x) / 6) * TENSION;
-      const c1y = p1.y + ((p2.y - p0.y) / 6) * TENSION;
       const c2x = p2.x - ((p3.x - p1.x) / 6) * TENSION;
-      const c2y = p2.y - ((p3.y - p1.y) / 6) * TENSION;
+      // Nazorat nuqtalarining Y qiymatini shu segment uchlarining [min,max]
+      // oralig'iga cheklaymiz. Aks holda keskin cho'qqi→pastga o'tishlarda
+      // splayn "otib chiqib" (overshoot/undershoot) chiziqni bazaviy
+      // chegaradan ham pastga yoki tepaga chizib yuboradi.
+      const yMin = Math.min(p1.y, p2.y);
+      const yMax = Math.max(p1.y, p2.y);
+      const clampY = (y: number) => Math.max(yMin, Math.min(yMax, y));
+      const c1y = clampY(p1.y + ((p2.y - p0.y) / 6) * TENSION);
+      const c2y = clampY(p2.y - ((p3.y - p1.y) / 6) * TENSION);
       path += ` C${c1x},${c1y} ${c2x},${c2y} ${p2.x},${p2.y}`;
     }
     return path;
