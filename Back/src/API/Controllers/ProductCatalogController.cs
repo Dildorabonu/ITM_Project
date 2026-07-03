@@ -65,6 +65,17 @@ public class ProductCatalogController : ControllerBase
         return Ok(result);
     }
 
+    [HasPermission("ProductCatalog.View")]
+    [HttpGet("{id:guid}/details")]
+    public async Task<IActionResult> GetDetail(Guid id)
+    {
+        var result = await _service.GetDetailAsync(id);
+        if (!result.Succeeded)
+            return StatusCode(result.StatusCode, result);
+
+        return Ok(result);
+    }
+
     [HasPermission("ProductCatalog.Create")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] ProductCatalogCreateDto dto)

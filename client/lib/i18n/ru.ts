@@ -1051,6 +1051,7 @@ export const ru: Record<string, string> = {
   "Mahsulot nomini yozing yoki tanlang...": "Введите или выберите название товара...",
   "Qidirilmoqda...": "Поиск...",
   "— yangi mahsulot yaratish": "— создать новый товар",
+  "— katalogga qo'shish": "— добавить в каталог",
   "Yaratilmoqda...": "Создание...",
   "Mahsulot katalogga qo'shildi": "Товар добавлен в каталог",
   "Mahsulotni yaratib bo'lmadi": "Не удалось создать товар",
@@ -1062,4 +1063,19 @@ export const ru: Record<string, string> = {
   "katalogdan o'chirilsinmi?": "удалить из каталога?",
   "ta shartnomada ishlatilgan — ular matn nomini saqlab qoladi, faqat bog'lanish uziladi.": "договорах — они сохранят текстовое название, будет разорвана только связь.",
   "Bu korxona ishlab chiqaradigan tayyor mahsulotlarning yagona katalogi. Shartnoma yaratishda mahsulot shu ro'yxatdan tanlanadi. Yangi mahsulotni bu yerdan yoki to'g'ridan-to'g'ri shartnoma formasidan qo'shish mumkin.": "Единый каталог готовой продукции предприятия. При создании договора товар выбирается из этого списка. Новый товар можно добавить здесь или прямо из формы договора.",
+
+  // ─── Product Catalog — "Ko'rish" (detali) infografikasi ──
+  "Mahsulot tahlili": "Анализ товара",
+  "ta faol": "активных",
+  "Yakunlanganlar": "Завершённые",
+  "tadan": "из",
+  "Jami buyurtma": "Всего заказано",
+  "shartnomalar bo'yicha": "по договорам",
+  "bajarildi": "выполнено",
+  "Ishlab chiqarish jarayoni": "Процесс производства",
+  "ishlab chiqarilgan": "произведено",
+  "buyurtma": "заказано",
+  "Bosqichlar bo'yicha taqsimot": "Распределение по этапам",
+  "Bog'langan shartnomalar": "Связанные договоры",
+  "Bu mahsulot hali birorta shartnomada ishlatilmagan.": "Этот товар ещё не используется ни в одном договоре.",
 };

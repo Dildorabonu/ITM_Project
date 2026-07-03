@@ -2,6 +2,7 @@ using Application.DTOs;
 using Application.DTOs.ProductCatalog;
 using Application.Helpers;
 using Core.Entities;
+using Core.Enums;
 using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -82,6 +83,78 @@ public class ProductCatalogService : IProductCatalogService
 
         var paged = PagedResult<ProductCatalogResponseDto>.Create(items, totalCount, pagination);
         return ApiResult<PagedResult<ProductCatalogResponseDto>>.Success(paged);
+    }
+
+    public async Task<ApiResult<ProductCatalogDetailDto>> GetDetailAsync(Guid id)
+    {
+        var product = await _context.ProductCatalogs
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == id && p.IsActive);
+        if (product is null)
+            return ApiResult<ProductCatalogDetailDto>.Failure(["Katalog mahsuloti topilmadi."], 404);
+
+        // Shu katalog yozuviga bog'langan barcha shartnoma mahsulot qatorlari + shartnoma ma'lumotlari.
+        var usages = await _context.ContractProducts
+            .AsNoTracking()
+            .Where(cp => cp.ProductCatalogId == id && cp.IsActive && cp.Contract != null)
+            .Select(cp => new ProductCatalogContractUsageDto
+            {
+                ContractProductId = cp.Id,
+                ContractId = cp.ContractId,
+                ContractNo = cp.Contract!.ContractNo,
+                ContractParty = cp.Contract.ContractParty,
+                ContractType = cp.Contract.ContractType,
+                ContractStatus = cp.Contract.Status,
+                StartDate = cp.Contract.StartDate,
+                EndDate = cp.Contract.EndDate,
+                ContractIsActive = cp.Contract.IsActive,
+                Quantity = cp.Quantity,
+                Unit = cp.Unit,
+                ProductStatus = cp.Status,
+                ContractCreatedAt = cp.Contract.CreatedAt,
+            })
+            .ToListAsync();
+
+        // Ishlab chiqarilgan miqdorlar — ManufacturedProduct.ProducedQuantity, mahsulot qatori bo'yicha yig'iladi.
+        var productIds = usages.Select(u => u.ContractProductId).ToList();
+        var producedByProduct = await _context.ManufacturedProducts
+            .AsNoTracking()
+            .Where(m => m.ContractProductId != null && productIds.Contains(m.ContractProductId.Value))
+            .GroupBy(m => m.ContractProductId!.Value)
+            .Select(g => new { ContractProductId = g.Key, Produced = g.Sum(x => x.ProducedQuantity) })
+            .ToListAsync();
+        var producedMap = producedByProduct.ToDictionary(x => x.ContractProductId, x => x.Produced);
+
+        foreach (var u in usages)
+            u.ProducedQuantity = producedMap.TryGetValue(u.ContractProductId, out var q) ? q : 0m;
+
+        // Eng yangi shartnomalar birinchi.
+        usages = usages.OrderByDescending(u => u.ContractCreatedAt).ToList();
+
+        var statusBreakdown = usages
+            .GroupBy(u => u.ProductStatus)
+            .Select(g => new ProductCatalogStatusCountDto { Status = g.Key, Count = g.Count() })
+            .OrderBy(s => s.Status)
+            .ToList();
+
+        var detail = new ProductCatalogDetailDto
+        {
+            Id = product.Id,
+            Name = product.Name,
+            Code = product.Code,
+            Unit = product.Unit,
+            Description = product.Description,
+            CreatedAt = product.CreatedAt,
+            ContractCount = usages.Select(u => u.ContractId).Distinct().Count(),
+            ActiveContractCount = usages.Where(u => u.ContractIsActive).Select(u => u.ContractId).Distinct().Count(),
+            TotalOrderedQuantity = usages.Sum(u => u.Quantity),
+            TotalProducedQuantity = usages.Sum(u => u.ProducedQuantity),
+            CompletedProductCount = usages.Count(u => u.ProductStatus == ContractProductStatus.Completed),
+            StatusBreakdown = statusBreakdown,
+            Contracts = usages,
+        };
+
+        return ApiResult<ProductCatalogDetailDto>.Success(detail);
     }
 
     public async Task<ApiResult<ProductCatalogResponseDto>> CreateAsync(ProductCatalogCreateDto dto, Guid userId)

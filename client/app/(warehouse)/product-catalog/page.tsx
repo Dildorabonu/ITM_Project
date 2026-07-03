@@ -7,6 +7,7 @@ import {
 } from "@/lib/userService";
 import { CheckSelect } from "@/app/_components/CheckSelect";
 import { ConfirmModal } from "@/app/_components/ConfirmModal";
+import { ProductCatalogDetailDrawer } from "./_components/ProductCatalogDetailDrawer";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useToastStore } from "@/lib/store/toastStore";
 import { useT } from "@/lib/i18n";
@@ -60,6 +61,9 @@ export default function ProductCatalogPage() {
   const [deleteTarget, setDeleteTarget] = useState<ProductCatalogResponse | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Detail (ko'rish) drawer
+  const [detailTarget, setDetailTarget] = useState<ProductCatalogResponse | null>(null);
+
   const PAGE_SIZE = 20;
 
   const load = async (signal?: AbortSignal) => {
@@ -93,6 +97,21 @@ export default function ProductCatalogPage() {
     else document.body.style.overflow = "";
     return () => { document.body.style.overflow = ""; };
   }, [showForm]);
+
+  // Shartnoma formasidan "katalogga qo'shish" bilan kelinganda (?create=1&name=...)
+  // qo'shish modalini avtomatik ochamiz va nomni oldindan to'ldiramiz.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("create") !== "1") return;
+    const name = params.get("name") ?? "";
+    setEditTarget(null);
+    setForm({ ...emptyForm, name });
+    setSubmitted(false);
+    setShowForm(true);
+    // URL ni tozalaymiz — qayta yuklanishda modal takror ochilmasin.
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
 
   const openCreate = () => {
     setEditTarget(null);
@@ -246,13 +265,21 @@ export default function ProductCatalogPage() {
                 {items.length === 0 ? (
                   <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>{t("Ma'lumot topilmadi")}</td></tr>
                 ) : items.map((p, i) => (
-                  <tr key={p.id}>
+                  <tr key={p.id} onClick={() => setDetailTarget(p)} style={{ cursor: "pointer" }}>
                     <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>
                       {String((page - 1) * PAGE_SIZE + i + 1).padStart(2, "0")}
                     </td>
                     <td>
                       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                        <span style={{ fontWeight: 600, color: "var(--text1)" }}>{p.name}</span>
+                        <span
+                          onClick={() => setDetailTarget(p)}
+                          title={t("Ko'rish")}
+                          style={{ fontWeight: 600, color: "var(--text1)", cursor: "pointer", width: "fit-content" }}
+                          onMouseEnter={e => (e.currentTarget.style.color = "var(--accent)")}
+                          onMouseLeave={e => (e.currentTarget.style.color = "var(--text1)")}
+                        >
+                          {p.name}
+                        </span>
                         {p.description && <span style={{ fontSize: 11, color: "var(--text3)" }}>{p.description}</span>}
                       </div>
                     </td>
@@ -270,8 +297,15 @@ export default function ProductCatalogPage() {
                     </td>
                     <td style={{ borderLeft: "2px solid var(--border)" }}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                        <button className="btn-icon" title={t("Ko'rish")} onClick={(e) => { e.stopPropagation(); setDetailTarget(p); }}
+                          style={{ color: "#0ea5e9", borderColor: "#0ea5e933", background: "#0ea5e912" }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                        </button>
                         {canUpdate && (
-                          <button className="btn-icon" title={t("Tahrirlash")} onClick={() => openEdit(p)}
+                          <button className="btn-icon" title={t("Tahrirlash")} onClick={(e) => { e.stopPropagation(); openEdit(p); }}
                             style={{ color: "var(--accent)", borderColor: "var(--accent)33", background: "var(--accent-dim)" }}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -280,7 +314,7 @@ export default function ProductCatalogPage() {
                           </button>
                         )}
                         {canDelete && (
-                          <button className="btn-icon" title={t("O'chirish")} onClick={() => setDeleteTarget(p)}
+                          <button className="btn-icon" title={t("O'chirish")} onClick={(e) => { e.stopPropagation(); setDeleteTarget(p); }}
                             style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                               <polyline points="3 6 5 6 21 6" />
@@ -330,6 +364,7 @@ export default function ProductCatalogPage() {
           onMouseDown={e => { if (e.target === e.currentTarget) setShowForm(false); }}
           style={{
             position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.45)",
+            backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)",
             display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
           }}
         >
@@ -415,6 +450,14 @@ export default function ProductCatalogPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {detailTarget && (
+        <ProductCatalogDetailDrawer
+          productId={detailTarget.id}
+          productName={detailTarget.name}
+          onClose={() => setDetailTarget(null)}
+        />
       )}
 
       <ConfirmModal
