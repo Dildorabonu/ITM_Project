@@ -1,5 +1,6 @@
 import { RequisitionStatus, RequisitionSource, type RequisitionChildSummary } from "@/lib/userService";
 import { WORKFLOW_STEPS, STEP_COLORS, getWorkflowIndex, getFinalStepInfo } from "../_types";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   status: RequisitionStatus;
@@ -8,11 +9,12 @@ interface Props {
 }
 
 export function WorkflowDiagram({ status, source, splitChildren }: Props) {
+  const t = useT();
   // Off-path terminal states
   if (status === RequisitionStatus.Rejected) {
     return (
       <div style={{ marginBottom: 22 }}>
-        <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 12 }}>Jarayon holati</div>
+        <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 12 }}>{t("Jarayon holati")}</div>
         <div style={{
           padding: "14px 18px", borderRadius: 8,
           background: "var(--danger-dim)",
@@ -20,7 +22,7 @@ export function WorkflowDiagram({ status, source, splitChildren }: Props) {
           fontSize: 13, fontWeight: 600, color: "var(--danger)",
           textAlign: "center",
         }}>
-          Talabnoma rad etilgan
+          {t("Talabnoma rad etilgan")}
         </div>
       </div>
     );
@@ -53,7 +55,7 @@ export function WorkflowDiagram({ status, source, splitChildren }: Props) {
 
   return (
     <div style={{ marginBottom: 22 }}>
-      <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 12 }}>Jarayon holati</div>
+      <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 12 }}>{t("Jarayon holati")}</div>
       <div style={{ position: "relative" }}>
         {/* connector line */}
         <div style={{
@@ -102,7 +104,7 @@ export function WorkflowDiagram({ status, source, splitChildren }: Props) {
                   color: isActive ? stepColor : isDone ? "var(--text2)" : "var(--text3)",
                   maxWidth: 80,
                 }}>
-                  {labelForStep(idx)}
+                  {t(labelForStep(idx))}
                 </span>
               </div>
             );
@@ -117,7 +119,7 @@ export function WorkflowDiagram({ status, source, splitChildren }: Props) {
             fontSize: 13, fontWeight: 600, color: currentColor,
             textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
           }}>
-            {fullLabelForStep(currentIdx)}
+            {t(fullLabelForStep(currentIdx))}
           </div>
         )}
       </div>
@@ -132,6 +134,7 @@ function SplitDiagram({
 }: {
   splitChildren?: RequisitionChildSummary[];
 }) {
+  const t = useT();
   const purchase = splitChildren?.find(c => c.source === RequisitionSource.Purchase);
   const warehouse = splitChildren?.find(c => c.source === RequisitionSource.Warehouse);
 
@@ -153,7 +156,7 @@ function SplitDiagram({
 
   return (
     <div style={{ marginBottom: 22 }}>
-      <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 12 }}>Jarayon holati</div>
+      <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 12 }}>{t("Jarayon holati")}</div>
       <div style={{ position: "relative", height: HEIGHT }}>
         {/* === Background connectors === */}
         {/* Main parent path: step 1 → 2 → 3 */}
@@ -173,9 +176,9 @@ function SplitDiagram({
 
         {/* === Steps === */}
         {/* Parent steps (all done) */}
-        <DoneStep x={`${X.p1}%`} y={MID_Y} color={draftColor}    label="Yaratildi" />
-        <DoneStep x={`${X.p2}%`} y={MID_Y} color={checkInColor}  label="Tekshiruvda" />
-        <DoneStep x={`${X.p3}%`} y={MID_Y} color={checkedColor}  label="Tekshirildi" />
+        <DoneStep x={`${X.p1}%`} y={MID_Y} color={draftColor}    label={t("Yaratildi")} />
+        <DoneStep x={`${X.p2}%`} y={MID_Y} color={checkInColor}  label={t("Tekshiruvda")} />
+        <DoneStep x={`${X.p3}%`} y={MID_Y} color={checkedColor}  label={t("Tekshirildi")} />
 
         {/* Fork node */}
         <ForkNode x={`${X.fork}%`} y={MID_Y} color={forkColor} />
@@ -188,11 +191,12 @@ function SplitDiagram({
             xApprove={X.c1}
             xFinal={X.c2}
             finalColor={purchaseColor}
-            finalLabel="Sotib olishga"
+            finalLabel={t("Sotib olishga")}
+            approveLabel={t("Tasdiqlash")}
             stepNumber={4}
           />
         ) : (
-          <PendingBranch yCenter={TOP_Y} xApprove={X.c1} xFinal={X.c2} finalColor={purchaseColor} finalLabel="Sotib olishga" />
+          <PendingBranch yCenter={TOP_Y} xApprove={X.c1} xFinal={X.c2} finalColor={purchaseColor} finalLabel={t("Sotib olishga")} approveLabel={t("Tasdiqlash")} />
         )}
 
         {/* Bottom branch (Warehouse / Ombordan olishga) */}
@@ -203,11 +207,12 @@ function SplitDiagram({
             xApprove={X.c1}
             xFinal={X.c2}
             finalColor={warehouseColor}
-            finalLabel="Ombordan olishga"
+            finalLabel={t("Ombordan olishga")}
+            approveLabel={t("Tasdiqlash")}
             stepNumber={4}
           />
         ) : (
-          <PendingBranch yCenter={BOTTOM_Y} xApprove={X.c1} xFinal={X.c2} finalColor={warehouseColor} finalLabel="Ombordan olishga" />
+          <PendingBranch yCenter={BOTTOM_Y} xApprove={X.c1} xFinal={X.c2} finalColor={warehouseColor} finalLabel={t("Ombordan olishga")} approveLabel={t("Tasdiqlash")} />
         )}
       </div>
 
@@ -219,7 +224,7 @@ function SplitDiagram({
         fontSize: 13, fontWeight: 600, color: forkColor,
         textAlign: "center",
       }}>
-        Bo&apos;lib yuborilgan — har bir yo&apos;nalish alohida tasdiqlash bosqichidan o&apos;tadi
+        {t("Bo'lib yuborilgan — har bir yo'nalish alohida tasdiqlash bosqichidan o'tadi")}
       </div>
     </div>
   );
@@ -335,7 +340,7 @@ function PositionedStep({
 }
 
 function BranchPair({
-  child, yCenter, xApprove, xFinal, finalColor, finalLabel, stepNumber,
+  child, yCenter, xApprove, xFinal, finalColor, finalLabel, approveLabel, stepNumber,
 }: {
   child: RequisitionChildSummary;
   yCenter: number;
@@ -343,6 +348,7 @@ function BranchPair({
   xFinal: number;
   finalColor: string;
   finalLabel: string;
+  approveLabel: string;
   stepNumber: number;
 }) {
   const approvalColor = STEP_COLORS[RequisitionStatus.PendingApproval].active;
@@ -377,7 +383,7 @@ function BranchPair({
     <>
       <PositionedStep
         x={`${xApprove}%`} y={yCenter}
-        label="Tasdiqlash"
+        label={approveLabel}
         labelColor={approveLabelColor}
         labelWeight={approveState === "active" || approveState === "rejected" ? 700 : 500}
       >
@@ -397,14 +403,14 @@ function BranchPair({
 }
 
 function PendingBranch({
-  yCenter, xApprove, xFinal, finalColor, finalLabel,
+  yCenter, xApprove, xFinal, finalColor, finalLabel, approveLabel,
 }: {
-  yCenter: number; xApprove: number; xFinal: number; finalColor: string; finalLabel: string;
+  yCenter: number; xApprove: number; xFinal: number; finalColor: string; finalLabel: string; approveLabel: string;
 }) {
   const approvalColor = STEP_COLORS[RequisitionStatus.PendingApproval].active;
   return (
     <>
-      <PositionedStep x={`${xApprove}%`} y={yCenter} label="Tasdiqlash" labelColor="var(--text3)" labelWeight={500}>
+      <PositionedStep x={`${xApprove}%`} y={yCenter} label={approveLabel} labelColor="var(--text3)" labelWeight={500}>
         <ChildCircle state="pending" n={4} color={approvalColor} />
       </PositionedStep>
       <PositionedStep x={`${xFinal}%`} y={yCenter} label={finalLabel} labelColor="var(--text3)" labelWeight={500}>

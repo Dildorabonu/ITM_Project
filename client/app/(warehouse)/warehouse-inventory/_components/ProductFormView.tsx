@@ -13,6 +13,7 @@ import {
 } from "@/lib/userService";
 import { CheckSelect } from "@/app/_components/CheckSelect";
 import { useToastStore } from "@/lib/store/toastStore";
+import { useT } from "@/lib/i18n";
 import { SimilarNameWarning } from "./SimilarNameWarning";
 import {
   emptyForm,
@@ -48,6 +49,7 @@ function statusRank(r: ParsedImportRow): number {
 // Yangi mahsulot(lar) yaratish (qo'lda yoki Excel import) hamda mavjud
 // mahsulotni tahrirlash formasi. Ko'p qatorli create va import holatini o'zi boshqaradi.
 export function ProductFormView({ editTarget, departments, form, setForm, onClose, onCreated, onUpdated }: Props) {
+  const t = useT();
   const showToast = useToastStore(s => s.show);
   const [forms, setForms] = useState<ProductForm[]>([{ ...emptyForm }]);
   const [formSubmitted, setFormSubmitted] = useState(false);
@@ -116,11 +118,11 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
           departmentName: dept?.name ?? editTarget.departmentName,
         };
         onUpdated(updated);
-        showToast(`"${updated.name}" mahsuloti yangilandi.`, "Saqlandi");
+        showToast(`"${updated.name}" ${t("mahsuloti yangilandi.")}`, t("Saqlandi"));
         onClose();
       } catch (err: unknown) {
         const msg = (err as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
-        setFormError(msg ?? "Saqlashda xatolik yuz berdi.");
+        setFormError(msg ?? t("Saqlashda xatolik yuz berdi."));
       } finally {
         setSaving(false);
       }
@@ -133,7 +135,7 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
       const invoices = forms.map(f => f.invoiceNumber.trim().toLowerCase());
       const dupInvoice = invoices.find((v, i) => invoices.indexOf(v) !== i);
       if (dupInvoice) {
-        setFormError(`Invoice raqami "${dupInvoice}" yuborilayotgan ro'yxatda takrorlangan.`);
+        setFormError(`${t("Invoice raqami")} "${dupInvoice}" ${t("yuborilayotgan ro'yxatda takrorlangan.")}`);
         return;
       }
 
@@ -151,15 +153,15 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
         await productService.createBulk(payloads);
         showToast(
           payloads.length === 1
-            ? `"${payloads[0].name}" mahsuloti qo'shildi.`
-            : `${payloads.length} ta mahsulot qo'shildi.`,
-          "Qo'shildi"
+            ? `"${payloads[0].name}" ${t("mahsuloti qo'shildi.")}`
+            : `${payloads.length} ${t("ta mahsulot qo'shildi.")}`,
+          t("Qo'shildi")
         );
         onClose();
         await onCreated();
       } catch (err: unknown) {
         const msg = (err as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
-        setFormError(msg ?? "Saqlashda xatolik yuz berdi.");
+        setFormError(msg ?? t("Saqlashda xatolik yuz berdi."));
       } finally {
         setSaving(false);
       }
@@ -199,11 +201,11 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
         if (!r) return row;
         const errors = [...row.errors];
         if (r.exactDuplicate)
-          errors.push({ field: "name", message: `Bu bo'limda shu nomli mahsulot allaqachon bor (mavjud: ${r.exactDuplicate.invoiceNumber})` });
+          errors.push({ field: "name", message: `${t("Bu bo'limda shu nomli mahsulot allaqachon bor (mavjud:")} ${r.exactDuplicate.invoiceNumber})` });
         if (r.duplicateInFile)
-          errors.push({ field: "name", message: "Shu nom faylda takrorlangan" });
+          errors.push({ field: "name", message: t("Shu nom faylda takrorlangan") });
         if (r.invoiceDuplicate)
-          errors.push({ field: "invoice", message: "Bu invoice raqami bazada allaqachon mavjud" });
+          errors.push({ field: "invoice", message: t("Bu invoice raqami bazada allaqachon mavjud") });
         return { ...row, errors, similar: r.similar };
       }));
     } catch {
@@ -226,14 +228,14 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
         departmentId: r.departmentId!,
       }));
       await productService.createBulk(payloads);
-      showToast(`${payloads.length} ta mahsulot import qilindi.`, "Qo'shildi");
+      showToast(`${payloads.length} ${t("ta mahsulot import qilindi.")}`, t("Qo'shildi"));
       await onCreated();
       onClose();
       setImportRows([]);
       setImportErrors([]);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
-      setImportSaveError(msg ?? "Saqlashda xatolik yuz berdi.");
+      setImportSaveError(msg ?? t("Saqlashda xatolik yuz berdi."));
     } finally {
       setImportSaving(false);
     }
@@ -292,13 +294,13 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
 
     const revalidated = updated.map(r => {
       const errors: RowError[] = [];
-      if (!r.name.trim()) errors.push({ field: "name", message: "Mahsulot nomi kiritilmagan" });
-      if (!r.invoiceNumber.trim()) errors.push({ field: "invoice", message: "Invoice raqami kiritilmagan" });
+      if (!r.name.trim()) errors.push({ field: "name", message: t("Mahsulot nomi kiritilmagan") });
+      if (!r.invoiceNumber.trim()) errors.push({ field: "invoice", message: t("Invoice raqami kiritilmagan") });
       const dep = departments.find(x => x.id === r.departmentId);
-      if (!dep) errors.push({ field: "department", message: `"${r.departmentName || "(bo'sh)"}" bo'limi topilmadi` });
+      if (!dep) errors.push({ field: "department", message: `"${r.departmentName || t("(bo'sh)")}" ${t("bo'limi topilmadi")}` });
       const k = r.invoiceNumber.trim().toLowerCase();
       if (k && (invCounts.get(k) ?? 0) > 1) {
-        errors.push({ field: "invoice", message: `Invoice raqami "${r.invoiceNumber}" faylda takrorlangan` });
+        errors.push({ field: "invoice", message: `${t("Invoice raqami")} "${r.invoiceNumber}" ${t("faylda takrorlangan")}` });
       }
       return { ...r, errors };
     });
@@ -320,71 +322,71 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>Mahsulotni tahrirlash</span>
+          <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>{t("Mahsulotni tahrirlash")}</span>
         </div>
         <div className="itm-card" style={{ padding: 28 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
             <div>
               <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !form.name.trim() ? "var(--danger)" : "var(--text2)" }}>
-                Mahsulot nomi <span style={{ color: "var(--danger)" }}>*</span>
+                {t("Mahsulot nomi")} <span style={{ color: "var(--danger)" }}>*</span>
               </label>
               <div style={{ position: "relative" }}>
                 <input className="form-input" value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  placeholder="Mahsulot nomini kiriting"
+                  placeholder={t("Mahsulot nomini kiriting")}
                   style={formSubmitted && !form.name.trim() ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : undefined}
                 />
                 <SimilarNameWarning name={form.name} departmentId={form.departmentId} excludeId={editTarget.id}
                   onSelect={n => setForm(f => ({ ...f, name: n }))} />
               </div>
-              {formSubmitted && !form.name.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Mahsulot nomini kiriting</div>}
+              {formSubmitted && !form.name.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>{t("Mahsulot nomini kiriting")}</div>}
             </div>
             <div>
               <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !form.invoiceNumber.trim() ? "var(--danger)" : "var(--text2)" }}>
-                Invoice raqami <span style={{ color: "var(--danger)" }}>*</span>
+                {t("Invoice raqami")} <span style={{ color: "var(--danger)" }}>*</span>
               </label>
               <input className="form-input" value={form.invoiceNumber}
                 onChange={e => setForm(f => ({ ...f, invoiceNumber: e.target.value }))}
-                placeholder="Masalan: INV-2026-0001"
+                placeholder={t("Masalan: INV-2026-0001")}
                 style={formSubmitted && !form.invoiceNumber.trim() ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33", fontFamily: "var(--font-mono)" } : { fontFamily: "var(--font-mono)" }}
               />
-              {formSubmitted && !form.invoiceNumber.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Invoice raqamini kiriting</div>}
+              {formSubmitted && !form.invoiceNumber.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>{t("Invoice raqamini kiriting")}</div>}
             </div>
             {!autoDept && (
               <div>
                 <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !form.departmentId ? "var(--danger)" : "var(--text2)" }}>
-                  Bo&apos;lim <span style={{ color: "var(--danger)" }}>*</span>
+                  {t("Bo'lim")} <span style={{ color: "var(--danger)" }}>*</span>
                 </label>
                 <CheckSelect
                   value={form.departmentId}
                   onChange={v => setForm(f => ({ ...f, departmentId: v }))}
                   options={departments.map(d => ({ id: d.id, name: d.name }))}
-                  placeholder="— Bo'lim tanlang —"
+                  placeholder={t("— Bo'lim tanlang —")}
                   error={formSubmitted && !form.departmentId}
                 />
-                {formSubmitted && !form.departmentId && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Bo&apos;limni tanlang</div>}
+                {formSubmitted && !form.departmentId && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>{t("Bo'limni tanlang")}</div>}
               </div>
             )}
             <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Soni</label>
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>{t("Soni")}</label>
               <input className="form-input" type="number" min="0" step="any" value={form.quantity}
                 onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))}
                 onWheel={e => (e.target as HTMLInputElement).blur()} placeholder="0" />
             </div>
             <div>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>O&apos;lchov birligi</label>
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>{t("O'lchov birligi")}</label>
               <CheckSelect
                 value={form.unit}
                 onChange={v => setForm(f => ({ ...f, unit: v }))}
                 options={UNIT_OPTIONS}
-                placeholder="— Tanlang —"
+                placeholder={t("— Tanlang —")}
               />
             </div>
             <div style={{ gridColumn: "1 / -1" }}>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Tavsif</label>
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>{t("Tavsif")}</label>
               <textarea className="form-input" value={form.description}
                 onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                placeholder="Mahsulot tavsifini kiriting (ixtiyoriy)" rows={3} style={{ resize: "vertical" }} />
+                placeholder={t("Mahsulot tavsifini kiriting (ixtiyoriy)")} rows={3} style={{ resize: "vertical" }} />
             </div>
           </div>
         </div>
@@ -395,7 +397,7 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
         )}
         <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 8 }}>
           <button onClick={onClose} style={{ background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", padding: "10px 24px", color: "var(--text2)", fontSize: 14, fontWeight: 500 }}>
-            Bekor qilish
+            {t("Bekor qilish")}
           </button>
           <button className="btn-primary" onClick={handleSave} disabled={saving}
             style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
@@ -404,7 +406,7 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
               <polyline points="17 21 17 13 7 13 7 21" />
               <polyline points="7 3 7 8 15 8" />
             </svg>
-            {saving ? "Saqlanmoqda..." : "O'zgarishlarni saqlash"}
+            {saving ? t("Saqlanmoqda...") : t("O'zgarishlarni saqlash")}
           </button>
         </div>
       </div>
@@ -419,9 +421,9 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       {/* Header + tabs */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>Yangi mahsulot(lar)</span>
+        <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>{t("Yangi mahsulot(lar)")}</span>
         {createTab === "manual" && (
-          <span style={{ fontSize: 13, color: "var(--text2)" }}>{forms.length} ta mahsulot</span>
+          <span style={{ fontSize: 13, color: "var(--text2)" }}>{forms.length} {t("ta mahsulot")}</span>
         )}
       </div>
 
@@ -439,7 +441,7 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
               marginBottom: -2, transition: "color 0.15s",
             }}
           >
-            {tab === "manual" ? "Qo’lda kiritish" : "Fayldan import"}
+            {tab === "manual" ? t("Qo'lda kiritish") : t("Fayldan import")}
           </button>
         ))}
       </div>
@@ -449,7 +451,7 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
           {/* Step 1: Download template */}
           <div className="itm-card" style={{ padding: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", marginBottom: 12 }}>
-              1-qadam: Namuna faylni yuklab oling, to&apos;ldiring
+              {t("1-qadam: Namuna faylni yuklab oling, to'ldiring")}
             </div>
             <button
               onClick={downloadTemplate}
@@ -465,17 +467,17 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              Namuna faylni yuklash (.xlsx)
+              {t("Namuna faylni yuklash (.xlsx)")}
             </button>
             <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 8 }}>
-              Fayl 3 ta varaq o&apos;z ichiga oladi: Mahsulotlar (to&apos;ldirish uchun), Bo&apos;limlar va O&apos;lchov birliklari (ma&apos;lumotnoma).
+              {t("Fayl 3 ta varaq o'z ichiga oladi: Mahsulotlar (to'ldirish uchun), Bo'limlar va O'lchov birliklari (ma'lumotnoma).")}
             </div>
           </div>
 
           {/* Step 2: Upload file */}
           <div className="itm-card" style={{ padding: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)", marginBottom: 12 }}>
-              2-qadam: To&apos;ldirilgan faylni yuklang
+              {t("2-qadam: To'ldirilgan faylni yuklang")}
             </div>
             <input
               ref={fileInputRef}
@@ -509,8 +511,8 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
                 <polyline points="17 8 12 3 7 8" />
                 <line x1="12" y1="3" x2="12" y2="15" />
               </svg>
-              <div style={{ fontSize: 14, color: "var(--text2)", fontWeight: 500 }}>Faylni bu yerga tashlang yoki bosing</div>
-              <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 4 }}>.xlsx, .xls, .csv formatlar qabul qilinadi</div>
+              <div style={{ fontSize: 14, color: "var(--text2)", fontWeight: 500 }}>{t("Faylni bu yerga tashlang yoki bosing")}</div>
+              <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 4 }}>{t(".xlsx, .xls, .csv formatlar qabul qilinadi")}</div>
             </div>
           </div>
 
@@ -525,18 +527,18 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
           {importRows.length > 0 && (
             <div className="itm-card" style={{ padding: 20 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)" }}>Natija: {importRows.length} ta qator</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)" }}>{t("Natija:")} {importRows.length} {t("ta qator")}</span>
                 <span style={{ fontSize: 12, padding: "2px 10px", borderRadius: 20, background: "#22c55e22", color: "#22c55e", fontWeight: 600 }}>
-                  {importValidRows.length} ta to&apos;g&apos;ri
+                  {importValidRows.length} {t("ta to'g'ri")}
                 </span>
                 {importErrorRows.length > 0 && (
                   <span style={{ fontSize: 12, padding: "2px 10px", borderRadius: 20, background: "var(--danger-dim)", color: "var(--danger)", fontWeight: 600 }}>
-                    {importErrorRows.length} ta xatolik
+                    {importErrorRows.length} {t("ta xatolik")}
                   </span>
                 )}
                 {importWarnRows.length > 0 && (
                   <span style={{ fontSize: 12, padding: "2px 10px", borderRadius: 20, background: "var(--warn-dim)", color: "var(--warn)", fontWeight: 600 }}>
-                    {importWarnRows.length} ta o&apos;xshash
+                    {importWarnRows.length} {t("ta o'xshash")}
                   </span>
                 )}
               </div>
@@ -544,15 +546,15 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
                 <table className="itm-table">
                   <thead>
                     <tr>
-                      <th style={{ textAlign: "center" }}>Qator</th>
-                      <th style={{ textAlign: "center" }}>Mahsulot nomi</th>
-                      <th style={{ textAlign: "center" }}>Invoice raqami</th>
-                      <th style={{ textAlign: "center" }}>Bo&apos;lim</th>
-                      <th style={{ textAlign: "center" }}>Miqdor</th>
-                      <th style={{ textAlign: "center" }}>O&apos;lchov</th>
-                      <th style={{ textAlign: "center" }}>Tavsif</th>
-                      <th style={{ textAlign: "center" }}>Holat</th>
-                      <th style={{ textAlign: "center" }}>Tahrirlash</th>
+                      <th style={{ textAlign: "center" }}>{t("Qator")}</th>
+                      <th style={{ textAlign: "center" }}>{t("Mahsulot nomi")}</th>
+                      <th style={{ textAlign: "center" }}>{t("Invoice raqami")}</th>
+                      <th style={{ textAlign: "center" }}>{t("Bo'lim")}</th>
+                      <th style={{ textAlign: "center" }}>{t("Miqdor")}</th>
+                      <th style={{ textAlign: "center" }}>{t("O'lchov")}</th>
+                      <th style={{ textAlign: "center" }}>{t("Tavsif")}</th>
+                      <th style={{ textAlign: "center" }}>{t("Holat")}</th>
+                      <th style={{ textAlign: "center" }}>{t("Tahrirlash")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -568,8 +570,8 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
                             <td>
                               <input
                                 className="form-input"
-                                title="Mahsulot nomi"
-                                placeholder="Mahsulot nomi"
+                                title={t("Mahsulot nomi")}
+                                placeholder={t("Mahsulot nomi")}
                                 value={editingImportRowData.name}
                                 onChange={e => setEditingImportRowData(d => d && { ...d, name: e.target.value })}
                                 style={{ minWidth: 130, padding: "4px 8px", fontSize: 13 }}
@@ -578,7 +580,7 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
                             <td>
                               <input
                                 className="form-input"
-                                title="Invoice raqami"
+                                title={t("Invoice raqami")}
                                 placeholder="INV-…"
                                 value={editingImportRowData.invoiceNumber}
                                 onChange={e => setEditingImportRowData(d => d && { ...d, invoiceNumber: e.target.value })}
@@ -590,7 +592,7 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
                                 value={editingImportRowData.departmentId}
                                 onChange={v => setEditingImportRowData(d => d && { ...d, departmentId: v })}
                                 options={departments.map(dep => ({ id: dep.id, name: dep.name }))}
-                                placeholder="— Tanlang —"
+                                placeholder={t("— Tanlang —")}
                                 style={{ minWidth: 130 }}
                               />
                             </td>
@@ -598,7 +600,7 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
                               <input
                                 className="form-input"
                                 type="number" min="0" step="any"
-                                title="Miqdor"
+                                title={t("Miqdor")}
                                 placeholder="0"
                                 value={editingImportRowData.quantity}
                                 onChange={e => setEditingImportRowData(d => d && { ...d, quantity: e.target.value })}
@@ -611,15 +613,15 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
                                 value={String(editingImportRowData.unit)}
                                 onChange={v => setEditingImportRowData(d => d && { ...d, unit: Number(v) as ProductUnit })}
                                 options={UNIT_OPTIONS}
-                                placeholder="— Tanlang —"
+                                placeholder={t("— Tanlang —")}
                                 style={{ minWidth: 90 }}
                               />
                             </td>
                             <td>
                               <input
                                 className="form-input"
-                                title="Tavsif"
-                                placeholder="Tavsif"
+                                title={t("Tavsif")}
+                                placeholder={t("Tavsif")}
                                 value={editingImportRowData.description}
                                 onChange={e => setEditingImportRowData(d => d && { ...d, description: e.target.value })}
                                 style={{ minWidth: 120, padding: "4px 8px", fontSize: 13 }}
@@ -630,7 +632,7 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
                               <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
                                 <button
                                   onClick={saveEditImportRow}
-                                  title="Saqlash"
+                                  title={t("Saqlash")}
                                   style={{
                                     display: "inline-flex", alignItems: "center", gap: 4,
                                     padding: "4px 10px", borderRadius: 6, fontSize: 12, fontWeight: 600,
@@ -641,11 +643,11 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
                                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                     <polyline points="20 6 9 17 4 12" />
                                   </svg>
-                                  Saqlash
+                                  {t("Saqlash")}
                                 </button>
                                 <button
                                   onClick={cancelEditImportRow}
-                                  title="Bekor"
+                                  title={t("Bekor")}
                                   style={{
                                     display: "inline-flex", alignItems: "center",
                                     padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 600,
@@ -675,7 +677,7 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
                             {row.errors.length === 0 ? (
                               row.similar && row.similar.length > 0 ? (
                                 <span style={{ lineHeight: 1.35, color: "var(--warn)", fontSize: 11, fontWeight: 600 }}>
-                                  ⚠ o&apos;xshash: {row.similar[0].name}
+                                  ⚠ {t("o'xshash:")} {row.similar[0].name}
                                 </span>
                               ) : (
                                 <span style={{ color: "#22c55e", fontSize: 12, fontWeight: 600 }}>✓</span>
@@ -694,7 +696,7 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
                             <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
                               <button
                                 onClick={() => startEditImportRow(i)}
-                                title="Tahrirlash"
+                                title={t("Tahrirlash")}
                                 style={{
                                   display: "inline-flex", alignItems: "center", gap: 4,
                                   padding: "4px 10px", borderRadius: 6, fontSize: 12, fontWeight: 600,
@@ -706,11 +708,11 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
                                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                                   <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                                 </svg>
-                                Tahrir
+                                {t("Tahrir")}
                               </button>
                               <button
                                 onClick={() => setImportRows(prev => prev.filter((_, idx) => idx !== i))}
-                                title="O'chirish"
+                                title={t("O'chirish")}
                                 style={{
                                   display: "inline-flex", alignItems: "center",
                                   padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 600,
@@ -747,7 +749,7 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
               onClick={onClose}
               style={{ background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", padding: "10px 24px", color: "var(--text2)", fontSize: 14, fontWeight: 500 }}
             >
-              Bekor qilish
+              {t("Bekor qilish")}
             </button>
             {importValidRows.length > 0 && (
               <button
@@ -761,7 +763,7 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
                   <polyline points="17 8 12 3 7 8" />
                   <line x1="12" y1="3" x2="12" y2="15" />
                 </svg>
-                {importSaving ? "Yuklanmoqda..." : `${importValidRows.length} ta mahsulotni import qilish`}
+                {importSaving ? t("Yuklanmoqda...") : `${importValidRows.length} ${t("ta mahsulotni import qilish")}`}
               </button>
             )}
           </div>
@@ -774,12 +776,12 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
             <div key={index} className="itm-card" style={{ padding: 24 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                 <span style={{ fontWeight: 600, fontSize: 14, color: "var(--text2)" }}>
-                  #{index + 1} mahsulot
+                  #{index + 1} {t("mahsulot")}
                 </span>
                 {forms.length > 1 && (
                   <button
                     onClick={() => removeFormRow(index)}
-                    title="Olib tashlash"
+                    title={t("Olib tashlash")}
                     style={{
                       background: "var(--danger-dim)", border: "1px solid var(--danger)33",
                       borderRadius: 6, cursor: "pointer", padding: "4px 10px",
@@ -790,72 +792,72 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <line x1="5" y1="12" x2="19" y2="12" />
                     </svg>
-                    Olib tashlash
+                    {t("Olib tashlash")}
                   </button>
                 )}
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                 <div>
                   <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !f.name.trim() ? "var(--danger)" : "var(--text2)" }}>
-                    Mahsulot nomi <span style={{ color: "var(--danger)" }}>*</span>
+                    {t("Mahsulot nomi")} <span style={{ color: "var(--danger)" }}>*</span>
                   </label>
                   <div style={{ position: "relative" }}>
                     <input className="form-input" value={f.name}
                       onChange={e => updateFormRow(index, "name", e.target.value)}
-                      placeholder="Mahsulot nomini kiriting"
+                      placeholder={t("Mahsulot nomini kiriting")}
                       style={formSubmitted && !f.name.trim() ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33" } : undefined}
                     />
                     <SimilarNameWarning name={f.name} departmentId={f.departmentId}
                       onSelect={n => updateFormRow(index, "name", n)} />
                   </div>
-                  {formSubmitted && !f.name.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Mahsulot nomini kiriting</div>}
+                  {formSubmitted && !f.name.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>{t("Mahsulot nomini kiriting")}</div>}
                 </div>
                 <div>
                   <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !f.invoiceNumber.trim() ? "var(--danger)" : "var(--text2)" }}>
-                    Invoice raqami <span style={{ color: "var(--danger)" }}>*</span>
+                    {t("Invoice raqami")} <span style={{ color: "var(--danger)" }}>*</span>
                   </label>
                   <input className="form-input" value={f.invoiceNumber}
                     onChange={e => updateFormRow(index, "invoiceNumber", e.target.value)}
-                    placeholder="Masalan: INV-2026-0001"
+                    placeholder={t("Masalan: INV-2026-0001")}
                     style={formSubmitted && !f.invoiceNumber.trim() ? { borderColor: "var(--danger)", outline: "none", boxShadow: "0 0 0 2px var(--danger)33", fontFamily: "var(--font-mono)" } : { fontFamily: "var(--font-mono)" }}
                   />
-                  {formSubmitted && !f.invoiceNumber.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Invoice raqamini kiriting</div>}
+                  {formSubmitted && !f.invoiceNumber.trim() && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>{t("Invoice raqamini kiriting")}</div>}
                 </div>
                 {!autoDept && (
                   <div>
                     <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: formSubmitted && !f.departmentId ? "var(--danger)" : "var(--text2)" }}>
-                      Bo&apos;lim <span style={{ color: "var(--danger)" }}>*</span>
+                      {t("Bo'lim")} <span style={{ color: "var(--danger)" }}>*</span>
                     </label>
                     <CheckSelect
                       value={f.departmentId}
                       onChange={v => updateFormRow(index, "departmentId", v)}
                       options={departments.map(d => ({ id: d.id, name: d.name }))}
-                      placeholder="— Bo'lim tanlang —"
+                      placeholder={t("— Bo'lim tanlang —")}
                       error={formSubmitted && !f.departmentId}
                     />
-                    {formSubmitted && !f.departmentId && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Bo&apos;limni tanlang</div>}
+                    {formSubmitted && !f.departmentId && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>{t("Bo'limni tanlang")}</div>}
                   </div>
                 )}
                 <div>
-                  <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Soni</label>
+                  <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>{t("Soni")}</label>
                   <input className="form-input" type="number" min="0" step="any" value={f.quantity}
                     onChange={e => updateFormRow(index, "quantity", e.target.value)}
                     onWheel={e => (e.target as HTMLInputElement).blur()} placeholder="0" />
                 </div>
                 <div>
-                  <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>O&apos;lchov birligi</label>
+                  <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>{t("O'lchov birligi")}</label>
                   <CheckSelect
                     value={f.unit}
                     onChange={v => updateFormRow(index, "unit", v)}
                     options={UNIT_OPTIONS}
-                    placeholder="— Tanlang —"
+                    placeholder={t("— Tanlang —")}
                   />
                 </div>
                 <div style={{ gridColumn: "1 / -1" }}>
-                  <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Tavsif</label>
+                  <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>{t("Tavsif")}</label>
                   <textarea className="form-input" value={f.description}
                     onChange={e => updateFormRow(index, "description", e.target.value)}
-                    placeholder="Mahsulot tavsifini kiriting (ixtiyoriy)" rows={2} style={{ resize: "vertical" }} />
+                    placeholder={t("Mahsulot tavsifini kiriting (ixtiyoriy)")} rows={2} style={{ resize: "vertical" }} />
                 </div>
               </div>
             </div>
@@ -878,11 +880,11 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
               </svg>
-              Yana mahsulot qo&apos;shish
+              {t("Yana mahsulot qo'shish")}
             </button>
           ) : (
             <div style={{ textAlign: "center", fontSize: 13, color: "var(--text2)", padding: "10px 0" }}>
-              Maksimal chegara: bir vaqtda 200 ta mahsulot qo&apos;shish mumkin
+              {t("Maksimal chegara: bir vaqtda 200 ta mahsulot qo'shish mumkin")}
             </div>
           )}
 
@@ -894,7 +896,7 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
           )}
           <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 4 }}>
             <button onClick={onClose} style={{ background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", padding: "10px 24px", color: "var(--text2)", fontSize: 14, fontWeight: 500 }}>
-              Bekor qilish
+              {t("Bekor qilish")}
             </button>
             <button className="btn-primary" onClick={handleSave} disabled={saving}
               style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 32px", borderRadius: "var(--radius)" }}>
@@ -903,7 +905,7 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
                 <polyline points="17 21 17 13 7 13 7 21" />
                 <polyline points="7 3 7 8 15 8" />
               </svg>
-              {saving ? "Saqlanmoqda..." : `${forms.length} ta mahsulot saqlash`}
+              {saving ? t("Saqlanmoqda...") : `${forms.length} ${t("ta mahsulot saqlash")}`}
             </button>
           </div>
         </>

@@ -9,6 +9,7 @@ import {
   type ProductReservationResponse,
 } from "@/lib/userService";
 import { useToastStore } from "@/lib/store/toastStore";
+import { useT } from "@/lib/i18n";
 import { ConfirmModal } from "@/app/_components/ConfirmModal";
 
 interface Props {
@@ -39,6 +40,7 @@ const fmtDate = (s: string | null) => {
 // Muzlatilgan (rezerv qilingan) mahsulotlarni talabnoma bo'yicha guruhlab ko'rsatadi
 // va "berib yuborish" amalini bajaradi. O'zining barcha holatini o'zi boshqaradi.
 export function FrozenProductsView({ canRelease, onClose, onReleased }: Props) {
+  const t = useT();
   const showToast = useToastStore(s => s.show);
 
   const [frozenItems, setFrozenItems] = useState<ProductReservationResponse[]>([]);
@@ -60,7 +62,7 @@ export function FrozenProductsView({ canRelease, onClose, onReleased }: Props) {
       setFrozenItems(data.items);
       setFrozenTotalCount(data.totalCount);
     } catch {
-      setFrozenError("Muzlatilgan mahsulotlar yuklanmadi.");
+      setFrozenError(t("Muzlatilgan mahsulotlar yuklanmadi."));
     } finally {
       setFrozenLoading(false);
     }
@@ -85,12 +87,12 @@ export function FrozenProductsView({ canRelease, onClose, onReleased }: Props) {
     setReleasing(true);
     try {
       await requisitionService.release(releaseConfirm.id);
-      showToast(`Talabnoma "${releaseConfirm.no}" bo'yicha mahsulotlar berib yuborildi`, "success");
+      showToast(`${t("Talabnoma")} "${releaseConfirm.no}" ${t("bo'yicha mahsulotlar berib yuborildi")}`, "success");
       setReleaseConfirm(null);
       await Promise.all([loadFrozen(frozenSearch), onReleased()]);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
-      showToast(msg ?? "Berib yuborishda xatolik yuz berdi", "Xatolik");
+      showToast(msg ?? t("Berib yuborishda xatolik yuz berdi"), t("Xatolik"));
     } finally {
       setReleasing(false);
     }
@@ -145,12 +147,12 @@ export function FrozenProductsView({ canRelease, onClose, onReleased }: Props) {
             color: "var(--text2)", fontSize: 13, cursor: "pointer",
           }}
         >
-          ← Orqaga
+          ← {t("Orqaga")}
         </button>
         <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-          <span style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)" }}>Muzlatilgan mahsulotlar</span>
+          <span style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)" }}>{t("Muzlatilgan mahsulotlar")}</span>
           <span style={{ fontSize: 12, color: "var(--text3)" }}>
-            {groups.length} ta talabnoma · {frozenTotalCount} ta rezerv
+            {groups.length} {t("ta talabnoma")} · {frozenTotalCount} {t("ta rezerv")}
           </span>
         </div>
         <div className="search-wrap" style={{ maxWidth: "none", flex: 1, minWidth: 200 }}>
@@ -159,15 +161,15 @@ export function FrozenProductsView({ canRelease, onClose, onReleased }: Props) {
           </svg>
           <input
             className="search-input"
-            placeholder="Qidirish: mahsulot, talabnoma, sabab, bo'lim..."
+            placeholder={t("Qidirish: mahsulot, talabnoma, sabab, bo'lim...")}
             value={frozenSearch}
             onChange={e => setFrozenSearch(e.target.value)}
           />
         </div>
         {([
-          { key: "all" as const, label: `Barchasi (${groups.length})` },
-          { key: "ready" as const, label: `Berishga tayyor (${readyCount})` },
-          { key: "pending" as const, label: `Tasdiqlash kutmoqda (${pendingCount})` },
+          { key: "all" as const, label: `${t("Barchasi")} (${groups.length})` },
+          { key: "ready" as const, label: `${t("Berishga tayyor")} (${readyCount})` },
+          { key: "pending" as const, label: `${t("Tasdiqlash kutmoqda")} (${pendingCount})` },
         ]).map(f => (
           <button key={f.key} onClick={() => setFrozenStatusFilter(f.key)}
             style={{
@@ -185,7 +187,7 @@ export function FrozenProductsView({ canRelease, onClose, onReleased }: Props) {
         <button
           className="btn-icon"
           onClick={() => loadFrozen(frozenSearch)}
-          title="Yangilash"
+          title={t("Yangilash")}
           style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -198,7 +200,7 @@ export function FrozenProductsView({ canRelease, onClose, onReleased }: Props) {
 
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 12 }}>
         {frozenLoading ? (
-          <div className="itm-card" style={{ padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
+          <div className="itm-card" style={{ padding: 40, textAlign: "center", color: "var(--text2)" }}>{t("Yuklanmoqda...")}</div>
         ) : frozenError ? (
           <div className="itm-card" style={{ padding: 40, textAlign: "center", color: "var(--danger)" }}>{frozenError}</div>
         ) : filteredGroups.length === 0 ? (
@@ -209,7 +211,7 @@ export function FrozenProductsView({ canRelease, onClose, onReleased }: Props) {
               <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
               <line x1="19.07" y1="4.93" x2="4.93" y2="19.07" />
             </svg>
-            <div>{frozenSearch || frozenStatusFilter !== "all" ? "Natija topilmadi" : "Muzlatilgan mahsulotlar yo'q"}</div>
+            <div>{frozenSearch || frozenStatusFilter !== "all" ? t("Natija topilmadi") : t("Muzlatilgan mahsulotlar yo'q")}</div>
           </div>
         ) : filteredGroups.map((g) => {
           const ready = g.status === RequisitionStatus.ReadyForWarehouseRelease;
@@ -249,7 +251,7 @@ export function FrozenProductsView({ canRelease, onClose, onReleased }: Props) {
                       </span>
                     )}
                     <span>{fmtDate(g.warehouseCheckedAt)}</span>
-                    <span>{g.items.length} ta mahsulot</span>
+                    <span>{g.items.length} {t("ta mahsulot")}</span>
                   </div>
                 </div>
 
@@ -271,7 +273,7 @@ export function FrozenProductsView({ canRelease, onClose, onReleased }: Props) {
                   <button
                     onClick={(e) => { e.stopPropagation(); if (ready) setReleaseConfirm({ id: g.requisitionId, no: g.requisitionNo }); }}
                     disabled={!ready}
-                    title={ready ? "Talabnoma bo'yicha mahsulotlarni berib yuborish" : "Direktor hali tasdiqlamagan"}
+                    title={ready ? t("Talabnoma bo'yicha mahsulotlarni berib yuborish") : t("Direktor hali tasdiqlamagan")}
                     style={{
                       display: "inline-flex", alignItems: "center", gap: 6,
                       padding: "8px 16px", borderRadius: "var(--radius)",
@@ -286,7 +288,7 @@ export function FrozenProductsView({ canRelease, onClose, onReleased }: Props) {
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                       <path d="M5 12h14M13 5l7 7-7 7" />
                     </svg>
-                    Berib yuborish
+                    {t("Berib yuborish")}
                   </button>
                 )}
               </div>
@@ -297,11 +299,11 @@ export function FrozenProductsView({ canRelease, onClose, onReleased }: Props) {
                   <table className="itm-table">
                     <thead>
                       <tr>
-                        <th style={{ width: 48, minWidth: 48, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>T/r</th>
-                        <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>Mahsulot nomi</th>
-                        <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>Invoice raqami</th>
-                        <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>Muzlatilgan miqdor</th>
-                        <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>O&apos;lchov</th>
+                        <th style={{ width: 48, minWidth: 48, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>{t("T/r")}</th>
+                        <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>{t("Mahsulot nomi")}</th>
+                        <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>{t("Invoice raqami")}</th>
+                        <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>{t("Muzlatilgan miqdor")}</th>
+                        <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>{t("O'lchov")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -329,12 +331,12 @@ export function FrozenProductsView({ canRelease, onClose, onReleased }: Props) {
 
       <ConfirmModal
         open={!!releaseConfirm}
-        title="Mahsulotlarni berib yuborish"
+        title={t("Mahsulotlarni berib yuborish")}
         message={releaseConfirm
-          ? `Talabnoma "${releaseConfirm.no}" bo'yicha barcha muzlatilgan mahsulotlar bo'lim omboriga o'tkaziladi va korxona omborxonasidan ayriladi. Davom etasizmi?`
+          ? `${t("Talabnoma")} "${releaseConfirm.no}" ${t("bo'yicha barcha muzlatilgan mahsulotlar bo'lim omboriga o'tkaziladi va korxona omborxonasidan ayriladi. Davom etasizmi?")}`
           : ""}
-        confirmLabel="Berib yuborish"
-        loadingLabel="Berilmoqda..."
+        confirmLabel={t("Berib yuborish")}
+        loadingLabel={t("Berilmoqda...")}
         variant="primary"
         loading={releasing}
         onConfirm={handleRelease}

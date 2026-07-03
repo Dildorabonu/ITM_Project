@@ -86,6 +86,7 @@ public partial class ProductService : IProductService
             Name = dto.Name,
             NameNormalized = TextNormalizer.Normalize(dto.Name),
             InvoiceNumber = dto.InvoiceNumber.Trim(),
+            QrCode = await ProductCodeGenerator.NewUniqueAsync(_context),
             Description = dto.Description,
             Quantity = dto.Quantity,
             Unit = dto.Unit,
@@ -138,18 +139,25 @@ public partial class ProductService : IProductService
                 return ApiResult<int>.Failure([$"Invoice raqami '{inv}' allaqachon mavjud."]);
         }
 
-        var products = list.Select(dto => new Product
+        // Shu yuklamada yaratiladigan Productlarga noyob QR kod (DB + batch ichida).
+        var assignedQrCodes = new HashSet<string>();
+        var products = new List<Product>(list.Count);
+        foreach (var dto in list)
         {
-            Id = Guid.NewGuid(),
-            Name = dto.Name,
-            NameNormalized = TextNormalizer.Normalize(dto.Name),
-            InvoiceNumber = dto.InvoiceNumber.Trim(),
-            Description = dto.Description,
-            Quantity = dto.Quantity,
-            Unit = dto.Unit,
-            DepartmentId = dto.DepartmentId,
-            CreatedAt = DateTime.UtcNow
-        });
+            products.Add(new Product
+            {
+                Id = Guid.NewGuid(),
+                Name = dto.Name,
+                NameNormalized = TextNormalizer.Normalize(dto.Name),
+                InvoiceNumber = dto.InvoiceNumber.Trim(),
+                QrCode = await ProductCodeGenerator.NewUniqueAsync(_context, assignedQrCodes),
+                Description = dto.Description,
+                Quantity = dto.Quantity,
+                Unit = dto.Unit,
+                DepartmentId = dto.DepartmentId,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
 
         await _context.Products.AddRangeAsync(products);
         await _context.SaveChangesAsync();

@@ -12,6 +12,7 @@ import {
 import { departmentService, type DepartmentOption } from "@/lib/userService";
 import { CheckSelect } from "@/app/_components/CheckSelect";
 import { STOCK_MOVEMENT_TYPE_OPTIONS, PAGE_SIZE } from "./_types";
+import { useT } from "@/lib/i18n";
 
 // "DD-MM-YY · HH:mm" — drawerdagi format bilan bir xil.
 function formatDateTime(iso: string): string {
@@ -30,6 +31,7 @@ function directionLabel(m: StockMovement): string {
 }
 
 export default function WarehouseMovementsPage() {
+  const t = useT();
   const [items, setItems] = useState<StockMovement[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -61,7 +63,7 @@ export default function WarehouseMovementsPage() {
       setTotalPages(data.totalPages || 1);
       setTotalCount(data.totalCount);
     } catch {
-      setError("Harakatlar jurnalini yuklashda xatolik yuz berdi.");
+      setError(t("Harakatlar jurnalini yuklashda xatolik yuz berdi."));
     } finally {
       setLoading(false);
     }
@@ -92,36 +94,36 @@ export default function WarehouseMovementsPage() {
           value={type}
           onChange={v => { setType(v as StockMovementType | ""); setPage(1); }}
           options={STOCK_MOVEMENT_TYPE_OPTIONS}
-          placeholder="Harakat turi"
+          placeholder={t("Harakat turi")}
           style={{ width: 190 }}
         />
         <CheckSelect
           value={departmentId}
           onChange={v => { setDepartmentId(v); setPage(1); }}
           options={departments.map(d => ({ id: d.id, name: d.name }))}
-          placeholder="Bo'lim"
+          placeholder={t("Bo'lim")}
           style={{ width: 200 }}
         />
         <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text3)" }}>
-          dan
+          {t("dan")}
           <input type="date" value={from} onChange={e => { setFrom(e.target.value); setPage(1); }}
             style={{ background: "var(--bg2)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "6px 10px", fontSize: 13, color: "var(--text)", colorScheme: "dark" }} />
         </label>
         <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text3)" }}>
-          gacha
+          {t("gacha")}
           <input type="date" value={to} onChange={e => { setTo(e.target.value); setPage(1); }}
             style={{ background: "var(--bg2)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "6px 10px", fontSize: 13, color: "var(--text)", colorScheme: "dark" }} />
         </label>
         {hasFilters && (
           <button onClick={resetFilters}
             style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", fontSize: 12, fontWeight: 600, borderRadius: "var(--radius)", background: "var(--surface2)", border: "1.5px solid var(--border)", color: "var(--text2)", cursor: "pointer" }}>
-            ✕ Tozalash
+            ✕ {t("Tozalash")}
           </button>
         )}
         <button
           className="btn-icon"
           onClick={load}
-          title="Yangilash"
+          title={t("Yangilash")}
           style={{ marginLeft: "auto", background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -135,7 +137,7 @@ export default function WarehouseMovementsPage() {
       {/* Jadval */}
       <div className="itm-card" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "clip" } as React.CSSProperties}>
         {loading ? (
-          <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
+          <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--text2)" }}>{t("Yuklanmoqda...")}</div>
         ) : error ? (
           <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--danger)" }}>{error}</div>
         ) : (
@@ -143,21 +145,21 @@ export default function WarehouseMovementsPage() {
             <table className="itm-table">
               <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
                 <tr>
-                  <th style={{ width: 56, minWidth: 56, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>T/r</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Sana</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Tur</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Mahsulot</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Yo&apos;nalish</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Miqdor</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Qoldiq</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Talabnoma</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Foydalanuvchi</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Izoh</th>
+                  <th style={{ width: 56, minWidth: 56, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>{t("T/r")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Sana")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Tur")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Mahsulot")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Yo'nalish")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Miqdor")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Qoldiq")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Talabnoma")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Foydalanuvchi")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Izoh")}</th>
                 </tr>
               </thead>
               <tbody>
                 {items.length === 0 ? (
-                  <tr><td colSpan={10} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
+                  <tr><td colSpan={10} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>{t("Ma'lumot topilmadi")}</td></tr>
                 ) : items.map((m, i) => {
                   const color = STOCK_MOVEMENT_COLOR[m.type];
                   const dim = STOCK_MOVEMENT_DIM[m.type];
@@ -197,11 +199,11 @@ export default function WarehouseMovementsPage() {
       {/* Pagination footer */}
       <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 14px", marginTop: 8 }}>
         <span style={{ fontSize: 17, color: "var(--text)", fontFamily: "var(--font-mono)", fontWeight: 450 }}>
-          {totalCount} tadan {totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}&nbsp;–&nbsp;{Math.min(page * PAGE_SIZE, totalCount)}&nbsp;ko&apos;rsatilmoqda
+          {totalCount} {t("tadan")} {totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}&nbsp;–&nbsp;{Math.min(page * PAGE_SIZE, totalCount)}&nbsp;{t("ko'rsatilmoqda")}
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <button className="btn-secondary" disabled={page <= 1} onClick={() => setPage(p => p - 1)} style={{ padding: "5px 12px", fontSize: 12 }}>
-            ← Oldingi
+            ← {t("Oldingi")}
           </button>
           {Array.from({ length: totalPages }, (_, i) => i + 1)
             .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
@@ -225,7 +227,7 @@ export default function WarehouseMovementsPage() {
               )
             )}
           <button className="btn-secondary" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} style={{ padding: "5px 12px", fontSize: 12 }}>
-            Keyingi →
+            {t("Keyingi")} →
           </button>
         </div>
       </div>

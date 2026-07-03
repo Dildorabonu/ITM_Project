@@ -1,9 +1,11 @@
 "use client";
 
 import type { MaterialStatus } from "../_types";
+import { useT } from "@/lib/i18n";
 
 // Material yetarliligini katta badge ko'rinishida ko'rsatadi (yetarli / qisman / yo'q).
 export function StatusBadgeBig({ status, available, required }: { status: MaterialStatus; available: number; required: number }) {
+  const t = useT();
   const pct = required > 0 ? Math.min(100, Math.round((available / required) * 100)) : 0;
   if (status === "yetarli") {
     return (
@@ -16,7 +18,7 @@ export function StatusBadgeBig({ status, available, required }: { status: Materi
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
           <polyline points="20 6 9 17 4 12" />
         </svg>
-        Yetarli
+        {t("Yetarli")}
       </span>
     );
   }
@@ -28,7 +30,7 @@ export function StatusBadgeBig({ status, available, required }: { status: Materi
         background: "var(--warn-dim)", color: "var(--warn)", border: "1px solid rgba(224,123,0,0.25)",
         animation: "fadeSlideIn 0.3s ease-out",
       }}>
-        Qisman ({pct}%)
+        {t("Qisman")} ({pct}%)
       </span>
     );
   }
@@ -39,7 +41,7 @@ export function StatusBadgeBig({ status, available, required }: { status: Materi
       background: "var(--danger-dim)", color: "var(--danger)", border: "1px solid rgba(217,48,37,0.25)",
       animation: "fadeSlideIn 0.3s ease-out",
     }}>
-      Yo&apos;q
+      {t("Yo'q")}
     </span>
   );
 }

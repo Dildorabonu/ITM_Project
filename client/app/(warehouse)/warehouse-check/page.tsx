@@ -13,8 +13,10 @@ import {
 import { normalize, fmt, statusKeyframes, type ReqCheckRow } from "./_types";
 import { DetailLoadingOverlay } from "./_components/DetailLoadingOverlay";
 import { WarehouseCheckDetail } from "./_components/WarehouseCheckDetail";
+import { useT } from "@/lib/i18n";
 
 export default function WarehousePage() {
+  const t = useT();
   const [requisitions, setRequisitions] = useState<RequisitionResponse[]>([]);
   const [products, setProducts] = useState<ProductResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -152,15 +154,15 @@ export default function WarehousePage() {
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 16 }}>
         <div className="itm-card" style={{ padding: "16px 20px" }}>
-          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 4 }}>Tekshiruv kutmoqda</div>
+          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 4 }}>{t("Tekshiruv kutmoqda")}</div>
           <div style={{ fontSize: 22, fontWeight: 700, color: "var(--accent)" }}>{stats.total}</div>
         </div>
         <div className="itm-card" style={{ padding: "16px 20px" }}>
-          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 4 }}>To&apos;liq mavjud</div>
+          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 4 }}>{t("To'liq mavjud")}</div>
           <div style={{ fontSize: 22, fontWeight: 700, color: "var(--success)" }}>{stats.fullyAvailable}</div>
         </div>
         <div className="itm-card" style={{ padding: "16px 20px" }}>
-          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 4 }}>Qisman / Yo&apos;q</div>
+          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 4 }}>{t("Qisman / Yo'q")}</div>
           <div style={{ fontSize: 22, fontWeight: 700, color: "var(--danger)" }}>{stats.partial}</div>
         </div>
       </div>
@@ -171,12 +173,12 @@ export default function WarehousePage() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          <input className="search-input" placeholder="Qidirish: talabnoma raqami, maqsad, shartnoma..." value={search} onChange={e => setSearch(e.target.value)} />
+          <input className="search-input" placeholder={t("Qidirish: talabnoma raqami, maqsad, shartnoma...")} value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <button
           className="btn-icon"
           onClick={load}
-          title="Yangilash"
+          title={t("Yangilash")}
           style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -190,29 +192,29 @@ export default function WarehousePage() {
       {/* Table */}
       <div className="itm-card" style={{ flex: 1 }}>
         {loading ? (
-          <div style={{ padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
+          <div style={{ padding: 40, textAlign: "center", color: "var(--text2)" }}>{t("Yuklanmoqda...")}</div>
         ) : filtered.length === 0 ? (
           <div style={{ padding: 60, textAlign: "center", color: "var(--text3)", fontSize: 14, display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" strokeWidth="1.5">
               <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
             </svg>
-            <div>{search ? "Natija topilmadi" : "Tekshiruv kutayotgan talabnomalar yo'q"}</div>
+            <div>{search ? t("Natija topilmadi") : t("Tekshiruv kutayotgan talabnomalar yo'q")}</div>
           </div>
         ) : (
           <div style={{ overflowX: "auto" }}>
             <table className="itm-table">
               <thead>
                 <tr>
-                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Raqam</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Turi</th>
-                  <th style={{ width: 220, textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Maqsad</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Shartnoma / Bo&apos;lim</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Jami</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Mavjud</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Yetishmovchi</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Sana</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Yaratuvchi</th>
+                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>{t("T/r")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Raqam")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Turi")}</th>
+                  <th style={{ width: 220, textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Maqsad")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Shartnoma / Bo'lim")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Jami")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Mavjud")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Yetishmovchi")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Sana")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Yaratuvchi")}</th>
                 </tr>
               </thead>
               <tbody>

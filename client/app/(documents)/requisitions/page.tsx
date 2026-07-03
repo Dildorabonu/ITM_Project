@@ -15,6 +15,7 @@ import { RequisitionStatusBadge } from "./_components/StatusBadge";
 import { RequisitionDrawer } from "./_components/RequisitionDrawer";
 import { CheckSelect } from "./_components/CheckSelect";
 import { useAuthStore } from "@/lib/store/authStore";
+import { useT } from "@/lib/i18n";
 
 // ─── Status filter options ─────────────────────────────────────────────────────
 
@@ -45,6 +46,7 @@ const STATUS_FILTER = [
 
 function RequisitionsContent() {
   const router = useRouter();
+  const t = useT();
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const canApprove = hasPermission("Requisitions.Approve");
 
@@ -121,7 +123,7 @@ function RequisitionsContent() {
       setList([]);
       setTotalPages(1);
       setTotalCount(0);
-      setError("Talabnomalarni yuklashda xatolik yuz berdi");
+      setError(t("Talabnomalarni yuklashda xatolik yuz berdi"));
       console.error("Requisitions load error:", err);
     } finally {
       setLoading(false);
@@ -157,7 +159,7 @@ function RequisitionsContent() {
           </svg>
           <input
             className="search-input"
-            placeholder="Qidirish"
+            placeholder={t("Qidirish")}
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -182,7 +184,7 @@ function RequisitionsContent() {
             <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
             </svg>
-            Filtrlar
+            {t("Filtrlar")}
             {activeFilterCount > 0 && (
               <span style={{
                 display: "inline-flex", alignItems: "center", justifyContent: "center",
@@ -221,7 +223,7 @@ function RequisitionsContent() {
                   <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                     <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
                   </svg>
-                  Filtrlar
+                  {t("Filtrlar")}
                 </div>
                 {pendingStatus !== "" && (
                   <button
@@ -238,7 +240,7 @@ function RequisitionsContent() {
                     <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
                       <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                     </svg>
-                    Tozalash
+                    {t("Tozalash")}
                   </button>
                 )}
               </div>
@@ -250,13 +252,13 @@ function RequisitionsContent() {
                     <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
                     </svg>
-                    Holat
+                    {t("Holat")}
                   </p>
                   <CheckSelect
                     value={pendingStatus}
                     onChange={setPendingStatus}
-                    options={STATUS_FILTER.filter(o => o.value !== "").map(o => ({ id: o.value, name: o.label }))}
-                    placeholder="Barcha holatlar"
+                    options={STATUS_FILTER.filter(o => o.value !== "").map(o => ({ id: o.value, name: t(o.label) }))}
+                    placeholder={t("Barcha holatlar")}
                     disablePortal
                   />
                 </div>
@@ -280,14 +282,14 @@ function RequisitionsContent() {
                   <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                     <polyline points="20 6 9 17 4 12"/>
                   </svg>
-                  Filtrlarni qo&apos;llash
+                  {t("Filtrlarni qo'llash")}
                 </button>
               </div>
             </div>
           )}
         </div>
 
-        <button className="btn-icon" onClick={() => load()} title="Yangilash"
+        <button className="btn-icon" onClick={() => load()} title={t("Yangilash")}
           style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" />
@@ -314,7 +316,7 @@ function RequisitionsContent() {
               <polyline points="9,11 12,14 22,4"/>
               <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
             </svg>
-            Tasdiqlash
+            {t("Tasdiqlash")}
             {pendingApprovalCount > 0 && (
               <span style={{
                 display: "inline-flex", alignItems: "center", justifyContent: "center",
@@ -339,14 +341,14 @@ function RequisitionsContent() {
             <path d="M6,18H4a2,2,0,0,1-2-2V11a2,2,0,0,1,2-2H20a2,2,0,0,1,2,2v5a2,2,0,0,1-2,2H18" />
             <rect x="6" y="14" width="12" height="8" />
           </svg>
-          Blank
+          {t("Blank")}
         </button>
       </div>
 
       {/* Table */}
       <div className="itm-card" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "clip" } as React.CSSProperties}>
         {loading ? (
-          <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
+          <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--text2)" }}>{t("Yuklanmoqda...")}</div>
         ) : error ? (
           <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--danger)" }}>{error}</div>
         ) : (
@@ -354,20 +356,20 @@ function RequisitionsContent() {
             <table className="itm-table">
               <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
                 <tr>
-                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>T/r</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Nomi</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Turi</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Shartnoma / Bo&apos;lim</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Yaratuvchi</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Sana</th>
-                  <th style={{ minWidth: 160, textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Holat</th>
-                  <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", background: "var(--bg2)" }}>Amal</th>
+                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>{t("T/r")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Nomi")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Turi")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Shartnoma / Bo'lim")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Yaratuvchi")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Sana")}</th>
+                  <th style={{ minWidth: 160, textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Holat")}</th>
+                  <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", background: "var(--bg2)" }}>{t("Amal")}</th>
                 </tr>
               </thead>
               <tbody>
                 {list.length === 0 ? (
                   <tr><td colSpan={8} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>
-                    Talabnomalar topilmadi
+                    {t("Talabnomalar topilmadi")}
                   </td></tr>
                 ) : list.map((r, i) => (
                   <tr key={r.id} onClick={() => setDrawerReq(r)} style={{ cursor: "pointer" }}>
@@ -388,7 +390,7 @@ function RequisitionsContent() {
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
                         <button
                           className="btn-icon"
-                          title="Ko'rish"
+                          title={t("Ko'rish")}
                           onClick={() => setDrawerReq(r)}
                           style={{ color: "#0ea5e9", borderColor: "#0ea5e933", background: "#0ea5e912" }}
                         >
@@ -415,7 +417,7 @@ function RequisitionsContent() {
         marginTop: 8,
       }}>
         <span style={{ fontSize: 17, color: "var(--text)", fontFamily: "var(--font-mono)", fontWeight: 450 }}>
-          {totalCount} tadan {totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}&nbsp;–&nbsp;{Math.min(page * PAGE_SIZE, totalCount)}&nbsp;ko&apos;rsatilmoqda
+          {totalCount} {t("tadan")} {totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}&nbsp;–&nbsp;{Math.min(page * PAGE_SIZE, totalCount)}&nbsp;{t("ko'rsatilmoqda")}
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <button
@@ -424,7 +426,7 @@ function RequisitionsContent() {
             onClick={() => setPage(p => p - 1)}
             style={{ padding: "5px 12px", fontSize: 12 }}
           >
-            ← Oldingi
+            ← {t("Oldingi")}
           </button>
           {Array.from({ length: totalPages }, (_, i) => i + 1)
             .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
@@ -457,7 +459,7 @@ function RequisitionsContent() {
             onClick={() => setPage(p => p + 1)}
             style={{ padding: "5px 12px", fontSize: 12 }}
           >
-            Keyingi →
+            {t("Keyingi")} →
           </button>
         </div>
       </div>

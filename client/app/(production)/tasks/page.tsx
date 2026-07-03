@@ -21,6 +21,7 @@ import {
   type ShipmentBatch,
   shipmentBatchService,
 } from "@/lib/shipments";
+import { useT } from "@/lib/i18n";
 
 // ─── Scope ────────────────────────────────────────────────────────────────────
 // Bitta scope = (contract, mahsulot) yoki (contract, Umumiy).
@@ -88,10 +89,11 @@ function ContractBar({
   scope: Scope;
   onClick: () => void;
 }) {
+  const t = useT();
   const { contract, product } = scope;
   return (
     <div className="tasks-contract-bar" onClick={onClick}>
-      <div className="tcb-back" title="Orqaga">
+      <div className="tcb-back" title={t("Orqaga")}>
         <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
           <polyline points="15 18 9 12 15 6"/>
         </svg>
@@ -104,7 +106,7 @@ function ContractBar({
       <div className="tcb-sep" />
       <div className="tcb-meta">
         <span className="tcb-product">
-          {product ? `📦 ${product.productType}` : "📋 Umumiy"}
+          {product ? `📦 ${product.productType}` : `📋 ${t("Umumiy")}`}
         </span>
         <span className="tcb-qty">
           {product ? `${product.quantity.toLocaleString()} ${product.unit}` : ""}
@@ -119,7 +121,7 @@ function ContractBar({
         const status = scopeStatus(scope);
         return (
           <span className={`status ${STATUS_COLORS[status]}`} style={{ marginLeft: "auto", flexShrink: 0 }}>
-            {STATUS_LABELS[status]}
+            {t(STATUS_LABELS[status])}
           </span>
         );
       })()}
@@ -129,7 +131,7 @@ function ContractBar({
           borderRadius: 20, fontSize: 12, fontWeight: 600, flexShrink: 0,
           background: "var(--danger-dim)", color: "var(--danger)", border: "1px solid var(--danger)",
         }}>
-          Nofaol
+          {t("Nofaol")}
         </span>
       )}
     </div>
@@ -154,6 +156,7 @@ function ContractCard({
   isActionable: boolean;
   onClick: () => void;
 }) {
+  const t = useT();
   const { contract, product } = scope;
   const [allTasks, setAllTasks] = useState<ContractTaskResponse[]>([]);
 
@@ -198,7 +201,7 @@ function ContractCard({
             const status = scopeStatus(scope);
             return (
               <span className={`status ${STATUS_COLORS[status]}`}>
-                {STATUS_LABELS[status]}
+                {t(STATUS_LABELS[status])}
               </span>
             );
           })()}
@@ -208,7 +211,7 @@ function ContractCard({
               borderRadius: 20, fontSize: 11, fontWeight: 600,
               background: "var(--danger-dim)", color: "var(--danger)", border: "1px solid var(--danger)",
             }}>
-              Nofaol
+              {t("Nofaol")}
             </span>
           )}
         </div>
@@ -220,15 +223,15 @@ function ContractCard({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="tcc-rows">
             <div className="tcc-row">
-              <span className="tcc-label">Mahsulot</span>
+              <span className="tcc-label">{t("Mahsulot")}</span>
               <span className="tcc-value accent">
                 {product
                   ? `${product.productType}`
-                  : "Umumiy"}
+                  : t("Umumiy")}
               </span>
             </div>
             <div className="tcc-row">
-              <span className="tcc-label">Miqdor</span>
+              <span className="tcc-label">{t("Miqdor")}</span>
               <span className="tcc-value">
                 {product
                   ? `${product.quantity.toLocaleString()} ${product.unit}`
@@ -300,7 +303,7 @@ function ContractCard({
             </text>
           </svg>
           <span style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-            Bajarildi
+            {t("Bajarildi")}
           </span>
         </div>
       </div>
@@ -331,6 +334,7 @@ function TaskRow({
   isDragging?: boolean;
   offsetY?: number;
 }) {
+  const t = useT();
   const isWarehouse = task.name === WAREHOUSE_TASK_NAME;
   const pct = Math.min(100, Math.max(0, task.percentComplete));
   const done = pct >= 100;
@@ -356,7 +360,7 @@ function TaskRow({
         {!isWarehouse && onPointerDownDrag ? (
           <div
             onPointerDown={onPointerDownDrag}
-            title="Tartibni o'zgartirish"
+            title={t("Tartibni o'zgartirish")}
             style={{
               cursor: "grab",
               color: "var(--text3)",
@@ -380,11 +384,11 @@ function TaskRow({
         <div className="task-name" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <span>{task.name}</span>
           <span style={{ fontSize: 11, color: "var(--text3)" }}>
-            {task.productType ? `📦 ${task.productType}` : "📋 Umumiy"}
+            {task.productType ? `📦 ${task.productType}` : `📋 ${t("Umumiy")}`}
           </span>
         </div>
         <span className={`task-pct${done ? " done" : ""}`}>{pct.toFixed(1)}%</span>
-        <button className="btn-icon" onClick={() => onLog(task.id)} title="Kunlik kiritish"
+        <button className="btn-icon" onClick={() => onLog(task.id)} title={t("Kunlik kiritish")}
           style={{ color: "#3b82f6", borderColor: "#3b82f633", background: "#3b82f612" }}>
           <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="10"/>
@@ -392,7 +396,7 @@ function TaskRow({
             <line x1="8" y1="12" x2="16" y2="12"/>
           </svg>
         </button>
-        <button className="btn-icon" onClick={() => onEdit(task.id)} title="Tahrirlash"
+        <button className="btn-icon" onClick={() => onEdit(task.id)} title={t("Tahrirlash")}
           style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
           <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -400,13 +404,13 @@ function TaskRow({
           </svg>
         </button>
         {isWarehouse && onShipments && (
-          <button className="btn-icon" onClick={() => onShipments(task.id)} title="Jo'natmalar"
+          <button className="btn-icon" onClick={() => onShipments(task.id)} title={t("Jo'natmalar")}
             style={{ color: "var(--accent)", borderColor: "var(--accent-mid)", background: "var(--accent-dim)", fontWeight: 800, fontSize: 12 }}>
             {shipmentCount}
           </button>
         )}
         {!isWarehouse && (
-          <button className="btn-icon btn-icon-danger" onClick={() => onDelete(task.id)} title="O'chirish"
+          <button className="btn-icon btn-icon-danger" onClick={() => onDelete(task.id)} title={t("O'chirish")}
             style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
             <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <polyline points="3 6 5 6 21 6"/>
@@ -426,13 +430,13 @@ function TaskRow({
       {/* Footer */}
       <div className="task-row-footer">
         <div className="task-footer-item">
-          <span className="task-footer-label">Bajarildi</span>
+          <span className="task-footer-label">{t("Bajarildi")}</span>
           <span className="task-footer-val">
             {task.completedAmount.toLocaleString()} / {task.totalAmount.toLocaleString()}
           </span>
         </div>
         <div className="task-footer-item">
-          <span className="task-footer-label">Muhimlilik</span>
+          <span className="task-footer-label">{t("Muhimlilik")}</span>
           <span className="task-footer-val warn">{task.importance}%</span>
         </div>
       </div>
@@ -457,6 +461,7 @@ function EditTaskModal({
   ) => Promise<void>;
   onCancel: () => void;
 }) {
+  const t = useT();
   const [name, setName] = useState(task.name);
   const [completedAmount, setCompletedAmount] = useState(String(task.completedAmount));
   // importanceMap: id → string value for all tasks
@@ -497,8 +502,8 @@ function EditTaskModal({
     if (diff !== 0) {
       setImportanceError(
         diff > 0
-          ? `Muhimlilik jami ${total}% — ${diff}% ortiqcha. Jami 100% bo'lishi kerak.`
-          : `Muhimlilik jami ${total}% — yana ${Math.abs(diff)}% qoldi. Jami 100% bo'lishi kerak.`
+          ? `${t("Muhimlilik jami")} ${total}% — ${diff}% ${t("ortiqcha. Jami 100% bo'lishi kerak.")}`
+          : `${t("Muhimlilik jami")} ${total}% — ${t("yana")} ${Math.abs(diff)}% ${t("qoldi. Jami 100% bo'lishi kerak.")}`
       );
       return;
     }
@@ -519,7 +524,7 @@ function EditTaskModal({
       );
     } catch (e) {
       const err = e as { response?: { data?: { errors?: string[] } } };
-      setServerError(err?.response?.data?.errors?.[0] ?? "Saqlashda xatolik yuz berdi.");
+      setServerError(err?.response?.data?.errors?.[0] ?? t("Saqlashda xatolik yuz berdi."));
     } finally {
       setSaving(false);
     }
@@ -529,7 +534,7 @@ function EditTaskModal({
     <div className="modal-overlay" onClick={onCancel}>
       <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 540, maxHeight: "90vh", overflowY: "auto" }}>
         <div className="modal-header">
-          <span>Vazifani tahrirlash — <span className="mono">#{task.orderNo}</span></span>
+          <span>{t("Vazifani tahrirlash")} — <span className="mono">#{task.orderNo}</span></span>
           <button className="modal-close" onClick={onCancel}>
             <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -540,7 +545,7 @@ function EditTaskModal({
         <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {/* Main task fields */}
           <div className="atf-field">
-            <label className="atf-label">Vazifa nomi <span style={{ color: "var(--danger)" }}>*</span></label>
+            <label className="atf-label">{t("Vazifa nomi")} <span style={{ color: "var(--danger)" }}>*</span></label>
             <textarea
               className="form-textarea atf-textarea"
               rows={2}
@@ -549,16 +554,16 @@ function EditTaskModal({
               style={submitted && !name.trim() ? { borderColor: "var(--danger)" } : undefined}
             />
             {submitted && !name.trim() && (
-              <div style={{ color: "var(--danger)", fontSize: 12 }}>Vazifa nomini kiriting</div>
+              <div style={{ color: "var(--danger)", fontSize: 12 }}>{t("Vazifa nomini kiriting")}</div>
             )}
           </div>
 
           <div className="atf-field">
             <label className="atf-label">
-              Bajarilgan miqdor
+              {t("Bajarilgan miqdor")}
               {isWarehouse && warehouseCap !== null && (
                 <span style={{ color: "var(--text3)", fontWeight: 500, marginLeft: 6 }}>
-                  (eng ko&apos;pi {warehouseCap.toLocaleString()})
+                  ({t("eng ko'pi")} {warehouseCap.toLocaleString()})
                 </span>
               )}
             </label>
@@ -572,7 +577,7 @@ function EditTaskModal({
             />
             {submitted && completedExceedsCap && warehouseCap !== null && (
               <div style={{ color: "var(--danger)", fontSize: 12 }}>
-                Boshqa vazifalar shu darajada bajarilmagan — eng ko&apos;pi {warehouseCap.toLocaleString()}.
+                {t("Boshqa vazifalar shu darajada bajarilmagan — eng ko'pi")} {warehouseCap.toLocaleString()}.
               </div>
             )}
             {serverError && (
@@ -583,7 +588,7 @@ function EditTaskModal({
           {/* All tasks importance editor */}
           <div style={{ borderTop: "1px solid var(--border)", paddingTop: 14 }}>
             <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Muhimlilikni taqsimlash — jami 100% bo&apos;lishi kerak
+              {t("Muhimlilikni taqsimlash — jami 100% bo'lishi kerak")}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {[...allTasks].sort((a, b) => a.orderNo - b.orderNo).map(t => {
@@ -629,21 +634,21 @@ function EditTaskModal({
                   <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
                     <polyline points="20 6 9 17 4 12"/>
                   </svg>
-                  Jami {total}% — to&apos;g&apos;ri!
+                  {t("Jami")} {total}% — {t("to'g'ri!")}
                 </>
               ) : diff > 0 ? (
                 <>
                   <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                     <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                   </svg>
-                  Jami {total}% — {diff}% ortiqcha
+                  {t("Jami")} {total}% — {diff}% {t("ortiqcha")}
                 </>
               ) : (
                 <>
                   <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                     <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                   </svg>
-                  Jami {total}% — yana {Math.abs(diff)}% qoldi
+                  {t("Jami")} {total}% — {t("yana")} {Math.abs(diff)}% {t("qoldi")}
                 </>
               )}
             </div>
@@ -659,23 +664,23 @@ function EditTaskModal({
                   <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                     <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                   </svg>
-                  Muhimlilik xatosi
+                  {t("Muhimlilik xatosi")}
                 </span>
               </div>
               <div className="modal-body">
                 <p style={{ fontSize: 14, color: "var(--text)", lineHeight: 1.6 }}>{importanceError}</p>
               </div>
               <div className="modal-footer">
-                <button className="btn btn-primary" onClick={() => setImportanceError("")}>Tushundim</button>
+                <button className="btn btn-primary" onClick={() => setImportanceError("")}>{t("Tushundim")}</button>
               </div>
             </div>
           </div>
         )}
 
         <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={onCancel} disabled={saving}>Bekor qilish</button>
+          <button className="btn btn-secondary" onClick={onCancel} disabled={saving}>{t("Bekor qilish")}</button>
           <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-            {saving ? "Saqlanmoqda…" : "Saqlash"}
+            {saving ? t("Saqlanmoqda…") : t("Saqlash")}
           </button>
         </div>
       </div>
@@ -697,6 +702,7 @@ function DailyLogModal({
   onSave: (taskId: string, amount: number) => Promise<void>;
   onCancel: () => void;
 }) {
+  const t = useT();
   const [amount, setAmount] = useState("");
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -741,7 +747,7 @@ function DailyLogModal({
       await onSave(task.id, parsed);
     } catch (e) {
       const err = e as { response?: { data?: { errors?: string[] } } };
-      setServerError(err?.response?.data?.errors?.[0] ?? "Saqlashda xatolik yuz berdi.");
+      setServerError(err?.response?.data?.errors?.[0] ?? t("Saqlashda xatolik yuz berdi."));
     } finally {
       setSaving(false);
     }
@@ -751,7 +757,7 @@ function DailyLogModal({
     <div className="modal-overlay" onClick={onCancel}>
       <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 480, maxHeight: "90vh", overflowY: "auto" }}>
         <div className="modal-header">
-          <span>Kunlik kiritish — <span className="mono">#{task.orderNo}</span> {task.name}</span>
+          <span>{t("Kunlik kiritish")} — <span className="mono">#{task.orderNo}</span> {task.name}</span>
           <button className="modal-close" onClick={onCancel}>
             <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -767,21 +773,21 @@ function DailyLogModal({
             fontSize: 13,
           }}>
             <div style={{ flex: 1, borderRight: "1px solid var(--border)", paddingRight: 12, marginRight: 4 }}>
-              <div style={{ color: "var(--text3)", fontSize: 11, marginBottom: 2 }}>Jami</div>
+              <div style={{ color: "var(--text3)", fontSize: 11, marginBottom: 2 }}>{t("Jami")}</div>
               <div style={{ fontWeight: 700, fontSize: 15 }}>{task.totalAmount.toLocaleString()}</div>
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ color: "var(--text3)", fontSize: 11, marginBottom: 2 }}>Bajarilgan</div>
+              <div style={{ color: "var(--text3)", fontSize: 11, marginBottom: 2 }}>{t("Bajarilgan")}</div>
               <div style={{ fontWeight: 600 }}>{task.completedAmount.toLocaleString()}</div>
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ color: "var(--text3)", fontSize: 11, marginBottom: 2 }}>Qoldi</div>
+              <div style={{ color: "var(--text3)", fontSize: 11, marginBottom: 2 }}>{t("Qoldi")}</div>
               <div style={{ fontWeight: 600, color: remaining > 0 ? "var(--danger)" : "var(--success, #22c55e)" }}>
                 {remaining.toLocaleString()}
               </div>
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ color: "var(--text3)", fontSize: 11, marginBottom: 2 }}>Foiz</div>
+              <div style={{ color: "var(--text3)", fontSize: 11, marginBottom: 2 }}>{t("Foiz")}</div>
               <div style={{ fontWeight: 600, color: "var(--accent, #3b82f6)" }}>{task.percentComplete.toFixed(1)}%</div>
             </div>
           </div>
@@ -789,17 +795,17 @@ function DailyLogModal({
           {/* Input fields */}
           <div className="atf-field">
             <label className="atf-label">
-              Bugun bajarildi <span style={{ color: "var(--danger)" }}>*</span>
+              {t("Bugun bajarildi")} <span style={{ color: "var(--danger)" }}>*</span>
               {isWarehouse && warehouseRemaining !== null && (
                 <span style={{ color: "var(--text3)", fontWeight: 500, marginLeft: 6 }}>
-                  (eng ko&apos;pi {warehouseRemaining.toLocaleString()})
+                  ({t("eng ko'pi")} {warehouseRemaining.toLocaleString()})
                 </span>
               )}
             </label>
             <input
               className="form-input"
               type="number" min="0.01" step="any"
-              placeholder="Miqdorni kiriting"
+              placeholder={t("Miqdorni kiriting")}
               value={amount}
               onChange={e => { setAmount(e.target.value); setServerError(""); }}
               onWheel={e => (e.target as HTMLInputElement).blur()}
@@ -807,13 +813,13 @@ function DailyLogModal({
               style={submitted && ((!amount || parsed <= 0) || exceedsCap) ? { borderColor: "var(--danger)" } : undefined}
             />
             {submitted && (!amount || parsed <= 0) && (
-              <div style={{ color: "var(--danger)", fontSize: 12 }}>Miqdorni kiriting</div>
+              <div style={{ color: "var(--danger)", fontSize: 12 }}>{t("Miqdorni kiriting")}</div>
             )}
             {submitted && amount && parsed > 0 && exceedsCap && (
               <div style={{ color: "var(--danger)", fontSize: 12 }}>
                 {isWarehouse && warehouseRemaining !== null && parsed > warehouseRemaining
-                  ? `Boshqa vazifalar shu darajada bajarilmagan — eng ko'pi ${warehouseRemaining.toLocaleString()}.`
-                  : `Qoldiq miqdordan oshib ketdi — eng ko'pi ${remaining.toLocaleString()}.`}
+                  ? `${t("Boshqa vazifalar shu darajada bajarilmagan — eng ko'pi")} ${warehouseRemaining.toLocaleString()}.`
+                  : `${t("Qoldiq miqdordan oshib ketdi — eng ko'pi")} ${remaining.toLocaleString()}.`}
               </div>
             )}
             {serverError && (
@@ -824,12 +830,12 @@ function DailyLogModal({
           {/* History */}
           <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12 }}>
             <div style={{ fontSize: 12, color: "var(--text3)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
-              Kunlik tarix
+              {t("Kunlik tarix")}
             </div>
             {logsLoading ? (
-              <div style={{ fontSize: 13, color: "var(--text3)" }}>Yuklanmoqda…</div>
+              <div style={{ fontSize: 13, color: "var(--text3)" }}>{t("Yuklanmoqda…")}</div>
             ) : logs.length === 0 ? (
-              <div style={{ fontSize: 13, color: "var(--text3)" }}>Hali kiritilmagan</div>
+              <div style={{ fontSize: 13, color: "var(--text3)" }}>{t("Hali kiritilmagan")}</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 200, overflowY: "auto" }}>
                 {logs.map(l => (
@@ -852,9 +858,9 @@ function DailyLogModal({
         </div>
 
         <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={onCancel} disabled={saving}>Bekor qilish</button>
+          <button className="btn btn-secondary" onClick={onCancel} disabled={saving}>{t("Bekor qilish")}</button>
           <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-            {saving ? "Saqlanmoqda…" : "Saqlash"}
+            {saving ? t("Saqlanmoqda…") : t("Saqlash")}
           </button>
         </div>
       </div>
@@ -888,6 +894,7 @@ function ShipmentsModal({
   onChange: (next: ShipmentBatch[]) => void;
   onCancel: () => void;
 }) {
+  const t = useT();
   const [batches, setBatches] = useState<ShipmentBatch[]>(initialBatches);
   const [amount, setAmount] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -929,7 +936,7 @@ function ShipmentsModal({
       setConfirmAmount(null);
     } catch (e) {
       const err = e as { response?: { data?: { errors?: string[] } } };
-      const msg = err?.response?.data?.errors?.[0] ?? "Saqlashda xatolik yuz berdi.";
+      const msg = err?.response?.data?.errors?.[0] ?? t("Saqlashda xatolik yuz berdi.");
       setError(msg);
     } finally {
       setSubmitting(false);
@@ -956,7 +963,7 @@ function ShipmentsModal({
                 <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/>
               </svg>
             </span>
-            Jo&apos;natmalar
+            {t("Jo'natmalar")}
           </span>
           <button className="modal-close" onClick={onCancel}>
             <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
@@ -973,19 +980,19 @@ function ShipmentsModal({
             fontSize: 13,
           }}>
             <div style={{ flex: 1, borderRight: `1px solid ${PURPLE_BORDER}`, paddingRight: 12 }}>
-              <div style={{ color: "var(--text3)", fontSize: 11, marginBottom: 2, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Tayyor</div>
+              <div style={{ color: "var(--text3)", fontSize: 11, marginBottom: 2, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>{t("Tayyor")}</div>
               <div style={{ fontWeight: 800, fontSize: 16, color: "var(--text1)" }}>
                 {ready.toLocaleString()} <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600 }}>{unit}</span>
               </div>
             </div>
             <div style={{ flex: 1, borderRight: `1px solid ${PURPLE_BORDER}`, paddingRight: 12 }}>
-              <div style={{ color: "var(--text3)", fontSize: 11, marginBottom: 2, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Jo&apos;natilgan</div>
+              <div style={{ color: "var(--text3)", fontSize: 11, marginBottom: 2, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>{t("Jo'natilgan")}</div>
               <div style={{ fontWeight: 800, fontSize: 16, color: PURPLE }}>
                 {shipped.toLocaleString()}
               </div>
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ color: "var(--text3)", fontSize: 11, marginBottom: 2, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Mavjud</div>
+              <div style={{ color: "var(--text3)", fontSize: 11, marginBottom: 2, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>{t("Mavjud")}</div>
               <div style={{ fontWeight: 800, fontSize: 16, color: available > 0 ? "var(--success, #22c55e)" : "var(--text3)" }}>
                 {available.toLocaleString()}
               </div>
@@ -1002,7 +1009,7 @@ function ShipmentsModal({
               marginBottom: 10,
             }}>
               <div style={{ fontSize: 12, color: "var(--text3)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                Yangi jo&apos;natma
+                {t("Yangi jo'natma")}
               </div>
               <span style={{
                 display: "inline-flex", alignItems: "center",
@@ -1011,36 +1018,36 @@ function ShipmentsModal({
                 border: `1px solid ${PURPLE_BORDER}`,
                 fontSize: 11, fontWeight: 800,
               }}>
-                Partiya #{nextBatchNo}
+                {t("Partiya")} #{nextBatchNo}
               </span>
             </div>
 
             <div className="atf-field">
               <label className="atf-label">
-                Miqdor <span style={{ color: "var(--danger)" }}>*</span>
+                {t("Miqdor")} <span style={{ color: "var(--danger)" }}>*</span>
                 <span style={{ color: "var(--text3)", fontWeight: 500, marginLeft: 6 }}>
-                  ({available.toLocaleString()} {unit} dan ko&apos;p emas)
+                  ({available.toLocaleString()} {unit} {t("dan ko'p emas")})
                 </span>
               </label>
               <input
                 className="form-input"
                 type="number" min="0.01" step="any"
-                placeholder="Jo'natiladigan miqdor"
+                placeholder={t("Jo'natiladigan miqdor")}
                 value={amount}
                 onChange={e => setAmount(e.target.value)}
                 disabled={available <= 0}
                 style={submitted && !amountValid ? { borderColor: "var(--danger)" } : undefined}
               />
               {submitted && !amount && (
-                <div style={{ color: "var(--danger)", fontSize: 12 }}>Miqdorni kiriting</div>
+                <div style={{ color: "var(--danger)", fontSize: 12 }}>{t("Miqdorni kiriting")}</div>
               )}
               {submitted && amount && tooMuch && (
                 <div style={{ color: "var(--danger)", fontSize: 12 }}>
-                  Mavjud miqdordan oshib ketdi
+                  {t("Mavjud miqdordan oshib ketdi")}
                 </div>
               )}
               {submitted && amount && !tooMuch && parsed <= 0 && (
-                <div style={{ color: "var(--danger)", fontSize: 12 }}>Miqdor 0 dan katta bo&apos;lsin</div>
+                <div style={{ color: "var(--danger)", fontSize: 12 }}>{t("Miqdor 0 dan katta bo'lsin")}</div>
               )}
               {error && (
                 <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>{error}</div>
@@ -1065,17 +1072,17 @@ function ShipmentsModal({
                 <line x1="22" y1="2" x2="11" y2="13"/>
                 <polygon points="22 2 15 22 11 13 2 9 22 2"/>
               </svg>
-              Jo&apos;natma
+              {t("Jo'natma")}
             </button>
           </div>
 
           {/* History */}
           <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12 }}>
             <div style={{ fontSize: 12, color: "var(--text3)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
-              Partiyalar tarixi
+              {t("Partiyalar tarixi")}
             </div>
             {batches.length === 0 ? (
-              <div style={{ fontSize: 13, color: "var(--text3)" }}>Hali jo&apos;natma yo&apos;q</div>
+              <div style={{ fontSize: 13, color: "var(--text3)" }}>{t("Hali jo'natma yo'q")}</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflowY: "auto" }}>
                 {[...batches].sort((a, b) => b.batchNo - a.batchNo).map(b => (
@@ -1136,7 +1143,7 @@ function ShipmentsModal({
         </div>
 
         <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={onCancel}>Yopish</button>
+          <button className="btn btn-secondary" onClick={onCancel}>{t("Yopish")}</button>
         </div>
 
         {/* Confirm dialog */}
@@ -1150,18 +1157,18 @@ function ShipmentsModal({
                     <line x1="12" y1="8" x2="12" y2="12"/>
                     <line x1="12" y1="16" x2="12.01" y2="16"/>
                   </svg>
-                  Tasdiqlash
+                  {t("Tasdiqlash")}
                 </span>
               </div>
               <div className="modal-body">
                 <p style={{ fontSize: 14, color: "var(--text)", lineHeight: 1.6, margin: 0 }}>
-                  Siz haqiqatdan ham{" "}
+                  {t("Siz haqiqatdan ham")}{" "}
                   <strong style={{ color: PURPLE }}>
                     {confirmAmount.toLocaleString()} {unit}
                   </strong>{" "}
-                  mahsulotni{" "}
-                  <strong style={{ color: PURPLE }}>#{nextBatchNo}-jo&apos;natma</strong>{" "}
-                  sifatida yubormoqchimisiz?
+                  {t("mahsulotni")}{" "}
+                  <strong style={{ color: PURPLE }}>#{nextBatchNo}-{t("jo'natma")}</strong>{" "}
+                  {t("sifatida yubormoqchimisiz?")}
                 </p>
                 {error && (
                   <div style={{
@@ -1188,7 +1195,7 @@ function ShipmentsModal({
                     opacity: submitting ? 0.6 : 1,
                   }}
                 >
-                  Yo&apos;q
+                  {t("Yo'q")}
                 </button>
                 <button
                   onClick={handleConfirmSend}
@@ -1203,7 +1210,7 @@ function ShipmentsModal({
                     opacity: submitting ? 0.7 : 1,
                   }}
                 >
-                  {submitting ? "Saqlanmoqda…" : "Ha"}
+                  {submitting ? t("Saqlanmoqda…") : t("Ha")}
                 </button>
               </div>
             </div>
@@ -1236,6 +1243,7 @@ function AddTaskForm({
   existingTasks: ContractTaskResponse[];
   scopeQuantity: number;
 }) {
+  const t = useT();
   const emptyForm = (): NewTaskForm => ({ name: "", importance: "" });
   const [forms, setForms] = useState<NewTaskForm[]>([emptyForm()]);
   const [saving, setSaving] = useState(false);
@@ -1269,8 +1277,8 @@ function AddTaskForm({
     if (diff !== 0) {
       setImportanceError(
         diff > 0
-          ? `Muhimlilik jami ${projectedTotal}% — ${diff}% ortiqcha. Jami 100% bo'lishi kerak.`
-          : `Muhimlilik jami ${projectedTotal}% — yana ${Math.abs(diff)}% qoldi. Jami 100% bo'lishi kerak.`
+          ? `${t("Muhimlilik jami")} ${projectedTotal}% — ${diff}% ${t("ortiqcha. Jami 100% bo'lishi kerak.")}`
+          : `${t("Muhimlilik jami")} ${projectedTotal}% — ${t("yana")} ${Math.abs(diff)}% ${t("qoldi. Jami 100% bo'lishi kerak.")}`
       );
       return;
     }
@@ -1297,7 +1305,7 @@ function AddTaskForm({
       {forms.map((f, i) => (
         <div key={i} className="itm-card" style={{ padding: 16 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)" }}>#{i + 1} vazifa</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)" }}>#{i + 1} {t("vazifa")}</span>
             {forms.length > 1 && (
               <button
                 onClick={() => removeRow(i)}
@@ -1311,28 +1319,28 @@ function AddTaskForm({
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <line x1="5" y1="12" x2="19" y2="12"/>
                 </svg>
-                Olib tashlash
+                {t("Olib tashlash")}
               </button>
             )}
           </div>
 
           <div className="atf-field">
-            <label className="atf-label">Vazifa nomi <span style={{ color: "var(--danger)" }}>*</span></label>
+            <label className="atf-label">{t("Vazifa nomi")} <span style={{ color: "var(--danger)" }}>*</span></label>
             <textarea
               className="form-textarea atf-textarea"
-              placeholder="Masalan: Tikish bo'yicha tayyorgarlik"
+              placeholder={t("Masalan: Tikish bo'yicha tayyorgarlik")}
               value={f.name}
               rows={2}
               onChange={e => updateRow(i, "name", e.target.value)}
               style={submitted && !f.name.trim() ? { borderColor: "var(--danger)" } : undefined}
             />
             {submitted && !f.name.trim() && (
-              <div style={{ color: "var(--danger)", fontSize: 12 }}>Vazifa nomini kiriting</div>
+              <div style={{ color: "var(--danger)", fontSize: 12 }}>{t("Vazifa nomini kiriting")}</div>
             )}
           </div>
 
           <div className="atf-field" style={{ marginTop: 8 }}>
-            <label className="atf-label">Muhimlilik (%) <span style={{ color: "var(--danger)" }}>*</span></label>
+            <label className="atf-label">{t("Muhimlilik (%)")} <span style={{ color: "var(--danger)" }}>*</span></label>
             <input
               className="form-input"
               type="number" min="0" max="100"
@@ -1343,7 +1351,7 @@ function AddTaskForm({
               style={submitted && f.importance === "" ? { borderColor: "var(--danger)" } : undefined}
             />
             {submitted && f.importance === "" && (
-              <div style={{ color: "var(--danger)", fontSize: 12 }}>Muhimlilikni kiriting</div>
+              <div style={{ color: "var(--danger)", fontSize: 12 }}>{t("Muhimlilikni kiriting")}</div>
             )}
           </div>
         </div>
@@ -1354,14 +1362,14 @@ function AddTaskForm({
         <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
           <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
         </svg>
-        Yana vazifa qo&apos;shish
+        {t("Yana vazifa qo'shish")}
       </button>
 
       {/* Existing tasks importance editor */}
       {existingTasks.length > 0 && (
         <div className="itm-card" style={{ padding: 16 }}>
           <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            Mavjud vazifalar muhimliligini qayta taqsimlash
+            {t("Mavjud vazifalar muhimliligini qayta taqsimlash")}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {[...existingTasks].sort((a, b) => a.orderNo - b.orderNo).map(t => (
@@ -1408,14 +1416,14 @@ function AddTaskForm({
                 <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                 </svg>
-                Muhimlilik xatosi
+                {t("Muhimlilik xatosi")}
               </span>
             </div>
             <div className="modal-body">
               <p style={{ fontSize: 14, color: "var(--text)", lineHeight: 1.6 }}>{importanceError}</p>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-primary" onClick={() => setImportanceError("")}>Tushundim</button>
+              <button className="btn btn-primary" onClick={() => setImportanceError("")}>{t("Tushundim")}</button>
             </div>
           </div>
         </div>,
@@ -1430,21 +1438,21 @@ function AddTaskForm({
               <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
-              Jami {projectedTotal}% — to&apos;g&apos;ri!
+              {t("Jami")} {projectedTotal}% — {t("to'g'ri!")}
             </>
           ) : diff > 0 ? (
             <>
               <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
               </svg>
-              Jami {projectedTotal}% — {diff}% ortiqcha
+              {t("Jami")} {projectedTotal}% — {diff}% {t("ortiqcha")}
             </>
           ) : (
             <>
               <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
               </svg>
-              Jami {projectedTotal}% — yana {Math.abs(diff)}% qoldi
+              {t("Jami")} {projectedTotal}% — {t("yana")} {Math.abs(diff)}% {t("qoldi")}
             </>
           )}
         </div>
@@ -1452,9 +1460,9 @@ function AddTaskForm({
 
       {/* Actions */}
       <div className="atf-actions">
-        <button className="btn btn-secondary" onClick={onCancel} disabled={saving}>Bekor qilish</button>
+        <button className="btn btn-secondary" onClick={onCancel} disabled={saving}>{t("Bekor qilish")}</button>
         <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-          {saving ? "Saqlanmoqda…" : forms.length === 1 ? "Saqlash" : `${forms.length} ta vazifa saqlash`}
+          {saving ? t("Saqlanmoqda…") : forms.length === 1 ? t("Saqlash") : `${forms.length} ${t("ta vazifa saqlash")}`}
         </button>
       </div>
     </>
@@ -1471,6 +1479,7 @@ function sortTasksWithWarehouseLast(data: ContractTaskResponse[]): ContractTaskR
 }
 
 function TaskPanel({ scope, hideHeader }: { scope: Scope; hideHeader?: boolean }) {
+  const t = useT();
   const { contract, product } = scope;
   const productScopeId = product?.id ?? null;
   const hasPermission = useAuthStore(s => s.hasPermission);
@@ -1758,13 +1767,13 @@ function TaskPanel({ scope, hideHeader }: { scope: Scope; hideHeader?: boolean }
           </div>
         </div>
         <span className={`status ${STATUS_COLORS[contract.status]}`}>
-          {STATUS_LABELS[contract.status]}
+          {t(STATUS_LABELS[contract.status])}
         </span>
       </div>}
 
       {/* Tasks list */}
       {loading ? (
-        <div className="tp-empty">Yuklanmoqda…</div>
+        <div className="tp-empty">{t("Yuklanmoqda…")}</div>
       ) : tasks.length === 0 && !showForm ? (
         <div className="tp-empty bordered">
           <svg width="32" height="32" fill="none" stroke="var(--text3)" strokeWidth="1.5" viewBox="0 0 24 24" style={{ marginBottom: 8 }}>
@@ -1772,7 +1781,7 @@ function TaskPanel({ scope, hideHeader }: { scope: Scope; hideHeader?: boolean }
             <path d="M5 4h2v2h10V4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/>
             <line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/>
           </svg>
-          <span>Hali vazifa qo&apos;shilmagan</span>
+          <span>{t("Hali vazifa qo'shilmagan")}</span>
         </div>
       ) : (
         <div
@@ -1830,7 +1839,7 @@ function TaskPanel({ scope, hideHeader }: { scope: Scope; hideHeader?: boolean }
           <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
-          Vazifa qo&apos;shish
+          {t("Vazifa qo'shish")}
         </button>
       )}
 
@@ -1875,10 +1884,10 @@ function TaskPanel({ scope, hideHeader }: { scope: Scope; hideHeader?: boolean }
       {/* Delete confirmation modal */}
       <ConfirmModal
         open={!!confirmDeleteId}
-        title="Vazifani o'chirish"
+        title={t("Vazifani o'chirish")}
         message={(() => {
-          const t = tasks.find(t => t.id === confirmDeleteId);
-          return <><strong style={{ color: "var(--text1)" }}>&ldquo;{t?.name}&rdquo;</strong> vazifasini o&apos;chirmoqchimisiz? Bu amalni qaytarib bo&apos;lmaydi.</>;
+          const task = tasks.find(tk => tk.id === confirmDeleteId);
+          return <><strong style={{ color: "var(--text1)" }}>&ldquo;{task?.name}&rdquo;</strong> {t("vazifasini o'chirmoqchimisiz? Bu amalni qaytarib bo'lmaydi.")}</>;
         })()}
         onConfirm={async () => {
           const id = confirmDeleteId;
@@ -1896,6 +1905,7 @@ function TaskPanel({ scope, hideHeader }: { scope: Scope; hideHeader?: boolean }
 type Phase = "grid" | "grid-exit" | "panel" | "panel-exit";
 
 export default function TasksPage() {
+  const t = useT();
   const hasPermission = useAuthStore(s => s.hasPermission);
   const [contracts, setContracts] = useState<ContractResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2012,7 +2022,7 @@ export default function TasksPage() {
   if (!canView) {
     return (
       <div className="itm-card" style={{ textAlign: "center", padding: 48, color: "var(--text3)" }}>
-        Bu sahifaga kirish huquqingiz yo&apos;q.
+        {t("Bu sahifaga kirish huquqingiz yo'q.")}
       </div>
     );
   }
@@ -2020,7 +2030,7 @@ export default function TasksPage() {
   if (loading) {
     return (
       <div className="itm-card" style={{ textAlign: "center", padding: 48, color: "var(--text3)" }}>
-        Yuklanmoqda...
+        {t("Yuklanmoqda...")}
       </div>
     );
   }
@@ -2051,7 +2061,7 @@ export default function TasksPage() {
             <path d="M5 4h2v2h10V4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/>
             <line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/>
           </svg>
-          <div>Sizga biriktirilgan shartnoma topilmadi.</div>
+          <div>{t("Sizga biriktirilgan shartnoma topilmadi.")}</div>
         </div>
       ) : (phase === "grid" || phase === "grid-exit") ? (
         /* Grid view (with exit animation when transitioning) */
@@ -2074,7 +2084,7 @@ export default function TasksPage() {
                 <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
                   <polyline points="20 6 9 17 4 12"/>
                 </svg>
-                Faol
+                {t("Faol")}
               </button>
               <button
                 onClick={() => setViewMode("archive")}
@@ -2092,7 +2102,7 @@ export default function TasksPage() {
                   <rect x="1" y="3" width="22" height="5"/>
                   <line x1="10" y1="12" x2="14" y2="12"/>
                 </svg>
-                Arxiv
+                {t("Arxiv")}
               </button>
             </div>
 
@@ -2102,7 +2112,7 @@ export default function TasksPage() {
               </svg>
               <input
                 className="search-input"
-                placeholder="Qidirish: raqam, tomon, mahsulot…"
+                placeholder={t("Qidirish: raqam, tomon, mahsulot…")}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
@@ -2117,7 +2127,7 @@ export default function TasksPage() {
               <button
                 ref={legendBtnRef}
                 onClick={() => setLegendOpen(o => !o)}
-                title="Holatlar nimani anglatadi?"
+                title={t("Holatlar nimani anglatadi?")}
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 6,
                   padding: "6px 12px", borderRadius: "var(--radius)",
@@ -2135,7 +2145,7 @@ export default function TasksPage() {
                   <line x1="12" y1="16" x2="12" y2="12"/>
                   <line x1="12" y1="8" x2="12.01" y2="8"/>
                 </svg>
-                Holatlar
+                {t("Holatlar")}
                 <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
                   style={{ transition: "transform 0.2s", transform: legendOpen ? "rotate(180deg)" : "rotate(0deg)" }}>
                   <polyline points="6 9 12 15 18 9"/>
@@ -2165,7 +2175,7 @@ export default function TasksPage() {
                       <line x1="12" y1="16" x2="12" y2="12"/>
                       <line x1="12" y1="8" x2="12.01" y2="8"/>
                     </svg>
-                    Shartnoma holatlari
+                    {t("Shartnoma holatlari")}
                   </div>
 
                   <div style={{ padding: "10px 14px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
@@ -2186,14 +2196,14 @@ export default function TasksPage() {
                           }}
                         >
                           <span className={`status ${STATUS_COLORS[val]}`} style={{ alignSelf: "flex-start" }}>
-                            {label}
+                            {t(label)}
                           </span>
                           <p style={{
                             fontSize: 12,
                             color: isActive ? "var(--text)" : "var(--text2)",
                             lineHeight: 1.5, margin: 0, paddingLeft: 2,
                           }}>
-                            {STATUS_DESCRIPTIONS[val]}
+                            {t(STATUS_DESCRIPTIONS[val])}
                           </p>
                         </div>
                       );
@@ -2215,11 +2225,11 @@ export default function TasksPage() {
                       <line x1="12" y1="8" x2="12.01" y2="8"/>
                     </svg>
                     <span>
-                      Vazifalar faqat{" "}
+                      {t("Vazifalar faqat")}{" "}
                       <span style={{ color: "var(--accent)", fontWeight: 600, fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                        Ishlab chiqarishda
+                        {t("Ishlab chiqarishda")}
                       </span>
-                      {" "}holatidagi shartnomalardan yaratiladi.
+                      {" "}{t("holatidagi shartnomalardan yaratiladi.")}
                     </span>
                   </div>
                 </div>
@@ -2246,7 +2256,7 @@ export default function TasksPage() {
                 <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
                 </svg>
-                Filtrlar
+                {t("Filtrlar")}
                 {activeFilterCount > 0 && (
                   <span style={{
                     display: "inline-flex", alignItems: "center", justifyContent: "center",
@@ -2286,7 +2296,7 @@ export default function TasksPage() {
                       <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                         <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
                       </svg>
-                      Filtrlar
+                      {t("Filtrlar")}
                     </div>
                     {pendingStatus !== "" && (
                       <button
@@ -2303,7 +2313,7 @@ export default function TasksPage() {
                         <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
                           <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                         </svg>
-                        Tozalash
+                        {t("Tozalash")}
                       </button>
                     )}
                   </div>
@@ -2315,13 +2325,13 @@ export default function TasksPage() {
                         <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                           <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
                         </svg>
-                        Holat
+                        {t("Holat")}
                       </p>
                       <CheckSelect
                         value={pendingStatus}
                         onChange={setPendingStatus}
-                        options={(Object.entries(STATUS_LABELS) as unknown as [ContractStatus, string][]).map(([val, label]) => ({ id: String(val), name: label }))}
-                        placeholder="Barcha holat"
+                        options={(Object.entries(STATUS_LABELS) as unknown as [ContractStatus, string][]).map(([val, label]) => ({ id: String(val), name: t(label) }))}
+                        placeholder={t("Barcha holat")}
                         disablePortal
                       />
                     </div>
@@ -2345,7 +2355,7 @@ export default function TasksPage() {
                       <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                         <polyline points="20 6 9 17 4 12"/>
                       </svg>
-                      Filtrlarni qo&apos;llash
+                      {t("Filtrlarni qo'llash")}
                     </button>
                   </div>
                 </div>
@@ -2358,7 +2368,7 @@ export default function TasksPage() {
               <svg width="32" height="32" fill="none" stroke="var(--text3)" strokeWidth="1.5" viewBox="0 0 24 24" style={{ marginBottom: 10 }}>
                 <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
               </svg>
-              <div>{viewMode === "archive" ? "Arxivda shartnomalar yo'q." : "Filter bo'yicha mahsulot topilmadi."}</div>
+              <div>{viewMode === "archive" ? t("Arxivda shartnomalar yo'q.") : t("Filter bo'yicha mahsulot topilmadi.")}</div>
             </div>
           ) : (
             <div className="tasks-contract-grid">
@@ -2407,24 +2417,24 @@ export default function TasksPage() {
                 <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                 </svg>
-                Kirib bo&apos;lmaydi
+                {t("Kirib bo'lmaydi")}
               </span>
             </div>
             <div className="modal-body">
               <p style={{ fontSize: 14, color: "var(--text2)", marginBottom: 8 }}>
                 <strong style={{ color: "var(--text1)" }}>
                   #{blockModal.contract.contractNo} — {blockModal.contract.contractParty}
-                  {blockModal.product ? ` · ${blockModal.product.productType}` : " · Umumiy"}
+                  {blockModal.product ? ` · ${blockModal.product.productType}` : ` · ${t("Umumiy")}`}
                 </strong>
               </p>
               <p style={{ fontSize: 14, color: "var(--text)", lineHeight: 1.65 }}>
                 {blockModal.product
-                  ? "Bu mahsulot uchun texnik chizma, tex jarayon va xarajat normasi to'liq tasdiqlanmagan. Vazifa yaratish uchun mahsulot “Ishlab chiqarishda” holatiga o'tishi kerak."
-                  : "Bu shartnoma bo'yicha tex jarayon bo'limidagi umumiy holat hali yakunlanmagan. Vazifalar bo'limiga kirish uchun umumiy holat “Yakunlangan” bo'lishi kerak."}
+                  ? t("Bu mahsulot uchun texnik chizma, tex jarayon va xarajat normasi to'liq tasdiqlanmagan. Vazifa yaratish uchun mahsulot “Ishlab chiqarishda” holatiga o'tishi kerak.")
+                  : t("Bu shartnoma bo'yicha tex jarayon bo'limidagi umumiy holat hali yakunlanmagan. Vazifalar bo'limiga kirish uchun umumiy holat “Yakunlangan” bo'lishi kerak.")}
               </p>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-primary" onClick={() => setBlockModal(null)}>Tushundim</button>
+              <button className="btn btn-primary" onClick={() => setBlockModal(null)}>{t("Tushundim")}</button>
             </div>
           </div>
         </div>,

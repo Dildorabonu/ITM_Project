@@ -19,6 +19,7 @@ import {
   type CostNormResponse,
 } from "@/lib/userService";
 import { CheckSelect } from "../_components/CheckSelect";
+import { useT } from "@/lib/i18n";
 
 interface TableRow {
   id: number;
@@ -57,6 +58,7 @@ const PAGE_BOTTOM_PAD = 40;
 
 function RequisitionPrintContent() {
   const router = useRouter();
+  const t = useT();
   const searchParams = useSearchParams();
   const docRef = useRef<HTMLDivElement>(null);
   const descRef = useRef<HTMLSpanElement>(null);
@@ -292,7 +294,7 @@ function RequisitionPrintContent() {
     // Bo'lim sarlavhalarini va butunlay bo'sh qatorlarni chiqaramiz; totalQty
     // to'ldirilmagan bo'lsa ham, agar nom yoki raqami bo'lsa qator ko'chiriladi.
     const lines = norm.items.filter(i => !i.isSection && (i.name || i.no));
-    if (!lines.length) { showToast("Me'yoriy sarfda material qatorlari topilmadi", "Xatolik"); return; }
+    if (!lines.length) { showToast(t("Me'yoriy sarfda material qatorlari topilmadi"), t("Xatolik")); return; }
     const newRows = lines.map((ni, idx) => {
       const totalQtyNum = ni.totalQty ? parseFloat(ni.totalQty.replace(",", ".")) : NaN;
       return {
@@ -307,7 +309,7 @@ function RequisitionPrintContent() {
       };
     });
     setRows(newRows);
-    showToast(`Me'yoriy sarfdan ${newRows.length} ta qator to'ldirildi`, "success");
+    showToast(`${t("Me'yoriy sarfdan")} ${newRows.length} ${t("ta qator to'ldirildi")}`, "success");
   };
 
   const fetchAndApplyNorm = async (productId?: string, productLabel?: string) => {
@@ -319,8 +321,8 @@ function RequisitionPrintContent() {
         ? norms.filter(n => n.contractProductId === productId)
         : norms;
       if (!candidates.length) {
-        const target = productLabel ? `"${productLabel}"` : "Bu shartnoma";
-        showToast(`${target} uchun me'yoriy sarf topilmadi`, "Xatolik");
+        const target = productLabel ? `"${productLabel}"` : t("Bu shartnoma");
+        showToast(`${target} ${t("uchun me'yoriy sarf topilmadi")}`, t("Xatolik"));
         return;
       }
       const norm =
@@ -329,7 +331,7 @@ function RequisitionPrintContent() {
         candidates[0];
       applyNorm(norm);
     } catch {
-      showToast("Me'yoriy sarf yuklanmadi", "Xatolik");
+      showToast(t("Me'yoriy sarf yuklanmadi"), t("Xatolik"));
     } finally {
       setNormLoading(false);
     }
@@ -428,9 +430,9 @@ function RequisitionPrintContent() {
 
   const validateSystem = () => {
     const filledRows = rows.filter(r => r.name.trim());
-    if (!filledRows.length) { showToast("Kamida bitta material kiriting", "Xatolik"); return false; }
-    if (type === RequisitionType.Contract && !contractId) { showToast("Shartnomani tanlang", "Xatolik"); return false; }
-    if (type === RequisitionType.Individual && !departmentId) { showToast("Bo'limni tanlang", "Xatolik"); return false; }
+    if (!filledRows.length) { showToast(t("Kamida bitta material kiriting"), t("Xatolik")); return false; }
+    if (type === RequisitionType.Contract && !contractId) { showToast(t("Shartnomani tanlang"), t("Xatolik")); return false; }
+    if (type === RequisitionType.Individual && !departmentId) { showToast(t("Bo'limni tanlang"), t("Xatolik")); return false; }
     return true;
   };
 
@@ -443,7 +445,7 @@ function RequisitionPrintContent() {
   const handleNameNext = () => {
     const trimmed = pendingReqNo.trim();
     if (!trimmed) {
-      showToast("Talabnoma nomini kiriting", "Xatolik");
+      showToast(t("Talabnoma nomini kiriting"), t("Xatolik"));
       return;
     }
     setReqNo(trimmed);
@@ -582,7 +584,7 @@ function RequisitionPrintContent() {
         type,
         contractId: type === RequisitionType.Contract ? contractId : undefined,
         departmentId: type === RequisitionType.Individual ? departmentId : undefined,
-        purpose: description || "Blank talabnoma",
+        purpose: description || t("Blank talabnoma"),
         signerName: signerName.trim() || undefined,
         signerTitle: signerTitle || undefined,
         signDate: signDate || undefined,
@@ -611,10 +613,10 @@ function RequisitionPrintContent() {
         await requisitionService.uploadFile(reqId, tzFile, "tz");
       }
 
-      showToast("Talabnoma tizimda saqlandi", "success");
+      showToast(t("Talabnoma tizimda saqlandi"), "success");
       router.push("/requisitions");
     } catch {
-      showToast("Xatolik yuz berdi", "Xatolik");
+      showToast(t("Xatolik yuz berdi"), t("Xatolik"));
     } finally {
       setSavingSystem(false);
     }
@@ -786,12 +788,12 @@ function RequisitionPrintContent() {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <polyline points="15 18 9 12 15 6" />
             </svg>
-            Orqaga
+            {t("Orqaga")}
           </button>
 
           <div style={{ width: 1, height: 20, background: "var(--border)", flexShrink: 0 }} />
 
-          <h1 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "var(--text)", whiteSpace: "nowrap" }}>Talabnoma blanki</h1>
+          <h1 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "var(--text)", whiteSpace: "nowrap" }}>{t("Talabnoma blanki")}</h1>
 
           <div style={{ flex: 1 }} />
 
@@ -826,8 +828,8 @@ function RequisitionPrintContent() {
                 }}
               />
               {([
-                { value: RequisitionType.Contract, label: "Shartnoma bo'yicha" },
-                { value: RequisitionType.Individual, label: "Individual" },
+                { value: RequisitionType.Contract, label: t("Shartnoma bo'yicha") },
+                { value: RequisitionType.Individual, label: t("Individual") },
               ] as const).map((opt, i) => {
                 const active = type === opt.value;
                 return (
@@ -860,7 +862,7 @@ function RequisitionPrintContent() {
                 value={contractId}
                 onChange={setContractId}
                 options={contracts.map(c => ({ id: c.id, name: c.contractParty ? `${c.contractNo} — ${c.contractParty}` : c.contractNo }))}
-                placeholder="— Shartnoma —"
+                placeholder={t("— Shartnoma —")}
                 style={{ width: 220 }}
               />
             ) : (
@@ -868,7 +870,7 @@ function RequisitionPrintContent() {
                 value={departmentId}
                 onChange={setDepartmentId}
                 options={departments.map(d => ({ id: d.id, name: d.name }))}
-                placeholder="— Bo'lim —"
+                placeholder={t("— Bo'lim —")}
                 style={{ width: 220 }}
               />
             )}
@@ -889,7 +891,7 @@ function RequisitionPrintContent() {
           {/* — Destruktiv (ajralib turadi) — */}
           <button
             onClick={handleClear}
-            title="Blankni tozalash"
+            title={t("Blankni tozalash")}
             onMouseEnter={e => { e.currentTarget.style.background = "#fff0f0"; }}
             onMouseLeave={e => { e.currentTarget.style.background = "var(--bg3)"; }}
             style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 13px", background: "var(--bg3)", border: "1.5px solid #e53e3e", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, fontSize: 13, color: "#e53e3e", transition: "background 0.15s" }}
@@ -900,7 +902,7 @@ function RequisitionPrintContent() {
               <path d="M10 11v6M14 11v6" />
               <path d="M9 6V4h6v2" />
             </svg>
-            Tozalash
+            {t("Tozalash")}
           </button>
 
           <div style={{ width: 1, height: 20, background: "var(--border)" }} />
@@ -929,7 +931,7 @@ function RequisitionPrintContent() {
                 type="button"
                 onClick={() => { setTzFile(null); if (tzInputRef.current) tzInputRef.current.value = ""; }}
                 style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent)", padding: 0, lineHeight: 1, flexShrink: 0 }}
-                title="O'chirish"
+                title={t("O'chirish")}
               >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -947,7 +949,7 @@ function RequisitionPrintContent() {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
               </svg>
-              TZ ilova
+              {t("TZ ilova")}
             </button>
           )}
 
@@ -969,7 +971,7 @@ function RequisitionPrintContent() {
                   <line x1="12" y1="3" x2="12" y2="15" />
                 </svg>
               )}
-              Me&apos;yoriy sarfdan to&apos;ldirish
+              {t("Me'yoriy sarfdan to'ldirish")}
             </button>
           )}
 
@@ -993,7 +995,7 @@ function RequisitionPrintContent() {
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
             )}
-            PDF saqlash
+            {t("PDF saqlash")}
           </button>
 
           <button
@@ -1007,7 +1009,7 @@ function RequisitionPrintContent() {
               <path d="M6,18H4a2,2,0,0,1-2-2V11a2,2,0,0,1,2-2H20a2,2,0,0,1,2,2v5a2,2,0,0,1-2,2H18" />
               <rect x="6" y="14" width="12" height="8" />
             </svg>
-            Chop etish
+            {t("Chop etish")}
           </button>
 
           <div style={{ width: 1, height: 20, background: "var(--border)" }} />
@@ -1029,7 +1031,7 @@ function RequisitionPrintContent() {
                 <polyline points="7 3 7 8 15 8" />
               </svg>
             )}
-            Talabnomani yuborish
+            {t("Talabnomani yuborish")}
           </button>
         </div>
       </div>
@@ -1139,7 +1141,7 @@ function RequisitionPrintContent() {
                           <AutoTextarea
                             value={row.name}
                             onChange={v => updateRow(row.id, "name", v)}
-                            placeholder="Nomi..."
+                            placeholder={t("Nomi...")}
                             style={cellInput}
                             minHeight={36}
                           />
@@ -1171,7 +1173,7 @@ function RequisitionPrintContent() {
                           <AutoTextarea
                             value={row.spec}
                             onChange={v => updateRow(row.id, "spec", v)}
-                            placeholder="Texnik ko'rsatkich..."
+                            placeholder={t("Texnik ko'rsatkich...")}
                             style={cellInput}
                             minHeight={54}
                           />
@@ -1187,7 +1189,7 @@ function RequisitionPrintContent() {
                                   display: "flex", gap: 2,
                                   transition: "opacity 0.15s",
                                 }}>
-                                  <label title="Rasmni almashtirish" style={{
+                                  <label title={t("Rasmni almashtirish")} style={{
                                     display: "inline-flex", alignItems: "center", justifyContent: "center",
                                     width: 18, height: 18, fontSize: 10, lineHeight: 1,
                                     color: "#b8860b", cursor: "pointer",
@@ -1199,7 +1201,7 @@ function RequisitionPrintContent() {
                                       onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(row.id, f); }} />
                                     ✎
                                   </label>
-                                  <button onClick={() => handleImageRemove(row.id)} title="Rasmni o'chirish" style={{
+                                  <button onClick={() => handleImageRemove(row.id)} title={t("Rasmni o'chirish")} style={{
                                     display: "inline-flex", alignItems: "center", justifyContent: "center",
                                     width: 18, height: 18, fontSize: 10, lineHeight: 1,
                                     color: "#c00", cursor: "pointer",
@@ -1213,7 +1215,7 @@ function RequisitionPrintContent() {
                               <img src={row.image} alt="расм" className="print-image" style={{ maxWidth: "100%", maxHeight: 72, objectFit: "contain", display: "none" }} />
                             </>
                           ) : (
-                            <label className="no-print" title="Rasm yuklash" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, height: 72, border: "1.5px dashed #c9a020", borderRadius: 5, cursor: "pointer", color: "#b8860b", background: "#fffdf0", transition: "background 0.15s" }}>
+                            <label className="no-print" title={t("Rasm yuklash")} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, height: 72, border: "1.5px dashed #c9a020", borderRadius: 5, cursor: "pointer", color: "#b8860b", background: "#fffdf0", transition: "background 0.15s" }}>
                               <input type="file" accept="image/*" style={{ display: "none" }}
                                 onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(row.id, f); }} />
                               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c9a020" strokeWidth="1.5">
@@ -1221,7 +1223,7 @@ function RequisitionPrintContent() {
                                 <circle cx="8.5" cy="8.5" r="1.5" />
                                 <polyline points="21 15 16 10 5 21" />
                               </svg>
-                              <span style={{ fontSize: 9, fontFamily: "Arial, sans-serif", color: "#b8860b" }}>Rasm yuklash</span>
+                              <span style={{ fontSize: 9, fontFamily: "Arial, sans-serif", color: "#b8860b" }}>{t("Rasm yuklash")}</span>
                             </label>
                           )}
                         </td>
@@ -1270,7 +1272,7 @@ function RequisitionPrintContent() {
                       onClick={addRow}
                       style={{ fontSize: 12, fontWeight: 600, color: "#b8860b", background: "none", border: "1px dashed #b8860b", borderRadius: 4, padding: "5px 14px", cursor: "pointer" }}
                     >
-                      + Qator qo&apos;shish
+                      + {t("Qator qo'shish")}
                     </button>
                   </div>
 
@@ -1281,7 +1283,7 @@ function RequisitionPrintContent() {
                         <textarea
                           value={signerTitle}
                           onChange={e => setSignerTitle(e.target.value)}
-                          placeholder="Lavozim (masalan: ТИКУВ ЦЕХИ БОШЛИҒИ)"
+                          placeholder={t("Lavozim (masalan: ТИКУВ ЦЕХИ БОШЛИҒИ)")}
                           rows={2}
                           style={{ ...sigInput, width: "100%", textTransform: "uppercase", fontWeight: 700, fontSize: 12, resize: "none", display: "block", overflow: "hidden", wordBreak: "break-word" }}
                         />
@@ -1290,7 +1292,7 @@ function RequisitionPrintContent() {
                         <textarea
                           value={signerName}
                           onChange={e => setSignerName(e.target.value)}
-                          placeholder="F.I.O."
+                          placeholder={t("F.I.O.")}
                           rows={2}
                           style={{ ...sigInput, width: "100%", resize: "none", display: "block", overflow: "hidden", wordBreak: "break-word" }}
                         />
@@ -1327,9 +1329,9 @@ function RequisitionPrintContent() {
       {normPickerOpen && createPortal(
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 99999 }}>
           <div style={{ background: "var(--bg2)", borderRadius: 14, padding: 24, width: 520, maxWidth: "90vw", maxHeight: "80vh", boxShadow: "var(--shadow2)", display: "flex", flexDirection: "column" }}>
-            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6, color: "var(--text1)" }}>Mahsulotni tanlang</div>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6, color: "var(--text1)" }}>{t("Mahsulotni tanlang")}</div>
             <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 16, lineHeight: 1.5 }}>
-              Bu shartnomada bir nechta mahsulot bor. Qaysi mahsulot bo&apos;yicha me&apos;yoriy sarfdan to&apos;ldirishni tanlang.
+              {t("Bu shartnomada bir nechta mahsulot bor. Qaysi mahsulot bo'yicha me'yoriy sarfdan to'ldirishni tanlang.")}
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 8, overflowY: "auto", paddingRight: 4 }}>
@@ -1350,7 +1352,7 @@ function RequisitionPrintContent() {
                     {product.productType}
                   </div>
                   <div style={{ display: "flex", gap: 14, fontSize: 12, color: "var(--text3)", fontFamily: "var(--font-mono)" }}>
-                    <span>Soni: {product.quantity} {product.unit}</span>
+                    <span>{t("Soni")}: {product.quantity} {product.unit}</span>
                     {product.notes && <><span>•</span><span>{product.notes}</span></>}
                   </div>
                 </button>
@@ -1362,7 +1364,7 @@ function RequisitionPrintContent() {
                 onClick={() => setNormPickerOpen(false)}
                 style={{ flex: 1, padding: "9px", background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, color: "var(--text2)" }}
               >
-                Bekor
+                {t("Bekor")}
               </button>
             </div>
           </div>
@@ -1372,9 +1374,9 @@ function RequisitionPrintContent() {
       {nameModalOpen && createPortal(
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 99999 }}>
           <div style={{ background: "var(--bg2)", borderRadius: 14, padding: 28, width: 460, maxWidth: "90vw", minHeight: 240, boxShadow: "var(--shadow2)", display: "flex", flexDirection: "column" }}>
-            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8, color: "var(--text1)" }}>Talabnoma nomi</div>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8, color: "var(--text1)" }}>{t("Talabnoma nomi")}</div>
             <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 16, lineHeight: 1.5 }}>
-              Yuborishdan oldin talabnoma nomini kiriting.
+              {t("Yuborishdan oldin talabnoma nomini kiriting.")}
             </div>
 
             <input
@@ -1382,7 +1384,7 @@ function RequisitionPrintContent() {
               value={pendingReqNo}
               onChange={e => setPendingReqNo(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") handleNameNext(); }}
-              placeholder="Talabnoma nomini kiriting"
+              placeholder={t("Talabnoma nomini kiriting")}
               style={{
                 width: "100%", padding: "10px 12px",
                 border: "1.5px solid var(--border)", borderRadius: "var(--radius)",
@@ -1396,14 +1398,14 @@ function RequisitionPrintContent() {
                 onClick={() => setNameModalOpen(false)}
                 style={{ flex: 1, padding: "9px", background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, color: "var(--text2)" }}
               >
-                Bekor
+                {t("Bekor")}
               </button>
               <button
                 onClick={handleNameNext}
                 disabled={!pendingReqNo.trim()}
                 style={{ flex: 1, padding: "9px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: pendingReqNo.trim() ? "pointer" : "not-allowed", fontWeight: 600, opacity: pendingReqNo.trim() ? 1 : 0.5 }}
               >
-                Davom etish
+                {t("Davom etish")}
               </button>
             </div>
           </div>
@@ -1413,24 +1415,24 @@ function RequisitionPrintContent() {
       {confirmOpen && createPortal(
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 99999 }}>
           <div style={{ background: "var(--bg2)", borderRadius: 14, padding: 28, width: 460, maxWidth: "90vw", minHeight: 240, boxShadow: "var(--shadow2)", display: "flex", flexDirection: "column" }}>
-            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 10, color: "var(--text1)" }}>Ishonchingiz komilmi?</div>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 10, color: "var(--text1)" }}>{t("Ishonchingiz komilmi?")}</div>
             <div style={{ fontSize: 15, color: "var(--text2)", marginBottom: 20, lineHeight: 1.6 }}>
-              <strong>{reqNo.trim()}</strong> nomli talabnoma{" "}
-              {type === RequisitionType.Contract ? "ombor tekshiruviga" : "tizimga"}{" "}
-              yuboriladi. Yuborilgandan keyin tahrirlab bo&apos;lmaydi.
+              <strong>{reqNo.trim()}</strong> {t("nomli talabnoma")}{" "}
+              {type === RequisitionType.Contract ? t("ombor tekshiruviga") : t("tizimga")}{" "}
+              {t("yuboriladi. Yuborilgandan keyin tahrirlab bo'lmaydi.")}
             </div>
             <div style={{ display: "flex", gap: 10, marginTop: "auto" }}>
               <button
                 onClick={() => setConfirmOpen(false)}
                 style={{ flex: 1, padding: "9px", background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, color: "var(--text2)" }}
               >
-                Bekor
+                {t("Bekor")}
               </button>
               <button
                 onClick={doSaveSystem}
                 style={{ flex: 1, padding: "9px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600 }}
               >
-                Tasdiqlash va yuborish
+                {t("Tasdiqlash va yuborish")}
               </button>
             </div>
           </div>

@@ -18,6 +18,14 @@ public class ContractProductConfiguration : IEntityTypeConfiguration<ContractPro
             .HasForeignKey(p => p.ContractId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // Katalogga bog'lanish ixtiyoriy. Katalog mahsuloti o'chirilsa shartnoma qatori
+        // qolaveradi (ProductType nomi saqlangan) — shuning uchun SetNull.
+        builder.HasOne(p => p.ProductCatalog)
+            .WithMany(pc => pc.ContractProducts)
+            .HasForeignKey(p => p.ProductCatalogId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         builder.HasIndex(p => p.ContractId);
+        builder.HasIndex(p => p.ProductCatalogId);
     }
 }

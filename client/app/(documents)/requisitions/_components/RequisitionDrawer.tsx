@@ -17,6 +17,7 @@ import { RequisitionStatusBadge } from "./StatusBadge";
 import { WorkflowDiagram } from "./WorkflowDiagram";
 import { approveWithPdf } from "../_utils/approveWithPdf";
 import { downloadRequisitionPdf, openRequisitionPdfInNewTab } from "../_utils/downloadRequisitionPdf";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   req: RequisitionResponse;
@@ -26,6 +27,7 @@ interface Props {
 
 export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
   const router = useRouter();
+  const t = useT();
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const showToast = useToastStore((s) => s.show);
 
@@ -68,12 +70,12 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
     try {
       const { pdfUploaded } = await approveWithPdf(req.id);
       showToast(
-        pdfUploaded ? "Talabnoma tasdiqlandi" : "Talabnoma tasdiqlandi (PDF yaratilmadi)",
-        pdfUploaded ? "success" : "Ogohlantirish",
+        pdfUploaded ? t("Talabnoma tasdiqlandi") : t("Talabnoma tasdiqlandi (PDF yaratilmadi)"),
+        pdfUploaded ? "success" : t("Ogohlantirish"),
       );
       await refresh();
     } catch {
-      showToast("Xatolik yuz berdi", "error");
+      showToast(t("Xatolik yuz berdi"), "error");
     } finally { setActing(false); }
   };
 
@@ -82,12 +84,12 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
     setRejectSaving(true);
     try {
       await requisitionService.reject(req.id, rejectReason.trim());
-      showToast("Talabnoma rad etildi", "success");
+      showToast(t("Talabnoma rad etildi"), "success");
       setRejectOpen(false);
       setRejectSaving(false);
       await refresh();
     } catch {
-      showToast("Xatolik yuz berdi", "error");
+      showToast(t("Xatolik yuz berdi"), "error");
       setRejectSaving(false);
     }
   };
@@ -96,9 +98,9 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
     setChildActing({ id: childId, action: "download" });
     try {
       const ok = await downloadRequisitionPdf(childId);
-      if (!ok) showToast("PDF yaratilmadi", "error");
+      if (!ok) showToast(t("PDF yaratilmadi"), "error");
     } catch {
-      showToast("Yuklab olishda xatolik", "error");
+      showToast(t("Yuklab olishda xatolik"), "error");
     } finally {
       setChildActing(null);
     }
@@ -108,10 +110,10 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
     setChildActing({ id: childId, action: "open" });
     try {
       const result = await openRequisitionPdfInNewTab(childId);
-      if (result === "blocked") showToast("Yangi tab ochilmadi. Popup bloker tekshiring.", "error");
-      else if (result === "error") showToast("PDF yaratilmadi", "error");
+      if (result === "blocked") showToast(t("Yangi tab ochilmadi. Popup bloker tekshiring."), "error");
+      else if (result === "error") showToast(t("PDF yaratilmadi"), "error");
     } catch {
-      showToast("Faylni yuklashda xatolik", "error");
+      showToast(t("Faylni yuklashda xatolik"), "error");
     } finally {
       setChildActing(null);
     }
@@ -121,7 +123,7 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
     try {
       await requisitionService.downloadFile(req.id, file.id, file.fileName);
     } catch {
-      showToast("Yuklab olishda xatolik", "error");
+      showToast(t("Yuklab olishda xatolik"), "error");
     }
   };
 
@@ -146,7 +148,7 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
         const htmlBlob = new Blob([html], { type: "text/html" });
         const url = URL.createObjectURL(htmlBlob);
         const tab = window.open(url, "_blank");
-        if (!tab) showToast("Yangi tab ochilmadi. Popup bloker tekshiring.", "error");
+        if (!tab) showToast(t("Yangi tab ochilmadi. Popup bloker tekshiring."), "error");
         setTimeout(() => URL.revokeObjectURL(url), 60000);
       } else {
         const url = URL.createObjectURL(blob);
@@ -156,11 +158,11 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
           setTimeout(() => URL.revokeObjectURL(url), 10000);
         } else {
           URL.revokeObjectURL(url);
-          showToast("Yangi tab ochilmadi. Popup bloker tekshiring.", "error");
+          showToast(t("Yangi tab ochilmadi. Popup bloker tekshiring."), "error");
         }
       }
     } catch {
-      showToast("Faylni yuklashda xatolik", "error");
+      showToast(t("Faylni yuklashda xatolik"), "error");
     } finally {
       setPreviewingId(null);
     }
@@ -220,10 +222,10 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
 
           {/* Parent / Children navigation */}
           {(isChild || (req.children?.length ?? 0) > 0) && (
-            <Section label="Bog'liq talabnomalar">
+            <Section label={t("Bog'liq talabnomalar")}>
               {isChild && req.parentRequisitionNo && req.parentRequisitionId && (
                 <div style={{ marginBottom: req.children.length > 0 ? 10 : 0 }}>
-                  <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 6 }}>Asl talabnoma</div>
+                  <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 6 }}>{t("Asl talabnoma")}</div>
                   <button
                     onClick={() => { onClose(); router.push(`/requisitions/${req.parentRequisitionId}`); }}
                     style={{
@@ -242,12 +244,12 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
               )}
               {(req.children?.length ?? 0) > 0 && (
                 <div>
-                  <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 6 }}>Bo'lingan talabnomalar</div>
+                  <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 6 }}>{t("Bo'lingan talabnomalar")}</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {req.children.map(ch => {
                       const isWh = ch.source === RequisitionSource.Warehouse;
                       const destColor = isWh ? "var(--success)" : "var(--accent)";
-                      const destLabel = isWh ? "Ombordan olishga" : "Sotib olishga";
+                      const destLabel = isWh ? t("Ombordan olishga") : t("Sotib olishga");
                       const isOpening = childActing?.id === ch.id && childActing.action === "open";
                       const isDownloading = childActing?.id === ch.id && childActing.action === "download";
                       const anyActing = childActing !== null;
@@ -261,7 +263,7 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
                           }}
                         >
                           <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, color: "var(--text)", flex: 1 }}>{ch.requisitionNo}</span>
-                          <span style={{ fontSize: 11, color: "var(--text3)" }}>{ch.itemCount} ta material</span>
+                          <span style={{ fontSize: 11, color: "var(--text3)" }}>{ch.itemCount} {t("ta material")}</span>
                           <RequisitionStatusBadge status={ch.status} small />
                           <span style={{
                             display: "inline-flex", alignItems: "center", gap: 4,
@@ -300,30 +302,30 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
           )}
 
           {/* Main info */}
-          <Section label="Asosiy ma'lumotlar">
+          <Section label={t("Asosiy ma'lumotlar")}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <InfoCard label="Maqsad" value={req.purpose} full />
-              {req.contractNo && <InfoCard label="Shartnoma" value={req.contractNo} />}
-              {req.departmentName && <InfoCard label="Bo'lim" value={req.departmentName} />}
-              <InfoCard label="Yaratuvchi" value={req.createdByName} />
-              <InfoCard label="Yaratilgan" value={fmtDateTime(req.createdAt)} />
-              {req.notes && <InfoCard label="Izoh" value={req.notes} full />}
-              {req.signerTitle && <InfoCard label="Lavozim" value={req.signerTitle} />}
-              {req.signerName && <InfoCard label="F.I.O." value={req.signerName} />}
+              <InfoCard label={t("Maqsad")} value={req.purpose} full />
+              {req.contractNo && <InfoCard label={t("Shartnoma")} value={req.contractNo} />}
+              {req.departmentName && <InfoCard label={t("Bo'lim")} value={req.departmentName} />}
+              <InfoCard label={t("Yaratuvchi")} value={req.createdByName} />
+              <InfoCard label={t("Yaratilgan")} value={fmtDateTime(req.createdAt)} />
+              {req.notes && <InfoCard label={t("Izoh")} value={req.notes} full />}
+              {req.signerTitle && <InfoCard label={t("Lavozim")} value={req.signerTitle} />}
+              {req.signerName && <InfoCard label={t("F.I.O.")} value={req.signerName} />}
             </div>
           </Section>
 
           {/* Warehouse check info */}
           {req.warehouseCheckedAt && (
-            <Section label="Ombor tekshiruvi">
+            <Section label={t("Ombor tekshiruvi")}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: req.warehouseCheckQrCodeData ? 12 : 0 }}>
-                <InfoCard label="Tekshirgan" value={req.warehouseCheckedByName ?? "—"} />
-                <InfoCard label="Tekshirilgan vaqt" value={fmtDateTime(req.warehouseCheckedAt)} />
+                <InfoCard label={t("Tekshirgan")} value={req.warehouseCheckedByName ?? "—"} />
+                <InfoCard label={t("Tekshirilgan vaqt")} value={fmtDateTime(req.warehouseCheckedAt)} />
               </div>
               {req.warehouseCheckQrCodeData && (
                 <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius2)", padding: 16, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, background: "var(--bg3)" }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text2)" }}>Omborchi imzo QR kodi</div>
-                  <img src={`data:image/png;base64,${req.warehouseCheckQrCodeData}`} alt="Omborchi QR kodi" style={{ width: 140, height: 140, imageRendering: "pixelated" }} />
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text2)" }}>{t("Omborchi imzo QR kodi")}</div>
+                  <img src={`data:image/png;base64,${req.warehouseCheckQrCodeData}`} alt={t("Omborchi QR kodi")} style={{ width: 140, height: 140, imageRendering: "pixelated" }} />
                 </div>
               )}
             </Section>
@@ -331,15 +333,15 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
 
           {/* Approval info */}
           {isApproved && (
-            <Section label="Tasdiqlash">
+            <Section label={t("Tasdiqlash")}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: req.qrCodeData ? 12 : 0 }}>
-                <InfoCard label="Tasdiqlagan" value={req.approvedByName ?? "—"} />
-                <InfoCard label="Tasdiqlangan vaqt" value={fmtDateTime(req.approvedAt)} />
+                <InfoCard label={t("Tasdiqlagan")} value={req.approvedByName ?? "—"} />
+                <InfoCard label={t("Tasdiqlangan vaqt")} value={fmtDateTime(req.approvedAt)} />
               </div>
               {req.qrCodeData && (
                 <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius2)", padding: 16, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, background: "var(--bg3)" }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text2)" }}>Tasdiqlash QR kodi</div>
-                  <img src={`data:image/png;base64,${req.qrCodeData}`} alt="QR kod" style={{ width: 140, height: 140, imageRendering: "pixelated" }} />
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text2)" }}>{t("Tasdiqlash QR kodi")}</div>
+                  <img src={`data:image/png;base64,${req.qrCodeData}`} alt={t("QR kod")} style={{ width: 140, height: 140, imageRendering: "pixelated" }} />
                 </div>
               )}
             </Section>
@@ -347,7 +349,7 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
 
           {/* Rejection reason */}
           {req.status === RequisitionStatus.Rejected && (
-            <Section label="Rad etish sababi" danger>
+            <Section label={t("Rad etish sababi")} danger>
               <div style={{ background: "var(--danger-dim)", border: "1px solid rgba(217,48,37,0.2)", borderRadius: "var(--radius)", padding: "12px 16px", color: "var(--danger)", fontSize: 13 }}>
                 {req.rejectionReason ?? "—"}
               </div>
@@ -356,13 +358,13 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
 
           {/* Files */}
           {filesLoading ? (
-            <Section label="Fayllar"><div style={{ color: "var(--text3)", fontSize: 13, padding: "10px 0" }}>Yuklanmoqda…</div></Section>
+            <Section label={t("Fayllar")}><div style={{ color: "var(--text3)", fontSize: 13, padding: "10px 0" }}>{t("Yuklanmoqda…")}</div></Section>
           ) : files.length === 0 ? (
-            <Section label="Fayllar"><div style={{ color: "var(--text3)", fontSize: 13, padding: "10px 0" }}>Fayllar yo&apos;q</div></Section>
+            <Section label={t("Fayllar")}><div style={{ color: "var(--text3)", fontSize: 13, padding: "10px 0" }}>{t("Fayllar yo'q")}</div></Section>
           ) : (
             <>
               {files.filter(f => f.label === "tz").length > 0 && (
-                <Section label={`TZ — Texnik Topshiriq (${files.filter(f => f.label === "tz").length})`}>
+                <Section label={`${t("TZ — Texnik Topshiriq")} (${files.filter(f => f.label === "tz").length})`}>
                   <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                     {files.filter(f => f.label === "tz").map(file => (
                       <FileRow key={file.id} file={file} previewing={previewingId === file.id} onDownload={() => handleFileDownload(file)} onPreview={() => handleFilePreview(file)} accentColor="var(--purple)" />
@@ -371,7 +373,7 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
                 </Section>
               )}
               {files.filter(f => f.label !== "tz").length > 0 && (
-                <Section label={`Ilovalar (${files.filter(f => f.label !== "tz").length})`}>
+                <Section label={`${t("Ilovalar")} (${files.filter(f => f.label !== "tz").length})`}>
                   <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                     {files.filter(f => f.label !== "tz").map(file => (
                       <FileRow key={file.id} file={file} previewing={previewingId === file.id} onDownload={() => handleFileDownload(file)} onPreview={() => handleFilePreview(file)} accentColor="var(--accent)" />
@@ -391,14 +393,14 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
                   onClick={handleApprove}
                   style={{ flex: 1, padding: "11px", borderRadius: "var(--radius)", background: "var(--success)", color: "#fff", border: "none", fontWeight: 600, fontSize: 13, cursor: acting ? "not-allowed" : "pointer", opacity: acting ? 0.7 : 1 }}
                 >
-                  {acting ? "…" : "Tasdiqlash"}
+                  {acting ? "…" : t("Tasdiqlash")}
                 </button>
                 <button
                   disabled={acting}
                   onClick={() => { setRejectOpen(true); setRejectReason(""); }}
                   style={{ flex: 1, padding: "11px", borderRadius: "var(--radius)", background: "var(--danger-dim)", color: "var(--danger)", border: "1px solid rgba(217,48,37,0.3)", fontWeight: 600, fontSize: 13, cursor: acting ? "not-allowed" : "pointer", opacity: acting ? 0.7 : 1 }}
                 >
-                  Rad etish
+                  {t("Rad etish")}
                 </button>
               </div>
             )}
@@ -413,12 +415,12 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
           onClick={() => setRejectOpen(false)}
         >
           <div onClick={e => e.stopPropagation()} style={{ background: "var(--bg2)", borderRadius: 14, padding: 28, width: 420, maxWidth: "90vw", boxShadow: "var(--shadow2)" }}>
-            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16, color: "var(--text)" }}>Rad etish sababi</div>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16, color: "var(--text)" }}>{t("Rad etish sababi")}</div>
             <textarea
               value={rejectReason}
               onChange={e => setRejectReason(e.target.value)}
               rows={4}
-              placeholder="Sababni kiriting…"
+              placeholder={t("Sababni kiriting…")}
               style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, resize: "vertical", boxSizing: "border-box", background: "var(--bg3)", color: "var(--text)" }}
             />
             <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
@@ -426,14 +428,14 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
                 onClick={() => setRejectOpen(false)}
                 style={{ flex: 1, padding: "9px", background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, color: "var(--text2)" }}
               >
-                Bekor
+                {t("Bekor")}
               </button>
               <button
                 disabled={!rejectReason.trim() || rejectSaving}
                 onClick={handleRejectConfirm}
                 style={{ flex: 1, padding: "9px", background: "var(--danger)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: !rejectReason.trim() || rejectSaving ? "not-allowed" : "pointer", fontWeight: 600, opacity: !rejectReason.trim() || rejectSaving ? 0.7 : 1 }}
               >
-                {rejectSaving ? "…" : "Rad etish"}
+                {rejectSaving ? "…" : t("Rad etish")}
               </button>
             </div>
           </div>
@@ -458,13 +460,14 @@ function ChildPdfButton({ variant, loading, disabled, onClick }: {
   disabled: boolean;
   onClick: () => void;
 }) {
+  const t = useT();
   const [hover, setHover] = useState(false);
   const isOpen = variant === "open";
   const color = isOpen ? "#0ea5e9" : "#10b981";
   const bgIdle = isOpen ? "rgba(14,165,233,0.07)" : "rgba(16,185,129,0.07)";
   const bgHover = isOpen ? "rgba(14,165,233,0.15)" : "rgba(16,185,129,0.15)";
   const outline = isOpen ? "rgba(14,165,233,0.3)" : "rgba(16,185,129,0.3)";
-  const title = isOpen ? "Yangi tabda ko'rish" : "Yuklab olish";
+  const title = isOpen ? t("Yangi tabda ko'rish") : t("Yuklab olish");
   const interactive = !disabled && !loading;
   return (
     <button
@@ -512,6 +515,7 @@ function FileRow({ file, onDownload, onPreview, previewing, accentColor }: {
   previewing: boolean;
   accentColor: string;
 }) {
+  const t = useT();
   const ext = file.fileName.split(".").pop()?.toLowerCase() ?? "";
   const previewable = ["pdf", "png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "docx", "doc"].includes(ext);
   const [previewHover, setPreviewHover] = useState(false);
@@ -532,7 +536,7 @@ function FileRow({ file, onDownload, onPreview, previewing, accentColor }: {
         <button
           onClick={onPreview}
           disabled={previewing}
-          title="Yangi tabda ko'rish"
+          title={t("Yangi tabda ko'rish")}
           onMouseEnter={() => setPreviewHover(true)}
           onMouseLeave={() => setPreviewHover(false)}
           style={{
@@ -560,7 +564,7 @@ function FileRow({ file, onDownload, onPreview, previewing, accentColor }: {
       )}
       <button
         onClick={onDownload}
-        title="Yuklab olish"
+        title={t("Yuklab olish")}
         onMouseEnter={() => setDownloadHover(true)}
         onMouseLeave={() => setDownloadHover(false)}
         style={{

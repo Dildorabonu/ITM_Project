@@ -10,6 +10,8 @@ import { ContractForm as ContractFormType, UNIT_OPTIONS, CONTRACT_TYPE_OPTIONS, 
 import { CheckSelect } from "@/app/_components/CheckSelect";
 import { DatePickerField } from "./DatePickerField";
 import { CustomGroupedMultiSelect } from "./CustomGroupedMultiSelect";
+import { ProductCatalogSelect } from "./ProductCatalogSelect";
+import { useT } from "@/lib/i18n";
 
 type PickerKey = `${number}:${0 | 1 | 2}` | null;
 
@@ -55,6 +57,7 @@ export function ContractForm({
   handleSave, openScanModal, onCancel,
   canCreate, canUpdate,
 }: Props) {
+  const t = useT();
   const fieldErr = (val: string) => submitted && !val.trim();
   const startDateErr = submitted && !form.startDate;
   const endDateErr = submitted && !form.endDate;
@@ -103,10 +106,10 @@ export function ContractForm({
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <polyline points="15 18 9 12 15 6" />
           </svg>
-          Orqaga
+          {t("Orqaga")}
         </button>
         <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>
-          {editTarget ? "Shartnomani tahrirlash" : "Yangi shartnoma"}
+          {editTarget ? t("Shartnomani tahrirlash") : t("Yangi shartnoma")}
         </span>
       </div>
 
@@ -116,31 +119,31 @@ export function ContractForm({
           {/* Shartnoma raqami */}
           <div>
             <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: fieldErr(form.contractNo) ? "var(--danger)" : "var(--text2)" }}>
-              Shartnoma raqami <span style={{ color: "var(--danger)" }}>*</span>
+              {t("Shartnoma raqami")} <span style={{ color: "var(--danger)" }}>*</span>
             </label>
             <input className="form-input" value={form.contractNo}
               onChange={e => setForm(f => ({ ...f, contractNo: e.target.value }))}
               placeholder="SH-2025-001"
               style={fieldErr(form.contractNo) ? { borderColor: "var(--danger)" } : undefined}
             />
-            {fieldErr(form.contractNo) && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Shartnoma raqamini kiriting</div>}
+            {fieldErr(form.contractNo) && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>{t("Shartnoma raqamini kiriting")}</div>}
           </div>
 
           {/* Shartnoma tuzilgan tomon */}
           <div>
             <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>
-              Shartnoma tuzilgan tomon
+              {t("Shartnoma tuzilgan tomon")}
             </label>
             <input className="form-input" value={form.contractParty}
               onChange={e => setForm(f => ({ ...f, contractParty: e.target.value }))}
-              placeholder="Masalan: Ichki ishlar vazirligi, 3-uchastka, Texnologiya bo'limi..."
+              placeholder={t("Masalan: Ichki ishlar vazirligi, 3-uchastka, Texnologiya bo'limi...")}
             />
           </div>
 
           {/* Boshlanish sanasi */}
           <div>
             <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: startDateErr ? "var(--danger)" : "var(--text2)" }}>
-              Boshlanish sanasi <span style={{ color: "var(--danger)" }}>*</span>
+              {t("Boshlanish sanasi")} <span style={{ color: "var(--danger)" }}>*</span>
             </label>
             <DatePickerField
               value={form.startDate}
@@ -149,13 +152,13 @@ export function ContractForm({
               onDateSelect={iso => setForm(f => ({ ...f, startDate: iso }))}
               hasError={startDateErr}
             />
-            {startDateErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Boshlanish sanasini tanlang</div>}
+            {startDateErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>{t("Boshlanish sanasini tanlang")}</div>}
           </div>
 
           {/* Tugash sanasi */}
           <div>
             <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: endDateErr ? "var(--danger)" : "var(--text2)" }}>
-              Tugash sanasi <span style={{ color: "var(--danger)" }}>*</span>
+              {t("Tugash sanasi")} <span style={{ color: "var(--danger)" }}>*</span>
             </label>
             <DatePickerField
               value={form.endDate}
@@ -164,17 +167,17 @@ export function ContractForm({
               onDateSelect={iso => setForm(f => ({ ...f, endDate: iso }))}
               hasError={endDateErr}
             />
-            {endDateErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Tugash sanasini tanlang</div>}
+            {endDateErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>{t("Tugash sanasini tanlang")}</div>}
           </div>
 
           {/* Shartnoma turi */}
           <div style={{ gridColumn: "1 / -1" }}>
-            <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Shartnoma turi</label>
+            <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>{t("Shartnoma turi")}</label>
             <CheckSelect
               value={form.contractType}
               onChange={v => setForm(f => ({ ...f, contractType: v }))}
-              options={CONTRACT_TYPE_OPTIONS.map(o => ({ id: o.value, name: o.label, color: o.color }))}
-              placeholder="— Tanlang —"
+              options={CONTRACT_TYPE_OPTIONS.map(o => ({ id: o.value, name: t(o.label), color: o.color }))}
+              placeholder={t("— Tanlang —")}
             />
           </div>
 
@@ -182,7 +185,7 @@ export function ContractForm({
           <div style={{ gridColumn: "1 / -1" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
               <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)" }}>
-                Mahsulotlar <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text3)" }}>(har bir mahsulotga bo&apos;lim, xodimlar va TZ fayllarini biriktiring)</span>
+                {t("Mahsulotlar")} <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text3)" }}>{t("(har bir mahsulotga bo'lim, xodimlar va TZ fayllarini biriktiring)")}</span>
               </label>
               <button
                 type="button"
@@ -200,7 +203,7 @@ export function ContractForm({
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
                 </svg>
-                Mahsulot qo&apos;shish
+                {t("Mahsulot qo'shish")}
               </button>
             </div>
 
@@ -222,7 +225,7 @@ export function ContractForm({
                           color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center",
                           fontSize: 13, fontWeight: 700,
                         }}>{idx + 1}</span>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)" }}>Mahsulot #{idx + 1}</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)" }}>{t("Mahsulot")} #{idx + 1}</span>
                       </div>
                       {form.products.length > 1 && (
                         <button
@@ -234,7 +237,7 @@ export function ContractForm({
                             padding: "4px 10px", fontSize: 11, fontWeight: 600,
                           }}
                         >
-                          ✕ O&apos;chirish
+                          ✕ {t("O'chirish")}
                         </button>
                       )}
                     </div>
@@ -243,19 +246,27 @@ export function ContractForm({
                     <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
                       <div>
                         <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4, color: productTypeErr ? "var(--danger)" : "var(--text2)" }}>
-                          Mahsulot turi <span style={{ color: "var(--danger)" }}>*</span>
+                          {t("Mahsulot")} <span style={{ color: "var(--danger)" }}>*</span>
                         </label>
-                        <input
-                          className="form-input"
-                          value={p.productType}
-                          onChange={e => updateProduct(idx, { productType: e.target.value })}
-                          placeholder="Masalan: Detal, Konstruktsiya..."
-                          style={productTypeErr ? { borderColor: "var(--danger)" } : undefined}
+                        <ProductCatalogSelect
+                          productType={p.productType}
+                          productCode={p.productCode}
+                          hasError={productTypeErr}
+                          canCreate={editTarget ? canUpdate : canCreate}
+                          // Erkin matn — hali katalog tanlanmagan, shuning uchun bog'lanishni tozalaymiz.
+                          onType={value => updateProduct(idx, { productType: value, productCatalogId: null, productCode: null })}
+                          onSelect={sel => updateProduct(idx, {
+                            productType: sel.productType,
+                            productCatalogId: sel.productCatalogId,
+                            productCode: sel.productCode,
+                            // Katalogdagi standart birlik bilan oldindan to'ldiramiz (agar hali bo'sh bo'lsa).
+                            ...(sel.unit && !p.unit ? { unit: sel.unit } : {}),
+                          })}
                         />
                       </div>
                       <div>
                         <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4, color: quantityErr ? "var(--danger)" : "var(--text2)" }}>
-                          Miqdor <span style={{ color: "var(--danger)" }}>*</span>
+                          {t("Miqdor")} <span style={{ color: "var(--danger)" }}>*</span>
                         </label>
                         <input
                           className="form-input"
@@ -270,37 +281,37 @@ export function ContractForm({
                           placeholder="0"
                           style={quantityErr ? { borderColor: "var(--danger)" } : undefined}
                         />
-                        {quantityErr && <div style={{ color: "var(--danger)", fontSize: 11, marginTop: 4 }}>Miqdorni kiriting</div>}
+                        {quantityErr && <div style={{ color: "var(--danger)", fontSize: 11, marginTop: 4 }}>{t("Miqdorni kiriting")}</div>}
                       </div>
                       <div>
                         <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4, color: unitErr ? "var(--danger)" : "var(--text2)" }}>
-                          O&apos;lchov birligi <span style={{ color: "var(--danger)" }}>*</span>
+                          {t("O'lchov birligi")} <span style={{ color: "var(--danger)" }}>*</span>
                         </label>
                         <div style={unitErr ? { borderRadius: "var(--radius)", boxShadow: "0 0 0 1.5px var(--danger)" } : undefined}>
                           <CheckSelect
                             value={p.unit}
                             onChange={v => updateProduct(idx, { unit: v })}
-                            options={UNIT_OPTIONS.filter(o => o.value !== "").map(o => ({ id: o.value, name: o.label, icon: o.icon }))}
-                            placeholder="— Tanlang —"
+                            options={UNIT_OPTIONS.filter(o => o.value !== "").map(o => ({ id: o.value, name: t(o.label), icon: o.icon }))}
+                            placeholder={t("— Tanlang —")}
                           />
                         </div>
-                        {unitErr && <div style={{ color: "var(--danger)", fontSize: 11, marginTop: 4 }}>Birlikni tanlang</div>}
+                        {unitErr && <div style={{ color: "var(--danger)", fontSize: 11, marginTop: 4 }}>{t("Birlikni tanlang")}</div>}
                       </div>
                     </div>
 
                     {/* Bo'limlar */}
                     <div style={{ marginBottom: 14 }}>
                       <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: productDeptErr ? "var(--danger)" : "var(--text2)" }}>
-                        Bo&apos;limlar <span style={{ color: "var(--danger)" }}>*</span>
+                        {t("Bo'limlar")} <span style={{ color: "var(--danger)" }}>*</span>
                       </label>
                       <CustomGroupedMultiSelect
                         values={p.departmentIds}
                         onChange={v => updateProduct(idx, { departmentIds: v, responsibleUsers: [], supervisorUsers: [] })}
                         departments={departments}
-                        placeholder="— Bo'limlar tanlang —"
+                        placeholder={t("— Bo'limlar tanlang —")}
                         hasError={productDeptErr}
                       />
-                      {productDeptErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Kamida bitta bo&apos;limni tanlang</div>}
+                      {productDeptErr && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>{t("Kamida bitta bo'limni tanlang")}</div>}
                     </div>
 
                     {/* Xodimlar — 3 toifa */}
@@ -321,7 +332,7 @@ export function ContractForm({
                         return (
                           <div key={cat}>
                             <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text2)", display: "block", marginBottom: 6 }}>
-                              {label} <span style={{ fontSize: 10, fontWeight: 400, color: "var(--text3)" }}>(ixtiyoriy)</span>
+                              {t(label)} <span style={{ fontSize: 10, fontWeight: 400, color: "var(--text3)" }}>{t("(ixtiyoriy)")}</span>
                             </label>
                             <div ref={isOpen ? pickerRef : null} style={{ position: "relative" }}>
                               <button type="button"
@@ -333,7 +344,7 @@ export function ContractForm({
                                   borderRadius: "var(--radius)", cursor: "pointer", fontSize: 12,
                                   color: available.length ? "var(--text2)" : "var(--text3)",
                                 }}>
-                                <span>Xodim tanlang</span>
+                                <span>{t("Xodim tanlang")}</span>
                                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
                                   style={{ transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s", flexShrink: 0 }}>
                                   <polyline points="6 9 12 15 18 9" />
@@ -349,19 +360,19 @@ export function ContractForm({
                                 }}>
                                   {allUsers.length === 0 ? (
                                     <div style={{ padding: "12px", fontSize: 12, color: "var(--text3)", textAlign: "center" }}>
-                                      Yuklanmoqda...
+                                      {t("Yuklanmoqda...")}
                                     </div>
                                   ) : noDeptOfType ? (
                                     <div style={{ padding: "12px", fontSize: 12, color: "var(--text3)", textAlign: "center" }}>
-                                      Avval bu turdagi bo&apos;limni tanlang
+                                      {t("Avval bu turdagi bo'limni tanlang")}
                                     </div>
                                   ) : poolByType.length === 0 ? (
                                     <div style={{ padding: "12px", fontSize: 12, color: "var(--text3)", textAlign: "center" }}>
-                                      Bu toifada xodim yo&apos;q
+                                      {t("Bu toifada xodim yo'q")}
                                     </div>
                                   ) : available.length === 0 ? (
                                     <div style={{ padding: "12px", fontSize: 12, color: "var(--text3)", textAlign: "center" }}>
-                                      Barcha xodimlar tanlangan
+                                      {t("Barcha xodimlar tanlangan")}
                                     </div>
                                   ) : available.map(u => (
                                     <button key={u.id} type="button"
@@ -423,7 +434,7 @@ export function ContractForm({
                     {/* TZ fayl */}
                     <div style={{ marginBottom: 12 }}>
                       <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>
-                        Texnik topshiriq (TZ) <span style={{ fontSize: 10, fontWeight: 400, color: "var(--text3)" }}>(ixtiyoriy)</span>
+                        {t("Texnik topshiriq (TZ)")} <span style={{ fontSize: 10, fontWeight: 400, color: "var(--text3)" }}>{t("(ixtiyoriy)")}</span>
                       </label>
                       <div style={{ display: "flex", gap: 8 }}>
                         <label style={{
@@ -447,7 +458,7 @@ export function ContractForm({
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                             <polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
                           </svg>
-                          <span style={{ fontWeight: 600, color: "var(--accent)" }}>TZ fayl tanlash yoki tashlash</span>
+                          <span style={{ fontWeight: 600, color: "var(--accent)" }}>{t("TZ fayl tanlash yoki tashlash")}</span>
                           <input type="file" multiple style={{ display: "none" }}
                             onChange={e => {
                               const files = Array.from(e.target.files ?? []);
@@ -469,7 +480,7 @@ export function ContractForm({
                             <path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2" />
                             <path d="M7 17v2a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2" />
                           </svg>
-                          Skaner
+                          {t("Skaner")}
                         </button>
                       </div>
                       {p.pendingTzFiles.length > 0 && (
@@ -494,12 +505,12 @@ export function ContractForm({
 
                     {/* Mahsulot izohi */}
                     <div>
-                      <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4, color: "var(--text2)" }}>Izoh</label>
+                      <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4, color: "var(--text2)" }}>{t("Izoh")}</label>
                       <input
                         className="form-input"
                         value={p.notes}
                         onChange={e => updateProduct(idx, { notes: e.target.value })}
-                        placeholder="Mahsulot bo'yicha qo'shimcha izoh"
+                        placeholder={t("Mahsulot bo'yicha qo'shimcha izoh")}
                       />
                     </div>
                   </div>
@@ -510,7 +521,7 @@ export function ContractForm({
                   padding: "20px", textAlign: "center", fontSize: 13, color: "var(--text3)",
                   border: "1.5px dashed var(--border)", borderRadius: 10,
                 }}>
-                  Hali mahsulot qo&apos;shilmagan. &quot;Mahsulot qo&apos;shish&quot; tugmasini bosing.
+                  {t("Hali mahsulot qo'shilmagan. \"Mahsulot qo'shish\" tugmasini bosing.")}
                 </div>
               )}
             </div>
@@ -521,7 +532,7 @@ export function ContractForm({
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
               <span style={{ width: 20, height: 20, borderRadius: "50%", background: "var(--accent)", color: "#fff", fontSize: 11, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>📄</span>
               <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)" }}>
-                Shartnoma fayli <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text3)" }}>(ixtiyoriy)</span>
+                {t("Shartnoma fayli")} <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text3)" }}>{t("(ixtiyoriy)")}</span>
               </label>
             </div>
             <div style={{ display: "flex", gap: 10 }}>
@@ -545,8 +556,8 @@ export function ContractForm({
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                   <polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
                 </svg>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)" }}>Fayl tanlash yoki tashlash</span>
-                <span style={{ fontSize: 11, color: "var(--text3)" }}>PDF, Word, Excel — har qanday format</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)" }}>{t("Fayl tanlash yoki tashlash")}</span>
+                <span style={{ fontSize: 11, color: "var(--text3)" }}>{t("PDF, Word, Excel — har qanday format")}</span>
                 <input type="file" multiple style={{ display: "none" }}
                   onChange={e => {
                     const files = Array.from(e.target.files ?? []);
@@ -568,8 +579,8 @@ export function ContractForm({
                   <line x1="12" y1="12" x2="12" y2="12" strokeWidth="3" strokeLinecap="round" />
                   <path d="M7 17v2a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2" />
                 </svg>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)", whiteSpace: "nowrap" }}>Skaner qilish</span>
-                <span style={{ fontSize: 11, color: "var(--text3)", whiteSpace: "nowrap" }}>Printerdan skanerlash</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)", whiteSpace: "nowrap" }}>{t("Skaner qilish")}</span>
+                <span style={{ fontSize: 11, color: "var(--text3)", whiteSpace: "nowrap" }}>{t("Printerdan skanerlash")}</span>
               </button>
             </div>
             {pendingContractFiles.length > 0 && (
@@ -591,16 +602,16 @@ export function ContractForm({
               </div>
             )}
             {editTarget && (
-              <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 6 }}>Mavjud fayllarni ko&apos;rish/boshqarish uchun shartnomani oching</div>
+              <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 6 }}>{t("Mavjud fayllarni ko'rish/boshqarish uchun shartnomani oching")}</div>
             )}
           </div>
 
           {/* Izoh (umumiy) */}
           <div style={{ gridColumn: "1 / -1" }}>
-            <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>Shartnoma izohi</label>
+            <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>{t("Shartnoma izohi")}</label>
             <textarea className="form-input" value={form.notes}
               onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-              placeholder="Qo'shimcha izoh (ixtiyoriy)" rows={2} style={{ resize: "none" }} />
+              placeholder={t("Qo'shimcha izoh (ixtiyoriy)")} rows={2} style={{ resize: "none" }} />
           </div>
         </div>
       </div>
@@ -616,7 +627,7 @@ export function ContractForm({
           style={{ background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", padding: "10px 24px", color: "var(--text2)", fontSize: 14, fontWeight: 500, transition: "border-color 0.15s, color 0.15s" }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text2)"; }}>
-          Bekor qilish
+          {t("Bekor qilish")}
         </button>
         {(editTarget ? canUpdate : canCreate) && (
           <button className="btn-primary" onClick={handleSave} disabled={saving}
@@ -625,7 +636,7 @@ export function ContractForm({
               <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
               <polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
             </svg>
-            {saving ? "Saqlanmoqda..." : editTarget ? "O'zgarishlarni saqlash" : "Shartnoma saqlash"}
+            {saving ? t("Saqlanmoqda...") : editTarget ? t("O'zgarishlarni saqlash") : t("Shartnoma saqlash")}
           </button>
         )}
       </div>

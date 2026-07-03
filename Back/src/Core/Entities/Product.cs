@@ -11,6 +11,11 @@ public class Product
     // TextNormalizer.Normalize(Name) orqali to'ldiriladi, qo'lda o'zgartirilmaydi.
     public string NameNormalized { get; set; } = string.Empty;
     public string InvoiceNumber { get; set; } = string.Empty;
+
+    // Barqaror, skanerlanadigan qisqa kod (masalan "P-9F3A1C") — fizik yorliq uchun.
+    // Eski qatorlarda null bo'lishi mumkin (startup backfill to'ldiradi).
+    public string? QrCode { get; set; }
+
     public string? Description { get; set; }
     public decimal Quantity { get; set; }
 

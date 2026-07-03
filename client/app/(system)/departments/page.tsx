@@ -14,6 +14,7 @@ import {
 import { useAuthStore } from "@/lib/store/authStore";
 import { useToastStore } from "@/lib/store/toastStore";
 import { CheckSelect } from "@/app/_components/CheckSelect";
+import { useT } from "@/lib/i18n";
 
 const TYPE_FILTER_OPTIONS: { value: string; label: string }[] = [
   { value: String(DepartmentType.IshlabChiqarish), label: DEPARTMENT_TYPE_LABELS[DepartmentType.IshlabChiqarish] },
@@ -37,6 +38,7 @@ const TYPE_STYLE: Partial<Record<DepartmentType, { bg: string; color: string; bo
 };
 
 export default function DepartmentsPage() {
+  const t = useT();
   const hasPermission = useAuthStore(s => s.hasPermission);
   const canCreate = hasPermission("Departments.Create");
   const canUpdate = hasPermission("Departments.Update");
@@ -110,7 +112,7 @@ export default function DepartmentsPage() {
       setList([]);
       setTotalPages(1);
       setTotalCount(0);
-      setError("Ma'lumotlarni yuklashda xatolik yuz berdi.");
+      setError(t("Ma'lumotlarni yuklashda xatolik yuz berdi."));
     } finally {
       setLoading(false);
     }
@@ -176,7 +178,7 @@ export default function DepartmentsPage() {
           employeeCount: count ?? null,
         };
         await departmentService.update(editTarget.id, payload);
-        showToast("Bo'lim muvaffaqiyatli yangilandi!");
+        showToast(t("Bo'lim muvaffaqiyatli yangilandi!"));
       } else {
         const payload: DepartmentCreatePayload = {
           name: form.name,
@@ -184,12 +186,12 @@ export default function DepartmentsPage() {
           employeeCount: count,
         };
         await departmentService.create(payload);
-        showToast("Bo'lim muvaffaqiyatli yaratildi!");
+        showToast(t("Bo'lim muvaffaqiyatli yaratildi!"));
       }
       setShowForm(false);
       await load(page);
     } catch {
-      showToast("Saqlashda xatolik yuz berdi.", "Xatolik");
+      showToast(t("Saqlashda xatolik yuz berdi."), t("Xatolik"));
     } finally {
       setSaving(false);
     }
@@ -202,11 +204,11 @@ export default function DepartmentsPage() {
     try {
       await departmentService.delete(toggleTarget.id);
       const wasActive = toggleTarget.isActive !== false;
-      showToast(wasActive ? "Bo'lim noaktiv qilindi!" : "Bo'lim muvaffaqiyatli faollashtirildi!");
+      showToast(wasActive ? t("Bo'lim noaktiv qilindi!") : t("Bo'lim muvaffaqiyatli faollashtirildi!"));
       setToggleTarget(null);
       await load(page);
     } catch {
-      setToggleError("Amal bajarilmadi. Qayta urinib ko'ring.");
+      setToggleError(t("Amal bajarilmadi. Qayta urinib ko'ring."));
     } finally {
       setToggling(false);
     }
@@ -234,10 +236,10 @@ export default function DepartmentsPage() {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <polyline points="15 18 9 12 15 6" />
             </svg>
-            Orqaga
+            {t("Orqaga")}
           </button>
           <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text1)" }}>
-            {editTarget ? "Bo'limni tahrirlash" : "Yangi bo'lim / ishlab chiqarish / boshliq"}
+            {editTarget ? t("Bo'limni tahrirlash") : t("Yangi bo'lim / ishlab chiqarish / boshliq")}
           </span>
         </div>
 
@@ -250,27 +252,27 @@ export default function DepartmentsPage() {
                 fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6,
                 color: formSubmitted && !form.name.trim() ? "var(--danger)" : "var(--text2)",
               }}>
-                Nomi <span style={{ color: "var(--danger)" }}>*</span>
+                {t("Nomi")} <span style={{ color: "var(--danger)" }}>*</span>
               </label>
               <input
                 className="form-input"
                 value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="Nomini kiriting"
+                placeholder={t("Nomini kiriting")}
                 style={formSubmitted && !form.name.trim() ? {
                   borderColor: "var(--danger)", outline: "none",
                   boxShadow: "0 0 0 2px var(--danger)33",
                 } : undefined}
               />
               {formSubmitted && !form.name.trim() && (
-                <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Nomini kiriting</div>
+                <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>{t("Nomini kiriting")}</div>
               )}
             </div>
 
             {/* Xodimlar soni */}
             <div>
               <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>
-                Xodimlar soni
+                {t("Xodimlar soni")}
               </label>
               <input
                 className="form-input"
@@ -286,17 +288,17 @@ export default function DepartmentsPage() {
             {/* Toifa */}
             <div style={{ gridColumn: "1 / -1" }}>
               <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 10, color: "var(--text2)" }}>
-                Toifa <span style={{ color: "var(--danger)" }}>*</span>
+                {t("Toifa")} <span style={{ color: "var(--danger)" }}>*</span>
               </label>
               <div style={{ display: "flex", gap: 12 }}>
-                {([DepartmentType.IshlabChiqarish, DepartmentType.Bolim, DepartmentType.Boshqaruv] as const).map(t => {
-                  const s = TYPE_STYLE[t]!;
-                  const selected = form.type === t;
+                {([DepartmentType.IshlabChiqarish, DepartmentType.Bolim, DepartmentType.Boshqaruv] as const).map(dt => {
+                  const s = TYPE_STYLE[dt]!;
+                  const selected = form.type === dt;
                   return (
                     <button
-                      key={t}
+                      key={dt}
                       type="button"
-                      onClick={() => setForm(f => ({ ...f, type: t }))}
+                      onClick={() => setForm(f => ({ ...f, type: dt }))}
                       style={{
                         flex: 1, padding: "14px 12px", borderRadius: 10, cursor: "pointer",
                         border: selected ? `2px solid ${s.color}` : "2px solid var(--border)",
@@ -310,7 +312,7 @@ export default function DepartmentsPage() {
                         fontSize: 13, fontWeight: 700,
                         color: selected ? s.color : "var(--text2)",
                       }}>
-                        {DEPARTMENT_TYPE_LABELS[t]}
+                        {t(DEPARTMENT_TYPE_LABELS[dt])}
                       </span>
                     </button>
                   );
@@ -337,7 +339,7 @@ export default function DepartmentsPage() {
               <div>
                 <div style={{ fontWeight: 700, fontSize: 15, color: "#1a2332" }}>{form.name}</div>
                 <div style={{ fontSize: 12, color: ts.color, marginTop: 2, fontWeight: 600 }}>
-                  {DEPARTMENT_TYPE_LABELS[form.type]} · Xodimlar: {form.employeeCount || "0"}
+                  {t(DEPARTMENT_TYPE_LABELS[form.type])} · {t("Xodimlar")}: {form.employeeCount || "0"}
                 </div>
               </div>
             </div>
@@ -352,7 +354,7 @@ export default function DepartmentsPage() {
               cursor: "pointer", padding: "10px 24px", color: "var(--text2)", fontSize: 14, fontWeight: 500,
             }}
           >
-            Bekor qilish
+            {t("Bekor qilish")}
           </button>
           <button
             className="btn-primary"
@@ -365,7 +367,7 @@ export default function DepartmentsPage() {
               <polyline points="17 21 17 13 7 13 7 21" />
               <polyline points="7 3 7 8 15 8" />
             </svg>
-            {saving ? "Saqlanmoqda..." : editTarget ? "O'zgarishlarni saqlash" : "Yaratish"}
+            {saving ? t("Saqlanmoqda...") : editTarget ? t("O'zgarishlarni saqlash") : t("Yaratish")}
           </button>
         </div>
       </div>
@@ -382,7 +384,7 @@ export default function DepartmentsPage() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          <input className="search-input" placeholder="Qidirish: nomi..."
+          <input className="search-input" placeholder={t("Qidirish: nomi...")}
             value={search} onChange={e => setSearch(e.target.value)} />
         </div>
 
@@ -406,7 +408,7 @@ export default function DepartmentsPage() {
             <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
             </svg>
-            Filtrlar
+            {t("Filtrlar")}
             {activeFilterCount > 0 && (
               <span style={{
                 display: "inline-flex", alignItems: "center", justifyContent: "center",
@@ -444,7 +446,7 @@ export default function DepartmentsPage() {
                   <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                     <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
                   </svg>
-                  Filtrlar
+                  {t("Filtrlar")}
                 </div>
                 {pendingType !== "" && (
                   <button
@@ -461,7 +463,7 @@ export default function DepartmentsPage() {
                     <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
                       <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                     </svg>
-                    Tozalash
+                    {t("Tozalash")}
                   </button>
                 )}
               </div>
@@ -473,13 +475,13 @@ export default function DepartmentsPage() {
                       <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
                       <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
                     </svg>
-                    Toifa
+                    {t("Toifa")}
                   </p>
                   <CheckSelect
                     value={pendingType}
                     onChange={setPendingType}
-                    options={TYPE_FILTER_OPTIONS.map(o => ({ id: o.value, name: o.label }))}
-                    placeholder="Barcha toifalar"
+                    options={TYPE_FILTER_OPTIONS.map(o => ({ id: o.value, name: t(o.label) }))}
+                    placeholder={t("Barcha toifalar")}
                     disablePortal
                   />
                 </div>
@@ -502,14 +504,14 @@ export default function DepartmentsPage() {
                   <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                     <polyline points="20 6 9 17 4 12"/>
                   </svg>
-                  Filtrlarni qo&apos;llash
+                  {t("Filtrlarni qo'llash")}
                 </button>
               </div>
             </div>
           )}
         </div>
 
-        <button className="btn-icon" onClick={() => load()} title="Yangilash"
+        <button className="btn-icon" onClick={() => load()} title={t("Yangilash")}
           style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polyline points="23 4 23 10 17 10" />
@@ -527,7 +529,7 @@ export default function DepartmentsPage() {
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            Yaratish
+            {t("Yaratish")}
           </button>
         )}
       </div>
@@ -535,7 +537,7 @@ export default function DepartmentsPage() {
       {/* Table */}
       <div className="itm-card" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "clip" } as React.CSSProperties}>
         {loading ? (
-          <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
+          <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--text2)" }}>{t("Yuklanmoqda...")}</div>
         ) : error ? (
           <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--danger)" }}>{error}</div>
         ) : (
@@ -543,17 +545,17 @@ export default function DepartmentsPage() {
             <table className="itm-table">
               <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
                 <tr>
-                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>T/r</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Nomi</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Toifa</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Bo&apos;lim boshlig&apos;i</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Xodimlar</th>
-                  <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", background: "var(--bg2)" }}>Amal</th>
+                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>{t("T/r")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Nomi")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Toifa")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Bo'lim boshlig'i")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Xodimlar")}</th>
+                  <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", background: "var(--bg2)" }}>{t("Amal")}</th>
                 </tr>
               </thead>
               <tbody>
                 {list.length === 0 ? (
-                  <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
+                  <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>{t("Ma'lumot topilmadi")}</td></tr>
                 ) : list.map((d, i) => {
                   const inactive = d.isActive === false;
                   return (
@@ -576,18 +578,18 @@ export default function DepartmentsPage() {
                             <span style={{
                               fontSize: 11, fontWeight: 600, padding: "1px 8px", borderRadius: 10, flexShrink: 0,
                               background: "#f3f4f6", color: "#9ca3af", border: "1px solid #e5e7eb",
-                            }}>Noaktiv</span>
+                            }}>{t("Noaktiv")}</span>
                           )}
                         </span>
                       </td>
-                      <td style={{ textAlign: "center", color: "var(--text1)", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{DEPARTMENT_TYPE_LABELS[d.type]}</td>
+                      <td style={{ textAlign: "center", color: "var(--text1)", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t(DEPARTMENT_TYPE_LABELS[d.type])}</td>
                       <td style={{ textAlign: "center", color: "var(--text1)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.headUserName ?? "—"}</td>
                       <td style={{ textAlign: "center", color: "var(--text1)" }}>{d.employeeCount ?? "—"}</td>
                       <td style={{ borderLeft: "2px solid var(--border)" }}>
                         {(canUpdate || canDelete) && (
                           <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
                             {canUpdate && !inactive && (
-                              <button className="btn-icon" title="Tahrirlash" onClick={() => openEdit(d)}
+                              <button className="btn-icon" title={t("Tahrirlash")} onClick={() => openEdit(d)}
                                 style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -598,7 +600,7 @@ export default function DepartmentsPage() {
                             {canDelete && (
                               <button
                                 className="btn-icon"
-                                title={inactive ? "Faollashtirish" : "Noaktiv qilish"}
+                                title={inactive ? t("Faollashtirish") : t("Noaktiv qilish")}
                                 style={inactive
                                   ? { color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }
                                   : { color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }
@@ -638,7 +640,7 @@ export default function DepartmentsPage() {
         marginTop: 8,
       }}>
         <span style={{ fontSize: 17, color: "var(--text)", fontFamily: "var(--font-mono)", fontWeight: 450 }}>
-          {totalCount} tadan {totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}&nbsp;–&nbsp;{Math.min(page * PAGE_SIZE, totalCount)}&nbsp;ko&apos;rsatilmoqda
+          {totalCount} {t("tadan")} {totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}&nbsp;–&nbsp;{Math.min(page * PAGE_SIZE, totalCount)}&nbsp;{t("ko'rsatilmoqda")}
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <button
@@ -647,7 +649,7 @@ export default function DepartmentsPage() {
             onClick={() => setPage(p => p - 1)}
             style={{ padding: "5px 12px", fontSize: 12 }}
           >
-            ← Oldingi
+            ← {t("Oldingi")}
           </button>
           {Array.from({ length: totalPages }, (_, i) => i + 1)
             .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
@@ -680,7 +682,7 @@ export default function DepartmentsPage() {
             onClick={() => setPage(p => p + 1)}
             style={{ padding: "5px 12px", fontSize: 12 }}
           >
-            Keyingi →
+            {t("Keyingi")} →
           </button>
         </div>
       </div>
@@ -691,14 +693,14 @@ export default function DepartmentsPage() {
           <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 400 }}>
             <div className="modal-header" style={{ color: toggleTarget.isActive === false ? "#22c55e" : "var(--danger)", borderBottom: "1px solid var(--border)" }}>
               <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                {toggleTarget.isActive === false ? "Faollashtirishni tasdiqlang" : "Noaktiv qilishni tasdiqlang"}
+                {toggleTarget.isActive === false ? t("Faollashtirishni tasdiqlang") : t("Noaktiv qilishni tasdiqlang")}
               </span>
             </div>
             <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
               <p style={{ margin: 0, fontSize: 14, color: "var(--text2)", lineHeight: 1.6 }}>
                 {toggleTarget.isActive === false
-                  ? `"${toggleTarget.name}" bo'limi yana faol bo'ladi.`
-                  : `"${toggleTarget.name}" bo'limi noaktiv qilinadi. Ma'lumotlar saqlanib qoladi.`}
+                  ? `"${toggleTarget.name}" ${t("bo'limi yana faol bo'ladi.")}`
+                  : `"${toggleTarget.name}" ${t("bo'limi noaktiv qilinadi. Ma'lumotlar saqlanib qoladi.")}`}
               </p>
               {toggleError && (
                 <div style={{
@@ -712,7 +714,7 @@ export default function DepartmentsPage() {
               <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
                 <button className="btn btn-outline"
                   onClick={() => { setToggleTarget(null); setToggleError(""); }}
-                  disabled={toggling}>Bekor qilish</button>
+                  disabled={toggling}>{t("Bekor qilish")}</button>
                 <button className="btn"
                   style={{
                     background: toggleTarget.isActive === false ? "#22c55e" : "var(--danger)",
@@ -720,8 +722,8 @@ export default function DepartmentsPage() {
                   }}
                   onClick={handleToggleActive} disabled={toggling}>
                   {toggling
-                    ? "Bajarilmoqda..."
-                    : toggleTarget.isActive === false ? "Faollashtirish" : "Noaktiv qilish"}
+                    ? t("Bajarilmoqda...")
+                    : toggleTarget.isActive === false ? t("Faollashtirish") : t("Noaktiv qilish")}
                 </button>
               </div>
             </div>

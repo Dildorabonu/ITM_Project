@@ -6,6 +6,13 @@ public class ContractProduct
 {
     public Guid Id { get; set; }
     public Guid ContractId { get; set; }
+
+    // Katalog mahsulotiga (ProductCatalog) bog'lanish. Yangi shartnomalarda to'ldiriladi;
+    // eski (katalogdan oldingi) qatorlarda null bo'ladi. ProductType har doim mahsulot nomini
+    // saqlaydi (katalog tanlansa — katalog nomi bilan bir xil) — downstream kod (ishlab
+    // chiqarish sinxronizatsiyasi, ko'rsatish) unga tayanadi.
+    public Guid? ProductCatalogId { get; set; }
+
     public string ProductType { get; set; } = string.Empty;
     public int Quantity { get; set; }
     public string Unit { get; set; } = string.Empty;
@@ -17,6 +24,7 @@ public class ContractProduct
 
     // Navigation
     public Contract? Contract { get; set; }
+    public ProductCatalog? ProductCatalog { get; set; }
     public ICollection<TechnicalDrawing> TechnicalDrawings { get; set; } = [];
     public ICollection<TechProcess> TechProcesses { get; set; } = [];
     public ICollection<CostNorm> CostNorms { get; set; } = [];

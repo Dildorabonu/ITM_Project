@@ -23,6 +23,11 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.HasIndex(p => p.InvoiceNumber)
             .IsUnique();
 
+        // Skaner kodi — null bo'lmagan qiymatlar uchun unik (eski qatorlar null bo'lishi mumkin).
+        builder.HasIndex(p => p.QrCode)
+            .IsUnique()
+            .HasFilter("\"QrCode\" IS NOT NULL");
+
         // Bir bo'limda bir xil nomli mahsulot turli birlikda alohida saqlanadi
         // (masalan "olma — kg" va "olma — dona"). Shu sabab Unit ham kalitга kiradi.
         builder.HasIndex(p => new { p.Name, p.DepartmentId, p.Unit })

@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useT } from "@/lib/i18n";
 
 interface Option {
   id: string;
@@ -21,7 +22,9 @@ interface CheckSelectProps {
   disablePortal?: boolean;
 }
 
-export function CheckSelect({ value, onChange, options, placeholder = "— Tanlang —", style, buttonStyle, error, disablePortal }: CheckSelectProps) {
+export function CheckSelect({ value, onChange, options, placeholder, style, buttonStyle, error, disablePortal }: CheckSelectProps) {
+  const t = useT();
+  const resolvedPlaceholder = placeholder ?? t("— Tanlang —");
   const [open, setOpen] = useState(false);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -111,7 +114,7 @@ export function CheckSelect({ value, onChange, options, placeholder = "— Tanla
           borderRadius: 3,
           display: "inline-flex",
         }} />
-        Tanlanmagan
+        {t("Tanlanmagan")}
       </div>
 
       {options.map(opt => {
@@ -196,7 +199,7 @@ export function CheckSelect({ value, onChange, options, placeholder = "— Tanla
         )}
         {selected?.icon && <span style={{ fontSize: 13, flexShrink: 0 }}>{selected.icon}</span>}
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, color: selected?.color ?? undefined }}>
-          {selected ? selected.name : placeholder}
+          {selected ? selected.name : resolvedPlaceholder}
         </span>
         <svg
           width="12" height="12"

@@ -2,12 +2,14 @@
 
 import React from "react";
 import EkLogo from "./EkLogo";
+import { useT } from "@/lib/i18n";
 
 interface SplashScreenProps {
   fading: boolean;
 }
 
 export default function SplashScreen({ fading }: SplashScreenProps) {
+  const t = useT();
   return (
     <div
       style={{
@@ -65,7 +67,7 @@ export default function SplashScreen({ fading }: SplashScreenProps) {
             marginTop: 10,
           }}
         >
-          Raqamli Korxona Platformasi
+          {t("Raqamli Korxona Platformasi")}
         </div>
       </div>
 

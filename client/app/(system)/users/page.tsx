@@ -16,6 +16,7 @@ import {
 } from "@/lib/userService";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useToastStore } from "@/lib/store/toastStore";
+import { useT } from "@/lib/i18n";
 import { emptyForm, type UserForm } from "./_components/constants";
 import { UserCreateView } from "./_components/UserCreateView";
 import { UserEditView } from "./_components/UserEditView";
@@ -27,6 +28,7 @@ function UsersPageInner() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const t = useT();
   const view = searchParams.get("view");
   const editId = searchParams.get("id");
 
@@ -89,7 +91,7 @@ function UsersPageInner() {
       setTotalPages(data.totalPages);
       setTotalCount(data.totalCount);
     } catch {
-      setError("Ma'lumotlarni yuklashda xatolik yuz berdi.");
+      setError(t("Ma'lumotlarni yuklashda xatolik yuz berdi."));
     } finally {
       setLoading(false);
     }
@@ -189,14 +191,14 @@ function UsersPageInner() {
       };
       await userService.create(payload);
       sessionStorage.removeItem("draft_users");
-      showToast("Foydalanuvchi muvaffaqiyatli yaratildi!");
+      showToast(t("Foydalanuvchi muvaffaqiyatli yaratildi!"));
       router.push(pathname);
       await load();
       departmentService.getAll().then(setDepartments).catch(() => {});
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
-      setSaveError(msg || "Saqlashda xatolik yuz berdi.");
-      showToast(msg || "Saqlashda xatolik yuz berdi.", "Xatolik");
+      setSaveError(msg || t("Saqlashda xatolik yuz berdi."));
+      showToast(msg || t("Saqlashda xatolik yuz berdi."), t("Xatolik"));
     } finally {
       setSaving(false);
     }
@@ -221,14 +223,14 @@ function UsersPageInner() {
       };
       await userService.update(editTarget.id, payload);
       sessionStorage.removeItem("draft_users");
-      showToast("Foydalanuvchi muvaffaqiyatli yangilandi!");
+      showToast(t("Foydalanuvchi muvaffaqiyatli yangilandi!"));
       router.push(pathname);
       await load();
       departmentService.getAll().then(setDepartments).catch(() => {});
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
-      setSaveError(msg || "Saqlashda xatolik yuz berdi.");
-      showToast(msg || "Saqlashda xatolik yuz berdi.", "Xatolik");
+      setSaveError(msg || t("Saqlashda xatolik yuz berdi."));
+      showToast(msg || t("Saqlashda xatolik yuz berdi."), t("Xatolik"));
     } finally {
       setSaving(false);
     }
@@ -241,11 +243,11 @@ function UsersPageInner() {
     try {
       await userService.deactivate(deactivateId);
       setDeactivateId(null);
-      showToast("Foydalanuvchi muvaffaqiyatli noaktiv qilindi!");
+      showToast(t("Foydalanuvchi muvaffaqiyatli noaktiv qilindi!"));
       await load();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
-      setDeactivateError(msg || "Xatolik yuz berdi.");
+      setDeactivateError(msg || t("Xatolik yuz berdi."));
     } finally {
       setDeactivating(false);
     }
@@ -257,10 +259,10 @@ function UsersPageInner() {
     try {
       await userService.activate(activateConfirmId);
       setActivateConfirmId(null);
-      showToast("Foydalanuvchi muvaffaqiyatli aktiv qilindi!");
+      showToast(t("Foydalanuvchi muvaffaqiyatli aktiv qilindi!"));
       await load();
     } catch {
-      showToast("Foydalanuvchini aktiv qilishda xatolik yuz berdi.", "Xatolik");
+      showToast(t("Foydalanuvchini aktiv qilishda xatolik yuz berdi."), t("Xatolik"));
     } finally {
       setActivating(false);
     }

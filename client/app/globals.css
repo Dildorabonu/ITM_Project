@@ -342,6 +342,47 @@ body {
 .btn-icon { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: var(--radius); background: var(--bg3); border: 1.5px solid var(--border); color: var(--text2); cursor: pointer; transition: all 0.14s; flex-shrink: 0; }
 .btn-icon:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
 .btn-icon-danger:hover { border-color: var(--danger); color: var(--danger); background: var(--danger-dim); }
+
+/* ===== UI TOOLTIP (Tooltip.tsx portal) ===== */
+/* Portal orqali document.body ga chiqadi — scroll/overflow konteynerlarda qirqilmaydi.
+   Har ikkala temada o'qiladigan to'q (solid) pill — universal tooltip ko'rinishi. */
+.ui-tip-bubble {
+  --tip-bg: #232c3a;
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  white-space: nowrap;
+  padding: 6px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.1px;
+  line-height: 1;
+  color: #f4f7fb;
+  background: var(--tip-bg);
+  border-radius: 7px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.06);
+}
+.dark .ui-tip-bubble { --tip-bg: #2b3545; }
+.ui-tip-bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  background: var(--tip-bg);
+  transform: translateX(-50%) rotate(45deg);
+}
+.ui-tip-bubble[data-side="top"]::after    { bottom: -3px; }
+.ui-tip-bubble[data-side="bottom"]::after { top: -3px; }
+.ui-tip-bubble[data-side="top"]    { animation: ui-tip-in-top    0.15s cubic-bezier(0.22,1,0.36,1); }
+.ui-tip-bubble[data-side="bottom"] { animation: ui-tip-in-bottom 0.15s cubic-bezier(0.22,1,0.36,1); }
+@keyframes ui-tip-in-top {
+  from { opacity: 0; transform: translateX(-50%) translateY(calc(-100% + 4px)) scale(0.97); }
+}
+@keyframes ui-tip-in-bottom {
+  from { opacity: 0; transform: translateX(-50%) translateY(4px) scale(0.97); }
+}
+
 /* ===== MODAL ===== */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
 .modal-box { background: var(--bg2); border: 1.5px solid var(--border2); border-radius: var(--radius2); width: 420px; max-width: 94vw; box-shadow: 0 8px 40px rgba(0,0,0,0.35); display: flex; flex-direction: column; }

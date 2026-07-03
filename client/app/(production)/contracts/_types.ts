@@ -2,6 +2,8 @@ import { ContractStatus, ContractProductStatus, ContractType, CONTRACT_STATUS_LA
 // ─── Form types ───────────────────────────────────────────────────────────────
 
 export interface ContractProductForm {
+  productCatalogId: string | null;
+  productCode: string | null;
   productType: string;
   quantity: string;
   unit: string;
@@ -14,6 +16,7 @@ export interface ContractProductForm {
 }
 
 export const emptyProduct: ContractProductForm = {
+  productCatalogId: null, productCode: null,
   productType: "", quantity: "", unit: "", notes: "",
   departmentIds: [], responsibleUsers: [], supervisorUsers: [], observerUsers: [],
   pendingTzFiles: [],

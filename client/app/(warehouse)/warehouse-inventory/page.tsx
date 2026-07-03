@@ -10,6 +10,7 @@ import {
   type DepartmentOption,
 } from "@/lib/userService";
 import { useAuthStore } from "@/lib/store/authStore";
+import { useT } from "@/lib/i18n";
 import { ConfirmModal } from "@/app/_components/ConfirmModal";
 import { CheckSelect } from "@/app/_components/CheckSelect";
 import { emptyForm, WAREHOUSE_DEPARTMENT_TYPE, type ProductForm } from "./_types";
@@ -20,6 +21,7 @@ import { ProductViewDrawer } from "./_components/ProductViewDrawer";
 import { StockMovementDrawer } from "./_components/StockMovementDrawer";
 
 export default function ProductsPage() {
+  const t = useT();
   const hasPermission = useAuthStore(s => s.hasPermission);
   const canCreate = hasPermission("Products.Create");
   const canUpdate = hasPermission("Products.Update");
@@ -88,7 +90,7 @@ export default function ProductsPage() {
       setTotalPages(data.totalPages);
       setTotalCount(data.totalCount);
     } catch {
-      setError("Ma'lumotlarni yuklashda xatolik yuz berdi.");
+      setError(t("Ma'lumotlarni yuklashda xatolik yuz berdi."));
     } finally {
       setLoading(false);
     }
@@ -221,20 +223,20 @@ export default function ProductsPage() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          <input className="search-input" placeholder="Qidirish"
+          <input className="search-input" placeholder={t("Qidirish")}
             value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
         </div>
         <CheckSelect
           value={filterDept}
           onChange={v => { setFilterDept(v); setPage(1); }}
           options={departments.map(d => ({ id: d.id, name: d.name }))}
-          placeholder="Bo'limlar"
+          placeholder={t("Bo'limlar")}
           style={{ width: 200 }}
         />
         <button
           className="btn-icon"
           onClick={load}
-          title="Yangilash"
+          title={t("Yangilash")}
           style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -245,7 +247,7 @@ export default function ProductsPage() {
         </button>
         <button
           onClick={openFrozen}
-          title="Muzlatilgan mahsulotlar"
+          title={t("Muzlatilgan mahsulotlar")}
           style={{
             display: "inline-flex", alignItems: "center", gap: 6,
             padding: "8px 14px", fontSize: 13, fontWeight: 600,
@@ -261,11 +263,11 @@ export default function ProductsPage() {
             <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
             <line x1="19.07" y1="4.93" x2="4.93" y2="19.07" />
           </svg>
-          Muzlatilgan
+          {t("Muzlatilgan")}
         </button>
         <button
           onClick={openPurchase}
-          title="Sotib olingan mahsulotlarni omborga qabul qilish"
+          title={t("Sotib olingan mahsulotlarni omborga qabul qilish")}
           style={{
             display: "inline-flex", alignItems: "center", gap: 6,
             padding: "8px 14px", fontSize: 13, fontWeight: 600,
@@ -280,7 +282,7 @@ export default function ProductsPage() {
             <polyline points="7.5 4.21 12 6.81 16.5 4.21"/>
             <line x1="12" y1="22.08" x2="12" y2="12"/>
           </svg>
-          Sotib olinganlar
+          {t("Sotib olinganlar")}
         </button>
         {canCreate && (
           <button
@@ -291,14 +293,14 @@ export default function ProductsPage() {
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            Yaratish
+            {t("Yaratish")}
           </button>
         )}
       </div>
 
       <div className="itm-card" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "clip" } as React.CSSProperties}>
         {loading ? (
-          <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
+          <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--text2)" }}>{t("Yuklanmoqda...")}</div>
         ) : error ? (
           <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--danger)" }}>{error}</div>
         ) : (
@@ -306,19 +308,19 @@ export default function ProductsPage() {
             <table className="itm-table">
               <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
                 <tr>
-                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>T/r</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Mahsulot nomi</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Invoice raqami</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Bo&apos;lim</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Soni</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>O&apos;lchov</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Tavsif</th>
-                  <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", background: "var(--bg2)" }}>Amal</th>
+                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>{t("T/r")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Mahsulot nomi")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Invoice raqami")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Bo'lim")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Soni")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("O'lchov")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Tavsif")}</th>
+                  <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", background: "var(--bg2)" }}>{t("Amal")}</th>
                 </tr>
               </thead>
               <tbody>
                 {products.length === 0 ? (
-                  <tr><td colSpan={8} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
+                  <tr><td colSpan={8} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>{t("Ma'lumot topilmadi")}</td></tr>
                 ) : products.map((p, i) => (
                   <tr key={p.id}>
                     <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>
@@ -332,7 +334,16 @@ export default function ProductsPage() {
                     <td style={{ textAlign: "center", color: "var(--text1)" }}>{p.description ?? "—"}</td>
                     <td style={{ borderLeft: "2px solid var(--border)" }}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-                        <button className="btn-icon" title="Harakat tarixi" onClick={() => setHistoryProduct(p)}
+                        <button className="btn-icon" title={t("Yorliq chop etish")}
+                          onClick={() => window.open(`/warehouse-inventory/label/${p.id}`, "_blank")}
+                          style={{ color: "#a855f7", borderColor: "#a855f733", background: "#a855f712" }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="6 9 6 2 18 2 18 9" />
+                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                            <rect x="6" y="14" width="12" height="8" />
+                          </svg>
+                        </button>
+                        <button className="btn-icon" title={t("Harakat tarixi")} onClick={() => setHistoryProduct(p)}
                           style={{ color: "var(--accent)", borderColor: "var(--accent)33", background: "var(--accent-dim)" }}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M3 3v5h5" />
@@ -340,7 +351,7 @@ export default function ProductsPage() {
                             <path d="M12 7v5l4 2" />
                           </svg>
                         </button>
-                        <button className="btn-icon" title="Ko'rish" onClick={() => setViewProduct(p)}
+                        <button className="btn-icon" title={t("Ko'rish")} onClick={() => setViewProduct(p)}
                           style={{ color: "#0ea5e9", borderColor: "#0ea5e933", background: "#0ea5e912" }}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
@@ -350,7 +361,7 @@ export default function ProductsPage() {
                         {(canUpdate || canDelete) && (
                           <>
                             {canUpdate && (
-                              <button className="btn-icon" title="Tahrirlash" onClick={() => openEdit(p)}
+                              <button className="btn-icon" title={t("Tahrirlash")} onClick={() => openEdit(p)}
                                 style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -359,7 +370,7 @@ export default function ProductsPage() {
                               </button>
                             )}
                             {canDelete && (
-                              <button className="btn-icon btn-icon-danger" title="O'chirish"
+                              <button className="btn-icon btn-icon-danger" title={t("O'chirish")}
                                 style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}
                                 onClick={() => setDeleteId(p.id)}>
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -390,7 +401,7 @@ export default function ProductsPage() {
         marginTop: 8,
       }}>
         <span style={{ fontSize: 17, color: "var(--text)", fontFamily: "var(--font-mono)", fontWeight: 450 }}>
-          {totalCount} tadan {totalCount === 0 ? 0 : (page - 1) * 50 + 1}&nbsp;–&nbsp;{Math.min(page * 50, totalCount)}&nbsp;ko&apos;rsatilmoqda
+          {totalCount} {t("tadan")} {totalCount === 0 ? 0 : (page - 1) * 50 + 1}&nbsp;–&nbsp;{Math.min(page * 50, totalCount)}&nbsp;{t("ko'rsatilmoqda")}
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <button
@@ -399,7 +410,7 @@ export default function ProductsPage() {
             onClick={() => setPage(p => p - 1)}
             style={{ padding: "5px 12px", fontSize: 12 }}
           >
-            ← Oldingi
+            ← {t("Oldingi")}
           </button>
           {Array.from({ length: totalPages }, (_, i) => i + 1)
             .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
@@ -432,7 +443,7 @@ export default function ProductsPage() {
             onClick={() => setPage(p => p + 1)}
             style={{ padding: "5px 12px", fontSize: 12 }}
           >
-            Keyingi →
+            {t("Keyingi")} →
           </button>
         </div>
       </div>
@@ -454,8 +465,8 @@ export default function ProductsPage() {
       {/* Delete confirm */}
       <ConfirmModal
         open={!!deleteId}
-        title="Mahsulotni o'chirish"
-        message="Ushbu mahsulot o'chiriladi. Davom etasizmi?"
+        title={t("Mahsulotni o'chirish")}
+        message={t("Ushbu mahsulot o'chiriladi. Davom etasizmi?")}
         loading={deleting}
         onConfirm={handleDelete}
         onCancel={() => setDeleteId(null)}

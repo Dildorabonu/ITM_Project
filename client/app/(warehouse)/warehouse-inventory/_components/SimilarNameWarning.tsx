@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { productService, type ProductSimilar } from "@/lib/userService";
+import { useT } from "@/lib/i18n";
 
 // Mahsulot nomi yozilayotganda, ilk harflardan boshlab (StartsWith) tanlangan bo'lim
 // ichidan mos keluvchi mavjud mahsulotlarni input ostida dropdown (typeahead) ko'rsatadi.
@@ -22,6 +23,7 @@ export function SimilarNameWarning({
   excludeId?: string;
   onSelect?: (name: string) => void;
 }) {
+  const t = useT();
   const [matches, setMatches] = useState<ProductSimilar[]>([]);
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ left: number; top: number; width: number } | null>(null);
@@ -108,7 +110,7 @@ export function SimilarNameWarning({
           }}
         >
           <div style={{ padding: "6px 10px", fontSize: 11, fontWeight: 600, color: "var(--text3)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0, background: "var(--surface)" }}>
-            Mavjud mahsulotlar
+            {t("Mavjud mahsulotlar")}
           </div>
           {matches.map(m => (
             <button

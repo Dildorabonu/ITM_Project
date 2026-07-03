@@ -24,6 +24,7 @@ import {
   ManufacturingStatus,
   ProductUnit,
 } from "@/lib/userService";
+import { useT } from "@/lib/i18n";
 
 /* ═══════════════════════════════════════════════════════════════════
    ICONS
@@ -261,6 +262,7 @@ function CompletionPieChart({
   produced: number;
   batched: number;
 }) {
+  const t = useT();
   const producedClamped = Math.min(Math.max(0, produced), Math.max(0, contracted));
   const batchedClamped  = Math.min(Math.max(0, batched), producedClamped);
   const notProduced     = Math.max(0, contracted - producedClamped);
@@ -294,9 +296,9 @@ function CompletionPieChart({
   });
 
   const slices = [
-    { label: "Partiyalangan",       value: batchedClamped, solid: "#10b981" },
-    { label: "Partiyalanmagan",     value: notBatched,     solid: "#1a6eeb" },
-    { label: "Ishlab chiqarilmagan", value: notProduced,   solid: "#4b5563" },
+    { label: t("Partiyalangan"),       value: batchedClamped, solid: "#10b981" },
+    { label: t("Partiyalanmagan"),     value: notBatched,     solid: "#1a6eeb" },
+    { label: t("Ishlab chiqarilmagan"), value: notProduced,   solid: "#4b5563" },
   ];
   const sum = slices.reduce((s, x) => s + x.value, 0);
 
@@ -471,6 +473,7 @@ function DualAreaChart({
   ship: ProductionTrendPoint[];
   height?: number;
 }) {
+  const t = useT();
   const [hover, setHover] = useState<number | null>(null);
   const [animKey, setAnimKey] = useState(0);
   const firstRunRef = useRef(true);
@@ -520,48 +523,38 @@ function DualAreaChart({
   const xAt = (i: number) => padL + (i / Math.max(1, data.length - 1)) * cw;
   const yAt = (v: number) => padT + ch - (v / maxVal) * ch;
 
-  const buildSmooth = (key: "prod" | "ship") => {
+  // Yengil silliqlash — Catmull-Rom asosidagi kardinal splayn, past "tension"
+  // (TENSION) bilan. Nuqtalar AYNAN o'z joyida qoladi (hover/tooltip aniq
+  // raqamga to'g'ri keladi), faqat ular orasidagi burchaklar biroz yumshaydi.
+  // Kuchli "monotone cubic" silliqlashdagi soxta to'lqinlar paydo bo'lmaydi,
+  // ammo "dag'il" tik burchaklar ham ketadi.
+  const buildLine = (key: "prod" | "ship") => {
     const lineData = realData.length > 0 && data.length > realData.length
       ? [...realData, data[realData.length]]
       : realData;
     const pts = lineData.map((d, i) => ({ x: xAt(i), y: yAt(d[key]) }));
     const n = pts.length;
-    if (n < 2) return `M${pts[0]?.x ?? 0},${pts[0]?.y ?? 0}`;
+    if (n === 0) return "M0,0";
+    if (n < 3) return pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
 
-    // Monotone cubic Hermite interpolation (Fritsch-Carlson) — no overshoot
-    const dx: number[] = [], dy: number[] = [], m: number[] = [];
+    const TENSION = 0.6; // 0 = to'g'ri chiziq, 1 = to'liq Catmull-Rom (egriroq)
+    let path = `M${pts[0].x},${pts[0].y}`;
     for (let i = 0; i < n - 1; i++) {
-      dx[i] = pts[i + 1].x - pts[i].x;
-      dy[i] = pts[i + 1].y - pts[i].y;
-      m[i] = dy[i] / dx[i];
+      const p0 = pts[i - 1] ?? pts[i];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[i + 2] ?? p2;
+      const c1x = p1.x + ((p2.x - p0.x) / 6) * TENSION;
+      const c1y = p1.y + ((p2.y - p0.y) / 6) * TENSION;
+      const c2x = p2.x - ((p3.x - p1.x) / 6) * TENSION;
+      const c2y = p2.y - ((p3.y - p1.y) / 6) * TENSION;
+      path += ` C${c1x},${c1y} ${c2x},${c2y} ${p2.x},${p2.y}`;
     }
-
-    const t: number[] = new Array(n);
-    t[0] = m[0];
-    t[n - 1] = m[n - 2];
-    for (let i = 1; i < n - 1; i++) {
-      if (m[i - 1] * m[i] <= 0) {
-        t[i] = 0;
-      } else {
-        const w1 = 2 * dx[i] + dx[i - 1];
-        const w2 = dx[i] + 2 * dx[i - 1];
-        t[i] = (w1 + w2) / (w1 / m[i - 1] + w2 / m[i]);
-      }
-    }
-
-    let p = `M${pts[0].x},${pts[0].y}`;
-    for (let i = 0; i < n - 1; i++) {
-      const c1x = pts[i].x + dx[i] / 3;
-      const c1y = pts[i].y + (t[i] * dx[i]) / 3;
-      const c2x = pts[i + 1].x - dx[i] / 3;
-      const c2y = pts[i + 1].y - (t[i + 1] * dx[i]) / 3;
-      p += ` C${c1x},${c1y} ${c2x},${c2y} ${pts[i + 1].x},${pts[i + 1].y}`;
-    }
-    return p;
+    return path;
   };
 
-  const prodLine = buildSmooth("prod");
-  const shipLine = buildSmooth("ship");
+  const prodLine = buildLine("prod");
+  const shipLine = buildLine("ship");
   const lineEndIdx = data.length - 1;
   const prodArea = `${prodLine} L${xAt(lineEndIdx)},${padT + ch} L${padL},${padT + ch} Z`;
   const shipArea = `${shipLine} L${xAt(lineEndIdx)},${padT + ch} L${padL},${padT + ch} Z`;
@@ -642,7 +635,7 @@ function DualAreaChart({
             <text x={(futureBoundaryX + (W - padR)) / 2} y={padT + 11} textAnchor="middle"
               fill="var(--text3)" fontSize="9" opacity="0.7"
               style={{ letterSpacing: "0.08em", textTransform: "uppercase" }}>
-              Kelgusi
+              {t("Kelgusi")}
             </text>
           </g>
         )}
@@ -707,12 +700,12 @@ function DualAreaChart({
             <div className="dx-tooltip-date">{date.getDate()}-{UZ_MONTHS_SHORT[date.getMonth()]}</div>
             <div className="dx-tooltip-row">
               <span className="dx-tooltip-dot" style={{ background: "var(--accent)" }} />
-              <span className="dx-tooltip-label">Ishlab chiq.</span>
+              <span className="dx-tooltip-label">{t("Ishlab chiq.")}</span>
               <span className="dx-tooltip-val">{data[validHover].prod.toLocaleString()}</span>
             </div>
             <div className="dx-tooltip-row">
               <span className="dx-tooltip-dot" style={{ background: "var(--success)" }} />
-              <span className="dx-tooltip-label">Jo&apos;natma</span>
+              <span className="dx-tooltip-label">{t("Jo'natma")}</span>
               <span className="dx-tooltip-val">{data[validHover].ship.toLocaleString()}</span>
             </div>
           </div>
@@ -736,6 +729,7 @@ const STATUS_COLORS: Record<number, string> = {
 };
 
 function BubbleChart({ data }: { data: ContractStatusBucket[] }) {
+  const t = useT();
   const total = data.reduce((s, d) => s + d.count, 0);
   const size = 240;
   const cx = size / 2, cy = size / 2;
@@ -1073,7 +1067,7 @@ function BubbleChart({ data }: { data: ContractStatusBucket[] }) {
         {visible.length === 0 && (
           <div className="dx-bub-empty">
             <div className="dx-donut-num">{total}</div>
-            <div className="dx-donut-cap">Jami shartnoma</div>
+            <div className="dx-donut-cap">{t("Jami shartnoma")}</div>
           </div>
         )}
       </div>
@@ -1100,24 +1094,25 @@ function BubbleChart({ data }: { data: ContractStatusBucket[] }) {
 ═══════════════════════════════════════════════════════════════════ */
 
 function HBarList({ data }: { data: DepartmentWorkload[] }) {
+  const t = useT();
   const max = Math.max(1, ...data.map(d => d.activeContracts + d.activeManufactured));
 
   if (data.length === 0) {
-    return <div className="dx-empty"><Ico.CheckCircle /><span>Faol yuk yo&apos;q</span></div>;
+    return <div className="dx-empty"><Ico.CheckCircle /><span>{t("Faol yuk yo'q")}</span></div>;
   }
 
   return (
     <div className="dx-hbar-list">
       <div className="dx-hbar-hint">
-        <span className="dx-hbar-hint-label">Bo&apos;lim turi</span>
+        <span className="dx-hbar-hint-label">{t("Bo'lim turi")}</span>
         <span className="dx-hbar-hint-item">
-          <span className="dx-hbar-chip dxc-production" /> Ishlab chiqarish
+          <span className="dx-hbar-chip dxc-production" /> {t("Ishlab chiqarish")}
         </span>
         <span className="dx-hbar-hint-item">
-          <span className="dx-hbar-chip dxc-admin" /> Boshqaruv
+          <span className="dx-hbar-chip dxc-admin" /> {t("Boshqaruv")}
         </span>
         <span className="dx-hbar-hint-item">
-          <span className="dx-hbar-chip dxc-section" /> Bo&apos;lim
+          <span className="dx-hbar-chip dxc-section" /> {t("Bo'lim")}
         </span>
       </div>
       {data.slice(0, 8).map((d, i) => {
@@ -1144,30 +1139,30 @@ function HBarList({ data }: { data: DepartmentWorkload[] }) {
             </div>
             <div className="dx-hbar-right">
               <span className="dx-hbar-num">{total}</span>
-              <span className="dx-hbar-meta">{d.activeContracts} sh · {d.activeManufactured} m</span>
+              <span className="dx-hbar-meta">{d.activeContracts} {t("sh")} · {d.activeManufactured} {t("m")}</span>
             </div>
 
             <div className="dx-hbar-tip" role="tooltip">
               <div className="dx-hbar-tip-head">
                 <span className={`dx-hbar-chip dxc-${typeChip}`} />
                 <span className="dx-hbar-tip-name">{d.name}</span>
-                <span className="dx-hbar-tip-type">{typeLabel}</span>
+                <span className="dx-hbar-tip-type">{t(typeLabel)}</span>
               </div>
               <div className="dx-hbar-tip-grid">
                 <div className="dx-hbar-tip-stat">
-                  <span className="dx-hbar-tip-label">Xodimlar</span>
+                  <span className="dx-hbar-tip-label">{t("Xodimlar")}</span>
                   <span className="dx-hbar-tip-val">{d.employeeCount}</span>
                 </div>
                 <div className="dx-hbar-tip-stat">
-                  <span className="dx-hbar-tip-label">Jami yuk</span>
+                  <span className="dx-hbar-tip-label">{t("Jami yuk")}</span>
                   <span className="dx-hbar-tip-val">{total}</span>
                 </div>
                 <div className="dx-hbar-tip-stat">
-                  <span className="dx-hbar-tip-label">Shartnoma</span>
+                  <span className="dx-hbar-tip-label">{t("Shartnoma")}</span>
                   <span className="dx-hbar-tip-val dx-hbar-tip-val-c">{d.activeContracts}</span>
                 </div>
                 <div className="dx-hbar-tip-stat">
-                  <span className="dx-hbar-tip-label">Mahsulot</span>
+                  <span className="dx-hbar-tip-label">{t("Mahsulot")}</span>
                   <span className="dx-hbar-tip-val dx-hbar-tip-val-m">{d.activeManufactured}</span>
                 </div>
               </div>
@@ -1184,6 +1179,7 @@ function HBarList({ data }: { data: DepartmentWorkload[] }) {
 ═══════════════════════════════════════════════════════════════════ */
 
 function Heatmap({ cells }: { cells: HeatmapCell[] }) {
+  const t = useT();
   const weeks = Math.max(0, ...cells.map(c => c.weekIndex)) + 1;
   const max = Math.max(1, ...cells.map(c => c.amount));
 
@@ -1259,9 +1255,9 @@ function Heatmap({ cells }: { cells: HeatmapCell[] }) {
         </div>
       </div>
       <div className="dx-heat-legend">
-        <span className="dx-heat-legend-label">Kam</span>
+        <span className="dx-heat-legend-label">{t("Kam")}</span>
         {[0, 1, 2, 3, 4].map(l => <span key={l} className={`dx-heat-cell dx-heat-l${l}`} />)}
-        <span className="dx-heat-legend-label">Ko&apos;p</span>
+        <span className="dx-heat-legend-label">{t("Ko'p")}</span>
       </div>
     </div>
   );
@@ -1272,8 +1268,9 @@ function Heatmap({ cells }: { cells: HeatmapCell[] }) {
 ═══════════════════════════════════════════════════════════════════ */
 
 function MfgProgressList({ items }: { items: ManufacturingProgress[] }) {
+  const t = useT();
   if (items.length === 0) {
-    return <div className="dx-empty"><Ico.CheckCircle /><span>Hozircha ishlab chiqarishda mahsulot yo&apos;q</span></div>;
+    return <div className="dx-empty"><Ico.CheckCircle /><span>{t("Hozircha ishlab chiqarishda mahsulot yo'q")}</span></div>;
   }
   return (
     <div className="dx-mfg-list">
@@ -1299,7 +1296,7 @@ function MfgProgressList({ items }: { items: ManufacturingProgress[] }) {
             <div className="dx-mfg-foot">
               <span className="dx-mfg-qty">{m.producedQuantity.toLocaleString()} / {m.quantity.toLocaleString()} {unitLabel(m.unit)}</span>
               <span className="dx-mfg-status">
-                {m.status === ManufacturingStatus.Completed ? "Yakunlandi" : "Jarayonda"}
+                {m.status === ManufacturingStatus.Completed ? t("Yakunlandi") : t("Jarayonda")}
               </span>
             </div>
           </div>
@@ -1314,8 +1311,9 @@ function MfgProgressList({ items }: { items: ManufacturingProgress[] }) {
 ═══════════════════════════════════════════════════════════════════ */
 
 function DeadlineList({ items, onClick, variant = "list" }: { items: UpcomingDeadline[]; onClick?: () => void; variant?: "list" | "grid" }) {
+  const t = useT();
   if (items.length === 0) {
-    return <div className="dx-empty"><Ico.CheckCircle /><span>Yaqin deadline yo&apos;q</span></div>;
+    return <div className="dx-empty"><Ico.CheckCircle /><span>{t("Yaqin deadline yo'q")}</span></div>;
   }
   return (
     <div className={variant === "grid" ? "dx-dl-list dx-dl-list-grid" : "dx-dl-list"}>
@@ -1327,9 +1325,9 @@ function DeadlineList({ items, onClick, variant = "list" }: { items: UpcomingDea
           c.daysRemaining === 0 ? 0 :
           c.daysRemaining;
         const dayLabel =
-          urg === "passed" ? "kun o'tdi" :
-          c.daysRemaining === 0 ? "bugun" :
-          c.daysRemaining === 1 ? "kun qoldi" : "kun qoldi";
+          urg === "passed" ? t("kun o'tdi") :
+          c.daysRemaining === 0 ? t("bugun") :
+          c.daysRemaining === 1 ? t("kun qoldi") : t("kun qoldi");
         const progress = Math.max(0, Math.min(100, c.overallProgress));
         return (
           <div
@@ -1374,7 +1372,7 @@ function DeadlineList({ items, onClick, variant = "list" }: { items: UpcomingDea
 
             <div className="dx-dl-prog">
               <div className="dx-dl-prog-head">
-                <span className="dx-dl-prog-lbl">Bajarilgan</span>
+                <span className="dx-dl-prog-lbl">{t("Bajarilgan")}</span>
                 <span className={`dx-dl-prog-num dxd-${urg}`}>{Math.round(progress)}%</span>
               </div>
               <div className="dx-dl-prog-track">
@@ -1393,6 +1391,7 @@ function DeadlineList({ items, onClick, variant = "list" }: { items: UpcomingDea
 ═══════════════════════════════════════════════════════════════════ */
 
 function ActivityFeed({ items }: { items: RecentActivity[] }) {
+  const t = useT();
   // Live "X minutes ago" — refreshes once per minute.
   const [now, setNow] = useState(() => Date.now());
   const [query, setQuery] = useState("");
@@ -1451,10 +1450,10 @@ function ActivityFeed({ items }: { items: RecentActivity[] }) {
 
   function relTime(at: string): string {
     const diff = (now - new Date(at).getTime()) / 1000;
-    if (diff < 60) return "hozir";
-    if (diff < 3600) return `${Math.floor(diff / 60)} daq`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)} soat`;
-    if (diff < 86400 * 7) return `${Math.floor(diff / 86400)} kun`;
+    if (diff < 60) return t("hozir");
+    if (diff < 3600) return `${Math.floor(diff / 60)} ${t("daq")}`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} ${t("soat")}`;
+    if (diff < 86400 * 7) return `${Math.floor(diff / 86400)} ${t("kun")}`;
     const d = new Date(at);
     return `${d.getDate()}-${UZ_MONTHS_SHORT[d.getMonth()]}`;
   }
@@ -1485,17 +1484,17 @@ function ActivityFeed({ items }: { items: RecentActivity[] }) {
         <input
           type="text"
           className="dx-feed-search-input"
-          placeholder="Faollikni qidirish..."
+          placeholder={t("Faollikni qidirish...")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          aria-label="Faollikni qidirish"
+          aria-label={t("Faollikni qidirish")}
         />
         {query && (
           <button
             type="button"
             className="dx-feed-search-clear"
             onClick={() => setQuery("")}
-            aria-label="Tozalash"
+            aria-label={t("Tozalash")}
           >
             <Ico.X />
           </button>
@@ -1503,9 +1502,9 @@ function ActivityFeed({ items }: { items: RecentActivity[] }) {
       </div>
 
       {list.length === 0 ? (
-        <div className="dx-empty"><Ico.CheckCircle /><span>Faollik yo&apos;q</span></div>
+        <div className="dx-empty"><Ico.CheckCircle /><span>{t("Faollik yo'q")}</span></div>
       ) : filtered.length === 0 ? (
-        <div className="dx-empty"><Ico.Search /><span>Hech narsa topilmadi</span></div>
+        <div className="dx-empty"><Ico.Search /><span>{t("Hech narsa topilmadi")}</span></div>
       ) : (
         <div className="dx-feed" ref={scrollRef}>
           {filtered.map((a, i) => (
@@ -1529,7 +1528,7 @@ function ActivityFeed({ items }: { items: RecentActivity[] }) {
             </div>
           )}
           {!query && !hasMore && list.length > ACTIVITY_PAGE_SIZE && (
-            <div className="dx-feed-end">Barchasi ko&apos;rsatildi</div>
+            <div className="dx-feed-end">{t("Barchasi ko'rsatildi")}</div>
           )}
         </div>
       )}
@@ -1542,7 +1541,8 @@ function ActivityFeed({ items }: { items: RecentActivity[] }) {
 ═══════════════════════════════════════════════════════════════════ */
 
 function TopPerformers({ items }: { items: TopPerformer[] }) {
-  if (items.length === 0) return <div className="dx-empty"><Ico.Trophy /><span>Ma&apos;lumot yo&apos;q</span></div>;
+  const t = useT();
+  if (items.length === 0) return <div className="dx-empty"><Ico.Trophy /><span>{t("Ma'lumot yo'q")}</span></div>;
   const max = Math.max(1, ...items.map(p => Number(p.totalAmount)));
   return (
     <div className="dx-perf-list">
@@ -1551,14 +1551,14 @@ function TopPerformers({ items }: { items: TopPerformer[] }) {
           <div className={`dx-perf-rank dxr-${i}`}>{i + 1}</div>
           <div className="dx-perf-info">
             <div className="dx-perf-name">{p.fullName.trim() || "—"}</div>
-            <div className="dx-perf-dept">{p.departmentName || "Bo'limsiz"}</div>
+            <div className="dx-perf-dept">{p.departmentName || t("Bo'limsiz")}</div>
             <div className="dx-perf-track">
               <div className="dx-perf-fill" style={{ width: `${(Number(p.totalAmount) / max) * 100}%` }} />
             </div>
           </div>
           <div className="dx-perf-stats">
             <div className="dx-perf-num">{formatNum(Number(p.totalAmount))}</div>
-            <div className="dx-perf-cap">{p.logCount} yozuv</div>
+            <div className="dx-perf-cap">{p.logCount} {t("yozuv")}</div>
           </div>
         </div>
       ))}
@@ -1747,18 +1747,19 @@ function Sparkline({
 }
 
 function DeltaLine({ delta }: { delta: KpiDelta }) {
+  const t = useT();
   if (delta.kind === "flat") {
     return (
       <div className="dx-mini-delta dx-mini-delta-flat">
         <span className="dx-mini-delta-pct">→ 0</span>
-        <span className="dx-mini-delta-label">bu oy o&apos;zgarishsiz</span>
+        <span className="dx-mini-delta-label">{t("bu oy o'zgarishsiz")}</span>
       </div>
     );
   }
   return (
     <div className="dx-mini-delta dx-mini-delta-up">
       <span className="dx-mini-delta-pct">↑ +{delta.added.toLocaleString("en-US").replace(/,/g, " ")}</span>
-      <span className="dx-mini-delta-label">bu oy</span>
+      <span className="dx-mini-delta-label">{t("bu oy")}</span>
     </div>
   );
 }
@@ -1772,6 +1773,7 @@ function RangeCalendarPicker({
   onChange: (v: DateRange) => void;
   loading?: boolean;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -1971,11 +1973,11 @@ function RangeCalendarPicker({
           ref={popupRef}
           className="dx-cal-pop"
           role="dialog"
-          aria-label="Davrni tanlang"
+          aria-label={t("Davrni tanlang")}
           style={popupPos ? { top: popupPos.top, right: popupPos.right } : { visibility: "hidden" }}
         >
           <div className="dx-cal-side">
-            <div className="dx-cal-side-title">Tezkor</div>
+            <div className="dx-cal-side-title">{t("Tezkor")}</div>
             {RANGE_PRESETS.map(p => (
               <button
                 key={p.key}
@@ -1983,21 +1985,21 @@ function RangeCalendarPicker({
                 className={`dx-cal-preset ${activePresetKey === p.key ? "is-active" : ""}`}
                 onClick={() => applyPreset(p)}
               >
-                {p.label}
+                {t(p.label)}
               </button>
             ))}
           </div>
 
           <div className="dx-cal-main">
             <div className="dx-cal-nav">
-              <button type="button" className="dx-cal-nav-btn" onClick={goPrev} aria-label="Oldingi oy">
+              <button type="button" className="dx-cal-nav-btn" onClick={goPrev} aria-label={t("Oldingi oy")}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="15 6 9 12 15 18" />
                 </svg>
               </button>
               <div className="dx-cal-nav-spacer" />
-              <button type="button" className="dx-cal-nav-btn" onClick={goNext} aria-label="Keyingi oy">
+              <button type="button" className="dx-cal-nav-btn" onClick={goNext} aria-label={t("Keyingi oy")}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="9 6 15 12 9 18" />
@@ -2010,18 +2012,18 @@ function RangeCalendarPicker({
 
             <div className="dx-cal-foot">
               <div className="dx-cal-foot-range">
-                <span className="dx-cal-foot-tag">Boshlanish</span>
+                <span className="dx-cal-foot-tag">{t("Boshlanish")}</span>
                 <span className="dx-cal-foot-val">{formatPeriodRange(pending.from, pending.from)}</span>
                 <svg className="dx-cal-foot-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="9 18 15 12 9 6" />
                 </svg>
-                <span className="dx-cal-foot-tag">Tugash</span>
+                <span className="dx-cal-foot-tag">{t("Tugash")}</span>
                 <span className="dx-cal-foot-val">{formatPeriodRange(pending.to, pending.to)}</span>
               </div>
               <div className="dx-cal-foot-actions">
-                <button type="button" className="dx-cal-btn-ghost" onClick={cancel}>Bekor qilish</button>
-                <button type="button" className="dx-cal-btn-primary" onClick={commit}>Tasdiqlash</button>
+                <button type="button" className="dx-cal-btn-ghost" onClick={cancel}>{t("Bekor qilish")}</button>
+                <button type="button" className="dx-cal-btn-primary" onClick={commit}>{t("Tasdiqlash")}</button>
               </div>
             </div>
           </div>
@@ -2037,6 +2039,7 @@ function RangeCalendarPicker({
 ═══════════════════════════════════════════════════════════════════ */
 
 export default function DashboardPage() {
+  const t = useT();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const isAuthenticated = !!user;
@@ -2071,12 +2074,12 @@ export default function DashboardPage() {
         firstLoadRef.current = false;
       }
     } catch {
-      setErr("Ma'lumotlarni yuklab bo'lmadi");
+      setErr(t("Ma'lumotlarni yuklab bo'lmadi"));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [isAuthenticated, trendRange]);
+  }, [isAuthenticated, trendRange, t]);
 
   useEffect(() => {
     void loadSummary();
@@ -2119,7 +2122,7 @@ export default function DashboardPage() {
       <div className="dx-loading">
         <div className="dx-loading-inner">
           <div className="nd-spinner" />
-          Ma&apos;lumotlar tayyorlanmoqda...
+          {t("Ma'lumotlar tayyorlanmoqda...")}
         </div>
       </div>
     );
@@ -2130,7 +2133,7 @@ export default function DashboardPage() {
       <div className="dx-loading">
         <div className="dx-loading-inner">
           <Ico.Alert />
-          {err || "Xato"}
+          {err || t("Xato")}
         </div>
       </div>
     );
@@ -2149,10 +2152,10 @@ export default function DashboardPage() {
           <div className="dx-hero-greet-block">
             <div className="dx-hero-greeting">
               <span className="dx-hero-icon">{getGreetingIcon(greeting.icon)}</span>
-              <span>{greeting.text},</span>
+              <span>{t(greeting.text)},</span>
             </div>
             <h1 className="dx-hero-name">{firstName}</h1>
-            <p className="dx-hero-sub">Bugungi tashkilot holati va ishlab chiqarish ko&apos;rsatkichlari</p>
+            <p className="dx-hero-sub">{t("Bugungi tashkilot holati va ishlab chiqarish ko'rsatkichlari")}</p>
           </div>
           <div className="dx-hero-meta">
             <div className="dx-hero-meta-row">
@@ -2160,8 +2163,8 @@ export default function DashboardPage() {
                 className="btn-icon"
                 onClick={() => { void loadSummary(); }}
                 disabled={refreshing}
-                title="Yangilash"
-                aria-label="Yangilash"
+                title={t("Yangilash")}
+                aria-label={t("Yangilash")}
                 style={{
                   background: "var(--accent-dim)",
                   borderColor: "var(--accent)",
@@ -2197,10 +2200,10 @@ export default function DashboardPage() {
             <button
               className="dx-mini-tile dxm-accent"
               onClick={() => router.push("/contracts")}
-              aria-label="Faol shartnomalar"
+              aria-label={t("Faol shartnomalar")}
             >
               <div className="dx-mini-top">
-                <span className="dx-mini-title">Faol shartnoma</span>
+                <span className="dx-mini-title">{t("Faol shartnoma")}</span>
                 <span className="dx-mini-icon"><Ico.Zap /></span>
               </div>
               <div className="dx-mini-inner">
@@ -2214,10 +2217,10 @@ export default function DashboardPage() {
             <button
               className="dx-mini-tile dxm-success"
               onClick={() => router.push("/manufactured")}
-              aria-label="Tayyor mahsulotlar"
+              aria-label={t("Tayyor mahsulotlar")}
             >
               <div className="dx-mini-top">
-                <span className="dx-mini-title">Tayyor mahsulot</span>
+                <span className="dx-mini-title">{t("Tayyor mahsulot")}</span>
                 <span className="dx-mini-icon"><Ico.CheckCircle /></span>
               </div>
               <div className="dx-mini-inner">
@@ -2231,10 +2234,10 @@ export default function DashboardPage() {
             <button
               className="dx-mini-tile dxm-purple"
               onClick={() => router.push("/manufactured")}
-              aria-label="Ishlab chiqarishda"
+              aria-label={t("Ishlab chiqarishda")}
             >
               <div className="dx-mini-top">
-                <span className="dx-mini-title">Ishlab chiqarishda</span>
+                <span className="dx-mini-title">{t("Ishlab chiqarishda")}</span>
                 <span className="dx-mini-icon"><Ico.Factory /></span>
               </div>
               <div className="dx-mini-inner">
@@ -2248,10 +2251,10 @@ export default function DashboardPage() {
             <button
               className="dx-mini-tile dxm-cyan"
               onClick={() => router.push("/users")}
-              aria-label="Xodimlar"
+              aria-label={t("Xodimlar")}
             >
               <div className="dx-mini-top">
-                <span className="dx-mini-title">Xodimlar</span>
+                <span className="dx-mini-title">{t("Xodimlar")}</span>
                 <span className="dx-mini-icon"><Ico.Users /></span>
               </div>
               <div className="dx-mini-inner">
@@ -2267,11 +2270,11 @@ export default function DashboardPage() {
           <RevealSection key={`trend-${staticNonce}`} className="dx-section dx-section-framed dx-strip-trend">
             <div className="dx-section-header">
               <Ico.Activity />
-              <h3 className="dx-section-title">Ishlab chiqarish va jo&apos;natma dinamikasi</h3>
-              <span className="dx-section-meta">{trendDayCount} kun</span>
+              <h3 className="dx-section-title">{t("Ishlab chiqarish va jo'natma dinamikasi")}</h3>
+              <span className="dx-section-meta">{trendDayCount} {t("kun")}</span>
               <div className="dx-section-legend">
-                <span className="dx-legend-dot" style={{ background: "var(--accent)" }} /> Ishlab chiqarish
-                <span className="dx-legend-dot" style={{ background: "var(--success)", marginLeft: 12 }} /> Jo&apos;natmalar
+                <span className="dx-legend-dot" style={{ background: "var(--accent)" }} /> {t("Ishlab chiqarish")}
+                <span className="dx-legend-dot" style={{ background: "var(--success)", marginLeft: 12 }} /> {t("Jo'natmalar")}
               </div>
               <div className="dx-section-period">
                 <RangeCalendarPicker value={trendRange} onChange={setTrendRange} loading={refreshing} />
@@ -2286,7 +2289,7 @@ export default function DashboardPage() {
         <RevealSection key={`activity-${kpiNonce}`} className="dx-section dx-section-framed">
           <div className="dx-section-header">
             <Ico.Activity />
-            <h3 className="dx-section-title">So&apos;nggi faollik</h3>
+            <h3 className="dx-section-title">{t("So'nggi faollik")}</h3>
           </div>
           <div className="dx-section-body">
             <ActivityFeed items={data.recentActivity} />
@@ -2300,7 +2303,7 @@ export default function DashboardPage() {
           <div className="dx-section-header">
             <Ico.PieChart />
             <span className="dx-info-wrap" style={{ gap: 6 }}>
-              <h3 className="dx-section-title">Bajarish ulushi</h3>
+              <h3 className="dx-section-title">{t("Bajarish ulushi")}</h3>
               <span
                 className="dx-info-ico"
                 onMouseEnter={(e) => {
@@ -2325,7 +2328,7 @@ export default function DashboardPage() {
         <RevealSection key={`mfg-${staticNonce}`} className="dx-section dx-section-framed">
           <div className="dx-section-header">
             <Ico.Factory />
-            <h3 className="dx-section-title">Mahsulot ishlab chiqarish progressi</h3>
+            <h3 className="dx-section-title">{t("Mahsulot ishlab chiqarish progressi")}</h3>
           </div>
           <div className="dx-section-body">
             <MfgProgressList items={data.manufacturingProgress} />
@@ -2335,7 +2338,7 @@ export default function DashboardPage() {
         <RevealSection key={`bubble-${staticNonce}`} className="dx-section dx-section-framed">
           <div className="dx-section-header">
             <Ico.Box />
-            <h3 className="dx-section-title">Shartnomalar holati</h3>
+            <h3 className="dx-section-title">{t("Shartnomalar holati")}</h3>
           </div>
           <div className="dx-section-body">
             <BubbleChart data={data.contractStatus} />
@@ -2348,10 +2351,10 @@ export default function DashboardPage() {
         <RevealSection key={`hbar-${staticNonce}`} className="dx-section dx-section-framed">
           <div className="dx-section-header">
             <Ico.Building />
-            <h3 className="dx-section-title">Bo&apos;limlar yuklamasi</h3>
+            <h3 className="dx-section-title">{t("Bo'limlar yuklamasi")}</h3>
             <div className="dx-section-legend">
-              <span className="dx-legend-dot" style={{ background: "var(--accent)" }} /> Shartnoma
-              <span className="dx-legend-dot" style={{ background: "var(--purple)", marginLeft: 12 }} /> Mahsulot
+              <span className="dx-legend-dot" style={{ background: "var(--accent)" }} /> {t("Shartnoma")}
+              <span className="dx-legend-dot" style={{ background: "var(--purple)", marginLeft: 12 }} /> {t("Mahsulot")}
             </div>
           </div>
           <div className="dx-section-body">
@@ -2362,9 +2365,9 @@ export default function DashboardPage() {
         <RevealSection key={`deadlines-${staticNonce}`} className="dx-section dx-section-framed">
           <div className="dx-section-header">
             <Ico.Clock />
-            <h3 className="dx-section-title">Yaqinlashayotgan deadlinelar</h3>
+            <h3 className="dx-section-title">{t("Yaqinlashayotgan deadlinelar")}</h3>
             <button type="button" className="dx-section-link" onClick={() => router.push("/contracts")}>
-              Hammasi <Ico.ArrowRight />
+              {t("Hammasi")} <Ico.ArrowRight />
             </button>
           </div>
           <div className="dx-section-body">
@@ -2377,18 +2380,15 @@ export default function DashboardPage() {
       <RevealSection key={`heatmap-${staticNonce}`} as="section" className="dx-section">
         <div className="dx-section-header">
           <Ico.Activity />
-          <h3 className="dx-section-title">Faollik xaritasi</h3>
-          <span className="dx-section-meta">1 yil · kunlik yozuvlar</span>
+          <h3 className="dx-section-title">{t("Faollik xaritasi")}</h3>
+          <span className="dx-section-meta">{t("1 yil · kunlik yozuvlar")}</span>
         </div>
         <Heatmap cells={data.activityHeatmap} />
       </RevealSection>
 
       {pieTipPos && createPortal(
         <div className="dx-info-tip" style={{ left: pieTipPos.x, top: pieTipPos.y }}>
-          Ishlab chiqarilgan miqdor har mahsulotning &laquo;Tayyor mahsulotni omborga
-          topshirish&raquo; vazifasidan olinadi — oraliq bosqichlar hisobga olinmaydi.
-          Har mahsulot alohida hisoblanadi: bittasini ortiqcha ishlab chiqarish boshqasining
-          kamomadini yopmaydi.
+          {t("Ishlab chiqarilgan miqdor har mahsulotning «Tayyor mahsulotni omborga topshirish» vazifasidan olinadi — oraliq bosqichlar hisobga olinmaydi. Har mahsulot alohida hisoblanadi: bittasini ortiqcha ishlab chiqarish boshqasining kamomadini yopmaydi.")}
         </div>,
         document.body
       )}

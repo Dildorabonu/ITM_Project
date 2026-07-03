@@ -16,10 +16,12 @@ import { WorkflowDiagram } from "../_components/WorkflowDiagram";
 import { RequisitionMovements } from "../_components/RequisitionMovements";
 import { downloadRequisitionPdf, openRequisitionPdfInNewTab } from "../_utils/downloadRequisitionPdf";
 import { fmtDateTime, type RequisitionResponse } from "../_types";
+import { useT } from "@/lib/i18n";
 
 export default function RequisitionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const t = useT();
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const showToast = useToastStore((s) => s.show);
 
@@ -68,7 +70,7 @@ export default function RequisitionDetailPage() {
     try {
       await requisitionService.downloadFile(id, file.id, file.fileName);
     } catch {
-      showToast("Yuklab olishda xatolik", "error");
+      showToast(t("Yuklab olishda xatolik"), "error");
     }
   };
 
@@ -82,10 +84,10 @@ export default function RequisitionDetailPage() {
         setTimeout(() => URL.revokeObjectURL(url), 10000);
       } else {
         URL.revokeObjectURL(url);
-        showToast("Yangi tab ochilmadi. Popup bloker tekshiring.", "error");
+        showToast(t("Yangi tab ochilmadi. Popup bloker tekshiring."), "error");
       }
     } catch {
-      showToast("Faylni yuklashda xatolik", "error");
+      showToast(t("Faylni yuklashda xatolik"), "error");
     } finally {
       setPreviewingId(null);
     }
@@ -95,9 +97,9 @@ export default function RequisitionDetailPage() {
     setChildActing({ id: childId, action: "download" });
     try {
       const ok = await downloadRequisitionPdf(childId);
-      if (!ok) showToast("PDF yaratilmadi", "error");
+      if (!ok) showToast(t("PDF yaratilmadi"), "error");
     } catch {
-      showToast("Yuklab olishda xatolik", "error");
+      showToast(t("Yuklab olishda xatolik"), "error");
     } finally {
       setChildActing(null);
     }
@@ -107,10 +109,10 @@ export default function RequisitionDetailPage() {
     setChildActing({ id: childId, action: "open" });
     try {
       const result = await openRequisitionPdfInNewTab(childId);
-      if (result === "blocked") showToast("Yangi tab ochilmadi. Popup bloker tekshiring.", "error");
-      else if (result === "error") showToast("PDF yaratilmadi", "error");
+      if (result === "blocked") showToast(t("Yangi tab ochilmadi. Popup bloker tekshiring."), "error");
+      else if (result === "error") showToast(t("PDF yaratilmadi"), "error");
     } catch {
-      showToast("Faylni yuklashda xatolik", "error");
+      showToast(t("Faylni yuklashda xatolik"), "error");
     } finally {
       setChildActing(null);
     }
@@ -121,10 +123,10 @@ export default function RequisitionDetailPage() {
     setActing(true);
     try {
       await requisitionService.approve(req.id);
-      showToast("Talabnoma tasdiqlandi", "success");
+      showToast(t("Talabnoma tasdiqlandi"), "success");
       await refresh();
     } catch {
-      showToast("Xatolik yuz berdi", "error");
+      showToast(t("Xatolik yuz berdi"), "error");
     } finally { setActing(false); }
   };
 
@@ -133,12 +135,12 @@ export default function RequisitionDetailPage() {
     setRejectSaving(true);
     try {
       await requisitionService.reject(req.id, rejectReason.trim());
-      showToast("Talabnoma rad etildi", "success");
+      showToast(t("Talabnoma rad etildi"), "success");
       setRejectOpen(false);
       setRejectSaving(false);
       await refresh();
     } catch {
-      showToast("Xatolik yuz berdi", "error");
+      showToast(t("Xatolik yuz berdi"), "error");
       setRejectSaving(false);
     }
   };
@@ -148,12 +150,12 @@ export default function RequisitionDetailPage() {
     setReleasing(true);
     try {
       await requisitionService.release(req.id);
-      showToast("Mahsulotlar bo'lim omboriga tushdi", "success");
+      showToast(t("Mahsulotlar bo'lim omboriga tushdi"), "success");
       setReleaseOpen(false);
       await refresh();
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
-      showToast(msg ?? "Chiqarib berishda xatolik yuz berdi", "error");
+      showToast(msg ?? t("Chiqarib berishda xatolik yuz berdi"), "error");
     } finally {
       setReleasing(false);
     }
@@ -164,23 +166,23 @@ export default function RequisitionDetailPage() {
     setReceiving(true);
     try {
       await requisitionService.receivePurchase(req.id);
-      showToast("Xarid omborga qabul qilindi", "success");
+      showToast(t("Xarid omborga qabul qilindi"), "success");
       setReceiveOpen(false);
       await refresh();
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
-      showToast(msg ?? "Qabul qilishda xatolik yuz berdi", "error");
+      showToast(msg ?? t("Qabul qilishda xatolik yuz berdi"), "error");
     } finally {
       setReceiving(false);
     }
   };
 
   if (loading) {
-    return <div style={{ textAlign: "center", padding: 80, color: "var(--text3)" }}>Yuklanmoqda…</div>;
+    return <div style={{ textAlign: "center", padding: 80, color: "var(--text3)" }}>{t("Yuklanmoqda…")}</div>;
   }
 
   if (!req) {
-    return <div style={{ textAlign: "center", padding: 80, color: "var(--text3)" }}>Talabnoma topilmadi</div>;
+    return <div style={{ textAlign: "center", padding: 80, color: "var(--text3)" }}>{t("Talabnoma topilmadi")}</div>;
   }
 
   const canDoApproval = canApprove && req.status === RequisitionStatus.PendingApproval;
@@ -207,7 +209,7 @@ export default function RequisitionDetailPage() {
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
             <polyline points="15 18 9 12 15 6" />
           </svg>
-          Orqaga
+          {t("Orqaga")}
         </button>
         <div style={{ flex: 1 }}>
           <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "var(--text1)", fontFamily: "var(--font-mono)" }}>{req.requisitionNo}</h1>
@@ -233,10 +235,10 @@ export default function RequisitionDetailPage() {
         {/* Parent / Children */}
         {(isChild || (req.children?.length ?? 0) > 0) && (
           <div className="itm-card" style={{ padding: 22 }}>
-            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 14 }}>Bog&apos;liq talabnomalar</div>
+            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 14 }}>{t("Bog'liq talabnomalar")}</div>
             {isChild && req.parentRequisitionNo && req.parentRequisitionId && (
               <div style={{ marginBottom: req.children.length > 0 ? 12 : 0 }}>
-                <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 6 }}>Asl talabnoma</div>
+                <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 6 }}>{t("Asl talabnoma")}</div>
                 <button
                   onClick={() => router.push(`/requisitions/${req.parentRequisitionId}`)}
                   style={{ width: "100%", padding: "10px 14px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", background: "var(--bg3)", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", textAlign: "left", transition: "border-color 0.15s" }}
@@ -250,12 +252,12 @@ export default function RequisitionDetailPage() {
             )}
             {(req.children?.length ?? 0) > 0 && (
               <div>
-                <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 6 }}>Bo&apos;lingan talabnomalar</div>
+                <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 6 }}>{t("Bo'lingan talabnomalar")}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {req.children.map(ch => {
                     const isWh = ch.source === RequisitionSource.Warehouse;
                     const destColor = isWh ? "var(--success)" : "var(--accent)";
-                    const destLabel = isWh ? "Ombordan olishga" : "Sotib olishga";
+                    const destLabel = isWh ? t("Ombordan olishga") : t("Sotib olishga");
                     const isOpening = childActing?.id === ch.id && childActing.action === "open";
                     const isDownloading = childActing?.id === ch.id && childActing.action === "download";
                     const anyActing = childActing !== null;
@@ -265,7 +267,7 @@ export default function RequisitionDetailPage() {
                         style={{ padding: "10px 14px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", background: "var(--bg3)", display: "flex", alignItems: "center", gap: 12, textAlign: "left" }}
                       >
                         <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, color: "var(--text)", flex: 1 }}>{ch.requisitionNo}</span>
-                        <span style={{ fontSize: 11, color: "var(--text3)" }}>{ch.itemCount} ta material</span>
+                        <span style={{ fontSize: 11, color: "var(--text3)" }}>{ch.itemCount} {t("ta material")}</span>
                         <RequisitionStatusBadge status={ch.status} small />
                         <span style={{
                           display: "inline-flex", alignItems: "center", gap: 4,
@@ -305,34 +307,34 @@ export default function RequisitionDetailPage() {
 
         {/* Main info */}
         <div className="itm-card" style={{ padding: 22 }}>
-          <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 14 }}>Asosiy ma&apos;lumotlar</div>
+          <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 14 }}>{t("Asosiy ma'lumotlar")}</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <InfoCard label="Maqsad" value={req.purpose} full />
-            {req.contractNo && <InfoCard label="Shartnoma" value={req.contractNo} />}
-            {req.departmentName && <InfoCard label="Bo'lim" value={req.departmentName} />}
-            <InfoCard label="Yaratuvchi" value={req.createdByName} />
-            <InfoCard label="Yaratilgan" value={fmtDateTime(req.createdAt)} />
-            {req.notes && <InfoCard label="Izoh" value={req.notes} full />}
-            {req.signerTitle && <InfoCard label="Lavozim" value={req.signerTitle} />}
-            {req.signerName && <InfoCard label="F.I.O." value={req.signerName} />}
+            <InfoCard label={t("Maqsad")} value={req.purpose} full />
+            {req.contractNo && <InfoCard label={t("Shartnoma")} value={req.contractNo} />}
+            {req.departmentName && <InfoCard label={t("Bo'lim")} value={req.departmentName} />}
+            <InfoCard label={t("Yaratuvchi")} value={req.createdByName} />
+            <InfoCard label={t("Yaratilgan")} value={fmtDateTime(req.createdAt)} />
+            {req.notes && <InfoCard label={t("Izoh")} value={req.notes} full />}
+            {req.signerTitle && <InfoCard label={t("Lavozim")} value={req.signerTitle} />}
+            {req.signerName && <InfoCard label={t("F.I.O.")} value={req.signerName} />}
           </div>
         </div>
 
         {/* Materials */}
         <div className="itm-card" style={{ padding: 22 }}>
           <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 14 }}>
-            Materiallar ({req.items.length})
+            {t("Materiallar")} ({req.items.length})
           </div>
           <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius2)", overflow: "hidden" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ background: "var(--bg3)" }}>
                   <th style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)" }}>#</th>
-                  <th style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)" }}>Nomi</th>
-                  <th style={{ padding: "10px 14px", textAlign: "center", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", width: 90 }}>O&apos;lchov</th>
-                  <th style={{ padding: "10px 14px", textAlign: "center", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", width: 110 }}>Miqdor</th>
-                  {showAvailability && <th style={{ padding: "10px 14px", textAlign: "center", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", width: 130 }}>Mavjud</th>}
-                  {isChild && <th style={{ padding: "10px 14px", textAlign: "center", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", width: 130 }}>Asl miqdor</th>}
+                  <th style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)" }}>{t("Nomi")}</th>
+                  <th style={{ padding: "10px 14px", textAlign: "center", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", width: 90 }}>{t("O'lchov")}</th>
+                  <th style={{ padding: "10px 14px", textAlign: "center", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", width: 110 }}>{t("Miqdor")}</th>
+                  {showAvailability && <th style={{ padding: "10px 14px", textAlign: "center", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", width: 130 }}>{t("Mavjud")}</th>}
+                  {isChild && <th style={{ padding: "10px 14px", textAlign: "center", fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", width: 130 }}>{t("Asl miqdor")}</th>}
                 </tr>
               </thead>
               <tbody>
@@ -378,17 +380,17 @@ export default function RequisitionDetailPage() {
         {/* Warehouse check info */}
         {req.warehouseCheckedAt && (
           <div className="itm-card" style={{ padding: 22 }}>
-            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 14 }}>Ombor tekshiruvi</div>
+            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 14 }}>{t("Ombor tekshiruvi")}</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: req.warehouseCheckQrCodeData ? 16 : 0 }}>
-              <InfoCard label="Tekshirgan" value={req.warehouseCheckedByName ?? "—"} />
-              <InfoCard label="Tekshirilgan vaqt" value={fmtDateTime(req.warehouseCheckedAt)} />
+              <InfoCard label={t("Tekshirgan")} value={req.warehouseCheckedByName ?? "—"} />
+              <InfoCard label={t("Tekshirilgan vaqt")} value={fmtDateTime(req.warehouseCheckedAt)} />
             </div>
             {req.warehouseCheckQrCodeData && (
               <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius2)", padding: 20, display: "flex", flexDirection: "column", alignItems: "center", gap: 10, background: "var(--bg3)" }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text2)" }}>Omborchi imzo QR kodi</div>
-                <img src={`data:image/png;base64,${req.warehouseCheckQrCodeData}`} alt="Omborchi QR kodi" style={{ width: 180, height: 180, imageRendering: "pixelated" }} />
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text2)" }}>{t("Omborchi imzo QR kodi")}</div>
+                <img src={`data:image/png;base64,${req.warehouseCheckQrCodeData}`} alt={t("Omborchi QR kodi")} style={{ width: 180, height: 180, imageRendering: "pixelated" }} />
                 <div style={{ fontSize: 11, color: "var(--text3)", textAlign: "center" }}>
-                  Skanerlash orqali ombor tekshiruvini tekshirish mumkin
+                  {t("Skanerlash orqali ombor tekshiruvini tekshirish mumkin")}
                 </div>
               </div>
             )}
@@ -398,17 +400,17 @@ export default function RequisitionDetailPage() {
         {/* Approval info */}
         {isApproved && (
           <div className="itm-card" style={{ padding: 22 }}>
-            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 14 }}>Tasdiqlash</div>
+            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 14 }}>{t("Tasdiqlash")}</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: req.qrCodeData ? 16 : 0 }}>
-              <InfoCard label="Tasdiqlagan" value={req.approvedByName ?? "—"} />
-              <InfoCard label="Tasdiqlangan vaqt" value={fmtDateTime(req.approvedAt)} />
+              <InfoCard label={t("Tasdiqlagan")} value={req.approvedByName ?? "—"} />
+              <InfoCard label={t("Tasdiqlangan vaqt")} value={fmtDateTime(req.approvedAt)} />
             </div>
             {req.qrCodeData && (
               <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius2)", padding: 20, display: "flex", flexDirection: "column", alignItems: "center", gap: 10, background: "var(--bg3)" }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text2)" }}>Tasdiqlash QR kodi</div>
-                <img src={`data:image/png;base64,${req.qrCodeData}`} alt="QR kod" style={{ width: 180, height: 180, imageRendering: "pixelated" }} />
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text2)" }}>{t("Tasdiqlash QR kodi")}</div>
+                <img src={`data:image/png;base64,${req.qrCodeData}`} alt={t("QR kod")} style={{ width: 180, height: 180, imageRendering: "pixelated" }} />
                 <div style={{ fontSize: 11, color: "var(--text3)", textAlign: "center" }}>
-                  Skanerlash orqali tasdiqlashni tekshirish mumkin
+                  {t("Skanerlash orqali tasdiqlashni tekshirish mumkin")}
                 </div>
               </div>
             )}
@@ -418,7 +420,7 @@ export default function RequisitionDetailPage() {
         {/* Rejection reason */}
         {req.status === RequisitionStatus.Rejected && (
           <div className="itm-card" style={{ padding: 22 }}>
-            <div style={{ fontSize: 12, color: "var(--danger)", fontWeight: 600, marginBottom: 14 }}>Rad etish sababi</div>
+            <div style={{ fontSize: 12, color: "var(--danger)", fontWeight: 600, marginBottom: 14 }}>{t("Rad etish sababi")}</div>
             <div style={{ background: "var(--danger-dim)", border: "1px solid rgba(217,48,37,0.2)", borderRadius: "var(--radius)", padding: "14px 18px", color: "var(--danger)", fontSize: 13 }}>
               {req.rejectionReason ?? "—"}
             </div>
@@ -428,20 +430,20 @@ export default function RequisitionDetailPage() {
         {/* Files */}
         {filesLoading ? (
           <div className="itm-card" style={{ padding: 22 }}>
-            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 14 }}>Fayllar</div>
-            <div style={{ color: "var(--text3)", fontSize: 13, textAlign: "center", padding: "16px 0" }}>Yuklanmoqda…</div>
+            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 14 }}>{t("Fayllar")}</div>
+            <div style={{ color: "var(--text3)", fontSize: 13, textAlign: "center", padding: "16px 0" }}>{t("Yuklanmoqda…")}</div>
           </div>
         ) : files.length === 0 ? (
           <div className="itm-card" style={{ padding: 22 }}>
-            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 14 }}>Fayllar</div>
-            <div style={{ color: "var(--text3)", fontSize: 13, textAlign: "center", padding: "16px 0" }}>Fayllar yo&apos;q</div>
+            <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 14 }}>{t("Fayllar")}</div>
+            <div style={{ color: "var(--text3)", fontSize: 13, textAlign: "center", padding: "16px 0" }}>{t("Fayllar yo'q")}</div>
           </div>
         ) : (
           <>
             {files.filter(f => f.label === "tz").length > 0 && (
               <div className="itm-card" style={{ padding: 22 }}>
                 <div style={{ fontSize: 12, color: "var(--purple)", fontWeight: 600, marginBottom: 14 }}>
-                  TZ — Texnik Topshiriq ({files.filter(f => f.label === "tz").length})
+                  {t("TZ — Texnik Topshiriq")} ({files.filter(f => f.label === "tz").length})
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {files.filter(f => f.label === "tz").map(file => (
@@ -453,7 +455,7 @@ export default function RequisitionDetailPage() {
             {files.filter(f => f.label !== "tz").length > 0 && (
               <div className="itm-card" style={{ padding: 22 }}>
                 <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 14 }}>
-                  Ilovalar ({files.filter(f => f.label !== "tz").length})
+                  {t("Ilovalar")} ({files.filter(f => f.label !== "tz").length})
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {files.filter(f => f.label !== "tz").map(file => (
@@ -474,14 +476,14 @@ export default function RequisitionDetailPage() {
                 onClick={handleApprove}
                 style={{ flex: 1, padding: "12px", borderRadius: "var(--radius)", background: "var(--success)", color: "#fff", border: "none", fontWeight: 600, fontSize: 14, cursor: acting ? "not-allowed" : "pointer", opacity: acting ? 0.7 : 1 }}
               >
-                {acting ? "…" : "Tasdiqlash"}
+                {acting ? "…" : t("Tasdiqlash")}
               </button>
               <button
                 disabled={acting}
                 onClick={() => { setRejectOpen(true); setRejectReason(""); }}
                 style={{ flex: 1, padding: "12px", borderRadius: "var(--radius)", background: "var(--danger-dim)", color: "var(--danger)", border: "1px solid rgba(217,48,37,0.3)", fontWeight: 600, fontSize: 14, cursor: acting ? "not-allowed" : "pointer", opacity: acting ? 0.7 : 1 }}
               >
-                Rad etish
+                {t("Rad etish")}
               </button>
             </div>
           )}
@@ -496,7 +498,7 @@ export default function RequisitionDetailPage() {
                 <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
                 <line x1="12" y1="22.08" x2="12" y2="12"/>
               </svg>
-              {releasing ? "Chiqarilmoqda…" : "Mahsulotlarni chiqarib berish"}
+              {releasing ? t("Chiqarilmoqda…") : t("Mahsulotlarni chiqarib berish")}
             </button>
           )}
           {canDoReceivePurchase && (
@@ -510,7 +512,7 @@ export default function RequisitionDetailPage() {
                 <polyline points="7.5 4.21 12 6.81 16.5 4.21"/>
                 <line x1="12" y1="22.08" x2="12" y2="12"/>
               </svg>
-              {receiving ? "Qabul qilinmoqda…" : "Omborga qabul qilindi"}
+              {receiving ? t("Qabul qilinmoqda…") : t("Omborga qabul qilindi")}
             </button>
           )}
           {(req.status === RequisitionStatus.Released || req.status === RequisitionStatus.Delivered) && (
@@ -519,8 +521,8 @@ export default function RequisitionDetailPage() {
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
               {req.status === RequisitionStatus.Delivered
-                ? "Sotib olinib, bo'lim omboriga yetkazildi"
-                : "Mahsulotlar bo'lim omboriga tushdi"}
+                ? t("Sotib olinib, bo'lim omboriga yetkazildi")
+                : t("Mahsulotlar bo'lim omboriga tushdi")}
             </div>
           )}
         </div>
@@ -533,11 +535,11 @@ export default function RequisitionDetailPage() {
           onClick={() => !releasing && setReleaseOpen(false)}
         >
           <div onClick={e => e.stopPropagation()} style={{ background: "var(--bg2)", borderRadius: 14, padding: 28, width: 460, maxWidth: "90vw", boxShadow: "var(--shadow2)" }}>
-            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8, color: "var(--text1)" }}>Mahsulotlarni chiqarib berish</div>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8, color: "var(--text1)" }}>{t("Mahsulotlarni chiqarib berish")}</div>
             <div style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.5, marginBottom: 16 }}>
-              Talabnomadagi <b>{req.items.length} ta</b> material ombordan chiqariladi va{" "}
-              <b style={{ color: "var(--accent)" }}>{req.departmentName ?? "bo'lim"}</b> omboriga tushadi.
-              Bu amalni qaytarib bo&apos;lmaydi.
+              {t("Talabnomadagi")} <b>{req.items.length} {t("ta")}</b> {t("material ombordan chiqariladi va")}{" "}
+              <b style={{ color: "var(--accent)" }}>{req.departmentName ?? t("bo'lim")}</b> {t("omboriga tushadi.")}
+              {" "}{t("Bu amalni qaytarib bo'lmaydi.")}
             </div>
             <div style={{ display: "flex", gap: 10 }}>
               <button
@@ -545,14 +547,14 @@ export default function RequisitionDetailPage() {
                 onClick={() => setReleaseOpen(false)}
                 style={{ flex: 1, padding: "9px", background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: "var(--radius)", cursor: releasing ? "not-allowed" : "pointer", fontWeight: 600, color: "var(--text2)" }}
               >
-                Bekor
+                {t("Bekor")}
               </button>
               <button
                 disabled={releasing}
                 onClick={handleRelease}
                 style={{ flex: 1, padding: "9px", background: "var(--success)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: releasing ? "not-allowed" : "pointer", fontWeight: 600, opacity: releasing ? 0.7 : 1 }}
               >
-                {releasing ? "Chiqarilmoqda…" : "Chiqarish"}
+                {releasing ? t("Chiqarilmoqda…") : t("Chiqarish")}
               </button>
             </div>
           </div>
@@ -566,10 +568,10 @@ export default function RequisitionDetailPage() {
           onClick={() => !receiving && setReceiveOpen(false)}
         >
           <div onClick={e => e.stopPropagation()} style={{ background: "var(--bg2)", borderRadius: 14, padding: 28, width: 460, maxWidth: "90vw", boxShadow: "var(--shadow2)" }}>
-            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8, color: "var(--text1)" }}>Sotib olingan mahsulotni omborga qabul qilish</div>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8, color: "var(--text1)" }}>{t("Sotib olingan mahsulotni omborga qabul qilish")}</div>
             <div style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.5, marginBottom: 16 }}>
-              Sotib olingan <b>{req.items.length} ta</b> mahsulot markaziy omborxonaga kirim qilinadi va{" "}
-              <b style={{ color: "var(--accent)" }}>{req.departmentName ?? "bo'lim"}</b> omboriga berishga tayyor holatga o&apos;tadi.
+              {t("Sotib olingan")} <b>{req.items.length} {t("ta")}</b> {t("mahsulot markaziy omborxonaga kirim qilinadi va")}{" "}
+              <b style={{ color: "var(--accent)" }}>{req.departmentName ?? t("bo'lim")}</b> {t("omboriga berishga tayyor holatga o'tadi.")}
             </div>
             <div style={{ display: "flex", gap: 10 }}>
               <button
@@ -577,14 +579,14 @@ export default function RequisitionDetailPage() {
                 onClick={() => setReceiveOpen(false)}
                 style={{ flex: 1, padding: "9px", background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: "var(--radius)", cursor: receiving ? "not-allowed" : "pointer", fontWeight: 600, color: "var(--text2)" }}
               >
-                Bekor
+                {t("Bekor")}
               </button>
               <button
                 disabled={receiving}
                 onClick={handleReceivePurchase}
                 style={{ flex: 1, padding: "9px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: receiving ? "not-allowed" : "pointer", fontWeight: 600, opacity: receiving ? 0.7 : 1 }}
               >
-                {receiving ? "Qabul qilinmoqda…" : "Qabul qilish"}
+                {receiving ? t("Qabul qilinmoqda…") : t("Qabul qilish")}
               </button>
             </div>
           </div>
@@ -598,12 +600,12 @@ export default function RequisitionDetailPage() {
           onClick={() => setRejectOpen(false)}
         >
           <div onClick={e => e.stopPropagation()} style={{ background: "var(--bg2)", borderRadius: 14, padding: 28, width: 420, maxWidth: "90vw", boxShadow: "var(--shadow2)" }}>
-            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16, color: "var(--text1)" }}>Rad etish sababi</div>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16, color: "var(--text1)" }}>{t("Rad etish sababi")}</div>
             <textarea
               value={rejectReason}
               onChange={e => setRejectReason(e.target.value)}
               rows={4}
-              placeholder="Sababni kiriting…"
+              placeholder={t("Sababni kiriting…")}
               style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, resize: "vertical", boxSizing: "border-box", background: "var(--bg3)", color: "var(--text1)" }}
             />
             <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
@@ -611,14 +613,14 @@ export default function RequisitionDetailPage() {
                 onClick={() => setRejectOpen(false)}
                 style={{ flex: 1, padding: "9px", background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, color: "var(--text2)" }}
               >
-                Bekor
+                {t("Bekor")}
               </button>
               <button
                 disabled={!rejectReason.trim() || rejectSaving}
                 onClick={handleRejectConfirm}
                 style={{ flex: 1, padding: "9px", background: "var(--danger)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: !rejectReason.trim() || rejectSaving ? "not-allowed" : "pointer", fontWeight: 600, opacity: !rejectReason.trim() || rejectSaving ? 0.7 : 1 }}
               >
-                {rejectSaving ? "…" : "Rad etish"}
+                {rejectSaving ? "…" : t("Rad etish")}
               </button>
             </div>
           </div>
@@ -643,13 +645,14 @@ function ChildPdfButton({ variant, loading, disabled, onClick }: {
   disabled: boolean;
   onClick: () => void;
 }) {
+  const t = useT();
   const [hover, setHover] = useState(false);
   const isOpen = variant === "open";
   const color = isOpen ? "#0ea5e9" : "#10b981";
   const bgIdle = isOpen ? "rgba(14,165,233,0.07)" : "rgba(16,185,129,0.07)";
   const bgHover = isOpen ? "rgba(14,165,233,0.15)" : "rgba(16,185,129,0.15)";
   const outline = isOpen ? "rgba(14,165,233,0.3)" : "rgba(16,185,129,0.3)";
-  const title = isOpen ? "Yangi tabda ko'rish" : "Yuklab olish";
+  const title = isOpen ? t("Yangi tabda ko'rish") : t("Yuklab olish");
   const interactive = !disabled && !loading;
   return (
     <button
@@ -697,6 +700,7 @@ function FileRow({ file, onDownload, onPreview, previewing, accentColor }: {
   previewing: boolean;
   accentColor: string;
 }) {
+  const t = useT();
   const ext = file.fileName.split(".").pop()?.toLowerCase() ?? "";
   const previewable = ["pdf", "png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"].includes(ext);
   const [previewHover, setPreviewHover] = useState(false);
@@ -718,7 +722,7 @@ function FileRow({ file, onDownload, onPreview, previewing, accentColor }: {
         <button
           onClick={onPreview}
           disabled={previewing}
-          title="Yangi tabda ko'rish"
+          title={t("Yangi tabda ko'rish")}
           onMouseEnter={() => setPreviewHover(true)}
           onMouseLeave={() => setPreviewHover(false)}
           style={{
@@ -746,7 +750,7 @@ function FileRow({ file, onDownload, onPreview, previewing, accentColor }: {
       )}
       <button
         onClick={onDownload}
-        title="Yuklab olish"
+        title={t("Yuklab olish")}
         onMouseEnter={() => setDownloadHover(true)}
         onMouseLeave={() => setDownloadHover(false)}
         style={{

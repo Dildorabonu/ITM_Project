@@ -3,6 +3,7 @@ using Core.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using System.Linq;
+using System.Security.Cryptography;
 
 namespace DataAccess.Persistence;
 
@@ -20,6 +21,45 @@ public static class AutomatedMigration
         await SeedDepartmentsAsync(context);
         await MigrateLegacyRequisitionStatusesAsync(context);
         await MigrateLegacyContractStatusesAsync(context);
+        await BackfillProductQrCodesAsync(context);
+    }
+
+    /// <summary>
+    /// Eski (QrCode == null) Productlarga barqaror skaner kodi ("P-9F3A1C") tayinlaydi —
+    /// shunda QR funksiyasidan oldin yaratilgan mahsulotlar ham skanerlanadi. Batch bilan.
+    /// </summary>
+    private static async System.Threading.Tasks.Task BackfillProductQrCodesAsync(DatabaseContext context)
+    {
+        if (!await context.Products.AnyAsync(p => p.QrCode == null))
+            return;
+
+        // Mavjud kodlarni xotiraga olib, generatsiyada to'qnashuvni oldini olamiz.
+        var used = new HashSet<string>(
+            await context.Products
+                .Where(p => p.QrCode != null)
+                .Select(p => p.QrCode!)
+                .ToListAsync());
+
+        const int batchSize = 500;
+        while (true)
+        {
+            var batch = await context.Products
+                .Where(p => p.QrCode == null)
+                .Take(batchSize)
+                .ToListAsync();
+
+            if (batch.Count == 0) break;
+
+            foreach (var product in batch)
+            {
+                string code;
+                do { code = "P-" + Convert.ToHexString(RandomNumberGenerator.GetBytes(3)); }
+                while (!used.Add(code));
+                product.QrCode = code;
+            }
+
+            await context.SaveChangesAsync();
+        }
     }
 
     /// <summary>
@@ -66,6 +106,7 @@ public static class AutomatedMigration
         [PermissionModule.Requisitions]       = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.ViewAll, PermissionAction.Approve, PermissionAction.WarehouseCheck],
         [PermissionModule.ManufacturedProducts] = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete],
         [PermissionModule.Shipments]          = [PermissionAction.View, PermissionAction.Create, PermissionAction.Delete],
+        [PermissionModule.ProductCatalog]     = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete],
     };
 
     private static async System.Threading.Tasks.Task SeedPermissionsAsync(DatabaseContext context)

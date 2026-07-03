@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -9,6 +9,7 @@ import { api } from "@/lib/api";
 import ToastContainer from "@/app/_components/ToastContainer";
 import EkLogo from "@/app/_components/EkLogo";
 import SplashScreen from "@/app/_components/SplashScreen";
+import { useT, useLangStore } from "@/lib/i18n";
 
 type NavItem = { name: string; href: string; icon: string; badge?: number; badgeWarn?: boolean; permission?: string | string[] };
 type NavGroup = { label: string; icon: string; items: NavItem[] };
@@ -37,7 +38,9 @@ const navGroups: NavGroup[] = [
     icon: "package",
     items: [
       { name: "Korxona omborxonasi", href: "/warehouse-inventory", icon: "shopping-bag", permission: "Products.View" },
+      { name: "Ombor skaneri", href: "/warehouse-scan", icon: "package", permission: "Products.View" },
       { name: "Tayyor mahsulotlar",  href: "/manufactured", icon: "factory",      permission: "ManufacturedProducts.View" },
+      { name: "Mahsulotlar katalogi", href: "/product-catalog", icon: "box",       permission: "ProductCatalog.View" },
       { name: "Bo'lim omborlari", href: "/department-warehouses", icon: "briefcase", permission: "Products.View" },
       { name: "Ombor tekshiruvi", href: "/warehouse-check", icon: "package",      permission: "WarehouseCheck.View" },
       { name: "Harakatlar jurnali", href: "/warehouse-movements", icon: "activity", permission: "WarehouseCheck.View" },
@@ -84,6 +87,7 @@ function NavIcon({ type, size = 16, strokeWidth = 2, color }: { type: string; si
   if (type === "layers")      return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><polygon points="12,2 2,7 12,12 22,7"/><polyline points="2,17 12,22 22,17"/><polyline points="2,12 12,17 22,12"/></svg>;
   if (type === "factory")     return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><path d="M2 20V8l6 4V8l6 4V8l6 4v8z"/><line x1="2" y1="20" x2="22" y2="20"/><line x1="7" y1="16" x2="7" y2="16.01"/><line x1="12" y1="16" x2="12" y2="16.01"/><line x1="17" y1="16" x2="17" y2="16.01"/></svg>;
   if (type === "ruler")       return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.4 2.4 0 0 1 0-3.4l2.6-2.6a2.4 2.4 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg>;
+  if (type === "box")         return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/><path d="m7.5 4.3 9 5.2"/></svg>;
   return null;
 }
 
@@ -123,8 +127,8 @@ function applyAppearanceFont(family: string, scale: number) {
 }
 
 // Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
-const readyRoutes = new Set(["/", "/users", "/roles", "/login", "/departments", "/warehouse-inventory", "/warehouse-check", "/warehouse-movements", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions", "/requisitions/approvals", "/manufactured", "/department-warehouses"]);
-const readyPrefixes = ["/requisitions/", "/contracts/", "/techprocess/", "/technicaldrawings/", "/requisitions/print", "/department-warehouses/"];
+const readyRoutes = new Set(["/", "/users", "/roles", "/login", "/departments", "/warehouse-inventory", "/warehouse-check", "/warehouse-movements", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions", "/requisitions/approvals", "/manufactured", "/product-catalog", "/department-warehouses"]);
+const readyPrefixes = ["/requisitions/", "/contracts/", "/techprocess/", "/technicaldrawings/", "/requisitions/print", "/department-warehouses/", "/warehouse-inventory/label/"];
 
 const pageTitles: Record<string, string> = {
   "/":              "Dashboard",
@@ -136,20 +140,25 @@ const pageTitles: Record<string, string> = {
   "/warehouse-movements": "Harakatlar jurnali",
   "/tasks":         "Vazifalar",
   "/manufactured":  "Tayyor mahsulotlar",
+  "/product-catalog": "Mahsulotlar katalogi",
   "/users":         "Foydalanuvchilar",
   "/roles":         "Rollar",
   "/departments":   "Tuzilma",
   "/warehouse-inventory": "Korxona omborxonasi",
+  "/warehouse-scan": "Ombor skaneri",
   "/department-warehouses": "Bo'lim Omborlari",
   "/appearance":    "Tashqi ko'rinish",
   "/requisitions":           "Talabnomalar",
-  "/requisitions/approvals": "Talabnomalar — Tasdiqlash",
+  "/requisitions/approvals": "Talabnomalar â€” Tasdiqlash",
   "/requisitions/print":     "Talabnoma",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const t = useT();
+  const lang = useLangStore((s) => s.lang);
+  const setLang = useLangStore((s) => s.setLang);
   const pageTitle = pageTitles[pathname]
     ?? Object.keys(pageTitles)
       .filter(k => k !== "/" && pathname.startsWith(k + "/"))
@@ -495,14 +504,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   >
                     {!sidebarCollapsed && <span className="nav-border" style={{ position: "absolute", left: 6, top: 0, bottom: 0, width: 3 }} />}
                     {sidebarCollapsed ? (
-                      <span title={group.label} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span title={t(group.label)} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <NavIcon type={group.icon} size={21} />
                       </span>
                     ) : (
                       <>
                         <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
                           <NavIcon type={group.icon} size={21} />
-                          {group.label}
+                          {t(group.label)}
                         </span>
                         <svg
                           width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
@@ -536,7 +545,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         <span style={{ opacity: isActive ? 1 : 0.75 }}>
                           <NavIcon type={item.icon} strokeWidth={2.5} color={isActive ? "var(--accent)" : "var(--sidebar-text)"} />
                         </span>
-                        {item.name}
+                        {t(item.name)}
                         {item.badge && (
                           <span style={{
                             marginLeft: "auto", minWidth: 19, height: 19, borderRadius: 9,
@@ -640,7 +649,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     <polyline points="11,17 6,12 11,7"/>
                     <polyline points="18,17 13,12 18,7"/>
                   </svg>
-                  <span>Yig&apos;ish</span>
+                  <span>{t("Yig'ish")}</span>
                 </>
               )}
             </button>
@@ -660,7 +669,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             animation: "topbarEnter 0.55s cubic-bezier(0.22,1,0.36,1) 0.38s backwards",
           }}>
             <div className="font-head-itm" style={{ fontSize: 20, fontWeight: 800, letterSpacing: 2, color: "var(--text)", textTransform: "uppercase" }}>
-              {pageTitle}
+              {t(pageTitle)}
             </div>
             <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
               {/* Profile card */}
@@ -682,7 +691,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     <div style={{ fontSize: 14, fontWeight: 600, color: "var(--profile-text)", lineHeight: 1.2, whiteSpace: "nowrap" }}>
                       {user?.firstName && user?.lastName
                         ? `${user.firstName} ${user.lastName}`
-                        : user?.login || "—"}
+                        : user?.login || "â€”"}
                     </div>
                     <div className="font-body-itm" style={{ fontSize: 12, color: "var(--profile-text2)", letterSpacing: 0.5, lineHeight: 1.2 }}>
                       {user?.role || ""}
@@ -726,13 +735,44 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                           <polyline points="16,17 21,12 16,7"/>
                           <line x1="21" y1="12" x2="9" y2="12"/>
                         </svg>
-                        Chiqish
+                        {t("Chiqish")}
                       </button>
                     </div>
                   </>
                 )}
               </div>
               <div style={{ width: 1, height: 28, background: "var(--border2)", flexShrink: 0 }} />
+              {/* Language toggle */}
+              <div style={{ position: "relative" }} className="theme-toggle-wrap">
+                <button
+                  onClick={() => setLang(lang === "uz" ? "ru" : "uz")}
+                  className={darkMode ? "theme-btn-sun" : "theme-btn-moon"}
+                  style={{
+                    position: "relative", width: 36, height: 36, borderRadius: 8,
+                    background: "none", border: "1.5px solid",
+                    cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                    overflow: "hidden", flexShrink: 0,
+                    transition: "border-color 0.3s, color 0.3s",
+                  }}
+                >
+                  <span key={lang} className="theme-icon-morph" style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                    <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="10"/>
+                      <line x1="2" y1="12" x2="22" y2="12"/>
+                      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                    </svg>
+                    <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", fontFamily: "var(--font-mono)", lineHeight: 1 }}>
+                      {lang === "uz" ? "RU" : "UZ"}
+                    </span>
+                  </span>
+                </button>
+                <div className="theme-tooltip" style={{
+                  background: darkMode ? "#ffffff" : "#1a2332",
+                  color: darkMode ? "#1a2332" : "#ffffff",
+                }}>
+                  {lang === "uz" ? "Ruschaga o'tkazish" : "Переключить на узбекский"}
+                </div>
+              </div>
               {/* Dark mode toggle */}
               <div style={{ position: "relative" }} className="theme-toggle-wrap">
                 <button
@@ -765,7 +805,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   background: darkMode ? "#ffffff" : "#1a2332",
                   color: darkMode ? "#1a2332" : "#ffffff",
                 }}>
-                  {darkMode ? "Kunduzgi rejimga o'tkazish" : "Tungi rejimga o'tkazish"}
+                  {darkMode ? t("Kunduzgi rejimga o'tkazish") : t("Tungi rejimga o'tkazish")}
                 </div>
               </div>
               {/* Notification bell */}
@@ -801,14 +841,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       width: 320, zIndex: 100, overflow: "hidden",
                     }}>
                       <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>O&apos;qilmagan xabarlar</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{t("O'qilmagan xabarlar")}</span>
                         <span style={{ fontSize: 12, fontWeight: 700, background: "var(--danger)", color: "#fff", borderRadius: 9, padding: "1px 8px", fontFamily: "var(--font-mono)" }}>
                           {unreadNotifs.length}
                         </span>
                       </div>
                       {unreadNotifs.length === 0 ? (
                         <div style={{ padding: "24px 16px", textAlign: "center", fontSize: 13, color: "var(--text3)" }}>
-                          O&apos;qilmagan xabar yo&apos;q
+                          {t("O'qilmagan xabar yo'q")}
                         </div>
                       ) : (
                         <div style={{ maxHeight: 320, overflowY: "auto" }}>
@@ -822,7 +862,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       )}
                       <div style={{ padding: "10px 16px", borderTop: "1px solid var(--border)" }}>
                         <Link href="/notifications" onClick={() => setBellOpen(false)} style={{ fontSize: 13, color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}>
-                          Barchasini ko&apos;rish →
+                          {t("Barchasini ko'rish â†’")}
                         </Link>
                       </div>
                     </div>
@@ -851,10 +891,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     <polyline points="12,6 12,12 16,14"/>
                   </svg>
                   <div className="font-head-itm" style={{ fontSize: 26, fontWeight: 800, color: "#e8f0fa", letterSpacing: 3, textTransform: "uppercase" }}>
-                    Tez kunda
+                    {t("Tez kunda")}
                   </div>
                   <div className="font-body-itm" style={{ fontSize: 11, color: "#6ab0ff", letterSpacing: 1.5 }}>
-                    Bu bo&apos;lim hozircha ishlab chiqilmoqda
+                    {t("Bu bo'lim hozircha ishlab chiqilmoqda")}
                   </div>
                 </div>
               )}

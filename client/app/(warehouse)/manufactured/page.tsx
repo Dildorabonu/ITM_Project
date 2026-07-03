@@ -19,8 +19,10 @@ import { StatusBadge } from "./_components/StatusBadge";
 import { ProgressBar } from "./_components/ProgressBar";
 import { ManufacturedViewDrawer } from "./_components/ManufacturedViewDrawer";
 import { ManufacturedFormDrawer } from "./_components/ManufacturedFormDrawer";
+import { useT } from "@/lib/i18n";
 
 export default function ManufacturedProductsPage() {
+  const t = useT();
   const hasPermission = useAuthStore(s => s.hasPermission);
   const canCreate = hasPermission("ManufacturedProducts.Create");
   const canUpdate = hasPermission("ManufacturedProducts.Update");
@@ -77,7 +79,7 @@ export default function ManufacturedProductsPage() {
           || (e as { name?: string })?.name === "CanceledError") {
         return;
       }
-      setError("Ma'lumotlarni yuklashda xatolik yuz berdi.");
+      setError(t("Ma'lumotlarni yuklashda xatolik yuz berdi."));
     } finally {
       // Faqat eng so'nggi (bekor qilinmagan) so'rov loading holatini yopadi.
       if (!signal?.aborted) setLoading(false);
@@ -125,13 +127,13 @@ export default function ManufacturedProductsPage() {
     setDeleting(true);
     try {
       await manufacturedProductService.delete(deleteId);
-      showToast("Mahsulot o'chirildi");
+      showToast(t("Mahsulot o'chirildi"));
       setDeleteId(null);
       await Promise.all([load(), loadStats()]);
     } catch (e) {
       const msg = (e as { response?: { data?: { errors?: string[] } } })
-        ?.response?.data?.errors?.[0] ?? "O'chirishda xatolik yuz berdi.";
-      showToast(msg, "Xatolik");
+        ?.response?.data?.errors?.[0] ?? t("O'chirishda xatolik yuz berdi.");
+      showToast(msg, t("Xatolik"));
     } finally {
       setDeleting(false);
     }
@@ -150,7 +152,7 @@ export default function ManufacturedProductsPage() {
             </svg>
           </div>
           <div>
-            <div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>Jami mahsulotlar</div>
+            <div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>{t("Jami mahsulotlar")}</div>
             <div style={{ fontSize: 22, fontWeight: 700, color: "var(--text1)", fontFamily: "var(--font-mono)" }}>{stats.total}</div>
           </div>
         </div>
@@ -163,7 +165,7 @@ export default function ManufacturedProductsPage() {
             </svg>
           </div>
           <div>
-            <div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>Ishlab chiqarilmoqda</div>
+            <div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>{t("Ishlab chiqarilmoqda")}</div>
             <div style={{ fontSize: 22, fontWeight: 700, color: "var(--warn)", fontFamily: "var(--font-mono)" }}>{stats.inProgress}</div>
           </div>
         </div>
@@ -175,7 +177,7 @@ export default function ManufacturedProductsPage() {
             </svg>
           </div>
           <div>
-            <div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>Ishlab chiqarilgan</div>
+            <div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>{t("Ishlab chiqarilgan")}</div>
             <div style={{ fontSize: 22, fontWeight: 700, color: "var(--success)", fontFamily: "var(--font-mono)" }}>{stats.completed}</div>
           </div>
         </div>
@@ -187,27 +189,27 @@ export default function ManufacturedProductsPage() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          <input className="search-input" placeholder="Nomi, kodi, shartnoma yoki bo'lim bo'yicha qidirish"
+          <input className="search-input" placeholder={t("Nomi, kodi, shartnoma yoki bo'lim bo'yicha qidirish")}
             value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
         </div>
         <CheckSelect
           value={filterStatus}
           onChange={v => { setFilterStatus(v); setPage(1); }}
           options={STATUS_FILTER_OPTIONS}
-          placeholder="Holati"
+          placeholder={t("Holati")}
           style={{ width: 200 }}
         />
         <CheckSelect
           value={filterDept}
           onChange={v => { setFilterDept(v); setPage(1); }}
           options={departments.map(d => ({ id: d.id, name: d.name }))}
-          placeholder="Bo'limlar"
+          placeholder={t("Bo'limlar")}
           style={{ width: 200 }}
         />
         <button
           className="btn-icon"
           onClick={() => { load(); loadStats(); }}
-          title="Yangilash"
+          title={t("Yangilash")}
           style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -234,7 +236,7 @@ export default function ManufacturedProductsPage() {
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            Yangi mahsulot
+            {t("Yangi mahsulot")}
           </button>
         )}
       </div>
@@ -250,17 +252,14 @@ export default function ManufacturedProductsPage() {
           <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
         </svg>
         <span>
-          Ushbu ro&apos;yxat avtomatik tarzda shartnoma vazifalaridan to&apos;ldiriladi.
-          Vazifalarda ishlab chiqarish jarayoni boshlangan mahsulotlar shu yerda paydo bo&apos;ladi;
-          shartnoma yakunlangan yoki bekor qilinganda ro&apos;yxatdan chiqib ketadi.
-          Shartnomadan tashqari mahsulotlarni esa &laquo;+ Yangi mahsulot&raquo; tugmasi orqali qo&apos;lda kiritish va keyinchalik tahrirlash mumkin.
+          {t("Ushbu ro'yxat avtomatik tarzda shartnoma vazifalaridan to'ldiriladi. Vazifalarda ishlab chiqarish jarayoni boshlangan mahsulotlar shu yerda paydo bo'ladi; shartnoma yakunlangan yoki bekor qilinganda ro'yxatdan chiqib ketadi. Shartnomadan tashqari mahsulotlarni esa «+ Yangi mahsulot» tugmasi orqali qo'lda kiritish va keyinchalik tahrirlash mumkin.")}
         </span>
       </div>
 
       {/* Table */}
       <div className="itm-card" style={{ flex: 1 }}>
         {loading ? (
-          <div style={{ padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
+          <div style={{ padding: 40, textAlign: "center", color: "var(--text2)" }}>{t("Yuklanmoqda...")}</div>
         ) : error ? (
           <div style={{ padding: 40, textAlign: "center", color: "#e05252" }}>{error}</div>
         ) : (
@@ -268,19 +267,19 @@ export default function ManufacturedProductsPage() {
             <table className="itm-table">
               <thead>
                 <tr>
-                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Mahsulot</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Uchastka</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Shartnoma</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", minWidth: 160 }}>Bajarilgani</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>O&apos;lchov</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>Holati</th>
-                  <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>Amal</th>
+                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>{t("T/r")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>{t("Mahsulot")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>{t("Uchastka")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>{t("Shartnoma")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", minWidth: 160 }}>{t("Bajarilgani")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>{t("O'lchov")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)" }}>{t("Holati")}</th>
+                  <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>{t("Amal")}</th>
                 </tr>
               </thead>
               <tbody>
                 {products.length === 0 ? (
-                  <tr><td colSpan={8} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>Ma&apos;lumot topilmadi</td></tr>
+                  <tr><td colSpan={8} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>{t("Ma'lumot topilmadi")}</td></tr>
                 ) : products.map((p, i) => (
                   <tr key={p.id}>
                     <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>
@@ -305,7 +304,7 @@ export default function ManufacturedProductsPage() {
                     </td>
                     <td style={{ borderLeft: "2px solid var(--border)" }}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-                        <button className="btn-icon" title="Ko'rish" onClick={() => setViewProduct(p)}
+                        <button className="btn-icon" title={t("Ko'rish")} onClick={() => setViewProduct(p)}
                           style={{ color: "#0ea5e9", borderColor: "#0ea5e933", background: "#0ea5e912" }}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
@@ -313,7 +312,7 @@ export default function ManufacturedProductsPage() {
                           </svg>
                         </button>
                         {canUpdate && isManualEntry(p) && (
-                          <button className="btn-icon" title="Tahrirlash" onClick={() => openEdit(p)}
+                          <button className="btn-icon" title={t("Tahrirlash")} onClick={() => openEdit(p)}
                             style={{ color: "var(--accent)", borderColor: "var(--accent)33", background: "var(--accent-dim)" }}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -322,7 +321,7 @@ export default function ManufacturedProductsPage() {
                           </button>
                         )}
                         {canDelete && isManualEntry(p) && (
-                          <button className="btn-icon" title="O'chirish" onClick={() => setDeleteId(p.id)}
+                          <button className="btn-icon" title={t("O'chirish")} onClick={() => setDeleteId(p.id)}
                             style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                               <polyline points="3 6 5 6 21 6" />
@@ -344,7 +343,7 @@ export default function ManufacturedProductsPage() {
         {!loading && !error && totalPages > 1 && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderTop: "1px solid var(--border)" }}>
             <span style={{ fontSize: 13, color: "var(--text2)" }}>
-              {totalCount} ta mahsulot &mdash; {page}/{totalPages} sahifa
+              {totalCount} {t("ta mahsulot")} &mdash; {page}/{totalPages} {t("sahifa")}
             </span>
             <div style={{ display: "flex", gap: 6 }}>
               <button
@@ -352,7 +351,7 @@ export default function ManufacturedProductsPage() {
                 onClick={() => setPage(p => p - 1)}
                 style={{ padding: "5px 12px", borderRadius: "var(--radius)", border: "1.5px solid var(--border)", background: "var(--bg3)", color: page <= 1 ? "var(--text3)" : "var(--text1)", cursor: page <= 1 ? "not-allowed" : "pointer", fontSize: 13 }}
               >
-                ‹ Oldingi
+                ‹ {t("Oldingi")}
               </button>
               {Array.from({ length: totalPages }, (_, i) => i + 1)
                 .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
@@ -379,7 +378,7 @@ export default function ManufacturedProductsPage() {
                 onClick={() => setPage(p => p + 1)}
                 style={{ padding: "5px 12px", borderRadius: "var(--radius)", border: "1.5px solid var(--border)", background: "var(--bg3)", color: page >= totalPages ? "var(--text3)" : "var(--text1)", cursor: page >= totalPages ? "not-allowed" : "pointer", fontSize: 13 }}
               >
-                Keyingi ›
+                {t("Keyingi")} ›
               </button>
             </div>
           </div>
@@ -403,8 +402,8 @@ export default function ManufacturedProductsPage() {
 
       <ConfirmModal
         open={!!deleteId}
-        title="Mahsulotni o'chirish"
-        message="Bu mahsulot ro'yxatdan butunlay o'chiriladi. Davom etasizmi?"
+        title={t("Mahsulotni o'chirish")}
+        message={t("Bu mahsulot ro'yxatdan butunlay o'chiriladi. Davom etasizmi?")}
         loading={deleting}
         onConfirm={handleDelete}
         onCancel={() => !deleting && setDeleteId(null)}

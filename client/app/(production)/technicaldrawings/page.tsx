@@ -13,12 +13,14 @@ import {
 
 import { useToastStore } from "@/lib/store/toastStore";
 import { useAuthStore } from "@/lib/store/authStore";
+import { useT } from "@/lib/i18n";
 
 import { type DrawingFormValues, emptyDrawingForm } from "./_types";
 import { StatusBadge } from "./_components/StatusBadge";
 import { DrawingForm } from "./_components/DrawingForm";
 import { DrawingDrawer } from "./_components/DrawingDrawer";
 import { CheckSelect } from "@/app/_components/CheckSelect";
+import Tooltip from "@/app/_components/Tooltip";
 
 function fmtDate(value: string) {
   if (!value) return "—";
@@ -30,6 +32,7 @@ function fmtDate(value: string) {
 type CreateContractContext = { id: string; contractNo: string; products: { id: string; productType: string; quantity: number; unit: string }[] };
 
 export default function TechnicalDrawingsPage() {
+  const t = useT();
   const showToast = useToastStore((s) => s.show);
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const canCreate = hasPermission("TechnicalDrawings.Create");
@@ -162,7 +165,7 @@ export default function TechnicalDrawingsPage() {
 
   const handleCreateSave = () => {
     setCreateSubmitted(true);
-    if (!createForm.title.trim()) return;
+    if (!createForm.title.trim() || createForm.files.length === 0) return;
     setDraftWarning(createForm.title.trim());
   };
 
@@ -181,7 +184,7 @@ export default function TechnicalDrawingsPage() {
       await loadData();
       setDraftWarning(null);
       setShowCreateForm(false);
-      showToast("Texnik chizma muvaffaqiyatli yaratildi!");
+      showToast(t("Texnik chizma muvaffaqiyatli yaratildi!"));
     } finally {
       setCreateSaving(false);
     }
@@ -209,7 +212,7 @@ export default function TechnicalDrawingsPage() {
       setDrawer(null);
       setDraftWarning(null);
       setApproveConfirmTarget(null);
-      showToast("Texnik chizma tasdiqlandi!");
+      showToast(t("Texnik chizma tasdiqlandi!"));
     } finally {
       setApproving(false);
     }
@@ -250,7 +253,7 @@ export default function TechnicalDrawingsPage() {
       }
       await loadData();
       setShowEditForm(false);
-      showToast("Texnik chizma muvaffaqiyatli yangilandi!");
+      showToast(t("Texnik chizma muvaffaqiyatli yangilandi!"));
     } finally {
       setEditSaving(false);
     }
@@ -276,19 +279,19 @@ export default function TechnicalDrawingsPage() {
               <line x1="12" y1="17" x2="12.01" y2="17" />
             </svg>
           </div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--warn)" }}>Chizma qoralama holatida</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--warn)" }}>{t("Chizma qoralama holatida")}</div>
         </div>
         <p style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.65, margin: "0 0 20px" }}>
-          <span style={{ fontWeight: 600, color: "var(--text)" }}>«{draftWarning}»</span> chizmasi{" "}
-          <span style={{ fontWeight: 600, color: "var(--warn)" }}>qoralama</span> holatida saqlanadi.
-          Keyinchalik jadvaldan tasdiqlash tugmasi orqali tasdiqlab olishingiz mumkin.
+          <span style={{ fontWeight: 600, color: "var(--text)" }}>«{draftWarning}»</span> {t("chizmasi")}{" "}
+          <span style={{ fontWeight: 600, color: "var(--warn)" }}>{t("qoralama")}</span> {t("holatida saqlanadi.")}
+          {t("Keyinchalik jadvaldan tasdiqlash tugmasi orqali tasdiqlab olishingiz mumkin.")}
         </p>
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <button className="btn btn-outline" onClick={() => setDraftWarning(null)} disabled={createSaving}>
-            Bekor qilish
+            {t("Bekor qilish")}
           </button>
           <button className="btn btn-primary" onClick={handleCreateConfirm} disabled={createSaving}>
-            {createSaving ? "Saqlanmoqda..." : "Tushundim, saqlash"}
+            {createSaving ? t("Saqlanmoqda...") : t("Tushundim, saqlash")}
           </button>
         </div>
       </div>
@@ -308,15 +311,15 @@ export default function TechnicalDrawingsPage() {
               <polyline points="22 4 12 14.01 9 11.01" />
             </svg>
           </div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>Tasdiqlashni tasdiqlaysizmi?</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>{t("Tasdiqlashni tasdiqlaysizmi?")}</div>
         </div>
         <p style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.65, margin: "0 0 20px" }}>
-          <span style={{ fontWeight: 600, color: "var(--text)" }}>«{approveConfirmTarget.title}»</span> texnik chizmasini{" "}
-          <span style={{ fontWeight: 600, color: "var(--success)" }}>tasdiqlangan</span> holatiga o'tkazmoqchimisiz?
+          <span style={{ fontWeight: 600, color: "var(--text)" }}>«{approveConfirmTarget.title}»</span> {t("texnik chizmasini")}{" "}
+          <span style={{ fontWeight: 600, color: "var(--success)" }}>{t("tasdiqlangan")}</span> {t("holatiga o'tkazmoqchimisiz?")}
         </p>
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <button className="btn btn-outline" onClick={() => setApproveConfirmTarget(null)} disabled={approving}>
-            Bekor qilish
+            {t("Bekor qilish")}
           </button>
           <button
             className="btn btn-primary"
@@ -324,7 +327,7 @@ export default function TechnicalDrawingsPage() {
             disabled={approving}
             style={{ background: "var(--success)", borderColor: "var(--success)" }}
           >
-            {approving ? "Tasdiqlanmoqda..." : "Ha, tasdiqlash"}
+            {approving ? t("Tasdiqlanmoqda...") : t("Ha, tasdiqlash")}
           </button>
         </div>
       </div>
@@ -344,6 +347,7 @@ export default function TechnicalDrawingsPage() {
           setForm={setCreateForm}
           submitted={createSubmitted}
           saving={createSaving}
+          requireFile
           onSave={handleCreateSave}
           onCancel={() => setShowCreateForm(false)}
         />
@@ -523,7 +527,7 @@ export default function TechnicalDrawingsPage() {
               <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
-              Faol
+              {t("Faol")}
             </button>
             <button
               onClick={() => setViewMode("archive")}
@@ -541,7 +545,7 @@ export default function TechnicalDrawingsPage() {
                 <rect x="1" y="3" width="22" height="5"/>
                 <line x1="10" y1="12" x2="14" y2="12"/>
               </svg>
-              Arxiv
+              {t("Arxiv")}
             </button>
           </div>
 
@@ -552,7 +556,7 @@ export default function TechnicalDrawingsPage() {
             </svg>
             <input
               className="search-input"
-              placeholder="Qidirish: nomi, shartnoma..."
+              placeholder={t("Qidirish: nomi, shartnoma...")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -562,19 +566,19 @@ export default function TechnicalDrawingsPage() {
             value={filterStatus}
             onChange={setFilterStatus}
             options={[
-              { id: "no_drawing", name: "Chizma yo'q" },
-              { id: String(DrawingStatus.Draft), name: "Qoralama" },
-              { id: String(DrawingStatus.InProgress), name: "Jarayonda" },
-              { id: String(DrawingStatus.Approved), name: "Tasdiqlangan" },
+              { id: "no_drawing", name: t("Chizma yo'q") },
+              { id: String(DrawingStatus.Draft), name: t("Qoralama") },
+              { id: String(DrawingStatus.InProgress), name: t("Jarayonda") },
+              { id: String(DrawingStatus.Approved), name: t("Tasdiqlangan") },
             ]}
-            placeholder="Barcha statuslar"
+            placeholder={t("Barcha statuslar")}
             style={{ width: 175 }}
           />
 
           <button
             className="btn-icon"
             onClick={() => loadData()}
-            title="Yangilash"
+            title={t("Yangilash")}
             style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}
           >
             <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -588,20 +592,20 @@ export default function TechnicalDrawingsPage() {
         {/* Table */}
         <div className="itm-card" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "clip" } as React.CSSProperties}>
           {loading ? (
-            <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
+            <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--text2)" }}>{t("Yuklanmoqda...")}</div>
           ) : (
             <div style={{ overflowX: "auto", overflowY: "auto", flex: 1, minHeight: 0 }}>
               <table className="itm-table">
                 <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
                   <tr>
-                    <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>T/r</th>
-                    <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Shartnoma</th>
-                    <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Mahsulot</th>
-                    <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Yaratuvchi</th>
-                    <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Status</th>
+                    <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>{t("T/r")}</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Shartnoma")}</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Mahsulot")}</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Yaratuvchi")}</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Status")}</th>
                     <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>
                       <span className="td-th-info-wrap">
-                        Sana
+                        {t("Sana")}
                         <span
                           className="td-th-info"
                           onMouseEnter={(e) => {
@@ -614,15 +618,15 @@ export default function TechnicalDrawingsPage() {
                         </span>
                       </span>
                     </th>
-                    <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Faollik</th>
-                    <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", background: "var(--bg2)" }}>Amal</th>
+                    <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Faollik")}</th>
+                    <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", background: "var(--bg2)" }}>{t("Amal")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.length === 0 ? (
                     <tr>
                       <td colSpan={8} style={{ textAlign: "center", padding: "32px 14px", color: "var(--text3)" }}>
-                        {viewMode === "archive" ? "Arxivda chizmalar yo'q" : "Ma'lumot topilmadi"}
+                        {viewMode === "archive" ? t("Arxivda chizmalar yo'q") : t("Ma'lumot topilmadi")}
                       </td>
                     </tr>
                   ) : (
@@ -638,7 +642,7 @@ export default function TechnicalDrawingsPage() {
                             </td>
                             <td style={{ textAlign: "center", fontSize: 13, color: "var(--text1)", fontWeight: 600 }}>{e.contractNo}</td>
                             <td style={{ textAlign: "center", maxWidth: 220, color: "var(--text1)", fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {e.productType ?? "Umumiy"}
+                              {e.productType ?? t("Umumiy")}
                             </td>
                             <td style={{ textAlign: "center", color: "var(--text3)", fontSize: 13 }}>—</td>
                             <td style={{ textAlign: "center" }}>
@@ -654,7 +658,7 @@ export default function TechnicalDrawingsPage() {
                                   width: 6, height: 6, borderRadius: "50%",
                                   background: "currentColor",
                                 }} />
-                                Chizma yo&apos;q
+                                {t("Chizma yo'q")}
                               </span>
                             </td>
                             <td style={{ textAlign: "center", color: "var(--text3)", fontSize: 13 }}>—</td>
@@ -671,7 +675,7 @@ export default function TechnicalDrawingsPage() {
                                         ? { id: e.productId, productType: e.productType, quantity: e.quantity, unit: e.unit }
                                         : null,
                                     })}
-                                    title="Chizma yaratish"
+                                    title={t("Chizma yaratish")}
                                     style={{ color: "var(--accent)", borderColor: "var(--accent)33", background: "var(--accent-dim)", width: 28, height: 28, fontSize: 18, fontWeight: 400, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
                                   >
                                     +
@@ -700,7 +704,7 @@ export default function TechnicalDrawingsPage() {
                             </button>
                           </td>
                           <td style={{ textAlign: "center", maxWidth: 220, color: "var(--text1)", fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {item.productType ? item.productType : "Umumiy"}
+                            {item.productType ? item.productType : t("Umumiy")}
                           </td>
                           <td style={{ textAlign: "center", fontSize: 13, color: "var(--text1)", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {item.createdByFullName ?? "—"}
@@ -719,47 +723,50 @@ export default function TechnicalDrawingsPage() {
                               color: item.isActive ? "#16a34a" : "var(--danger)",
                               border: `1px solid ${item.isActive ? "#86efac" : "var(--danger)"}`,
                             }}>
-                              {item.isActive ? "Faol" : "Nofaol"}
+                              {item.isActive ? t("Faol") : t("Nofaol")}
                             </span>
                           </td>
                           <td style={{ borderLeft: "2px solid var(--border)" }}>
                             <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-                              <button
-                                className="btn-icon"
-                                onClick={() => openDrawer(item)}
-                                title="Ko'rish"
-                                style={{ color: "#0ea5e9", borderColor: "#0ea5e933", background: "#0ea5e912" }}
-                              >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                                  <circle cx="12" cy="12" r="3" />
-                                </svg>
-                              </button>
-                              {canUpdate && item.status !== DrawingStatus.Approved && (
+                              <Tooltip label={t("Ko'rish")}>
                                 <button
                                   className="btn-icon"
-                                  onClick={() => openEdit(item)}
-                                  title="Tahrirlash"
-                                  style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}
+                                  onClick={() => openDrawer(item)}
+                                  style={{ color: "#0ea5e9", borderColor: "#0ea5e933", background: "#0ea5e912" }}
                                 >
                                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                    <circle cx="12" cy="12" r="3" />
                                   </svg>
                                 </button>
+                              </Tooltip>
+                              {canUpdate && item.status !== DrawingStatus.Approved && (
+                                <Tooltip label={t("Tahrirlash")}>
+                                  <button
+                                    className="btn-icon"
+                                    onClick={() => openEdit(item)}
+                                    style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}
+                                  >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                    </svg>
+                                  </button>
+                                </Tooltip>
                               )}
                               {canUpdate && item.status !== DrawingStatus.Approved && (
-                                <button
-                                  className="btn-icon"
-                                  onClick={() => handleApprove(item)}
-                                  title="Tasdiqlash"
-                                  disabled={approving}
-                                  style={{ color: "#f59e0b", borderColor: "#f59e0b33", background: "#f59e0b12" }}
-                                >
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <polyline points="20 6 9 17 4 12" />
-                                  </svg>
-                                </button>
+                                <Tooltip label={t("Tasdiqlash")}>
+                                  <button
+                                    className="btn-icon"
+                                    onClick={() => handleApprove(item)}
+                                    disabled={approving}
+                                    style={{ color: "#f59e0b", borderColor: "#f59e0b33", background: "#f59e0b12" }}
+                                  >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <polyline points="20 6 9 17 4 12" />
+                                    </svg>
+                                  </button>
+                                </Tooltip>
                               )}
                             </div>
                           </td>
@@ -781,7 +788,7 @@ export default function TechnicalDrawingsPage() {
           marginTop: 8,
         }}>
           <span style={{ fontSize: 17, color: "var(--text)", fontFamily: "var(--font-mono)", fontWeight: 450 }}>
-            {totalCount} tadan {totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}&nbsp;–&nbsp;{Math.min(page * PAGE_SIZE, totalCount)}&nbsp;ko&apos;rsatilmoqda
+            {totalCount} {t("tadan")} {totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}&nbsp;–&nbsp;{Math.min(page * PAGE_SIZE, totalCount)}&nbsp;{t("ko'rsatilmoqda")}
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <button
@@ -790,7 +797,7 @@ export default function TechnicalDrawingsPage() {
               onClick={() => setPage(p => p - 1)}
               style={{ padding: "5px 12px", fontSize: 12 }}
             >
-              ← Oldingi
+              ← {t("Oldingi")}
             </button>
             {Array.from({ length: totalPages }, (_, i) => i + 1)
               .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
@@ -823,7 +830,7 @@ export default function TechnicalDrawingsPage() {
               onClick={() => setPage(p => p + 1)}
               style={{ padding: "5px 12px", fontSize: 12 }}
             >
-              Keyingi →
+              {t("Keyingi")} →
             </button>
           </div>
         </div>
@@ -844,7 +851,7 @@ export default function TechnicalDrawingsPage() {
 
       {sanaTipPos && createPortal(
         <div className="td-th-info-tip" style={{ left: sanaTipPos.x, top: sanaTipPos.y }}>
-          Texnik chizma yaratilgan sana ko&apos;rsatiladi. Chizma yaratilmagan bo&apos;lsa — chiziqcha chiqadi.
+          {t("Texnik chizma yaratilgan sana ko'rsatiladi. Chizma yaratilmagan bo'lsa — chiziqcha chiqadi.")}
         </div>,
         document.body
       )}

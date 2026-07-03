@@ -4,10 +4,12 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import { useAuthStore } from "@/lib/store/authStore";
+import { useT } from "@/lib/i18n";
 import EkLogo from "@/app/_components/EkLogo";
 
 export default function LoginPage() {
   const router      = useRouter();
+  const t           = useT();
   const loginAction = useAuthStore((s) => s.login);
   const uiFont      = "var(--font-inter), Inter, sans-serif";
 
@@ -158,14 +160,14 @@ export default function LoginPage() {
       setExitAnim(true);
       setTimeout(() => router.replace("/"), 600);
     } catch (err) {
-      let msg = "Login yoki parol noto'g'ri. Qayta urinib ko'ring.";
+      let msg = t("Login yoki parol noto'g'ri. Qayta urinib ko'ring.");
       if (axios.isAxiosError(err)) {
         const status = err.response?.status;
         const serverMsg = err.response?.data?.errors?.[0];
         if (status === 423) {
-          msg = serverMsg ?? "Hisob vaqtincha bloklangan. Iltimos, keyinroq urinib ko'ring.";
+          msg = serverMsg ?? t("Hisob vaqtincha bloklangan. Iltimos, keyinroq urinib ko'ring.");
         } else if (status === 429) {
-          msg = serverMsg ?? "Juda ko'p urinish. Iltimos, biroz kutib turing.";
+          msg = serverMsg ?? t("Juda ko'p urinish. Iltimos, biroz kutib turing.");
         } else if (typeof serverMsg === "string" && serverMsg.length > 0 && status !== 401) {
           msg = serverMsg;
         }
@@ -272,7 +274,7 @@ export default function LoginPage() {
               fontSize: 10, color: "rgba(255,255,255,0.55)",
               letterSpacing: 2, marginTop: 6, fontWeight: 500,
             }}>
-              RAQAMLI KORXONA PLATFORMASI
+              {t("RAQAMLI KORXONA PLATFORMASI")}
             </div>
           </div>
 
@@ -286,10 +288,10 @@ export default function LoginPage() {
         {/* Form */}
         <form onSubmit={handleSubmit} style={{ padding: "30px 40px 36px" }}>
           <div style={{ fontSize: 17, fontWeight: 700, color: "#e2e8f0", marginBottom: 6 }}>
-            Tizimga kirish
+            {t("Tizimga kirish")}
           </div>
           <div style={{ fontSize: 13, color: "#64748b", marginBottom: 26 }}>
-            Davom etish uchun ma&apos;lumotlaringizni kiriting
+            {t("Davom etish uchun ma'lumotlaringizni kiriting")}
           </div>
 
           {/* Login field */}
@@ -298,7 +300,7 @@ export default function LoginPage() {
               display: "block", fontSize: 11.5, fontWeight: 700,
               color: "#94a3b8", marginBottom: 7, letterSpacing: 0.8,
             }}>
-              LOGIN
+              {t("LOGIN")}
             </label>
             <div style={{ position: "relative" }}>
               <span style={{
@@ -313,7 +315,7 @@ export default function LoginPage() {
               <input
                 id="username" type="text" value={loginVal} name="username"
                 onChange={(e) => setLoginVal(e.target.value)}
-                placeholder="foydalanuvchi nomi" required autoComplete="username"
+                placeholder={t("foydalanuvchi nomi")} required autoComplete="username"
                 style={{
                   width: "100%", paddingLeft: 40, paddingRight: 14, height: 44,
                   border: `1.5px solid ${error ? "#d93025" : "rgba(255,255,255,0.1)"}`,
@@ -339,7 +341,7 @@ export default function LoginPage() {
               display: "block", fontSize: 11.5, fontWeight: 700,
               color: "#94a3b8", marginBottom: 7, letterSpacing: 0.8,
             }}>
-              PAROL
+              {t("PAROL")}
             </label>
             <div style={{ position: "relative" }}>
               <span style={{
@@ -374,7 +376,7 @@ export default function LoginPage() {
               <button
                 type="button" tabIndex={-1}
                 onClick={() => setShowPassword((v) => !v)}
-                aria-label={showPassword ? "Yashirish" : "Ko'rsatish"}
+                aria-label={showPassword ? t("Yashirish") : t("Ko'rsatish")}
                 style={{
                   position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
                   background: "none", border: "none", cursor: "pointer",
@@ -453,7 +455,7 @@ export default function LoginPage() {
                   style={{ animation: "spin 0.8s linear infinite" }}>
                   <path d="M21 12a9 9 0 1 1-6.219-8.56" />
                 </svg>
-                Kutib turing...
+                {t("Kutib turing...")}
               </>
             ) : (
               <>
@@ -462,7 +464,7 @@ export default function LoginPage() {
                   <polyline points="10,17 15,12 10,7" />
                   <line x1="15" y1="12" x2="3" y2="12" />
                 </svg>
-                Kirish
+                {t("Kirish")}
               </>
             )}
           </button>
@@ -474,7 +476,7 @@ export default function LoginPage() {
             textAlign: "center",
             fontSize: 12, color: "#475569",
           }}>
-            © {new Date().getFullYear()} ITM — Barcha huquqlar himoyalangan
+            © {new Date().getFullYear()} ITM — {t("Barcha huquqlar himoyalangan")}
           </div>
         </form>
       </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useT } from "@/lib/i18n";
 
 const kf = `
 @keyframes overlayFadeIn{0%{opacity:0}100%{opacity:1}}
@@ -13,11 +14,12 @@ const kf = `
 `;
 
 export function FileParsingOverlay({ dataReady,onComplete }: { dataReady:boolean; onComplete:()=>void }) {
+  const t = useT();
   const [progress,setProgress]=useState(0);
   const [phase,setPhase]=useState(0);
   const [fadeOut,setFadeOut]=useState(false);
   const startRef=useRef(Date.now());
-  const phaseTexts=["Fayl o'qilmoqda…","Ma'lumotlar tahlil qilinmoqda…","Jadvallar ajratilmoqda…","Tugatilmoqda…"];
+  const phaseTexts=[t("Fayl o'qilmoqda…"),t("Ma'lumotlar tahlil qilinmoqda…"),t("Jadvallar ajratilmoqda…"),t("Tugatilmoqda…")];
 
   useEffect(()=>{
     const interval=setInterval(()=>{
@@ -55,7 +57,7 @@ export function FileParsingOverlay({ dataReady,onComplete }: { dataReady:boolean
           <div style={{ position:"absolute",top:0,left:0,width:"40%",height:"100%",background:"linear-gradient(90deg,transparent,#3b82f6,transparent)",animation:"dataStreamLine 1.5s ease-in-out infinite" }}/>
         </div>
         <div key={phase} style={{ fontSize:15,fontWeight:500,color:"#e2e8f0",letterSpacing:0.3,animation:"textFadeUp 0.4s ease-out",marginBottom:8 }}>{phaseTexts[phase]}</div>
-        <div style={{ fontSize:12,color:"rgba(148,163,184,0.8)",marginBottom:24 }}>Biroz kutib turing</div>
+        <div style={{ fontSize:12,color:"rgba(148,163,184,0.8)",marginBottom:24 }}>{t("Biroz kutib turing")}</div>
         <div style={{ width:260,height:4,borderRadius:2,background:"rgba(51,65,85,0.6)",overflow:"hidden" }}>
           <div style={{ height:"100%",borderRadius:2,width:`${progress}%`,background:"linear-gradient(90deg,#3b82f6,#6366f1,#8b5cf6)",transition:"width 0.1s linear",boxShadow:"0 0 12px rgba(99,102,241,0.4)" }}/>
         </div>

@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { type CostNormItemResponse } from "@/lib/userService";
+import { useT } from "@/lib/i18n";
 import { type MaterialRow } from "../_types";
 import { PhotoCell } from "./PhotoCell";
 
@@ -22,6 +23,7 @@ function normalizeRow(r: MaterialRow|CostNormItemResponse): NormRow {
 }
 
 export function CollapsibleItemsTable({ rows,showPhotos,onUpdateRow,onDeleteRow }: { rows:(MaterialRow|CostNormItemResponse)[]; showPhotos:boolean; onUpdateRow?:(fi:number,u:Partial<MaterialRow>)=>void; onDeleteRow?:(fi:number)=>void }) {
+  const t = useT();
   const editable = !!onUpdateRow;
   const normalized = useMemo(()=>rows.map(normalizeRow),[rows]);
   const [editingIdx,setEditingIdx] = useState<number|null>(null);
@@ -67,22 +69,22 @@ export function CollapsibleItemsTable({ rows,showPhotos,onUpdateRow,onDeleteRow 
           <button onClick={allCollapsed?expandAll:collapseAll}
             style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"3px 10px",borderRadius:"var(--radius)",border:"1px solid var(--border)",background:"var(--bg2)",color:"var(--text2)",fontSize:11,cursor:"pointer" }}>
             {allCollapsed?<ChevronsUpDown size={11}/>:<ChevronsDownUp size={11}/>}
-            {allCollapsed?"Barchani ochish":"Barchani yig'ish"}
+            {allCollapsed?t("Barchani ochish"):t("Barchani yig'ish")}
           </button>
         </div>
       )}
       <table className="itm-table" style={{ width:"100%",tableLayout:"auto" }}>
         <thead>
           <tr className="tp-head-reveal">
-            <th style={{ width:42,textAlign:"center",borderRight:"2px solid var(--border)",color:"var(--text1)",textTransform:"none",position:"sticky",top:0,zIndex:2,background:"var(--bg2)" }}>T/r</th>
-            <th style={{ color:"var(--text1)",textAlign:"center",whiteSpace:"nowrap",position:"sticky",top:0,zIndex:2,background:"var(--bg2)" }}>Материал номи</th>
-            <th style={{ color:"var(--text1)",textAlign:"center",whiteSpace:"nowrap",position:"sticky",top:0,zIndex:2,background:"var(--bg2)" }}>Ўлчов</th>
-            <th style={{ textAlign:"center",color:"var(--text1)",whiteSpace:"nowrap",position:"sticky",top:0,zIndex:2,background:"var(--bg2)" }}>Тайёр маҳсулот</th>
-            <th style={{ textAlign:"center",color:"var(--text1)",whiteSpace:"nowrap",position:"sticky",top:0,zIndex:2,background:"var(--bg2)" }}>Чиқинди</th>
-            <th style={{ textAlign:"center",color:"var(--text1)",whiteSpace:"nowrap",position:"sticky",top:0,zIndex:2,background:"var(--bg2)" }}>Умумий сарф</th>
-            {showPhotos&&<><th style={{ color:"var(--text1)",textAlign:"center",whiteSpace:"nowrap",position:"sticky",top:0,zIndex:2,background:"var(--bg2)" }}>Хом-ашё</th><th style={{ color:"var(--text1)",textAlign:"center",whiteSpace:"nowrap",position:"sticky",top:0,zIndex:2,background:"var(--bg2)" }}>Ярим тайёр</th></>}
-            <th style={{ color:"var(--text1)",textAlign:"center",whiteSpace:"nowrap",position:"sticky",top:0,zIndex:2,background:"var(--bg2)" }}>Манба</th>
-            {editable&&<th style={{ whiteSpace:"nowrap",textAlign:"center",borderLeft:"2px solid var(--border)",color:"var(--text1)",position:"sticky",top:0,zIndex:2,background:"var(--bg2)" }}>Amal</th>}
+            <th style={{ width:42,textAlign:"center",borderRight:"2px solid var(--border)",color:"var(--text1)",textTransform:"none",position:"sticky",top:0,zIndex:2,background:"var(--bg2)" }}>{t("T/r")}</th>
+            <th style={{ color:"var(--text1)",textAlign:"center",whiteSpace:"nowrap",position:"sticky",top:0,zIndex:2,background:"var(--bg2)" }}>{t("Материал номи")}</th>
+            <th style={{ color:"var(--text1)",textAlign:"center",whiteSpace:"nowrap",position:"sticky",top:0,zIndex:2,background:"var(--bg2)" }}>{t("Ўлчов")}</th>
+            <th style={{ textAlign:"center",color:"var(--text1)",whiteSpace:"nowrap",position:"sticky",top:0,zIndex:2,background:"var(--bg2)" }}>{t("Тайёр маҳсулот")}</th>
+            <th style={{ textAlign:"center",color:"var(--text1)",whiteSpace:"nowrap",position:"sticky",top:0,zIndex:2,background:"var(--bg2)" }}>{t("Чиқинди")}</th>
+            <th style={{ textAlign:"center",color:"var(--text1)",whiteSpace:"nowrap",position:"sticky",top:0,zIndex:2,background:"var(--bg2)" }}>{t("Умумий сарф")}</th>
+            {showPhotos&&<><th style={{ color:"var(--text1)",textAlign:"center",whiteSpace:"nowrap",position:"sticky",top:0,zIndex:2,background:"var(--bg2)" }}>{t("Хом-ашё")}</th><th style={{ color:"var(--text1)",textAlign:"center",whiteSpace:"nowrap",position:"sticky",top:0,zIndex:2,background:"var(--bg2)" }}>{t("Ярим тайёр")}</th></>}
+            <th style={{ color:"var(--text1)",textAlign:"center",whiteSpace:"nowrap",position:"sticky",top:0,zIndex:2,background:"var(--bg2)" }}>{t("Манба")}</th>
+            {editable&&<th style={{ whiteSpace:"nowrap",textAlign:"center",borderLeft:"2px solid var(--border)",color:"var(--text1)",position:"sticky",top:0,zIndex:2,background:"var(--bg2)" }}>{t("Amal")}</th>}
           </tr>
         </thead>
         <tbody>
@@ -97,7 +99,7 @@ export function CollapsibleItemsTable({ rows,showPhotos,onUpdateRow,onDeleteRow 
                       <span style={{ display:"inline-flex",alignItems:"center",gap:7 }}>
                         {isCollapsed?<ChevronRight size={13} style={{ color:"var(--text3)",flexShrink:0 }}/>:<ChevronDown size={13} style={{ color:"var(--text3)",flexShrink:0 }}/>}
                         {section.sectionName}
-                        <span style={{ marginLeft:4,fontWeight:400,fontSize:11,color:"var(--text3)",background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:20,padding:"1px 7px" }}>{section.items.length} та</span>
+                        <span style={{ marginLeft:4,fontWeight:400,fontSize:11,color:"var(--text3)",background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:20,padding:"1px 7px" }}>{section.items.length} {t("та")}</span>
                       </span>
                     </td>
                   </tr>
@@ -115,19 +117,19 @@ export function CollapsibleItemsTable({ rows,showPhotos,onUpdateRow,onDeleteRow 
                       </td>
                       {isEditing?(
                         <>
-                          <td><input className="form-input" placeholder="Nomi" style={{ width:"100%",padding:"4px 8px",fontSize:13 }} value={editDraft.name??row.name??""} onChange={e=>setEditDraft(d=>({...d,name:e.target.value}))}/></td>
-                          <td><input className="form-input" placeholder="Birlik" style={{ width:"100%",padding:"4px 8px",fontSize:13 }} value={editDraft.unit??row.unit??""} onChange={e=>setEditDraft(d=>({...d,unit:e.target.value}))}/></td>
-                          <td><input className="form-input" placeholder="Tayyor" style={{ width:"100%",padding:"4px 8px",fontSize:13 }} value={editDraft.readyQty??row.readyQty??""} onChange={e=>setEditDraft(d=>({...d,readyQty:e.target.value}))}/></td>
-                          <td><input className="form-input" placeholder="Chiqindi" style={{ width:"100%",padding:"4px 8px",fontSize:13 }} value={editDraft.wasteQty??row.wasteQty??""} onChange={e=>setEditDraft(d=>({...d,wasteQty:e.target.value}))}/></td>
-                          <td><input className="form-input" placeholder="Umumiy" style={{ width:"100%",padding:"4px 8px",fontSize:13 }} value={editDraft.totalQty??row.totalQty??""} onChange={e=>setEditDraft(d=>({...d,totalQty:e.target.value}))}/></td>
+                          <td><input className="form-input" placeholder={t("Nomi")} style={{ width:"100%",padding:"4px 8px",fontSize:13 }} value={editDraft.name??row.name??""} onChange={e=>setEditDraft(d=>({...d,name:e.target.value}))}/></td>
+                          <td><input className="form-input" placeholder={t("Birlik")} style={{ width:"100%",padding:"4px 8px",fontSize:13 }} value={editDraft.unit??row.unit??""} onChange={e=>setEditDraft(d=>({...d,unit:e.target.value}))}/></td>
+                          <td><input className="form-input" placeholder={t("Tayyor")} style={{ width:"100%",padding:"4px 8px",fontSize:13 }} value={editDraft.readyQty??row.readyQty??""} onChange={e=>setEditDraft(d=>({...d,readyQty:e.target.value}))}/></td>
+                          <td><input className="form-input" placeholder={t("Chiqindi")} style={{ width:"100%",padding:"4px 8px",fontSize:13 }} value={editDraft.wasteQty??row.wasteQty??""} onChange={e=>setEditDraft(d=>({...d,wasteQty:e.target.value}))}/></td>
+                          <td><input className="form-input" placeholder={t("Umumiy")} style={{ width:"100%",padding:"4px 8px",fontSize:13 }} value={editDraft.totalQty??row.totalQty??""} onChange={e=>setEditDraft(d=>({...d,totalQty:e.target.value}))}/></td>
                           {showPhotos&&<><td style={{ padding:"6px 12px" }}><PhotoCell src={row.photoRaw}/></td><td style={{ padding:"6px 12px" }}><PhotoCell src={row.photoSemi}/></td></>}
-                          <td><input className="form-input" placeholder="Manba" style={{ width:"100%",padding:"4px 8px",fontSize:13 }} value={editDraft.importType??row.importType??""} onChange={e=>setEditDraft(d=>({...d,importType:e.target.value}))}/></td>
+                          <td><input className="form-input" placeholder={t("Manba")} style={{ width:"100%",padding:"4px 8px",fontSize:13 }} value={editDraft.importType??row.importType??""} onChange={e=>setEditDraft(d=>({...d,importType:e.target.value}))}/></td>
                           <td style={{ borderLeft:"2px solid var(--border)",textAlign:"center" }}>
                             <div style={{ display:"flex",gap:4,justifyContent:"center" }}>
                               <button onClick={()=>{ if(onUpdateRow) onUpdateRow(flatIdx,{name:(editDraft.name??row.name)||"",unit:(editDraft.unit??row.unit)||"",readyQty:(editDraft.readyQty??row.readyQty)||"",wasteQty:(editDraft.wasteQty??row.wasteQty)||"",totalQty:(editDraft.totalQty??row.totalQty)||"",importType:(editDraft.importType??row.importType)||""} as Partial<MaterialRow>); setEditingIdx(null); setEditDraft({}); }}
                                 style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"#22c55e22",border:"1px solid #22c55e44",color:"#22c55e",cursor:"pointer" }}>
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                                Saqlash
+                                {t("Saqlash")}
                               </button>
                               <button onClick={()=>{ setEditingIdx(null); setEditDraft({}); }}
                                 style={{ display:"inline-flex",alignItems:"center",padding:"4px 8px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--text2)",cursor:"pointer" }}>✕</button>
@@ -157,7 +159,7 @@ export function CollapsibleItemsTable({ rows,showPhotos,onUpdateRow,onDeleteRow 
                                 <button onClick={()=>{ setEditingIdx(flatIdx); setEditDraft({}); }}
                                   style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"#3b82f622",border:"1px solid #3b82f644",color:"#3b82f6",cursor:"pointer" }}>
                                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                                  Tahrir
+                                  {t("Tahrir")}
                                 </button>
                                 <button onClick={()=>{ if(onDeleteRow) onDeleteRow(flatIdx); }}
                                   style={{ display:"inline-flex",alignItems:"center",padding:"4px 8px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--danger-dim)",border:"1px solid var(--danger)44",color:"var(--danger)",cursor:"pointer" }}>
@@ -175,7 +177,7 @@ export function CollapsibleItemsTable({ rows,showPhotos,onUpdateRow,onDeleteRow 
             );
           })}
           {rows.filter(r=>!r.isSection).length===0&&(
-            <tr><td colSpan={colCount} style={{ textAlign:"center",color:"var(--text2)",padding:32 }}>Ma&apos;lumot topilmadi</td></tr>
+            <tr><td colSpan={colCount} style={{ textAlign:"center",color:"var(--text2)",padding:32 }}>{t("Ma'lumot topilmadi")}</td></tr>
           )}
         </tbody>
       </table>

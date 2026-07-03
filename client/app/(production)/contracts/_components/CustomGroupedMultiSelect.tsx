@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { DepartmentType, DEPARTMENT_TYPE_LABELS, type DepartmentResponse } from "@/lib/userService";
+import { useT } from "@/lib/i18n";
 
 const TYPE_STYLE = {
   [DepartmentType.IshlabChiqarish]: { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa", icon: "🏭" },
@@ -19,6 +20,7 @@ export function CustomGroupedMultiSelect({
   placeholder: string;
   hasError?: boolean;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -96,7 +98,7 @@ export function CustomGroupedMultiSelect({
                   borderTop: gi > 0 ? "1px solid var(--border)" : "none",
                   position: "sticky", top: 0,
                 }}>
-                  {ts.icon} {DEPARTMENT_TYPE_LABELS[g.type]}
+                  {ts.icon} {t(DEPARTMENT_TYPE_LABELS[g.type])}
                 </div>
                 {g.items.map(d => {
                   const checked = values.includes(d.id);

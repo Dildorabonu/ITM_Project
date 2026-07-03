@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/lib/i18n";
+
 const checks = [
   { label: "Kamida 8 ta belgi", test: (p: string) => p.length >= 8 },
   { label: "Katta harf (A-Z)", test: (p: string) => /[A-Z]/.test(p) },
@@ -17,6 +19,7 @@ interface PasswordStrengthHintProps {
 }
 
 export function PasswordStrengthHint({ password }: PasswordStrengthHintProps) {
+  const t = useT();
   const passed = checks.filter(c => c.test(password)).length;
   const ratio = passed / checks.length;
   const barColor = ratio < 0.4 ? "var(--danger)" : ratio < 1 ? "var(--warn)" : "var(--success)";
@@ -38,7 +41,7 @@ export function PasswordStrengthHint({ password }: PasswordStrengthHintProps) {
           return (
             <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: ok ? "var(--success)" : "var(--text3)" }}>
               <span style={{ fontWeight: 700, fontSize: 12, lineHeight: 1 }}>{ok ? "✓" : "○"}</span>
-              {label}
+              {t(label)}
             </div>
           );
         })}

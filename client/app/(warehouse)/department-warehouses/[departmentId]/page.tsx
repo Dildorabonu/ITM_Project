@@ -16,8 +16,10 @@ import { useAuthStore } from "@/lib/store/authStore";
 import { CheckSelect } from "@/app/_components/CheckSelect";
 import { UNIT_FILTER_OPTIONS, fmtNum, fmtDateTime } from "../_types";
 import { TYPE_BADGE } from "../_components/typeBadge";
+import { useT } from "@/lib/i18n";
 
 export default function DepartmentWarehouseDetailPage() {
+  const t = useT();
   const params = useParams<{ departmentId: string }>();
   const router = useRouter();
   const departmentId = params?.departmentId;
@@ -83,10 +85,9 @@ export default function DepartmentWarehouseDetailPage() {
               <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
             </svg>
           </div>
-          <h2 className="font-head-itm text-lg font-bold text-[--text]">Ruxsat yo&apos;q</h2>
+          <h2 className="font-head-itm text-lg font-bold text-[--text]">{t("Ruxsat yo'q")}</h2>
           <p className="text-sm text-[--text3] mt-2">
-            Sizda boshqa bo&apos;lim omborini ko&apos;rish uchun ruxsat yo&apos;q. Faqat o&apos;zingizning bo&apos;lim
-            omboringizni ko&apos;ra olasiz.
+            {t("Sizda boshqa bo'lim omborini ko'rish uchun ruxsat yo'q. Faqat o'zingizning bo'lim omboringizni ko'ra olasiz.")}
           </p>
           <button
             onClick={() => router.back()}
@@ -94,7 +95,7 @@ export default function DepartmentWarehouseDetailPage() {
                        rounded-[--radius] hover:bg-[--accent2] active:scale-[0.97]
                        transition-all duration-150 cursor-pointer"
           >
-            Orqaga
+            {t("Orqaga")}
           </button>
         </div>
       </div>
@@ -124,7 +125,7 @@ export default function DepartmentWarehouseDetailPage() {
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
               <polyline points="15 18 9 12 15 6" />
             </svg>
-            Orqaga
+            {t("Orqaga")}
           </Link>
         )}
         <div
@@ -139,10 +140,10 @@ export default function DepartmentWarehouseDetailPage() {
         </div>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.16em", color: badge.color, textTransform: "uppercase", marginBottom: 2 }}>
-            {department ? DEPARTMENT_TYPE_LABELS[deptType] : "Bo'lim ombori"}
+            {department ? DEPARTMENT_TYPE_LABELS[deptType] : t("Bo'lim ombori")}
           </div>
           <div className="font-head-itm" style={{ fontSize: 18, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.01em", lineHeight: 1.2 }}>
-            {department?.name ?? "Bo'lim ombori"}
+            {department?.name ?? t("Bo'lim ombori")}
           </div>
         </div>
       </div>
@@ -153,14 +154,14 @@ export default function DepartmentWarehouseDetailPage() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          <input className="search-input" placeholder="Qidirish: mahsulot nomi yoki invoice..."
+          <input className="search-input" placeholder={t("Qidirish: mahsulot nomi yoki invoice...")}
             value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <CheckSelect
           value={filterUnit}
           onChange={setFilterUnit}
           options={UNIT_FILTER_OPTIONS}
-          placeholder="Barcha birliklar"
+          placeholder={t("Barcha birliklar")}
           style={{ width: 200 }}
         />
       </div>
@@ -168,19 +169,19 @@ export default function DepartmentWarehouseDetailPage() {
       {/* Table */}
       <div className="itm-card" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "clip" } as React.CSSProperties}>
         {loading ? (
-          <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--text2)" }}>Yuklanmoqda...</div>
+          <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--text2)" }}>{t("Yuklanmoqda...")}</div>
         ) : (
           <div style={{ overflowX: "auto", overflowY: "auto", flex: 1, minHeight: 0 }}>
             <table className="itm-table">
               <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
                 <tr>
-                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>T/r</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Mahsulot nomi</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Invoice raqami</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Soni</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>O&apos;lchov</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Tavsif</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>Tushgan sana</th>
+                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>{t("T/r")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Mahsulot nomi")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Invoice raqami")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Soni")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("O'lchov")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Tavsif")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Tushgan sana")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -188,8 +189,8 @@ export default function DepartmentWarehouseDetailPage() {
                   <tr>
                     <td colSpan={7} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>
                       {search || filterUnit
-                        ? "Filtrga mos mahsulot topilmadi"
-                        : "Bu omborda hali mahsulot yo'q"}
+                        ? t("Filtrga mos mahsulot topilmadi")
+                        : t("Bu omborda hali mahsulot yo'q")}
                     </td>
                   </tr>
                 ) : filtered.map((p, i) => (

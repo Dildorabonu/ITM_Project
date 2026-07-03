@@ -18,6 +18,7 @@ import {
 } from "../_types";
 import { StatusBadgeBig } from "./StatusBadgeBig";
 import { attachChildPdfs } from "../_utils/attachChildPdfs";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   req: RequisitionResponse;
@@ -30,6 +31,7 @@ interface Props {
 // Tanlangan talabnoma bo'yicha materiallar mavjudligini tekshirish va omborchi
 // tomonidan tasdiqlangan miqdorlarni kiritish ko'rinishi.
 export function WarehouseCheckDetail({ req, prodMap, onClose, onSubmitted }: Props) {
+  const t = useT();
   const showToast = useToastStore(s => s.show);
 
   const [editItems, setEditItems] = useState<MaterialCheckItem[]>([]);
@@ -83,11 +85,11 @@ export function WarehouseCheckDetail({ req, prodMap, onClose, onSubmitted }: Pro
     // Validatsiya
     for (const it of editItems) {
       if (it.available < 0) {
-        showToast("Mavjud miqdor manfiy bo'lishi mumkin emas", "error");
+        showToast(t("Mavjud miqdor manfiy bo'lishi mumkin emas"), "error");
         return;
       }
       if (it.available > it.required) {
-        showToast(`"${it.name}" — mavjud miqdor (${it.available}) so'ralgan miqdordan (${it.required}) ko'p`, "error");
+        showToast(`"${it.name}" — ${t("mavjud miqdor")} (${it.available}) ${t("so'ralgan miqdordan")} (${it.required}) ${t("ko'p")}`, "error");
         return;
       }
     }
@@ -105,15 +107,15 @@ export function WarehouseCheckDetail({ req, prodMap, onClose, onSubmitted }: Pro
 
       if (pdfFailures > 0) {
         showToast(
-          `Tekshiruv yakunlandi, ${pdfFailures} ta PDF yaratilmadi`,
-          "Ogohlantirish",
+          `${t("Tekshiruv yakunlandi,")} ${pdfFailures} ${t("ta PDF yaratilmadi")}`,
+          t("Ogohlantirish"),
         );
       } else {
-        showToast("Tekshiruv yakunlandi va talabnomalar tasdiqlashga jo'natildi", "success");
+        showToast(t("Tekshiruv yakunlandi va talabnomalar tasdiqlashga jo'natildi"), "success");
       }
       await onSubmitted();
     } catch {
-      showToast("Xatolik yuz berdi", "error");
+      showToast(t("Xatolik yuz berdi"), "error");
     } finally {
       setSubmitting(false);
     }
@@ -126,7 +128,7 @@ export function WarehouseCheckDetail({ req, prodMap, onClose, onSubmitted }: Pro
       <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "12px 16px" }}>
         <button onClick={onClose}
           style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "0 12px", height: 36, borderRadius: "var(--radius)", border: "1px solid var(--border)", background: "var(--bg2)", color: "var(--text2)", fontSize: 13, cursor: "pointer" }}>
-          ← Orqaga
+          ← {t("Orqaga")}
         </button>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -134,7 +136,7 @@ export function WarehouseCheckDetail({ req, prodMap, onClose, onSubmitted }: Pro
           </div>
           <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 2 }}>
             <span>{REQUISITION_TYPE_LABELS[req.type]}</span>
-            {req.contractNo && <span style={{ marginLeft: 8 }}>Shartnoma: {req.contractNo}</span>}
+            {req.contractNo && <span style={{ marginLeft: 8 }}>{t("Shartnoma")}: {req.contractNo}</span>}
             {req.departmentName && <span style={{ marginLeft: 8 }}>{req.departmentName}</span>}
             {req.createdAt && <span style={{ marginLeft: 8 }}>{fmt(req.createdAt)}</span>}
             {req.createdByName && <span style={{ marginLeft: 8 }}>{req.createdByName}</span>}
@@ -154,12 +156,12 @@ export function WarehouseCheckDetail({ req, prodMap, onClose, onSubmitted }: Pro
             transition: "all 0.15s",
           }}
         >
-          {submitting ? "Yuborilmoqda..." : (
+          {submitting ? t("Yuborilmoqda...") : (
             <>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
-              Tekshiruvni yakunlash
+              {t("Tekshiruvni yakunlash")}
             </>
           )}
         </button>
@@ -168,23 +170,23 @@ export function WarehouseCheckDetail({ req, prodMap, onClose, onSubmitted }: Pro
       {/* Info cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 16 }}>
         <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px", background: "var(--surface)" }}>
-          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Jami materiallar</div>
+          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>{t("Jami materiallar")}</div>
           <div style={{ fontWeight: 700, fontSize: 22, color: "var(--accent)" }}>{detailStats.total}</div>
         </div>
         <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px", background: "var(--surface)" }}>
-          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Yetarli</div>
+          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>{t("Yetarli")}</div>
           <div style={{ fontWeight: 700, fontSize: 22, color: "var(--success)" }}>{detailStats.yetarli}</div>
         </div>
         <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px", background: "var(--surface)" }}>
-          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Qisman bor</div>
+          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>{t("Qisman bor")}</div>
           <div style={{ fontWeight: 700, fontSize: 22, color: "var(--warn)" }}>{detailStats.yetishmadi}</div>
         </div>
         <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px", background: "var(--surface)" }}>
-          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Yo&apos;q</div>
+          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>{t("Yo'q")}</div>
           <div style={{ fontWeight: 700, fontSize: 22, color: "var(--danger)" }}>{detailStats.topilmadi}</div>
         </div>
         <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px", background: "var(--surface)" }}>
-          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>Yetarlilik</div>
+          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>{t("Yetarlilik")}</div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
             <span style={{ fontWeight: 700, fontSize: 22, color: pct === 100 ? "var(--success)" : pct >= 50 ? "var(--warn)" : "var(--danger)" }}>{pct}%</span>
           </div>
@@ -200,7 +202,7 @@ export function WarehouseCheckDetail({ req, prodMap, onClose, onSubmitted }: Pro
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          <input className="search-input" placeholder="Material qidirish..." value={detailSearch} onChange={e => setDetailSearch(e.target.value)} />
+          <input className="search-input" placeholder={t("Material qidirish...")} value={detailSearch} onChange={e => setDetailSearch(e.target.value)} />
         </div>
         {(["all", "yetarli", "yetishmadi", "topilmadi"] as const).map(f => (
           <button key={f} onClick={() => setDetailFilter(f)}
@@ -211,10 +213,10 @@ export function WarehouseCheckDetail({ req, prodMap, onClose, onSubmitted }: Pro
               color: detailFilter === f ? "var(--accent)" : "var(--text2)",
               fontSize: 12, fontWeight: 500, cursor: "pointer",
             }}>
-            {f === "all" ? `Barchasi (${detailStats.total})` : f === "yetarli" ? `Yetarli (${detailStats.yetarli})` : f === "yetishmadi" ? `Qisman (${detailStats.yetishmadi})` : `Yo'q (${detailStats.topilmadi})`}
+            {f === "all" ? `${t("Barchasi")} (${detailStats.total})` : f === "yetarli" ? `${t("Yetarli")} (${detailStats.yetarli})` : f === "yetishmadi" ? `${t("Qisman")} (${detailStats.yetishmadi})` : `${t("Yo'q")} (${detailStats.topilmadi})`}
           </button>
         ))}
-        <span style={{ fontSize: 12, color: "var(--text3)" }}>{filteredItems.length} ta natija</span>
+        <span style={{ fontSize: 12, color: "var(--text3)" }}>{filteredItems.length} {t("ta natija")}</span>
       </div>
 
       {/* Materials table */}
@@ -222,20 +224,20 @@ export function WarehouseCheckDetail({ req, prodMap, onClose, onSubmitted }: Pro
         <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "calc(100vh - 360px)" }}>
           {filteredItems.length === 0 ? (
             <div style={{ padding: 48, textAlign: "center", color: "var(--text3)", fontSize: 13 }}>
-              {detailSearch || detailFilter !== "all" ? "Natija topilmadi" : "Materiallar yo'q"}
+              {detailSearch || detailFilter !== "all" ? t("Natija topilmadi") : t("Materiallar yo'q")}
             </div>
           ) : (
             <table className="itm-table">
               <thead>
                 <tr>
-                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>T/r</th>
-                  <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Material nomi</th>
-                  <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none" }}>O&apos;lchov</th>
-                  <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Kerakli miqdor</th>
-                  <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Ombordagi miqdor</th>
-                  <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none", minWidth: 160 }}>Mavjud (tasdiqlangan)</th>
-                  <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none" }}>Holati</th>
-                  <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none", minWidth: 200 }}>Izoh</th>
+                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>{t("T/r")}</th>
+                  <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Material nomi")}</th>
+                  <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("O'lchov")}</th>
+                  <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Kerakli miqdor")}</th>
+                  <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Ombordagi miqdor")}</th>
+                  <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none", minWidth: 160 }}>{t("Mavjud (tasdiqlangan)")}</th>
+                  <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Holati")}</th>
+                  <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none", minWidth: 200 }}>{t("Izoh")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -280,7 +282,7 @@ export function WarehouseCheckDetail({ req, prodMap, onClose, onSubmitted }: Pro
                       <td style={{ padding: "12px 14px" }}>
                         <input
                           type="text"
-                          placeholder="Izoh (ixtiyoriy)..."
+                          placeholder={t("Izoh (ixtiyoriy)...")}
                           value={item.notes}
                           onChange={e => updateItem(idx, { notes: e.target.value })}
                           style={{
