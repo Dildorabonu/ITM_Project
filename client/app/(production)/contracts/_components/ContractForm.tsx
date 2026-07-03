@@ -10,6 +10,7 @@ import { ContractForm as ContractFormType, UNIT_OPTIONS, CONTRACT_TYPE_OPTIONS, 
 import { CheckSelect } from "@/app/_components/CheckSelect";
 import { DatePickerField } from "./DatePickerField";
 import { CustomGroupedMultiSelect } from "./CustomGroupedMultiSelect";
+import { ProductCatalogSelect } from "./ProductCatalogSelect";
 import { useT } from "@/lib/i18n";
 
 type PickerKey = `${number}:${0 | 1 | 2}` | null;
@@ -245,14 +246,22 @@ export function ContractForm({
                     <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
                       <div>
                         <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4, color: productTypeErr ? "var(--danger)" : "var(--text2)" }}>
-                          {t("Mahsulot turi")} <span style={{ color: "var(--danger)" }}>*</span>
+                          {t("Mahsulot")} <span style={{ color: "var(--danger)" }}>*</span>
                         </label>
-                        <input
-                          className="form-input"
-                          value={p.productType}
-                          onChange={e => updateProduct(idx, { productType: e.target.value })}
-                          placeholder={t("Masalan: Detal, Konstruktsiya...")}
-                          style={productTypeErr ? { borderColor: "var(--danger)" } : undefined}
+                        <ProductCatalogSelect
+                          productType={p.productType}
+                          productCode={p.productCode}
+                          hasError={productTypeErr}
+                          canCreate={editTarget ? canUpdate : canCreate}
+                          // Erkin matn — hali katalog tanlanmagan, shuning uchun bog'lanishni tozalaymiz.
+                          onType={value => updateProduct(idx, { productType: value, productCatalogId: null, productCode: null })}
+                          onSelect={sel => updateProduct(idx, {
+                            productType: sel.productType,
+                            productCatalogId: sel.productCatalogId,
+                            productCode: sel.productCode,
+                            // Katalogdagi standart birlik bilan oldindan to'ldiramiz (agar hali bo'sh bo'lsa).
+                            ...(sel.unit && !p.unit ? { unit: sel.unit } : {}),
+                          })}
                         />
                       </div>
                       <div>

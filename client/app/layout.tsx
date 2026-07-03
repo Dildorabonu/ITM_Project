@@ -40,6 +40,7 @@ const navGroups: NavGroup[] = [
       { name: "Korxona omborxonasi", href: "/warehouse-inventory", icon: "shopping-bag", permission: "Products.View" },
       { name: "Ombor skaneri", href: "/warehouse-scan", icon: "package", permission: "Products.View" },
       { name: "Tayyor mahsulotlar",  href: "/manufactured", icon: "factory",      permission: "ManufacturedProducts.View" },
+      { name: "Mahsulotlar katalogi", href: "/product-catalog", icon: "box",       permission: "ProductCatalog.View" },
       { name: "Bo'lim omborlari", href: "/department-warehouses", icon: "briefcase", permission: "Products.View" },
       { name: "Ombor tekshiruvi", href: "/warehouse-check", icon: "package",      permission: "WarehouseCheck.View" },
       { name: "Harakatlar jurnali", href: "/warehouse-movements", icon: "activity", permission: "WarehouseCheck.View" },
@@ -86,6 +87,7 @@ function NavIcon({ type, size = 16, strokeWidth = 2, color }: { type: string; si
   if (type === "layers")      return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><polygon points="12,2 2,7 12,12 22,7"/><polyline points="2,17 12,22 22,17"/><polyline points="2,12 12,17 22,12"/></svg>;
   if (type === "factory")     return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24"><path d="M2 20V8l6 4V8l6 4V8l6 4v8z"/><line x1="2" y1="20" x2="22" y2="20"/><line x1="7" y1="16" x2="7" y2="16.01"/><line x1="12" y1="16" x2="12" y2="16.01"/><line x1="17" y1="16" x2="17" y2="16.01"/></svg>;
   if (type === "ruler")       return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.4 2.4 0 0 1 0-3.4l2.6-2.6a2.4 2.4 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg>;
+  if (type === "box")         return <svg className={cls} width={size} height={size} fill="none" {...s} strokeWidth={strokeWidth} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/><path d="m7.5 4.3 9 5.2"/></svg>;
   return null;
 }
 
@@ -125,7 +127,7 @@ function applyAppearanceFont(family: string, scale: number) {
 }
 
 // Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
-const readyRoutes = new Set(["/", "/users", "/roles", "/login", "/departments", "/warehouse-inventory", "/warehouse-check", "/warehouse-movements", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions", "/requisitions/approvals", "/manufactured", "/department-warehouses"]);
+const readyRoutes = new Set(["/", "/users", "/roles", "/login", "/departments", "/warehouse-inventory", "/warehouse-check", "/warehouse-movements", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions", "/requisitions/approvals", "/manufactured", "/product-catalog", "/department-warehouses"]);
 const readyPrefixes = ["/requisitions/", "/contracts/", "/techprocess/", "/technicaldrawings/", "/requisitions/print", "/department-warehouses/", "/warehouse-inventory/label/"];
 
 const pageTitles: Record<string, string> = {
@@ -138,6 +140,7 @@ const pageTitles: Record<string, string> = {
   "/warehouse-movements": "Harakatlar jurnali",
   "/tasks":         "Vazifalar",
   "/manufactured":  "Tayyor mahsulotlar",
+  "/product-catalog": "Mahsulotlar katalogi",
   "/users":         "Foydalanuvchilar",
   "/roles":         "Rollar",
   "/departments":   "Tuzilma",

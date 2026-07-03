@@ -4,6 +4,9 @@ namespace Application.DTOs.Contracts;
 
 public class ContractProductCreateDto
 {
+    // Katalog mahsulotining Id'si (ProductCatalog). Frontend mahsulotni katalogdan tanlaydi
+    // yoki yangi yaratib shu Id'ni yuboradi. Berilsa — ProductType katalog nomidan olinadi.
+    public Guid? ProductCatalogId { get; set; }
     public string ProductType { get; set; } = string.Empty;
     public int Quantity { get; set; }
     public string Unit { get; set; } = string.Empty;
@@ -50,6 +53,8 @@ public class ContractProductResponseDto
 {
     public Guid Id { get; set; }
     public Guid ContractId { get; set; }
+    public Guid? ProductCatalogId { get; set; }
+    public string? ProductCode { get; set; }
     public string ProductType { get; set; } = string.Empty;
     public int Quantity { get; set; }
     public string Unit { get; set; } = string.Empty;

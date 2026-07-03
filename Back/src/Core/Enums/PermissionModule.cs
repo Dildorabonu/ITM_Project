@@ -45,4 +45,7 @@ public enum PermissionModule
 
     [Display(Name = "Jo'natmalar", Description = "send")]
     Shipments = 14,
+
+    [Display(Name = "Mahsulotlar katalogi", Description = "box")]
+    ProductCatalog = 15,
 }

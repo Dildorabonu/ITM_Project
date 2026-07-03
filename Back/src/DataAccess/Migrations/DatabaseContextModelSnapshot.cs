@@ -215,6 +215,9 @@ namespace DataAccess.Migrations
                     b.Property<int>("OrderIndex")
                         .HasColumnType("integer");
 
+                    b.Property<Guid?>("ProductCatalogId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("ProductType")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -234,6 +237,8 @@ namespace DataAccess.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ContractId");
+
+                    b.HasIndex("ProductCatalogId");
 
                     b.ToTable("ContractProducts");
                 });
@@ -781,6 +786,54 @@ namespace DataAccess.Migrations
                         .IsUnique();
 
                     b.ToTable("Products");
+                });
+
+            modelBuilder.Entity("Core.Entities.ProductCatalog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("NameNormalized")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("Unit")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("NameNormalized")
+                        .IsUnique();
+
+                    b.ToTable("ProductCatalogs");
                 });
 
             modelBuilder.Entity("Core.Entities.RefreshToken", b =>
@@ -1475,7 +1528,14 @@ namespace DataAccess.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Core.Entities.ProductCatalog", "ProductCatalog")
+                        .WithMany("ContractProducts")
+                        .HasForeignKey("ProductCatalogId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Contract");
+
+                    b.Navigation("ProductCatalog");
                 });
 
             modelBuilder.Entity("Core.Entities.ContractProductDepartment", b =>
@@ -2108,6 +2168,11 @@ namespace DataAccess.Migrations
             modelBuilder.Entity("Core.Entities.Permission", b =>
                 {
                     b.Navigation("RolePermissions");
+                });
+
+            modelBuilder.Entity("Core.Entities.ProductCatalog", b =>
+                {
+                    b.Navigation("ContractProducts");
                 });
 
             modelBuilder.Entity("Core.Entities.Requisition", b =>

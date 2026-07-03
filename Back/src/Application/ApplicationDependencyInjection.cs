@@ -35,6 +35,7 @@ public static class ApplicationDependencyInjection
         services.AddScoped<IStockMovementService, StockMovementService>();
         services.AddScoped<IFileStorageService, FileStorageService>();
         services.AddScoped<IManufacturedProductService, ManufacturedProductService>();
+        services.AddScoped<IProductCatalogService, ProductCatalogService>();
         services.AddScoped<IShipmentBatchService, ShipmentBatchService>();
         services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<IActivityLogService, ActivityLogService>();

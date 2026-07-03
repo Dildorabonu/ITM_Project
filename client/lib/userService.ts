@@ -476,6 +476,7 @@ export interface ContractProductUserPayload {
 }
 
 export interface ContractProductPayload {
+  productCatalogId?: string | null;
   productType: string;
   quantity: number;
   unit: string;
@@ -500,6 +501,8 @@ export interface ContractProductUserInfo {
 export interface ContractProductResponse {
   id: string;
   contractId: string;
+  productCatalogId: string | null;
+  productCode: string | null;
   productType: string;
   quantity: number;
   unit: string;
@@ -1586,5 +1589,78 @@ export const manufacturedProductService = {
 
   delete: async (id: string): Promise<void> => {
     await api.delete(`/api/manufacturedproduct/${id}`);
+  },
+};
+
+// ─── Product Catalog (tayyor mahsulotlar katalogi) ───────────────────────────
+// Shartnoma yaratishda mahsulot shu katalogdan tanlanadi. Har mahsulotning noyob
+// Id va kodi (masalan "PRD-9F3A1C") bo'ladi.
+
+export interface ProductCatalogResponse {
+  id: string;
+  name: string;
+  code: string;
+  unit: string | null;
+  description: string | null;
+  usageCount: number;
+  createdAt: string;
+}
+
+export interface ProductCatalogCreatePayload {
+  name: string;
+  unit?: string | null;
+  description?: string | null;
+}
+
+export interface ProductCatalogUpdatePayload {
+  name: string;
+  unit?: string | null;
+  description?: string | null;
+}
+
+export const productCatalogService = {
+  // ── Shartnoma formasi uchun (Contracts.* ruxsati) ──
+  search: async (
+    search?: string,
+    page = 1,
+    pageSize = 20,
+    signal?: AbortSignal,
+  ): Promise<PagedResult<ProductCatalogResponse>> => {
+    const params: Record<string, unknown> = { page, pageSize };
+    if (search) params.search = search;
+    const res = await api.get("/api/productcatalog/lookup", { params, signal });
+    return res.data?.result ?? res.data;
+  },
+
+  quickCreate: async (dto: ProductCatalogCreatePayload): Promise<ProductCatalogResponse> => {
+    const res = await api.post("/api/productcatalog/quick", dto);
+    return res.data?.result ?? res.data;
+  },
+
+  // ── Boshqaruv sahifasi uchun (ProductCatalog.* ruxsati) ──
+  list: async (
+    search?: string,
+    page = 1,
+    pageSize = 20,
+    signal?: AbortSignal,
+  ): Promise<PagedResult<ProductCatalogResponse>> => {
+    const params: Record<string, unknown> = { page, pageSize };
+    if (search) params.search = search;
+    const res = await api.get("/api/productcatalog", { params, signal });
+    return res.data?.result ?? res.data;
+  },
+
+  create: async (dto: ProductCatalogCreatePayload): Promise<ProductCatalogResponse> => {
+    const res = await api.post("/api/productcatalog", dto);
+    return res.data?.result ?? res.data;
+  },
+
+  update: async (id: string, dto: ProductCatalogUpdatePayload): Promise<ProductCatalogResponse> => {
+    const res = await api.put(`/api/productcatalog/${id}`, dto);
+    return res.data?.result ?? res.data;
+  },
+
+  remove: async (id: string): Promise<void> => {
+    await api.delete(`/api/productcatalog/${id}`);
   },
 };

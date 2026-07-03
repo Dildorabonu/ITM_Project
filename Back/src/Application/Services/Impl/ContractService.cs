@@ -32,6 +32,7 @@ public class ContractService : IContractService
         var query = _context.Contracts
             .Include(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
             .Include(c => c.Creator)
+            .Include(c => c.Products).ThenInclude(p => p.ProductCatalog)
             .Include(c => c.Products).ThenInclude(p => p.ProductDepartments).ThenInclude(pd => pd.Department)
             .Include(c => c.Products).ThenInclude(p => p.ProductUsers).ThenInclude(pu => pu.User).ThenInclude(u => u.Department)
             .AsNoTracking()
@@ -169,6 +170,8 @@ public class ContractService : IContractService
             {
                 Id = p.Id,
                 ContractId = p.ContractId,
+                ProductCatalogId = p.ProductCatalogId,
+                ProductCode = p.ProductCatalog != null ? p.ProductCatalog.Code : null,
                 ProductType = p.ProductType,
                 Quantity = p.Quantity,
                 Unit = p.Unit,
@@ -184,6 +187,7 @@ public class ContractService : IContractService
             .Include(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
             .Include(c => c.Creator)
             .Include(c => c.ContractUsers).ThenInclude(cu => cu.User).ThenInclude(u => u!.Department)
+            .Include(c => c.Products).ThenInclude(p => p.ProductCatalog)
             .Include(c => c.Products).ThenInclude(p => p.ProductDepartments).ThenInclude(pd => pd.Department)
             .Include(c => c.Products).ThenInclude(p => p.ProductUsers).ThenInclude(pu => pu.User).ThenInclude(u => u!.Department)
             .AsNoTracking()
@@ -250,6 +254,7 @@ public class ContractService : IContractService
             {
                 Id = productId,
                 ContractId = contract.Id,
+                ProductCatalogId = p.ProductCatalogId,
                 ProductType = p.ProductType.Trim(),
                 Quantity = p.Quantity,
                 Unit = p.Unit ?? string.Empty,
@@ -335,6 +340,21 @@ public class ContractService : IContractService
                 errors.Add($"Mahsulot #{idx}: miqdorni kiriting (0 dan katta son).");
             if (string.IsNullOrWhiteSpace(p.Unit))
                 errors.Add($"Mahsulot #{idx}: o'lchov birligini tanlang.");
+        }
+
+        var catalogIds = products
+            .Where(p => p.ProductCatalogId.HasValue)
+            .Select(p => p.ProductCatalogId!.Value)
+            .Distinct()
+            .ToList();
+        if (catalogIds.Count > 0)
+        {
+            var existingCatalog = await _context.ProductCatalogs
+                .Where(pc => catalogIds.Contains(pc.Id))
+                .Select(pc => pc.Id)
+                .ToListAsync();
+            foreach (var missing in catalogIds.Except(existingCatalog))
+                errors.Add($"Katalog mahsuloti topilmadi: {missing}");
         }
 
         var deptIds = products.SelectMany(p => p.DepartmentIds).Distinct().ToList();
@@ -446,6 +466,7 @@ public class ContractService : IContractService
                 {
                     Id = productId,
                     ContractId = contract.Id,
+                    ProductCatalogId = p.ProductCatalogId,
                     ProductType = p.ProductType.Trim(),
                     Quantity = p.Quantity,
                     Unit = p.Unit ?? string.Empty,
@@ -1135,6 +1156,8 @@ public class ContractService : IContractService
             {
                 Id          = p.Id,
                 ContractId  = p.ContractId,
+                ProductCatalogId = p.ProductCatalogId,
+                ProductCode = p.ProductCatalog != null ? p.ProductCatalog.Code : null,
                 ProductType = p.ProductType,
                 Quantity    = p.Quantity,
                 Unit        = p.Unit,

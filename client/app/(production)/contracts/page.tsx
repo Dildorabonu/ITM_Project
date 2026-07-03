@@ -283,6 +283,8 @@ export default function ContractsPage() {
       notes:         c.notes ?? "",
       products:      (c.products && c.products.length > 0)
         ? c.products.map(p => ({
+            productCatalogId: p.productCatalogId ?? null,
+            productCode: p.productCode ?? null,
             productType: p.productType ?? "",
             quantity:    p.quantity != null ? String(p.quantity) : "",
             unit:        p.unit ?? "",
@@ -293,7 +295,7 @@ export default function ContractsPage() {
             observerUsers:    (p.assignedUsers ?? []).filter(u => u.role === 2).map(u => lookupById.get(u.userId)).filter((u): u is UserLookup => !!u),
             pendingTzFiles: [],
           }))
-        : [{ productType: "", quantity: "", unit: "", notes: "", departmentIds: [], responsibleUsers: [], supervisorUsers: [], observerUsers: [], pendingTzFiles: [] }],
+        : [{ productCatalogId: null, productCode: null, productType: "", quantity: "", unit: "", notes: "", departmentIds: [], responsibleUsers: [], supervisorUsers: [], observerUsers: [], pendingTzFiles: [] }],
     });
     setStartDateDisp(c.startDate ? isoToDisplayDate(c.startDate.slice(0, 10)) : "");
     setEndDateDisp(c.endDate ? isoToDisplayDate(c.endDate.slice(0, 10)) : "");
@@ -317,6 +319,7 @@ export default function ContractsPage() {
   const buildProductsPayload = (): ContractProductPayload[] => form.products
     .filter(p => p.productType.trim())
     .map(p => ({
+      productCatalogId: p.productCatalogId,
       productType:   p.productType.trim(),
       quantity:      p.quantity ? Number(p.quantity) : 0,
       unit:          p.unit || "",
