@@ -1051,6 +1051,7 @@ export const ru: Record<string, string> = {
   "Mahsulot nomini yozing yoki tanlang...": "Введите или выберите название товара...",
   "Qidirilmoqda...": "Поиск...",
   "— yangi mahsulot yaratish": "— создать новый товар",
+  "— katalogga qo'shish": "— добавить в каталог",
   "Yaratilmoqda...": "Создание...",
   "Mahsulot katalogga qo'shildi": "Товар добавлен в каталог",
   "Mahsulotni yaratib bo'lmadi": "Не удалось создать товар",

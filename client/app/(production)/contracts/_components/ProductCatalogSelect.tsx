@@ -5,7 +5,6 @@ import {
   productCatalogService,
   type ProductCatalogResponse,
 } from "@/lib/userService";
-import { useToastStore } from "@/lib/store/toastStore";
 import { useT } from "@/lib/i18n";
 
 export interface ProductCatalogSelection {
@@ -34,12 +33,10 @@ export function ProductCatalogSelect({
   productType, productCode, hasError, canCreate = true, onType, onSelect,
 }: Props) {
   const t = useT();
-  const showToast = useToastStore(s => s.show);
 
   const [open, setOpen] = useState(false);
   const [results, setResults] = useState<ProductCatalogResponse[]>([]);
   const [loading, setLoading] = useState(false);
-  const [creating, setCreating] = useState(false);
   const boxRef = useRef<HTMLDivElement | null>(null);
 
   // Tashqariga bosilganda yopish.
@@ -83,19 +80,12 @@ export function ProductCatalogSelect({
     setOpen(false);
   };
 
-  const createNew = async () => {
-    if (!term || creating) return;
-    setCreating(true);
-    try {
-      const created = await productCatalogService.quickCreate({ name: term });
-      onSelect({ productCatalogId: created.id, productCode: created.code, productType: created.name, unit: created.unit });
-      showToast(`${t("Mahsulot katalogga qo'shildi")}: ${created.code}`);
-      setOpen(false);
-    } catch {
-      showToast(t("Mahsulotni yaratib bo'lmadi"), "Xatolik");
-    } finally {
-      setCreating(false);
-    }
+  // Yangi mahsulot bu yerda yaratilmaydi — foydalanuvchi mahsulotlar katalogining
+  // qo'shish qismiga (yangi tabda) yo'naltiriladi, yozilgan nom oldindan to'ldiriladi.
+  const goToCatalog = () => {
+    if (!term) return;
+    window.open(`/product-catalog?create=1&name=${encodeURIComponent(term)}`, "_blank", "noopener");
+    setOpen(false);
   };
 
   return (
@@ -177,26 +167,24 @@ export function ProductCatalogSelect({
             <button
               type="button"
               onMouseDown={e => e.preventDefault()}
-              onClick={createNew}
-              disabled={creating}
+              onClick={goToCatalog}
               style={{
                 width: "100%", display: "flex", alignItems: "center", gap: 8,
                 padding: "9px 10px", marginTop: results.length ? 4 : 0,
                 borderTop: results.length ? "1px solid var(--border)" : "none",
                 borderRight: "none", borderBottom: "none", borderLeft: "none",
                 background: "transparent", borderRadius: 6,
-                cursor: creating ? "default" : "pointer", textAlign: "left",
+                cursor: "pointer", textAlign: "left",
                 color: "var(--accent)", fontSize: 13, fontWeight: 600,
               }}
-              onMouseEnter={e => { if (!creating) e.currentTarget.style.background = "var(--accent-dim)"; }}
+              onMouseEnter={e => { e.currentTarget.style.background = "var(--accent-dim)"; }}
               onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" />
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                <polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
               </svg>
-              {creating
-                ? t("Yaratilmoqda...")
-                : <span>«{term}» {t("— yangi mahsulot yaratish")}</span>}
+              <span>«{term}» {t("— katalogga qo'shish")}</span>
             </button>
           )}
         </div>

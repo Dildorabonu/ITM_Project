@@ -278,7 +278,7 @@ export default function RequisitionApprovalsPage() {
       {/* ─── Reject modal ───────────────────────────────────────────── */}
       {rejectId && (
         <div
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000 }}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000 }}
           onClick={() => !acting && setRejectId(null)}
         >
           <div

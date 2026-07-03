@@ -269,7 +269,7 @@ export default function TechnicalDrawingsPage() {
   // ── Draft warning modal ───────────────────────────────────────────────────
 
   const draftWarningModal = draftWarning && createPortal(
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ background: "var(--surface)", border: "1px solid var(--warn)", borderRadius: 12, padding: 28, width: 380, maxWidth: "95vw" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
           <div style={{ width: 38, height: 38, borderRadius: 8, background: "var(--warn-dim)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -302,7 +302,7 @@ export default function TechnicalDrawingsPage() {
   // ── Approve confirm modal ─────────────────────────────────────────────────
 
   const approveConfirmModal = approveConfirmTarget && createPortal(
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: 28, width: 380, maxWidth: "95vw" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
           <div style={{ width: 38, height: 38, borderRadius: 8, background: "var(--success-dim)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>

@@ -94,6 +94,21 @@ export default function ProductCatalogPage() {
     return () => { document.body.style.overflow = ""; };
   }, [showForm]);
 
+  // Shartnoma formasidan "katalogga qo'shish" bilan kelinganda (?create=1&name=...)
+  // qo'shish modalini avtomatik ochamiz va nomni oldindan to'ldiramiz.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("create") !== "1") return;
+    const name = params.get("name") ?? "";
+    setEditTarget(null);
+    setForm({ ...emptyForm, name });
+    setSubmitted(false);
+    setShowForm(true);
+    // URL ni tozalaymiz — qayta yuklanishda modal takror ochilmasin.
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
+
   const openCreate = () => {
     setEditTarget(null);
     setForm(emptyForm);
@@ -330,6 +345,7 @@ export default function ProductCatalogPage() {
           onMouseDown={e => { if (e.target === e.currentTarget) setShowForm(false); }}
           style={{
             position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.45)",
+            backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)",
             display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
           }}
         >
