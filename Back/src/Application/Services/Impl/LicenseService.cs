@@ -70,9 +70,20 @@ public class LicenseService : ILicenseService
             state = new LicenseState { Id = LicenseState.SingletonId, HighWaterUtc = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow };
             _context.LicenseStates.Add(state);
         }
+        // Yangi (imzolangan) token faollashtirilishi — "toza start". TAMPER bayrog'ini
+        // olib tashlaymiz va soat-ortga-surishga qarshi belgilarni (HighWater + fayl nusxasi)
+        // hozirgi vaqtga qayta tiklaymiz. Aks holda soat hali ortga surilgan bo'lsa,
+        // keyingi EvaluateAsync darhol qayta TAMPER qo'yadi.
+        // Xavfsiz: bu faqat ta'minotchi imzolagan, shu serverga bog'langan va muddati
+        // o'tmagan token bilan ishlaydi — mijoz o'zi TAMPER'ni ocha olmaydi.
+        var baseline = DateTime.UtcNow;
         state.LicenseKey = token;
-        state.UpdatedAt = DateTime.UtcNow;
+        state.TamperDetected = false;
+        state.TamperReason = null;
+        state.HighWaterUtc = baseline;
+        state.UpdatedAt = baseline;
         await _context.SaveChangesAsync(ct);
+        WriteMirror(baseline);
 
         // 6) Holatni qayta hisoblab, guard'ni yangilaymiz.
         var status = await RefreshAsync(ct);
