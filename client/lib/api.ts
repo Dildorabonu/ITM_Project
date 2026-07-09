@@ -71,6 +71,20 @@ api.interceptors.response.use(
     const status = error.response?.status;
     const url = original?.url || "";
 
+    // Litsenziya bloki: backend 403 + X-License-Status header qaytaradi. Butun
+    // ilovani bloklovchi ekranni (LicenseGate) ishga tushiramiz.
+    if (status === 403) {
+      const licenseFlag =
+        error.response?.headers?.["x-license-status"] || error.response?.data?.licenseExpired;
+      if (licenseFlag && typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("license-expired", {
+            detail: { reason: error.response?.data?.reason },
+          })
+        );
+      }
+    }
+
     // Don't try to refresh on the refresh/login endpoints themselves
     const isAuthEndpoint = url.includes("/api/auth/refresh") || url.includes("/api/auth/login");
 

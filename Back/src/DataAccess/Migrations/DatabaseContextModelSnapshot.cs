@@ -520,6 +520,33 @@ namespace DataAccess.Migrations
                     b.ToTable("Departments");
                 });
 
+            modelBuilder.Entity("Core.Entities.LicenseState", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("HighWaterUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LicenseKey")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("TamperDetected")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("TamperReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("LicenseState", (string)null);
+                });
+
             modelBuilder.Entity("Core.Entities.LoginAttempt", b =>
                 {
                     b.Property<Guid>("Id")

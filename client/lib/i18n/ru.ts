@@ -1085,4 +1085,35 @@ export const ru: Record<string, string> = {
   "Bosqichlar bo'yicha taqsimot": "Распределение по этапам",
   "Bog'langan shartnomalar": "Связанные договоры",
   "Bu mahsulot hali birorta shartnomada ishlatilmagan.": "Этот товар ещё не используется ни в одном договоре.",
+
+  // ───────── Litsenziya bloki ─────────
+  "Litsenziya muddati tugadi": "Срок действия лицензии истёк",
+  "Litsenziya faol emas": "Лицензия неактивна",
+  "Litsenziya bu serverga tegishli emas": "Лицензия не принадлежит этому серверу",
+  "Tizim vaqti buzilgan": "Системное время нарушено",
+  "Tizimdan foydalanish muddati tugadi. Davom etish uchun ta'minotchi bilan bog'laning.":
+    "Срок использования системы истёк. Для продолжения свяжитесь с поставщиком.",
+  "Amal qilish muddati": "Срок действия",
+  "Bog'lanish uchun tizim ta'minotchisiga murojaat qiling.":
+    "Для связи обратитесь к поставщику системы.",
+  "Admin: litsenziyani faollashtirish": "Админ: активировать лицензию",
+  "Litsenziya tokenini shu yerga joylang": "Вставьте сюда токен лицензии",
+  "Superadmin paroli": "Пароль суперадмина",
+  "Faollashtirilmoqda...": "Активация...",
+  "Litsenziya faollashmadi.": "Лицензия не активирована.",
+  "Faollashtirishda xatolik.": "Ошибка при активации.",
+  "Litsenziya": "Лицензия",
+  "Tizim litsenziyasi holati va yangilash": "Статус лицензии системы и обновление",
+  "Faol emas": "Неактивна",
+  "Mijoz": "Клиент",
+  "Qolgan kunlar": "Осталось дней",
+  "Qolgan muddat": "Осталось времени",
+  "daqiqa": "мин",
+  "Tugagan": "Истёк",
+  "Server barmoq izi": "Отпечаток сервера",
+  "Litsenziyani yangilash": "Обновить лицензию",
+  "Yangi tokenni joylang va superadmin parolini kiriting. Muddat darhol yangilanadi.":
+    "Вставьте новый токен и введите пароль суперадмина. Срок обновится сразу.",
+  "Litsenziya tokeni": "Токен лицензии",
+  "Litsenziya muvaffaqiyatli yangilandi.": "Лицензия успешно обновлена.",
 };

@@ -42,6 +42,7 @@ public class DatabaseContext : DbContext
     public DbSet<ShipmentBatch> ShipmentBatches { get; set; }
     public DbSet<ActivityLog> ActivityLogs { get; set; }
     public DbSet<LoginAttempt> LoginAttempts { get; set; }
+    public DbSet<LicenseState> LicenseStates { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

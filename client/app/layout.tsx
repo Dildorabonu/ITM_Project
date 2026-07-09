@@ -7,11 +7,12 @@ import "./globals.css";
 import { useAuthStore } from "@/lib/store/authStore";
 import { api } from "@/lib/api";
 import ToastContainer from "@/app/_components/ToastContainer";
+import LicenseGate from "@/app/_components/LicenseGate";
 import EkLogo from "@/app/_components/EkLogo";
 import SplashScreen from "@/app/_components/SplashScreen";
 import { useT, useLangStore } from "@/lib/i18n";
 
-type NavItem = { name: string; href: string; icon: string; badge?: number; badgeWarn?: boolean; permission?: string | string[] };
+type NavItem = { name: string; href: string; icon: string; badge?: number; badgeWarn?: boolean; permission?: string | string[]; superadminOnly?: boolean };
 type NavGroup = { label: string; icon: string; items: NavItem[] };
 
 const navGroups: NavGroup[] = [
@@ -61,6 +62,7 @@ const navGroups: NavGroup[] = [
       { name: "Tuzilma",            href: "/departments", icon: "briefcase", permission: "Departments.View" },
       { name: "Foydalanuvchilar",   href: "/users",       icon: "users",     permission: "Users.View" },
       { name: "Rollar",             href: "/roles",       icon: "shield",    permission: "Roles.View" },
+      { name: "Litsenziya",         href: "/litsenziya",  icon: "shield",    superadminOnly: true },
       { name: "Tashqi ko'rinish",   href: "/appearance",  icon: "palette" },
     ],
   },
@@ -127,7 +129,7 @@ function applyAppearanceFont(family: string, scale: number) {
 }
 
 // Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
-const readyRoutes = new Set(["/", "/users", "/roles", "/login", "/departments", "/warehouse-inventory", "/warehouse-check", "/warehouse-movements", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions", "/requisitions/approvals", "/manufactured", "/product-catalog", "/department-warehouses"]);
+const readyRoutes = new Set(["/", "/users", "/roles", "/login", "/departments", "/warehouse-inventory", "/warehouse-check", "/warehouse-movements", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions", "/requisitions/approvals", "/manufactured", "/product-catalog", "/department-warehouses", "/litsenziya"]);
 const readyPrefixes = ["/requisitions/", "/contracts/", "/techprocess/", "/technicaldrawings/", "/requisitions/print", "/department-warehouses/", "/warehouse-inventory/label/"];
 
 const pageTitles: Record<string, string> = {
@@ -148,6 +150,7 @@ const pageTitles: Record<string, string> = {
   "/warehouse-scan": "Ombor skaneri",
   "/department-warehouses": "Bo'lim Omborlari",
   "/appearance":    "Tashqi ko'rinish",
+  "/litsenziya":    "Litsenziya",
   "/requisitions":           "Talabnomalar",
   "/requisitions/approvals": "Talabnomalar â€” Tasdiqlash",
   "/requisitions/print":     "Talabnoma",
@@ -232,6 +235,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     ...group,
     items: group.items
       .filter((item) => {
+        if (item.superadminOnly && user?.login !== "superadmin") return false;
         if (!item.permission) return true;
         const perms = Array.isArray(item.permission) ? item.permission : [item.permission];
         return perms.some((p) => hasPermission(p));
@@ -905,6 +909,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </div>)}
       {showSplash && <SplashScreen fading={splashFading} />}
       <ToastContainer />
+      <LicenseGate />
       </body>
     </html>
   );

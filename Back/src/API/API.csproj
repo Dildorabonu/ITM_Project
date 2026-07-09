@@ -21,4 +21,15 @@
     <ProjectReference Include="..\DataAccess\DataAccess.csproj" />
   </ItemGroup>
 
+  <!--
+    appsettings.Development.json'ni publish paketiga QO'SHMAYMIZ. Unda uzoq muddatli
+    dev litsenziya kaliti bor — mijoz serverida bo'lmasligi shart, aks holda
+    ASPNETCORE_ENVIRONMENT=Development qilib litsenziya blokini chetlab o'tish mumkin bo'lardi.
+  -->
+  <ItemGroup>
+    <Content Update="appsettings.Development.json">
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

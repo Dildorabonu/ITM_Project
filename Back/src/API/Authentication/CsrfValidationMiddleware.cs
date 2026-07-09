@@ -17,7 +17,10 @@ public class CsrfValidationMiddleware
     private static readonly string[] ExemptPaths =
     {
         "/api/auth/login",
-        "/api/auth/refresh"
+        "/api/auth/refresh",
+        // Litsenziyani faollashtirish — superadmin paroli bilan himoyalangan, cookie-auth
+        // ishlatmaydi, va bloklangan holatda (CSRF cookie yo'q) ham ishlashi kerak.
+        "/api/license/activate"
     };
 
     private static readonly string[] SafeMethods = { "GET", "HEAD", "OPTIONS", "TRACE" };

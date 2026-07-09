@@ -1,3 +1,4 @@
+using Application.Licensing;
 using Application.Options;
 using Application.Services;
 using Application.Services.Impl;
@@ -14,8 +15,13 @@ public static class ApplicationDependencyInjection
         services.Configure<FileStorageOptions>(configuration.GetSection(FileStorageOptions.SectionName));
         services.Configure<AuthCookieOptions>(configuration.GetSection(AuthCookieOptions.SectionName));
         services.Configure<LockoutOptions>(configuration.GetSection(LockoutOptions.SectionName));
+        services.Configure<LicenseOptions>(configuration.GetSection(LicenseOptions.SectionName));
 
         services.AddHttpContextAccessor();
+
+        // Litsenziya: xotiradagi holat (singleton) + har so'rovda tekshiruvchi servis (scoped).
+        services.AddSingleton<LicenseGuard>();
+        services.AddScoped<ILicenseService, LicenseService>();
 
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IAuthService, AuthService>();

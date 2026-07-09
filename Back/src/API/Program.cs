@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading.RateLimiting;
 using API.Authentication;
 using API.Authorization;
+using API.Licensing;
 using Application;
 using Application.Helpers;
 using Application.Options;
@@ -172,6 +173,9 @@ namespace API
                 };
             });
 
+            // Litsenziyani har daqiqada qayta tekshiruvchi fon xizmati.
+            builder.Services.AddHostedService<LicenseRefreshService>();
+
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
@@ -283,6 +287,10 @@ namespace API
 
             app.UseCors();
 
+            // Litsenziya muddati tugagan/yaroqsiz bo'lsa barcha /api so'rovlar bloklanadi
+            // (login ham). Autentifikatsiyadan oldin turadi — to'liq blok uchun.
+            app.UseMiddleware<LicenseEnforcementMiddleware>();
+
             // Barcha javoblarda MIME sniffing'ni o'chirish — yuklangan fayllarni
             // browser noto'g'ri turdek talqin qilishining oldini oladi.
             app.Use(async (ctx, next) =>
@@ -321,6 +329,14 @@ namespace API
             app.MapControllers();
 
             await app.Services.ApplyMigrationsAsync();
+
+            // Litsenziyani startda bir marta tekshiramiz — birinchi so'rovlar to'g'ri
+            // holat bilan qarshi olinishi uchun (LicenseGuard to'ldiriladi).
+            using (var scope = app.Services.CreateScope())
+            {
+                var licenseService = scope.ServiceProvider.GetRequiredService<ILicenseService>();
+                await licenseService.RefreshAsync();
+            }
 
             // Mavjud ishlab chiqarishdagi shartnomalar uchun ManufacturedProducts jadvalini
             // bir martalik sinxronlash — yangi sync logikasi ishga tushishidan oldin tasdiqlangan
