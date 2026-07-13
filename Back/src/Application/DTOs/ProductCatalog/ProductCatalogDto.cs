@@ -80,4 +80,32 @@ public class ProductCatalogContractUsageDto
     public ContractProductStatus ProductStatus { get; set; }
     public decimal ProducedQuantity { get; set; }
     public DateTime ContractCreatedAt { get; set; }
+
+    // Shu shartnoma mahsulotiga biriktirilgan hujjatlar va vazifalar.
+    public List<ProductCatalogResourceDto> TechProcesses { get; set; } = [];  // Status = ProcessStatus
+    public List<ProductCatalogResourceDto> Drawings { get; set; } = [];       // Status = DrawingStatus
+    public List<ProductCatalogResourceDto> CostNorms { get; set; } = [];      // Status = DrawingStatus
+    public List<ProductCatalogTaskDto> Tasks { get; set; } = [];
+}
+
+// Tex jarayon / chizma / me'yoriy sarf uchun umumiy yengil ko'rinish.
+// Status ma'nosi manba turiga bog'liq (yuqoridagi izohlarga qarang).
+public class ProductCatalogResourceDto
+{
+    public Guid Id { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public int Status { get; set; }
+    // Qo'shimcha son: tex jarayonda — joriy bosqich, me'yoriy sarfda — material qatorlari soni.
+    // Matnga aylantirish frontendda (tarjima qilinishi uchun). Chizmada — null.
+    public int? MetaValue { get; set; }
+}
+
+public class ProductCatalogTaskDto
+{
+    public Guid Id { get; set; }
+    public int OrderNo { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public decimal CompletedAmount { get; set; }
+    public decimal TotalAmount { get; set; }
+    public decimal Importance { get; set; }
 }

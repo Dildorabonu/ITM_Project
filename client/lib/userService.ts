@@ -1618,6 +1618,26 @@ export interface ProductCatalogStatusCount {
   count: number;
 }
 
+// Tex jarayon / chizma / me'yoriy sarf — bitta yengil ko'rinish.
+// `status` manba turiga qarab talqin qilinadi: tex jarayon → ProcessStatus,
+// chizma va me'yoriy sarf → DrawingStatus.
+export interface ProductCatalogResource {
+  id: string;
+  title: string;
+  status: number;
+  // Tex jarayonda — joriy bosqich, me'yoriy sarfda — material qatorlari soni. Chizmada — null.
+  metaValue: number | null;
+}
+
+export interface ProductCatalogTask {
+  id: string;
+  orderNo: number;
+  name: string;
+  completedAmount: number;
+  totalAmount: number;
+  importance: number;
+}
+
 export interface ProductCatalogContractUsage {
   contractProductId: string;
   contractId: string;
@@ -1633,6 +1653,10 @@ export interface ProductCatalogContractUsage {
   productStatus: ContractProductStatus;
   producedQuantity: number;
   contractCreatedAt: string;
+  techProcesses: ProductCatalogResource[];
+  drawings: ProductCatalogResource[];
+  costNorms: ProductCatalogResource[];
+  tasks: ProductCatalogTask[];
 }
 
 export interface ProductCatalogDetail {

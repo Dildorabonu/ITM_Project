@@ -128,6 +128,98 @@ public class ProductCatalogService : IProductCatalogService
         foreach (var u in usages)
             u.ProducedQuantity = producedMap.TryGetValue(u.ContractProductId, out var q) ? q : 0m;
 
+        // Shu mahsulot qatorlariga biriktirilgan hujjatlar — tex jarayon, chizma,
+        // me'yoriy sarf va vazifalar. Har biri ContractProductId bo'yicha guruhlanadi.
+        var techRaw = await _context.TechProcesses
+            .AsNoTracking()
+            .Where(x => x.ContractProductId != null && productIds.Contains(x.ContractProductId.Value) && x.IsActive)
+            .Select(x => new { CpId = x.ContractProductId!.Value, x.Id, x.Title, x.Status, x.CurrentStep, x.CreatedAt })
+            .ToListAsync();
+        var techMap = techRaw
+            .GroupBy(x => x.CpId)
+            .ToDictionary(g => g.Key, g => g
+                .OrderByDescending(x => x.CreatedAt)
+                .Select(x => new ProductCatalogResourceDto
+                {
+                    Id = x.Id,
+                    Title = x.Title,
+                    Status = (int)x.Status,
+                    MetaValue = x.CurrentStep > 0 ? x.CurrentStep : null,
+                })
+                .ToList());
+
+        var drawingRaw = await _context.TechnicalDrawings
+            .AsNoTracking()
+            .Where(x => x.ContractProductId != null && productIds.Contains(x.ContractProductId.Value) && x.IsActive)
+            .Select(x => new { CpId = x.ContractProductId!.Value, x.Id, x.Title, x.Status, x.CreatedAt })
+            .ToListAsync();
+        var drawingMap = drawingRaw
+            .GroupBy(x => x.CpId)
+            .ToDictionary(g => g.Key, g => g
+                .OrderByDescending(x => x.CreatedAt)
+                .Select(x => new ProductCatalogResourceDto
+                {
+                    Id = x.Id,
+                    Title = x.Title,
+                    Status = (int)x.Status,
+                })
+                .ToList());
+
+        var normRaw = await _context.CostNorms
+            .AsNoTracking()
+            .Where(x => x.ContractProductId != null && productIds.Contains(x.ContractProductId.Value) && x.IsActive)
+            .Select(x => new
+            {
+                CpId = x.ContractProductId!.Value,
+                x.Id,
+                x.Title,
+                x.Status,
+                x.CreatedAt,
+                ItemCount = x.Items.Count(i => i.IsActive && !i.IsSection),
+            })
+            .ToListAsync();
+        var normMap = normRaw
+            .GroupBy(x => x.CpId)
+            .ToDictionary(g => g.Key, g => g
+                .OrderByDescending(x => x.CreatedAt)
+                .Select(x => new ProductCatalogResourceDto
+                {
+                    Id = x.Id,
+                    Title = x.Title,
+                    Status = (int)x.Status,
+                    MetaValue = x.ItemCount > 0 ? x.ItemCount : null,
+                })
+                .ToList());
+
+        var taskRaw = await _context.ContractTasks
+            .AsNoTracking()
+            .Where(x => x.ContractProductId != null && productIds.Contains(x.ContractProductId.Value) && x.IsActive)
+            .Select(x => new
+            {
+                CpId = x.ContractProductId!.Value,
+                Task = new ProductCatalogTaskDto
+                {
+                    Id = x.Id,
+                    OrderNo = x.OrderNo,
+                    Name = x.Name,
+                    CompletedAmount = x.CompletedAmount,
+                    TotalAmount = x.TotalAmount,
+                    Importance = x.Importance,
+                },
+            })
+            .ToListAsync();
+        var taskMap = taskRaw
+            .GroupBy(x => x.CpId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.Task).OrderBy(x => x.OrderNo).ToList());
+
+        foreach (var u in usages)
+        {
+            u.TechProcesses = techMap.TryGetValue(u.ContractProductId, out var tp) ? tp : [];
+            u.Drawings = drawingMap.TryGetValue(u.ContractProductId, out var dr) ? dr : [];
+            u.CostNorms = normMap.TryGetValue(u.ContractProductId, out var cn) ? cn : [];
+            u.Tasks = taskMap.TryGetValue(u.ContractProductId, out var tk) ? tk : [];
+        }
+
         // Eng yangi shartnomalar birinchi.
         usages = usages.OrderByDescending(u => u.ContractCreatedAt).ToList();
 

@@ -1116,4 +1116,14 @@ export const ru: Record<string, string> = {
     "Вставьте новый токен и введите пароль суперадмина. Срок обновится сразу.",
   "Litsenziya tokeni": "Токен лицензии",
   "Litsenziya muvaffaqiyatli yangilandi.": "Лицензия успешно обновлена.",
+
+  // Katalog mahsuloti — shartnoma bo'yicha biriktirilgan hujjatlar
+  "bosqich": "этап",
+  "hali biriktirilmagan": "ещё не прикреплено",
+  "Biriktirilgan hujjatlar": "Прикреплённые документы",
+  "Shartnoma raqami yoki kontragent…": "Номер договора или контрагент…",
+  "Filtrga mos shartnoma topilmadi.": "Договоров по фильтру не найдено.",
+  "Barchasini ko'rish": "Посмотреть все",
+  "Shartnoma tanlang": "Выберите договор",
+  "Fayl biriktirilmagan.": "Файлы не прикреплены.",
 };
