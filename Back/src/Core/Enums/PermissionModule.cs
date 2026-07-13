@@ -48,4 +48,7 @@ public enum PermissionModule
 
     [Display(Name = "Mahsulotlar katalogi", Description = "box")]
     ProductCatalog = 15,
+
+    [Display(Name = "Xodimlar", Description = "users")]
+    Employees = 16,
 }

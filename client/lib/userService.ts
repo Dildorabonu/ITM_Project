@@ -46,6 +46,65 @@ export interface UserResponse {
   isHead: boolean;
 }
 
+// ─── Xodimlar sahifasi (Employees.View) ─────────────────────────────────────
+// UserResponse dan farqli — login/rol kabi maxfiy maydonlar yo'q.
+
+export interface EmployeeResponse {
+  id: string;
+  firstName: string;
+  lastName: string;
+  departmentId: string | null;
+  departmentName: string | null;
+  departmentType: DepartmentType | null;
+  isActive: boolean;
+  isHead: boolean;
+  // Xodim hozir ishlayotgan (faol, yakunlanmagan) shartnomalar soni.
+  activeContractCount: number;
+}
+
+// Shartnoma ichidagi xodim roli (ContractUserRole enum bilan mos).
+export const CONTRACT_USER_ROLE_LABELS: Record<number, string> = {
+  0: "Mas'ul xodim",
+  1: "Ma'lumot uchun",
+  2: "Kuzatuvchi",
+};
+
+export interface UserContractProductInfo {
+  contractProductId: string;
+  productType: string;
+  quantity: number;
+  unit: string;
+  status: ContractProductStatus;
+  role: number;
+}
+
+// GET /api/user/{id}/contracts — xodim biriktirilgan shartnoma
+// (shartnoma va mahsulot darajasidagi biriktirishlar birlashtirilgan).
+export interface UserContractInfo {
+  contractId: string;
+  contractNo: string;
+  contractParty: string;
+  contractType: ContractType;
+  status: ContractStatus;
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+  contractRole: number | null;
+  products: UserContractProductInfo[];
+}
+
+export const employeeService = {
+  getAll: async (page = 1, pageSize = 20): Promise<PagedResult<EmployeeResponse>> => {
+    const res = await api.get("/api/user/employees", { params: { page, pageSize } });
+    return res.data?.result ?? res.data;
+  },
+
+  getContracts: async (id: string): Promise<UserContractInfo[]> => {
+    const res = await api.get(`/api/user/${id}/contracts`);
+    return res.data?.result ?? res.data ?? [];
+  },
+};
+
 export interface UserCreatePayload {
   firstName: string;
   lastName: string;

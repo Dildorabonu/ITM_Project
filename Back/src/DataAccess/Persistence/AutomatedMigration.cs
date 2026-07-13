@@ -107,6 +107,7 @@ public static class AutomatedMigration
         [PermissionModule.ManufacturedProducts] = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete],
         [PermissionModule.Shipments]          = [PermissionAction.View, PermissionAction.Create, PermissionAction.Delete],
         [PermissionModule.ProductCatalog]     = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete],
+        [PermissionModule.Employees]          = [PermissionAction.View],
     };
 
     private static async System.Threading.Tasks.Task SeedPermissionsAsync(DatabaseContext context)

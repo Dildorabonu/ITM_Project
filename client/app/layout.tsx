@@ -60,6 +60,7 @@ const navGroups: NavGroup[] = [
     icon: "settings",
     items: [
       { name: "Tuzilma",            href: "/departments", icon: "briefcase", permission: "Departments.View" },
+      { name: "Xodimlar",           href: "/employees",   icon: "users",     permission: "Employees.View" },
       { name: "Foydalanuvchilar",   href: "/users",       icon: "users",     permission: "Users.View" },
       { name: "Rollar",             href: "/roles",       icon: "shield",    permission: "Roles.View" },
       { name: "Litsenziya",         href: "/litsenziya",  icon: "shield",    superadminOnly: true },
@@ -129,7 +130,7 @@ function applyAppearanceFont(family: string, scale: number) {
 }
 
 // Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
-const readyRoutes = new Set(["/", "/users", "/roles", "/login", "/departments", "/warehouse-inventory", "/warehouse-check", "/warehouse-movements", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions", "/requisitions/approvals", "/manufactured", "/product-catalog", "/department-warehouses", "/litsenziya"]);
+const readyRoutes = new Set(["/", "/users", "/employees", "/roles", "/login", "/departments", "/warehouse-inventory", "/warehouse-check", "/warehouse-movements", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions", "/requisitions/approvals", "/manufactured", "/product-catalog", "/department-warehouses", "/litsenziya"]);
 const readyPrefixes = ["/requisitions/", "/contracts/", "/techprocess/", "/technicaldrawings/", "/requisitions/print", "/department-warehouses/", "/warehouse-inventory/label/"];
 
 const pageTitles: Record<string, string> = {
@@ -144,6 +145,7 @@ const pageTitles: Record<string, string> = {
   "/manufactured":  "Tayyor mahsulotlar",
   "/product-catalog": "Mahsulotlar katalogi",
   "/users":         "Foydalanuvchilar",
+  "/employees":     "Xodimlar",
   "/roles":         "Rollar",
   "/departments":   "Tuzilma",
   "/warehouse-inventory": "Korxona omborxonasi",

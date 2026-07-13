@@ -46,6 +46,24 @@ public class UserController : ControllerBase
         return Ok(result);
     }
 
+    // Xodimlar sahifasi — maxfiy maydonlarsiz (login/rol yo'q), shartnoma soni bilan.
+    [HasPermission("Employees.View")]
+    [HttpGet("employees")]
+    public async Task<IActionResult> GetEmployees([FromQuery] PaginationParams pagination)
+    {
+        var result = await _userService.GetEmployeesAsync(pagination);
+        return Ok(result);
+    }
+
+    // Xodim biriktirilgan shartnomalar ro'yxati (shartnoma + mahsulot darajasidagi biriktirishlar).
+    [HasPermission("Employees.View")]
+    [HttpGet("{id:guid}/contracts")]
+    public async Task<IActionResult> GetContracts(Guid id)
+    {
+        var result = await _userService.GetContractsAsync(id);
+        return Ok(result);
+    }
+
     [HasPermission("Users.Create")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] UserCreateDto dto)

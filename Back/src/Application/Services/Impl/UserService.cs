@@ -2,6 +2,7 @@ using Application.DTOs;
 using Application.DTOs.Users;
 using Application.Helpers;
 using Core.Entities;
+using Core.Enums;
 using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -82,6 +83,168 @@ public class UserService : IUserService
             return ApiResult<UserResponseDto>.Failure([$"User with id '{id}' not found."]);
 
         return ApiResult<UserResponseDto>.Success(MapToResponse(user));
+    }
+
+    // Xodimlar sahifasi uchun — login/rol kabi maxfiy maydonlarsiz, shartnoma soni bilan.
+    public async Task<ApiResult<PagedResult<EmployeeResponseDto>>> GetEmployeesAsync(PaginationParams pagination)
+    {
+        var query = _context.Users
+            .Include(u => u.Department)
+            .AsNoTracking()
+            .OrderBy(u => u.FirstName);
+
+        var totalCount = await query.CountAsync();
+        var users = await query
+            .Skip((pagination.Page - 1) * pagination.PageSize)
+            .Take(pagination.PageSize)
+            .ToListAsync();
+
+        var contractCounts = await GetActiveContractCountsAsync(users.Select(u => u.Id).ToList());
+
+        var paged = PagedResult<EmployeeResponseDto>.Create(
+            users.Select(u => new EmployeeResponseDto
+            {
+                Id = u.Id,
+                FirstName = u.FirstName,
+                LastName = u.LastName,
+                DepartmentId = u.DepartmentId,
+                DepartmentName = u.Department?.Name,
+                DepartmentType = u.Department?.Type,
+                IsActive = u.IsActive,
+                IsHead = u.IsHead,
+                ActiveContractCount = contractCounts.GetValueOrDefault(u.Id),
+            }),
+            totalCount, pagination);
+
+        return ApiResult<PagedResult<EmployeeResponseDto>>.Success(paged);
+    }
+
+    // Xodim ishlayotgan shartnomalar: ContractUser (shartnoma darajasi) va
+    // ContractProductUser (mahsulot darajasi) yozuvlari shartnoma bo'yicha birlashtiriladi.
+    public async Task<ApiResult<IEnumerable<UserContractDto>>> GetContractsAsync(Guid id)
+    {
+        var direct = await _context.ContractUsers
+            .AsNoTracking()
+            .Where(cu => cu.UserId == id && cu.IsActive)
+            .Select(cu => new
+            {
+                cu.Contract.Id,
+                cu.Contract.ContractNo,
+                cu.Contract.ContractParty,
+                cu.Contract.ContractType,
+                cu.Contract.Status,
+                cu.Contract.StartDate,
+                cu.Contract.EndDate,
+                cu.Contract.IsActive,
+                cu.Contract.CreatedAt,
+                cu.Role,
+            })
+            .ToListAsync();
+
+        var viaProducts = await _context.ContractProductUsers
+            .AsNoTracking()
+            .Where(pu => pu.UserId == id && pu.IsActive && pu.Product.IsActive)
+            .Select(pu => new
+            {
+                ContractId = pu.Product.Contract!.Id,
+                pu.Product.Contract.ContractNo,
+                pu.Product.Contract.ContractParty,
+                pu.Product.Contract.ContractType,
+                ContractStatus = pu.Product.Contract.Status,
+                pu.Product.Contract.StartDate,
+                pu.Product.Contract.EndDate,
+                ContractIsActive = pu.Product.Contract.IsActive,
+                pu.Product.Contract.CreatedAt,
+                Product = new UserContractProductDto
+                {
+                    ContractProductId = pu.ContractProductId,
+                    ProductType = pu.Product.ProductType,
+                    Quantity = pu.Product.Quantity,
+                    Unit = pu.Product.Unit,
+                    Status = pu.Product.Status,
+                    Role = pu.Role,
+                },
+            })
+            .ToListAsync();
+
+        var map = new Dictionary<Guid, (UserContractDto Dto, DateTime CreatedAt)>();
+
+        foreach (var c in direct)
+        {
+            if (!map.TryGetValue(c.Id, out var entry))
+            {
+                entry = (new UserContractDto
+                {
+                    ContractId = c.Id,
+                    ContractNo = c.ContractNo,
+                    ContractParty = c.ContractParty,
+                    ContractType = c.ContractType,
+                    Status = c.Status,
+                    StartDate = c.StartDate,
+                    EndDate = c.EndDate,
+                    IsActive = c.IsActive,
+                }, c.CreatedAt);
+                map[c.Id] = entry;
+            }
+            entry.Dto.ContractRole = c.Role;
+        }
+
+        foreach (var p in viaProducts)
+        {
+            if (!map.TryGetValue(p.ContractId, out var entry))
+            {
+                entry = (new UserContractDto
+                {
+                    ContractId = p.ContractId,
+                    ContractNo = p.ContractNo,
+                    ContractParty = p.ContractParty,
+                    ContractType = p.ContractType,
+                    Status = p.ContractStatus,
+                    StartDate = p.StartDate,
+                    EndDate = p.EndDate,
+                    IsActive = p.ContractIsActive,
+                }, p.CreatedAt);
+                map[p.ContractId] = entry;
+            }
+            entry.Dto.Products.Add(p.Product);
+        }
+
+        var result = map.Values
+            .OrderByDescending(x => x.Dto.IsActive
+                && x.Dto.Status != ContractStatus.Completed
+                && x.Dto.Status != ContractStatus.Cancelled)
+            .ThenByDescending(x => x.CreatedAt)
+            .Select(x => x.Dto)
+            .ToList();
+
+        return ApiResult<IEnumerable<UserContractDto>>.Success(result);
+    }
+
+    // Sahifadagi xodimlar uchun faol (yakunlanmagan) shartnomalar sonini bitta so'rovda hisoblaydi.
+    private async Task<Dictionary<Guid, int>> GetActiveContractCountsAsync(List<Guid> userIds)
+    {
+        if (userIds.Count == 0)
+            return [];
+
+        var direct = _context.ContractUsers
+            .Where(cu => userIds.Contains(cu.UserId) && cu.IsActive
+                && cu.Contract.IsActive
+                && cu.Contract.Status != ContractStatus.Completed
+                && cu.Contract.Status != ContractStatus.Cancelled)
+            .Select(cu => new { cu.UserId, cu.ContractId });
+
+        var viaProducts = _context.ContractProductUsers
+            .Where(pu => userIds.Contains(pu.UserId) && pu.IsActive
+                && pu.Product.IsActive
+                && pu.Product.Contract!.IsActive
+                && pu.Product.Contract.Status != ContractStatus.Completed
+                && pu.Product.Contract.Status != ContractStatus.Cancelled)
+            .Select(pu => new { pu.UserId, pu.Product.ContractId });
+
+        return await direct.Union(viaProducts)
+            .GroupBy(x => x.UserId)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.Count);
     }
 
     private static bool IsPasswordStrong(string password) =>
