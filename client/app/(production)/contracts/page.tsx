@@ -966,7 +966,7 @@ export default function ContractsPage() {
                             <circle cx="12" cy="12" r="3" />
                           </svg>
                         </button>
-                        {canUpdate && (
+                        {canUpdate && c.status !== ContractStatus.Completed && (
                           <button className="btn-icon" onClick={() => openEdit(c)} title={t("Tahrirlash")}
                             style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

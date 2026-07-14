@@ -478,6 +478,11 @@ public class ContractService : IContractService
         if (contract is null)
             return ApiResult<ContractCreateResultDto>.Failure([$"Contract with id '{id}' not found."], 404);
 
+        // Yakunlangan shartnoma tarixiy hujjat — uni tahrirlash taqiqlanadi.
+        if (contract.Status == ContractStatus.Completed)
+            return ApiResult<ContractCreateResultDto>.Failure(
+                ["Yakunlangan shartnomani tahrirlab bo'lmaydi."], 400);
+
         if (dto.ContractNo is not null && dto.ContractNo != contract.ContractNo)
         {
             if (await _context.Contracts.AnyAsync(c => c.ContractNo == dto.ContractNo && c.IsActive && c.Id != contract.Id))
