@@ -44,7 +44,7 @@ public class RequisitionServiceTests
     private static RequisitionService CreateService(DatabaseContext db, Mock<INotificationService>? notifications = null)
     {
         notifications ??= new Mock<INotificationService>();
-        return new RequisitionService(db, notifications.Object);
+        return new RequisitionService(db, notifications.Object, new Mock<IQrCodeService>().Object);
     }
 
     private static Department SeedDept(

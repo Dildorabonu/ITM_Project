@@ -20,13 +20,12 @@ export function PickupModal({
 }: {
   contract: ContractResponse;
   onClose: () => void;
-  // Partiya qo'shilganda/o'chirilganda chaqiriladi — ro'yxatdagi badge yangilanishi uchun.
+  // Partiya qo'shilganda chaqiriladi — ro'yxatdagi badge yangilanishi uchun.
   onChanged: () => void;
 }) {
   const t = useT();
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const canCreate = hasPermission("Shipments.Create");
-  const canDelete = hasPermission("Shipments.Delete");
   const showToast = useToastStore((s) => s.show);
 
   const [batches, setBatches] = useState<ShipmentBatch[]>([]);
@@ -35,7 +34,6 @@ export function PickupModal({
   const [amount, setAmount] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -101,21 +99,6 @@ export function PickupModal({
       setError(err?.response?.data?.errors?.[0] ?? t("Saqlashda xatolik yuz berdi."));
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleDelete = async (b: ShipmentBatch) => {
-    if (deletingId) return;
-    setDeletingId(b.id);
-    setError("");
-    try {
-      await shipmentBatchService.delete(b.id);
-      setBatches((prev) => prev.filter((x) => x.id !== b.id));
-      onChanged();
-    } catch {
-      setError(t("O'chirishda xatolik yuz berdi."));
-    } finally {
-      setDeletingId(null);
     }
   };
 
@@ -328,20 +311,6 @@ export function PickupModal({
                     <span style={{ color: "var(--text3)", fontSize: 12, flexShrink: 0 }}>
                       {fmtDate(b.createdAt)}
                     </span>
-                    {canDelete && (
-                      <button
-                        className="btn-icon"
-                        onClick={() => handleDelete(b)}
-                        disabled={deletingId === b.id}
-                        title={t("O'chirish")}
-                        style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)", width: 26, height: 26, flexShrink: 0 }}
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="3 6 5 6 21 6" />
-                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                        </svg>
-                      </button>
-                    )}
                   </div>
                 ))}
               </div>

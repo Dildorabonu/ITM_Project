@@ -9,6 +9,7 @@ public interface IContractService
 {
     Task<ApiResult<IEnumerable<ContractResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, ContractStatus? status = null, Guid? departmentId = null, bool? isActive = null);
     Task<ApiResult<PagedResult<ContractResponseDto>>> GetPagedAsync(Guid currentUserId, bool viewAll, PaginationParams pagination, string? search = null, ContractStatus? status = null, ContractType? contractType = null, bool? isActive = null, bool excludeCompleted = false);
+    Task<ApiResult<int>> GetPendingPickupCountAsync(Guid currentUserId, bool viewAll);
     Task<ApiResult<ContractResponseDto>> GetByIdAsync(Guid id);
     Task<ApiResult<ContractCreateResultDto>> CreateAsync(ContractCreateDto dto, Guid createdBy);
     Task<ApiResult<ContractCreateResultDto>> UpdateAsync(Guid id, ContractUpdateDto dto);

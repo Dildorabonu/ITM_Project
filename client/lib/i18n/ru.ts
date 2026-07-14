@@ -466,6 +466,7 @@ export const ru: Record<string, string> = {
   "Mahsulot tafsilotlari": "Детали товара",
   "Mahsulot tavsifini kiriting (ixtiyoriy)": "Введите описание товара (необязательно)",
   "Mijozga topshirish": "Выдача клиенту",
+  "Mijozga topshirilmagan shartnomalar bor": "Есть договоры, не выданные клиенту",
   "Mahsulot tayyor va mijozga topshirilgan. Shartnoma yopildi.": "Продукт готов и передан клиенту. Договор закрыт.",
   "Mahsulot turi": "Тип товара",
   "Mahsulot yangilandi": "Товар обновлён",

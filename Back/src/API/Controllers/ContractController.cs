@@ -68,6 +68,25 @@ public class ContractController : ControllerBase
         return Ok(result);
     }
 
+    // GET /api/contract/pending-pickup-count — mijoz to'liq olib ketmagan
+    // yakunlangan shartnomalar soni (arxiv tabidagi indikator uchun).
+    [HttpGet("pending-pickup-count")]
+    public async Task<IActionResult> GetPendingPickupCount()
+    {
+        var canView = User.HasClaim("perm", "Contracts.View");
+        var viewAll = User.HasClaim("perm", "Contracts.ViewAll");
+
+        if (!canView && !viewAll)
+            return Forbid();
+
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        var result = await _contractService.GetPendingPickupCountAsync(userId, viewAll);
+        return Ok(result);
+    }
+
     [HttpGet("{id:guid}/products-lookup")]
     public async Task<IActionResult> GetProductsLookup(Guid id)
     {

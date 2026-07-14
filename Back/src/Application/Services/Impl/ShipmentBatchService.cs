@@ -135,18 +135,6 @@ public class ShipmentBatchService : IShipmentBatchService
         return ApiResult<ShipmentBatchResponseDto>.Success(MapToResponse(created), 201);
     }
 
-    public async Task<ApiResult<int>> DeleteAsync(Guid id)
-    {
-        var batch = await _context.ShipmentBatches.FirstOrDefaultAsync(s => s.Id == id);
-        if (batch is null)
-            return ApiResult<int>.Failure([$"Partiya '{id}' topilmadi."], 404);
-
-        _context.ShipmentBatches.Remove(batch);
-        await _context.SaveChangesAsync();
-
-        return ApiResult<int>.Success(200);
-    }
-
     private static ShipmentBatchResponseDto MapToResponse(ShipmentBatch s) => new()
     {
         Id = s.Id,

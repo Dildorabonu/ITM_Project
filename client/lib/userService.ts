@@ -676,6 +676,17 @@ export const contractService = {
     return res.data?.result ?? res.data;
   },
 
+  // Mijoz to'liq olib ketmagan yakunlangan shartnomalar soni — arxiv tabidagi
+  // qizil eslatma nuqtasi uchun.
+  getPendingPickupCount: async (): Promise<number> => {
+    try {
+      const res = await api.get("/api/contract/pending-pickup-count");
+      return res.data?.result ?? 0;
+    } catch {
+      return 0;
+    }
+  },
+
   getProductsLookup: async (id: string): Promise<ContractProductResponse[]> => {
     const res = await api.get(`/api/contract/${id}/products-lookup`);
     return res.data?.result ?? res.data ?? [];

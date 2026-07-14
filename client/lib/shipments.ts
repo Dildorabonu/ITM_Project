@@ -32,8 +32,4 @@ export const shipmentBatchService = {
     const res = await api.post("/api/shipmentbatch", dto);
     return res.data?.result;
   },
-
-  delete: async (id: string): Promise<void> => {
-    await api.delete(`/api/shipmentbatch/${id}`);
-  },
 };

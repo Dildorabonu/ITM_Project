@@ -173,6 +173,38 @@ public class ContractService : IContractService
         return ApiResult<PagedResult<ContractResponseDto>>.Success(paged);
     }
 
+    // Mijoz hali to'liq olib ketmagan yakunlangan shartnomalar soni — arxiv
+    // tabidagi eslatma indikatori uchun. Faol mahsulotlar miqdori yig'indisi
+    // jo'natilgan partiyalar yig'indisidan katta bo'lsa — qoldiq bor.
+    public async Task<ApiResult<int>> GetPendingPickupCountAsync(Guid currentUserId, bool viewAll)
+    {
+        var query = _context.Contracts
+            .AsNoTracking()
+            .Where(c => c.IsActive && c.Status == ContractStatus.Completed);
+
+        if (!viewAll)
+        {
+            query = query.Where(c =>
+                c.ContractUsers.Any(cu => cu.UserId == currentUserId) ||
+                c.Products.Any(p => p.ProductUsers.Any(pu => pu.UserId == currentUserId)) ||
+                c.ContractDepartments.Any(cd =>
+                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == cd.DepartmentId)) ||
+                c.Products.Any(p => p.ProductDepartments.Any(pd =>
+                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == pd.DepartmentId))));
+        }
+
+        var count = await query.CountAsync(c =>
+            (c.Products
+                .Where(p => p.IsActive && p.Status != ContractProductStatus.Cancelled)
+                .Sum(p => (decimal?)p.Quantity) ?? 0)
+            >
+            (_context.ShipmentBatches
+                .Where(s => s.ContractId == c.Id)
+                .Sum(s => (decimal?)s.Amount) ?? 0));
+
+        return ApiResult<int>.Success(count);
+    }
+
     private void FilterVisibleProducts(List<Contract> contracts, Guid currentUserId)
     {
         var userDeptId = _context.Users.AsNoTracking()

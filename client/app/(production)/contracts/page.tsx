@@ -138,6 +138,13 @@ export default function ContractsPage() {
   const [pickupContract, setPickupContract] = useState<ContractResponse | null>(null);
   const canShipments = hasPermission("Shipments.View") || hasPermission("Shipments.Create");
 
+  // Mijoz to'liq olib ketmagan yakunlangan shartnomalar soni — arxiv tabidagi
+  // qizil eslatma nuqtasi shu orqali ko'rsatiladi.
+  const [pendingPickupCount, setPendingPickupCount] = useState(0);
+  const loadPendingPickup = () => {
+    contractService.getPendingPickupCount().then(setPendingPickupCount).catch(() => {});
+  };
+
   useDraft(
     "draft_contracts",
     showForm && !editTarget,
@@ -228,6 +235,13 @@ export default function ContractsPage() {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, viewMode, archiveTab, search, filterStatus, filterContractType]);
+
+  // Arxiv tabidagi topshirish eslatmasi — sahifa ochilganda va tab
+  // almashganda yangilanadi (shartnoma yakunlanishi ham shu yerda ushlanadi).
+  useEffect(() => {
+    loadPendingPickup();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, archiveTab]);
 
   useEffect(() => {
     departmentService.getAllFull().then(d => setDepartments(d)).catch(() => {});
@@ -621,6 +635,7 @@ export default function ContractsPage() {
           </button>
           <button
             onClick={() => setViewMode("archive")}
+            title={pendingPickupCount > 0 ? t("Mijozga topshirilmagan shartnomalar bor") : undefined}
             style={{
               padding: "6px 14px", borderRadius: "var(--radius)", border: "none",
               background: viewMode === "archive" ? "var(--text3)" : "transparent",
@@ -628,6 +643,7 @@ export default function ContractsPage() {
               fontSize: 13, fontWeight: 600, cursor: "pointer",
               transition: "all 0.15s",
               display: "inline-flex", alignItems: "center", gap: 6,
+              position: "relative",
             }}
           >
             <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -636,6 +652,14 @@ export default function ContractsPage() {
               <line x1="10" y1="12" x2="14" y2="12"/>
             </svg>
             {t("Arxiv")}
+            {pendingPickupCount > 0 && (
+              <span className="animate-pulse" style={{
+                position: "absolute", top: 3, right: 4,
+                width: 7, height: 7, borderRadius: "50%",
+                background: "var(--danger)",
+                boxShadow: "0 0 0 2px var(--bg2)",
+              }} />
+            )}
           </button>
         </div>
 
@@ -657,6 +681,13 @@ export default function ContractsPage() {
                 <circle cx="12" cy="12" r="10" /><polyline points="8 12 11 15 16 9" />
               </svg>
               {t("Yakunlangan")}
+              {pendingPickupCount > 0 && (
+                <span className="animate-pulse" style={{
+                  width: 6, height: 6, borderRadius: "50%",
+                  background: archiveTab === "completed" ? "#fff" : "var(--danger)",
+                  flexShrink: 0,
+                }} />
+              )}
             </button>
             <button
               onClick={() => setArchiveTab("cancelled")}
@@ -1061,7 +1092,7 @@ export default function ContractsPage() {
         <PickupModal
           contract={pickupContract}
           onClose={() => setPickupContract(null)}
-          onChanged={() => load()}
+          onChanged={() => { load(); loadPendingPickup(); }}
         />
       )}
 

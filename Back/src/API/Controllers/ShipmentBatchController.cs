@@ -42,13 +42,4 @@ public class ShipmentBatchController : ControllerBase
         var result = await _service.CreateAsync(dto, userId);
         return StatusCode(result.StatusCode, result);
     }
-
-    // DELETE /api/shipmentbatch/{id}
-    [HasPermission("Shipments.Delete")]
-    [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id)
-    {
-        var result = await _service.DeleteAsync(id);
-        return StatusCode(result.StatusCode, result);
-    }
 }
