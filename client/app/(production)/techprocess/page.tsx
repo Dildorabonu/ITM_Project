@@ -95,6 +95,7 @@ export default function TechProductionPage() {
   const [cnActiveTab, setCnActiveTab] = useState(0);
   const [cnDetailFiles, setCnDetailFiles] = useState<AttachmentResponse[]>([]);
   const [cnDetailItems, setCnDetailItems] = useState<CostNormItemResponse[]>([]);
+  const [cnDetailLoading, setCnDetailLoading] = useState(false);
   const [cnForm, setCnForm] = useState({ contractId:"", contractProductId:"", title:"", notes:"" });
   const [cnSubmitted, setCnSubmitted] = useState(false);
   const [cnSaving, setCnSaving] = useState(false);
@@ -106,6 +107,7 @@ export default function TechProductionPage() {
   const [cnEditFiles, setCnEditFiles] = useState<AttachmentResponse[]>([]);
   const [cnEditNewFile, setCnEditNewFile] = useState<File|null>(null);
   const [cnEditSaving, setCnEditSaving] = useState(false);
+  const [cnEditLoading, setCnEditLoading] = useState(false);
   const [cnEditSaveError, setCnEditSaveError] = useState<string|null>(null);
   const cnEditFileRef = useRef<HTMLInputElement>(null);
   const [cnFormFile, setCnFormFile] = useState<File|null>(null);
@@ -345,16 +347,37 @@ export default function TechProductionPage() {
   }
 
   function openCnDetail(norm: CostNormResponse) {
-    setCnSelected(norm); setCnActiveTab(0); setCnShowPhotos(false); setCnDetailFiles([]); setCnDetailItems([...norm.items].sort((a,b)=>a.sortOrder-b.sortOrder));
+    // List endpointda items kelmaydi — to'liq versiya (items bilan) shu yerda so'raladi.
+    setCnSelected(norm); setCnActiveTab(0); setCnShowPhotos(false); setCnDetailFiles([]); setCnDetailItems([]); setCnDetailLoading(true);
     window.history.pushState({mode:"detail"},""); setCnMode("detail");
-    costNormService.getFiles(norm.id).then(setCnDetailFiles).catch(()=>{});
+    Promise.all([
+      costNormService.getById(norm.id),
+      costNormService.getFiles(norm.id).catch(()=>[] as AttachmentResponse[]),
+    ]).then(([fresh, files])=>{
+      setCnSelected(fresh);
+      setCnDetailItems([...fresh.items].sort((a,b)=>a.sortOrder-b.sortOrder));
+      setCnDetailFiles(files);
+    }).catch(()=>{}).finally(()=>setCnDetailLoading(false));
   }
 
   async function openCnEdit(norm: CostNormResponse) {
+    // List endpointda items kelmaydi — to'liq versiya (items bilan) shu yerda so'raladi.
     setCnEditingNorm(norm); setCnEditForm({title:norm.title,notes:norm.notes||""}); setCnEditNewFile(null); setCnEditSaveError(null); setCnEditSaving(false); setCnShowPhotos(false);
-    setCnEditItems([...norm.items].sort((a,b)=>a.sortOrder-b.sortOrder).map(it=>({no:it.no||"",name:it.name||"",unit:it.unit||"",readyQty:it.readyQty||"",wasteQty:it.wasteQty||"",totalQty:it.totalQty||"",photoRaw:it.photoRaw||"",photoSemi:it.photoSemi||"",importType:it.importType||"",isSection:it.isSection,sectionName:it.sectionName||""})));
+    setCnEditItems([]); setCnEditLoading(true);
     window.history.pushState({mode:"edit"},""); setCnMode("edit");
-    try { const files=await costNormService.getFiles(norm.id); setCnEditFiles(files); } catch { setCnEditFiles([]); }
+    try {
+      const [fresh, files] = await Promise.all([
+        costNormService.getById(norm.id),
+        costNormService.getFiles(norm.id).catch(()=>[] as AttachmentResponse[]),
+      ]);
+      setCnEditingNorm(fresh);
+      setCnEditForm({title:fresh.title,notes:fresh.notes||""});
+      setCnEditItems([...fresh.items].sort((a,b)=>a.sortOrder-b.sortOrder).map(it=>({no:it.no||"",name:it.name||"",unit:it.unit||"",readyQty:it.readyQty||"",wasteQty:it.wasteQty||"",totalQty:it.totalQty||"",photoRaw:it.photoRaw||"",photoSemi:it.photoSemi||"",importType:it.importType||"",isSection:it.isSection,sectionName:it.sectionName||""})));
+      setCnEditFiles(files);
+    } catch {
+      setCnEditFiles([]);
+      setCnEditSaveError(t("Ma'lumotlarni yuklashda xatolik yuz berdi. Qayta urinib ko'ring."));
+    } finally { setCnEditLoading(false); }
   }
 
   async function handleEditCnFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -374,7 +397,7 @@ export default function TechProductionPage() {
   }
 
   async function handleCnEditSave() {
-    if(!cnEditingNorm) return; setCnEditSaving(true); setCnEditSaveError(null);
+    if(!cnEditingNorm||cnEditLoading) return; setCnEditSaving(true); setCnEditSaveError(null);
     try {
       const items=cnEditItems.map((row,idx)=>({isSection:row.isSection,sectionName:row.isSection?row.sectionName:null,no:row.no||null,name:row.name||null,unit:row.unit||null,readyQty:row.readyQty||null,wasteQty:row.wasteQty||null,totalQty:row.totalQty||null,photoRaw:row.photoRaw||null,photoSemi:row.photoSemi||null,importType:row.importType||null,sortOrder:idx}));
       const newMeta=cnPendingParseResult.current?.metadata ?? null;
@@ -913,7 +936,11 @@ export default function TechProductionPage() {
         </div>
         <div className="itm-card" style={{ flex:1,display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden" }}>
           <div style={{ flex:1,overflowX:"auto",overflowY:"auto" }}>
-            <CollapsibleItemsTable rows={cnDetailItems} showPhotos={cnShowPhotos}/>
+            {cnDetailLoading?(
+              <div style={{ padding:40,textAlign:"center",color:"var(--text2)",fontSize:13 }}>{t("Yuklanmoqda...")}</div>
+            ):(
+              <CollapsibleItemsTable rows={cnDetailItems} showPhotos={cnShowPhotos}/>
+            )}
           </div>
         </div>
       </div>
@@ -941,8 +968,8 @@ export default function TechProductionPage() {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
             {t("Orqaga")}
           </button>
-          <button onClick={handleCnEditSave} disabled={cnEditSaving}
-            style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"7px 20px",borderRadius:"var(--radius)",border:"none",background:"var(--accent,#1a56db)",color:"#fff",fontSize:13,fontWeight:600,cursor:"pointer",opacity:cnEditSaving?0.7:1 }}>
+          <button onClick={handleCnEditSave} disabled={cnEditSaving||cnEditLoading}
+            style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"7px 20px",borderRadius:"var(--radius)",border:"none",background:"var(--accent,#1a56db)",color:"#fff",fontSize:13,fontWeight:600,cursor:"pointer",opacity:cnEditSaving||cnEditLoading?0.7:1 }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/></svg>
             {cnEditSaving?t("Saqlanmoqda..."):t("Saqlash")}
           </button>
@@ -996,10 +1023,14 @@ export default function TechProductionPage() {
             </button>
           </div>
           <div style={{ flex:1,overflowX:"auto",overflowY:"auto" }}>
-            <CollapsibleItemsTable rows={cnEditItems} showPhotos={cnShowPhotos}
-              onUpdateRow={(flatIdx,updated)=>{ setCnEditItems(prev=>{ const next=[...prev]; next[flatIdx]={...next[flatIdx],...updated}; return next; }); }}
-              onDeleteRow={(flatIdx)=>{ setCnEditItems(prev=>prev.filter((_,i)=>i!==flatIdx)); }}
-            />
+            {cnEditLoading?(
+              <div style={{ padding:40,textAlign:"center",color:"var(--text2)",fontSize:13 }}>{t("Yuklanmoqda...")}</div>
+            ):(
+              <CollapsibleItemsTable rows={cnEditItems} showPhotos={cnShowPhotos}
+                onUpdateRow={(flatIdx,updated)=>{ setCnEditItems(prev=>{ const next=[...prev]; next[flatIdx]={...next[flatIdx],...updated}; return next; }); }}
+                onDeleteRow={(flatIdx)=>{ setCnEditItems(prev=>prev.filter((_,i)=>i!==flatIdx)); }}
+              />
+            )}
           </div>
         </div>
       </div>

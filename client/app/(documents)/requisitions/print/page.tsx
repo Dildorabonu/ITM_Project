@@ -329,7 +329,9 @@ function RequisitionPrintContent() {
         candidates.find(n => n.isActive && n.status === DrawingStatus.Approved) ??
         candidates.find(n => n.isActive) ??
         candidates[0];
-      applyNorm(norm);
+      // List endpointda items kelmaydi — material qatorlari uchun to'liq versiyani olamiz.
+      const full = await costNormService.getById(norm.id);
+      applyNorm(full);
     } catch {
       showToast(t("Me'yoriy sarf yuklanmadi"), t("Xatolik"));
     } finally {

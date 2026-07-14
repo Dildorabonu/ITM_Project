@@ -1118,6 +1118,7 @@ export interface CostNormResponse {
   title: string;
   notes: string | null;
   isActive: boolean;
+  /** List endpointda (`getAll`) bo'sh keladi — to'liq items uchun `getById` chaqiring. */
   items: CostNormItemResponse[];
   metadata?: CostNormMetadata | null;
 }
@@ -1157,6 +1158,11 @@ export const costNormService = {
     } catch {
       return [];
     }
+  },
+
+  getById: async (id: string): Promise<CostNormResponse> => {
+    const res = await api.get(`/api/costnorm/${id}`);
+    return res.data?.result ?? res.data;
   },
 
   create: async (dto: CostNormCreatePayload): Promise<string> => {

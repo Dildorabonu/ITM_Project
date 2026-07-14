@@ -32,10 +32,10 @@ public class CostNormService : ICostNormService
 
     public async Task<ApiResult<IEnumerable<CostNormResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, Guid? contractId = null, bool? isActive = null)
     {
+        // List uchun Items yuklanmaydi (og'ir bo'lishi mumkin) — to'liq versiya GetByIdAsync da.
         var query = _context.CostNorms
             .Include(c => c.Contract)
             .Include(c => c.ContractProduct)
-            .Include(c => c.Items.OrderBy(i => i.SortOrder))
             .AsNoTracking()
             .AsQueryable();
 
@@ -63,6 +63,21 @@ public class CostNormService : ICostNormService
             .ToListAsync();
 
         return ApiResult<IEnumerable<CostNormResponseDto>>.Success(list.Select(MapToResponse));
+    }
+
+    public async Task<ApiResult<CostNormResponseDto>> GetByIdAsync(Guid id)
+    {
+        var costNorm = await _context.CostNorms
+            .Include(c => c.Contract)
+            .Include(c => c.ContractProduct)
+            .Include(c => c.Items.OrderBy(i => i.SortOrder))
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == id);
+
+        if (costNorm is null)
+            return ApiResult<CostNormResponseDto>.Failure([$"CostNorm with id '{id}' not found."], 404);
+
+        return ApiResult<CostNormResponseDto>.Success(MapToResponse(costNorm));
     }
 
     public async Task<ApiResult<Guid>> CreateAsync(CostNormCreateDto dto, Guid createdBy)

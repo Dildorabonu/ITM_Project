@@ -448,6 +448,7 @@ export const ru: Record<string, string> = {
   "Ma‘lumotlar yuklanmoqda...": "Данные загружаются...",
   "Ma'lumotlarni yuklab bo'lmadi": "Не удалось загрузить данные",
   "Ma'lumotlarni yuklashda xatolik yuz berdi.": "Ошибка при загрузке данных.",
+  "Ma'lumotlarni yuklashda xatolik yuz berdi. Qayta urinib ko'ring.": "Ошибка при загрузке данных. Попробуйте ещё раз.",
   "Ma'sul xodimlar": "Ответственные сотрудники",
   "Mahalliy": "Местный",
   "mahsulot": "товар",
