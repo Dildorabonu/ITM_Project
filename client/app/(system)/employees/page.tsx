@@ -9,11 +9,10 @@ import {
 } from "@/lib/userService";
 import { CheckSelect } from "@/app/_components/CheckSelect";
 import { useT } from "@/lib/i18n";
-import EmployeeContractsDrawer from "./_components/EmployeeContractsDrawer";
+import EmployeeContractsView from "./_components/EmployeeContractsView";
 
 export default function EmployeesPage() {
   const t = useT();
-  const animOffset = useRef(-(Date.now() % 1500) / 1000);
 
   const [employees, setEmployees] = useState<EmployeeResponse[]>([]);
   const [filtered, setFiltered] = useState<EmployeeResponse[]>([]);
@@ -83,23 +82,19 @@ export default function EmployeesPage() {
     setFilterPanelOpen(true);
   };
 
+  if (drawerEmployee) {
+    return (
+      <div className="page-transition" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+        <EmployeeContractsView
+          employee={drawerEmployee}
+          onBack={() => setDrawerEmployee(null)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="page-transition" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-      <style>{`
-        @keyframes sdot-ping {
-          0%   { box-shadow: 0 0 0 0px rgba(34,197,94,0.55); }
-          100% { box-shadow: 0 0 0 6px rgba(34,197,94,0);    }
-        }
-        .sdot {
-          display: inline-block;
-          width: 9px; height: 9px;
-          border-radius: 50%;
-          vertical-align: middle;
-        }
-        .sdot-on  { background: #22c55e; animation: sdot-ping 1.5s ease-out ${animOffset.current}s infinite; }
-        .sdot-off { background: #94a3b8; }
-      `}</style>
-
       <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, padding: "8px 14px", overflow: "visible" }}>
         <div className="search-wrap" style={{ maxWidth: "none", flex: 1 }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -225,14 +220,13 @@ export default function EmployeesPage() {
                   <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Familiya")}</th>
                   <th style={{ textAlign: "center", color: "var(--text1)", maxWidth: 180, background: "var(--bg2)" }}>{t("Tuzilma nomi")}</th>
                   <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Shartnomalar")}</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Holat")}</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>{t("Ma'lumot topilmadi")}</td></tr>
+                  <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>{t("Ma'lumot topilmadi")}</td></tr>
                 ) : filtered.map((emp, i) => (
-                  <tr key={emp.id}>
+                  <tr key={emp.id} style={{ opacity: emp.isActive ? 1 : 0.55 }}>
                     <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>{String((page - 1) * 20 + i + 1).padStart(2, "0")}</td>
                     <td style={{ textAlign: "center" }}>{emp.firstName}</td>
                     <td style={{ textAlign: "center", color: "var(--text1)" }}>{emp.lastName}</td>
@@ -273,12 +267,6 @@ export default function EmployeesPage() {
                         </svg>
                         {emp.activeContractCount}
                       </button>
-                    </td>
-                    <td style={{ textAlign: "center" }}>
-                      <span
-                        className={`sdot ${emp.isActive ? "sdot-on" : "sdot-off"}`}
-                        title={emp.isActive ? t("Aktiv") : t("Nofaol")}
-                      />
                     </td>
                   </tr>
                 ))}
@@ -344,12 +332,6 @@ export default function EmployeesPage() {
         </div>
       )}
 
-      {drawerEmployee && (
-        <EmployeeContractsDrawer
-          employee={drawerEmployee}
-          onClose={() => setDrawerEmployee(null)}
-        />
-      )}
     </div>
   );
 }
