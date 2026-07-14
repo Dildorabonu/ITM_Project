@@ -247,6 +247,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const isLoginPage = pathname === "/login";
 
   const [profileOpen, setProfileOpen] = useState(false);
+  const [langOpen, setLangOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const [darkMode, setDarkMode] = useState(false);
@@ -748,36 +749,118 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 )}
               </div>
               <div style={{ width: 1, height: 28, background: "var(--border2)", flexShrink: 0 }} />
-              {/* Language toggle */}
-              <div style={{ position: "relative" }} className="theme-toggle-wrap">
+              {/* Language selector */}
+              <div style={{ position: "relative" }} className={langOpen ? undefined : "theme-toggle-wrap"}>
                 <button
-                  onClick={() => setLang(lang === "uz" ? "ru" : "uz")}
+                  onClick={() => setLangOpen((v) => !v)}
                   className={darkMode ? "theme-btn-sun" : "theme-btn-moon"}
                   style={{
                     position: "relative", width: 36, height: 36, borderRadius: 8,
-                    background: "none", border: "1.5px solid",
+                    background: langOpen ? "var(--accent-dim)" : "none",
+                    border: "1.5px solid",
+                    borderColor: langOpen ? "var(--accent)" : undefined,
+                    color: langOpen ? "var(--accent)" : undefined,
                     cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
                     overflow: "hidden", flexShrink: 0,
-                    transition: "border-color 0.3s, color 0.3s",
+                    transition: "border-color 0.3s, color 0.3s, background 0.3s",
                   }}
                 >
-                  <span key={lang} className="theme-icon-morph" style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                    <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <span key={lang} className="theme-icon-morph" style={{ display: "flex", alignItems: "center" }}>
+                    <svg width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       <circle cx="12" cy="12" r="10"/>
                       <line x1="2" y1="12" x2="22" y2="12"/>
                       <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
                     </svg>
-                    <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", fontFamily: "var(--font-mono)", lineHeight: 1 }}>
-                      {lang === "uz" ? "RU" : "UZ"}
-                    </span>
                   </span>
                 </button>
-                <div className="theme-tooltip" style={{
-                  background: darkMode ? "#ffffff" : "#1a2332",
-                  color: darkMode ? "#1a2332" : "#ffffff",
-                }}>
-                  {lang === "uz" ? "Ruschaga o'tkazish" : "Переключить на узбекский"}
-                </div>
+                {!langOpen && (
+                  <div className="theme-tooltip" style={{
+                    background: darkMode ? "#ffffff" : "#1a2332",
+                    color: darkMode ? "#1a2332" : "#ffffff",
+                  }}>
+                    {lang === "uz" ? "Tilni tanlash" : "Выбрать язык"}
+                  </div>
+                )}
+
+                {/* Language dropdown */}
+                {langOpen && (
+                  <>
+                    <div
+                      onClick={() => setLangOpen(false)}
+                      style={{ position: "fixed", inset: 0, zIndex: 99 }}
+                    />
+                    <div style={{
+                      position: "absolute", top: "calc(100% + 10px)", right: 0,
+                      background: "var(--bg2)", border: "1px solid var(--border)",
+                      borderRadius: 10, boxShadow: "0 12px 32px rgba(0,0,0,0.22)",
+                      minWidth: 210, zIndex: 100, overflow: "hidden",
+                      animation: "panel-appear 0.22s cubic-bezier(0.22,1,0.36,1)",
+                    }}>
+                      <div style={{
+                        padding: "9px 14px 7px",
+                        fontSize: 10, fontWeight: 700, letterSpacing: "0.12em",
+                        textTransform: "uppercase", color: "var(--text3)",
+                        borderBottom: "1px solid var(--border)",
+                        display: "flex", alignItems: "center", gap: 6,
+                      }}>
+                        <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                          <circle cx="12" cy="12" r="10"/>
+                          <line x1="2" y1="12" x2="22" y2="12"/>
+                          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                        </svg>
+                        {lang === "uz" ? "Interfeys tili" : "Язык интерфейса"}
+                      </div>
+                      <div style={{ padding: 6, display: "flex", flexDirection: "column", gap: 2 }}>
+                        {([
+                          { code: "uz" as const, label: "O'zbekcha", sub: "Lotin" },
+                          { code: "ru" as const, label: "Русский", sub: "Кириллица" },
+                        ]).map((opt) => {
+                          const active = lang === opt.code;
+                          return (
+                            <button
+                              key={opt.code}
+                              onClick={() => { setLang(opt.code); setLangOpen(false); }}
+                              style={{
+                                width: "100%", padding: "8px 9px",
+                                background: active ? "var(--accent-dim)" : "none",
+                                border: "none", borderRadius: 7, cursor: "pointer",
+                                display: "flex", alignItems: "center", gap: 10,
+                                textAlign: "left", transition: "background 0.15s",
+                              }}
+                              onMouseEnter={(e) => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = "var(--surface2)"; }}
+                              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = active ? "var(--accent-dim)" : "none"; }}
+                            >
+                              <span style={{
+                                width: 30, height: 30, borderRadius: 6, flexShrink: 0,
+                                background: active ? "var(--accent)" : "var(--surface2)",
+                                color: active ? "#fff" : "var(--text2)",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                fontSize: 11, fontWeight: 800, letterSpacing: "0.05em",
+                                fontFamily: "var(--font-mono)",
+                                transition: "background 0.15s, color 0.15s",
+                              }}>
+                                {opt.code.toUpperCase()}
+                              </span>
+                              <span style={{ display: "flex", flexDirection: "column", gap: 1, flex: 1, minWidth: 0 }}>
+                                <span style={{ fontSize: 13.5, fontWeight: 600, color: active ? "var(--accent)" : "var(--text)", lineHeight: 1.2 }}>
+                                  {opt.label}
+                                </span>
+                                <span style={{ fontSize: 11, color: "var(--text3)", lineHeight: 1.2 }}>
+                                  {opt.sub}
+                                </span>
+                              </span>
+                              {active && (
+                                <svg width="15" height="15" fill="none" stroke="var(--accent)" strokeWidth="2.5" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+                                  <polyline points="20,6 9,17 4,12"/>
+                                </svg>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
               {/* Dark mode toggle */}
               <div style={{ position: "relative" }} className="theme-toggle-wrap">
