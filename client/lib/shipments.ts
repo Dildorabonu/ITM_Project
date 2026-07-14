@@ -2,6 +2,7 @@ import { api } from "./api";
 
 export interface ShipmentBatch {
   id: string;
+  contractProductId: string | null;
   departmentName: string | null;
   batchNo: number;
   amount: number;

@@ -32,6 +32,7 @@ import { StatusBadge, ContractTypeBadge } from "./_components/StatusBadge";
 import { CheckSelect } from "@/app/_components/CheckSelect";
 import { ContractForm } from "./_components/ContractForm";
 import { ContractDrawer } from "./_components/ContractDrawer";
+import { PickupModal } from "./_components/PickupModal";
 import { ScanModal } from "./_components/ScanModal";
 import { fmt } from "./_components/DatePickerField";
 import { useToastStore } from "@/lib/store/toastStore";
@@ -60,6 +61,8 @@ export default function ContractsPage() {
 
   // Filters
   const [viewMode, setViewMode]           = useState<"active" | "archive">("active");
+  // Arxiv ichidagi sub-tab: yakunlangan (Completed, faol) yoki bekor qilingan (noaktiv).
+  const [archiveTab, setArchiveTab]       = useState<"completed" | "cancelled">("completed");
   const [search, setSearch]               = useState("");
   const [filterStatus, setFilterStatus]   = useState("");
   const [filterContractType, setFilterContractType] = useState("");
@@ -131,6 +134,10 @@ export default function ContractsPage() {
   const [activateId, setActivateId]     = useState<string | null>(null);
   const [activating, setActivating]     = useState(false);
 
+  // Mijozga topshirish (pickup) modali
+  const [pickupContract, setPickupContract] = useState<ContractResponse | null>(null);
+  const canShipments = hasPermission("Shipments.View") || hasPermission("Shipments.Create");
+
   useDraft(
     "draft_contracts",
     showForm && !editTarget,
@@ -169,15 +176,25 @@ export default function ContractsPage() {
 
   // ── Load ──────────────────────────────────────────────────────────────────
 
+  // Uch xil ko'rinish:
+  //  - Faol: faol va hali yakunlanmagan shartnomalar
+  //  - Arxiv → Yakunlangan: Completed holatidagi faol shartnomalar
+  //  - Arxiv → Bekor qilingan: noaktiv qilingan shartnomalar
+  const isCompletedView = viewMode === "archive" && archiveTab === "completed";
+
   const load = async (p = page) => {
     try {
       setLoading(true);
       setError("");
+      const completedView = viewMode === "archive" && archiveTab === "completed";
       const data = await contractService.getPaged(p, PAGE_SIZE, {
         search:   search || undefined,
-        status:   filterStatus       !== "" ? (Number(filterStatus)       as ContractStatus) : undefined,
+        status:   completedView
+          ? ContractStatus.Completed
+          : filterStatus !== "" ? (Number(filterStatus) as ContractStatus) : undefined,
         contractType: filterContractType !== "" ? (Number(filterContractType) as ContractType)   : undefined,
-        isActive: viewMode === "active",
+        isActive: viewMode === "active" || completedView,
+        excludeCompleted: viewMode === "active",
       });
       setContracts(data.items);
       setTotalPages(data.totalPages);
@@ -194,14 +211,23 @@ export default function ContractsPage() {
   };
 
   // Reset to page 1 when filters change
-  useEffect(() => { setPage(1); }, [viewMode, search, filterStatus, filterContractType]);
+  useEffect(() => { setPage(1); }, [viewMode, archiveTab, search, filterStatus, filterContractType]);
+
+  // Faol tab Completed'ni istisno qiladi — arxivda tanlangan "Yakunlandi" holat
+  // filtri qolib ketsa, doim bo'sh natija chiqmasligi uchun tozalaymiz.
+  useEffect(() => {
+    if (viewMode === "active" && filterStatus === String(ContractStatus.Completed)) {
+      setFilterStatus("");
+      setPendingStatus("");
+    }
+  }, [viewMode, filterStatus]);
 
   // Reload when page or any filter changes (debounce search)
   useEffect(() => {
     const t = setTimeout(() => { load(page); }, search ? 250 : 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, viewMode, search, filterStatus, filterContractType]);
+  }, [page, viewMode, archiveTab, search, filterStatus, filterContractType]);
 
   useEffect(() => {
     departmentService.getAllFull().then(d => setDepartments(d)).catch(() => {});
@@ -546,7 +572,8 @@ export default function ContractsPage() {
 
   // ── Filters helpers ───────────────────────────────────────────────────────────
 
-  const activeFilterCount = (filterStatus !== "" ? 1 : 0) + (filterContractType !== "" ? 1 : 0);
+  // Yakunlangan ko'rinishida holat filtri ma'nosiz (hammasi Completed) — hisobga olinmaydi.
+  const activeFilterCount = (!isCompletedView && filterStatus !== "" ? 1 : 0) + (filterContractType !== "" ? 1 : 0);
 
   const openFilterPanel = () => {
     setPendingStatus(filterStatus);
@@ -611,6 +638,45 @@ export default function ContractsPage() {
             {t("Arxiv")}
           </button>
         </div>
+
+        {/* Arxiv sub-tablari: Yakunlangan / Bekor qilingan */}
+        {viewMode === "archive" && (
+          <div style={{ display: "inline-flex", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 2, gap: 2, flexShrink: 0, animation: "panel-appear 0.18s ease" }}>
+            <button
+              onClick={() => setArchiveTab("completed")}
+              style={{
+                padding: "6px 12px", borderRadius: "var(--radius)", border: "none",
+                background: archiveTab === "completed" ? "var(--success)" : "transparent",
+                color: archiveTab === "completed" ? "#fff" : "var(--text2)",
+                fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+                transition: "all 0.15s",
+                display: "inline-flex", alignItems: "center", gap: 5,
+              }}
+            >
+              <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" /><polyline points="8 12 11 15 16 9" />
+              </svg>
+              {t("Yakunlangan")}
+            </button>
+            <button
+              onClick={() => setArchiveTab("cancelled")}
+              style={{
+                padding: "6px 12px", borderRadius: "var(--radius)", border: "none",
+                background: archiveTab === "cancelled" ? "var(--danger)" : "transparent",
+                color: archiveTab === "cancelled" ? "#fff" : "var(--text2)",
+                fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+                transition: "all 0.15s",
+                display: "inline-flex", alignItems: "center", gap: 5,
+              }}
+            >
+              <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+              </svg>
+              {t("Bekor qilingan")}
+            </button>
+          </div>
+        )}
 
         <div className="search-wrap" style={{ maxWidth: "none", flex: 1, minWidth: 180 }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -701,6 +767,7 @@ export default function ContractsPage() {
               </div>
 
               <div style={{ padding: "14px 14px 0" }}>
+                {!isCompletedView && (
                 <div style={{ marginBottom: 14, position: "relative" }}>
                   <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text3)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 5 }}>
                     <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -711,11 +778,14 @@ export default function ContractsPage() {
                   <CheckSelect
                     value={pendingStatus}
                     onChange={setPendingStatus}
-                    options={STATUS_FILTER_OPTIONS.map(o => ({ id: o.value, name: t(o.label), color: o.color }))}
+                    options={STATUS_FILTER_OPTIONS
+                      .filter(o => viewMode !== "active" || Number(o.value) !== ContractStatus.Completed)
+                      .map(o => ({ id: o.value, name: t(o.label), color: o.color }))}
                     placeholder={t("Barcha holat")}
                     disablePortal
                   />
                 </div>
+                )}
                 <div style={{ marginBottom: 14, position: "relative" }}>
                   <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text3)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 5 }}>
                     <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -792,14 +862,16 @@ export default function ContractsPage() {
                   <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Muddat")}</th>
                   <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Turi")}</th>
                   <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Holat")}</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Faollik")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{isCompletedView ? t("Topshirish") : t("Faollik")}</th>
                   <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", background: "var(--bg2)" }}>{t("Amal")}</th>
                 </tr>
               </thead>
               <tbody>
                 {contracts.length === 0 ? (
                   <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>
-                    {viewMode === "archive" ? t("Arxivda shartnomalar yo'q") : t("Ma'lumot topilmadi")}
+                    {viewMode === "archive"
+                      ? (archiveTab === "completed" ? t("Yakunlangan shartnomalar yo'q") : t("Bekor qilingan shartnomalar yo'q"))
+                      : t("Ma'lumot topilmadi")}
                   </td></tr>
                 ) : contracts.map((c, i) => (
                   <tr key={c.id}>
@@ -822,6 +894,27 @@ export default function ContractsPage() {
                       </div>
                     </td>
                     <td style={{ textAlign: "center" }}>
+                      {isCompletedView ? (() => {
+                        // Mijozga topshirish holati: partiyalar yig'indisi / umumiy miqdor
+                        const pct = c.totalQuantity > 0
+                          ? Math.min(100, Math.round((c.shippedQuantity / c.totalQuantity) * 100))
+                          : 0;
+                        const delivered = c.totalQuantity > 0 && c.shippedQuantity >= c.totalQuantity;
+                        const none = c.shippedQuantity <= 0;
+                        const bg     = delivered ? "var(--success-dim)" : none ? "var(--warn-dim)" : "var(--accent-dim)";
+                        const color  = delivered ? "var(--success)"     : none ? "var(--warn)"     : "var(--accent)";
+                        return (
+                          <span title={`${c.shippedQuantity.toLocaleString()} / ${c.totalQuantity.toLocaleString()}`} style={{
+                            display: "inline-flex", alignItems: "center", gap: 6, padding: "2px 10px",
+                            borderRadius: 20, fontSize: 12, fontWeight: 600,
+                            background: bg, color, border: `1px solid ${color}`,
+                            whiteSpace: "nowrap",
+                          }}>
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, flexShrink: 0 }} />
+                            {delivered ? t("To'liq topshirildi") : none ? t("Omborda") : `${pct}% ${t("olib ketildi")}`}
+                          </span>
+                        );
+                      })() : (
                       <span style={{
                         display: "inline-flex", alignItems: "center", padding: "2px 10px",
                         borderRadius: 20, fontSize: 13, fontWeight: 600,
@@ -831,6 +924,7 @@ export default function ContractsPage() {
                       }}>
                         {c.isActive ? t("Faol") : t("Nofaol")}
                       </span>
+                      )}
                     </td>
                     <td style={{ borderLeft: "2px solid var(--border)" }}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
@@ -850,7 +944,18 @@ export default function ContractsPage() {
                             </svg>
                           </button>
                         )}
-                        {canUpdate && c.isActive && (
+                        {isCompletedView && canShipments && (
+                          <button className="btn-icon" onClick={() => setPickupContract(c)} title={t("Mijozga topshirish")}
+                            style={{ color: "var(--accent)", borderColor: "var(--accent-mid)", background: "var(--accent-dim)" }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="1" y="3" width="15" height="13" rx="1" />
+                              <path d="M16 8h4l3 5v3h-7z" />
+                              <circle cx="5.5" cy="18.5" r="2.5" />
+                              <circle cx="18.5" cy="18.5" r="2.5" />
+                            </svg>
+                          </button>
+                        )}
+                        {canUpdate && c.isActive && !isCompletedView && (
                           <button className="btn-icon btn-icon-danger" onClick={() => {
                             setDeactivateReason(ContractDeactivationReason.CustomerCancelled);
                             setDeactivateNote("");
@@ -948,6 +1053,15 @@ export default function ContractsPage() {
           filesLoading={filesLoading}
           tzFilesLoading={tzFilesLoading}
           usersLoading={usersLoading}
+        />
+      )}
+
+      {/* ── Mijozga topshirish (pickup) modali ── */}
+      {pickupContract && (
+        <PickupModal
+          contract={pickupContract}
+          onClose={() => setPickupContract(null)}
+          onChanged={() => load()}
         />
       )}
 

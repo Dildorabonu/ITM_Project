@@ -130,12 +130,27 @@ public class ContractTaskService : IContractTaskService
         if (task is null)
             return ApiResult<int>.Failure([$"ContractTask with id '{id}' not found."], 404);
 
+        var newCompleted = dto.CompletedAmount ?? task.CompletedAmount;
+        var newTotal = dto.TotalAmount ?? task.TotalAmount;
+        if (newTotal > 0 && newCompleted > newTotal)
+            return ApiResult<int>.Failure(
+                [$"Bajarilgan miqdor vazifaning umumiy miqdoridan ({newTotal}) oshmasligi kerak."]);
+
         if (dto.CompletedAmount.HasValue && task.Name == WarehouseTaskName)
         {
             var cap = await GetWarehouseCompletedCapAsync(task);
             if (cap.HasValue && dto.CompletedAmount.Value > cap.Value)
                 return ApiResult<int>.Failure(
                     [$"Omborga topshirish miqdori boshqa vazifalarning eng kam bajarilgan qiymatidan ({cap.Value}) oshmasligi kerak."]);
+
+            // Jo'natilgan partiyalar yig'indisidan pastga tushirish taqiqlanadi —
+            // aks holda "jo'natilgan > tayyor" nomuvofiqligi paydo bo'ladi.
+            var shipped = await _context.ShipmentBatches
+                .Where(s => s.ContractId == task.ContractId && s.ContractProductId == task.ContractProductId)
+                .SumAsync(s => (decimal?)s.Amount) ?? 0m;
+            if (dto.CompletedAmount.Value < shipped)
+                return ApiResult<int>.Failure(
+                    [$"Omborga topshirilgan miqdorni jo'natilgan partiyalar yig'indisidan ({shipped}) pastga tushirib bo'lmaydi."]);
         }
 
         if (dto.Name is not null) task.Name = dto.Name;
@@ -182,6 +197,13 @@ public class ContractTaskService : IContractTaskService
 
         if (dto.Amount <= 0)
             return ApiResult<Guid>.Failure(["Miqdor 0 dan katta bo'lishi kerak."], 400);
+
+        if (task.TotalAmount > 0 && task.CompletedAmount + dto.Amount > task.TotalAmount)
+        {
+            var totalRemaining = Math.Max(0m, task.TotalAmount - task.CompletedAmount);
+            return ApiResult<Guid>.Failure(
+                [$"Bajarilgan miqdor vazifaning umumiy miqdoridan ({task.TotalAmount}) oshmasligi kerak. Qoldiq: {totalRemaining}."]);
+        }
 
         if (task.Name == WarehouseTaskName)
         {

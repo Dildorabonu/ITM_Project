@@ -3,6 +3,7 @@ namespace Application.DTOs.Shipments;
 public class ShipmentBatchResponseDto
 {
     public Guid Id { get; set; }
+    public Guid? ContractProductId { get; set; }
     public string? DepartmentName { get; set; }
     public int BatchNo { get; set; }
     public decimal Amount { get; set; }

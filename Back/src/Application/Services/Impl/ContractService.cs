@@ -81,7 +81,8 @@ public class ContractService : IContractService
         string? search = null,
         ContractStatus? status = null,
         ContractType? contractType = null,
-        bool? isActive = null)
+        bool? isActive = null,
+        bool excludeCompleted = false)
     {
         var query = _context.Contracts
             .Include(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
@@ -105,6 +106,11 @@ public class ContractService : IContractService
 
         if (status.HasValue)
             query = query.Where(c => c.Status == status.Value);
+
+        // "Faol" ro'yxati uchun: yakunlanganlar arxivning "Yakunlangan" bo'limida
+        // ko'rsatiladi, shu sababli bu yerdan chiqarib tashlanadi.
+        if (excludeCompleted)
+            query = query.Where(c => c.Status != ContractStatus.Completed);
 
         if (contractType.HasValue)
             query = query.Where(c => c.ContractType == contractType.Value);
@@ -134,7 +140,36 @@ public class ContractService : IContractService
         if (!viewAll)
             FilterVisibleProducts(contracts, currentUserId);
 
-        var paged = PagedResult<ContractResponseDto>.Create(contracts.Select(MapToResponse), totalCount, pagination);
+        // Mijozga topshirish hisobi (arxiv "Yakunlangan" badge'i uchun): umumiy
+        // miqdor barcha faol mahsulotlardan olinadi (ko'rinish filtridan mustaqil),
+        // jo'natilgan miqdor esa ShipmentBatch yig'indisi.
+        var pageIds = contracts.Select(c => c.Id).ToList();
+
+        var totalsByContract = await _context.ContractProducts
+            .AsNoTracking()
+            .Where(p => pageIds.Contains(p.ContractId)
+                        && p.IsActive
+                        && p.Status != ContractProductStatus.Cancelled)
+            .GroupBy(p => p.ContractId)
+            .Select(g => new { ContractId = g.Key, Total = g.Sum(p => p.Quantity) })
+            .ToDictionaryAsync(x => x.ContractId, x => x.Total);
+
+        var shippedByContract = await _context.ShipmentBatches
+            .AsNoTracking()
+            .Where(s => pageIds.Contains(s.ContractId))
+            .GroupBy(s => s.ContractId)
+            .Select(g => new { ContractId = g.Key, Shipped = g.Sum(s => s.Amount) })
+            .ToDictionaryAsync(x => x.ContractId, x => x.Shipped);
+
+        var items = contracts.Select(c =>
+        {
+            var dto = MapToResponse(c);
+            dto.TotalQuantity   = totalsByContract.GetValueOrDefault(c.Id);
+            dto.ShippedQuantity = shippedByContract.GetValueOrDefault(c.Id);
+            return dto;
+        });
+
+        var paged = PagedResult<ContractResponseDto>.Create(items, totalCount, pagination);
         return ApiResult<PagedResult<ContractResponseDto>>.Success(paged);
     }
 

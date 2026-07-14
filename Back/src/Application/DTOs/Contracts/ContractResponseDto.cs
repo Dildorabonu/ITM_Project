@@ -21,6 +21,11 @@ public class ContractResponseDto
     public ContractStatus Status { get; set; }
     public string? Notes { get; set; }
     public bool IsActive { get; set; }
+    // Mijozga topshirish hisobi: faol (bekor qilinmagan) mahsulotlar umumiy miqdori
+    // va shu shartnoma bo'yicha jo'natilgan (ShipmentBatch) partiyalar yig'indisi.
+    // Faqat paged ro'yxatda to'ldiriladi — arxivdagi "Yakunlangan" tab badge'i uchun.
+    public decimal TotalQuantity { get; set; }
+    public decimal ShippedQuantity { get; set; }
     public string? CreatedByFullName { get; set; }
     public List<ContractUserDto> AssignedUsers { get; set; } = [];
     public List<ContractProductResponseDto> Products { get; set; } = [];

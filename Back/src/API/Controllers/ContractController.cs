@@ -50,7 +50,8 @@ public class ContractController : ControllerBase
         [FromQuery] string? search = null,
         [FromQuery] ContractStatus? status = null,
         [FromQuery] ContractType? contractType = null,
-        [FromQuery] bool? isActive = null)
+        [FromQuery] bool? isActive = null,
+        [FromQuery] bool excludeCompleted = false)
     {
         var canView = User.HasClaim("perm", "Contracts.View");
         var viewAll = User.HasClaim("perm", "Contracts.ViewAll");
@@ -63,7 +64,7 @@ public class ContractController : ControllerBase
             return Unauthorized();
 
         var pagination = new PaginationParams { Page = page, PageSize = pageSize };
-        var result = await _contractService.GetPagedAsync(userId, viewAll, pagination, search, status, contractType, isActive);
+        var result = await _contractService.GetPagedAsync(userId, viewAll, pagination, search, status, contractType, isActive, excludeCompleted);
         return Ok(result);
     }
 

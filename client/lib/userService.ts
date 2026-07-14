@@ -604,6 +604,10 @@ export interface ContractResponse {
   status: ContractStatus;
   notes: string | null;
   isActive: boolean;
+  // Mijozga topshirish hisobi (paged ro'yxatda to'ldiriladi):
+  // umumiy mahsulot miqdori va jo'natilgan partiyalar yig'indisi.
+  totalQuantity: number;
+  shippedQuantity: number;
   createdByFullName: string | null;
   products: ContractProductResponse[];
 }
@@ -655,13 +659,14 @@ export const contractService = {
   getPaged: async (
     page = 1,
     pageSize = 20,
-    opts: { search?: string; status?: ContractStatus; contractType?: ContractType; isActive?: boolean } = {},
+    opts: { search?: string; status?: ContractStatus; contractType?: ContractType; isActive?: boolean; excludeCompleted?: boolean } = {},
   ): Promise<PagedResult<ContractResponse>> => {
     const params: Record<string, string> = { page: String(page), pageSize: String(pageSize) };
     if (opts.search?.trim())     params.search   = opts.search.trim();
     if (opts.status   !== undefined) params.status   = String(opts.status);
     if (opts.contractType !== undefined) params.contractType = String(opts.contractType);
     if (opts.isActive !== undefined) params.isActive = String(opts.isActive);
+    if (opts.excludeCompleted) params.excludeCompleted = "true";
     const res = await api.get("/api/contract/paged", { params });
     return res.data?.result ?? res.data;
   },

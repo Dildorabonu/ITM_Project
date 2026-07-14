@@ -1,6 +1,7 @@
 using Application.DTOs;
 using Application.DTOs.Shipments;
 using Core.Entities;
+using Core.Enums;
 using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -47,11 +48,13 @@ public class ShipmentBatchService : IShipmentBatchService
         if (!contractExists)
             return ApiResult<ShipmentBatchResponseDto>.Failure([$"Shartnoma '{dto.ContractId}' topilmadi."], 404);
 
+        ContractProduct? product = null;
         if (dto.ContractProductId.HasValue)
         {
-            var productOk = await _context.ContractProducts
-                .AnyAsync(p => p.Id == dto.ContractProductId.Value && p.ContractId == dto.ContractId);
-            if (!productOk)
+            product = await _context.ContractProducts
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == dto.ContractProductId.Value && p.ContractId == dto.ContractId);
+            if (product is null)
                 return ApiResult<ShipmentBatchResponseDto>.Failure(["Tanlangan mahsulot ushbu shartnomaga tegishli emas."]);
         }
 
@@ -70,15 +73,27 @@ public class ShipmentBatchService : IShipmentBatchService
                                       && t.ContractProductId == dto.ContractProductId
                                       && t.Name == WarehouseTaskName);
 
-        if (warehouseTask is null)
+        // Tayyor miqdor: odatda ombor vazifasining CompletedAmount'i. Vazifa yo'q,
+        // lekin mahsulot Completed bo'lsa (masalan, holat qo'lda o'tkazilgan) —
+        // to'liq miqdor omborda deb hisoblanadi, aks holda partiya yaratilmaydi.
+        decimal ready;
+        if (warehouseTask is not null)
+            ready = warehouseTask.CompletedAmount;
+        else if (product is { Status: ContractProductStatus.Completed })
+            ready = product.Quantity;
+        else
             return ApiResult<ShipmentBatchResponseDto>.Failure(
                 ["Ushbu mahsulot uchun ombor vazifasi topilmadi — partiya yaratib bo'lmaydi."]);
+
+        // Shartnomadagi mahsulot miqdori — jo'natmalar uchun mutlaq yuqori chegara.
+        if (product is not null && ready > product.Quantity)
+            ready = product.Quantity;
 
         var alreadyShipped = await _context.ShipmentBatches
             .Where(s => s.ContractId == dto.ContractId && s.ContractProductId == dto.ContractProductId)
             .SumAsync(s => (decimal?)s.Amount) ?? 0m;
 
-        var available = warehouseTask.CompletedAmount - alreadyShipped;
+        var available = ready - alreadyShipped;
         if (dto.Amount > available)
             return ApiResult<ShipmentBatchResponseDto>.Failure(
                 [$"Miqdor mavjud qoldiqdan oshib ketdi. Mavjud: {available}."]);
@@ -135,6 +150,7 @@ public class ShipmentBatchService : IShipmentBatchService
     private static ShipmentBatchResponseDto MapToResponse(ShipmentBatch s) => new()
     {
         Id = s.Id,
+        ContractProductId = s.ContractProductId,
         DepartmentName = s.Department?.Name,
         BatchNo = s.BatchNo,
         Amount = s.Amount,
