@@ -328,6 +328,7 @@ function TaskRow({
   onPointerDownDrag,
   isDragging,
   offsetY = 0,
+  readOnly = false,
 }: {
   task: ContractTaskResponse;
   onDelete: (id: string) => void;
@@ -338,6 +339,7 @@ function TaskRow({
   onPointerDownDrag?: (e: React.PointerEvent) => void;
   isDragging?: boolean;
   offsetY?: number;
+  readOnly?: boolean;
 }) {
   const t = useT();
   const isWarehouse = task.name === WAREHOUSE_TASK_NAME;
@@ -362,7 +364,7 @@ function TaskRow({
       }}
     >
       <div className="task-row-header">
-        {!isWarehouse && onPointerDownDrag ? (
+        {!isWarehouse && !readOnly && onPointerDownDrag ? (
           <div
             onPointerDown={onPointerDownDrag}
             title={t("Tartibni o'zgartirish")}
@@ -393,28 +395,32 @@ function TaskRow({
           </span>
         </div>
         <span className={`task-pct${done ? " done" : ""}`}>{pct.toFixed(1)}%</span>
-        <button className="btn-icon" onClick={() => onLog(task.id)} title={t("Kunlik kiritish")}
-          style={{ color: "#3b82f6", borderColor: "#3b82f633", background: "#3b82f612" }}>
-          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="12" y1="8" x2="12" y2="16"/>
-            <line x1="8" y1="12" x2="16" y2="12"/>
-          </svg>
-        </button>
-        <button className="btn-icon" onClick={() => onEdit(task.id)} title={t("Tahrirlash")}
-          style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
-          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-          </svg>
-        </button>
+        {!readOnly && (
+          <button className="btn-icon" onClick={() => onLog(task.id)} title={t("Kunlik kiritish")}
+            style={{ color: "#3b82f6", borderColor: "#3b82f633", background: "#3b82f612" }}>
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="16"/>
+              <line x1="8" y1="12" x2="16" y2="12"/>
+            </svg>
+          </button>
+        )}
+        {!readOnly && (
+          <button className="btn-icon" onClick={() => onEdit(task.id)} title={t("Tahrirlash")}
+            style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+          </button>
+        )}
         {isWarehouse && onShipments && (
           <button className="btn-icon" onClick={() => onShipments(task.id)} title={t("Jo'natmalar")}
             style={{ color: "var(--accent)", borderColor: "var(--accent-mid)", background: "var(--accent-dim)", fontWeight: 800, fontSize: 12 }}>
             {shipmentCount}
           </button>
         )}
-        {!isWarehouse && (
+        {!isWarehouse && !readOnly && (
           <button className="btn-icon btn-icon-danger" onClick={() => onDelete(task.id)} title={t("O'chirish")}
             style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
             <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -1557,6 +1563,14 @@ function TaskPanel({ scope, hideHeader }: { scope: Scope; hideHeader?: boolean }
   const t = useT();
   const { contract, product } = scope;
   const productScopeId = product?.id ?? null;
+
+  // Yakunlangan yoki bekor qilingan scope — faqat o'qish rejimi: vazifa qo'shish,
+  // tahrirlash, o'chirish va kunlik kiritish taqiqlanadi (backend ham bloklaydi).
+  const scopeSt = scopeStatus(scope);
+  const scopeReadOnly =
+    !contract.isActive ||
+    scopeSt === ContractStatus.Completed ||
+    scopeSt === ContractStatus.Cancelled;
   const hasPermission = useAuthStore(s => s.hasPermission);
   const [tasks, setTasks] = useState<ContractTaskResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1582,11 +1596,13 @@ function TaskPanel({ scope, hideHeader }: { scope: Scope; hideHeader?: boolean }
     setEditingId(null);
 
     // Bu scope uchun warehouse vazifasi mavjud bo'lmasa — avtomatik yaratamiz.
+    // Qulflangan (yakunlangan/bekor qilingan) scope-larda yaratmaymiz — backend
+    // baribir rad etadi.
     contractTaskService.getByContract(contract.id).then(async data => {
       if (ignore) return;
       const scopeTasks = data.filter(t => (t.contractProductId ?? null) === productScopeId);
       const hasWarehouseTask = scopeTasks.some(t => t.name === WAREHOUSE_TASK_NAME);
-      if (!hasWarehouseTask) {
+      if (!hasWarehouseTask && !scopeReadOnly) {
         await contractTaskService.createBulk([{
           contractId: contract.id,
           name: WAREHOUSE_TASK_NAME,
@@ -1605,7 +1621,7 @@ function TaskPanel({ scope, hideHeader }: { scope: Scope; hideHeader?: boolean }
       setLoading(false);
     });
     return () => { ignore = true; };
-  }, [contract.id, productScopeId, product?.quantity, contract.products]);
+  }, [contract.id, productScopeId, product?.quantity, contract.products, scopeReadOnly]);
 
   // Load shipments for this scope (contract + product) from backend.
   useEffect(() => {
@@ -1833,6 +1849,10 @@ function TaskPanel({ scope, hideHeader }: { scope: Scope; hideHeader?: boolean }
   const warehouseTask = tasks.find(t => t.name === WAREHOUSE_TASK_NAME);
   const processFinished = !!warehouseTask && warehouseTask.percentComplete >= 100;
 
+  // Jarayon tugagan yoki scope yakunlangan/bekor qilingan — vazifalar ustida
+  // hech qanday amal bajarib bo'lmaydi (tugmalar yashirinadi, backend bloklaydi).
+  const locked = scopeReadOnly || processFinished;
+
   return (
     <div className="task-panel">
       {/* Contract header */}
@@ -1894,6 +1914,7 @@ function TaskPanel({ scope, hideHeader }: { scope: Scope; hideHeader?: boolean }
                 onPointerDownDrag={(e) => handlePointerDownDrag(e, task.id, idx)}
                 isDragging={draggingId === task.id}
                 offsetY={offsetPx}
+                readOnly={locked}
               />
             );
           })}
@@ -1918,7 +1939,7 @@ function TaskPanel({ scope, hideHeader }: { scope: Scope; hideHeader?: boolean }
           </svg>
           {t("Jarayon yakunlandi — barcha mahsulot omborga topshirildi. Yangi vazifa qo'shib bo'lmaydi.")}
         </div>
-      ) : showForm ? (
+      ) : scopeReadOnly ? null : showForm ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: tasks.length > 0 ? 10 : 0 }}>
           <AddTaskForm
             onSave={handleSave}
@@ -2012,6 +2033,8 @@ export default function TasksPage() {
 
   // ─── Filters ────────────────────────────────────────────────────────────────
   const [viewMode, setViewMode] = useState<"active" | "archive">("active");
+  // Arxiv ichidagi sub-tab: yakunlangan (Completed, faol) yoki bekor qilingan (noaktiv).
+  const [archiveTab, setArchiveTab] = useState<"completed" | "cancelled">("completed");
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
@@ -2062,11 +2085,24 @@ export default function TasksPage() {
     }
   }
 
+  // Uch xil ko'rinish (contracts sahifasidagi kabi):
+  //  - Faol: yakunlanmagan scope-lar
+  //  - Arxiv → Yakunlangan: Completed holatidagi scope-lar (faol shartnomalar)
+  //  - Arxiv → Bekor qilingan: noaktiv qilingan shartnomalar
+  const isCompletedView = viewMode === "archive" && archiveTab === "completed";
+
   // Status filtri scope darajasida: kontrakt statusi `min(barcha mahsulot)` bo'lgani
   // uchun kontrakt darajasida filtrlash bir mahsulot DrawingPending'da bo'lsa
   // boshqa "InProduction"dagi mahsulotni ko'rinmas qiladi.
   const filteredScopes = allScopes.filter(s => {
-    if (filterStatus !== "" && String(scopeStatus(s)) !== filterStatus) return false;
+    const status = scopeStatus(s);
+    if (viewMode === "active") {
+      // Yakunlangan scope-lar faol ro'yxatda ko'rinmaydi — ular arxivga tushadi.
+      if (status === ContractStatus.Completed) return false;
+    } else if (archiveTab === "completed") {
+      if (status !== ContractStatus.Completed) return false;
+    }
+    if (!isCompletedView && filterStatus !== "" && String(status) !== filterStatus) return false;
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       const matches =
@@ -2101,20 +2137,33 @@ export default function TasksPage() {
 
   const canView = hasPermission("Tasks.View") || hasPermission("Tasks.ViewAll");
 
+  // Faol tab Completed'ni istisno qiladi — arxivda tanlangan "Yakunlandi" holat
+  // filtri qolib ketsa, doim bo'sh natija chiqmasligi uchun tozalaymiz.
+  useEffect(() => {
+    if (viewMode === "active" && filterStatus === String(ContractStatus.Completed)) {
+      setFilterStatus("");
+      setPendingStatus("");
+    }
+  }, [viewMode, filterStatus]);
+
   // `ContractResponse.products[].status` backenddan keladi — qaysi mahsulot
   // ishlab chiqarishga tayyorligini hisoblash uchun qo'shimcha so'rov shart emas.
+  // Faol va Arxiv→Yakunlangan faol shartnomalardan, Arxiv→Bekor qilingan esa
+  // noaktiv shartnomalardan oladi.
   useEffect(() => {
     if (!canView) return;
     setLoading(true);
     let cancelled = false;
     (async () => {
-      const data = await contractService.getMyProductionTasks(viewMode === "active");
+      const data = await contractService.getMyProductionTasks(
+        viewMode === "active" || archiveTab === "completed"
+      );
       if (cancelled) return;
       setContracts(data);
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [canView, viewMode]);
+  }, [canView, viewMode, archiveTab]);
 
   if (!canView) {
     return (
@@ -2151,16 +2200,7 @@ export default function TasksPage() {
 
   return (
     <div className="page-transition">
-      {contracts.length === 0 ? (
-        <div className="itm-card" style={{ textAlign: "center", padding: 48, color: "var(--text3)" }}>
-          <svg width="40" height="40" fill="none" stroke="var(--text3)" strokeWidth="1.5" viewBox="0 0 24 24" style={{ marginBottom: 12 }}>
-            <rect x="9" y="2" width="6" height="4" rx="1"/>
-            <path d="M5 4h2v2h10V4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/>
-            <line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/>
-          </svg>
-          <div>{t("Sizga biriktirilgan shartnoma topilmadi.")}</div>
-        </div>
-      ) : (phase === "grid" || phase === "grid-exit") ? (
+      {(phase === "grid" || phase === "grid-exit") ? (
         /* Grid view (with exit animation when transitioning) */
         <div className={phase === "grid-exit" ? "tg-exiting" : ""}>
           {/* Filter bar */}
@@ -2202,6 +2242,45 @@ export default function TasksPage() {
                 {t("Arxiv")}
               </button>
             </div>
+
+            {/* Arxiv sub-tablari: Yakunlangan / Bekor qilingan */}
+            {viewMode === "archive" && (
+              <div style={{ display: "inline-flex", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 2, gap: 2, flexShrink: 0, animation: "panel-appear 0.18s ease" }}>
+                <button
+                  onClick={() => setArchiveTab("completed")}
+                  style={{
+                    padding: "6px 12px", borderRadius: "var(--radius)", border: "none",
+                    background: archiveTab === "completed" ? "var(--success)" : "transparent",
+                    color: archiveTab === "completed" ? "#fff" : "var(--text2)",
+                    fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+                    transition: "all 0.15s",
+                    display: "inline-flex", alignItems: "center", gap: 5,
+                  }}
+                >
+                  <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" /><polyline points="8 12 11 15 16 9" />
+                  </svg>
+                  {t("Yakunlangan")}
+                </button>
+                <button
+                  onClick={() => setArchiveTab("cancelled")}
+                  style={{
+                    padding: "6px 12px", borderRadius: "var(--radius)", border: "none",
+                    background: archiveTab === "cancelled" ? "var(--danger)" : "transparent",
+                    color: archiveTab === "cancelled" ? "#fff" : "var(--text2)",
+                    fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+                    transition: "all 0.15s",
+                    display: "inline-flex", alignItems: "center", gap: 5,
+                  }}
+                >
+                  <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                  </svg>
+                  {t("Bekor qilingan")}
+                </button>
+              </div>
+            )}
 
             <div className="search-wrap" style={{ maxWidth: "none", flex: 1, minWidth: 180 }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -2427,7 +2506,9 @@ export default function TasksPage() {
                       <CheckSelect
                         value={pendingStatus}
                         onChange={setPendingStatus}
-                        options={(Object.entries(STATUS_LABELS) as unknown as [ContractStatus, string][]).map(([val, label]) => ({ id: String(val), name: t(label) }))}
+                        options={(Object.entries(STATUS_LABELS) as unknown as [ContractStatus, string][])
+                          .filter(([val]) => viewMode !== "active" || Number(val) !== ContractStatus.Completed)
+                          .map(([val, label]) => ({ id: String(val), name: t(label) }))}
                         placeholder={t("Barcha holat")}
                         disablePortal
                       />
@@ -2465,7 +2546,13 @@ export default function TasksPage() {
               <svg width="32" height="32" fill="none" stroke="var(--text3)" strokeWidth="1.5" viewBox="0 0 24 24" style={{ marginBottom: 10 }}>
                 <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
               </svg>
-              <div>{viewMode === "archive" ? t("Arxivda shartnomalar yo'q.") : t("Filter bo'yicha mahsulot topilmadi.")}</div>
+              <div>
+                {viewMode === "archive"
+                  ? (archiveTab === "completed" ? t("Yakunlangan shartnomalar yo'q") : t("Bekor qilingan shartnomalar yo'q"))
+                  : contracts.length === 0
+                    ? t("Sizga biriktirilgan shartnoma topilmadi.")
+                    : t("Filter bo'yicha mahsulot topilmadi.")}
+              </div>
             </div>
           ) : (
             <div className="tasks-contract-grid">

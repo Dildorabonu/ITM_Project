@@ -1,6 +1,7 @@
 using Application.DTOs;
 using Application.DTOs.ContractTasks;
 using Core.Entities;
+using Core.Enums;
 using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -54,6 +55,10 @@ public class ContractTaskService : IContractTaskService
                 return ApiResult<Guid>.Failure(["Tanlangan mahsulot ushbu shartnomaga tegishli emas."]);
         }
 
+        var lockError = await GetScopeLockErrorAsync(dto.ContractId, dto.ContractProductId);
+        if (lockError is not null)
+            return ApiResult<Guid>.Failure([lockError], 400);
+
         var nextOrder = await _context.ContractTasks
             .Where(t => t.ContractId == dto.ContractId)
             .MaxAsync(t => (int?)t.OrderNo) ?? 0;
@@ -100,6 +105,13 @@ public class ContractTaskService : IContractTaskService
                 return ApiResult<int>.Failure(["Tanlangan mahsulot ushbu shartnomaga tegishli emas."]);
         }
 
+        foreach (var scopeProductId in dtoList.Select(d => d.ContractProductId).Distinct())
+        {
+            var lockError = await GetScopeLockErrorAsync(contractId, scopeProductId);
+            if (lockError is not null)
+                return ApiResult<int>.Failure([lockError], 400);
+        }
+
         var nextOrder = await _context.ContractTasks
             .Where(t => t.ContractId == contractId)
             .MaxAsync(t => (int?)t.OrderNo) ?? 0;
@@ -129,6 +141,10 @@ public class ContractTaskService : IContractTaskService
         var task = await _context.ContractTasks.FirstOrDefaultAsync(t => t.Id == id);
         if (task is null)
             return ApiResult<int>.Failure([$"ContractTask with id '{id}' not found."], 404);
+
+        var lockError = await GetScopeLockErrorAsync(task.ContractId, task.ContractProductId);
+        if (lockError is not null)
+            return ApiResult<int>.Failure([lockError], 400);
 
         var newCompleted = dto.CompletedAmount ?? task.CompletedAmount;
         var newTotal = dto.TotalAmount ?? task.TotalAmount;
@@ -183,6 +199,10 @@ public class ContractTaskService : IContractTaskService
         if (task is null)
             return ApiResult<int>.Failure([$"ContractTask with id '{id}' not found."], 404);
 
+        var lockError = await GetScopeLockErrorAsync(task.ContractId, task.ContractProductId);
+        if (lockError is not null)
+            return ApiResult<int>.Failure([lockError], 400);
+
         _context.ContractTasks.Remove(task);
         await _context.SaveChangesAsync();
 
@@ -194,6 +214,10 @@ public class ContractTaskService : IContractTaskService
         var task = await _context.ContractTasks.FirstOrDefaultAsync(t => t.Id == taskId);
         if (task is null)
             return ApiResult<Guid>.Failure([$"ContractTask with id '{taskId}' not found."], 404);
+
+        var lockError = await GetScopeLockErrorAsync(task.ContractId, task.ContractProductId);
+        if (lockError is not null)
+            return ApiResult<Guid>.Failure([lockError], 400);
 
         if (dto.Amount <= 0)
             return ApiResult<Guid>.Failure(["Miqdor 0 dan katta bo'lishi kerak."], 400);
@@ -273,6 +297,60 @@ public class ContractTaskService : IContractTaskService
             CreatedByFullName = l.Creator is not null ? $"{l.Creator.FirstName} {l.Creator.LastName}" : null,
             CreatedAt = l.CreatedAt,
         }));
+    }
+
+    // ── Scope lock ────────────────────────────────────────────────────────────
+    // Yakunlangan yoki bekor qilingan scope vazifalari tarixiy hujjat — ularni
+    // qo'shish, o'zgartirish, o'chirish yoki progress kiritish taqiqlanadi.
+    // Scope qulflangan hisoblanadi: shartnoma noaktiv/yakunlangan/bekor qilingan,
+    // mahsulot yakunlangan/bekor qilingan yoki ombor vazifasi 100% bajarilgan bo'lsa.
+    private async Task<string?> GetScopeLockErrorAsync(Guid contractId, Guid? contractProductId)
+    {
+        var contract = await _context.Contracts
+            .AsNoTracking()
+            .Where(c => c.Id == contractId)
+            .Select(c => new { c.IsActive, c.Status })
+            .FirstOrDefaultAsync();
+
+        // Shartnoma topilmasa — 404 ni chaqiruvchi metodning o'z tekshiruvi qaytaradi.
+        if (contract is null)
+            return null;
+
+        if (!contract.IsActive || contract.Status == ContractStatus.Cancelled)
+            return "Bekor qilingan shartnoma vazifalari ustida amal bajarib bo'lmaydi.";
+
+        if (contract.Status == ContractStatus.Completed)
+            return "Yakunlangan shartnoma vazifalari ustida amal bajarib bo'lmaydi.";
+
+        if (contractProductId.HasValue)
+        {
+            var productStatus = await _context.ContractProducts
+                .AsNoTracking()
+                .Where(p => p.Id == contractProductId.Value)
+                .Select(p => (ContractProductStatus?)p.Status)
+                .FirstOrDefaultAsync();
+
+            if (productStatus == ContractProductStatus.Cancelled)
+                return "Bekor qilingan mahsulot vazifalari ustida amal bajarib bo'lmaydi.";
+
+            if (productStatus == ContractProductStatus.Completed)
+                return "Yakunlangan mahsulot vazifalari ustida amal bajarib bo'lmaydi.";
+        }
+
+        var warehouseQuery = _context.ContractTasks
+            .AsNoTracking()
+            .Where(t => t.IsActive && t.ContractId == contractId && t.Name == WarehouseTaskName);
+
+        warehouseQuery = contractProductId.HasValue
+            ? warehouseQuery.Where(t => t.ContractProductId == contractProductId.Value)
+            : warehouseQuery.Where(t => t.ContractProductId == null);
+
+        var processFinished = await warehouseQuery
+            .AnyAsync(t => t.TotalAmount > 0 && t.CompletedAmount >= t.TotalAmount);
+
+        return processFinished
+            ? "Jarayon yakunlangan — barcha mahsulot omborga topshirilgan. Vazifalar ustida amal bajarib bo'lmaydi."
+            : null;
     }
 
     // Warehouse task uchun cap — bir xil scope ichidagi boshqa vazifalarning eng kam
