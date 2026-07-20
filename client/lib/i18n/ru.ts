@@ -708,6 +708,7 @@ export const ru: Record<string, string> = {
   "Saqlashda xatolik yuz berdi": "Произошла ошибка при сохранении",
   "Saqlashda xatolik yuz berdi.": "Ошибка при сохранении.",
   "Saqlashda xatolik yuz berdi. Qayta urinib ko'ring.": "Произошла ошибка при сохранении. Попробуйте ещё раз.",
+  "Saralash": "Сортировка",
   "Sarlavha": "Заголовок",
   "Se": "Вт",
   "Sentabr": "Сентябрь",

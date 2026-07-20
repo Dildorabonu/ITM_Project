@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Application.DTOs;
 using Application.DTOs.Contracts;
 using Application.Helpers;
@@ -82,7 +83,9 @@ public class ContractService : IContractService
         ContractStatus? status = null,
         ContractType? contractType = null,
         bool? isActive = null,
-        bool excludeCompleted = false)
+        bool excludeCompleted = false,
+        string? sortBy = null,
+        bool sortDesc = false)
     {
         var query = _context.Contracts
             .Include(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
@@ -128,10 +131,37 @@ public class ContractService : IContractService
 
         var totalCount = await query.CountAsync();
 
-        var contracts = await query
-            // Split query + Skip/Take uchun barqaror tartib shart — CreatedAt yetarli
+        // Holat ustuni badge'da ko'rinadigan progress foizi bo'yicha saralanadi —
+        // og'irliklar frontend StatusBadge bilan bir xil: chizma 0, tex jarayon 10,
+        // ishlab chiqarish 50, yakunlangan 100; bekor qilingan mahsulotlar hisobga
+        // olinmaydi, mahsulotsiz shartnoma 0% deb qaraladi.
+        Expression<Func<Contract, double>> progressPercent = c =>
+            c.Products
+                .Where(p => p.IsActive && p.Status != ContractProductStatus.Cancelled)
+                .Average(p => (double?)(
+                    p.Status == ContractProductStatus.Completed    ? 100.0 :
+                    p.Status == ContractProductStatus.InProduction ? 50.0  :
+                    p.Status == ContractProductStatus.TechProcessing ? 10.0 : 0.0)) ?? 0.0;
+
+        // Ustun sarlavhasi bo'yicha saralash; berilmasa — eng yangi shartnomalar birinchi.
+        IOrderedQueryable<Contract> ordered = (sortBy?.ToLowerInvariant(), sortDesc) switch
+        {
+            ("contractno", false)   => query.OrderBy(c => c.ContractNo),
+            ("contractno", true)    => query.OrderByDescending(c => c.ContractNo),
+            ("startdate", false)    => query.OrderBy(c => c.StartDate),
+            ("startdate", true)     => query.OrderByDescending(c => c.StartDate),
+            ("enddate", false)      => query.OrderBy(c => c.EndDate),
+            ("enddate", true)       => query.OrderByDescending(c => c.EndDate),
+            ("contracttype", false) => query.OrderBy(c => c.ContractType),
+            ("contracttype", true)  => query.OrderByDescending(c => c.ContractType),
+            ("status", false)       => query.OrderBy(progressPercent),
+            ("status", true)        => query.OrderByDescending(progressPercent),
+            _                       => query.OrderByDescending(c => c.CreatedAt),
+        };
+
+        var contracts = await ordered
+            // Split query + Skip/Take uchun barqaror tartib shart — saralash ustuni
             // unikal bo'lmasligi mumkin, shuning uchun Id bilan ham tartiblaymiz.
-            .OrderByDescending(c => c.CreatedAt)
             .ThenBy(c => c.Id)
             .Skip((pagination.Page - 1) * pagination.PageSize)
             .Take(pagination.PageSize)

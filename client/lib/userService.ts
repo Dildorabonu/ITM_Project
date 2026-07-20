@@ -659,7 +659,7 @@ export const contractService = {
   getPaged: async (
     page = 1,
     pageSize = 20,
-    opts: { search?: string; status?: ContractStatus; contractType?: ContractType; isActive?: boolean; excludeCompleted?: boolean } = {},
+    opts: { search?: string; status?: ContractStatus; contractType?: ContractType; isActive?: boolean; excludeCompleted?: boolean; sortBy?: string; sortDesc?: boolean } = {},
   ): Promise<PagedResult<ContractResponse>> => {
     const params: Record<string, string> = { page: String(page), pageSize: String(pageSize) };
     if (opts.search?.trim())     params.search   = opts.search.trim();
@@ -667,6 +667,7 @@ export const contractService = {
     if (opts.contractType !== undefined) params.contractType = String(opts.contractType);
     if (opts.isActive !== undefined) params.isActive = String(opts.isActive);
     if (opts.excludeCompleted) params.excludeCompleted = "true";
+    if (opts.sortBy) { params.sortBy = opts.sortBy; params.sortDesc = String(!!opts.sortDesc); }
     const res = await api.get("/api/contract/paged", { params });
     return res.data?.result ?? res.data;
   },

@@ -46,7 +46,14 @@ export function StatusBadge({ status, products }: StatusBadgeProps) {
         active.reduce((sum, p) => sum + STAGE_PROGRESS[p.status], 0) / active.length
       );
 
-  const style = STATUS_STYLE[status];
+  // Bu badge endi bosqichni emas, umumiy progressni ko'rsatadi — shuning uchun
+  // bosqich ranglari o'rniga progress shkalasi: boshlanmagan kulrang, past
+  // qismi sariq (ogohlantirish), yarmidan oshgani accent, tugagani yashil.
+  const style =
+    percent >= 100 ? { bg: "var(--success-dim)", color: "var(--success)", border: "var(--success)" } :
+    percent >= 50  ? { bg: "var(--accent-dim)",  color: "var(--accent)",  border: "var(--accent)"  } :
+    percent > 0    ? { bg: "var(--warn-dim)",    color: "var(--warn)",    border: "var(--warn)"    } :
+                     { bg: "var(--surface2)",    color: "var(--text3)",   border: "var(--border2)" };
 
   return (
     <div style={{
@@ -57,7 +64,7 @@ export function StatusBadge({ status, products }: StatusBadgeProps) {
     }}>
       <div style={{
         flex: 1, height: 5, borderRadius: 999,
-        background: `${style.color}24`, overflow: "hidden",
+        background: `color-mix(in srgb, ${style.color} 16%, transparent)`, overflow: "hidden",
       }}>
         <div style={{
           width: `${percent}%`, height: "100%",

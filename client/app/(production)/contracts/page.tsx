@@ -24,7 +24,6 @@ import {
 import {
   ContractForm as ContractFormType,
   emptyForm,
-  STATUS_FILTER_OPTIONS,
   CONTRACT_TYPE_OPTIONS,
 } from "./_types";
 import { isoToDisplayDate } from "./_components/DatePickerField";
@@ -64,11 +63,14 @@ export default function ContractsPage() {
   // Arxiv ichidagi sub-tab: yakunlangan (Completed, faol) yoki bekor qilingan (noaktiv).
   const [archiveTab, setArchiveTab]       = useState<"completed" | "cancelled">("completed");
   const [search, setSearch]               = useState("");
-  const [filterStatus, setFilterStatus]   = useState("");
   const [filterContractType, setFilterContractType] = useState("");
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
-  const [pendingStatus, setPendingStatus]   = useState("");
   const [pendingContractType, setPendingContractType] = useState("");
+
+  // Ustun sarlavhasi bo'yicha saralash: bosilganda asc → desc → o'chirilgan.
+  type SortColumn = "contractNo" | "startDate" | "contractType" | "status";
+  const [sortBy, setSortBy]     = useState<SortColumn | "">("");
+  const [sortDesc, setSortDesc] = useState(false);
   const filterBtnRef  = useRef<HTMLButtonElement>(null);
   const filterPanelRef = useRef<HTMLDivElement>(null);
 
@@ -196,12 +198,12 @@ export default function ContractsPage() {
       const completedView = viewMode === "archive" && archiveTab === "completed";
       const data = await contractService.getPaged(p, PAGE_SIZE, {
         search:   search || undefined,
-        status:   completedView
-          ? ContractStatus.Completed
-          : filterStatus !== "" ? (Number(filterStatus) as ContractStatus) : undefined,
+        status:   completedView ? ContractStatus.Completed : undefined,
         contractType: filterContractType !== "" ? (Number(filterContractType) as ContractType)   : undefined,
         isActive: viewMode === "active" || completedView,
         excludeCompleted: viewMode === "active",
+        sortBy: sortBy || undefined,
+        sortDesc,
       });
       setContracts(data.items);
       setTotalPages(data.totalPages);
@@ -218,23 +220,14 @@ export default function ContractsPage() {
   };
 
   // Reset to page 1 when filters change
-  useEffect(() => { setPage(1); }, [viewMode, archiveTab, search, filterStatus, filterContractType]);
-
-  // Faol tab Completed'ni istisno qiladi — arxivda tanlangan "Yakunlandi" holat
-  // filtri qolib ketsa, doim bo'sh natija chiqmasligi uchun tozalaymiz.
-  useEffect(() => {
-    if (viewMode === "active" && filterStatus === String(ContractStatus.Completed)) {
-      setFilterStatus("");
-      setPendingStatus("");
-    }
-  }, [viewMode, filterStatus]);
+  useEffect(() => { setPage(1); }, [viewMode, archiveTab, search, filterContractType, sortBy, sortDesc]);
 
   // Reload when page or any filter changes (debounce search)
   useEffect(() => {
     const t = setTimeout(() => { load(page); }, search ? 250 : 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, viewMode, archiveTab, search, filterStatus, filterContractType]);
+  }, [page, viewMode, archiveTab, search, filterContractType, sortBy, sortDesc]);
 
   // Arxiv tabidagi topshirish eslatmasi — sahifa ochilganda va tab
   // almashganda yangilanadi (shartnoma yakunlanishi ham shu yerda ushlanadi).
@@ -586,26 +579,60 @@ export default function ContractsPage() {
 
   // ── Filters helpers ───────────────────────────────────────────────────────────
 
-  // Yakunlangan ko'rinishida holat filtri ma'nosiz (hammasi Completed) — hisobga olinmaydi.
-  const activeFilterCount = (!isCompletedView && filterStatus !== "" ? 1 : 0) + (filterContractType !== "" ? 1 : 0);
+  const activeFilterCount = filterContractType !== "" ? 1 : 0;
 
   const openFilterPanel = () => {
-    setPendingStatus(filterStatus);
     setPendingContractType(filterContractType);
     setFilterPanelOpen(true);
   };
 
   const applyFilters = () => {
-    setFilterStatus(pendingStatus);
     setFilterContractType(pendingContractType);
     setFilterPanelOpen(false);
   };
 
   const clearFilters = () => {
-    setPendingStatus("");
     setPendingContractType("");
-    setFilterStatus("");
     setFilterContractType("");
+  };
+
+  // ── Sorting helpers ───────────────────────────────────────────────────────
+
+  const toggleSort = (col: SortColumn) => {
+    if (sortBy !== col) { setSortBy(col); setSortDesc(false); }
+    else if (!sortDesc) setSortDesc(true);
+    else { setSortBy(""); setSortDesc(false); }
+  };
+
+  // Bosiladigan ustun sarlavhasi: faol saralashda accent rang + yo'nalish strelkasi.
+  const sortableTh = (label: string, col: SortColumn, extraStyle?: React.CSSProperties) => {
+    const active = sortBy === col;
+    return (
+      <th
+        onClick={() => toggleSort(col)}
+        title={t("Saralash")}
+        style={{
+          textAlign: "center", background: "var(--bg2)", cursor: "pointer", userSelect: "none",
+          color: active ? "var(--accent)" : "var(--text1)",
+          ...extraStyle,
+        }}
+      >
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+          {label}
+          {active ? (
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+              style={{ transition: "transform 0.15s", transform: sortDesc ? "rotate(180deg)" : "none", flexShrink: 0 }}>
+              <line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" />
+            </svg>
+          ) : (
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+              style={{ opacity: 0.35, flexShrink: 0 }}>
+              <polyline points="8 9 12 5 16 9" /><polyline points="8 15 12 19 16 15" />
+            </svg>
+          )}
+        </span>
+      </th>
+    );
   };
 
   // ── Render: List ──────────────────────────────────────────────────────────
@@ -777,7 +804,7 @@ export default function ContractsPage() {
                   </svg>
                   {t("Filtrlar")}
                 </div>
-                {(pendingStatus !== "" || pendingContractType !== "") && (
+                {pendingContractType !== "" && (
                   <button
                     onClick={clearFilters}
                     style={{
@@ -798,25 +825,6 @@ export default function ContractsPage() {
               </div>
 
               <div style={{ padding: "14px 14px 0" }}>
-                {!isCompletedView && (
-                <div style={{ marginBottom: 14, position: "relative" }}>
-                  <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text3)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 5 }}>
-                    <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-                    </svg>
-                    {t("Holat")}
-                  </p>
-                  <CheckSelect
-                    value={pendingStatus}
-                    onChange={setPendingStatus}
-                    options={STATUS_FILTER_OPTIONS
-                      .filter(o => viewMode !== "active" || Number(o.value) !== ContractStatus.Completed)
-                      .map(o => ({ id: o.value, name: t(o.label), color: o.color }))}
-                    placeholder={t("Barcha holat")}
-                    disablePortal
-                  />
-                </div>
-                )}
                 <div style={{ marginBottom: 14, position: "relative" }}>
                   <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text3)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 5 }}>
                     <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -889,10 +897,10 @@ export default function ContractsPage() {
               <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
                 <tr>
                   <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>{t("T/r")}</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Raqam")}</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Muddat")}</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Turi")}</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Holat")}</th>
+                  {sortableTh(t("Raqam"), "contractNo")}
+                  {sortableTh(t("Muddat"), "startDate")}
+                  {sortableTh(t("Turi"), "contractType")}
+                  {sortableTh(t("Holat"), "status")}
                   <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{isCompletedView ? t("Topshirish") : t("Faollik")}</th>
                   <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", background: "var(--bg2)" }}>{t("Amal")}</th>
                 </tr>
@@ -905,10 +913,10 @@ export default function ContractsPage() {
                       : t("Ma'lumot topilmadi")}
                   </td></tr>
                 ) : contracts.map((c, i) => (
-                  <tr key={c.id}>
+                  <tr key={c.id} onClick={() => openDrawer(c)} style={{ cursor: "pointer" }}>
                     <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>{String((page - 1) * PAGE_SIZE + i + 1).padStart(2, "0")}</td>
                     <td style={{ textAlign: "center", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      <button onClick={() => openDrawer(c)}
+                      <button onClick={e => { e.stopPropagation(); openDrawer(c); }}
                         style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 13, color: "var(--text1)", fontFamily: "var(--font-inter)", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block" }}>
                         {c.contractNo}
                       </button>
@@ -957,7 +965,7 @@ export default function ContractsPage() {
                       </span>
                       )}
                     </td>
-                    <td style={{ borderLeft: "2px solid var(--border)" }}>
+                    <td style={{ borderLeft: "2px solid var(--border)", cursor: "default" }} onClick={e => e.stopPropagation()}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
                         <button className="btn-icon" onClick={() => openDrawer(c)} title={t("Ko'rish")}
                           style={{ color: "#0ea5e9", borderColor: "#0ea5e933", background: "#0ea5e912" }}>
