@@ -12,7 +12,6 @@ import {
 import { useAuthStore } from "@/lib/store/authStore";
 import { useT } from "@/lib/i18n";
 import { ConfirmModal } from "@/app/_components/ConfirmModal";
-import { CheckSelect } from "@/app/_components/CheckSelect";
 import { emptyForm, WAREHOUSE_DEPARTMENT_TYPE, type ProductForm } from "./_types";
 import { ProductFormView } from "./_components/ProductFormView";
 import { FrozenProductsView } from "./_components/FrozenProductsView";
@@ -33,7 +32,6 @@ export default function ProductsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [search, setSearch] = useState("");
-  const [filterDept, setFilterDept] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [departments, setDepartments] = useState<DepartmentOption[]>([]);
@@ -83,7 +81,7 @@ export default function ProductsPage() {
         page,
         50,
         search || undefined,
-        filterDept || undefined,
+        undefined,
         WAREHOUSE_DEPARTMENT_TYPE,
       );
       setProducts(data.items);
@@ -106,7 +104,7 @@ export default function ProductsPage() {
   }, []);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { load(); }, [page, search, filterDept]);
+  useEffect(() => { load(); }, [page, search]);
 
   useEffect(() => {
     if (!showForm) return;
@@ -226,13 +224,6 @@ export default function ProductsPage() {
           <input className="search-input" placeholder={t("Qidirish")}
             value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
         </div>
-        <CheckSelect
-          value={filterDept}
-          onChange={v => { setFilterDept(v); setPage(1); }}
-          options={departments.map(d => ({ id: d.id, name: d.name }))}
-          placeholder={t("Bo'limlar")}
-          style={{ width: 200 }}
-        />
         <button
           className="btn-icon"
           onClick={load}

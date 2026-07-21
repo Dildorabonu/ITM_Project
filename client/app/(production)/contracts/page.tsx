@@ -25,11 +25,9 @@ import {
 import {
   ContractForm as ContractFormType,
   emptyForm,
-  CONTRACT_TYPE_OPTIONS,
 } from "./_types";
 import { isoToDisplayDate } from "./_components/DatePickerField";
 import { StatusBadge, ContractTypeBadge } from "./_components/StatusBadge";
-import { CheckSelect } from "@/app/_components/CheckSelect";
 import { ContractForm } from "./_components/ContractForm";
 import { ContractDrawer } from "./_components/ContractDrawer";
 import { PickupModal } from "./_components/PickupModal";
@@ -64,16 +62,11 @@ export default function ContractsPage() {
   // Arxiv ichidagi sub-tab: yakunlangan (Completed, faol) yoki bekor qilingan (noaktiv).
   const [archiveTab, setArchiveTab]       = useState<"completed" | "cancelled">("completed");
   const [search, setSearch]               = useState("");
-  const [filterContractType, setFilterContractType] = useState("");
-  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
-  const [pendingContractType, setPendingContractType] = useState("");
 
   // Ustun sarlavhasi bo'yicha saralash: bosilganda asc → desc → o'chirilgan.
   type SortColumn = "contractNo" | "startDate" | "contractType" | "status";
   const [sortBy, setSortBy]     = useState<SortColumn | "">("");
   const [sortDesc, setSortDesc] = useState(false);
-  const filterBtnRef  = useRef<HTMLButtonElement>(null);
-  const filterPanelRef = useRef<HTMLDivElement>(null);
 
   // Pagination
   const PAGE_SIZE = 20;
@@ -200,7 +193,6 @@ export default function ContractsPage() {
       const data = await contractService.getPaged(p, PAGE_SIZE, {
         search:   search || undefined,
         status:   completedView ? ContractStatus.Completed : undefined,
-        contractType: filterContractType !== "" ? (Number(filterContractType) as ContractType)   : undefined,
         isActive: viewMode === "active" || completedView,
         excludeCompleted: viewMode === "active",
         sortBy: sortBy || undefined,
@@ -221,14 +213,14 @@ export default function ContractsPage() {
   };
 
   // Reset to page 1 when filters change
-  useEffect(() => { setPage(1); }, [viewMode, archiveTab, search, filterContractType, sortBy, sortDesc]);
+  useEffect(() => { setPage(1); }, [viewMode, archiveTab, search, sortBy, sortDesc]);
 
   // Reload when page or any filter changes (debounce search)
   useEffect(() => {
     const t = setTimeout(() => { load(page); }, search ? 250 : 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, viewMode, archiveTab, search, filterContractType, sortBy, sortDesc]);
+  }, [page, viewMode, archiveTab, search, sortBy, sortDesc]);
 
   // Arxiv tabidagi topshirish eslatmasi — sahifa ochilganda va tab
   // almashganda yangilanadi (shartnoma yakunlanishi ham shu yerda ushlanadi).
@@ -240,18 +232,6 @@ export default function ContractsPage() {
   useEffect(() => {
     departmentService.getAllFull().then(d => setDepartments(d)).catch(() => {});
   }, []);
-
-  useEffect(() => {
-    if (!filterPanelOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (
-        filterBtnRef.current && !filterBtnRef.current.contains(e.target as Node) &&
-        filterPanelRef.current && !filterPanelRef.current.contains(e.target as Node)
-      ) setFilterPanelOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [filterPanelOpen]);
 
   useEffect(() => {
     if (openPickerKey === null) return;
@@ -578,25 +558,6 @@ export default function ContractsPage() {
     );
   }
 
-  // ── Filters helpers ───────────────────────────────────────────────────────────
-
-  const activeFilterCount = filterContractType !== "" ? 1 : 0;
-
-  const openFilterPanel = () => {
-    setPendingContractType(filterContractType);
-    setFilterPanelOpen(true);
-  };
-
-  const applyFilters = () => {
-    setFilterContractType(pendingContractType);
-    setFilterPanelOpen(false);
-  };
-
-  const clearFilters = () => {
-    setPendingContractType("");
-    setFilterContractType("");
-  };
-
   // ── Sorting helpers ───────────────────────────────────────────────────────
 
   const toggleSort = (col: SortColumn) => {
@@ -743,128 +704,6 @@ export default function ContractsPage() {
           </svg>
           <input className="search-input" placeholder={t("Qidirish: raqam, tomon...")}
             value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
-
-        {/* Filter dropdown */}
-        <div style={{ position: "relative", flexShrink: 0 }}>
-          <button
-            ref={filterBtnRef}
-            onClick={() => filterPanelOpen ? setFilterPanelOpen(false) : openFilterPanel()}
-            style={{
-              display: "inline-flex", alignItems: "center", gap: 6,
-              padding: "6px 12px", borderRadius: "var(--radius)",
-              border: `1px solid ${activeFilterCount > 0 ? "var(--accent)" : "var(--border2)"}`,
-              background: activeFilterCount > 0 ? "var(--accent-dim)" : "var(--surface)",
-              color: activeFilterCount > 0 ? "var(--accent)" : "var(--text2)",
-              fontSize: 13, fontWeight: 500, cursor: "pointer",
-              transition: "all 0.15s",
-            }}
-            onMouseEnter={e => { if (!activeFilterCount) (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--accent)"; }}
-            onMouseLeave={e => { if (!activeFilterCount) (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border2)"; }}
-          >
-            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-            </svg>
-            {t("Filtrlar")}
-            {activeFilterCount > 0 && (
-              <span style={{
-                display: "inline-flex", alignItems: "center", justifyContent: "center",
-                width: 18, height: 18, borderRadius: "50%",
-                background: "var(--accent)", color: "#fff",
-                fontSize: 10, fontWeight: 700, fontFamily: "var(--font-mono)",
-              }}>
-                {activeFilterCount}
-              </span>
-            )}
-            <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
-              style={{ transition: "transform 0.2s", transform: filterPanelOpen ? "rotate(180deg)" : "rotate(0deg)" }}>
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
-          </button>
-
-          {filterPanelOpen && (
-            <div
-              ref={filterPanelRef}
-              style={{
-                position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 100,
-                width: 280,
-                background: "var(--surface)", border: "1px solid var(--border)",
-                borderRadius: "var(--radius2)",
-                boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
-                animation: "panel-appear 0.18s ease",
-              }}
-            >
-              <div style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "12px 14px 10px",
-                borderBottom: "1px solid var(--border)",
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, fontWeight: 600, color: "var(--text)" }}>
-                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-                  </svg>
-                  {t("Filtrlar")}
-                </div>
-                {pendingContractType !== "" && (
-                  <button
-                    onClick={clearFilters}
-                    style={{
-                      display: "inline-flex", alignItems: "center", gap: 4,
-                      background: "none", border: "none", cursor: "pointer",
-                      color: "var(--text3)", fontSize: 12, padding: "2px 4px",
-                      borderRadius: 4, transition: "color 0.15s",
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.color = "var(--text)")}
-                    onMouseLeave={e => (e.currentTarget.style.color = "var(--text3)")}
-                  >
-                    <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
-                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                    </svg>
-                    {t("Tozalash")}
-                  </button>
-                )}
-              </div>
-
-              <div style={{ padding: "14px 14px 0" }}>
-                <div style={{ marginBottom: 14, position: "relative" }}>
-                  <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text3)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 5 }}>
-                    <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
-                    </svg>
-                    {t("Shartnoma turi")}
-                  </p>
-                  <CheckSelect
-                    value={pendingContractType}
-                    onChange={setPendingContractType}
-                    options={CONTRACT_TYPE_OPTIONS.map(o => ({ id: o.value, name: t(o.label), color: o.color }))}
-                    placeholder={t("Barcha turlar")}
-                    disablePortal
-                  />
-                </div>
-              </div>
-
-              <div style={{ padding: "0 14px 14px" }}>
-                <button
-                  onClick={applyFilters}
-                  style={{
-                    width: "100%", padding: "9px 0",
-                    background: "var(--accent)", color: "#fff",
-                    border: "none", borderRadius: "var(--radius)",
-                    fontSize: 13, fontWeight: 600, cursor: "pointer",
-                    display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
-                    transition: "background 0.15s",
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "var(--accent2)")}
-                  onMouseLeave={e => (e.currentTarget.style.background = "var(--accent)")}
-                >
-                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <polyline points="20 6 9 17 4 12"/>
-                  </svg>
-                  {t("Filtrlarni qo'llash")}
-                </button>
-              </div>
-            </div>
-          )}
         </div>
 
         <button className="btn-icon" onClick={() => load()} title={t("Yangilash")}
