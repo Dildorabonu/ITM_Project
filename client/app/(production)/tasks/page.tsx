@@ -19,6 +19,7 @@ import {
 } from "@/lib/userService";
 import {
   type ShipmentBatch,
+  ShipmentBatchKind,
   shipmentBatchService,
 } from "@/lib/shipments";
 import { useT } from "@/lib/i18n";
@@ -938,6 +939,7 @@ function ShipmentsModal({
         contractProductId,
         departmentId,
         amount: confirmAmount,
+        kind: ShipmentBatchKind.Production,
       });
       const next = [...batches, created].sort((a, b) => a.batchNo - b.batchNo);
       setBatches(next);
@@ -1628,7 +1630,7 @@ function TaskPanel({ scope, hideHeader }: { scope: Scope; hideHeader?: boolean }
     if (!hasPermission("Shipments.View")) return;
     let ignore = false;
     shipmentBatchService
-      .getByContract(contract.id, productScopeId ?? undefined)
+      .getByContract(contract.id, productScopeId ?? undefined, ShipmentBatchKind.Production)
       .then(list => { if (!ignore) setShipments(list); })
       .catch(() => { if (!ignore) setShipments([]); });
     return () => { ignore = true; };

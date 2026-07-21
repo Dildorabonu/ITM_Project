@@ -184,9 +184,12 @@ public class ContractService : IContractService
             .Select(g => new { ContractId = g.Key, Total = g.Sum(p => p.Quantity) })
             .ToDictionaryAsync(x => x.ContractId, x => x.Total);
 
+        // Faqat mijoz olib ketgan partiyalar — ishlab chiqarishning ichki
+        // partiyalari (Production) mijozga topshirilgan hisoblanmaydi.
         var shippedByContract = await _context.ShipmentBatches
             .AsNoTracking()
-            .Where(s => pageIds.Contains(s.ContractId))
+            .Where(s => pageIds.Contains(s.ContractId)
+                        && s.Kind == ShipmentBatchKind.CustomerPickup)
             .GroupBy(s => s.ContractId)
             .Select(g => new { ContractId = g.Key, Shipped = g.Sum(s => s.Amount) })
             .ToDictionaryAsync(x => x.ContractId, x => x.Shipped);
@@ -229,7 +232,8 @@ public class ContractService : IContractService
                 .Sum(p => (decimal?)p.Quantity) ?? 0)
             >
             (_context.ShipmentBatches
-                .Where(s => s.ContractId == c.Id)
+                .Where(s => s.ContractId == c.Id
+                            && s.Kind == ShipmentBatchKind.CustomerPickup)
                 .Sum(s => (decimal?)s.Amount) ?? 0));
 
         return ApiResult<int>.Success(count);

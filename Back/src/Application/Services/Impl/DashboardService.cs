@@ -113,7 +113,9 @@ public class DashboardService : IDashboardService
             .CountAsync(m => m.Status == ManufacturingStatus.Completed);
 
         // ── Shipments ─────────────────────────────────────────────────────
-        var totalShipments = await _context.ShipmentBatches.CountAsync();
+        // Faqat ishlab chiqarish partiyalari — mijoz olib ketishlari alohida hodisa.
+        var totalShipments = await _context.ShipmentBatches
+            .CountAsync(s => s.Kind == ShipmentBatchKind.Production);
 
         // ── Completion aggregates (all-time, active products) ──────────────
         // Haqiqiy ishlab chiqarilgan miqdor — har mahsulot uchun avtomatik
@@ -136,6 +138,7 @@ public class DashboardService : IDashboardService
         var totalContractedAmount = productCompletion.Sum(x => x.Quantity);
         var totalProducedAmount = productCompletion.Sum(x => Math.Min(x.Quantity, x.Produced));
         var totalBatchedAmount = await _context.ShipmentBatches
+            .Where(s => s.Kind == ShipmentBatchKind.Production)
             .SumAsync(s => (decimal?)s.Amount) ?? 0m;
 
         // ── Users / Departments ────────────────────────────────────────────
@@ -236,7 +239,8 @@ public class DashboardService : IDashboardService
         // ── Shipment trend — over trend range ─────────────────────────────
         var shipmentRaw = await _context.ShipmentBatches
             .AsNoTracking()
-            .Where(s => s.CreatedAt >= trendFromUtc && s.CreatedAt <= trendToUtc)
+            .Where(s => s.Kind == ShipmentBatchKind.Production
+                        && s.CreatedAt >= trendFromUtc && s.CreatedAt <= trendToUtc)
             .Select(s => new { s.CreatedAt, s.Amount })
             .ToListAsync();
 

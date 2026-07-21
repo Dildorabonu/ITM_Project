@@ -5,14 +5,16 @@ import {
   ContractProductStatus,
   type ContractResponse,
 } from "@/lib/userService";
-import { shipmentBatchService, type ShipmentBatch } from "@/lib/shipments";
+import { shipmentBatchService, ShipmentBatchKind, type ShipmentBatch, type ShipmentReady } from "@/lib/shipments";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useToastStore } from "@/lib/store/toastStore";
 import { CheckSelect } from "@/app/_components/CheckSelect";
 import { useT } from "@/lib/i18n";
 
-// Mijozga topshirishni qayd etish modali — yakunlangan shartnoma mahsulotlarini
-// mijoz qisman yoki to'liq olib ketganini ShipmentBatch partiyalari sifatida yozadi.
+// Mijozga topshirishni qayd etish modali — shartnoma (yakunlangan yoki hali
+// ishlab chiqarishda bo'lgan) mahsulotlarini mijoz qisman yoki to'liq olib
+// ketganini ShipmentBatch partiyalari sifatida yozadi. Tugallanmagan mahsulot
+// uchun faqat omborga kirim qilingan (tayyor) miqdorgacha topshirish mumkin.
 export function PickupModal({
   contract,
   onClose,
@@ -29,8 +31,13 @@ export function PickupModal({
   const showToast = useToastStore((s) => s.show);
 
   const [batches, setBatches] = useState<ShipmentBatch[]>([]);
+  // Ishlab chiqarish partiyalari — olib ketish qaysi partiyadan ekanini tanlash uchun.
+  const [prodBatches, setProdBatches] = useState<ShipmentBatch[]>([]);
+  const [readyList, setReadyList] = useState<ShipmentReady[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [productId, setProductId] = useState("");
+  // "auto" — miqdor eng eski partiyadan boshlab avtomatik taqsimlanadi.
+  const [sourceBatchId, setSourceBatchId] = useState("auto");
   const [amount, setAmount] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -39,10 +46,25 @@ export function PickupModal({
   useEffect(() => {
     let ignore = false;
     setLoading(true);
-    shipmentBatchService
-      .getByContract(contract.id)
-      .then((list) => { if (!ignore) setBatches(list); })
-      .catch(() => { if (!ignore) setBatches([]); })
+    Promise.all([
+      // Faqat mijoz olib ketishlari — vazifalardan yuborilgan ishlab chiqarish
+      // partiyalari bu tarixga kirmaydi.
+      shipmentBatchService
+        .getByContract(contract.id, undefined, ShipmentBatchKind.CustomerPickup)
+        .catch(() => [] as ShipmentBatch[]),
+      // Ishlab chiqarish partiyalari — olib ketish manbasini tanlash uchun.
+      shipmentBatchService
+        .getByContract(contract.id, undefined, ShipmentBatchKind.Production)
+        .catch(() => [] as ShipmentBatch[]),
+      // Tayyor miqdor yuklanmasa (null) — eski xatti-harakat: to'liq miqdor limit.
+      shipmentBatchService.getReady(contract.id).catch(() => null),
+    ])
+      .then(([list, prod, ready]) => {
+        if (ignore) return;
+        setBatches(list);
+        setProdBatches(prod);
+        setReadyList(ready);
+      })
       .finally(() => { if (!ignore) setLoading(false); });
     return () => { ignore = true; };
   }, [contract.id]);
@@ -61,16 +83,79 @@ export function PickupModal({
     return map;
   }, [batches]);
 
+  // Mahsulot bo'yicha topshirishga tayyor (omborga kirim qilingan) miqdor.
+  // Ma'lumot kelmagan bo'lsa (null) — eski xatti-harakat: to'liq miqdor limit.
+  const readyByProduct = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of readyList ?? []) map.set(r.contractProductId, r.readyQuantity);
+    return map;
+  }, [readyList]);
+  const readyFor = (p: { id: string; quantity: number }) =>
+    readyList === null ? p.quantity : Math.min(readyByProduct.get(p.id) ?? 0, p.quantity);
+
   const totalQty = products.reduce((s, p) => s + p.quantity, 0);
   const shippedQty = batches.reduce((s, b) => s + b.amount, 0);
   const remainingQty = Math.max(0, totalQty - shippedQty);
 
   const selected = products.find((p) => p.id === productId) ?? null;
   const selectedShipped = selected ? shippedByProduct.get(selected.id) ?? 0 : 0;
-  const selectedAvailable = selected ? Math.max(0, selected.quantity - selectedShipped) : 0;
+  const selectedAvailable = selected ? Math.max(0, readyFor(selected) - selectedShipped) : 0;
+
+  // Har bir ishlab chiqarish partiyasidan qancha olib ketilgani — partiya
+  // qoldig'i shundan hisoblanadi (bitta partiyadan bo'lib-bo'lib olish mumkin).
+  const takenBySource = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const b of batches) {
+      if (!b.sourceBatchId) continue;
+      map.set(b.sourceBatchId, (map.get(b.sourceBatchId) ?? 0) + b.amount);
+    }
+    return map;
+  }, [batches]);
+  const batchRemaining = (pb: ShipmentBatch) =>
+    Math.max(0, pb.amount - (takenBySource.get(pb.id) ?? 0));
+
+  // Mahsulot bo'yicha ishlab chiqarish partiyalari.
+  const prodBatchesByProduct = useMemo(() => {
+    const map = new Map<string, ShipmentBatch[]>();
+    for (const pb of prodBatches) {
+      if (!pb.contractProductId) continue;
+      const arr = map.get(pb.contractProductId) ?? [];
+      arr.push(pb);
+      map.set(pb.contractProductId, arr);
+    }
+    return map;
+  }, [prodBatches]);
+
+  // "Omborda tayyor" — faqat jo'natma (partiya) holiga keltirilgan va hali olib
+  // ketilmagan miqdor. Omborga topshirilgan lekin partiya qilinmagan qismi
+  // kirmaydi. Partiyasi yo'q mahsulotda (eski oqim/qo'lda Completed) —
+  // ombordagi tayyor miqdor bo'yicha.
+  const pickupReadyFor = (p: { id: string; quantity: number }) => {
+    const pbs = prodBatchesByProduct.get(p.id) ?? [];
+    if (pbs.length === 0) return readyFor(p);
+    return pbs.reduce((s, pb) => s + batchRemaining(pb), 0);
+  };
+
+  // Tanlangan mahsulotning partiyalari; partiya bo'lsa — tanlash majburiy,
+  // bo'lmasa (eski oqim/qo'lda Completed) umumiy tayyor miqdor bo'yicha ishlaydi.
+  const productBatches = selected
+    ? prodBatches.filter((pb) => pb.contractProductId === selected.id)
+    : [];
+  const requireSource = productBatches.length > 0;
+  const isAuto = sourceBatchId === "auto";
+  const sourceBatch = productBatches.find((pb) => pb.id === sourceBatchId) ?? null;
+  const totalBatchRemaining = productBatches.reduce((s, pb) => s + batchRemaining(pb), 0);
+  const effectiveAvailable = !requireSource
+    ? selectedAvailable
+    : sourceBatch
+      ? Math.min(batchRemaining(sourceBatch), selectedAvailable)
+      : Math.min(totalBatchRemaining, selectedAvailable);
 
   const parsed = parseFloat(amount);
-  const amountValid = selected !== null && !isNaN(parsed) && parsed > 0 && parsed <= selectedAvailable;
+  const amountValid =
+    selected !== null &&
+    (!requireSource || sourceBatch !== null || isAuto) &&
+    !isNaN(parsed) && parsed > 0 && parsed <= effectiveAvailable;
 
   const productName = (pid: string | null) =>
     products.find((p) => p.id === pid)?.productType ?? "—";
@@ -83,13 +168,27 @@ export function PickupModal({
     setSaving(true);
     setError("");
     try {
-      const created = await shipmentBatchService.create({
-        contractId: contract.id,
-        contractProductId: selected.id,
-        departmentId: selected.departments[0]?.id ?? null,
-        amount: parsed,
-      });
-      setBatches((prev) => [...prev, created]);
+      if (requireSource && isAuto) {
+        // Avtomatik: server miqdorni eng eski partiyadan boshlab taqsimlaydi,
+        // har partiyadan olingan qismi alohida yozuv bo'lib qaytadi.
+        const createdList = await shipmentBatchService.createPickupAuto({
+          contractId: contract.id,
+          contractProductId: selected.id,
+          departmentId: selected.departments[0]?.id ?? null,
+          amount: parsed,
+        });
+        setBatches((prev) => [...prev, ...createdList]);
+      } else {
+        const created = await shipmentBatchService.create({
+          contractId: contract.id,
+          contractProductId: selected.id,
+          departmentId: selected.departments[0]?.id ?? null,
+          amount: parsed,
+          kind: ShipmentBatchKind.CustomerPickup,
+          sourceBatchId: sourceBatch?.id ?? null,
+        });
+        setBatches((prev) => [...prev, created]);
+      }
       setAmount("");
       setSubmitted(false);
       showToast(t("Olib ketish qayd etildi!"));
@@ -176,6 +275,7 @@ export function PickupModal({
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {products.map((p) => {
               const shipped = shippedByProduct.get(p.id) ?? 0;
+              const ready = pickupReadyFor(p);
               const pct = p.quantity > 0 ? Math.min(100, Math.round((shipped / p.quantity) * 100)) : 0;
               const done = shipped >= p.quantity;
               return (
@@ -190,6 +290,12 @@ export function PickupModal({
                     </div>
                     <div style={{ fontSize: 11, color: "var(--text3)", fontFamily: "var(--font-mono)" }}>
                       {shipped.toLocaleString()} / {p.quantity.toLocaleString()} {p.unit}
+                      {/* Tugallanmagan mahsulot — hozircha omborda qancha tayyor ekani */}
+                      {ready < p.quantity && (
+                        <span style={{ color: "var(--warn)" }}>
+                          {" "}· {t("omborda tayyor")}: {ready.toLocaleString()}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div style={{ width: 90, height: 5, borderRadius: 999, background: "var(--surface2)", overflow: "hidden", flexShrink: 0 }}>
@@ -225,13 +331,34 @@ export function PickupModal({
                 <div style={{ flex: 2, minWidth: 180, position: "relative" }}>
                   <CheckSelect
                     value={productId}
-                    onChange={(v) => { setProductId(v); setSubmitted(false); setError(""); }}
+                    onChange={(v) => { setProductId(v); setSourceBatchId("auto"); setSubmitted(false); setError(""); }}
                     options={products.map((p) => ({ id: p.id, name: p.productType }))}
                     placeholder={t("Mahsulotni tanlang")}
                     disablePortal
                     error={submitted && !selected}
                   />
                 </div>
+                {/* Qaysi partiyadan olib ketilayotgani — partiya qoldig'i bilan */}
+                {requireSource && (
+                  <div style={{ flex: 2, minWidth: 170, position: "relative" }}>
+                    <CheckSelect
+                      value={sourceBatchId}
+                      onChange={(v) => { setSourceBatchId(v); setSubmitted(false); setError(""); }}
+                      options={[
+                        { id: "auto", name: t("Avtomatik (eski partiyadan boshlab)") },
+                        ...productBatches
+                          .filter((pb) => batchRemaining(pb) > 0)
+                          .map((pb) => ({
+                            id: pb.id,
+                            name: `#${pb.batchNo} — ${t("qoldiq")} ${batchRemaining(pb).toLocaleString()} ${selected?.unit ?? ""}`,
+                          })),
+                      ]}
+                      placeholder={t("Partiyani tanlang")}
+                      disablePortal
+                      error={submitted && !sourceBatch && !isAuto}
+                    />
+                  </div>
+                )}
                 <div style={{ flex: 1, minWidth: 130 }}>
                   <input
                     type="number"
@@ -248,8 +375,8 @@ export function PickupModal({
                     }}
                   />
                   {selected && (
-                    <p style={{ margin: "4px 0 0", fontSize: 11, color: parsed > selectedAvailable ? "var(--danger)" : "var(--text3)" }}>
-                      {t("Qoldiq")}: {selectedAvailable.toLocaleString()} {selected.unit}
+                    <p style={{ margin: "4px 0 0", fontSize: 11, color: parsed > effectiveAvailable ? "var(--danger)" : "var(--text3)" }}>
+                      {t("Olib ketish mumkin")}: {effectiveAvailable.toLocaleString()} {selected.unit}
                     </p>
                   )}
                 </div>
@@ -304,6 +431,17 @@ export function PickupModal({
                     </span>
                     <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text)" }}>
                       {productName(b.contractProductId)}
+                      {/* Qaysi ishlab chiqarish partiyasidan olingani */}
+                      {b.sourceBatchNo != null && (
+                        <span style={{
+                          marginLeft: 8, fontSize: 11, fontWeight: 600,
+                          fontFamily: "var(--font-mono)", color: "var(--text3)",
+                          background: "var(--surface2)", padding: "1px 7px",
+                          borderRadius: 999,
+                        }}>
+                          {t("Partiya")} #{b.sourceBatchNo}
+                        </span>
+                      )}
                     </span>
                     <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--text)", flexShrink: 0 }}>
                       {b.amount.toLocaleString()} <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600 }}>{productUnit(b.contractProductId)}</span>

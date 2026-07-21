@@ -9,6 +9,7 @@ import {
   scanService,
   departmentService,
   ContractStatus,
+  ContractProductStatus,
   ContractDeactivationReason,
   ContractType,
   type ContractResponse,
@@ -983,7 +984,13 @@ export default function ContractsPage() {
                             </svg>
                           </button>
                         )}
-                        {isCompletedView && canShipments && (
+                        {/* Mijozga topshirish — yakunlangan shartnomalarda har doim,
+                            faol ro'yxatda esa kamida bitta mahsulot ishlab chiqarishga
+                            kirgan (omborda tayyor miqdor bo'lishi mumkin) bo'lsa. */}
+                        {canShipments && c.isActive && (isCompletedView ||
+                          c.products.some(p =>
+                            p.status === ContractProductStatus.InProduction ||
+                            p.status === ContractProductStatus.Completed)) && (
                           <button className="btn-icon" onClick={() => setPickupContract(c)} title={t("Mijozga topshirish")}
                             style={{ color: "var(--accent)", borderColor: "var(--accent-mid)", background: "var(--accent-dim)" }}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

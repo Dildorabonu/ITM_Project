@@ -161,12 +161,17 @@ public class ContractTaskService : IContractTaskService
 
             // Jo'natilgan partiyalar yig'indisidan pastga tushirish taqiqlanadi —
             // aks holda "jo'natilgan > tayyor" nomuvofiqligi paydo bo'ladi.
+            // Har tur (ishlab chiqarish partiyasi / mijoz olib ketishi) alohida
+            // hisoblanadi — eng kattasi chegara bo'ladi.
             var shipped = await _context.ShipmentBatches
                 .Where(s => s.ContractId == task.ContractId && s.ContractProductId == task.ContractProductId)
-                .SumAsync(s => (decimal?)s.Amount) ?? 0m;
-            if (dto.CompletedAmount.Value < shipped)
+                .GroupBy(s => s.Kind)
+                .Select(g => g.Sum(s => (decimal?)s.Amount) ?? 0m)
+                .ToListAsync();
+            var shippedCap = shipped.Count == 0 ? 0m : shipped.Max();
+            if (dto.CompletedAmount.Value < shippedCap)
                 return ApiResult<int>.Failure(
-                    [$"Omborga topshirilgan miqdorni jo'natilgan partiyalar yig'indisidan ({shipped}) pastga tushirib bo'lmaydi."]);
+                    [$"Omborga topshirilgan miqdorni jo'natilgan partiyalar yig'indisidan ({shippedCap}) pastga tushirib bo'lmaydi."]);
         }
 
         if (dto.Name is not null) task.Name = dto.Name;

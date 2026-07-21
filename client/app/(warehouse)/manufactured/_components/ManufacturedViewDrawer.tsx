@@ -7,7 +7,7 @@ import {
   PRODUCT_UNIT_LABELS,
   type ManufacturedProductResponse,
 } from "@/lib/userService";
-import { shipmentBatchService, type ShipmentBatch } from "@/lib/shipments";
+import { shipmentBatchService, ShipmentBatchKind, type ShipmentBatch } from "@/lib/shipments";
 import { StatusBadge } from "./StatusBadge";
 import { ProgressBar } from "./ProgressBar";
 import { useT } from "@/lib/i18n";
@@ -27,7 +27,7 @@ export function ManufacturedViewDrawer({ product, onClose }: Props) {
     let ignore = false;
     if (product.contractId) {
       shipmentBatchService
-        .getByContract(product.contractId, product.contractProductId ?? undefined)
+        .getByContract(product.contractId, product.contractProductId ?? undefined, ShipmentBatchKind.Production)
         .then(list => { if (!ignore) setBatches(list); })
         .catch(() => { if (!ignore) setBatches([]); });
     } else {

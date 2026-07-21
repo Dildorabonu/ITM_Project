@@ -1149,9 +1149,15 @@ namespace DataAccess.Migrations
                     b.Property<Guid?>("DepartmentId")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
+
+                    b.Property<Guid?>("SourceBatchId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -1161,7 +1167,9 @@ namespace DataAccess.Migrations
 
                     b.HasIndex("DepartmentId");
 
-                    b.HasIndex("ContractId", "ContractProductId", "BatchNo")
+                    b.HasIndex("SourceBatchId");
+
+                    b.HasIndex("ContractId", "ContractProductId", "Kind", "BatchNo")
                         .IsUnique();
 
                     b.ToTable("ShipmentBatches");
@@ -1907,6 +1915,11 @@ namespace DataAccess.Migrations
                         .HasForeignKey("DepartmentId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("Core.Entities.ShipmentBatch", "SourceBatch")
+                        .WithMany()
+                        .HasForeignKey("SourceBatchId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Contract");
 
                     b.Navigation("ContractProduct");
@@ -1914,6 +1927,8 @@ namespace DataAccess.Migrations
                     b.Navigation("Creator");
 
                     b.Navigation("Department");
+
+                    b.Navigation("SourceBatch");
                 });
 
             modelBuilder.Entity("Core.Entities.StockIn", b =>

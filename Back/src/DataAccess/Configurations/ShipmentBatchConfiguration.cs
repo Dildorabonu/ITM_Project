@@ -33,7 +33,16 @@ public class ShipmentBatchConfiguration : IEntityTypeConfiguration<ShipmentBatch
             .HasForeignKey(s => s.CreatedBy)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasIndex(s => new { s.ContractId, s.ContractProductId, s.BatchNo })
+        // Manba partiya o'chsa olib ketish yozuvi qoladi, bog'lanish bo'shaydi —
+        // Restrict emas, chunki shartnoma cascade o'chirilishini bloklamasligi kerak.
+        builder.HasOne(s => s.SourceBatch)
+            .WithMany()
+            .HasForeignKey(s => s.SourceBatchId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // BatchNo har (shartnoma, mahsulot, tur) uchun alohida ketma-ketlik —
+        // ishlab chiqarish partiyalari va mijoz olib ketishlari aralashmaydi.
+        builder.HasIndex(s => new { s.ContractId, s.ContractProductId, s.Kind, s.BatchNo })
             .IsUnique();
     }
 }
