@@ -568,7 +568,6 @@ export default function TechnicalDrawingsPage() {
             options={[
               { id: "no_drawing", name: t("Chizma yo'q") },
               { id: String(DrawingStatus.Draft), name: t("Qoralama") },
-              { id: String(DrawingStatus.InProgress), name: t("Jarayonda") },
               { id: String(DrawingStatus.Approved), name: t("Tasdiqlangan") },
             ]}
             placeholder={t("Barcha statuslar")}

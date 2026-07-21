@@ -11,11 +11,13 @@ import {
   techProcessService,
   contractService,
   costNormService,
+  departmentService,
   ProcessStatus,
   DrawingStatus,
   type TechProcessCreatePayload,
   type ContractResponse,
   type AttachmentResponse,
+  type DepartmentOption,
 } from "@/lib/userService";
 import {
   type MaterialRow,
@@ -29,6 +31,7 @@ import {
   type CostNormMetadata,
   parseMainTables,
   parseDocxMetadata,
+  autoMatchSections,
   fmt,
   scopeKey,
 } from "./_types";
@@ -125,6 +128,7 @@ export default function TechProductionPage() {
   const [tpInlineEditing, setTpInlineEditing] = useState(false);
   const [drawingWarningNo, setDrawingWarningNo] = useState<string|null>(null);
   const [contractList, setContractList] = useState<ContractResponse[]>([]);
+  const [departments, setDepartments] = useState<DepartmentOption[]>([]);
   const [viewMode, setViewMode] = useState<"active" | "archive">("active");
 
   useDraft("draft_costnorm", cnMode==="create", cnForm, (d)=>{ if(d.contractId) { setCnForm(d); setCnMode("create"); } else { sessionStorage.removeItem("draft_costnorm"); } });
@@ -183,6 +187,7 @@ export default function TechProductionPage() {
   },[viewMode, tpSearch, page]);
 
   useEffect(()=>{ loadTp(); loadCn(); loadContracts(); },[loadTp, loadCn, loadContracts]);
+  useEffect(()=>{ departmentService.getAll().then(setDepartments).catch(()=>setDepartments([])); },[]);
 
   // Reset to page 1 when filters change
   useEffect(() => { setPage(1); }, [viewMode, tpSearch]);
@@ -278,9 +283,10 @@ export default function TechProductionPage() {
       const res=await mammoth.convertToHtml({arrayBuffer:ab});
       const {tables:parsed,error:colError}=parseMainTables(res.value);
       const metadata=parseDocxMetadata(res.value);
+      const matched=parsed.map(tb=>({...tb,rows:autoMatchSections(tb.rows,cnScopedDepartments(cnForm.contractId,cnForm.contractProductId||null))}));
       if(colError) cnPendingParseResult.current={tables:[],metadata,error:colError,fileName:file.name};
-      else if(parsed.length===0) cnPendingParseResult.current={tables:[],metadata,error:t("Faylda mos jadval topilmadi."),fileName:file.name};
-      else cnPendingParseResult.current={tables:parsed,metadata,error:null,fileName:file.name};
+      else if(matched.length===0) cnPendingParseResult.current={tables:[],metadata,error:t("Faylda mos jadval topilmadi."),fileName:file.name};
+      else cnPendingParseResult.current={tables:matched,metadata,error:null,fileName:file.name};
     } catch { cnPendingParseResult.current={tables:[],metadata:null,error:t("Faylni o'qishda xatolik"),fileName:file.name}; }
     setCnFileParseReady(true);
   }
@@ -304,7 +310,7 @@ export default function TechProductionPage() {
     setCnSaving(true);
     try {
       const allRows=cnParsedTables.flatMap(t=>t.rows);
-      const items=allRows.map((row,idx)=>({ isSection:row.isSection,sectionName:row.isSection?row.sectionName:null,no:row.no||null,name:row.name||null,unit:row.unit||null,readyQty:row.readyQty||null,wasteQty:row.wasteQty||null,totalQty:row.totalQty||null,photoRaw:row.photoRaw||null,photoSemi:row.photoSemi||null,importType:row.importType||null,sortOrder:idx }));
+      const items=allRows.map((row,idx)=>({ isSection:row.isSection,sectionName:row.isSection?row.sectionName:null,departmentId:row.isSection&&row.departmentId?row.departmentId:null,no:row.no||null,name:row.name||null,unit:row.unit||null,readyQty:row.readyQty||null,wasteQty:row.wasteQty||null,totalQty:row.totalQty||null,photoRaw:row.photoRaw||null,photoSemi:row.photoSemi||null,importType:row.importType||null,sortOrder:idx }));
       await costNormService.create({contractId:cnForm.contractId,contractProductId:cnForm.contractProductId||null,title:cnForm.title||cnFormFile?.name?.replace(/\.docx$/i,"")||"",notes:cnForm.notes||null,items,metadata:cnParsedMetadata});
       await Promise.all([loadCn(), loadReadiness()]);
       setCnDraftWarning(null); setCnMode("list");
@@ -372,7 +378,7 @@ export default function TechProductionPage() {
       ]);
       setCnEditingNorm(fresh);
       setCnEditForm({title:fresh.title,notes:fresh.notes||""});
-      setCnEditItems([...fresh.items].sort((a,b)=>a.sortOrder-b.sortOrder).map(it=>({no:it.no||"",name:it.name||"",unit:it.unit||"",readyQty:it.readyQty||"",wasteQty:it.wasteQty||"",totalQty:it.totalQty||"",photoRaw:it.photoRaw||"",photoSemi:it.photoSemi||"",importType:it.importType||"",isSection:it.isSection,sectionName:it.sectionName||""})));
+      setCnEditItems([...fresh.items].sort((a,b)=>a.sortOrder-b.sortOrder).map(it=>({no:it.no||"",name:it.name||"",unit:it.unit||"",readyQty:it.readyQty||"",wasteQty:it.wasteQty||"",totalQty:it.totalQty||"",photoRaw:it.photoRaw||"",photoSemi:it.photoSemi||"",importType:it.importType||"",isSection:it.isSection,sectionName:it.sectionName||"",departmentId:it.departmentId||""})));
       setCnEditFiles(files);
     } catch {
       setCnEditFiles([]);
@@ -389,8 +395,9 @@ export default function TechProductionPage() {
       const mammoth=await import("mammoth"); const ab=await file.arrayBuffer(); const res=await mammoth.convertToHtml({arrayBuffer:ab});
       const {tables:parsed,error}=parseMainTables(res.value);
       const metadata=parseDocxMetadata(res.value);
+      const matched=parsed.map(tb=>({...tb,rows:autoMatchSections(tb.rows,cnScopedDepartments(null,cnEditingNorm?.contractProductId,cnEditingNorm?.contractNo))}));
       if(error) cnPendingParseResult.current={tables:[],metadata,error,fileName:file.name};
-      else if(parsed.length>0) { cnPendingParseResult.current={tables:parsed,metadata,error:null,fileName:file.name}; }
+      else if(matched.length>0) { cnPendingParseResult.current={tables:matched,metadata,error:null,fileName:file.name}; }
       else cnPendingParseResult.current={tables:[],metadata,error:null,fileName:file.name};
     } catch { cnPendingParseResult.current={tables:[],metadata:null,error:t("Faylni o'qishda xatolik"),fileName:file.name}; }
     setCnFileParseReady(true);
@@ -399,7 +406,7 @@ export default function TechProductionPage() {
   async function handleCnEditSave() {
     if(!cnEditingNorm||cnEditLoading) return; setCnEditSaving(true); setCnEditSaveError(null);
     try {
-      const items=cnEditItems.map((row,idx)=>({isSection:row.isSection,sectionName:row.isSection?row.sectionName:null,no:row.no||null,name:row.name||null,unit:row.unit||null,readyQty:row.readyQty||null,wasteQty:row.wasteQty||null,totalQty:row.totalQty||null,photoRaw:row.photoRaw||null,photoSemi:row.photoSemi||null,importType:row.importType||null,sortOrder:idx}));
+      const items=cnEditItems.map((row,idx)=>({isSection:row.isSection,sectionName:row.isSection?row.sectionName:null,departmentId:row.isSection&&row.departmentId?row.departmentId:null,no:row.no||null,name:row.name||null,unit:row.unit||null,readyQty:row.readyQty||null,wasteQty:row.wasteQty||null,totalQty:row.totalQty||null,photoRaw:row.photoRaw||null,photoSemi:row.photoSemi||null,importType:row.importType||null,sortOrder:idx}));
       const newMeta=cnPendingParseResult.current?.metadata ?? null;
       await costNormService.update(cnEditingNorm.id,{title:cnEditForm.title,notes:cnEditForm.notes||null,items,metadata:newMeta});
       await Promise.all([loadCn(), loadReadiness()]);
@@ -413,6 +420,17 @@ export default function TechProductionPage() {
 
   const cnDataCount = cnParsedTables[cnActiveTab]?.rows.filter(r=>!r.isSection).length??0;
   const cnCurrentRows = cnParsedTables[cnActiveTab]?.rows??[];
+
+  // Section dropdown'ida shartnoma yaratishda tanlangan mas'ul bo'limlargina chiqadi:
+  // avval mahsulotga biriktirilganlari, bo'lmasa shartnomanikilari.
+  // Shartnoma topilmasa (masalan, arxiv) — barcha bo'limlar fallback.
+  const cnScopedDepartments = useCallback((contractId?: string|null, contractProductId?: string|null, contractNo?: string|null): {id:string;name:string}[] => {
+    const c = contractList.find(x => (!!contractId && x.id === contractId) || (!!contractNo && x.contractNo === contractNo));
+    if (!c) return departments;
+    const prod = contractProductId ? c.products.find(p => p.id === contractProductId) : undefined;
+    const scoped = (prod?.departments?.length ? prod.departments : c.departments) ?? [];
+    return scoped.length ? scoped : departments;
+  }, [contractList, departments]);
 
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -715,6 +733,7 @@ export default function TechProductionPage() {
                   contractNo={cnContract?.contractNo}
                   productType={cnProduct?.productType}
                   metadata={cnParsedMetadata}
+                  departments={cnScopedDepartments(cnForm.contractId,cnForm.contractProductId||null)}
                   onUpdateRow={(flatIdx,updated)=>{ setCnParsedTables(prev=>{ const next=[...prev]; const tab={...next[cnActiveTab],rows:[...next[cnActiveTab].rows]}; tab.rows[flatIdx]={...tab.rows[flatIdx],...updated}; next[cnActiveTab]=tab; return next; }); }}
                   onDeleteRow={(flatIdx)=>{ setCnParsedTables(prev=>{ const next=[...prev]; const tab={...next[cnActiveTab],rows:[...next[cnActiveTab].rows]}; tab.rows.splice(flatIdx,1); next[cnActiveTab]=tab; return next; }); }}
                 />
@@ -1027,6 +1046,14 @@ export default function TechProductionPage() {
               <div style={{ padding:40,textAlign:"center",color:"var(--text2)",fontSize:13 }}>{t("Yuklanmoqda...")}</div>
             ):(
               <CollapsibleItemsTable rows={cnEditItems} showPhotos={cnShowPhotos}
+                departments={(()=>{
+                  // Scoped ro'yxat + ilgari saqlangan (lekin biriktirmadan chiqib ketgan) bo'limlar,
+                  // aks holda select ularni ko'rsata olmay qiymat yo'qoladi.
+                  const scoped=cnScopedDepartments(null,cnEditingNorm.contractProductId,cnEditingNorm.contractNo);
+                  const ids=new Set(scoped.map(d=>d.id));
+                  const extra=departments.filter(d=>!ids.has(d.id)&&cnEditItems.some(r=>r.isSection&&r.departmentId===d.id));
+                  return [...scoped,...extra];
+                })()}
                 onUpdateRow={(flatIdx,updated)=>{ setCnEditItems(prev=>{ const next=[...prev]; next[flatIdx]={...next[flatIdx],...updated}; return next; }); }}
                 onDeleteRow={(flatIdx)=>{ setCnEditItems(prev=>prev.filter((_,i)=>i!==flatIdx)); }}
               />

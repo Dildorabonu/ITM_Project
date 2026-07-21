@@ -34,6 +34,8 @@ export interface MaterialRow {
   readyQty: string; wasteQty: string; totalQty: string;
   photoRaw: string; photoSemi: string; importType: string;
   isSection: boolean; sectionName: string;
+  /** Section qatorida mas'ul bo'lim IDsi; bo'sh satr — tanlanmagan. */
+  departmentId: string;
 }
 export interface ParsedTable { title: string; rows: MaterialRow[]; }
 export type ColField = "no"|"name"|"unit"|"readyQty"|"wasteQty"|"totalQty"|"photoRaw"|"photoSemi"|"importType";
@@ -158,7 +160,7 @@ export function parseMainTables(html: string): { tables: ParsedTable[]; error: s
       const cells = Array.from(tr.querySelectorAll("td, th"));
       if (cells.some(td=>parseInt(td.getAttribute("colspan")||"1")>=5)) {
         const text = tr.textContent?.trim()||"";
-        if (text) rows.push({ isSection:true, sectionName:text, no:"",name:"",unit:"",readyQty:"",wasteQty:"",totalQty:"",photoRaw:"",photoSemi:"",importType:"" });
+        if (text) rows.push({ isSection:true, sectionName:text, departmentId:"", no:"",name:"",unit:"",readyQty:"",wasteQty:"",totalQty:"",photoRaw:"",photoSemi:"",importType:"" });
         continue;
       }
       if (cells.length<3) continue;
@@ -167,7 +169,7 @@ export function parseMainTables(html: string): { tables: ParsedTable[]; error: s
       const name = colMap.name!==undefined ? gt(colMap.name) : "";
       if (!name) continue;
       rows.push({
-        isSection:false, sectionName:"",
+        isSection:false, sectionName:"", departmentId:"",
         no:         colMap.no!==undefined       ? gt(colMap.no)         : "",
         name,
         unit:       colMap.unit!==undefined      ? gt(colMap.unit)       : "",
@@ -274,6 +276,46 @@ export function parseDocxMetadata(html: string): CostNormMetadata {
   }
 
   return { approvalLeft, approvalRight, signatures, footerNote };
+}
+
+// ─── Section → Department auto-match ─────────────────────────────────────────
+//
+// DOCX'dagi section sarlavhalari ko'pincha kirillchada ("Механика участкаси"),
+// bo'lim nomlari esa lotinchada ("Mexanika"). Ikkalasini ham lotinga keltirib,
+// "uchastka/sex/bo'lim" kabi umumiy so'zlarni olib tashlab taqqoslaymiz.
+const CYR_TO_LAT: Record<string, string> = {
+  а:"a",б:"b",в:"v",г:"g",д:"d",е:"e",ё:"yo",ж:"j",з:"z",и:"i",й:"y",к:"k",
+  л:"l",м:"m",н:"n",о:"o",п:"p",р:"r",с:"s",т:"t",у:"u",ф:"f",х:"x",ц:"ts",
+  ч:"ch",ш:"sh",щ:"sh",ъ:"",ы:"i",ь:"",э:"e",ю:"yu",я:"ya",қ:"q",ғ:"g",ў:"o",ҳ:"h",
+};
+const SECTION_STOPWORDS = ["uchastkasi","uchastka","участкаси","bolimi","bolim","sexi","sex","tsexi","tsex","цехи","цех"];
+
+function normalizeSectionName(s: string): string {
+  let out = "";
+  for (const ch of s.toLowerCase()) out += CYR_TO_LAT[ch] ?? ch;
+  out = out.replace(/[^a-z0-9\s]/g, " ");
+  for (const w of SECTION_STOPWORDS) out = out.replace(new RegExp(`\\b${w}\\b`, "g"), " ");
+  return out.replace(/\s+/g, " ").trim();
+}
+
+/** Section nomiga eng mos bo'limni topadi; topilmasa null. */
+export function matchDepartment(sectionName: string, departments: { id: string; name: string }[]): string | null {
+  const target = normalizeSectionName(sectionName);
+  if (!target) return null;
+  for (const d of departments) {
+    const dn = normalizeSectionName(d.name);
+    if (!dn) continue;
+    if (target === dn || target.includes(dn) || dn.includes(target)) return d.id;
+  }
+  return null;
+}
+
+/** Parse qilingan qatorlarda section'larga bo'limni avtomatik biriktiradi. */
+export function autoMatchSections(rows: MaterialRow[], departments: { id: string; name: string }[]): MaterialRow[] {
+  if (departments.length === 0) return rows;
+  return rows.map(r => r.isSection && !r.departmentId
+    ? { ...r, departmentId: matchDepartment(r.sectionName, departments) ?? "" }
+    : r);
 }
 
 // ─── Status styles ────────────────────────────────────────────────────────────

@@ -170,6 +170,8 @@ export const ru: Record<string, string> = {
   "Blankni tozalash": "Очистить бланк",
   "Bo'lib yuborilgan — har bir yo'nalish alohida tasdiqlash bosqichidan o'tadi": "Разделена — каждое направление проходит отдельный этап утверждения",
   "Bo'lim": "Отдел",
+  "Mas'ul bo'lim tanlanmagan": "Ответственный отдел не выбран",
+  "Yangi bo'lim": "Новый участок",
   "Bo'lim boshlig'i": "Руководитель подразделения",
   "Bo'lim muvaffaqiyatli faollashtirildi!": "Подразделение успешно активировано!",
   "Bo'lim muvaffaqiyatli yangilandi!": "Подразделение успешно обновлено!",

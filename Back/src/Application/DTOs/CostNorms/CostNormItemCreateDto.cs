@@ -14,4 +14,5 @@ public class CostNormItemCreateDto
     public string? PhotoSemi { get; set; }
     public string? ImportType { get; set; }
     public int SortOrder { get; set; }
+    public Guid? DepartmentId { get; set; }
 }

@@ -447,6 +447,9 @@ namespace DataAccess.Migrations
                     b.Property<Guid>("CostNormId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("DepartmentId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("ImportType")
                         .HasColumnType("text");
 
@@ -489,6 +492,8 @@ namespace DataAccess.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CostNormId");
+
+                    b.HasIndex("DepartmentId");
 
                     b.ToTable("CostNormItems");
                 });
@@ -1709,7 +1714,14 @@ namespace DataAccess.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Core.Entities.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("CostNorm");
+
+                    b.Navigation("Department");
                 });
 
             modelBuilder.Entity("Core.Entities.LoginAttempt", b =>

@@ -14,5 +14,10 @@ public class CostNormItemConfiguration : IEntityTypeConfiguration<CostNormItem>
             .WithMany(c => c.Items)
             .HasForeignKey(i => i.CostNormId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(i => i.Department)
+            .WithMany()
+            .HasForeignKey(i => i.DepartmentId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

@@ -1095,6 +1095,9 @@ export interface CostNormItemResponse {
   photoSemi: string | null;
   importType: string | null;
   sortOrder: number;
+  /** Mas'ul bo'lim — section qatorida tanlanadi, oddiy qatorlarga backend ko'chiradi. */
+  departmentId: string | null;
+  departmentName: string | null;
 }
 
 export interface CostNormSignatureLine {
@@ -1127,6 +1130,7 @@ export interface CostNormResponse {
 export interface CostNormItemCreatePayload {
   isSection: boolean;
   sectionName?: string | null;
+  departmentId?: string | null;
   no?: string | null;
   name?: string | null;
   unit?: string | null;

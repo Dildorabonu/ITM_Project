@@ -71,6 +71,7 @@ public class CostNormService : ICostNormService
             .Include(c => c.Contract)
             .Include(c => c.ContractProduct)
             .Include(c => c.Items.OrderBy(i => i.SortOrder))
+            .ThenInclude(i => i.Department)
             .AsNoTracking()
             .FirstOrDefaultAsync(c => c.Id == id);
 
@@ -105,22 +106,7 @@ public class CostNormService : ICostNormService
             Status = DrawingStatus.InProgress,
             CreatedBy = createdBy,
             CreatedAt = DateTime.UtcNow,
-            Items = dto.Items.Select((item, index) => new CostNormItem
-            {
-                Id = Guid.NewGuid(),
-                IsSection = item.IsSection,
-                SectionName = item.SectionName,
-                No = item.No,
-                Name = item.Name,
-                Unit = item.Unit,
-                ReadyQty = item.ReadyQty,
-                WasteQty = item.WasteQty,
-                TotalQty = item.TotalQty,
-                PhotoRaw = item.PhotoRaw,
-                PhotoSemi = item.PhotoSemi,
-                ImportType = item.ImportType,
-                SortOrder = item.SortOrder > 0 ? item.SortOrder : index,
-            }).ToList()
+            Items = BuildItems(dto.Items, null)
         };
 
         _context.CostNorms.Add(costNorm);
@@ -150,6 +136,36 @@ public class CostNormService : ICostNormService
             dto.ContractId);
 
         return ApiResult<Guid>.Success(costNorm.Id, 201);
+    }
+
+    // Section qatoridagi DepartmentId undan keyingi oddiy qatorlarga (keyingi
+    // section'gacha) ko'chiriladi — bo'lim kesimidagi sarf so'rovlari SortOrder
+    // logikasisiz to'g'ridan-to'g'ri DepartmentId bo'yicha guruhlash bilan ishlaydi.
+    private static List<CostNormItem> BuildItems(IEnumerable<CostNormItemCreateDto> items, Guid? costNormId)
+    {
+        Guid? currentDept = null;
+        return items.Select((item, index) =>
+        {
+            if (item.IsSection) currentDept = item.DepartmentId;
+            return new CostNormItem
+            {
+                Id = Guid.NewGuid(),
+                CostNormId = costNormId ?? Guid.Empty,
+                IsSection = item.IsSection,
+                SectionName = item.SectionName,
+                No = item.No,
+                Name = item.Name,
+                Unit = item.Unit,
+                ReadyQty = item.ReadyQty,
+                WasteQty = item.WasteQty,
+                TotalQty = item.TotalQty,
+                PhotoRaw = item.PhotoRaw,
+                PhotoSemi = item.PhotoSemi,
+                ImportType = item.ImportType,
+                SortOrder = item.SortOrder > 0 ? item.SortOrder : index,
+                DepartmentId = item.IsSection ? item.DepartmentId : currentDept,
+            };
+        }).ToList();
     }
 
     // After a CN approval, a single product may now have both TP+CN approved
@@ -202,23 +218,7 @@ public class CostNormService : ICostNormService
         {
             var oldItems = costNorm.Items.ToList();
             _context.CostNormItems.RemoveRange(oldItems);
-            var newItems = dto.Items.Select((item, index) => new CostNormItem
-            {
-                Id = Guid.NewGuid(),
-                CostNormId = costNorm.Id,
-                IsSection = item.IsSection,
-                SectionName = item.SectionName,
-                No = item.No,
-                Name = item.Name,
-                Unit = item.Unit,
-                ReadyQty = item.ReadyQty,
-                WasteQty = item.WasteQty,
-                TotalQty = item.TotalQty,
-                PhotoRaw = item.PhotoRaw,
-                PhotoSemi = item.PhotoSemi,
-                ImportType = item.ImportType,
-                SortOrder = item.SortOrder > 0 ? item.SortOrder : index,
-            }).ToList();
+            var newItems = BuildItems(dto.Items, costNorm.Id);
             await _context.CostNormItems.AddRangeAsync(newItems);
         }
 
@@ -348,6 +348,8 @@ public class CostNormService : ICostNormService
             PhotoSemi = i.PhotoSemi,
             ImportType = i.ImportType,
             SortOrder = i.SortOrder,
+            DepartmentId = i.DepartmentId,
+            DepartmentName = i.Department?.Name,
         }).ToList()
     };
 }

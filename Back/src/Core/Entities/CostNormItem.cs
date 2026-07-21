@@ -17,7 +17,11 @@ public class CostNormItem
     public string? ImportType { get; set; }
     public int SortOrder { get; set; }
     public bool IsActive { get; set; } = true;
+    // Section qatorida foydalanuvchi tanlagan mas'ul bo'lim; oddiy qatorlarga
+    // saqlash paytida o'z section'idan ko'chiriladi (bo'lim kesimida sarf so'rovlari uchun).
+    public Guid? DepartmentId { get; set; }
 
     // Navigation properties
     public CostNorm? CostNorm { get; set; }
+    public Department? Department { get; set; }
 }

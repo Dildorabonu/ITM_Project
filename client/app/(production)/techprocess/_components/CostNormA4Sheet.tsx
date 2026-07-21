@@ -20,15 +20,16 @@ type NormRow = {
   isSection: boolean; sectionName: string | null; name: string | null; unit: string | null;
   readyQty: string | null; wasteQty: string | null; totalQty: string | null;
   photoRaw: string | null; photoSemi: string | null; importType: string | null;
+  departmentId: string | null; departmentName: string | null;
 };
 
 function normalizeRow(r: MaterialRow | CostNormItemResponse): NormRow {
   if ("no" in r && typeof (r as MaterialRow).no === "string" && !("sortOrder" in r)) {
     const mr = r as MaterialRow;
-    return { isSection: mr.isSection, sectionName: mr.sectionName || mr.name || null, name: mr.name || null, unit: mr.unit || null, readyQty: mr.readyQty || null, wasteQty: mr.wasteQty || null, totalQty: mr.totalQty || null, photoRaw: mr.photoRaw || null, photoSemi: mr.photoSemi || null, importType: mr.importType || null };
+    return { isSection: mr.isSection, sectionName: mr.sectionName || mr.name || null, name: mr.name || null, unit: mr.unit || null, readyQty: mr.readyQty || null, wasteQty: mr.wasteQty || null, totalQty: mr.totalQty || null, photoRaw: mr.photoRaw || null, photoSemi: mr.photoSemi || null, importType: mr.importType || null, departmentId: mr.departmentId || null, departmentName: null };
   }
   const ir = r as CostNormItemResponse;
-  return { isSection: ir.isSection, sectionName: ir.sectionName, name: ir.name, unit: ir.unit, readyQty: ir.readyQty, wasteQty: ir.wasteQty, totalQty: ir.totalQty, photoRaw: ir.photoRaw, photoSemi: ir.photoSemi, importType: ir.importType };
+  return { isSection: ir.isSection, sectionName: ir.sectionName, name: ir.name, unit: ir.unit, readyQty: ir.readyQty, wasteQty: ir.wasteQty, totalQty: ir.totalQty, photoRaw: ir.photoRaw, photoSemi: ir.photoSemi, importType: ir.importType, departmentId: ir.departmentId ?? null, departmentName: ir.departmentName ?? null };
 }
 
 export interface CostNormA4SheetProps {
@@ -38,11 +39,12 @@ export interface CostNormA4SheetProps {
   contractNo?: string;
   productType?: string | null;
   metadata?: CostNormMetadata | null;
+  departments?: { id: string; name: string }[];
   onUpdateRow?: (flatIdx: number, updated: Partial<MaterialRow>) => void;
   onDeleteRow?: (flatIdx: number) => void;
 }
 
-export function CostNormA4Sheet({ rows, showPhotos, title, contractNo, productType, metadata, onUpdateRow, onDeleteRow }: CostNormA4SheetProps) {
+export function CostNormA4Sheet({ rows, showPhotos, title, contractNo, productType, metadata, departments, onUpdateRow, onDeleteRow }: CostNormA4SheetProps) {
   const t = useT();
   const editable = !!onUpdateRow;
   const normalized = useMemo(() => rows.map(normalizeRow), [rows]);
@@ -50,15 +52,16 @@ export function CostNormA4Sheet({ rows, showPhotos, title, contractNo, productTy
   const [editDraft, setEditDraft] = useState<Partial<NormRow>>({});
 
   const sections = useMemo(() => {
-    const groups: { sectionIdx: number; sectionName: string; items: { row: NormRow; flatIdx: number }[] }[] = [];
-    let current = { sectionIdx: 0, sectionName: "", items: [] as { row: NormRow; flatIdx: number }[] };
+    type Group = { sectionIdx: number; sectionName: string; sectionFlatIdx: number | null; departmentId: string | null; departmentName: string | null; items: { row: NormRow; flatIdx: number }[] };
+    const groups: Group[] = [];
+    let current: Group = { sectionIdx: 0, sectionName: "", sectionFlatIdx: null, departmentId: null, departmentName: null, items: [] };
     let sectionIdx = 0;
     for (let fi = 0; fi < normalized.length; fi++) {
       const row = normalized[fi];
       if (row.isSection) {
         if (current.items.length > 0 || current.sectionName) groups.push(current);
         sectionIdx++;
-        current = { sectionIdx, sectionName: row.sectionName || "", items: [] };
+        current = { sectionIdx, sectionName: row.sectionName || "", sectionFlatIdx: fi, departmentId: row.departmentId, departmentName: row.departmentName, items: [] };
       } else { current.items.push({ row, flatIdx: fi }); }
     }
     groups.push(current);
@@ -148,7 +151,7 @@ export function CostNormA4Sheet({ rows, showPhotos, title, contractNo, productTy
         }
         .cn-a4-sheet .cn-edit-actions { display: flex; gap: 4px; justify-content: center; }
         @media print {
-          .cn-a4-toolbar, .cn-edit-actions, .cn-action-col, .cn-section-toggle { display: none !important; }
+          .cn-a4-toolbar, .cn-edit-actions, .cn-action-col, .cn-section-toggle, .cn-dept-select { display: none !important; }
           .cn-a4-sheet { box-shadow: none !important; border: none !important; border-radius: 0 !important; margin: 0 !important; }
         }
       `}</style>
@@ -227,16 +230,46 @@ export function CostNormA4Sheet({ rows, showPhotos, title, contractNo, productTy
           <tbody>
             {sections.map(section => {
               const isCollapsed = collapsed.has(section.sectionIdx);
-              const hasSection = !!section.sectionName;
+              // Qo'lda qo'shilgan bo'lim qatori nomi hali bo'sh bo'lishi mumkin —
+              // sectionFlatIdx bor bo'lsa qator baribir ko'rsatiladi.
+              const hasSection = !!section.sectionName || section.sectionFlatIdx !== null;
               return (
                 <React.Fragment key={`s-${section.sectionIdx}`}>
                   {hasSection && (
                     <tr className="cn-section-row cn-section-toggle" onClick={() => toggleSection(section.sectionIdx)} style={{ cursor: "pointer", userSelect: "none" }}>
                       <td colSpan={colCount}>
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 7, width: "100%" }}>
                           {isCollapsed ? <ChevronRight size={13} style={{ flexShrink: 0 }} /> : <ChevronDown size={13} style={{ flexShrink: 0 }} />}
-                          {section.sectionName}
+                          {section.sectionName || (editable ? <em style={{ fontWeight: 400, color: "#b45309" }}>{t("Yangi bo'lim")}</em> : null)}
                           <span style={{ marginLeft: 4, fontWeight: 400, fontSize: 10, color: "#5a3f00", background: "#fff", border: "1px solid #b8860b", borderRadius: 20, padding: "1px 7px" }}>{section.items.length} {t("та")}</span>
+                          <span style={{ flex: 1 }} />
+                          {editable && departments && section.sectionFlatIdx !== null ? (
+                              <select
+                                className="cn-dept-select"
+                                value={section.departmentId ?? ""}
+                                onClick={e => e.stopPropagation()}
+                                onChange={e => {
+                                  e.stopPropagation();
+                                  const dept = departments.find(d => d.id === e.target.value);
+                                  const upd: Partial<MaterialRow> = { departmentId: e.target.value };
+                                  // Nomi bo'sh yoki avval avto-qo'yilgan bo'lsa, bo'lim nomini yozamiz
+                                  const autoNamed = !section.sectionName || departments.some(d => d.name === section.sectionName);
+                                  if (autoNamed) upd.sectionName = dept?.name ?? "";
+                                  onUpdateRow?.(section.sectionFlatIdx!, upd);
+                                }}
+                                style={{ fontFamily: "Arial, sans-serif", fontWeight: 500, fontSize: 11, padding: "2px 6px", minWidth: 170, height: 26, borderRadius: 4, cursor: "pointer",
+                                  background: "#fff",
+                                  border: section.departmentId ? "1px solid #b8860b" : "1px solid #d97706",
+                                  color: section.departmentId ? "#5a3f00" : "#b45309" }}>
+                                <option value="">{t("Mas'ul bo'lim tanlanmagan")}</option>
+                                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                              </select>
+                          ) : (() => {
+                            const deptName = section.departmentName ?? departments?.find(d => d.id === section.departmentId)?.name ?? null;
+                            return deptName ? (
+                              <span className="cn-dept-badge" style={{ fontFamily: "Arial, sans-serif", fontWeight: 600, fontSize: 10, color: "#5a3f00", background: "#fff", border: "1px solid #b8860b", borderRadius: 20, padding: "2px 9px", whiteSpace: "nowrap" }}>{deptName}</span>
+                            ) : null;
+                          })()}
                         </span>
                       </td>
                     </tr>

@@ -318,16 +318,18 @@ public static class CostNormDocxGenerator
             if (string.IsNullOrWhiteSpace(sig.Title) && string.IsNullOrWhiteSpace(sig.Name)) continue;
             sb.Append("<w:tr>");
             sb.Append("<w:tc>");
+            // Har bir imzo qatoridan keyin bitta bo'sh qator qolsin (spacingAfter),
+            // lavozim va ismlar qalin emas.
             sb.Append("<w:tcPr><w:tcW w:w=\"9000\" w:type=\"dxa\"/></w:tcPr>");
-            sb.Append(InlineRun(sig.Title ?? string.Empty, bold: true, sizeHalfPt: 22, align: "left"));
+            sb.Append(InlineRun(sig.Title ?? string.Empty, sizeHalfPt: 28, align: "left", spacingAfter: 280));
             sb.Append("</w:tc>");
             sb.Append("<w:tc>");
             sb.Append("<w:tcPr><w:tcW w:w=\"2500\" w:type=\"dxa\"/></w:tcPr>");
-            sb.Append(InlineRun(string.Empty, sizeHalfPt: 22, align: "center"));
+            sb.Append(InlineRun(string.Empty, sizeHalfPt: 28, align: "center", spacingAfter: 280));
             sb.Append("</w:tc>");
             sb.Append("<w:tc>");
             sb.Append("<w:tcPr><w:tcW w:w=\"4420\" w:type=\"dxa\"/></w:tcPr>");
-            sb.Append(InlineRun(sig.Name ?? string.Empty, bold: true, sizeHalfPt: 22, align: "left"));
+            sb.Append(InlineRun(sig.Name ?? string.Empty, sizeHalfPt: 28, align: "left", spacingAfter: 280));
             sb.Append("</w:tc>");
             sb.Append("</w:tr>");
         }
@@ -348,13 +350,13 @@ public static class CostNormDocxGenerator
         sb.Append("<w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"DCE6F2\"/>");
         sb.Append("<w:vAlign w:val=\"center\"/>");
         sb.Append("</w:tcPr>");
-        sb.Append(InlineRun(text, bold: true, sizeHalfPt: 22, align: "center"));
+        sb.Append(InlineRun(text, bold: true, sizeHalfPt: 24, align: "center"));
         sb.Append("</w:tc>");
         return sb.ToString();
     }
 
     private static string BodyCell(string text, int width,
-        int? gridSpan = null, bool bold = false, string align = "left", int sizeHalfPt = 22)
+        int? gridSpan = null, bool bold = false, string align = "left", int sizeHalfPt = 24)
     {
         var sb = new StringBuilder();
         sb.Append("<w:tc><w:tcPr>");
@@ -368,9 +370,10 @@ public static class CostNormDocxGenerator
     }
 
     // Builds a paragraph containing a single text run with Times New Roman + formatting.
-    private static string InlineRun(string text, bool bold = false, int sizeHalfPt = 22, string? align = null)
+    private static string InlineRun(string text, bool bold = false, int sizeHalfPt = 22, string? align = null, int? spacingAfter = null)
     {
         var alignXml = align is null ? string.Empty : $"<w:jc w:val=\"{align}\"/>";
+        if (spacingAfter.HasValue) alignXml = $"<w:spacing w:after=\"{spacingAfter.Value}\"/>" + alignXml;
         var rprXml = new StringBuilder();
         rprXml.Append("<w:rPr>");
         rprXml.Append("<w:rFonts w:ascii=\"Times New Roman\" w:hAnsi=\"Times New Roman\" w:cs=\"Times New Roman\"/>");

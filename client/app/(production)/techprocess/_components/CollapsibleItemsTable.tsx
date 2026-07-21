@@ -11,18 +11,19 @@ type NormRow = {
   isSection:boolean; sectionName:string|null; name:string|null; unit:string|null;
   readyQty:string|null; wasteQty:string|null; totalQty:string|null;
   photoRaw:string|null; photoSemi:string|null; importType:string|null;
+  departmentId:string|null; departmentName:string|null;
 };
 
 function normalizeRow(r: MaterialRow|CostNormItemResponse): NormRow {
   if ("no" in r && typeof (r as MaterialRow).no==="string" && !("sortOrder" in r)) {
     const mr=r as MaterialRow;
-    return { isSection:mr.isSection,sectionName:mr.sectionName||mr.name||null,name:mr.name||null,unit:mr.unit||null,readyQty:mr.readyQty||null,wasteQty:mr.wasteQty||null,totalQty:mr.totalQty||null,photoRaw:mr.photoRaw||null,photoSemi:mr.photoSemi||null,importType:mr.importType||null };
+    return { isSection:mr.isSection,sectionName:mr.sectionName||mr.name||null,name:mr.name||null,unit:mr.unit||null,readyQty:mr.readyQty||null,wasteQty:mr.wasteQty||null,totalQty:mr.totalQty||null,photoRaw:mr.photoRaw||null,photoSemi:mr.photoSemi||null,importType:mr.importType||null,departmentId:mr.departmentId||null,departmentName:null };
   }
   const ir=r as CostNormItemResponse;
-  return { isSection:ir.isSection,sectionName:ir.sectionName,name:ir.name,unit:ir.unit,readyQty:ir.readyQty,wasteQty:ir.wasteQty,totalQty:ir.totalQty,photoRaw:ir.photoRaw,photoSemi:ir.photoSemi,importType:ir.importType };
+  return { isSection:ir.isSection,sectionName:ir.sectionName,name:ir.name,unit:ir.unit,readyQty:ir.readyQty,wasteQty:ir.wasteQty,totalQty:ir.totalQty,photoRaw:ir.photoRaw,photoSemi:ir.photoSemi,importType:ir.importType,departmentId:ir.departmentId??null,departmentName:ir.departmentName??null };
 }
 
-export function CollapsibleItemsTable({ rows,showPhotos,onUpdateRow,onDeleteRow }: { rows:(MaterialRow|CostNormItemResponse)[]; showPhotos:boolean; onUpdateRow?:(fi:number,u:Partial<MaterialRow>)=>void; onDeleteRow?:(fi:number)=>void }) {
+export function CollapsibleItemsTable({ rows,showPhotos,onUpdateRow,onDeleteRow,departments }: { rows:(MaterialRow|CostNormItemResponse)[]; showPhotos:boolean; onUpdateRow?:(fi:number,u:Partial<MaterialRow>)=>void; onDeleteRow?:(fi:number)=>void; departments?:{id:string;name:string}[] }) {
   const t = useT();
   const editable = !!onUpdateRow;
   const normalized = useMemo(()=>rows.map(normalizeRow),[rows]);
@@ -30,15 +31,16 @@ export function CollapsibleItemsTable({ rows,showPhotos,onUpdateRow,onDeleteRow 
   const [editDraft,setEditDraft] = useState<Partial<NormRow>>({});
 
   const sections = useMemo(()=>{
-    const groups: { sectionIdx:number; sectionName:string; items:{row:NormRow;flatIdx:number}[] }[] = [];
-    let current = { sectionIdx:0, sectionName:"", items:[] as {row:NormRow;flatIdx:number}[] };
+    type Group = { sectionIdx:number; sectionName:string; sectionFlatIdx:number|null; departmentId:string|null; departmentName:string|null; items:{row:NormRow;flatIdx:number}[] };
+    const groups: Group[] = [];
+    let current: Group = { sectionIdx:0, sectionName:"", sectionFlatIdx:null, departmentId:null, departmentName:null, items:[] };
     let sectionIdx=0;
     for (let fi=0; fi<normalized.length; fi++) {
       const row=normalized[fi];
       if (row.isSection) {
         if (current.items.length>0||current.sectionName) groups.push(current);
         sectionIdx++;
-        current={sectionIdx,sectionName:row.sectionName||"",items:[]};
+        current={sectionIdx,sectionName:row.sectionName||"",sectionFlatIdx:fi,departmentId:row.departmentId,departmentName:row.departmentName,items:[]};
       } else { current.items.push({row,flatIdx:fi}); }
     }
     groups.push(current);
@@ -90,16 +92,44 @@ export function CollapsibleItemsTable({ rows,showPhotos,onUpdateRow,onDeleteRow 
         <tbody>
           {sections.map(section=>{
             const isCollapsed=collapsed.has(section.sectionIdx);
-            const hasSection=!!section.sectionName;
+            // Qo'lda qo'shilgan bo'lim qatori nomi hali bo'sh bo'lishi mumkin
+            const hasSection=!!section.sectionName||section.sectionFlatIdx!==null;
             return (
               <React.Fragment key={`s-${section.sectionIdx}`}>
                 {hasSection&&(()=>{ const sStep=revealStep++; return (
                   <tr onClick={()=>toggleSection(section.sectionIdx)} className="tp-section-reveal" style={{ cursor:"pointer",userSelect:"none",animationDelay:`${stepDelay(sStep)}ms` }}>
                     <td colSpan={colCount} style={{ padding:"9px 14px",background:"var(--bg2)",fontWeight:700,fontSize:12,color:"var(--text1)",borderTop:"2px solid var(--border)",borderBottom:isCollapsed?"2px solid var(--border)":"1px solid var(--border)",letterSpacing:0.3 }}>
-                      <span style={{ display:"inline-flex",alignItems:"center",gap:7 }}>
+                      <span style={{ display:"inline-flex",alignItems:"center",gap:7,width:"100%" }}>
                         {isCollapsed?<ChevronRight size={13} style={{ color:"var(--text3)",flexShrink:0 }}/>:<ChevronDown size={13} style={{ color:"var(--text3)",flexShrink:0 }}/>}
-                        {section.sectionName}
+                        {section.sectionName||(editable?<em style={{ fontWeight:400,color:"var(--warn)" }}>{t("Yangi bo'lim")}</em>:null)}
                         <span style={{ marginLeft:4,fontWeight:400,fontSize:11,color:"var(--text3)",background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:20,padding:"1px 7px" }}>{section.items.length} {t("та")}</span>
+                        <span style={{ flex:1 }}/>
+                        {editable&&departments&&section.sectionFlatIdx!==null?(
+                          <select
+                            value={section.departmentId??""}
+                            onClick={e=>e.stopPropagation()}
+                            onChange={e=>{
+                              e.stopPropagation();
+                              const dept=departments.find(d=>d.id===e.target.value);
+                              const upd:Partial<MaterialRow>={departmentId:e.target.value};
+                              // Nomi bo'sh yoki avval avto-qo'yilgan bo'lsa, bo'lim nomini yozamiz
+                              const autoNamed=!section.sectionName||departments.some(d=>d.name===section.sectionName);
+                              if(autoNamed) upd.sectionName=dept?.name??"";
+                              onUpdateRow?.(section.sectionFlatIdx!,upd);
+                            }}
+                            className="form-input"
+                            style={{ fontWeight:500,fontSize:12,padding:"3px 8px",width:"auto",minWidth:170,height:28,
+                              borderColor:section.departmentId?"var(--border)":"var(--warn)",
+                              color:section.departmentId?"var(--text1)":"var(--warn)" }}>
+                            <option value="">{t("Mas'ul bo'lim tanlanmagan")}</option>
+                            {departments.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
+                          </select>
+                        ):(()=>{
+                          const deptName=section.departmentName??departments?.find(d=>d.id===section.departmentId)?.name??null;
+                          return deptName?(
+                            <span style={{ fontWeight:600,fontSize:11,color:"var(--accent)",background:"var(--accent-dim)",border:"1px solid var(--accent-mid)",borderRadius:20,padding:"2px 9px",whiteSpace:"nowrap" }}>{deptName}</span>
+                          ):null;
+                        })()}
                       </span>
                     </td>
                   </tr>
