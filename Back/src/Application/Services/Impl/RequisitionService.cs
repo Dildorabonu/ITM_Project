@@ -156,6 +156,19 @@ public class RequisitionService : IRequisitionService
                 return ApiResult<Guid>.Failure(["Har bir materialda MaterialId yoki nomi ko'rsatilishi shart."]);
         }
 
+        // Talabnomani faqat o'sha bo'lim xodimi yaratadi: bo'limga biriktirilmagan
+        // foydalanuvchi (jumladan superadmin) yarata olmaydi, bo'lim ko'rsatilgan
+        // bo'lsa u yaratuvchining o'z bo'limi bo'lishi shart.
+        var creator = await _context.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == createdBy);
+        if (creator is null)
+            return ApiResult<Guid>.Failure(["Foydalanuvchi topilmadi."], 404);
+        if (creator.DepartmentId is null)
+            return ApiResult<Guid>.Failure(["Talabnoma yaratish uchun bo'limga biriktirilgan bo'lishingiz kerak."]);
+        if (dto.DepartmentId.HasValue && dto.DepartmentId.Value != creator.DepartmentId.Value)
+            return ApiResult<Guid>.Failure(["Talabnomani faqat o'z bo'limingiz uchun yaratishingiz mumkin."]);
+
         var no = dto.RequisitionNo.Trim();
         var taken = await _context.Requisitions.AnyAsync(r => r.RequisitionNo == no);
         if (taken)

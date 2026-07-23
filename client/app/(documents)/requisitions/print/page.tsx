@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, Sus
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToastStore } from "@/lib/store/toastStore";
+import { useAuthStore } from "@/lib/store/authStore";
 import {
   requisitionService,
   contractService,
@@ -289,11 +290,19 @@ function RequisitionPrintContent() {
 
   const [normPickerOpen, setNormPickerOpen] = useState(false);
 
-  const applyNorm = (norm: CostNormResponse) => {
+  // Me'yoriy sarf qatorlari bo'limlarga biriktirilgan bo'lsa, faqat foydalanuvchining
+  // o'z bo'limiga tegishli qatorlar to'ldiriladi va shu bo'lim talabnomaga bog'lanadi
+  // (faqat tizimda — chop etiladigan blankda ko'rinmaydi). Talabnoma faqat o'z bo'limi
+  // uchun yaratiladi — boshqa bo'lim tanlash mumkin emas.
+  const user = useAuthStore(s => s.user);
+  const [normDept, setNormDept] = useState<{ id: string; name: string } | null>(null);
+
+  const applyNormRows = (norm: CostNormResponse, dept: { id: string; name: string } | null) => {
     const qty = norm.contractQuantity;
     // Bo'lim sarlavhalarini va butunlay bo'sh qatorlarni chiqaramiz; totalQty
     // to'ldirilmagan bo'lsa ham, agar nom yoki raqami bo'lsa qator ko'chiriladi.
-    const lines = norm.items.filter(i => !i.isSection && (i.name || i.no));
+    let lines = norm.items.filter(i => !i.isSection && (i.name || i.no));
+    if (dept) lines = lines.filter(i => i.departmentId === dept.id);
     if (!lines.length) { showToast(t("Me'yoriy sarfda material qatorlari topilmadi"), t("Xatolik")); return; }
     const newRows = lines.map((ni, idx) => {
       const totalQtyNum = ni.totalQty ? parseFloat(ni.totalQty.replace(",", ".")) : NaN;
@@ -309,7 +318,38 @@ function RequisitionPrintContent() {
       };
     });
     setRows(newRows);
-    showToast(`${t("Me'yoriy sarfdan")} ${newRows.length} ${t("ta qator to'ldirildi")}`, "success");
+    setNormDept(dept);
+    showToast(
+      dept
+        ? `${dept.name}: ${newRows.length} ${t("ta qator to'ldirildi")}`
+        : `${t("Me'yoriy sarfdan")} ${newRows.length} ${t("ta qator to'ldirildi")}`,
+      "success",
+    );
+  };
+
+  const applyNorm = (norm: CostNormResponse) => {
+    const lines = norm.items.filter(i => !i.isSection && (i.name || i.no));
+    if (!lines.length) { showToast(t("Me'yoriy sarfda material qatorlari topilmadi"), t("Xatolik")); return; }
+
+    const depts: { id: string; name: string; count: number }[] = [];
+    lines.forEach(l => {
+      if (!l.departmentId) return;
+      const d = depts.find(x => x.id === l.departmentId);
+      if (d) d.count++;
+      else depts.push({ id: l.departmentId, name: l.departmentName ?? "—", count: 1 });
+    });
+
+    // Bo'lim biriktirilmagan me'yor — eski xatti-harakat: hammasi to'ldiriladi.
+    if (!depts.length) { applyNormRows(norm, null); return; }
+
+    // Talabnoma faqat o'z bo'limi uchun yaratiladi — me'yordan ham faqat
+    // foydalanuvchi bo'limiga tegishli qatorlar olinadi.
+    const mine = depts.find(d => d.id === user?.departmentId);
+    if (!mine) {
+      showToast(t("Bu me'yoriy sarfda sizning bo'limingiz uchun qatorlar yo'q"), t("Xatolik"));
+      return;
+    }
+    applyNormRows(norm, mine);
   };
 
   const fetchAndApplyNorm = async (productId?: string, productLabel?: string) => {
@@ -373,6 +413,12 @@ function RequisitionPrintContent() {
     });
   }, [searchParams]);
 
+  // Individual talabnomada bo'lim tanlanmaydi — foydalanuvchining o'z bo'limi
+  // avtomatik qo'yiladi (talabnoma faqat o'z bo'limi nomidan yaratiladi).
+  useEffect(() => {
+    if (user?.departmentId) setDepartmentId(user.departmentId);
+  }, [user?.departmentId]);
+
   const handleClear = () => {
     setRows(prev => {
       prev.forEach(r => { if (r.image.startsWith("blob:")) URL.revokeObjectURL(r.image); });
@@ -386,6 +432,7 @@ function RequisitionPrintContent() {
     setSignDate(new Date().toLocaleDateString("ru-RU").replace(/\//g, "."));
     setContractId("");
     setDepartmentId("");
+    setNormDept(null);
     setTzFile(null);
     if (tzInputRef.current) tzInputRef.current.value = "";
     if (descRef.current) descRef.current.textContent = "";
@@ -432,6 +479,9 @@ function RequisitionPrintContent() {
 
   const validateSystem = () => {
     const filledRows = rows.filter(r => r.name.trim());
+    // Talabnoma faqat o'z bo'limi nomidan yaratiladi — bo'limga biriktirilmagan
+    // foydalanuvchi (jumladan superadmin) yarata olmaydi. Backend ham tekshiradi.
+    if (!user?.departmentId) { showToast(t("Talabnoma yaratish uchun bo'limga biriktirilgan bo'lishingiz kerak"), t("Xatolik")); return false; }
     if (!filledRows.length) { showToast(t("Kamida bitta material kiriting"), t("Xatolik")); return false; }
     if (type === RequisitionType.Contract && !contractId) { showToast(t("Shartnomani tanlang"), t("Xatolik")); return false; }
     if (type === RequisitionType.Individual && !departmentId) { showToast(t("Bo'limni tanlang"), t("Xatolik")); return false; }
@@ -585,7 +635,10 @@ function RequisitionPrintContent() {
         requisitionNo: reqNo.trim(),
         type,
         contractId: type === RequisitionType.Contract ? contractId : undefined,
-        departmentId: type === RequisitionType.Individual ? departmentId : undefined,
+        // Shartnoma tipida ham bo'lim biriktiriladi — tizimda talabnoma qaysi
+        // bo'limniki ekani ko'rinadi (blankka chiqmaydi). Me'yordan bo'lim kelmasa
+        // yaratuvchining o'z bo'limi qo'yiladi; backend mosligini tekshiradi.
+        departmentId: type === RequisitionType.Individual ? departmentId : (normDept?.id ?? user?.departmentId ?? undefined),
         purpose: description || t("Blank talabnoma"),
         signerName: signerName.trim() || undefined,
         signerTitle: signerTitle || undefined,
@@ -871,7 +924,7 @@ function RequisitionPrintContent() {
               <CheckSelect
                 value={departmentId}
                 onChange={setDepartmentId}
-                options={departments.map(d => ({ id: d.id, name: d.name }))}
+                options={departments.filter(d => d.id === user?.departmentId).map(d => ({ id: d.id, name: d.name }))}
                 placeholder={t("— Bo'lim —")}
                 style={{ width: 220 }}
               />
@@ -956,6 +1009,7 @@ function RequisitionPrintContent() {
           )}
 
           {type === RequisitionType.Contract && (
+            <>
             <button
               type="button"
               disabled={!contractId || normLoading}
@@ -975,6 +1029,26 @@ function RequisitionPrintContent() {
               )}
               {t("Me'yoriy sarfdan to'ldirish")}
             </button>
+
+            {normDept && (
+              <div
+                title={t("Talabnoma shu bo'lim me'yoriy sarfi asosida yaratilmoqda. Bu belgi qog'ozga chiqmaydi.")}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", background: "var(--purple-dim)", border: "1.5px solid var(--purple)", borderRadius: "var(--radius)", maxWidth: 260 }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" strokeWidth="2" style={{ flexShrink: 0 }}>
+                  <path d="M3 21h18" /><path d="M5 21V7l7-4 7 4v14" /><path d="M9 21v-4h6v4" />
+                  <line x1="9" y1="10" x2="9" y2="10.01" /><line x1="15" y1="10" x2="15" y2="10.01" />
+                  <line x1="9" y1="14" x2="9" y2="14.01" /><line x1="15" y1="14" x2="15" y2="14.01" />
+                </svg>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--purple)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+                  {normDept.name}
+                  {user?.departmentId === normDept.id && (
+                    <span style={{ fontWeight: 500, opacity: 0.75 }}> · {t("Sizning bo'limingiz")}</span>
+                  )}
+                </span>
+              </div>
+            )}
+            </>
           )}
 
           {/* spacer — chiqarish guruhi va yakuniy amalni o'ngga itaradi */}
