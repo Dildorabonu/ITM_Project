@@ -169,6 +169,16 @@ public class RequisitionService : IRequisitionService
         if (dto.DepartmentId.HasValue && dto.DepartmentId.Value != creator.DepartmentId.Value)
             return ApiResult<Guid>.Failure(["Talabnomani faqat o'z bo'limingiz uchun yaratishingiz mumkin."]);
 
+        // Shartnoma tipida materiallar erkin kiritilmaydi — jadval shartnomaning
+        // me'yoriy sarfidan to'ldirilgan bo'lishi shart (nomi, birligi, miqdori
+        // va qatorlar to'plami me'yorga aynan mos kelishi tekshiriladi).
+        if (dto.Type == RequisitionType.Contract)
+        {
+            var normError = await ValidateItemsAgainstCostNormAsync(dto, creator.DepartmentId.Value);
+            if (normError is not null)
+                return ApiResult<Guid>.Failure([normError]);
+        }
+
         var no = dto.RequisitionNo.Trim();
         var taken = await _context.Requisitions.AnyAsync(r => r.RequisitionNo == no);
         if (taken)
@@ -208,6 +218,83 @@ public class RequisitionService : IRequisitionService
         await NotifyWarehouseCheckersAsync(requisition);
 
         return ApiResult<Guid>.Success(requisition.Id);
+    }
+
+    // Shartnoma tipidagi talabnoma materiallarini shartnomaning me'yoriy sarflari
+    // bilan solishtiradi. Kamida bitta me'yorga to'liq mos kelsa null (xatosiz),
+    // aks holda xato matni qaytadi. Frontend "Me'yoriy sarfdan to'ldirish" bilan
+    // bir xil mantiq: section bo'lmagan, nomi bor qatorlar; bo'limlar biriktirilgan
+    // me'yorda faqat yaratuvchi bo'limining qatorlari; miqdor = TotalQty × mahsulot soni.
+    private async Task<string?> ValidateItemsAgainstCostNormAsync(RequisitionCreateDto dto, Guid creatorDeptId)
+    {
+        var norms = await _context.CostNorms
+            .Include(n => n.ContractProduct)
+            .Include(n => n.Items)
+            .AsNoTracking()
+            .Where(n => n.ContractId == dto.ContractId!.Value)
+            .ToListAsync();
+
+        if (norms.Count == 0)
+            return "Bu shartnoma uchun me'yoriy sarf topilmadi — shartnoma tipidagi talabnoma faqat me'yoriy sarf asosida yaratiladi.";
+
+        if (norms.Any(n => MatchesNorm(n, dto.Items, creatorDeptId)))
+            return null;
+
+        return "Talabnoma materiallari shartnoma me'yoriy sarfiga mos emas — materiallar me'yoriy sarfdan o'zgartirilmasdan olinishi kerak.";
+    }
+
+    private static bool MatchesNorm(CostNorm norm, List<RequisitionItemCreateDto> items, Guid creatorDeptId)
+    {
+        // Frontend row.name = name ?? no bo'yicha to'ldiradi va bo'sh nomli qatorlarni
+        // saqlamaydi — shuning uchun shu ko'rinishda bo'sh bo'lmagan qatorlargina olinadi.
+        var lines = norm.Items
+            .Where(i => !i.IsSection && !string.IsNullOrWhiteSpace(i.Name ?? i.No))
+            .ToList();
+
+        if (lines.Any(l => l.DepartmentId != null))
+            lines = lines.Where(l => l.DepartmentId == creatorDeptId).ToList();
+
+        if (lines.Count == 0 || lines.Count != items.Count)
+            return false;
+
+        var contractQty = norm.ContractProduct?.Quantity > 0 ? norm.ContractProduct.Quantity : 1;
+        var pool = new List<CostNormItem>(lines);
+        foreach (var item in items)
+        {
+            var idx = pool.FindIndex(l => LineMatchesItem(l, item, contractQty));
+            if (idx < 0) return false;
+            pool.RemoveAt(idx);
+        }
+        return true;
+    }
+
+    private static bool LineMatchesItem(CostNormItem line, RequisitionItemCreateDto item, int contractQty)
+    {
+        var lineName = (line.Name ?? line.No ?? "").Trim();
+        var itemName = (item.FreeTextName ?? "").Trim();
+        if (!string.Equals(lineName, itemName, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var lineUnit = (line.Unit ?? "").Trim();
+        var itemUnit = (item.FreeTextUnit ?? "").Trim();
+        if (!string.Equals(lineUnit, itemUnit, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        // TotalQty bo'sh yoki o'qib bo'lmas bo'lsa miqdor tekshirilmaydi (frontend
+        // bunday qatorga default 1 yuboradi). Float hisob-kitob farqlari uchun
+        // kichik tolerans qoldiriladi.
+        if (!string.IsNullOrWhiteSpace(line.TotalQty)
+            && decimal.TryParse(line.TotalQty.Trim().Replace(",", "."),
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var totalQty))
+        {
+            var expected = totalQty * contractQty;
+            var tolerance = 0.01m + Math.Abs(expected) * 0.0001m;
+            if (Math.Abs(item.Quantity - expected) > tolerance)
+                return false;
+        }
+        return true;
     }
 
     public async Task<ApiResult<List<Guid>>> WarehouseCheckAsync(Guid id, RequisitionWarehouseCheckDto dto, Guid checkerId)

@@ -31,6 +31,7 @@ interface TableRow {
   notes: string;
   image: string;      // preview URL (objectURL yoki server URL)
   imageFile: File | null; // yuklanadigan fayl (yangi tanlangan bo'lsa)
+  locked?: boolean;   // me'yoriy sarfdan kelgan qator — nomi/birligi/miqdori o'zgartirilmaydi
 }
 
 const emptyRow = (id: number): TableRow => ({ id, name: "", unit: "", quantity: "", spec: "", notes: "", image: "", imageFile: null });
@@ -315,6 +316,7 @@ function RequisitionPrintContent() {
         notes: "",
         image: ni.photoRaw ?? ni.photoSemi ?? "",
         imageFile: null,
+        locked: true,
       };
     });
     setRows(newRows);
@@ -393,6 +395,19 @@ function RequisitionPrintContent() {
     await fetchAndApplyNorm();
   };
 
+  // Shartnoma tipida me'yoriy sarfdan to'ldirish majburiy — shartnoma tanlanishi
+  // bilan jadval avtomatik to'ldiriladi (alohida tugma yo'q). Ref bir shartnoma
+  // uchun qayta-qayta yuklashning oldini oladi; tip/shartnoma almashganda
+  // resetNormRows uni bo'shatib qo'yadi.
+  const autoFillRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (type !== RequisitionType.Contract || !contractId || !contracts.length) return;
+    if (autoFillRef.current === contractId) return;
+    autoFillRef.current = contractId;
+    fillFromNorm();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [type, contractId, contracts]);
+
   const handleProductPick = (product: ContractProductResponse) => {
     setNormPickerOpen(false);
     fetchAndApplyNorm(product.id, product.productType);
@@ -438,19 +453,41 @@ function RequisitionPrintContent() {
     if (descRef.current) descRef.current.textContent = "";
   };
 
-  const addRow = () => setRows(r => [...r, emptyRow(Date.now())]);
-  const removeRow = (id: number) => setRows(r => r.filter(row => row.id !== id));
-  const updateRow = (id: number, field: keyof TableRow, value: string) =>
-    setRows(r => r.map(row => row.id === id ? { ...row, [field]: value } : row));
+  // Tip yoki shartnoma almashganda me'yordan to'ldirilgan (locked) qatorlar
+  // eski shartnomadan qolib ketmasligi uchun jadval bo'shatiladi.
+  const resetNormRows = () => {
+    setRows(prev => {
+      if (!prev.some(r => r.locked)) return prev;
+      prev.forEach(r => { if (r.image.startsWith("blob:")) URL.revokeObjectURL(r.image); });
+      return [emptyRow(1), emptyRow(2), emptyRow(3)];
+    });
+    setNormDept(null);
+    autoFillRef.current = null;
+  };
 
+  const addRow = () => setRows(r => [...r, emptyRow(Date.now())]);
+  const removeRow = (id: number) => setRows(r => r.filter(row => row.id !== id || row.locked));
+  // Me'yoriy sarfdan kelgan (locked) qatorlarda nomi, birligi va miqdori o'zgartirilmaydi.
+  const LOCKED_FIELDS: (keyof TableRow)[] = ["name", "unit", "quantity"];
+  const updateRow = (id: number, field: keyof TableRow, value: string) =>
+    setRows(r => r.map(row => {
+      if (row.id !== id) return row;
+      if (row.locked && LOCKED_FIELDS.includes(field)) return row;
+      return { ...row, [field]: value };
+    }));
+
+  // Me'yordan kelgan (locked) qatorlarda rasm ham o'zgartirilmaydi — me'yorda
+  // qanday bo'lsa shundayligicha qoladi.
   const handleImageUpload = (id: number, file: File) => {
-    const previewUrl = URL.createObjectURL(file);
-    setRows(r => r.map(row => row.id === id ? { ...row, image: previewUrl, imageFile: file } : row));
+    setRows(r => r.map(row => {
+      if (row.id !== id || row.locked) return row;
+      return { ...row, image: URL.createObjectURL(file), imageFile: file };
+    }));
   };
 
   const handleImageRemove = (id: number) => {
     setRows(r => r.map(row => {
-      if (row.id !== id) return row;
+      if (row.id !== id || row.locked) return row;
       if (row.image.startsWith("blob:")) URL.revokeObjectURL(row.image);
       return { ...row, image: "", imageFile: null };
     }));
@@ -484,6 +521,12 @@ function RequisitionPrintContent() {
     if (!user?.departmentId) { showToast(t("Talabnoma yaratish uchun bo'limga biriktirilgan bo'lishingiz kerak"), t("Xatolik")); return false; }
     if (!filledRows.length) { showToast(t("Kamida bitta material kiriting"), t("Xatolik")); return false; }
     if (type === RequisitionType.Contract && !contractId) { showToast(t("Shartnomani tanlang"), t("Xatolik")); return false; }
+    // Shartnoma tipida materiallar faqat me'yoriy sarfdan olinadi — qo'lda
+    // kiritilgan (locked bo'lmagan) qatorlar bilan tizimga saqlab bo'lmaydi.
+    if (type === RequisitionType.Contract && filledRows.some(r => !r.locked)) {
+      showToast(t("Shartnoma tipida materiallar me'yoriy sarfdan avtomatik to'ldiriladi — qo'lda kiritilgan qatorlar saqlanmaydi"), t("Xatolik"));
+      return false;
+    }
     if (type === RequisitionType.Individual && !departmentId) { showToast(t("Bo'limni tanlang"), t("Xatolik")); return false; }
     return true;
   };
@@ -892,7 +935,7 @@ function RequisitionPrintContent() {
                     key={opt.value}
                     ref={el => { typeTabRefs.current[i] = el; }}
                     type="button"
-                    onClick={() => setType(opt.value)}
+                    onClick={() => { if (opt.value !== type) { setType(opt.value); resetNormRows(); } }}
                     style={{
                       position: "relative",
                       padding: "5px 12px",
@@ -915,7 +958,7 @@ function RequisitionPrintContent() {
             {type === RequisitionType.Contract ? (
               <CheckSelect
                 value={contractId}
-                onChange={setContractId}
+                onChange={v => { setContractId(v); if (v !== contractId) resetNormRows(); }}
                 options={contracts.map(c => ({ id: c.id, name: c.contractParty ? `${c.contractNo} — ${c.contractParty}` : c.contractNo }))}
                 placeholder={t("— Shartnoma —")}
                 style={{ width: 220 }}
@@ -1010,25 +1053,14 @@ function RequisitionPrintContent() {
 
           {type === RequisitionType.Contract && (
             <>
-            <button
-              type="button"
-              disabled={!contractId || normLoading}
-              onClick={fillFromNorm}
-              onMouseEnter={e => { if (contractId && !normLoading) { e.currentTarget.style.background = "var(--accent-dim)"; } }}
-              onMouseLeave={e => { e.currentTarget.style.background = "var(--bg3)"; }}
-              style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 13px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "1.5px solid var(--accent)", background: "var(--bg3)", color: "var(--accent)", cursor: (!contractId || normLoading) ? "not-allowed" : "pointer", opacity: (!contractId || normLoading) ? 0.45 : 1, whiteSpace: "nowrap", transition: "background 0.15s" }}
-            >
-              {normLoading ? (
-                <span style={{ display: "inline-block", width: 13, height: 13, border: "2px solid currentColor", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
-              ) : (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" />
-                  <line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
-              )}
-              {t("Me'yoriy sarfdan to'ldirish")}
-            </button>
+            {/* Me'yoriy sarf shartnoma tanlanganda avtomatik yuklanadi — bu chip
+                faqat yuklanish jarayonini ko'rsatadi */}
+            {normLoading && (
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", background: "var(--accent-dim)", border: "1.5px solid var(--accent)", borderRadius: "var(--radius)", whiteSpace: "nowrap" }}>
+                <span style={{ display: "inline-block", width: 13, height: 13, border: "2px solid var(--accent)", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
+                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)" }}>{t("Me'yoriy sarfdan to'ldirilmoqda…")}</span>
+              </div>
+            )}
 
             {normDept && (
               <div
@@ -1210,86 +1242,117 @@ function RequisitionPrintContent() {
                 <tbody>
                   {pageRows.map(row => {
                     const i = rows.findIndex(r => r.id === row.id);
+                    // Shartnoma tipida qo'lda kiritish yo'q — me'yordan kelmagan
+                    // (bo'sh) qatorlar shartnoma tanlanguncha inert bo'sh katak
+                    // sifatida turadi, hech narsa yozib bo'lmaydi.
+                    const inert = !row.locked && type === RequisitionType.Contract;
                     return (
                       <tr key={row.id} ref={setRowRef(row.id)} style={{ borderBottom: "1px solid #ccc", position: "relative" }}>
                         <td style={{ ...td, textAlign: "center", fontWeight: 600, whiteSpace: "nowrap", height: rowManualHeights[row.id] || undefined }}>{i + 1}.</td>
                         <td style={td}>
-                          <AutoTextarea
-                            value={row.name}
-                            onChange={v => updateRow(row.id, "name", v)}
-                            placeholder={t("Nomi...")}
-                            style={cellInput}
-                            minHeight={36}
-                          />
-                        </td>
-                        <td style={td}>
-                          <div data-cell-select="true" data-value={row.unit}>
-                            <CheckSelect
-                              value={row.unit}
-                              onChange={v => updateRow(row.id, "unit", v)}
-                              options={[
-                                { id: "", name: "—" },
-                                ...(Object.values(ProductUnit).filter(v => typeof v === "number") as ProductUnit[]).map(u => ({ id: PRODUCT_UNIT_LABELS_CYR[u], name: PRODUCT_UNIT_LABELS_CYR[u] })),
-                              ]}
-                              placeholder="—"
-                              buttonStyle={{ background: "transparent", color: "#000", border: "1px solid #ccc" }}
+                          {row.locked ? (
+                            <div style={lockedCell}>{row.name}</div>
+                          ) : inert ? (
+                            <div style={{ minHeight: 36 }} />
+                          ) : (
+                            <AutoTextarea
+                              value={row.name}
+                              onChange={v => updateRow(row.id, "name", v)}
+                              placeholder={t("Nomi...")}
+                              style={cellInput}
+                              minHeight={36}
                             />
-                          </div>
+                          )}
                         </td>
                         <td style={td}>
-                          <AutoTextarea
-                            value={row.quantity}
-                            onChange={v => updateRow(row.id, "quantity", v)}
-                            placeholder="0"
-                            style={cellInput}
-                            minHeight={36}
-                          />
+                          {row.locked ? (
+                            <div style={{ ...lockedCell, textAlign: "center" }}>{row.unit || "—"}</div>
+                          ) : inert ? (
+                            <div style={{ minHeight: 36 }} />
+                          ) : (
+                            <div data-cell-select="true" data-value={row.unit}>
+                              <CheckSelect
+                                value={row.unit}
+                                onChange={v => updateRow(row.id, "unit", v)}
+                                options={[
+                                  { id: "", name: "—" },
+                                  ...(Object.values(ProductUnit).filter(v => typeof v === "number") as ProductUnit[]).map(u => ({ id: PRODUCT_UNIT_LABELS_CYR[u], name: PRODUCT_UNIT_LABELS_CYR[u] })),
+                                ]}
+                                placeholder="—"
+                                buttonStyle={{ background: "transparent", color: "#000", border: "1px solid #ccc" }}
+                              />
+                            </div>
+                          )}
                         </td>
                         <td style={td}>
-                          <AutoTextarea
-                            value={row.spec}
-                            onChange={v => updateRow(row.id, "spec", v)}
-                            placeholder={t("Texnik ko'rsatkich...")}
-                            style={cellInput}
-                            minHeight={54}
-                          />
+                          {row.locked ? (
+                            <div style={lockedCell}>{row.quantity}</div>
+                          ) : inert ? (
+                            <div style={{ minHeight: 36 }} />
+                          ) : (
+                            <AutoTextarea
+                              value={row.quantity}
+                              onChange={v => updateRow(row.id, "quantity", v)}
+                              placeholder="0"
+                              style={cellInput}
+                              minHeight={36}
+                            />
+                          )}
+                        </td>
+                        <td style={td}>
+                          {inert ? (
+                            <div style={{ minHeight: 54 }} />
+                          ) : (
+                            <AutoTextarea
+                              value={row.spec}
+                              onChange={v => updateRow(row.id, "spec", v)}
+                              placeholder={t("Texnik ko'rsatkich...")}
+                              style={cellInput}
+                              minHeight={54}
+                            />
+                          )}
                         </td>
                         <td style={{ ...td, textAlign: "center", padding: 6, verticalAlign: "middle" }}>
                           {row.image ? (
                             <>
-                              {/* Preview + overlay action buttons */}
+                              {/* Preview + overlay action buttons (locked qatorda
+                                  rasm o'zgartirilmaydi — tugmalar chiqmaydi) */}
                               <div className="no-print req-img-wrap" style={{ position: "relative", display: "inline-block", lineHeight: 0 }}>
                                 <img src={row.image} alt="расм" style={{ maxWidth: "100%", maxHeight: 72, objectFit: "contain", borderRadius: 3, border: "1px solid #e0c060", display: "block" }} />
-                                <div className="req-img-actions" style={{
-                                  position: "absolute", top: 2, right: 2,
-                                  display: "flex", gap: 2,
-                                  transition: "opacity 0.15s",
-                                }}>
-                                  <label title={t("Rasmni almashtirish")} style={{
-                                    display: "inline-flex", alignItems: "center", justifyContent: "center",
-                                    width: 18, height: 18, fontSize: 10, lineHeight: 1,
-                                    color: "#b8860b", cursor: "pointer",
-                                    background: "#fffbea", border: "1px solid #d4a900",
-                                    borderRadius: 3, fontFamily: "Arial, sans-serif",
-                                    pointerEvents: "auto",
+                                {!row.locked && (
+                                  <div className="req-img-actions" style={{
+                                    position: "absolute", top: 2, right: 2,
+                                    display: "flex", gap: 2,
+                                    transition: "opacity 0.15s",
                                   }}>
-                                    <input type="file" accept="image/*" style={{ display: "none" }}
-                                      onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(row.id, f); }} />
-                                    ✎
-                                  </label>
-                                  <button onClick={() => handleImageRemove(row.id)} title={t("Rasmni o'chirish")} style={{
-                                    display: "inline-flex", alignItems: "center", justifyContent: "center",
-                                    width: 18, height: 18, fontSize: 10, lineHeight: 1,
-                                    color: "#c00", cursor: "pointer",
-                                    background: "#fff0f0", border: "1px solid #f99",
-                                    borderRadius: 3, fontFamily: "Arial, sans-serif", padding: 0,
-                                    pointerEvents: "auto",
-                                  }}>✕</button>
-                                </div>
+                                    <label title={t("Rasmni almashtirish")} style={{
+                                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                                      width: 18, height: 18, fontSize: 10, lineHeight: 1,
+                                      color: "#b8860b", cursor: "pointer",
+                                      background: "#fffbea", border: "1px solid #d4a900",
+                                      borderRadius: 3, fontFamily: "Arial, sans-serif",
+                                      pointerEvents: "auto",
+                                    }}>
+                                      <input type="file" accept="image/*" style={{ display: "none" }}
+                                        onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(row.id, f); }} />
+                                      ✎
+                                    </label>
+                                    <button onClick={() => handleImageRemove(row.id)} title={t("Rasmni o'chirish")} style={{
+                                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                                      width: 18, height: 18, fontSize: 10, lineHeight: 1,
+                                      color: "#c00", cursor: "pointer",
+                                      background: "#fff0f0", border: "1px solid #f99",
+                                      borderRadius: 3, fontFamily: "Arial, sans-serif", padding: 0,
+                                      pointerEvents: "auto",
+                                    }}>✕</button>
+                                  </div>
+                                )}
                               </div>
                               {/* Print-only image */}
                               <img src={row.image} alt="расм" className="print-image" style={{ maxWidth: "100%", maxHeight: 72, objectFit: "contain", display: "none" }} />
                             </>
+                          ) : (inert || row.locked) ? (
+                            <div style={{ height: 72 }} />
                           ) : (
                             <label className="no-print" title={t("Rasm yuklash")} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, height: 72, border: "1.5px dashed #c9a020", borderRadius: 5, cursor: "pointer", color: "#b8860b", background: "#fffdf0", transition: "background 0.15s" }}>
                               <input type="file" accept="image/*" style={{ display: "none" }}
@@ -1304,16 +1367,20 @@ function RequisitionPrintContent() {
                           )}
                         </td>
                         <td style={td}>
-                          <AutoTextarea
-                            value={row.notes}
-                            onChange={v => updateRow(row.id, "notes", v)}
-                            placeholder="..."
-                            style={cellInput}
-                            minHeight={36}
-                          />
+                          {inert ? (
+                            <div style={{ minHeight: 36 }} />
+                          ) : (
+                            <AutoTextarea
+                              value={row.notes}
+                              onChange={v => updateRow(row.id, "notes", v)}
+                              placeholder="..."
+                              style={cellInput}
+                              minHeight={36}
+                            />
+                          )}
                         </td>
                         <td className="no-print remove-row-btn" style={{ ...td, textAlign: "center", verticalAlign: "middle" }}>
-                          {rows.length > 1 && (
+                          {rows.length > 1 && !row.locked && !inert && (
                             <button
                               onClick={() => removeRow(row.id)}
                               style={{ background: "none", border: "none", cursor: "pointer", color: "#c00", fontSize: 16, padding: 4 }}
@@ -1342,15 +1409,24 @@ function RequisitionPrintContent() {
 
               {isLastPage && (
                 <>
-                  {/* Add row */}
-                  <div className="no-print add-row-btn" style={{ marginTop: 12, marginBottom: 16 }}>
-                    <button
-                      onClick={addRow}
-                      style={{ fontSize: 12, fontWeight: 600, color: "#b8860b", background: "none", border: "1px dashed #b8860b", borderRadius: 4, padding: "5px 14px", cursor: "pointer" }}
-                    >
-                      + {t("Qator qo'shish")}
-                    </button>
-                  </div>
+                  {/* Add row — shartnoma tipida materiallar faqat me'yoriy sarfdan
+                      to'ldiriladi, qo'lda qator qo'shilmaydi */}
+                  {type === RequisitionType.Individual ? (
+                    <div className="no-print add-row-btn" style={{ marginTop: 12, marginBottom: 16 }}>
+                      <button
+                        onClick={addRow}
+                        style={{ fontSize: 12, fontWeight: 600, color: "#b8860b", background: "none", border: "1px dashed #b8860b", borderRadius: 4, padding: "5px 14px", cursor: "pointer" }}
+                      >
+                        + {t("Qator qo'shish")}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="no-print add-row-btn" style={{ marginTop: 12, marginBottom: 16, fontSize: 11, color: "#999", fontFamily: "Arial, sans-serif" }}>
+                      {contractId
+                        ? t("Shartnoma tipida materiallar me'yoriy sarfdan avtomatik to'ldiriladi")
+                        : t("Shartnomani tanlang — jadval me'yoriy sarfdan avtomatik to'ldiriladi")}
+                    </div>
+                  )}
 
                   {/* Signature */}
                   <div ref={signatureRef}>
@@ -1437,7 +1513,13 @@ function RequisitionPrintContent() {
 
             <div style={{ display: "flex", marginTop: 18 }}>
               <button
-                onClick={() => setNormPickerOpen(false)}
+                onClick={() => {
+                  // Mahsulot tanlanmasa me'yordan to'ldirib bo'lmaydi — shartnoma
+                  // tanlovi ham bekor qilinadi (to'ldirish majburiy bo'lgani uchun).
+                  setNormPickerOpen(false);
+                  setContractId("");
+                  resetNormRows();
+                }}
                 style={{ flex: 1, padding: "9px", background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, color: "var(--text2)" }}
               >
                 {t("Bekor")}
@@ -1569,6 +1651,19 @@ const td: React.CSSProperties = {
   verticalAlign: "top",
   overflow: "hidden",
   wordBreak: "break-word",
+};
+
+// Me'yoriy sarfdan kelgan (locked) qator katagi — cellInput bilan bir xil
+// tipografiya, lekin tahrirlanmaydigan oddiy matn sifatida chiqadi.
+const lockedCell: React.CSSProperties = {
+  width: "100%",
+  fontFamily: "Times New Roman, serif",
+  fontSize: 12,
+  color: "#000",
+  lineHeight: 1.5,
+  wordBreak: "break-word",
+  minHeight: 28,
+  boxSizing: "border-box",
 };
 
 const cellInput: React.CSSProperties = {
