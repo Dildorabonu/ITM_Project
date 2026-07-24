@@ -144,8 +144,10 @@ public class RequisitionService : IRequisitionService
         if (dto.Type == RequisitionType.Contract && dto.ContractId is null)
             return ApiResult<Guid>.Failure(["Shartnoma bo'yicha talabnomada ContractId majburiy."]);
 
-        if (dto.Type == RequisitionType.Individual && dto.DepartmentId is null)
-            return ApiResult<Guid>.Failure(["Individual talabnomada DepartmentId majburiy."]);
+        // DepartmentId har ikkala tipda ham majburiy — busiz chiqarish bosqichida
+        // mahsulot qaysi bo'lim omboriga tushishi noma'lum bo'lib qoladi.
+        if (dto.DepartmentId is null)
+            return ApiResult<Guid>.Failure(["Talabnomada DepartmentId majburiy."]);
 
         if (dto.Items.Count == 0)
             return ApiResult<Guid>.Failure(["Kamida bitta material kerak."]);
