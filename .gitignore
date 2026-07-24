@@ -15,6 +15,9 @@ server/alembic/versions/__pycache__/
 client/node_modules/
 server/node_modules/
 
+# Offline deploy build natijasi
+dist/
+
 # .NET
 Back/**/bin/
 Back/**/obj/

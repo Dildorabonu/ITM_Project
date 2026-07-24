@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const BACKEND = process.env.BACKEND_URL ?? "http://localhost:5223";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   productionBrowserSourceMaps: false,
   allowedDevOrigins: ["localhost:3000"],
   async rewrites() {
