@@ -64,9 +64,14 @@ public class AuthService : IAuthService
                         [$"Hisob {_lockout.LockoutMinutes} daqiqaga bloklandi. Ko'p marta noto'g'ri parol kiritildi."],
                         statusCode: 423);
                 }
+
+                var remaining = _lockout.MaxFailedAttempts - recentFailures;
+                return ApiResult<AuthResponseDto>.Failure(
+                    [$"Login yoki parol noto'g'ri. Yana {remaining} ta urinish qoldi."],
+                    statusCode: 401);
             }
 
-            return ApiResult<AuthResponseDto>.Failure(["Invalid login or password."], statusCode: 401);
+            return ApiResult<AuthResponseDto>.Failure(["Login yoki parol noto'g'ri."], statusCode: 401);
         }
 
         await RecordAttemptAsync(user.Id, dto.Login, ip, success: true);

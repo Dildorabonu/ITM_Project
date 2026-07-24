@@ -440,6 +440,7 @@ export const ru: Record<string, string> = {
   "Login": "Логин",
   "LOGIN": "ЛОГИН",
   "Login yoki parol noto'g'ri. Qayta urinib ko'ring.": "Неверный логин или пароль. Попробуйте снова.",
+  "Server bilan aloqa yo'q. Tarmoq yoki server holatini tekshiring.": "Нет связи с сервером. Проверьте сеть или состояние сервера.",
   "Loginni kiriting": "Введите логин",
   "m": "тов",
   "Ma'lumot": "Информация",

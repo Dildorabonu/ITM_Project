@@ -125,7 +125,7 @@ namespace API
                         partitionKey: GetClientIp(httpContext),
                         factory: _ => new FixedWindowRateLimiterOptions
                         {
-                            PermitLimit = 5,
+                            PermitLimit = 300,
                             Window = TimeSpan.FromMinutes(1),
                             QueueLimit = 0
                         }));

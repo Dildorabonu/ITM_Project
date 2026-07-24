@@ -164,11 +164,18 @@ export default function LoginPage() {
       if (axios.isAxiosError(err)) {
         const status = err.response?.status;
         const serverMsg = err.response?.data?.errors?.[0];
-        if (status === 423) {
+        if (!err.response || (status !== undefined && status >= 500 && typeof serverMsg !== "string")) {
+          // Javob umuman kelmadi (backend'ga to'g'ridan-to'g'ri ulanishda) yoki
+          // Next.js proxy backend'ga yeta olmay 5xx qaytardi (odatiy rejim) —
+          // ikkalasida ham sabab bitta: server bilan aloqa yo'q.
+          msg = t("Server bilan aloqa yo'q. Tarmoq yoki server holatini tekshiring.");
+        } else if (status === 423) {
           msg = serverMsg ?? t("Hisob vaqtincha bloklangan. Iltimos, keyinroq urinib ko'ring.");
         } else if (status === 429) {
           msg = serverMsg ?? t("Juda ko'p urinish. Iltimos, biroz kutib turing.");
-        } else if (typeof serverMsg === "string" && serverMsg.length > 0 && status !== 401) {
+        } else if (typeof serverMsg === "string" && serverMsg.length > 0) {
+          // 401 da ham server xabarini ko'rsatamiz — unda nechta urinish
+          // qolgani bo'ladi ("Yana N ta urinish qoldi").
           msg = serverMsg;
         }
       }

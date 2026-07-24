@@ -126,7 +126,7 @@ public class AuthServiceTests
         // Assert
         result.Succeeded.Should().BeFalse();
         result.StatusCode.Should().Be(401);
-        result.Errors.Should().ContainSingle().Which.Should().Contain("Invalid login or password");
+        result.Errors.Should().ContainSingle().Which.Should().Contain("Login yoki parol noto'g'ri");
 
         var attempt = await db.LoginAttempts.SingleAsync();
         attempt.UserId.Should().BeNull();

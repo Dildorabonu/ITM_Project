@@ -35,8 +35,10 @@ public class AuthController : ControllerBase
     {
         var result = await _authService.LoginAsync(dto);
 
+        // Lockout (423) va boshqa maxsus statuslar frontendga aynan yetib borishi kerak —
+        // hammasini 401 ga yig'ib yuborsak, klient blok xabarini ko'rsata olmaydi.
         if (!result.Succeeded || result.Result is null)
-            return Unauthorized(result);
+            return StatusCode(result.StatusCode > 0 ? result.StatusCode : 401, result);
 
         WriteAuthCookies(result.Result);
 
