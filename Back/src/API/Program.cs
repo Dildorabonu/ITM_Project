@@ -176,6 +176,12 @@ namespace API
             // Litsenziyani har daqiqada qayta tekshiruvchi fon xizmati.
             builder.Services.AddHostedService<LicenseRefreshService>();
 
+            // Hisoblagichni Modbus TCP orqali faol so'rab turuvchi fon xizmati —
+            // backend o'zi qurilmaning 502-portidan registrlarni o'qiydi.
+            builder.Services.Configure<MeterPollerOptions>(
+                builder.Configuration.GetSection(MeterPollerOptions.SectionName));
+            builder.Services.AddHostedService<API.Services.MeterPollerService>();
+
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>

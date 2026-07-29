@@ -22,6 +22,7 @@ const navGroups: NavGroup[] = [
     items: [
       { name: "Dashboard",        href: "/",              icon: "grid" },
       { name: "Bildirishnomalar", href: "/notifications", icon: "bell" },
+      { name: "Hisoblagichlar",   href: "/meter-data",    icon: "activity" },
     ],
   },
   {
@@ -130,12 +131,13 @@ function applyAppearanceFont(family: string, scale: number) {
 }
 
 // Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
-const readyRoutes = new Set(["/", "/users", "/employees", "/roles", "/login", "/departments", "/warehouse-inventory", "/warehouse-check", "/warehouse-movements", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions", "/requisitions/approvals", "/manufactured", "/product-catalog", "/department-warehouses", "/litsenziya"]);
+const readyRoutes = new Set(["/", "/users", "/employees", "/roles", "/login", "/departments", "/warehouse-inventory", "/warehouse-check", "/warehouse-movements", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions", "/requisitions/approvals", "/manufactured", "/product-catalog", "/department-warehouses", "/litsenziya", "/meter-data"]);
 const readyPrefixes = ["/requisitions/", "/contracts/", "/techprocess/", "/technicaldrawings/", "/requisitions/print", "/department-warehouses/", "/warehouse-inventory/label/"];
 
 const pageTitles: Record<string, string> = {
   "/":              "Dashboard",
   "/notifications": "Bildirishnomalar",
+  "/meter-data":    "Hisoblagichlar",
   "/contracts":     "Shartnomalar",
   "/techprocess":   "Tex jarayon & Normalar",
   "/technicaldrawings": "Texnik chizmalar",

@@ -695,6 +695,51 @@ namespace DataAccess.Migrations
                     b.ToTable("Materials");
                 });
 
+            modelBuilder.Entity("Core.Entities.MeterReading", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<double>("ActivePower")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<double>("CurrentPhaseA")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("CurrentPhaseB")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("CurrentPhaseC")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("DeviceName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<double>("Frequency")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("VoltagePhaseA")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("VoltagePhaseB")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("VoltagePhaseC")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DeviceName", "CreatedAt");
+
+                    b.ToTable("MeterReadings");
+                });
+
             modelBuilder.Entity("Core.Entities.Notification", b =>
                 {
                     b.Property<Guid>("Id")

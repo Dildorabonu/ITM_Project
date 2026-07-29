@@ -47,6 +47,7 @@ public static class ApplicationDependencyInjection
         services.AddScoped<IActivityLogService, ActivityLogService>();
         services.AddScoped<IQrCodeService, QrCodeService>();
         services.AddScoped<IScanService, ScanService>();
+        services.AddScoped<IMeterDataService, MeterDataService>();
 
         return services;
     }

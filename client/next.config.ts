@@ -5,7 +5,7 @@ const BACKEND = process.env.BACKEND_URL ?? "http://localhost:5223";
 const nextConfig: NextConfig = {
   output: "standalone",
   productionBrowserSourceMaps: false,
-  allowedDevOrigins: ["localhost:3000"],
+  allowedDevOrigins: ["localhost:3000", "192.168.30.16:3000"],
   async rewrites() {
     return [
       {
