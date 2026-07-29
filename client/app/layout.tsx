@@ -252,6 +252,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const [langOpen, setLangOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  // Yig'ilgan sidebar uchun: guruh ikonkasi yonida chiqadigan menyu
+  const [flyout, setFlyout] = useState<{ label: string; top: number } | null>(null);
+  const flyoutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [darkMode, setDarkMode] = useState(false);
   const [hasScroll, setHasScroll] = useState(false);
   const [thumbTop, setThumbTop] = useState(0);
@@ -282,6 +285,29 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const scrollNav = (dir: "up" | "down") => {
     navRef.current?.scrollBy({ top: dir === "up" ? -80 : 80, behavior: "smooth" });
   };
+
+  // ── Yig'ilgan sidebar flyout menyusi ──────────────────────────────────────
+  const cancelFlyoutClose = () => {
+    if (flyoutTimer.current) { clearTimeout(flyoutTimer.current); flyoutTimer.current = null; }
+  };
+  const closeFlyout = () => { cancelFlyoutClose(); setFlyout(null); };
+  // Sichqoncha ikonkadan panelga o'tguncha qisqa kechikish
+  const scheduleFlyoutClose = () => {
+    cancelFlyoutClose();
+    flyoutTimer.current = setTimeout(() => setFlyout(null), 140);
+  };
+  const openFlyout = (label: string, el: HTMLElement, itemCount: number) => {
+    cancelFlyoutClose();
+    const rect = el.getBoundingClientRect();
+    const height = 46 + itemCount * 38 + 12;
+    const top = Math.max(8, Math.min(rect.top - 6, window.innerHeight - height - 8));
+    setFlyout({ label, top });
+  };
+
+  // Sidebar ochilganda yoki sahifa almashganda flyout yopiladi
+  useEffect(() => { if (!sidebarCollapsed) closeFlyout(); }, [sidebarCollapsed]);
+  useEffect(() => { closeFlyout(); }, [pathname]);
+  useEffect(() => () => cancelFlyoutClose(), []);
 
   const onThumbMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -488,9 +514,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
 
           {/* Nav */}
-          <nav ref={navRef} onScroll={updateScrollState} style={{ padding: "16px 0", flex: 1, overflowY: "scroll", overflowX: "hidden", scrollbarWidth: "none" }}>
+          <nav ref={navRef} onScroll={() => { updateScrollState(); closeFlyout(); }} style={{ padding: "16px 0", flex: 1, overflowY: "scroll", overflowX: "hidden", scrollbarWidth: "none" }}>
             {(() => { let _ni = 0; return visibleNavGroups.map((group) => {
               const isCollapsed = !!collapsedGroups[group.label];
+              // Yig'ilgan holatda faol sahifa qaysi guruhdaligini ikonka rangi bildiradi
+              const groupActive = group.items.some(i => i.href === pathname);
               const _gd = 150 + _ni++ * 45;
               const ga = groupAnims[group.label] ?? { rev: 0, speed: "slow" as const };
               const isFast = ga.speed === "fast";
@@ -498,23 +526,40 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <div key={`${group.label}-${navAnimRev}`} style={{ marginBottom: 10 }}>
                   <div
                     className="nav-item"
-                    onClick={() => !sidebarCollapsed && toggleGroup(group.label)}
+                    onClick={() => {
+                      if (!sidebarCollapsed) { toggleGroup(group.label); return; }
+                      // Yig'ilgan holatda ikonkani bosish — sidebarni ochib, shu guruhni yoyadi
+                      closeFlyout();
+                      setCollapsedGroups(prev => ({ ...prev, [group.label]: false }));
+                      setSidebarCollapsed(false);
+                    }}
                     style={{
                       fontSize: 14, letterSpacing: sidebarCollapsed ? 0 : 0.5, color: "var(--sidebar-text)", fontWeight: 700,
                       padding: sidebarCollapsed ? "8px 0" : "8px 12px 4px", textTransform: "none",
                       display: "flex", alignItems: "center",
                       justifyContent: sidebarCollapsed ? "center" : "space-between",
-                      cursor: sidebarCollapsed ? "default" : "pointer", userSelect: "none",
+                      cursor: "pointer", userSelect: "none",
                       margin: "0 8px", borderRadius: 8, position: "relative",
                       animation: `navItemIn 0.28s ease ${_gd}ms backwards`,
                     }}
-                    onMouseEnter={e => { if (!sidebarCollapsed) (e.currentTarget as HTMLElement).style.background = "linear-gradient(to right, transparent 6px, var(--sidebar-hover) 6px)"; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                    onMouseEnter={e => {
+                      const el = e.currentTarget as HTMLElement;
+                      if (sidebarCollapsed) {
+                        el.style.background = "var(--sidebar-hover)";
+                        openFlyout(group.label, el, group.items.length);
+                      } else {
+                        el.style.background = "linear-gradient(to right, transparent 6px, var(--sidebar-hover) 6px)";
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      (e.currentTarget as HTMLElement).style.background = "transparent";
+                      if (sidebarCollapsed) scheduleFlyoutClose();
+                    }}
                   >
                     {!sidebarCollapsed && <span className="nav-border" style={{ position: "absolute", left: 6, top: 0, bottom: 0, width: 3 }} />}
                     {sidebarCollapsed ? (
-                      <span title={t(group.label)} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <NavIcon type={group.icon} size={21} />
+                      <span style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <NavIcon type={group.icon} size={21} color={groupActive ? "var(--accent)" : undefined} />
                       </span>
                     ) : (
                       <>
@@ -664,6 +709,72 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </button>
           </div>
         </aside>
+
+        {/* ===== YIG'ILGAN SIDEBAR FLYOUT MENYUSI ===== */}
+        {sidebarCollapsed && flyout && (() => {
+          const group = visibleNavGroups.find(g => g.label === flyout.label);
+          if (!group) return null;
+          return (
+            <div
+              onMouseEnter={cancelFlyoutClose}
+              onMouseLeave={scheduleFlyoutClose}
+              style={{
+                position: "fixed", left: 64, top: flyout.top, zIndex: 60,
+                minWidth: 240, maxHeight: "calc(100vh - 16px)", overflowY: "auto",
+                background: "var(--sidebar-bg)",
+                border: "1px solid var(--sidebar-border)",
+                borderRadius: 10, boxShadow: "var(--shadow2)", padding: 6,
+                animation: "navItemIn 0.16s ease",
+              }}
+            >
+              <div style={{
+                display: "flex", alignItems: "center", gap: 7, whiteSpace: "nowrap",
+                padding: "6px 10px 8px", marginBottom: 4,
+                borderBottom: "1px solid var(--sidebar-border)",
+                fontSize: 13, fontWeight: 700, color: "var(--sidebar-text)",
+              }}>
+                <NavIcon type={group.icon} size={18} />
+                {t(group.label)}
+              </div>
+              {group.items.map(item => {
+                const isActive = pathname === item.href;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={closeFlyout}
+                    className="nav-item"
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10,
+                      padding: "8px 10px", borderRadius: 8,
+                      textDecoration: "none", fontSize: 14, fontWeight: 400,
+                      whiteSpace: "nowrap",
+                      color: isActive ? "var(--accent)" : "var(--sidebar-text)",
+                      background: isActive ? "var(--sidebar-active)" : "transparent",
+                      transition: "background 0.14s",
+                    }}
+                    onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "var(--sidebar-hover)"; }}
+                    onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                  >
+                    <span style={{ opacity: isActive ? 1 : 0.75, display: "flex" }}>
+                      <NavIcon type={item.icon} strokeWidth={2.5} color={isActive ? "var(--accent)" : "var(--sidebar-text)"} />
+                    </span>
+                    {t(item.name)}
+                    {item.badge && (
+                      <span style={{
+                        marginLeft: "auto", minWidth: 19, height: 19, borderRadius: 9,
+                        background: item.badgeWarn ? "var(--warn)" : "var(--danger)",
+                        color: "#fff", fontSize: 13, fontWeight: 700,
+                        display: "flex", alignItems: "center", justifyContent: "center", padding: "0 5px",
+                        fontFamily: "var(--font-mono)",
+                      }}>{item.badge}</span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         {/* ===== MAIN ===== */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
