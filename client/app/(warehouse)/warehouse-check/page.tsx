@@ -10,10 +10,15 @@ import {
   type RequisitionResponse,
   type ProductResponse,
 } from "@/lib/userService";
-import { normalize, fmt, statusKeyframes, type ReqCheckRow } from "./_types";
+import { normalize, fmt, daysSince, statusKeyframes, type ReqCheckRow } from "./_types";
 import { DetailLoadingOverlay } from "./_components/DetailLoadingOverlay";
 import { WarehouseCheckDetail } from "./_components/WarehouseCheckDetail";
 import { useT } from "@/lib/i18n";
+
+/** Kutish muddatiga qarab rang: 7+ kun — kritik, 3+ kun — ogohlantirish. */
+function waitColor(days: number) {
+  return days >= 7 ? "var(--danger)" : days >= 3 ? "var(--warn)" : "var(--text2)";
+}
 
 export default function WarehousePage() {
   const t = useT();
@@ -57,30 +62,20 @@ export default function WarehousePage() {
   // ── Build rows ───────────────────────────────────────────────────────────
 
   const reqRows = useMemo<ReqCheckRow[]>(() => {
-    return requisitions.map(req => {
-      const totalItems = req.items.length;
-      const foundItems = req.items.filter(it => {
-        const match = prodMap.get(normalize(it.materialName));
-        return match && match.availableQuantity >= it.quantity;
-      }).length;
-      const missingItems = totalItems - foundItems;
-      return {
-        id: req.id,
-        requisitionNo: req.requisitionNo,
-        type: req.type,
-        purpose: req.purpose,
-        contractNo: req.contractNo,
-        departmentName: req.departmentName,
-        createdByName: req.createdByName,
-        createdAt: req.createdAt,
-        totalItems,
-        foundItems,
-        missingItems,
-        fullyAvailable: totalItems > 0 && missingItems === 0,
-        checked: !!req.warehouseCheckedAt,
-      };
-    });
-  }, [requisitions, prodMap]);
+    return requisitions.map(req => ({
+      id: req.id,
+      requisitionNo: req.requisitionNo,
+      type: req.type,
+      purpose: req.purpose,
+      contractNo: req.contractNo,
+      departmentName: req.departmentName,
+      createdByName: req.createdByName,
+      createdAt: req.createdAt,
+      totalItems: req.items.length,
+      waitingDays: daysSince(req.createdAt),
+      checked: !!req.warehouseCheckedAt,
+    }));
+  }, [requisitions]);
 
   // ── Filter ───────────────────────────────────────────────────────────────
 
@@ -98,12 +93,15 @@ export default function WarehousePage() {
 
   // ── Stats ────────────────────────────────────────────────────────────────
 
+  // Tekshiruv navbatining hajmi va yoshi — tekshirilmagan talabnomalar uchun
+  // mavjudlik hali noma'lum, shuning uchun ish hajmi va kutish muddati ko'rsatiladi.
   const stats = useMemo(() => {
-    const total = reqRows.length;
-    const checkedRows = reqRows.filter(r => r.checked);
-    const fullyAvailable = checkedRows.filter(r => r.fullyAvailable).length;
-    const partial = checkedRows.length - fullyAvailable;
-    return { total, fullyAvailable, partial };
+    const totalPositions = reqRows.reduce((sum, r) => sum + r.totalItems, 0);
+    const oldest = reqRows.reduce<ReqCheckRow | null>(
+      (acc, r) => (!acc || r.waitingDays > acc.waitingDays ? r : acc),
+      null
+    );
+    return { total: reqRows.length, totalPositions, oldest };
   }, [reqRows]);
 
   // ── Selected requisition ────────────────────────────────────────────────
@@ -158,12 +156,15 @@ export default function WarehousePage() {
           <div style={{ fontSize: 22, fontWeight: 700, color: "var(--accent)" }}>{stats.total}</div>
         </div>
         <div className="itm-card" style={{ padding: "16px 20px" }}>
-          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 4 }}>{t("To'liq mavjud")}</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: "var(--success)" }}>{stats.fullyAvailable}</div>
+          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 4 }}>{t("Jami pozitsiyalar")}</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: "var(--text)" }}>{stats.totalPositions}</div>
         </div>
         <div className="itm-card" style={{ padding: "16px 20px" }}>
-          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 4 }}>{t("Qisman / Yo'q")}</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: "var(--danger)" }}>{stats.partial}</div>
+          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 4 }}>{t("Eng uzoq kutgan")}</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: stats.oldest ? waitColor(stats.oldest.waitingDays) : "var(--text3)" }}>
+            {stats.oldest ? (stats.oldest.waitingDays === 0 ? t("Bugun") : `${stats.oldest.waitingDays} ${t("kun")}`) : "—"}
+          </div>
+          <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2, minHeight: 14 }}>{stats.oldest?.requisitionNo ?? ""}</div>
         </div>
       </div>
 
@@ -211,8 +212,7 @@ export default function WarehousePage() {
                   <th style={{ width: 220, textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Maqsad")}</th>
                   <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Shartnoma / Bo'lim")}</th>
                   <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Jami")}</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Mavjud")}</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Yetishmovchi")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Kutish")}</th>
                   <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Sana")}</th>
                   <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Yaratuvchi")}</th>
                 </tr>
@@ -249,11 +249,8 @@ export default function WarehousePage() {
                     <td title={row.purpose} style={{ textAlign: "center", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.purpose}</td>
                     <td style={{ textAlign: "center" }}>{row.contractNo || row.departmentName || "—"}</td>
                     <td style={{ textAlign: "center", fontWeight: 600 }}>{row.totalItems}</td>
-                    <td style={{ textAlign: "center", color: row.checked ? "var(--success)" : "var(--text3)", fontWeight: row.checked ? 600 : 400 }}>
-                      {row.checked ? row.foundItems : "—"}
-                    </td>
-                    <td style={{ textAlign: "center", color: row.checked && row.missingItems > 0 ? "var(--danger)" : "var(--text3)", fontWeight: row.checked && row.missingItems > 0 ? 600 : 400 }}>
-                      {row.checked ? (row.missingItems > 0 ? row.missingItems : "—") : "—"}
+                    <td style={{ textAlign: "center", color: waitColor(row.waitingDays), fontWeight: row.waitingDays >= 3 ? 600 : 400 }}>
+                      {row.waitingDays === 0 ? t("Bugun") : `${row.waitingDays} ${t("kun")}`}
                     </td>
                     <td style={{ textAlign: "center" }}>{fmt(row.createdAt)}</td>
                     <td style={{ textAlign: "center" }}>{row.createdByName}</td>

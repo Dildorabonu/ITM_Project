@@ -12,9 +12,8 @@ export interface ReqCheckRow {
   createdByName: string;
   createdAt: string;
   totalItems: number;
-  foundItems: number;
-  missingItems: number;
-  fullyAvailable: boolean;
+  /** Yaratilganidan beri o'tgan to'liq kunlar — tekshiruv navbatidagi kutish muddati. */
+  waitingDays: number;
   checked: boolean;
 }
 
@@ -34,6 +33,16 @@ export interface MaterialCheckItem {
 
 export function normalize(s: string) {
   return s.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/** ISO sanadan bugungi kungacha o'tgan to'liq kunlar soni (manfiy bo'lmaydi). */
+export function daysSince(d: string) {
+  if (!d) return 0;
+  const [y, m, day] = d.slice(0, 10).split("-").map(Number);
+  if (!y || !m || !day) return 0;
+  const now = new Date();
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.max(0, Math.round((today - Date.UTC(y, m - 1, day)) / 86400000));
 }
 
 export function fmt(d: string) {
