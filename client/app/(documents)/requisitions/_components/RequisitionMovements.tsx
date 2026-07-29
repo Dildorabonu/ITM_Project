@@ -9,6 +9,7 @@ import {
   type StockMovement,
 } from "@/lib/stockMovements";
 import { useT } from "@/lib/i18n";
+import { fmtDecimal } from "@/lib/num";
 
 interface Props {
   requisitionId: string;
@@ -86,9 +87,9 @@ export function RequisitionMovements({ requisitionId }: Props) {
                     {m.typeLabel}
                   </span>
                   <span style={{ fontSize: 13, color: "var(--text1)", fontWeight: 500 }}>{m.productName}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, fontFamily: "var(--font-mono)", color }}>{sign}{m.quantity}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, fontFamily: "var(--font-mono)", color }}>{sign}{fmtDecimal(m.quantity)}</span>
                   <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--text3)", fontFamily: "var(--font-mono)" }}>
-                    {t("qoldiq")}: <span style={{ color: "var(--text1)", fontWeight: 600 }}>{m.quantityAfter}</span>
+                    {t("qoldiq")}: <span style={{ color: "var(--text1)", fontWeight: 600 }}>{fmtDecimal(m.quantityAfter)}</span>
                   </span>
                 </div>
                 {dir && (

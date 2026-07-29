@@ -4,6 +4,7 @@ import {
   type RequisitionItemResponse,
 } from "@/lib/userService";
 import { getApiBase } from "@/lib/apiBase";
+import { fmtDecimal } from "@/lib/num";
 
 // ─── A4 geometry (print sahifasi bilan bir xil) ───────────────────────────────
 // 96dpi: 1mm ≈ 3.78px
@@ -94,8 +95,8 @@ function formatIsoToDdMmYyyy(iso?: string | null): string {
 
 function formatQuantity(q: number | string): string {
   if (q == null) return "";
-  const s = String(q);
-  return s.endsWith(".0") || s.endsWith(",0") ? s.slice(0, -2) : s;
+  // fmtDecimal float "quyruqlari"ni ham kesadi: 53.99999999999999 → "54".
+  return fmtDecimal(q);
 }
 
 function buildIntroText(req: RequisitionResponse): string {

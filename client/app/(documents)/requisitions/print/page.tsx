@@ -21,6 +21,7 @@ import {
 } from "@/lib/userService";
 import { CheckSelect } from "../_components/CheckSelect";
 import { useT } from "@/lib/i18n";
+import { mulDecimalStr } from "@/lib/num";
 
 interface TableRow {
   id: number;
@@ -306,12 +307,16 @@ function RequisitionPrintContent() {
     if (dept) lines = lines.filter(i => i.departmentId === dept.id);
     if (!lines.length) { showToast(t("Me'yoriy sarfda material qatorlari topilmadi"), t("Xatolik")); return; }
     const newRows = lines.map((ni, idx) => {
+      // Aniq o'nlik ko'paytirish: 0.018 × 3000 = "54" (oddiy `*` bilan
+      // 53.99999999999999 chiqadi). mulDecimalStr kutilmagan formatni o'qiy
+      // olmasa null qaytaradi — u holda eski xatti-harakat, yaxlitlash yo'q.
+      const exact = ni.totalQty ? mulDecimalStr(ni.totalQty, qty) : null;
       const totalQtyNum = ni.totalQty ? parseFloat(ni.totalQty.replace(",", ".")) : NaN;
       return {
         id: Date.now() + idx,
         name: ni.name ?? ni.no ?? "",
         unit: ni.unit ?? "",
-        quantity: Number.isFinite(totalQtyNum) ? String(totalQtyNum * qty) : "",
+        quantity: exact ?? (Number.isFinite(totalQtyNum) ? String(totalQtyNum * qty) : ""),
         spec: "",
         notes: "",
         image: ni.photoRaw ?? ni.photoSemi ?? "",

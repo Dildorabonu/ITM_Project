@@ -17,6 +17,7 @@ import { RequisitionMovements } from "../_components/RequisitionMovements";
 import { downloadRequisitionPdf, openRequisitionPdfInNewTab } from "../_utils/downloadRequisitionPdf";
 import { fmtDateTime, type RequisitionResponse } from "../_types";
 import { useT } from "@/lib/i18n";
+import { fmtDecimal } from "@/lib/num";
 
 export default function RequisitionDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -348,7 +349,7 @@ export default function RequisitionDetailPage() {
                       )}
                     </td>
                     <td style={{ padding: "10px 14px", color: "var(--text3)", textAlign: "center" }}>{item.unit || "—"}</td>
-                    <td style={{ padding: "10px 14px", fontWeight: 600, color: "var(--text1)", textAlign: "center" }}>{item.quantity}</td>
+                    <td style={{ padding: "10px 14px", fontWeight: 600, color: "var(--text1)", textAlign: "center" }}>{fmtDecimal(item.quantity)}</td>
                     {showAvailability && (
                       <td style={{ padding: "10px 14px", textAlign: "center" }}>
                         {item.availableQuantity != null ? (
@@ -357,14 +358,14 @@ export default function RequisitionDetailPage() {
                             color: item.availableQuantity >= item.quantity ? "var(--success)" :
                                    item.availableQuantity > 0 ? "var(--warn)" : "var(--danger)",
                           }}>
-                            {item.availableQuantity}
+                            {fmtDecimal(item.availableQuantity)}
                           </span>
                         ) : "—"}
                       </td>
                     )}
                     {isChild && (
                       <td style={{ padding: "10px 14px", textAlign: "center", color: "var(--text3)" }}>
-                        {item.originalQuantity ?? "—"}
+                        {item.originalQuantity != null ? fmtDecimal(item.originalQuantity) : "—"}
                       </td>
                     )}
                   </tr>

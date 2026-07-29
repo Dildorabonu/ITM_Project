@@ -336,13 +336,19 @@ public class RequisitionService : IRequisitionService
             if (check.AvailableQuantity < 0)
                 return ApiResult<List<Guid>>.Failure(["Mavjud miqdor manfiy bo'lishi mumkin emas."]);
 
-            if (check.AvailableQuantity > item.Quantity)
+            // Eski yozuvlarda so'ralgan miqdor klientdagi float xatosi bilan
+            // saqlangan bo'lishi mumkin (53.99999999999999). Saqlangan qiymat
+            // o'zgartirilmaydi — faqat taqqoslashda juda kichik tolerans beriladi,
+            // aks holda omborchi 54 ni kiritganda talabnoma bekorga rad etiladi.
+            var availableQty = check.AvailableQuantity;
+            var tolerance = 0.0000001m + Math.Abs(item.Quantity) * 0.0000000001m;
+            if (availableQty - item.Quantity > tolerance)
                 return ApiResult<List<Guid>>.Failure([$"Mavjud miqdor so'ralgan miqdordan ({item.Quantity}) ko'p bo'lishi mumkin emas."]);
 
-            item.AvailableQuantity = check.AvailableQuantity;
+            item.AvailableQuantity = availableQty;
             item.WarehouseNotes = check.WarehouseNotes;
 
-            if (check.AvailableQuantity > 0)
+            if (availableQty > 0)
             {
                 var productName = (item.Material?.Name ?? item.FreeTextName ?? string.Empty).Trim();
                 if (productName.Length == 0) continue;
@@ -354,10 +360,10 @@ public class RequisitionService : IRequisitionService
                 if (product is null) continue;
 
                 var alreadyAdded = reservationDelta.TryGetValue(product.Id, out var prev) ? prev : 0m;
-                var newDelta = alreadyAdded + check.AvailableQuantity;
+                var newDelta = alreadyAdded + availableQty;
                 var effectiveFree = product.Quantity - product.ReservedQuantity - alreadyAdded;
-                if (check.AvailableQuantity > effectiveFree)
-                    return ApiResult<List<Guid>>.Failure([$"\"{product.Name}\" omborda yetarli emas (erkin: {effectiveFree}, kerak: {check.AvailableQuantity})."]);
+                if (availableQty > effectiveFree)
+                    return ApiResult<List<Guid>>.Failure([$"\"{product.Name}\" omborda yetarli emas (erkin: {effectiveFree}, kerak: {availableQty})."]);
 
                 reservationDelta[product.Id] = newDelta;
                 item.ReservedProductId = product.Id;
@@ -411,8 +417,10 @@ public class RequisitionService : IRequisitionService
 
         foreach (var item in parent.Items)
         {
+            var requestedQty = item.Quantity;
             var available = item.AvailableQuantity ?? 0m;
-            var deficit = item.Quantity - available;
+            // decimal ayirmasi aniq — yaxlitlash kerak emas.
+            var deficit = requestedQty - available;
 
             if (available > 0)
             {
@@ -425,7 +433,7 @@ public class RequisitionService : IRequisitionService
                     FreeTextSpec = item.FreeTextSpec,
                     FreeTextPhoto = item.FreeTextPhoto,
                     Quantity = available,
-                    OriginalQuantity = item.Quantity,
+                    OriginalQuantity = requestedQty,
                     Notes = item.Notes,
                     ReservedProductId = item.ReservedProductId
                 });
@@ -442,7 +450,7 @@ public class RequisitionService : IRequisitionService
                     FreeTextSpec = item.FreeTextSpec,
                     FreeTextPhoto = item.FreeTextPhoto,
                     Quantity = deficit,
-                    OriginalQuantity = item.Quantity,
+                    OriginalQuantity = requestedQty,
                     Notes = item.Notes
                 });
             }

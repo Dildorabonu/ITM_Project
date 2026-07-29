@@ -19,6 +19,7 @@ import {
 import { StatusBadgeBig } from "./StatusBadgeBig";
 import { attachChildPdfs } from "../_utils/attachChildPdfs";
 import { useT } from "@/lib/i18n";
+import { fmtDecimal } from "@/lib/num";
 
 interface Props {
   req: RequisitionResponse;
@@ -249,9 +250,9 @@ export function WarehouseCheckDetail({ req, prodMap, onClose, onSubmitted }: Pro
                       <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "12px 14px" }}>{String(idx + 1).padStart(2, "0")}</td>
                       <td style={{ textAlign: "center", color: "var(--text1)", fontWeight: 500, padding: "12px 14px" }}>{item.name}</td>
                       <td style={{ textAlign: "center", padding: "12px 14px" }}>{item.unit || "—"}</td>
-                      <td style={{ textAlign: "center", fontFamily: "Inter, sans-serif", fontWeight: 600, padding: "12px 14px" }}>{item.required > 0 ? item.required : "—"}</td>
+                      <td style={{ textAlign: "center", fontFamily: "Inter, sans-serif", fontWeight: 600, padding: "12px 14px" }}>{item.required > 0 ? fmtDecimal(item.required) : "—"}</td>
                       <td style={{ textAlign: "center", fontFamily: "Inter, sans-serif", padding: "12px 14px", color: item.productQty > 0 ? "var(--text1)" : "var(--text3)" }}>
-                        {item.productQty > 0 ? item.productQty : "—"}
+                        {item.productQty > 0 ? fmtDecimal(item.productQty) : "—"}
                       </td>
                       <td style={{ padding: "12px 14px", textAlign: "center" }}>
                         <input
