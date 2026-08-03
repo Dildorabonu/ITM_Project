@@ -1385,7 +1385,8 @@ export interface RequisitionItemCreate {
 }
 
 export interface RequisitionCreate {
-  requisitionNo: string;
+  // Yuborilmasa backend nomni shartnoma/bo'lim nomidan avtomatik yasaydi.
+  requisitionNo?: string;
   type: RequisitionType;
   contractId?: string;
   departmentId?: string;

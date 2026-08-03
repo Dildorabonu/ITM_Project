@@ -1013,8 +1013,8 @@ namespace DataAccess.Migrations
 
                     b.Property<string>("RequisitionNo")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<string>("SignDate")
                         .HasColumnType("text");

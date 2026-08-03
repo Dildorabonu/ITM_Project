@@ -138,9 +138,6 @@ public class RequisitionService : IRequisitionService
 
     public async Task<ApiResult<Guid>> CreateAsync(RequisitionCreateDto dto, Guid createdBy)
     {
-        if (string.IsNullOrWhiteSpace(dto.RequisitionNo))
-            return ApiResult<Guid>.Failure(["Talabnoma nomini kiriting."]);
-
         if (dto.Type == RequisitionType.Contract && dto.ContractId is null)
             return ApiResult<Guid>.Failure(["Shartnoma bo'yicha talabnomada ContractId majburiy."]);
 
@@ -181,10 +178,19 @@ public class RequisitionService : IRequisitionService
                 return ApiResult<Guid>.Failure([normError]);
         }
 
+        // Nom foydalanuvchidan so'ralmaydi — bo'sh kelsa manba hujjatdan yasaladi.
+        // Nom ochiq berilgan bo'lsa (eski integratsiyalar) band emasligi tekshiriladi.
         var no = dto.RequisitionNo.Trim();
-        var taken = await _context.Requisitions.AnyAsync(r => r.RequisitionNo == no);
-        if (taken)
-            return ApiResult<Guid>.Failure(["Bunday nomli talabnoma allaqachon mavjud."]);
+        if (no.Length == 0)
+        {
+            no = await GenerateRequisitionNoAsync(dto);
+        }
+        else
+        {
+            var taken = await _context.Requisitions.AnyAsync(r => r.RequisitionNo == no);
+            if (taken)
+                return ApiResult<Guid>.Failure(["Bunday nomli talabnoma allaqachon mavjud."]);
+        }
 
         var requisition = new Requisition
         {
@@ -220,6 +226,67 @@ public class RequisitionService : IRequisitionService
         await NotifyWarehouseCheckersAsync(requisition);
 
         return ApiResult<Guid>.Success(requisition.Id);
+    }
+
+    // RequisitionNo ustuni uzunligi (RequisitionConfiguration bilan bir xil).
+    private const int RequisitionNoMaxLength = 200;
+    // Takrorlanish qo'shimchasi (" (12)") va bola talabnoma suffiksi ("-W"/"-P")
+    // uchun qoldiriladigan zaxira.
+    private const int RequisitionNoSuffixReserve = 10;
+
+    // Talabnoma nomi foydalanuvchidan so'ralmaydi — u manba hujjatdan yasaladi:
+    // shartnoma tipida "<ShartnomaNo> shartnoma talabnomasi", individualda
+    // "<Bo'lim> bo'lim talabnomasi". Bitta shartnoma bo'yicha bir nechta
+    // talabnoma odatiy hol, shuning uchun nom band bo'lsa oxiriga " (2)",
+    // " (3)" … tartib raqami qo'shiladi.
+    private async Task<string> GenerateRequisitionNoAsync(RequisitionCreateDto dto)
+    {
+        string? baseName = null;
+
+        if (dto.Type == RequisitionType.Contract && dto.ContractId is not null)
+        {
+            var contractNo = await _context.Contracts
+                .AsNoTracking()
+                .Where(c => c.Id == dto.ContractId.Value)
+                .Select(c => c.ContractNo)
+                .FirstOrDefaultAsync();
+            if (!string.IsNullOrWhiteSpace(contractNo))
+                baseName = $"{contractNo.Trim()} shartnoma talabnomasi";
+        }
+        else if (dto.DepartmentId is not null)
+        {
+            var deptName = await _context.Departments
+                .AsNoTracking()
+                .Where(d => d.Id == dto.DepartmentId.Value)
+                .Select(d => d.Name)
+                .FirstOrDefaultAsync();
+            if (!string.IsNullOrWhiteSpace(deptName))
+                baseName = $"{deptName.Trim()} bo'lim talabnomasi";
+        }
+
+        baseName ??= "Talabnoma";
+
+        var maxBase = RequisitionNoMaxLength - RequisitionNoSuffixReserve;
+        if (baseName.Length > maxBase)
+            baseName = baseName[..maxBase].TrimEnd();
+
+        // Shu nom bilan boshlanadigan barcha yozuvlar bir so'rovda olinadi —
+        // har urinish uchun alohida so'rov yubormaslik uchun.
+        var used = await _context.Requisitions
+            .AsNoTracking()
+            .Where(r => r.RequisitionNo.StartsWith(baseName))
+            .Select(r => r.RequisitionNo)
+            .ToListAsync();
+
+        if (used.Count == 0)
+            return baseName;
+
+        var taken = used.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var candidate = baseName;
+        for (var i = 2; taken.Contains(candidate); i++)
+            candidate = $"{baseName} ({i})";
+
+        return candidate;
     }
 
     // Shartnoma tipidagi talabnoma materiallarini shartnomaning me'yoriy sarflari

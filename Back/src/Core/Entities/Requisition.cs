@@ -5,7 +5,9 @@ namespace Core.Entities;
 public class Requisition
 {
     public Guid Id { get; set; }
-    public string RequisitionNo { get; set; } = string.Empty;  // REQ-2026-0001 yoki REQ-2026-0001-W / -P
+    // Manba hujjatdan avtomatik yasaladi: "<ShartnomaNo> shartnoma talabnomasi"
+    // yoki "<Bo'lim> bo'lim talabnomasi"; bola talabnomalarga -W / -P qo'shiladi.
+    public string RequisitionNo { get; set; } = string.Empty;
     public RequisitionType Type { get; set; }
     public RequisitionStatus Status { get; set; } = RequisitionStatus.PendingWarehouseCheck;
 

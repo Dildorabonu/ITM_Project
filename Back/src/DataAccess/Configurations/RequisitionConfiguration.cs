@@ -10,7 +10,9 @@ public class RequisitionConfiguration : IEntityTypeConfiguration<Requisition>
     {
         builder.HasKey(r => r.Id);
 
-        builder.Property(r => r.RequisitionNo).IsRequired().HasMaxLength(50);
+        // Nom avtomatik yasaladi ("<ShartnomaNo> shartnoma talabnomasi") —
+        // shartnoma raqami uzun bo'lishi mumkin, shuning uchun 200 belgi.
+        builder.Property(r => r.RequisitionNo).IsRequired().HasMaxLength(200);
         builder.Property(r => r.Purpose).IsRequired().HasMaxLength(500);
         builder.Property(r => r.Notes).HasMaxLength(1000);
         builder.Property(r => r.RejectionReason).HasMaxLength(500);

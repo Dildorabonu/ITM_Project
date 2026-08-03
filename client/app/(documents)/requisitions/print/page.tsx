@@ -91,24 +91,29 @@ function RequisitionPrintContent() {
   const descRef = useRef<HTMLSpanElement>(null);
   const showToast = useToastStore((s) => s.show);
 
-  const [reqNo, setReqNo] = useState("");
   const [description, setDescription] = useState("");
   const [rows, setRows] = useState<TableRow[]>([emptyRow(1), emptyRow(2), emptyRow(3)]);
   const [signerName, setSignerName] = useState("");
   const [signerTitle, setSignerTitle] = useState("");
   const [signDate, setSignDate] = useState(new Date().toLocaleDateString("ru-RU").replace(/\//g, "."));
 
-  // "Yuborish" tugmasi bosilganda ochiladigan modal — talabnoma nomini so'raydi.
-  // pendingReqNo modal ichida yoziladi; faqat "Davom etish" bosilganda reqNo ga commit qilinadi
-  // (foydalanuvchi yozayotganida hujjat orqada qayta paginatsiya bo'lib qimirlamasligi uchun).
-  const [nameModalOpen, setNameModalOpen] = useState(false);
-  const [pendingReqNo, setPendingReqNo] = useState("");
-
   const [type, setType] = useState<RequisitionType>(RequisitionType.Contract);
   const [contractId, setContractId] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [contracts, setContracts] = useState<ContractResponse[]>([]);
   const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
+
+  // Talabnoma nomi foydalanuvchidan so'ralmaydi — yakuniy nomni backend manba
+  // hujjatdan yasaydi (band bo'lsa oxiriga tartib raqami qo'shadi). Bu yerda
+  // shu nomning ko'rinishi tasdiqlash oynasi va PDF fayl nomi uchun tuziladi.
+  const autoReqName = useMemo(() => {
+    if (type === RequisitionType.Contract) {
+      const c = contracts.find(x => x.id === contractId);
+      return c ? `${c.contractNo} shartnoma talabnomasi` : "";
+    }
+    const d = departments.find(x => x.id === departmentId);
+    return d ? `${d.name} bo'lim talabnomasi` : "";
+  }, [type, contractId, departmentId, contracts, departments]);
 
   const typeTabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [typePill, setTypePill] = useState({ left: 0, width: 0 });
@@ -490,8 +495,6 @@ function RequisitionPrintContent() {
       return [emptyRow(1), emptyRow(2), emptyRow(3)];
     });
     setDescription("");
-    setReqNo("");
-    setPendingReqNo("");
     setSignerName("");
     setSignerTitle("");
     setSignDate(new Date().toLocaleDateString("ru-RU").replace(/\//g, "."));
@@ -583,18 +586,6 @@ function RequisitionPrintContent() {
 
   const handleSaveSystem = () => {
     if (!validateSystem()) return;
-    setPendingReqNo(reqNo);
-    setNameModalOpen(true);
-  };
-
-  const handleNameNext = () => {
-    const trimmed = pendingReqNo.trim();
-    if (!trimmed) {
-      showToast(t("Talabnoma nomini kiriting"), t("Xatolik"));
-      return;
-    }
-    setReqNo(trimmed);
-    setNameModalOpen(false);
     setConfirmOpen(true);
   };
 
@@ -746,7 +737,8 @@ function RequisitionPrintContent() {
       // chiqadi — PDF tugashini kutmaymiz.
       setSubmitStage(1);
       const reqId = await requisitionService.create({
-        requisitionNo: reqNo.trim(),
+        // requisitionNo yuborilmaydi — nomni backend shartnoma/bo'lim nomidan
+        // yasaydi va takrorlanmasligini o'zi ta'minlaydi.
         type,
         contractId: type === RequisitionType.Contract ? contractId : undefined,
         // Shartnoma tipida ham bo'lim biriktiriladi — tizimda talabnoma qaysi
@@ -774,7 +766,7 @@ function RequisitionPrintContent() {
       const pdfBlob = await pdfPromise;
       const uploads: Promise<unknown>[] = [];
       if (pdfBlob) {
-        const safeNo = (reqNo.trim() || "talabnoma").replace(/[^A-Za-z0-9_-]+/g, "_");
+        const safeNo = (autoReqName || "talabnoma").replace(/[^A-Za-z0-9_-]+/g, "_");
         const pdfFile = new File([pdfBlob], `talabnoma_${safeNo}.pdf`, { type: "application/pdf" });
         uploads.push(requisitionService.uploadFile(reqId, pdfFile, "pdf"));
       }
@@ -1199,7 +1191,7 @@ function RequisitionPrintContent() {
           {/* — Yakuniy amal (yagona primary purple) — */}
           <button
             onClick={handleSaveSystem}
-            disabled={savingSystem || confirmOpen || nameModalOpen || normPickerOpen}
+            disabled={savingSystem || confirmOpen || normPickerOpen}
             onMouseEnter={e => { if (!savingSystem) e.currentTarget.style.opacity = "0.85"; }}
             onMouseLeave={e => { e.currentTarget.style.opacity = savingSystem ? "0.7" : "1"; }}
             style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: savingSystem ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, opacity: savingSystem ? 0.7 : 1, transition: "opacity 0.15s" }}
@@ -1603,53 +1595,12 @@ function RequisitionPrintContent() {
         </div>,
         document.body
       )}
-      {nameModalOpen && createPortal(
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 99999 }}>
-          <div style={{ background: "var(--bg2)", borderRadius: 14, padding: 28, width: 460, maxWidth: "90vw", minHeight: 240, boxShadow: "var(--shadow2)", display: "flex", flexDirection: "column" }}>
-            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8, color: "var(--text1)" }}>{t("Talabnoma nomi")}</div>
-            <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 16, lineHeight: 1.5 }}>
-              {t("Yuborishdan oldin talabnoma nomini kiriting.")}
-            </div>
-
-            <input
-              autoFocus
-              value={pendingReqNo}
-              onChange={e => setPendingReqNo(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter") handleNameNext(); }}
-              placeholder={t("Talabnoma nomini kiriting")}
-              style={{
-                width: "100%", padding: "10px 12px",
-                border: "1.5px solid var(--border)", borderRadius: "var(--radius)",
-                fontSize: 14, background: "var(--bg3)", color: "var(--text)",
-                outline: "none", boxSizing: "border-box",
-              }}
-            />
-
-            <div style={{ display: "flex", gap: 10, marginTop: "auto", paddingTop: 20 }}>
-              <button
-                onClick={() => setNameModalOpen(false)}
-                style={{ flex: 1, padding: "9px", background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", fontWeight: 600, color: "var(--text2)" }}
-              >
-                {t("Bekor")}
-              </button>
-              <button
-                onClick={handleNameNext}
-                disabled={!pendingReqNo.trim()}
-                style={{ flex: 1, padding: "9px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius)", cursor: pendingReqNo.trim() ? "pointer" : "not-allowed", fontWeight: 600, opacity: pendingReqNo.trim() ? 1 : 0.5 }}
-              >
-                {t("Davom etish")}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
       {confirmOpen && createPortal(
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 99999 }}>
           <div style={{ background: "var(--bg2)", borderRadius: 14, padding: 28, width: 460, maxWidth: "90vw", minHeight: 240, boxShadow: "var(--shadow2)", display: "flex", flexDirection: "column" }}>
             <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 10, color: "var(--text1)" }}>{t("Ishonchingiz komilmi?")}</div>
             <div style={{ fontSize: 15, color: "var(--text2)", marginBottom: 20, lineHeight: 1.6 }}>
-              <strong>{reqNo.trim()}</strong> {t("nomli talabnoma")}{" "}
+              <strong>{autoReqName}</strong> {t("nomli talabnoma")}{" "}
               {type === RequisitionType.Contract ? t("ombor tekshiruviga") : t("tizimga")}{" "}
               {t("yuboriladi. Yuborilgandan keyin tahrirlab bo'lmaydi.")}
             </div>

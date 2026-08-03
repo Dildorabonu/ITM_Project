@@ -4,7 +4,8 @@ namespace Application.DTOs.Requisitions;
 
 public class RequisitionCreateDto
 {
-    // Yaratuvchi tomonidan blank formada qo'lda kiritiladi — majburiy.
+    // Ixtiyoriy — bo'sh qoldirilsa nom manba hujjatdan avtomatik yasaladi
+    // (shartnoma no yoki bo'lim nomi bo'yicha). Blank forma bo'sh yuboradi.
     public string RequisitionNo { get; set; } = string.Empty;
 
     public RequisitionType Type { get; set; }
