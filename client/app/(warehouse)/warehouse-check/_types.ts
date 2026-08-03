@@ -11,7 +11,6 @@ export interface ReqCheckRow {
   departmentName?: string;
   createdByName: string;
   createdAt: string;
-  totalItems: number;
   /** Yaratilganidan beri o'tgan to'liq kunlar — tekshiruv navbatidagi kutish muddati. */
   waitingDays: number;
   checked: boolean;
@@ -48,7 +47,7 @@ export function daysSince(d: string) {
 export function fmt(d: string) {
   if (!d) return "—";
   const [y, m, day] = d.slice(0, 10).split("-");
-  return y && m && day ? `${day}-${m}-${y.slice(-2)}` : "—";
+  return y && m && day ? `${day}.${m}.${y.slice(-2)}` : "—";
 }
 
 export const statusKeyframes = `

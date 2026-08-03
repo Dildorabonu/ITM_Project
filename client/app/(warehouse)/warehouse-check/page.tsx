@@ -71,7 +71,6 @@ export default function WarehousePage() {
       departmentName: req.departmentName,
       createdByName: req.createdByName,
       createdAt: req.createdAt,
-      totalItems: req.items.length,
       waitingDays: daysSince(req.createdAt),
       checked: !!req.warehouseCheckedAt,
     }));
@@ -96,12 +95,13 @@ export default function WarehousePage() {
   // Tekshiruv navbatining hajmi va yoshi — tekshirilmagan talabnomalar uchun
   // mavjudlik hali noma'lum, shuning uchun ish hajmi va kutish muddati ko'rsatiladi.
   const stats = useMemo(() => {
-    const totalPositions = reqRows.reduce((sum, r) => sum + r.totalItems, 0);
+    const delayed = reqRows.filter(r => r.waitingDays >= 3).length;
+    const critical = reqRows.filter(r => r.waitingDays >= 7).length;
     const oldest = reqRows.reduce<ReqCheckRow | null>(
       (acc, r) => (!acc || r.waitingDays > acc.waitingDays ? r : acc),
       null
     );
-    return { total: reqRows.length, totalPositions, oldest };
+    return { total: reqRows.length, delayed, critical, oldest };
   }, [reqRows]);
 
   // ── Selected requisition ────────────────────────────────────────────────
@@ -156,8 +156,13 @@ export default function WarehousePage() {
           <div style={{ fontSize: 22, fontWeight: 700, color: "var(--accent)" }}>{stats.total}</div>
         </div>
         <div className="itm-card" style={{ padding: "16px 20px" }}>
-          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 4 }}>{t("Jami pozitsiyalar")}</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: "var(--text)" }}>{stats.totalPositions}</div>
+          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 4 }}>{t("Kechikkan (3+ kun)")}</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: stats.delayed ? (stats.critical ? "var(--danger)" : "var(--warn)") : "var(--text3)" }}>
+            {stats.delayed}
+          </div>
+          <div style={{ fontSize: 11, color: "var(--danger)", marginTop: 2, minHeight: 14 }}>
+            {stats.critical ? `${stats.critical} ${t("ta kritik (7+ kun)")}` : ""}
+          </div>
         </div>
         <div className="itm-card" style={{ padding: "16px 20px" }}>
           <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 4 }}>{t("Eng uzoq kutgan")}</div>
@@ -211,7 +216,6 @@ export default function WarehousePage() {
                   <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Turi")}</th>
                   <th style={{ width: 220, textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Maqsad")}</th>
                   <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Shartnoma / Bo'lim")}</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Jami")}</th>
                   <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Kutish")}</th>
                   <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Sana")}</th>
                   <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Yaratuvchi")}</th>
@@ -248,7 +252,6 @@ export default function WarehousePage() {
                     <td style={{ textAlign: "center" }}>{REQUISITION_TYPE_LABELS[row.type]}</td>
                     <td title={row.purpose} style={{ textAlign: "center", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.purpose}</td>
                     <td style={{ textAlign: "center" }}>{row.contractNo || row.departmentName || "—"}</td>
-                    <td style={{ textAlign: "center", fontWeight: 600 }}>{row.totalItems}</td>
                     <td style={{ textAlign: "center", color: waitColor(row.waitingDays), fontWeight: row.waitingDays >= 3 ? 600 : 400 }}>
                       {row.waitingDays === 0 ? t("Bugun") : `${row.waitingDays} ${t("kun")}`}
                     </td>
