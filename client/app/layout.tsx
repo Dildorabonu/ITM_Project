@@ -156,7 +156,7 @@ const pageTitles: Record<string, string> = {
   "/appearance":    "Tashqi ko'rinish",
   "/litsenziya":    "Litsenziya",
   "/requisitions":           "Talabnomalar",
-  "/requisitions/approvals": "Talabnomalar â€” Tasdiqlash",
+  "/requisitions/approvals": "Talabnomalar — Tasdiqlash",
   "/requisitions/print":     "Talabnoma",
 };
 
@@ -811,7 +811,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     <div style={{ fontSize: 14, fontWeight: 600, color: "var(--profile-text)", lineHeight: 1.2, whiteSpace: "nowrap" }}>
                       {user?.firstName && user?.lastName
                         ? `${user.firstName} ${user.lastName}`
-                        : user?.login || "â€”"}
+                        : user?.login || "—"}
                     </div>
                     <div className="font-body-itm" style={{ fontSize: 12, color: "var(--profile-text2)", letterSpacing: 0.5, lineHeight: 1.2 }}>
                       {user?.role || ""}
