@@ -12,6 +12,7 @@ public interface INotificationService
     Task<ApiResult<int>> MarkAllAsReadAsync(Guid userId);
     Task<ApiResult<int>> DeleteOwnAsync(Guid id, Guid userId);
     Task CreateAsync(Guid userId, string title, string body, NotificationType type, Guid? contractId = null);
+    Task NotifyManyAsync(IEnumerable<Guid> userIds, string title, string body, NotificationType type, Guid? contractId = null);
     Task NotifySuperAdminsAsync(string title, string body, NotificationType type, Guid? contractId = null);
     Task NotifyUsersAndSuperAdminsAsync(IEnumerable<Guid> userIds, string title, string body, NotificationType type, Guid? contractId = null);
 }

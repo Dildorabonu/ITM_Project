@@ -115,6 +115,39 @@ public class NotificationService : INotificationService
         }
     }
 
+    // Bir nechta foydalanuvchiga bitta bildirishnomani yuboradi — CreateAsync ni
+    // tsiklda chaqirishdan farqli, hammasi bitta SaveChangesAsync bilan yoziladi.
+    // (Tsiklda chaqirish har bir qabul qiluvchi uchun alohida DB round-trip
+    // qilib, talabnoma yaratish javobini sezilarli kechiktirardi.)
+    public async Task NotifyManyAsync(IEnumerable<Guid> userIds, string title, string body, NotificationType type, Guid? contractId = null)
+    {
+        try
+        {
+            var ids = userIds.Distinct().ToList();
+            if (ids.Count == 0)
+                return;
+
+            var notifications = ids.Select(uid => new Core.Entities.Notification
+            {
+                Id = Guid.NewGuid(),
+                UserId = uid,
+                Title = title,
+                Body = body,
+                Type = type,
+                ContractId = contractId,
+                IsRead = false,
+                CreatedAt = DateTime.UtcNow,
+            }).ToList();
+
+            _context.Notifications.AddRange(notifications);
+            await _context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Bir nechta foydalanuvchiga bildirishnoma yuborishda xatolik: {Title}", title);
+        }
+    }
+
     public async Task NotifySuperAdminsAsync(string title, string body, NotificationType type, Guid? contractId = null)
     {
         try

@@ -938,42 +938,42 @@ public class RequisitionService : IRequisitionService
             .Include(r => r.Items).ThenInclude(i => i.Material)
             .FirstOrDefaultAsync(r => r.Id == id);
 
+    // Faqat Id lar kerak — Include bilan Role/RolePermissions/Permission
+    // grafini butunlay materializatsiya qilish o'rniga Select(u => u.Id) bilan
+    // bitta yengil so'rov qilamiz. Bildirishnomalar ham tsiklda emas, bitta
+    // NotifyManyAsync (bitta SaveChanges) bilan yoziladi.
     private async System.Threading.Tasks.Task NotifyWarehouseCheckersAsync(Requisition r)
     {
-        var checkers = await _context.Users
-            .Include(u => u.Role).ThenInclude(role => role!.RolePermissions).ThenInclude(rp => rp.Permission)
+        var checkerIds = await _context.Users
+            .AsNoTracking()
             .Where(u => u.IsActive && u.Role != null
                 && u.Role.RolePermissions.Any(rp =>
                     rp.Permission.Module == PermissionModule.Requisitions
                     && rp.Permission.Action == PermissionAction.WarehouseCheck))
+            .Select(u => u.Id)
             .ToListAsync();
 
-        foreach (var checker in checkers)
-        {
-            await _notificationService.CreateAsync(checker.Id,
-                $"Yangi talabnoma tekshiruvga: {r.RequisitionNo}",
-                "Ombor tekshiruvini kutmoqda.",
-                NotificationType.Info);
-        }
+        await _notificationService.NotifyManyAsync(checkerIds,
+            $"Yangi talabnoma tekshiruvga: {r.RequisitionNo}",
+            "Ombor tekshiruvini kutmoqda.",
+            NotificationType.Info);
     }
 
     private async System.Threading.Tasks.Task NotifyDirectorsAsync(string parentNo, int childCount)
     {
-        var directors = await _context.Users
-            .Include(u => u.Role).ThenInclude(role => role!.RolePermissions).ThenInclude(rp => rp.Permission)
+        var directorIds = await _context.Users
+            .AsNoTracking()
             .Where(u => u.IsActive && u.Role != null
                 && u.Role.RolePermissions.Any(rp =>
                     rp.Permission.Module == PermissionModule.Requisitions
                     && rp.Permission.Action == PermissionAction.Approve))
+            .Select(u => u.Id)
             .ToListAsync();
 
-        foreach (var director in directors)
-        {
-            await _notificationService.CreateAsync(director.Id,
-                $"Yangi tasdiqlash kerak: {parentNo}",
-                $"{childCount} ta yangi talabnoma tasdiqlash kutmoqda.",
-                NotificationType.Info);
-        }
+        await _notificationService.NotifyManyAsync(directorIds,
+            $"Yangi tasdiqlash kerak: {parentNo}",
+            $"{childCount} ta yangi talabnoma tasdiqlash kutmoqda.",
+            NotificationType.Info);
     }
 
     private string GenerateQrCode(Requisition r, User director)

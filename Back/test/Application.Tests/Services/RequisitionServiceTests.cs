@@ -346,32 +346,37 @@ public class RequisitionServiceTests
     [Fact]
     public async Task CreateAsync_NotifiesEligibleWarehouseCheckers()
     {
-        // Arrange — bitta foydalanuvchida WarehouseCheck permission bor, ikkinchisida — yo'q
+        // Arrange — bitta foydalanuvchida WarehouseCheck permission bor, ikkinchisida — yo'q.
+        // Individual tip tanlandi: shartnoma tipida qo'shimcha me'yoriy sarf
+        // validatsiyasi bor, bu test esa faqat bildirishnoma yo'nalishini tekshiradi.
         await using var db = CreateDb();
-        var contract = SeedContract(db);
-        var material = SeedMaterial(db);
+        var dept = SeedDept(db);
+        var creator = TestData.SeedUser(db, login: "creator", departmentId: dept.Id);
         var checker = SeedWarehouseChecker(db);
         TestData.SeedUser(db, login: "no-perm");
         var notifications = new Mock<INotificationService>();
 
         // Act
-        await CreateService(db, notifications).CreateAsync(new RequisitionCreateDto
+        var result = await CreateService(db, notifications).CreateAsync(new RequisitionCreateDto
         {
             RequisitionNo = "REQ-N",
-            Type = RequisitionType.Contract,
-            ContractId = contract.Id,
-            Items = [new RequisitionItemCreateDto { MaterialId = material.Id, Quantity = 1m }],
-        }, Guid.NewGuid());
+            Type = RequisitionType.Individual,
+            DepartmentId = dept.Id,
+            Items = [new RequisitionItemCreateDto { FreeTextName = "Sement", Quantity = 1m }],
+        }, creator.Id);
 
-        // Assert — faqat WarehouseCheck permissionga ega userga bildirishnoma yuborilgan
+        // Assert — bitta batch chaqiruv (har qabul qiluvchi uchun alohida
+        // SaveChanges qilinmaydi) va ro'yxatda faqat WarehouseCheck permissionli user
+        result.Succeeded.Should().BeTrue();
         notifications.Verify(
-            n => n.CreateAsync(checker.Id, It.IsAny<string>(), It.IsAny<string>(),
-                NotificationType.Info, It.IsAny<Guid?>()),
+            n => n.NotifyManyAsync(
+                It.Is<IEnumerable<Guid>>(ids => ids.SequenceEqual(new[] { checker.Id })),
+                It.IsAny<string>(), It.IsAny<string>(), NotificationType.Info, It.IsAny<Guid?>()),
             Times.Once);
         notifications.Verify(
             n => n.CreateAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<NotificationType>(), It.IsAny<Guid?>()),
-            Times.Once);
+            Times.Never);
     }
 
     // ─────────────────────────────────────────────────────────────────────

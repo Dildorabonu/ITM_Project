@@ -20,8 +20,32 @@ import {
   type CostNormResponse,
 } from "@/lib/userService";
 import { CheckSelect } from "../_components/CheckSelect";
+import { SubmitProgressOverlay } from "../_components/SubmitProgressOverlay";
 import { useT } from "@/lib/i18n";
 import { mulDecimalStr } from "@/lib/num";
+
+// html2pdf.js chunk'i katta (jsPDF + html2canvas birga ~700 KB) — birinchi
+// generatsiyada uni yuklab, parse qilish 1-2 soniya oladi. Shu sababli sahifa
+// ochilganda fon rejimida yuklab qo'yamiz (pastdagi useEffect), shunda
+// "Talabnomani yuborish" bosilganda modul allaqachon tayyor bo'ladi.
+// Promise modul darajasida keshlanadi — takroriy import qilinmaydi.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let html2pdfPromise: Promise<any> | null = null;
+const loadHtml2Pdf = () => {
+  if (!html2pdfPromise) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    html2pdfPromise = import("html2pdf.js" as any)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .then((m: any) => m.default)
+      .catch((err: unknown) => {
+        // Muvaffaqiyatsiz yuklashni keshda qoldirmaymiz — aks holda keyingi
+        // urinishlar ham abadiy rejected promise'ni qaytaradi.
+        html2pdfPromise = null;
+        throw err;
+      });
+  }
+  return html2pdfPromise;
+};
 
 interface TableRow {
   id: number;
@@ -284,11 +308,32 @@ function RequisitionPrintContent() {
   }, [rows, rowHeights, rowManualHeights, headerH, signatureH]);
 
   const [saving, setSaving] = useState(false);
-  const [savingSystem, setSavingSystem] = useState(false);
+  // Tizimga yuborish bosqichi: null — yuborilmayapti, 0..2 — faol bosqich,
+  // 3 — hammasi tugadi (navigatsiyagacha overlay 100% da turadi).
+  const [submitStage, setSubmitStage] = useState<number | null>(null);
+  const savingSystem = submitStage !== null;
   const [normLoading, setNormLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [tzFile, setTzFile] = useState<File | null>(null);
   const tzInputRef = useRef<HTMLInputElement>(null);
+
+  // html2pdf chunk'ini fon rejimida oldindan yuklaymiz — "Talabnomani yuborish"
+  // bosilganda modulni kutish (1-2s) kutish vaqtidan tushib qoladi.
+  useEffect(() => {
+    loadHtml2Pdf().catch(() => { /* generatsiya vaqtida qayta urinadi */ });
+  }, []);
+
+  // Yuborish jarayonida tab yopish / reload qilishga urinishda ogohlantirish:
+  // yarim yo'lda to'xtatilsa talabnoma PDF'siz saqlanib qolishi mumkin.
+  useEffect(() => {
+    if (submitStage === null) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [submitStage]);
 
   const [normPickerOpen, setNormPickerOpen] = useState(false);
 
@@ -652,14 +697,20 @@ function RequisitionPrintContent() {
     clone.classList.add("generating-pdf");
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const html2pdf = (await import("html2pdf.js" as any)).default;
+      const html2pdf = await loadHtml2Pdf();
       const blob: Blob = await html2pdf()
         .set({
           margin: 0,
           pagebreak: { mode: ["css"], avoid: ".page-sheet" },
-          image: { type: "jpeg", quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, width: A4_W, windowWidth: A4_W },
+          // scale 1.5 → A4 varaq ~1191px kenglikda, ya'ni ~144 DPI: matn
+          // bir xil o'qiladi, lekin canvas maydoni scale 2 ga nisbatan 44%
+          // ga kichrayadi. quality 0.85 fayl hajmini ~3 barobar kamaytiradi —
+          // bu PDF'ni serverga yuklash vaqtini ham qisqartiradi.
+          image: { type: "jpeg", quality: 0.85 },
+          // imageTimeout — remote rasm (masalan /uploads dagi me'yor fotosi)
+          // yuklanmasa html2canvas default 15 soniya kutadi va butun jarayon
+          // osilib qoladi. 3 soniyadan keyin rasmsiz davom etadi.
+          html2canvas: { scale: 1.5, useCORS: true, imageTimeout: 3000, width: A4_W, windowWidth: A4_W },
           jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
         })
         .from(clone)
@@ -674,11 +725,26 @@ function RequisitionPrintContent() {
   const doSaveSystem = async () => {
     setConfirmOpen(false);
     const filledRows = rows.filter(r => r.name.trim());
-    setSavingSystem(true);
+    // Overlay ostidagi katakda fokus qolib ketmasligi uchun — aks holda
+    // foydalanuvchi ko'rmaydigan inputga yozishda davom etishi mumkin.
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    setSubmitStage(0);
     try {
-      // Avval barcha rasmlarni serverga yuklab, URLlarini olamiz
+      // ── 1-bosqich: rasm yuklash + PDF generatsiyasi PARALLEL ───────────────
+      // PDF blank DOM'idan olinadi va serverga yuklangan rasm URL'lariga
+      // bog'liq emas, shuning uchun ikkisini ketma-ket kutish shart emas —
+      // html2canvas ishlaganda upload'lar tarmoqda parallel ketadi.
+      //
+      // PDF'ni create'dan OLDIN olish alohida muhim: DOM aynan foydalanuvchi
+      // tasdiqlagan holatda suratga olinadi, shu sababli biriktirilgan PDF
+      // bazadagi yozuvdan farq qilib qolmaydi.
+      const pdfPromise = generatePdfBlob().catch(() => null);
       const photoUrls = await Promise.all(filledRows.map(resolvePhotoUrl));
 
+      // ── 2-bosqich: talabnomani yaratish ───────────────────────────────────
+      // Validatsiya xatosi (nom band, me'yorga mos emas) shu yerda darhol
+      // chiqadi — PDF tugashini kutmaymiz.
+      setSubmitStage(1);
       const reqId = await requisitionService.create({
         requisitionNo: reqNo.trim(),
         type,
@@ -701,27 +767,30 @@ function RequisitionPrintContent() {
         })),
       });
 
-      // PDF generatsiya qilib serverga yuklash — "PDF saqlash" tugmasi bilan
-      // bir xil mexanizm: forma DOM'ini klonlab, html2pdf orqali aynan o'sha
-      // ko'rinishni saqlaymiz.
-      const pdfBlob = await generatePdfBlob();
+      // ── 3-bosqich: fayllarni biriktirish ──────────────────────────────────
+      // PDF 1-bosqichda boshlangan, shuning uchun bu yerda odatda allaqachon
+      // tayyor. PDF va TZ ketma-ket emas, parallel yuklanadi.
+      setSubmitStage(2);
+      const pdfBlob = await pdfPromise;
+      const uploads: Promise<unknown>[] = [];
       if (pdfBlob) {
         const safeNo = (reqNo.trim() || "talabnoma").replace(/[^A-Za-z0-9_-]+/g, "_");
         const pdfFile = new File([pdfBlob], `talabnoma_${safeNo}.pdf`, { type: "application/pdf" });
-        await requisitionService.uploadFile(reqId, pdfFile, "pdf");
+        uploads.push(requisitionService.uploadFile(reqId, pdfFile, "pdf"));
       }
-
-      // TZ faylni yuklash (agar tanlangan bo'lsa)
       if (tzFile) {
-        await requisitionService.uploadFile(reqId, tzFile, "tz");
+        uploads.push(requisitionService.uploadFile(reqId, tzFile, "tz"));
       }
+      await Promise.all(uploads);
 
+      // Overlay 100% da qoladi va navigatsiyada komponent bilan birga yo'qoladi —
+      // shunda tahrirlanadigan forma bir lahzaga "chaqnab" ko'rinmaydi.
+      setSubmitStage(3);
       showToast(t("Talabnoma tizimda saqlandi"), "success");
       router.push("/requisitions");
     } catch {
       showToast(t("Xatolik yuz berdi"), t("Xatolik"));
-    } finally {
-      setSavingSystem(false);
+      setSubmitStage(null);
     }
   };
 
@@ -1602,6 +1671,10 @@ function RequisitionPrintContent() {
         </div>,
         document.body
       )}
+
+      {/* Yuborish jarayonini bloklovchi overlay — jarayon davomida blank
+          tahrirlanmaydi va boshqa sahifaga o'tib ketilmaydi. */}
+      {submitStage !== null && <SubmitProgressOverlay stage={submitStage} />}
     </>
   );
 }
