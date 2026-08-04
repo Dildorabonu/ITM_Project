@@ -809,6 +809,7 @@ export const ru: Record<string, string> = {
   "ta mahsulot saqlash": "товаров сохранить",
   "ta mahsulotni import qilish": "товаров импортировать",
   "ta material": "поз. материалов",
+  "ta material to'liq yetarli": "поз. материалов в полном наличии",
   "ta natija": "результатов",
   "ta o'xshash": "похожих",
   "ta PDF yaratilmadi": "PDF не создано",

@@ -21,6 +21,21 @@ import { attachChildPdfs } from "../_utils/attachChildPdfs";
 import { useT } from "@/lib/i18n";
 import { fmtDecimal } from "@/lib/num";
 
+// Status ranglari panel bo'ylab bitta joydan boshqariladi — bar segmenti,
+// filtr nuqtasi va aktiv filtr foni bir xil rangda bo'lishi uchun.
+const SEGMENTS = [
+  { key: "yetarli", label: "Yetarli", color: "var(--success)" },
+  { key: "yetishmadi", label: "Qisman", color: "var(--warn)" },
+  { key: "topilmadi", label: "Yo'q", color: "var(--danger)" },
+] as const;
+
+const FILTERS = [
+  { key: "all", label: "Barchasi", color: "var(--accent)", dim: "var(--accent-dim)" },
+  { key: "yetarli", label: "Yetarli", color: "var(--success)", dim: "var(--success-dim)" },
+  { key: "yetishmadi", label: "Qisman", color: "var(--warn)", dim: "var(--warn-dim)" },
+  { key: "topilmadi", label: "Yo'q", color: "var(--danger)", dim: "var(--danger-dim)" },
+] as const;
+
 interface Props {
   req: RequisitionResponse;
   prodMap: Map<string, ProductResponse>;
@@ -66,6 +81,7 @@ export function WarehouseCheckDetail({ req, prodMap, onClose, onSubmitted }: Pro
     topilmadi: editItems.filter(i => i.status === "topilmadi").length,
   };
   const pct = detailStats.total > 0 ? Math.round((detailStats.yetarli / detailStats.total) * 100) : 0;
+  const pctColor = pct === 100 ? "var(--success)" : pct >= 50 ? "var(--warn)" : "var(--danger)";
 
   const filteredItems = useMemo(() => {
     let items = editItems;
@@ -154,61 +170,97 @@ export function WarehouseCheckDetail({ req, prodMap, onClose, onSubmitted }: Pro
         </button>
       </div>
 
-      {/* Info cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 16 }}>
-        <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px", background: "var(--surface)" }}>
-          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>{t("Jami materiallar")}</div>
-          <div style={{ fontWeight: 700, fontSize: 22, color: "var(--accent)" }}>{detailStats.total}</div>
-        </div>
-        <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px", background: "var(--surface)" }}>
-          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>{t("Yetarli")}</div>
-          <div style={{ fontWeight: 700, fontSize: 22, color: "var(--success)" }}>{detailStats.yetarli}</div>
-        </div>
-        <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px", background: "var(--surface)" }}>
-          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>{t("Qisman bor")}</div>
-          <div style={{ fontWeight: 700, fontSize: 22, color: "var(--warn)" }}>{detailStats.yetishmadi}</div>
-        </div>
-        <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px", background: "var(--surface)" }}>
-          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>{t("Yo'q")}</div>
-          <div style={{ fontWeight: 700, fontSize: 22, color: "var(--danger)" }}>{detailStats.topilmadi}</div>
-        </div>
-        <div style={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 20px", background: "var(--surface)" }}>
-          <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>{t("Yetarlilik")}</div>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
-            <span style={{ fontWeight: 700, fontSize: 22, color: pct === 100 ? "var(--success)" : pct >= 50 ? "var(--warn)" : "var(--danger)" }}>{pct}%</span>
+      {/* Yetarlilik paneli: foiz + zaxira tarkibi bari + filtr/qidiruv bir kartada */}
+      <div className="itm-card" style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 24, padding: "16px 18px", flexWrap: "wrap" }}>
+          {/* Yetarlilik foizi */}
+          <div style={{ minWidth: 96 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1.4, textTransform: "uppercase", color: "var(--text3)" }}>
+              {t("Yetarlilik")}
+            </div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 2, marginTop: 4 }}>
+              <span style={{ fontSize: 34, fontWeight: 800, lineHeight: 1, letterSpacing: -1.2, color: pctColor, fontVariantNumeric: "tabular-nums" }}>{pct}</span>
+              <span style={{ fontSize: 15, fontWeight: 700, color: pctColor }}>%</span>
+            </div>
           </div>
-          <div style={{ marginTop: 8, height: 4, borderRadius: 2, background: "var(--bg3)", overflow: "hidden" }}>
-            <div style={{ height: "100%", borderRadius: 2, width: `${pct}%`, background: pct === 100 ? "var(--success)" : pct >= 50 ? "var(--warn)" : "var(--danger)", transition: "width 0.3s" }} />
-          </div>
-        </div>
-      </div>
 
-      {/* Search + filter toolbar */}
-      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "8px 14px", flexWrap: "wrap" }}>
-        <div className="search-wrap" style={{ maxWidth: "none", flex: 1, minWidth: 180 }}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input className="search-input" placeholder={t("Material qidirish...")} value={detailSearch} onChange={e => setDetailSearch(e.target.value)} />
+          {/* Zaxira tarkibi — segmentlar kengligi materiallar soniga proporsional */}
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div style={{ display: "flex", gap: 2, height: 12, borderRadius: 6, overflow: "hidden", background: "var(--bg3)" }}>
+              {SEGMENTS.map(s => {
+                const count = detailStats[s.key];
+                if (count === 0) return null;
+                return (
+                  <button
+                    key={s.key}
+                    onClick={() => setDetailFilter(s.key)}
+                    title={`${t(s.label)} — ${count}`}
+                    aria-label={`${t(s.label)} — ${count}`}
+                    style={{
+                      flex: count, border: "none", padding: 0, cursor: "pointer",
+                      background: s.color,
+                      opacity: detailFilter === "all" || detailFilter === s.key ? 1 : 0.28,
+                      transition: "flex 0.4s ease, opacity 0.15s",
+                    }}
+                  />
+                );
+              })}
+            </div>
+            <div style={{ marginTop: 7, fontSize: 12, color: "var(--text3)" }}>
+              <span style={{ color: "var(--text)", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                {detailStats.yetarli} / {detailStats.total}
+              </span>{" "}
+              {t("ta material to'liq yetarli")}
+            </div>
+          </div>
         </div>
-        {(["all", "yetarli", "yetishmadi", "topilmadi"] as const).map(f => (
-          <button key={f} onClick={() => setDetailFilter(f)}
-            style={{
-              display: "inline-flex", alignItems: "center", gap: 5, padding: "0 12px", height: 32, borderRadius: "var(--radius)",
-              border: `1px solid ${detailFilter === f ? "var(--accent)" : "var(--border)"}`,
-              background: detailFilter === f ? "var(--accent-dim)" : "var(--bg2)",
-              color: detailFilter === f ? "var(--accent)" : "var(--text2)",
-              fontSize: 12, fontWeight: 500, cursor: "pointer",
-            }}>
-            {f === "all" ? `${t("Barchasi")} (${detailStats.total})` : f === "yetarli" ? `${t("Yetarli")} (${detailStats.yetarli})` : f === "yetishmadi" ? `${t("Qisman")} (${detailStats.yetishmadi})` : `${t("Yo'q")} (${detailStats.topilmadi})`}
-          </button>
-        ))}
-        <span style={{ fontSize: 12, color: "var(--text3)" }}>{filteredItems.length} {t("ta natija")}</span>
+
+        {/* Qidiruv + status filtrlari */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
+          padding: "10px 18px", borderTop: "1.5px solid var(--border)", background: "var(--bg3)",
+        }}>
+          <div className="search-wrap" style={{ maxWidth: 320, flex: 1, minWidth: 180 }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input className="search-input" style={{ background: "var(--surface)" }} placeholder={t("Material qidirish...")} value={detailSearch} onChange={e => setDetailSearch(e.target.value)} />
+          </div>
+
+          <div style={{ display: "flex", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", overflow: "hidden", background: "var(--surface)" }}>
+            {FILTERS.map((f, i) => {
+              const active = detailFilter === f.key;
+              const count = f.key === "all" ? detailStats.total : detailStats[f.key];
+              return (
+                <button key={f.key} onClick={() => setDetailFilter(f.key)}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6, padding: "0 12px", height: 32,
+                    border: "none", borderLeft: i === 0 ? "none" : "1.5px solid var(--border)",
+                    background: active ? f.dim : "transparent",
+                    color: active ? f.color : count === 0 ? "var(--text3)" : "var(--text2)",
+                    fontSize: 12, fontWeight: active ? 600 : 500, cursor: "pointer",
+                    transition: "background 0.15s, color 0.15s",
+                  }}>
+                  <span style={{
+                    width: 6, height: 6, borderRadius: 3, flexShrink: 0,
+                    background: count === 0 && !active ? "var(--border2)" : f.color,
+                  }} />
+                  {t(f.label)}
+                  <span style={{ fontWeight: 600, fontVariantNumeric: "tabular-nums", opacity: active ? 1 : 0.7 }}>{count}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <span style={{ fontSize: 12, color: "var(--text3)", marginLeft: "auto", fontVariantNumeric: "tabular-nums" }}>
+            {filteredItems.length} {t("ta natija")}
+          </span>
+        </div>
       </div>
 
       {/* Materials table */}
       <div className="itm-card" style={{ flex: 1 }}>
-        <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "calc(100vh - 360px)" }}>
+        <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "calc(100vh - 336px)" }}>
           {filteredItems.length === 0 ? (
             <div style={{ padding: 48, textAlign: "center", color: "var(--text3)", fontSize: 13 }}>
               {detailSearch || detailFilter !== "all" ? t("Natija topilmadi") : t("Materiallar yo'q")}
