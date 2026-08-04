@@ -1487,6 +1487,16 @@ export const requisitionService = {
     return res.data?.result ?? res.data;
   },
 
+  /** Sidebar badge uchun: ombor tekshiruvini kutayotgan talabnomalar soni. */
+  getPendingCheckCount: async (): Promise<number> => {
+    try {
+      const res = await api.get("/api/requisition/pending-check-count");
+      return res.data?.result ?? 0;
+    } catch {
+      return 0;
+    }
+  },
+
   getById: async (id: string): Promise<RequisitionResponse | null> => {
     try {
       const res = await api.get(`/api/requisition/${id}`);

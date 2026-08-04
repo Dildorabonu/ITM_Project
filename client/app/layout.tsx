@@ -6,6 +6,7 @@ import Link from "next/link";
 import "./globals.css";
 import { useAuthStore } from "@/lib/store/authStore";
 import { api } from "@/lib/api";
+import { requisitionService } from "@/lib/userService";
 import ToastContainer from "@/app/_components/ToastContainer";
 import LicenseGate from "@/app/_components/LicenseGate";
 import EkLogo from "@/app/_components/EkLogo";
@@ -180,6 +181,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const isAuthenticated = !!user;
 
   const [notifCount, setNotifCount] = useState(0);
+  // Ombor tekshiruvini kutayotgan talabnomalar soni — sidebar badge uchun
+  const [pendingCheckCount, setPendingCheckCount] = useState(0);
   const [bellOpen, setBellOpen] = useState(false);
   const [unreadNotifs, setUnreadNotifs] = useState<{ id: string; title: string; body: string; createdAt: string }[]>([]);
 
@@ -224,16 +227,28 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     } catch { /* ignore */ }
   }, []);
 
+  // Nav elementi bilan bir xil ruxsat — badge aynan o'sha odamlarga ko'rinadi.
+  const canWarehouseCheck = hasPermission("WarehouseCheck.View");
+
+  const fetchPendingCheckCount = useCallback(async () => {
+    if (!canWarehouseCheck) { setPendingCheckCount(0); return; }
+    setPendingCheckCount(await requisitionService.getPendingCheckCount());
+  }, [canWarehouseCheck]);
+
   useEffect(() => {
     if (!isAuthenticated) return;
-    fetchUnreadNotifs();
-    const interval = setInterval(fetchUnreadNotifs, 30000);
+    const poll = () => { fetchUnreadNotifs(); fetchPendingCheckCount(); };
+    poll();
+    const interval = setInterval(poll, 30000);
     window.addEventListener("notif-read", fetchUnreadNotifs);
+    // Tekshiruv yakunlangach badge darhol yangilanadi
+    window.addEventListener("warehouse-check-updated", fetchPendingCheckCount);
     return () => {
       clearInterval(interval);
       window.removeEventListener("notif-read", fetchUnreadNotifs);
+      window.removeEventListener("warehouse-check-updated", fetchPendingCheckCount);
     };
-  }, [isAuthenticated, fetchUnreadNotifs]);
+  }, [isAuthenticated, fetchUnreadNotifs, fetchPendingCheckCount]);
 
   const visibleNavGroups = navGroups.map((group) => ({
     ...group,
@@ -244,6 +259,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         const perms = Array.isArray(item.permission) ? item.permission : [item.permission];
         return perms.some((p) => hasPermission(p));
       })
+      // Jonli hisoblagichlar nav elementiga shu yerda biriktiriladi
+      .map((item) =>
+        item.href === "/warehouse-check" && pendingCheckCount > 0
+          ? { ...item, badge: pendingCheckCount }
+          : item
+      )
   })).filter((group) => group.items.length > 0);
 
   const isLoginPage = pathname === "/login";
@@ -519,6 +540,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               const isCollapsed = !!collapsedGroups[group.label];
               // Yig'ilgan holatda faol sahifa qaysi guruhdaligini ikonka rangi bildiradi
               const groupActive = group.items.some(i => i.href === pathname);
+              // Elementlar ko'rinmayotganda (yig'ilgan sidebar yoki yopiq guruh)
+              // badge o'rniga guruh sarlavhasida qizil nuqta chiqadi
+              const groupHasBadge = group.items.some(i => i.badge);
               const _gd = 150 + _ni++ * 45;
               const ga = groupAnims[group.label] ?? { rev: 0, speed: "slow" as const };
               const isFast = ga.speed === "fast";
@@ -558,8 +582,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   >
                     {!sidebarCollapsed && <span className="nav-border" style={{ position: "absolute", left: 6, top: 0, bottom: 0, width: 3 }} />}
                     {sidebarCollapsed ? (
-                      <span style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
                         <NavIcon type={group.icon} size={21} color={groupActive ? "var(--accent)" : undefined} />
+                        {groupHasBadge && (
+                          <span style={{
+                            position: "absolute", top: -1, right: -3,
+                            width: 8, height: 8, borderRadius: 4,
+                            background: "var(--danger)",
+                            border: "1.5px solid var(--sidebar-bg)",
+                          }} />
+                        )}
                       </span>
                     ) : (
                       <>
@@ -567,6 +599,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                           <NavIcon type={group.icon} size={21} />
                           {t(group.label)}
                         </span>
+                        {isCollapsed && groupHasBadge && (
+                          <span style={{
+                            marginLeft: "auto", marginRight: 8,
+                            width: 8, height: 8, borderRadius: 4,
+                            background: "var(--danger)", flexShrink: 0,
+                          }} />
+                        )}
                         <svg
                           width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
                           style={{ transition: "transform 0.2s", transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)", flexShrink: 0 }}

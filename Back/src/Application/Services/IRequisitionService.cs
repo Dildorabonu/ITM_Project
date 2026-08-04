@@ -10,6 +10,9 @@ public interface IRequisitionService
     Task<ApiResult<IEnumerable<RequisitionResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, RequisitionStatus? status = null);
     Task<ApiResult<PagedResult<RequisitionResponseDto>>> GetPagedAsync(Guid currentUserId, bool viewAll, PaginationParams pagination, string? search = null, RequisitionStatus? status = null, bool? completed = null);
     Task<ApiResult<RequisitionResponseDto>> GetByIdAsync(Guid id);
+
+    /// Ombor tekshiruvini kutayotgan talabnomalar soni — sidebar badge uchun yengil so'rov.
+    Task<ApiResult<int>> GetPendingWarehouseCheckCountAsync(Guid currentUserId, bool viewAll);
     Task<ApiResult<Guid>> CreateAsync(RequisitionCreateDto dto, Guid createdBy);
 
     // Omborchi tekshiruvi: PendingWarehouseCheck → Split (avto-bo'linish), child IDlarni qaytaradi

@@ -49,6 +49,21 @@ public class RequisitionService : IRequisitionService
         return ApiResult<IEnumerable<RequisitionResponseDto>>.Success(list.Select(MapToResponse));
     }
 
+    // Sidebar badge har 30 soniyada so'raydi — shuning uchun Include'siz, faqat COUNT.
+    // Filtr GetAllAsync bilan bir xil: badge raqami ombor tekshiruvi sahifasidagi
+    // qatorlar soniga aynan mos tushishi kerak.
+    public async Task<ApiResult<int>> GetPendingWarehouseCheckCountAsync(Guid currentUserId, bool viewAll)
+    {
+        var query = _context.Requisitions
+            .AsNoTracking()
+            .Where(r => r.Status == RequisitionStatus.PendingWarehouseCheck);
+
+        if (!viewAll)
+            query = query.Where(r => r.CreatedBy == currentUserId);
+
+        return ApiResult<int>.Success(await query.CountAsync());
+    }
+
     private static readonly RequisitionStatus[] TerminalStatuses =
     [
         RequisitionStatus.ReadyForWarehouseRelease,

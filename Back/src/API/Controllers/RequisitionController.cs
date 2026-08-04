@@ -55,6 +55,19 @@ public class RequisitionController : ControllerBase
         return Ok(result);
     }
 
+    /// Sidebar badge uchun: tekshiruv kutayotgan talabnomalar soni.
+    [HasPermission("WarehouseCheck.View")]
+    [HttpGet("pending-check-count")]
+    public async Task<IActionResult> GetPendingCheckCount()
+    {
+        var userId = GetUserId();
+        if (userId is null) return Unauthorized();
+
+        var viewAll = User.HasClaim("perm", "Requisitions.ViewAll");
+        var result = await _requisitionService.GetPendingWarehouseCheckCountAsync(userId.Value, viewAll);
+        return Ok(result);
+    }
+
     [HasPermission("Requisitions.View")]
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id)
