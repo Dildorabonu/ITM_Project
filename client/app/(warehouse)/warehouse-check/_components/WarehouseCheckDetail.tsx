@@ -55,7 +55,6 @@ export function WarehouseCheckDetail({ req, prodMap, onClose, onSubmitted }: Pro
         status,
         productQty,
         available: suggested,
-        notes: "",
       };
     }));
   }, [req, prodMap]);
@@ -78,28 +77,13 @@ export function WarehouseCheckDetail({ req, prodMap, onClose, onSubmitted }: Pro
     return items;
   }, [editItems, detailSearch, detailFilter]);
 
-  const updateItem = (idx: number, patch: Partial<MaterialCheckItem>) => {
-    setEditItems(prev => prev.map((it, i) => i === idx ? { ...it, ...patch } : it));
-  };
-
   const handleSubmit = async () => {
-    // Validatsiya
-    for (const it of editItems) {
-      if (it.available < 0) {
-        showToast(t("Mavjud miqdor manfiy bo'lishi mumkin emas"), "error");
-        return;
-      }
-      if (it.available > it.required) {
-        showToast(`"${it.name}" — ${t("mavjud miqdor")} (${it.available}) ${t("so'ralgan miqdordan")} (${it.required}) ${t("ko'p")}`, "error");
-        return;
-      }
-    }
     setSubmitting(true);
     try {
+      // Mavjud miqdor ombor zaxirasidan avtomatik hisoblanadi — qo'lda kiritilmaydi.
       const payload: RequisitionWarehouseCheckItem[] = editItems.map(it => ({
         itemId: it.itemId,
         availableQuantity: it.available,
-        warehouseNotes: it.notes.trim() || undefined,
       }));
       const childIds = await requisitionService.warehouseCheck(req.id, payload);
 
@@ -114,6 +98,8 @@ export function WarehouseCheckDetail({ req, prodMap, onClose, onSubmitted }: Pro
       } else {
         showToast(t("Tekshiruv yakunlandi va talabnomalar tasdiqlashga jo'natildi"), "success");
       }
+      // Sidebar badge darhol yangilanishi uchun
+      window.dispatchEvent(new Event("warehouse-check-updated"));
       await onSubmitted();
     } catch {
       showToast(t("Xatolik yuz berdi"), "error");
@@ -238,13 +224,11 @@ export function WarehouseCheckDetail({ req, prodMap, onClose, onSubmitted }: Pro
                   <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Ombordagi miqdor")}</th>
                   <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none", minWidth: 160 }}>{t("Mavjud (tasdiqlangan)")}</th>
                   <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Holati")}</th>
-                  <th style={{ whiteSpace: "nowrap", textAlign: "center", color: "var(--text1)", textTransform: "none", minWidth: 200 }}>{t("Izoh")}</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredItems.map((item) => {
                   const idx = editItems.findIndex(e => e.itemId === item.itemId);
-                  const overLimit = item.available > item.required;
                   return (
                     <tr key={item.itemId}>
                       <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "12px 14px" }}>{String(idx + 1).padStart(2, "0")}</td>
@@ -254,44 +238,19 @@ export function WarehouseCheckDetail({ req, prodMap, onClose, onSubmitted }: Pro
                       <td style={{ textAlign: "center", fontFamily: "Inter, sans-serif", padding: "12px 14px", color: item.productQty > 0 ? "var(--text1)" : "var(--text3)" }}>
                         {item.productQty > 0 ? fmtDecimal(item.productQty) : "—"}
                       </td>
-                      <td style={{ padding: "12px 14px", textAlign: "center" }}>
-                        <input
-                          type="number"
-                          min={0}
-                          max={item.required}
-                          step="0.0001"
-                          value={item.available}
-                          onChange={e => updateItem(idx, { available: Math.max(0, Number(e.target.value) || 0) })}
-                          style={{
-                            width: 110, padding: "6px 10px",
-                            borderRadius: "var(--radius)",
-                            border: `1.5px solid ${overLimit ? "var(--danger)" : "var(--border)"}`,
-                            background: "var(--surface)",
-                            color: overLimit ? "var(--danger)" : "var(--text)",
-                            fontSize: 13, fontWeight: 600, textAlign: "center",
-                            outline: "none",
-                          }}
-                        />
+                      {/* Avtomatik hisoblanadi — omborchi qo'lda o'zgartira olmaydi. */}
+                      <td style={{
+                        textAlign: "center", padding: "12px 14px",
+                        fontFamily: "Inter, sans-serif", fontWeight: 600,
+                        color: item.available > 0 ? "var(--text1)" : "var(--text3)",
+                      }}>
+                        {item.available > 0 ? fmtDecimal(item.available) : "0"}
                       </td>
                       <td style={{ padding: "12px 14px", textAlign: "center" }}>
                         <StatusBadgeBig
                           status={item.available <= 0 ? "topilmadi" : item.available >= item.required ? "yetarli" : "yetishmadi"}
                           available={item.available}
                           required={item.required}
-                        />
-                      </td>
-                      <td style={{ padding: "12px 14px" }}>
-                        <input
-                          type="text"
-                          placeholder={t("Izoh (ixtiyoriy)...")}
-                          value={item.notes}
-                          onChange={e => updateItem(idx, { notes: e.target.value })}
-                          style={{
-                            width: "100%", padding: "6px 10px",
-                            borderRadius: "var(--radius)", border: "1.5px solid var(--border)",
-                            background: "var(--surface)", color: "var(--text)",
-                            fontSize: 12, outline: "none",
-                          }}
                         />
                       </td>
                     </tr>

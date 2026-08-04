@@ -196,29 +196,29 @@ export default function WarehousePage() {
       </div>
 
       {/* Table */}
-      <div className="itm-card" style={{ flex: 1 }}>
+      <div className="itm-card" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "clip" } as React.CSSProperties}>
         {loading ? (
-          <div style={{ padding: 40, textAlign: "center", color: "var(--text2)" }}>{t("Yuklanmoqda...")}</div>
+          <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--text2)" }}>{t("Yuklanmoqda...")}</div>
         ) : filtered.length === 0 ? (
-          <div style={{ padding: 60, textAlign: "center", color: "var(--text3)", fontSize: 14, display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+          <div style={{ flex: 1, padding: 60, textAlign: "center", color: "var(--text3)", fontSize: 14, display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" strokeWidth="1.5">
               <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
             </svg>
             <div>{search ? t("Natija topilmadi") : t("Tekshiruv kutayotgan talabnomalar yo'q")}</div>
           </div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div style={{ overflowX: "auto", overflowY: "auto", flex: 1, minHeight: 0 }}>
             <table className="itm-table">
-              <thead>
+              <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
                 <tr>
-                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>{t("T/r")}</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Raqam")}</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Turi")}</th>
-                  <th style={{ width: 220, textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Maqsad")}</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Shartnoma / Bo'lim")}</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Kutish")}</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Sana")}</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)", textTransform: "none" }}>{t("Yaratuvchi")}</th>
+                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>{t("T/r")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Raqam")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Turi")}</th>
+                  <th style={{ width: 220, textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Maqsad")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Shartnoma / Bo'lim")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Kutish")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Sana")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Yaratuvchi")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -247,7 +247,7 @@ export default function WarehousePage() {
                     }}
                     style={{ cursor: "pointer" }}
                   >
-                    <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64 }}>{String(i + 1).padStart(2, "0")}</td>
+                    <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>{String(i + 1).padStart(2, "0")}</td>
                     <td style={{ textAlign: "center", fontWeight: 600 }}>{row.requisitionNo}</td>
                     <td style={{ textAlign: "center" }}>{REQUISITION_TYPE_LABELS[row.type]}</td>
                     <td title={row.purpose} style={{ textAlign: "center", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.purpose}</td>

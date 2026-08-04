@@ -25,9 +25,8 @@ export interface MaterialCheckItem {
   required: number;
   status: MaterialStatus;
   productQty: number;
-  // Omborchi kirita oladigan qiymat (default: min(productQty, required))
+  // Avtomatik hisoblanadi: min(productQty, required) — qo'lda o'zgartirilmaydi.
   available: number;
-  notes: string;
 }
 
 export function normalize(s: string) {
