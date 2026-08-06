@@ -9,6 +9,7 @@ import {
 } from "@/lib/userService";
 import {
   fmtDate,
+  isRequisitionCompleted,
   REQUISITION_STATUS_LABELS,
 } from "./_types";
 import { RequisitionStatusBadge } from "./_components/StatusBadge";
@@ -20,20 +21,6 @@ import { useT } from "@/lib/i18n";
 // ─── Status filter options ─────────────────────────────────────────────────────
 
 const COMPLETED_FILTER = "completed";
-
-const TERMINAL_STATUSES = new Set<RequisitionStatus>([
-  RequisitionStatus.ReadyForWarehouseRelease,
-  RequisitionStatus.Released,
-  RequisitionStatus.Delivered,
-  RequisitionStatus.Rejected,
-]);
-
-function isCompleted(r: RequisitionResponse): boolean {
-  if (r.children && r.children.length > 0) {
-    return r.children.every(c => TERMINAL_STATUSES.has(c.status));
-  }
-  return TERMINAL_STATUSES.has(r.status);
-}
 
 const STATUS_FILTER = [
   { value: "", label: "Barchasi" },
@@ -381,7 +368,7 @@ function RequisitionsContent() {
                     <td style={{ textAlign: "center", maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fmtDate(r.createdAt)}</td>
                     <td style={{ textAlign: "center", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       <div style={{ maxWidth: 180, overflow: "hidden", display: "inline-flex", justifyContent: "center" }}>
-                        <RequisitionStatusBadge status={r.status} completed={isCompleted(r)} small />
+                        <RequisitionStatusBadge status={r.status} completed={isRequisitionCompleted(r)} small />
                       </div>
                     </td>
                     <td className="td-actions" style={{ borderLeft: "2px solid var(--border)" }}

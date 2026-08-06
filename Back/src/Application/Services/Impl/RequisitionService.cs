@@ -64,9 +64,17 @@ public class RequisitionService : IRequisitionService
         return ApiResult<int>.Success(await query.CountAsync());
     }
 
+    // Talabnoma "yakunlangan" hisoblanadigan holatlar: direktor qarori chiqarilgan
+    // (tasdiq yoki rad) — undan keyingi ombor harakatlari holatni o'zgartirmaydi.
+    // Frontenddagi TERMINAL_STATUSES (client/app/(documents)/requisitions/_types.ts)
+    // bilan aynan bir xil bo'lishi shart — aks holda badge "Yakunlangan" deb
+    // ko'rsatgan qator "Yakunlangan" filtriga tushmaydi.
     private static readonly RequisitionStatus[] TerminalStatuses =
     [
         RequisitionStatus.ReadyForWarehouseRelease,
+        RequisitionStatus.ReadyForPurchase,
+        RequisitionStatus.Released,
+        RequisitionStatus.Delivered,
         RequisitionStatus.Rejected,
     ];
 
@@ -193,19 +201,14 @@ public class RequisitionService : IRequisitionService
                 return ApiResult<Guid>.Failure([normError]);
         }
 
-        // Nom foydalanuvchidan so'ralmaydi — bo'sh kelsa manba hujjatdan yasaladi.
-        // Nom ochiq berilgan bo'lsa (eski integratsiyalar) band emasligi tekshiriladi.
+        // Nomni foydalanuvchi kiritadi (blankda manba hujjatdan oldindan to'ldirilgan
+        // bo'ladi, lekin tahrirlansa bo'ladi — kirill/rus yozuvi shu yerdan keladi).
+        // Bo'sh kelsa nom manba hujjatdan yasaladi. Ikkala holatda ham nom band bo'lsa
+        // xato qaytarilmaydi — oxiriga tartib raqami qo'shiladi.
         var no = dto.RequisitionNo.Trim();
         if (no.Length == 0)
-        {
-            no = await GenerateRequisitionNoAsync(dto);
-        }
-        else
-        {
-            var taken = await _context.Requisitions.AnyAsync(r => r.RequisitionNo == no);
-            if (taken)
-                return ApiResult<Guid>.Failure(["Bunday nomli talabnoma allaqachon mavjud."]);
-        }
+            no = await BuildRequisitionNoBaseAsync(dto);
+        no = await EnsureUniqueRequisitionNoAsync(no);
 
         var requisition = new Requisition
         {
@@ -249,15 +252,12 @@ public class RequisitionService : IRequisitionService
     // uchun qoldiriladigan zaxira.
     private const int RequisitionNoSuffixReserve = 10;
 
-    // Talabnoma nomi foydalanuvchidan so'ralmaydi — u manba hujjatdan yasaladi:
-    // shartnoma tipida "<ShartnomaNo> shartnoma talabnomasi", individualda
-    // "<Bo'lim> bo'lim talabnomasi". Bitta shartnoma bo'yicha bir nechta
-    // talabnoma odatiy hol, shuning uchun nom band bo'lsa oxiriga " (2)",
-    // " (3)" … tartib raqami qo'shiladi.
-    private async Task<string> GenerateRequisitionNoAsync(RequisitionCreateDto dto)
+    // Nom bo'sh yuborilganda manba hujjatdan zaxira nom yasaladi: shartnoma tipida
+    // "<ShartnomaNo> shartnoma talabnomasi", individualda "<Bo'lim> bo'lim talabnomasi".
+    // Odatda nomni frontend to'ldirib yuboradi (foydalanuvchi tahrirlashi mumkin) —
+    // bu metod eski integratsiyalar va bo'sh forma uchun.
+    private async Task<string> BuildRequisitionNoBaseAsync(RequisitionCreateDto dto)
     {
-        string? baseName = null;
-
         if (dto.Type == RequisitionType.Contract && dto.ContractId is not null)
         {
             var contractNo = await _context.Contracts
@@ -266,7 +266,7 @@ public class RequisitionService : IRequisitionService
                 .Select(c => c.ContractNo)
                 .FirstOrDefaultAsync();
             if (!string.IsNullOrWhiteSpace(contractNo))
-                baseName = $"{contractNo.Trim()} shartnoma talabnomasi";
+                return $"{contractNo.Trim()} shartnoma talabnomasi";
         }
         else if (dto.DepartmentId is not null)
         {
@@ -276,11 +276,18 @@ public class RequisitionService : IRequisitionService
                 .Select(d => d.Name)
                 .FirstOrDefaultAsync();
             if (!string.IsNullOrWhiteSpace(deptName))
-                baseName = $"{deptName.Trim()} bo'lim talabnomasi";
+                return $"{deptName.Trim()} bo'lim talabnomasi";
         }
 
-        baseName ??= "Talabnoma";
+        return "Talabnoma";
+    }
 
+    // Nomni ustun uzunligiga sig'diradi va band bo'lsa oxiriga " (2)", " (3)" …
+    // tartib raqamini qo'shadi. Bitta shartnoma bo'yicha bir nechta talabnoma odatiy
+    // hol, shuning uchun takrorlanish xato emas — nom jimgina raqamlanadi. Qo'lda
+    // kiritilgan nom ham shu yerdan o'tadi.
+    private async Task<string> EnsureUniqueRequisitionNoAsync(string baseName)
+    {
         var maxBase = RequisitionNoMaxLength - RequisitionNoSuffixReserve;
         if (baseName.Length > maxBase)
             baseName = baseName[..maxBase].TrimEnd();

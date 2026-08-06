@@ -82,6 +82,9 @@ const FOOTER_BUFFER = 16;
 // Har sahifa pastida qoldiriladigan reserve bo'shliq — qatorlar
 // pastki marjnga yopishib qolmasligi uchun nafas joyi (~1cm).
 const PAGE_BOTTOM_PAD = 40;
+// Backenddagi RequisitionNo ustuni 200 belgi; oxiriga qo'shiladigan " (12)" va
+// bola talabnoma suffikslari uchun 10 belgi zaxira qoldiriladi.
+const REQ_NAME_MAX = 190;
 
 function RequisitionPrintContent() {
   const router = useRouter();
@@ -103,17 +106,28 @@ function RequisitionPrintContent() {
   const [contracts, setContracts] = useState<ContractResponse[]>([]);
   const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
 
-  // Talabnoma nomi foydalanuvchidan so'ralmaydi — yakuniy nomni backend manba
-  // hujjatdan yasaydi (band bo'lsa oxiriga tartib raqami qo'shadi). Bu yerda
-  // shu nomning ko'rinishi tasdiqlash oynasi va PDF fayl nomi uchun tuziladi.
+  // Nom manba hujjatdan taklif qilinadi (joriy interfeys tilida), lekin
+  // foydalanuvchi uni tahrirlashi mumkin — kirill yoki ruscha nom shu yerdan
+  // keladi. Backend nomni tarjima qilmaydi, faqat band bo'lsa raqamlaydi.
   const autoReqName = useMemo(() => {
+    // Kalitda {0} o'rniga manba qo'yiladi — so'z tartibi tilga qarab farq qiladi
+    // ("C-1 shartnoma talabnomasi" ↔ "Заявка по договору C-1").
     if (type === RequisitionType.Contract) {
       const c = contracts.find(x => x.id === contractId);
-      return c ? `${c.contractNo} shartnoma talabnomasi` : "";
+      return c ? t("{0} shartnoma talabnomasi").replace("{0}", c.contractNo) : "";
     }
     const d = departments.find(x => x.id === departmentId);
-    return d ? `${d.name} bo'lim talabnomasi` : "";
-  }, [type, contractId, departmentId, contracts, departments]);
+    return d ? t("{0} bo'lim talabnomasi").replace("{0}", d.name) : "";
+  }, [type, contractId, departmentId, contracts, departments, t]);
+
+  const [reqName, setReqName] = useState("");
+  // Foydalanuvchi maydonga tegmaguncha nom manba hujjat bilan sinxron turadi —
+  // shartnoma/bo'lim almashtirilsa nom ham yangilanadi. Bir marta qo'lda
+  // yozilgandan keyin tizim unga tegmaydi.
+  const [nameTouched, setNameTouched] = useState(false);
+  useEffect(() => {
+    if (!nameTouched) setReqName(autoReqName);
+  }, [autoReqName, nameTouched]);
 
   const typeTabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [typePill, setTypePill] = useState({ left: 0, width: 0 });
@@ -500,6 +514,8 @@ function RequisitionPrintContent() {
     setSignDate(new Date().toLocaleDateString("ru-RU").replace(/\//g, "."));
     setContractId("");
     setDepartmentId("");
+    setReqName("");
+    setNameTouched(false);
     setNormDept(null);
     setTzFile(null);
     if (tzInputRef.current) tzInputRef.current.value = "";
@@ -737,8 +753,10 @@ function RequisitionPrintContent() {
       // chiqadi — PDF tugashini kutmaymiz.
       setSubmitStage(1);
       const reqId = await requisitionService.create({
-        // requisitionNo yuborilmaydi — nomni backend shartnoma/bo'lim nomidan
-        // yasaydi va takrorlanmasligini o'zi ta'minlaydi.
+        // Nomni foydalanuvchi kiritadi (maydon manba hujjatdan oldindan to'ladi).
+        // Bo'sh qolsa backend uni o'zi yasaydi; band bo'lsa oxiriga tartib raqami
+        // qo'shadi — ikkalasi ham backend zimmasida.
+        requisitionNo: reqName.trim() || undefined,
         type,
         contractId: type === RequisitionType.Contract ? contractId : undefined,
         // Shartnoma tipida ham bo'lim biriktiriladi — tizimda talabnoma qaysi
@@ -766,7 +784,10 @@ function RequisitionPrintContent() {
       const pdfBlob = await pdfPromise;
       const uploads: Promise<unknown>[] = [];
       if (pdfBlob) {
-        const safeNo = (autoReqName || "talabnoma").replace(/[^A-Za-z0-9_-]+/g, "_");
+        // Fayl nomida faqat ASCII qoldiriladi. Nom kirill yoki ruscha bo'lsa
+        // undan hech narsa qolmaydi — bunday holda umumiy nom ishlatiladi.
+        const sanitized = reqName.replace(/[^A-Za-z0-9_-]+/g, "_").replace(/^_+|_+$/g, "");
+        const safeNo = /[A-Za-z0-9]/.test(sanitized) ? sanitized : "talabnoma";
         const pdfFile = new File([pdfBlob], `talabnoma_${safeNo}.pdf`, { type: "application/pdf" });
         uploads.push(requisitionService.uploadFile(reqId, pdfFile, "pdf"));
       }
@@ -1039,6 +1060,58 @@ function RequisitionPrintContent() {
               />
             )}
           </div>
+        </div>
+
+        {/* Middle row: talabnoma nomi — manba hujjatdan to'ldiriladi, tahrirlanadi.
+              Kirill yoki ruscha nom aynan shu maydondan keladi. */}
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "8px 16px",
+          borderBottom: "1px solid var(--border)",
+        }}>
+          <label
+            htmlFor="req-name"
+            style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text3)", whiteSpace: "nowrap", flexShrink: 0 }}
+          >
+            {t("Talabnoma nomi")}
+          </label>
+          <input
+            id="req-name"
+            value={reqName}
+            maxLength={REQ_NAME_MAX}
+            onChange={e => { setReqName(e.target.value); setNameTouched(true); }}
+            placeholder={t("Shartnoma yoki bo'lim tanlansa avtomatik to'ladi")}
+            onFocus={e => { e.currentTarget.style.borderColor = "var(--accent)"; }}
+            onBlur={e => { e.currentTarget.style.borderColor = "var(--border)"; }}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              padding: "6px 10px",
+              background: "var(--bg2)",
+              border: "1.5px solid var(--border)",
+              borderRadius: "var(--radius)",
+              fontSize: 13,
+              color: "var(--text)",
+              outline: "none",
+              transition: "border-color 0.15s",
+            }}
+          />
+          {nameTouched ? (
+            <button
+              type="button"
+              onClick={() => setNameTouched(false)}
+              title={t("Manba hujjatdan olingan nomga qaytarish")}
+              style={{ flexShrink: 0, padding: "5px 10px", background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "var(--text2)" }}
+            >
+              {t("Avtomatik nom")}
+            </button>
+          ) : (
+            <span style={{ flexShrink: 0, fontSize: 11, color: "var(--text3)", whiteSpace: "nowrap" }}>
+              {t("Manba hujjatdan olindi")}
+            </span>
+          )}
         </div>
 
         {/* Bottom row: action buttons — guruhlangan
@@ -1600,7 +1673,7 @@ function RequisitionPrintContent() {
           <div style={{ background: "var(--bg2)", borderRadius: 14, padding: 28, width: 460, maxWidth: "90vw", minHeight: 240, boxShadow: "var(--shadow2)", display: "flex", flexDirection: "column" }}>
             <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 10, color: "var(--text1)" }}>{t("Ishonchingiz komilmi?")}</div>
             <div style={{ fontSize: 15, color: "var(--text2)", marginBottom: 20, lineHeight: 1.6 }}>
-              <strong>{autoReqName}</strong> {t("nomli talabnoma")}{" "}
+              <strong>{reqName.trim() || autoReqName || t("Talabnoma")}</strong> {t("nomli talabnoma")}{" "}
               {type === RequisitionType.Contract ? t("ombor tekshiruviga") : t("tizimga")}{" "}
               {t("yuboriladi. Yuborilgandan keyin tahrirlab bo'lmaydi.")}
             </div>

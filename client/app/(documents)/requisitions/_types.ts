@@ -23,6 +23,28 @@ export const STATUS_STYLE: Partial<Record<RequisitionStatus, { bg: string; color
   [RequisitionStatus.Delivered]:                { bg: "var(--success-dim)", color: "var(--success)", border: "rgba(15,123,69,0.35)" },
 };
 
+// ─── Yakunlanganlik ────────────────────────────────────────────────────────────
+
+// Talabnoma "yakunlangan" hisoblanadigan holatlar: direktor qarori chiqarilgan
+// (tasdiq yoki rad) — undan keyingi ombor harakatlari holatni o'zgartirmaydi.
+// Backenddagi RequisitionService.TerminalStatuses bilan aynan bir xil bo'lishi shart.
+export const TERMINAL_STATUSES = new Set<RequisitionStatus>([
+  RequisitionStatus.ReadyForWarehouseRelease,
+  RequisitionStatus.ReadyForPurchase,
+  RequisitionStatus.Released,
+  RequisitionStatus.Delivered,
+  RequisitionStatus.Rejected,
+]);
+
+// Bo'lingan (Split) talabnoma barcha child'lari yakunlangandagina yakunlangan;
+// bo'linmagani esa o'z holatiga qarab.
+export function isRequisitionCompleted(r: RequisitionResponse): boolean {
+  if (r.children && r.children.length > 0) {
+    return r.children.every(c => TERMINAL_STATUSES.has(c.status));
+  }
+  return TERMINAL_STATUSES.has(r.status);
+}
+
 // ─── Workflow ─────────────────────────────────────────────────────────────────
 
 type WorkflowStepKey =

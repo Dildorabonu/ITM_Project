@@ -12,7 +12,7 @@ import {
 } from "@/lib/userService";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useToastStore } from "@/lib/store/toastStore";
-import { fmtDateTime } from "../_types";
+import { fmtDateTime, isRequisitionCompleted } from "../_types";
 import { RequisitionStatusBadge } from "./StatusBadge";
 import { WorkflowDiagram } from "./WorkflowDiagram";
 import { approveWithPdf } from "../_utils/approveWithPdf";
@@ -197,7 +197,7 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
               {req.sourceLabel && <span style={{ marginLeft: 8, color: req.source === RequisitionSource.Warehouse ? "var(--success)" : "var(--accent)", fontWeight: 500 }}>· {req.sourceLabel}</span>}
             </div>
           </div>
-          <RequisitionStatusBadge status={req.status} />
+          <RequisitionStatusBadge status={req.status} completed={isRequisitionCompleted(req)} />
           <button
             onClick={onClose}
             style={{ padding: 7, background: "none", border: "1.5px solid var(--danger)", cursor: "pointer", color: "var(--danger)", borderRadius: "var(--radius)", lineHeight: 1, transition: "background 0.15s, transform 0.15s" }}

@@ -231,24 +231,54 @@ public class RequisitionServiceTests
         saved.Items.Should().HaveCount(2);
     }
 
+    /// <summary>
+    /// Nom bo'sh yuborilsa xato emas — u manba hujjatdan (bu yerda bo'lim nomidan)
+    /// yasaladi. Odatda nomni frontend to'ldirib yuboradi, bu zaxira yo'l.
+    /// </summary>
     [Fact]
-    public async Task CreateAsync_WithEmptyRequisitionNo_ReturnsFailure()
+    public async Task CreateAsync_WithEmptyRequisitionNo_GeneratesNameFromSource()
     {
         await using var db = CreateDb();
-        var contract = SeedContract(db);
+        var dept = SeedDept(db);
+        var creator = TestData.SeedUser(db, login: "creator", departmentId: dept.Id);
         var material = SeedMaterial(db);
 
         var result = await CreateService(db).CreateAsync(new RequisitionCreateDto
         {
             RequisitionNo = "   ",
-            Type = RequisitionType.Contract,
-            ContractId = contract.Id,
+            Type = RequisitionType.Individual,
+            DepartmentId = dept.Id,
             Items = [new RequisitionItemCreateDto { MaterialId = material.Id, Quantity = 1m }],
-        }, Guid.NewGuid());
+        }, creator.Id);
 
-        result.Succeeded.Should().BeFalse();
-        result.Errors.Should().ContainSingle().Which.Should().Contain("nomini kiriting");
-        db.Requisitions.Should().BeEmpty();
+        result.Succeeded.Should().BeTrue();
+        var created = await db.Requisitions.SingleAsync();
+        created.RequisitionNo.Should().Be("Sex-1 bo'lim talabnomasi");
+    }
+
+    /// <summary>
+    /// Nomni foydalanuvchi kiritadi — kirill/rus yozuvi ham o'zgarishsiz saqlanadi
+    /// (backend uni tarjima ham, transliteratsiya ham qilmaydi).
+    /// </summary>
+    [Fact]
+    public async Task CreateAsync_WithUserProvidedName_StoresItVerbatim()
+    {
+        await using var db = CreateDb();
+        var dept = SeedDept(db);
+        var creator = TestData.SeedUser(db, login: "creator", departmentId: dept.Id);
+        var material = SeedMaterial(db);
+
+        var result = await CreateService(db).CreateAsync(new RequisitionCreateDto
+        {
+            RequisitionNo = "  Сех-1 бўлим талабномаси  ",
+            Type = RequisitionType.Individual,
+            DepartmentId = dept.Id,
+            Items = [new RequisitionItemCreateDto { MaterialId = material.Id, Quantity = 1m }],
+        }, creator.Id);
+
+        result.Succeeded.Should().BeTrue();
+        var created = await db.Requisitions.SingleAsync();
+        created.RequisitionNo.Should().Be("Сех-1 бўлим талабномаси");
     }
 
     [Fact]
@@ -323,24 +353,30 @@ public class RequisitionServiceTests
         result.Errors.Should().ContainSingle().Which.Should().Contain("MaterialId yoki nomi");
     }
 
+    /// <summary>
+    /// Bitta manba bo'yicha bir nechta talabnoma odatiy hol — takroriy nom xato emas,
+    /// oxiriga tartib raqami qo'shiladi. Qo'lda kiritilgan nom ham shu yo'ldan o'tadi.
+    /// </summary>
     [Fact]
-    public async Task CreateAsync_DuplicateRequisitionNo_ReturnsFailure()
+    public async Task CreateAsync_DuplicateRequisitionNo_AppendsSequence()
     {
         await using var db = CreateDb();
-        var contract = SeedContract(db);
+        var dept = SeedDept(db);
+        var creator = TestData.SeedUser(db, login: "creator", departmentId: dept.Id);
         var material = SeedMaterial(db);
-        SeedParentRequisition(db, Guid.NewGuid(), contractId: contract.Id, no: "REQ-DUP");
+        SeedParentRequisition(db, creator.Id, departmentId: dept.Id, no: "REQ-DUP");
 
         var result = await CreateService(db).CreateAsync(new RequisitionCreateDto
         {
             RequisitionNo = "REQ-DUP",
-            Type = RequisitionType.Contract,
-            ContractId = contract.Id,
+            Type = RequisitionType.Individual,
+            DepartmentId = dept.Id,
             Items = [new RequisitionItemCreateDto { MaterialId = material.Id, Quantity = 1m }],
-        }, Guid.NewGuid());
+        }, creator.Id);
 
-        result.Succeeded.Should().BeFalse();
-        result.Errors.Should().ContainSingle().Which.Should().Contain("allaqachon mavjud");
+        result.Succeeded.Should().BeTrue();
+        var created = await db.Requisitions.SingleAsync(r => r.Id == result.Result);
+        created.RequisitionNo.Should().Be("REQ-DUP (2)");
     }
 
     [Fact]

@@ -127,6 +127,7 @@ export const ru: Record<string, string> = {
   "Asosiy ma'lumotlar": "Основные сведения",
   "Avgust": "Август",
   "Avtomatik (eski partiyadan boshlab)": "Автоматически (начиная со старой партии)",
+  "Avtomatik nom": "Автоматическое название",
   "Avtomatik to'ldiriladi": "Заполняется автоматически",
   "Avval bu turdagi bo'limni tanlang": "Сначала выберите отдел этого типа",
   "Bajarildi": "Выполнено",
@@ -494,6 +495,8 @@ export const ru: Record<string, string> = {
   "Mahsulotni tanlang": "Выберите товар",
   "Maksimal chegara: bir vaqtda 200 ta mahsulot qo'shish mumkin": "Максимальный лимит: можно добавить до 200 товаров за раз",
   "Manba": "Источник",
+  "Manba hujjatdan olindi": "Взято из исходного документа",
+  "Manba hujjatdan olingan nomga qaytarish": "Вернуть название из исходного документа",
   "Maqsad": "Назначение",
   "Mart": "Март",
   "Mas'ul xodim": "Ответственный сотрудник",
@@ -738,6 +741,7 @@ export const ru: Record<string, string> = {
   "Shartnoma / Bo'lim": "Договор / Подразделение",
   "Shartnoma bo'yicha": "По договору",
   "Shartnoma fayli": "Файл договора",
+  "Shartnoma yoki bo'lim tanlansa avtomatik to'ladi": "Заполнится автоматически при выборе договора или отдела",
   "Shartnoma fayllari": "Файлы договора",
   "Shartnoma holatlari": "Статусы договора",
   "Shartnoma izohi": "Примечание к договору",
@@ -831,6 +835,7 @@ export const ru: Record<string, string> = {
   "Tahrir": "Изменить",
   "Tahrirlash": "Редактировать",
   "Talabnoma blanki": "Бланк заявки",
+  "Talabnoma nomi": "Название заявки",
   "Talabnoma bo'yicha mahsulotlarni berib yuborish": "Отгрузить товары по заявке",
   "Talabnoma rad etildi": "Заявка отклонена",
   "Talabnoma rad etilgan": "Заявка отклонена",
@@ -1206,4 +1211,9 @@ export const ru: Record<string, string> = {
   "Tok": "Ток",
   "Quvvat": "Мощность",
   "Ma'lumot yetarli emas": "Недостаточно данных",
+
+  // Talabnoma nomi shabloni — {0} o'rniga shartnoma raqami yoki bo'lim nomi
+  // qo'yiladi. So'z tartibi tilga qarab farq qilgani uchun butun ibora kalit.
+  "{0} shartnoma talabnomasi": "Заявка по договору {0}",
+  "{0} bo'lim talabnomasi": "Заявка отдела {0}",
 };
