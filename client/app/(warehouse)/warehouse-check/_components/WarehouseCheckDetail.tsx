@@ -18,6 +18,7 @@ import {
 } from "../_types";
 import { StatusBadgeBig } from "./StatusBadgeBig";
 import { attachChildPdfs } from "../_utils/attachChildPdfs";
+import { SubmitProgressOverlay } from "@/app/(documents)/requisitions/_components/SubmitProgressOverlay";
 import { useT } from "@/lib/i18n";
 import { fmtDecimal } from "@/lib/num";
 
@@ -28,6 +29,13 @@ const SEGMENTS = [
   { key: "yetishmadi", label: "Qisman", color: "var(--warn)" },
   { key: "topilmadi", label: "Yo'q", color: "var(--danger)" },
 ] as const;
+
+// Yakunlash jarayonining bosqichlari — overlay ham, kod ham shu ro'yxatga tayanadi.
+const SUBMIT_STEPS = [
+  "Tekshiruv saqlanmoqda",
+  "Talabnomalar PDF'ga tayyorlanmoqda",
+  "Ro'yxat yangilanmoqda",
+];
 
 const FILTERS = [
   { key: "all", label: "Barchasi", color: "var(--accent)", dim: "var(--accent-dim)" },
@@ -51,7 +59,9 @@ export function WarehouseCheckDetail({ req, prodMap, onClose, onSubmitted }: Pro
   const showToast = useToastStore(s => s.show);
 
   const [editItems, setEditItems] = useState<MaterialCheckItem[]>([]);
-  const [submitting, setSubmitting] = useState(false);
+  // null — yuborilmayapti, 0..2 — faol bosqich, 3 — hammasi tugadi.
+  const [submitStage, setSubmitStage] = useState<number | null>(null);
+  const submitting = submitStage !== null;
   const [detailSearch, setDetailSearch] = useState("");
   const [detailFilter, setDetailFilter] = useState<"all" | "yetarli" | "yetishmadi" | "topilmadi">("all");
 
@@ -74,6 +84,26 @@ export function WarehouseCheckDetail({ req, prodMap, onClose, onSubmitted }: Pro
     }));
   }, [req, prodMap]);
 
+  // html2pdf chunk'ini fon rejimida oldindan yuklaymiz — "Tekshiruvni yakunlash"
+  // bosilganda modulni yuklab, parse qilish (1-2s) kutish vaqtidan tushib qoladi.
+  useEffect(() => {
+    import("@/app/(documents)/requisitions/_utils/generateRequisitionPdf")
+      .then(m => m.preloadPdfEngine())
+      .catch(() => { /* generatsiya vaqtida qayta urinadi */ });
+  }, []);
+
+  // Jarayon o'rtasida tab yopilsa yoki reload qilinsa, bola talabnomalar
+  // PDF'siz qolib ketadi — ogohlantiramiz.
+  useEffect(() => {
+    if (submitStage === null) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [submitStage]);
+
   const detailStats = {
     total: editItems.length,
     yetarli: editItems.filter(i => i.status === "yetarli").length,
@@ -94,7 +124,10 @@ export function WarehouseCheckDetail({ req, prodMap, onClose, onSubmitted }: Pro
   }, [editItems, detailSearch, detailFilter]);
 
   const handleSubmit = async () => {
-    setSubmitting(true);
+    if (submitting) return;
+    // Overlay ostida fokus qolib ketmasligi uchun.
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    setSubmitStage(0);
     try {
       // Mavjud miqdor ombor zaxirasidan avtomatik hisoblanadi — qo'lda kiritilmaydi.
       const payload: RequisitionWarehouseCheckItem[] = editItems.map(it => ({
@@ -104,6 +137,7 @@ export function WarehouseCheckDetail({ req, prodMap, onClose, onSubmitted }: Pro
       const childIds = await requisitionService.warehouseCheck(req.id, payload);
 
       // Har bir bola talabnoma uchun PDF yaratib biriktiramiz
+      setSubmitStage(1);
       const pdfFailures = await attachChildPdfs(childIds);
 
       if (pdfFailures > 0) {
@@ -116,17 +150,26 @@ export function WarehouseCheckDetail({ req, prodMap, onClose, onSubmitted }: Pro
       }
       // Sidebar badge darhol yangilanishi uchun
       window.dispatchEvent(new Event("warehouse-check-updated"));
+      setSubmitStage(2);
       await onSubmitted();
+      // Overlay 100% da qoladi va komponent unmount bo'lganda yo'qoladi.
+      setSubmitStage(SUBMIT_STEPS.length);
     } catch {
       showToast(t("Xatolik yuz berdi"), "error");
-    } finally {
-      setSubmitting(false);
+      setSubmitStage(null);
     }
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
       <style dangerouslySetInnerHTML={{ __html: statusKeyframes }} />
+      {submitStage !== null && (
+        <SubmitProgressOverlay
+          stage={submitStage}
+          title="Tekshiruv yakunlanmoqda"
+          steps={SUBMIT_STEPS}
+        />
+      )}
       {/* Header */}
       <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "12px 16px" }}>
         <button onClick={onClose}

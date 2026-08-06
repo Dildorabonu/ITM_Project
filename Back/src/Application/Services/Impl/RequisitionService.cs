@@ -410,6 +410,29 @@ public class RequisitionService : IRequisitionService
 
         await using var tx = await _context.Database.BeginTransactionAsync();
 
+        // Ombor mahsulotlari bitta so'rovda oldindan olinadi. Ilgari har bir item
+        // uchun alohida SELECT ketardi — 30 qatorli talabnomada 30 ta ketma-ket
+        // aylanma, ya'ni tekshiruvni yakunlash sezilarli sekinlashardi.
+        var neededNames = new HashSet<string>();
+        foreach (var item in r.Items)
+        {
+            if (!checkMap.TryGetValue(item.Id, out var c) || c.AvailableQuantity <= 0) continue;
+            var name = (item.Material?.Name ?? item.FreeTextName ?? string.Empty).Trim().ToLower();
+            if (name.Length > 0) neededNames.Add(name);
+        }
+
+        var productByName = new Dictionary<string, Product>();
+        if (neededNames.Count > 0)
+        {
+            var nameList = neededNames.ToList();
+            var warehouseProducts = await _context.Products
+                .Where(p => p.DepartmentId == warehouseDept.Id && nameList.Contains(p.Name.ToLower()))
+                .ToListAsync();
+
+            foreach (var p in warehouseProducts)
+                productByName.TryAdd(p.Name.ToLower(), p);
+        }
+
         foreach (var item in r.Items)
         {
             if (!checkMap.TryGetValue(item.Id, out var check))
@@ -435,11 +458,7 @@ public class RequisitionService : IRequisitionService
                 var productName = (item.Material?.Name ?? item.FreeTextName ?? string.Empty).Trim();
                 if (productName.Length == 0) continue;
 
-                var lower = productName.ToLower();
-                var product = await _context.Products
-                    .FirstOrDefaultAsync(p => p.DepartmentId == warehouseDept.Id && p.Name.ToLower() == lower);
-
-                if (product is null) continue;
+                if (!productByName.TryGetValue(productName.ToLower(), out var product)) continue;
 
                 var alreadyAdded = reservationDelta.TryGetValue(product.Id, out var prev) ? prev : 0m;
                 var newDelta = alreadyAdded + availableQty;

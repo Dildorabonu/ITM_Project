@@ -382,7 +382,30 @@ function planPages(itemCount: number, m: PageMeasurements): number[][] {
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
+// html2pdf chunk'i bir marta yuklanadi va keyingi chaqiruvlarda keshdan olinadi.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let html2pdfPromise: Promise<any> | null = null;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function loadHtml2Pdf(): Promise<any> {
+  if (!html2pdfPromise) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    html2pdfPromise = import("html2pdf.js" as any)
+      .then(m => m.default)
+      .catch(err => { html2pdfPromise = null; throw err; });
+  }
+  return html2pdfPromise;
+}
+
+// Chunk'ni oldindan (fon rejimida) yuklab qo'yish uchun — PDF kerak bo'lganda
+// modul kutish vaqti (1-2s) jarayondan tushib qoladi.
+export function preloadPdfEngine(): void {
+  loadHtml2Pdf().catch(() => { /* generatsiya vaqtida qayta urinadi */ });
+}
+
 export async function generateRequisitionPdfBlob(req: RequisitionResponse): Promise<Blob | null> {
+  // Engine yuklanishi rasm inline qilish va probe render bilan parallel ketadi.
+  const enginePromise = loadHtml2Pdf();
   const items = await inlinePhotos(req.items);
   const reqWithInlined: RequisitionResponse = { ...req, items };
 
@@ -424,14 +447,19 @@ export async function generateRequisitionPdfBlob(req: RequisitionResponse): Prom
     await new Promise<void>(res => requestAnimationFrame(() => requestAnimationFrame(() => res())));
     await waitForImages(docEl);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const html2pdf = (await import("html2pdf.js" as any)).default;
+    const html2pdf = await enginePromise;
     const blob: Blob = await html2pdf()
       .set({
         margin: 0,
         pagebreak: { mode: ["css"], avoid: ".page-sheet" },
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, width: A4_W, windowWidth: A4_W },
+        // scale 1.5 → A4 varaq ~1191px kenglikda (~144 DPI): matn bir xil
+        // o'qiladi, lekin canvas maydoni scale 2 ga nisbatan 44% ga kichrayadi.
+        // quality 0.85 fayl hajmini ~3 barobar kamaytiradi — serverga yuklash
+        // ham tezlashadi. print/page.tsx dagi konfiguratsiya bilan bir xil.
+        image: { type: "jpeg", quality: 0.85 },
+        // imageTimeout — yuklanmagan remote rasmda html2canvas default 15
+        // soniya kutadi va butun jarayon osilib qoladi.
+        html2canvas: { scale: 1.5, useCORS: true, imageTimeout: 3000, width: A4_W, windowWidth: A4_W },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
       })
       .from(docEl)

@@ -16,19 +16,31 @@ import { useT } from "@/lib/i18n";
 // Bosqichlar overlay va doSaveSystem o'rtasida umumiy: setSubmitStage(n).
 export const SUBMIT_STAGES = 3;
 
-export function SubmitProgressOverlay({ stage }: { stage: number }) {
+const DEFAULT_STEPS = [
+  "Rasmlar va PDF tayyorlanmoqda",
+  "Talabnoma saqlanmoqda",
+  "Fayllar biriktirilmoqda",
+];
+
+interface Props {
+  stage: number;
+  /** Overlay sarlavhasi — manba (o'zbekcha) satr, ichkarida tarjima qilinadi. */
+  title?: string;
+  /** Bosqich nomlari — manba (o'zbekcha) satrlar. Soni progress mahrajini belgilaydi. */
+  steps?: string[];
+}
+
+export function SubmitProgressOverlay({ stage, title, steps: rawSteps }: Props) {
   const t = useT();
 
-  const steps = [
-    t("Rasmlar va PDF tayyorlanmoqda"),
-    t("Talabnoma saqlanmoqda"),
-    t("Fayllar biriktirilmoqda"),
-  ];
+  const source = rawSteps ?? DEFAULT_STEPS;
+  const steps = source.map(s => t(s));
+  const total = source.length;
 
   // Bosqichlarga asoslangan haqiqiy progress (soxta timer emas). Oxirgi
-  // bosqich tugagach stage === SUBMIT_STAGES bo'ladi — 100%.
-  const pct = Math.round((Math.min(stage, SUBMIT_STAGES) / SUBMIT_STAGES) * 100);
-  const done = stage >= SUBMIT_STAGES;
+  // bosqich tugagach stage === total bo'ladi — 100%.
+  const pct = Math.round((Math.min(stage, total) / total) * 100);
+  const done = stage >= total;
 
   return createPortal(
     <div
@@ -70,7 +82,7 @@ export function SubmitProgressOverlay({ stage }: { stage: number }) {
           fontSize: 10, fontWeight: 600, textTransform: "uppercase",
           letterSpacing: "0.14em", color: "var(--text3)", margin: 0,
         }}>
-          {t("Talabnoma yuborilmoqda")}
+          {t(title ?? "Talabnoma yuborilmoqda")}
         </p>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 16 }}>
