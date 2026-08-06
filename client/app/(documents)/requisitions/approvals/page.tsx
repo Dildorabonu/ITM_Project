@@ -21,12 +21,6 @@ import { useT } from "@/lib/i18n";
 
 type SourceFilter = "all" | "warehouse" | "purchase";
 
-const SOURCE_TABS: { id: SourceFilter; label: string }[] = [
-  { id: "all",       label: "Barchasi" },
-  { id: "warehouse", label: "Ombordan"  },
-  { id: "purchase",  label: "Sotib olish" },
-];
-
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function RequisitionApprovalsPage() {
@@ -142,15 +136,31 @@ export default function RequisitionApprovalsPage() {
     );
   }
 
+  const queueAge =
+    stats.oldestDays == null ? null :
+    stats.oldestDays >= 3 ? { color: "var(--danger)",  bg: "var(--danger-dim)" } :
+    stats.oldestDays >= 1 ? { color: "var(--warn)",    bg: "var(--warn-dim)"   } :
+                            { color: "var(--text2)",   bg: "var(--bg3)"        };
+
   return (
     <div className="page-transition">
-      {/* ─── Header row ───────────────────────────────────────────────── */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "flex-start", marginBottom: 18, flexWrap: "wrap", gap: 12 }}>
+      <style>{`
+        .appr-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+        @media (max-width: 860px) { .appr-grid { grid-template-columns: 1fr; } }
+        .appr-tile:hover { border-color: var(--border2); }
+        .appr-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+        .appr-rail { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; transform: scaleX(0); transform-origin: left; transition: transform 0.22s ease; }
+        .appr-tile[data-active="true"] .appr-rail { transform: scaleX(1); }
+        @media (prefers-reduced-motion: reduce) { .appr-rail { transition: none; } }
+      `}</style>
+
+      {/* ─── Header row: back + queue age ─────────────────────────────── */}
+      <div style={{ display: "flex", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
         <button
           onClick={() => router.push("/requisitions")}
           style={{
             display: "inline-flex", alignItems: "center", gap: 6,
-            padding: "8px 14px", fontSize: 13, fontWeight: 600,
+            padding: "7px 13px", fontSize: 13, fontWeight: 600,
             borderRadius: "var(--radius)", border: "1.5px solid var(--border)",
             background: "var(--bg3)", color: "var(--text2)", cursor: "pointer",
             transition: "border-color 0.15s, color 0.15s",
@@ -163,38 +173,63 @@ export default function RequisitionApprovalsPage() {
           </svg>
           {t("Barcha talabnomalar")}
         </button>
+
+        {queueAge && (
+          <span
+            style={{
+              marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 7,
+              padding: "6px 12px", borderRadius: 999,
+              background: queueAge.bg, color: queueAge.color,
+              fontSize: 12, fontWeight: 600,
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+            {t("Eng eski")}
+            <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700 }}>
+              {stats.oldestDays === 0 ? t("bugun") : `${stats.oldestDays} ${t("kun")}`}
+            </span>
+          </span>
+        )}
       </div>
 
-      {/* ─── Stats row ───────────────────────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 18 }}>
-        <StatCard
+      {/* ─── Queue filter tiles ──────────────────────────────────────── */}
+      <div className="appr-grid">
+        <FilterTile
           delay={0}
           label={t("Tasdiq kutmoqda")}
           value={stats.pending}
-          icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
+          active={sourceFilter === "all"}
+          onSelect={() => setSourceFilter("all")}
+          icon={<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
           accent="var(--warn)"
           accentBg="var(--warn-dim)"
         />
-        <StatCard
+        <FilterTile
           delay={1}
           label={t("Ombordan")}
           value={stats.warehouse}
-          icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27,6.96 12,12.01 20.73,6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>}
+          active={sourceFilter === "warehouse"}
+          onSelect={() => setSourceFilter("warehouse")}
+          icon={<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27,6.96 12,12.01 20.73,6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>}
           accent="var(--success)"
           accentBg="var(--success-dim)"
         />
-        <StatCard
+        <FilterTile
           delay={2}
           label={t("Sotib olishga")}
           value={stats.purchase}
-          icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>}
+          active={sourceFilter === "purchase"}
+          onSelect={() => setSourceFilter("purchase")}
+          icon={<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>}
           accent="var(--purple)"
           accentBg="var(--purple-dim)"
         />
       </div>
 
       {/* ─── Toolbar ─────────────────────────────────────────────────── */}
-      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, padding: "10px 14px", flexWrap: "wrap" }}>
+      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12, padding: "8px 12px", flexWrap: "wrap" }}>
         <div className="search-wrap" style={{ maxWidth: "none", flex: 1, minWidth: 240 }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -204,28 +239,39 @@ export default function RequisitionApprovalsPage() {
             placeholder={t("Raqam, maqsad, shartnoma, bo'lim, yaratuvchi")}
             value={search}
             onChange={e => setSearch(e.target.value)}
+            style={search ? { paddingRight: 34 } : undefined}
           />
-        </div>
-        <div style={{ display: "inline-flex", padding: 3, background: "var(--bg3)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)" }}>
-          {SOURCE_TABS.map(tab => {
-            const active = sourceFilter === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setSourceFilter(tab.id)}
-                style={{
-                  padding: "6px 14px", fontSize: 12, fontWeight: 600,
-                  borderRadius: "calc(var(--radius) - 2px)", border: "none",
-                  background: active ? "var(--accent)" : "transparent",
-                  color: active ? "#fff" : "var(--text2)",
-                  cursor: "pointer", transition: "background 0.15s, color 0.15s",
-                }}
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              aria-label={t("Tozalash")}
+              title={t("Tozalash")}
+              style={{
+                position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                width: 20, height: 20, borderRadius: "50%", border: "none",
+                background: "var(--surface2)", color: "var(--text3)", cursor: "pointer",
+                padding: 0,
+              }}
+            >
+              {/* inline reset: `.search-wrap svg` pins descendant svgs to the left edge */}
+              <svg
+                width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6"
+                style={{ position: "static", left: "auto", top: "auto", transform: "none", width: 11, height: 11, color: "inherit" }}
               >
-                {t(tab.label)}
-              </button>
-            );
-          })}
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          )}
         </div>
+        {filtered.length !== list.length && (
+          <span style={{ fontSize: 12, color: "var(--text3)", whiteSpace: "nowrap" }}>
+            {t("Ko'rsatilmoqda")}{" "}
+            <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--text2)" }}>
+              {filtered.length}
+            </span>
+          </span>
+        )}
       </div>
 
       {/* ─── List ────────────────────────────────────────────────────── */}
@@ -348,43 +394,56 @@ export default function RequisitionApprovalsPage() {
   );
 }
 
-// ─── StatCard ──────────────────────────────────────────────────────────────────
+// ─── FilterTile ────────────────────────────────────────────────────────────────
+// Counts and the source filter are the same three buckets, so one control does both.
 
-function StatCard({ label, value, icon, accent, accentBg, delay }: {
+function FilterTile({ label, value, icon, accent, accentBg, delay, active, onSelect }: {
   label: string;
   value: number;
   icon: React.ReactNode;
   accent: string;
   accentBg: string;
   delay: number;
+  active: boolean;
+  onSelect: () => void;
 }) {
   return (
-    <div
-      className={`itm-card nd-fadein-${delay}`}
-      style={{ padding: 16, position: "relative", overflow: "hidden" }}
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onSelect}
+      data-active={active}
+      className={`itm-card appr-tile nd-fadein-${delay}`}
+      style={{
+        display: "flex", alignItems: "center", gap: 10,
+        width: "100%", padding: "11px 14px", position: "relative",
+        font: "inherit", textAlign: "left", cursor: "pointer",
+        borderColor: active ? accent : undefined,
+        background: active ? accentBg : undefined,
+        transition: "border-color 0.15s, background 0.15s",
+      }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-        <div style={{
-          width: 32, height: 32, borderRadius: "var(--radius)",
-          background: accentBg, color: accent,
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
-          {icon}
-        </div>
-        <div style={{
-          fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em",
-          color: "var(--text3)",
-        }}>
-          {label}
-        </div>
-      </div>
-      <div style={{
-        fontSize: 26, fontWeight: 700, color: "var(--text)",
-        fontFamily: "var(--font-mono)", lineHeight: 1.1,
+      <span style={{
+        width: 30, height: 30, borderRadius: "var(--radius)", flexShrink: 0,
+        background: active ? "var(--surface)" : accentBg, color: accent,
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+      }}>
+        {icon}
+      </span>
+      <span style={{
+        fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.09em",
+        color: active ? accent : "var(--text3)", lineHeight: 1.3,
+      }}>
+        {label}
+      </span>
+      <span style={{
+        marginLeft: "auto", fontSize: 22, fontWeight: 700, lineHeight: 1,
+        fontFamily: "var(--font-mono)", color: active ? accent : "var(--text)",
       }}>
         {value}
-      </div>
-    </div>
+      </span>
+      <span className="appr-rail" style={{ background: accent }} />
+    </button>
   );
 }
 

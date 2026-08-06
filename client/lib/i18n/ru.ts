@@ -385,6 +385,8 @@ export const ru: Record<string, string> = {
   "Kechikkan (3+ kun)": "Просрочено (3+ дн.)",
   "ta kritik (7+ kun)": "критических (7+ дн.)",
   "Eng uzoq kutgan": "Дольше всех в ожидании",
+  "Eng eski": "Самая старая",
+  "Ko'rsatilmoqda": "Показано",
   "Kutish": "Ожидание",
   "Jami materiallar": "Всего материалов",
   "Jami shartnoma": "Всего договоров",
