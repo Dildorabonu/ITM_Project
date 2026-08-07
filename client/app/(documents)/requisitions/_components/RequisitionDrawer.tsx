@@ -12,7 +12,8 @@ import {
 } from "@/lib/userService";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useToastStore } from "@/lib/store/toastStore";
-import { fmtDateTime, isRequisitionCompleted } from "../_types";
+import { fmtDateTime, isRequisitionCompleted, REQUISITION_STATUS_LABELS } from "../_types";
+import { RequisitionNo } from "@/app/_components/RequisitionNo";
 import { RequisitionStatusBadge } from "./StatusBadge";
 import { WorkflowDiagram } from "./WorkflowDiagram";
 import { approveWithPdf } from "../_utils/approveWithPdf";
@@ -191,10 +192,10 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
         {/* Header */}
         <div style={{ padding: "20px 26px", borderBottom: "1.5px solid var(--border)", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 700, fontSize: 17, color: "var(--text)", fontFamily: "var(--font-mono)" }}>{req.requisitionNo}</div>
+            <RequisitionNo no={req.requisitionNo} hideSourceTag style={{ fontWeight: 700, fontSize: 17, color: "var(--text)", fontFamily: "var(--font-mono)", display: "flex" }} />
             <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 3 }}>
               {req.typeLabel}
-              {req.sourceLabel && <span style={{ marginLeft: 8, color: req.source === RequisitionSource.Warehouse ? "var(--success)" : "var(--accent)", fontWeight: 500 }}>· {req.sourceLabel}</span>}
+              {req.sourceLabel && <span style={{ marginLeft: 8, color: req.source === RequisitionSource.Warehouse ? "var(--success)" : "var(--accent)", fontWeight: 500 }}>· {t(req.sourceLabel)}</span>}
             </div>
           </div>
           <RequisitionStatusBadge status={req.status} completed={isRequisitionCompleted(req)} />
@@ -249,7 +250,10 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
                     {req.children.map(ch => {
                       const isWh = ch.source === RequisitionSource.Warehouse;
                       const destColor = isWh ? "var(--success)" : "var(--accent)";
-                      const destLabel = isWh ? t("Ombordan olishga") : t("Sotib olishga");
+                      const destLabel = isWh ? "Ombordan olishga" : "Sotib olishga";
+                      // Tasdiqlangandan keyin status yorlig'i yo'nalish chipi bilan
+                      // aynan bir xil bo'lib qoladi — takrorlamaymiz.
+                      const showDest = REQUISITION_STATUS_LABELS[ch.status] !== destLabel;
                       const isOpening = childActing?.id === ch.id && childActing.action === "open";
                       const isDownloading = childActing?.id === ch.id && childActing.action === "download";
                       const anyActing = childActing !== null;
@@ -262,24 +266,26 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
                             display: "flex", alignItems: "center", gap: 12, textAlign: "left",
                           }}
                         >
-                          <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, color: "var(--text)", flex: 1 }}>{ch.requisitionNo}</span>
+                          <RequisitionNo no={ch.requisitionNo} hideSourceTag style={{ fontFamily: "var(--font-mono)", fontWeight: 600, color: "var(--text)", flex: 1 }} />
                           <span style={{ fontSize: 11, color: "var(--text3)" }}>{ch.itemCount} {t("ta material")}</span>
                           <RequisitionStatusBadge status={ch.status} small />
-                          <span style={{
-                            display: "inline-flex", alignItems: "center", gap: 4,
-                            padding: "3px 10px", borderRadius: 20,
-                            fontSize: 11, fontWeight: 600,
-                            background: isWh ? "var(--success-dim)" : "var(--accent-dim)",
-                            color: destColor,
-                            border: `1px solid ${isWh ? "rgba(15,123,69,0.25)" : "rgba(26,110,235,0.3)"}`,
-                            whiteSpace: "nowrap",
-                          }}>
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                              <line x1="5" y1="12" x2="19" y2="12"/>
-                              <polyline points="13 6 19 12 13 18"/>
-                            </svg>
-                            {destLabel}
-                          </span>
+                          {showDest && (
+                            <span style={{
+                              display: "inline-flex", alignItems: "center", gap: 4,
+                              padding: "3px 10px", borderRadius: 20,
+                              fontSize: 11, fontWeight: 600,
+                              background: isWh ? "var(--success-dim)" : "var(--accent-dim)",
+                              color: destColor,
+                              border: `1px solid ${isWh ? "rgba(15,123,69,0.25)" : "rgba(26,110,235,0.3)"}`,
+                              whiteSpace: "nowrap",
+                            }}>
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="5" y1="12" x2="19" y2="12"/>
+                                <polyline points="13 6 19 12 13 18"/>
+                              </svg>
+                              {t(destLabel)}
+                            </span>
+                          )}
                           <ChildPdfButton
                             variant="open"
                             loading={isOpening}

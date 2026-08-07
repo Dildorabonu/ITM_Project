@@ -10,6 +10,7 @@ import {
   type StockMovement,
 } from "@/lib/stockMovements";
 import { useT } from "@/lib/i18n";
+import { RequisitionNo } from "@/app/_components/RequisitionNo";
 
 interface Props {
   productId: string;
@@ -223,7 +224,7 @@ export function StockMovementDrawer({ productId, productName, onClose }: Props) 
                         {m.requisitionNo && (
                           <>
                             <span>·</span>
-                            <span style={{ fontFamily: "var(--font-mono)", color: "var(--accent)" }}>{m.requisitionNo}</span>
+                            <RequisitionNo no={m.requisitionNo} style={{ fontFamily: "var(--font-mono)", color: "var(--accent)" }} />
                           </>
                         )}
                       </div>

@@ -9,6 +9,7 @@ import {
   type RequisitionResponse,
 } from "@/lib/userService";
 import { fmtDate, fmtDateTime } from "../_types";
+import { RequisitionNo } from "@/app/_components/RequisitionNo";
 import { RequisitionStatusBadge } from "../_components/StatusBadge";
 import { RequisitionDrawer } from "../_components/RequisitionDrawer";
 import { useAuthStore } from "@/lib/store/authStore";
@@ -468,7 +469,7 @@ function ApprovalCard({ req, fadeIdx, onView, onApprove, onReject }: {
     req.source === RequisitionSource.Warehouse ? "var(--success-dim)" :
     req.source === RequisitionSource.Purchase  ? "var(--purple-dim)" :
     "var(--accent-dim)";
-  const sourceLabel = req.sourceLabel ?? t("Asosiy");
+  const sourceLabel = req.sourceLabel ? t(req.sourceLabel) : t("Asosiy");
 
   return (
     <div
@@ -482,12 +483,10 @@ function ApprovalCard({ req, fadeIdx, onView, onApprove, onReject }: {
         {/* Left: id, source, meta */}
         <div style={{ flex: "1 1 280px", minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
-            <span style={{
+            <RequisitionNo no={req.requisitionNo} hideSourceTag style={{
               fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 14,
               color: "var(--text)",
-            }}>
-              {req.requisitionNo}
-            </span>
+            }} />
             <span style={{
               fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 12,
               background: sourceBg, color: sourceColor,

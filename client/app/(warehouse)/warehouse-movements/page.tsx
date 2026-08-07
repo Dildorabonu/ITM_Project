@@ -11,6 +11,7 @@ import {
 } from "@/lib/stockMovements";
 import { departmentService, type DepartmentOption } from "@/lib/userService";
 import { CheckSelect } from "@/app/_components/CheckSelect";
+import { RequisitionNo } from "@/app/_components/RequisitionNo";
 import { STOCK_MOVEMENT_TYPE_OPTIONS, PAGE_SIZE } from "./_types";
 import { useT } from "@/lib/i18n";
 
@@ -184,7 +185,9 @@ export default function WarehouseMovementsPage() {
                       <td style={{ textAlign: "center", color: "var(--text2)", fontFamily: "var(--font-mono)", fontSize: 12.5 }}>{directionLabel(m)}</td>
                       <td style={{ textAlign: "center", fontFamily: "var(--font-mono)", fontWeight: 700, color }}>{sign}{m.quantity}</td>
                       <td style={{ textAlign: "center", fontFamily: "var(--font-mono)", color: "var(--text1)", fontWeight: 600 }}>{m.quantityAfter}</td>
-                      <td style={{ textAlign: "center", color: m.requisitionNo ? "var(--accent)" : "var(--text3)", fontFamily: "var(--font-mono)", fontSize: 12.5 }}>{m.requisitionNo || "—"}</td>
+                      <td style={{ textAlign: "center", color: m.requisitionNo ? "var(--accent)" : "var(--text3)", fontFamily: "var(--font-mono)", fontSize: 12.5 }}>
+                        {m.requisitionNo ? <RequisitionNo no={m.requisitionNo} /> : "—"}
+                      </td>
                       <td style={{ textAlign: "center", color: "var(--text1)", whiteSpace: "nowrap" }}>{m.userFullName || "—"}</td>
                       <td style={{ textAlign: "center", color: "var(--text2)", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={m.notes ?? undefined}>{m.notes || "—"}</td>
                     </tr>

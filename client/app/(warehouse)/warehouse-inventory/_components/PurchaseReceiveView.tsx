@@ -9,6 +9,7 @@ import {
 import { useToastStore } from "@/lib/store/toastStore";
 import { useT } from "@/lib/i18n";
 import { ConfirmModal } from "@/app/_components/ConfirmModal";
+import { RequisitionNo } from "@/app/_components/RequisitionNo";
 
 interface Props {
   canReceive: boolean;
@@ -169,9 +170,7 @@ export function PurchaseReceiveView({ canReceive, onClose, onReceived }: Props) 
                 </svg>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 700, color: "var(--accent)" }}>
-                      {r.requisitionNo}
-                    </span>
+                    <RequisitionNo no={r.requisitionNo} hideSourceTag style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 700, color: "var(--accent)" }} />
                     <span style={{ fontSize: 13, color: "var(--text1)", fontWeight: 500 }}>{r.purpose || "—"}</span>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 4, fontSize: 12, color: "var(--text3)", flexWrap: "wrap" }}>
