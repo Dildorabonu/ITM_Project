@@ -896,6 +896,27 @@ public class RequisitionServiceTests
         db.Requisitions.Single().Status.Should().Be(RequisitionStatus.ReadyForPurchase);
     }
 
+    [Fact]
+    public async Task RejectAsync_SetsCompletedAtToApprovedAt()
+    {
+        await using var db = CreateDb();
+        var director = TestData.SeedUser(db, login: "dir-completed");
+        var creator = TestData.SeedUser(db, login: "c-completed");
+        var child = SeedParentRequisition(db, creator.Id, no: "REQ-REJ-COMPLETED",
+            status: RequisitionStatus.PendingApproval,
+            items: [MakeItem(quantity: 10m, freeName: "X")]);
+        child.Source = RequisitionSource.Purchase;
+        db.SaveChanges();
+
+        var result = await CreateService(db).RejectAsync(child.Id, director.Id,
+            new RequisitionRejectDto { RejectionReason = "Byudjet yo'q" });
+
+        result.Succeeded.Should().BeTrue();
+        var saved = db.Requisitions.Single(r => r.Id == child.Id);
+        saved.CompletedAt.Should().NotBeNull("rad etish ham yakunlanish hisoblanadi");
+        saved.CompletedAt.Should().Be(saved.ApprovedAt);
+    }
+
     // ─────────────────────────────────────────────────────────────────────
     //  ReleaseAsync
     // ─────────────────────────────────────────────────────────────────────
@@ -1011,4 +1032,325 @@ public class RequisitionServiceTests
             .Should().Be(RequisitionStatus.ReadyForWarehouseRelease);
     }
 
+    [Fact]
+    public async Task ReleaseAsync_SetsCompletedAt()
+    {
+        await using var db = CreateDb();
+        var warehouse = SeedDept(db, name: "Korxona ombori", type: DepartmentType.Omborxona);
+        var targetDept = SeedDept(db, name: "Sex-1", type: DepartmentType.Bolim);
+        var source = SeedProduct(db, warehouse.Id, name: "Sement",
+            quantity: 100m, reservedQuantity: 10m);
+        var creator = TestData.SeedUser(db, login: "c-rel-completed");
+        var releaser = TestData.SeedUser(db, login: "rel-completed");
+
+        var child = SeedParentRequisition(db, creator.Id, no: "REQ-REL-COMPLETED",
+            departmentId: targetDept.Id,
+            status: RequisitionStatus.ReadyForWarehouseRelease,
+            items: [MakeItem(quantity: 10m, freeName: "Sement", reservedProductId: source.Id)]);
+        child.Items.First().FreeTextUnit = "kg";
+        db.SaveChanges();
+
+        var before = DateTime.UtcNow;
+        var result = await CreateService(db).ReleaseAsync(child.Id, releaser.Id);
+
+        result.Succeeded.Should().BeTrue();
+        var saved = db.Requisitions.Single(r => r.Id == child.Id);
+        saved.Status.Should().Be(RequisitionStatus.Released);
+        saved.CompletedAt.Should().NotBeNull();
+        saved.CompletedAt!.Value.Should().BeOnOrAfter(before);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    //  GetPagedAsync — faol / arxiv
+    // ─────────────────────────────────────────────────────────────────────
+
+    private static PaginationParams Page1(int size = 20) => new() { Page = 1, PageSize = size };
+
+    [Fact]
+    public async Task GetPagedAsync_ActiveView_KeepsApprovedButUnfulfilled()
+    {
+        await using var db = CreateDb();
+        var creator = TestData.SeedUser(db, login: "c-active");
+        SeedParentRequisition(db, creator.Id, no: "REQ-READY-W",
+            status: RequisitionStatus.ReadyForWarehouseRelease);
+        SeedParentRequisition(db, creator.Id, no: "REQ-READY-P",
+            status: RequisitionStatus.ReadyForPurchase);
+        SeedParentRequisition(db, creator.Id, no: "REQ-RELEASED",
+            status: RequisitionStatus.Released);
+
+        var result = await CreateService(db).GetPagedAsync(
+            creator.Id, viewAll: true, Page1(), completed: false);
+
+        result.Succeeded.Should().BeTrue();
+        result.Result!.Items.Select(i => i.RequisitionNo)
+            .Should().BeEquivalentTo(["REQ-READY-W", "REQ-READY-P"],
+                "tasdiqlangan, lekin hali berilmagan talabnoma faol qoladi");
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_ArchiveView_ReturnsOnlyFulfilled()
+    {
+        await using var db = CreateDb();
+        var creator = TestData.SeedUser(db, login: "c-arch");
+        SeedParentRequisition(db, creator.Id, no: "REQ-RELEASED", status: RequisitionStatus.Released);
+        SeedParentRequisition(db, creator.Id, no: "REQ-DELIVERED", status: RequisitionStatus.Delivered);
+        SeedParentRequisition(db, creator.Id, no: "REQ-REJECTED", status: RequisitionStatus.Rejected);
+        SeedParentRequisition(db, creator.Id, no: "REQ-READY-W",
+            status: RequisitionStatus.ReadyForWarehouseRelease);
+
+        var result = await CreateService(db).GetPagedAsync(
+            creator.Id, viewAll: true, Page1(), completed: true);
+
+        result.Result!.Items.Select(i => i.RequisitionNo)
+            .Should().BeEquivalentTo(["REQ-RELEASED", "REQ-DELIVERED", "REQ-REJECTED"]);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_SplitParent_IsActiveUntilEveryChildIsFulfilled()
+    {
+        await using var db = CreateDb();
+        var creator = TestData.SeedUser(db, login: "c-split");
+        var parent = SeedParentRequisition(db, creator.Id, no: "REQ-SPLIT",
+            status: RequisitionStatus.Split);
+
+        var releasedChild = SeedParentRequisition(db, creator.Id, no: "REQ-SPLIT-W",
+            status: RequisitionStatus.Released);
+        releasedChild.ParentRequisitionId = parent.Id;
+        releasedChild.CompletedAt = DateTime.UtcNow;
+
+        var pendingChild = SeedParentRequisition(db, creator.Id, no: "REQ-SPLIT-P",
+            status: RequisitionStatus.ReadyForPurchase);
+        pendingChild.ParentRequisitionId = parent.Id;
+        db.SaveChanges();
+
+        var svc = CreateService(db);
+
+        var active = await svc.GetPagedAsync(creator.Id, viewAll: true, Page1(), completed: false);
+        active.Result!.Items.Select(i => i.RequisitionNo).Should().Contain("REQ-SPLIT");
+
+        pendingChild.Status = RequisitionStatus.Delivered;
+        pendingChild.CompletedAt = DateTime.UtcNow;
+        db.SaveChanges();
+
+        var archive = await svc.GetPagedAsync(creator.Id, viewAll: true, Page1(), completed: true);
+        archive.Result!.Items.Select(i => i.RequisitionNo).Should().Contain("REQ-SPLIT");
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_RejectedFilter_SeparatesFullyRejectedFromPartial()
+    {
+        await using var db = CreateDb();
+        var creator = TestData.SeedUser(db, login: "c-rejfilter");
+
+        // 1) o'zi rad etilgan (bo'linmagan)
+        SeedParentRequisition(db, creator.Id, no: "REQ-SELF-REJ", status: RequisitionStatus.Rejected);
+
+        // 2) split — ikkala child ham rad etilgan
+        var allRejected = SeedParentRequisition(db, creator.Id, no: "REQ-ALL-REJ",
+            status: RequisitionStatus.Split);
+        foreach (var no in new[] { "REQ-ALL-REJ-W", "REQ-ALL-REJ-P" })
+        {
+            var c = SeedParentRequisition(db, creator.Id, no: no, status: RequisitionStatus.Rejected);
+            c.ParentRequisitionId = allRejected.Id;
+        }
+
+        // 3) split — bittasi rad, bittasi berilgan
+        var partial = SeedParentRequisition(db, creator.Id, no: "REQ-PARTIAL",
+            status: RequisitionStatus.Split);
+        var rejectedChild = SeedParentRequisition(db, creator.Id, no: "REQ-PARTIAL-W",
+            status: RequisitionStatus.Rejected);
+        rejectedChild.ParentRequisitionId = partial.Id;
+        var releasedChild = SeedParentRequisition(db, creator.Id, no: "REQ-PARTIAL-P",
+            status: RequisitionStatus.Delivered);
+        releasedChild.ParentRequisitionId = partial.Id;
+        db.SaveChanges();
+
+        var svc = CreateService(db);
+
+        var rejected = await svc.GetPagedAsync(creator.Id, viewAll: true, Page1(), rejected: true);
+        rejected.Result!.Items.Select(i => i.RequisitionNo)
+            .Should().BeEquivalentTo(["REQ-SELF-REJ", "REQ-ALL-REJ"]);
+
+        var completed = await svc.GetPagedAsync(creator.Id, viewAll: true, Page1(),
+            completed: true, rejected: false);
+        completed.Result!.Items.Select(i => i.RequisitionNo)
+            .Should().BeEquivalentTo(["REQ-PARTIAL"],
+                "qisman rad etilganda haqiqiy natija bor — u Yakunlangan sub-tabida qoladi");
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_ArchiveView_OrdersByCompletedAtDescending()
+    {
+        await using var db = CreateDb();
+        var creator = TestData.SeedUser(db, login: "c-order");
+        var old = SeedParentRequisition(db, creator.Id, no: "REQ-OLD", status: RequisitionStatus.Released);
+        old.CompletedAt = DateTime.UtcNow.AddDays(-30);
+        var fresh = SeedParentRequisition(db, creator.Id, no: "REQ-FRESH", status: RequisitionStatus.Delivered);
+        fresh.CompletedAt = DateTime.UtcNow.AddDays(-1);
+        db.SaveChanges();
+
+        var result = await CreateService(db).GetPagedAsync(
+            creator.Id, viewAll: true, Page1(), completed: true);
+
+        result.Result!.Items.Select(i => i.RequisitionNo)
+            .Should().ContainInOrder("REQ-FRESH", "REQ-OLD");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    //  GetPagedAsync — status filtri: real oqim shakli (Split parent + childlar)
+    //  Yuqoridagi status-filtr testlari parent qatorlarga to'g'ridan-to'g'ri
+    //  status seed qiladi — bu real WarehouseCheckAsync hech qachon yaratmaydigan
+    //  holat (parent faqat PendingWarehouseCheck yoki Split bo'ladi, qolgan
+    //  statuslar faqat childlarda yashaydi). Shu testlar haqiqiy shaklni tekshiradi.
+    // ─────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetPagedAsync_StatusFilter_SplitParentMatchesByChildStatus_InActiveList()
+    {
+        await using var db = CreateDb();
+        var creator = TestData.SeedUser(db, login: "c-status-active");
+        var parent = SeedParentRequisition(db, creator.Id, no: "REQ-STATUS-ACTIVE",
+            status: RequisitionStatus.Split);
+
+        var whChild = SeedParentRequisition(db, creator.Id, no: "REQ-STATUS-ACTIVE-W",
+            status: RequisitionStatus.ReadyForWarehouseRelease);
+        whChild.ParentRequisitionId = parent.Id;
+
+        var pChild = SeedParentRequisition(db, creator.Id, no: "REQ-STATUS-ACTIVE-P",
+            status: RequisitionStatus.ReadyForPurchase);
+        pChild.ParentRequisitionId = parent.Id;
+        db.SaveChanges();
+
+        var result = await CreateService(db).GetPagedAsync(
+            creator.Id, viewAll: true, Page1(), completed: false, status: RequisitionStatus.ReadyForPurchase);
+
+        result.Result!.Items.Select(i => i.RequisitionNo).Should().Contain("REQ-STATUS-ACTIVE",
+            "status faqat childda yashaydi — parent shu childning statusi bo'yicha topilishi kerak");
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_StatusFilter_SplitParentMatchesByChildStatus_InArchiveList()
+    {
+        await using var db = CreateDb();
+        var creator = TestData.SeedUser(db, login: "c-status-archive");
+        var parent = SeedParentRequisition(db, creator.Id, no: "REQ-STATUS-ARCH",
+            status: RequisitionStatus.Split);
+
+        var releasedChild = SeedParentRequisition(db, creator.Id, no: "REQ-STATUS-ARCH-W",
+            status: RequisitionStatus.Released);
+        releasedChild.ParentRequisitionId = parent.Id;
+        releasedChild.CompletedAt = DateTime.UtcNow;
+
+        var deliveredChild = SeedParentRequisition(db, creator.Id, no: "REQ-STATUS-ARCH-P",
+            status: RequisitionStatus.Delivered);
+        deliveredChild.ParentRequisitionId = parent.Id;
+        deliveredChild.CompletedAt = DateTime.UtcNow;
+        db.SaveChanges();
+
+        var result = await CreateService(db).GetPagedAsync(
+            creator.Id, viewAll: true, Page1(), completed: true, status: RequisitionStatus.Released);
+
+        result.Result!.Items.Select(i => i.RequisitionNo).Should().Contain("REQ-STATUS-ARCH",
+            "arxiv ko'rinishida ham status filtri child statusiga qarab ishlashi kerak");
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_StatusFilter_UnsplitParentMatchesOwnStatus()
+    {
+        await using var db = CreateDb();
+        var creator = TestData.SeedUser(db, login: "c-status-unsplit");
+        SeedParentRequisition(db, creator.Id, no: "REQ-STATUS-PWC",
+            status: RequisitionStatus.PendingWarehouseCheck);
+
+        var result = await CreateService(db).GetPagedAsync(
+            creator.Id, viewAll: true, Page1(), status: RequisitionStatus.PendingWarehouseCheck);
+
+        result.Result!.Items.Select(i => i.RequisitionNo).Should().Contain("REQ-STATUS-PWC",
+            "bo'linmagan parentda status hali o'zida — non-split filial ishlashi kerak");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    //  GetRecentCompletedAsync
+    // ─────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetRecentCompletedAsync_ReturnsOnlyInsideWindow()
+    {
+        await using var db = CreateDb();
+        var creator = TestData.SeedUser(db, login: "c-recent");
+        var inside = SeedParentRequisition(db, creator.Id, no: "REQ-6-DAYS",
+            status: RequisitionStatus.Released);
+        inside.CompletedAt = DateTime.UtcNow.AddDays(-6);
+        var outside = SeedParentRequisition(db, creator.Id, no: "REQ-8-DAYS",
+            status: RequisitionStatus.Delivered);
+        outside.CompletedAt = DateTime.UtcNow.AddDays(-8);
+        db.SaveChanges();
+
+        var result = await CreateService(db).GetRecentCompletedAsync(creator.Id, viewAll: true, days: 7);
+
+        result.Succeeded.Should().BeTrue();
+        result.Result!.Select(i => i.RequisitionNo).Should().BeEquivalentTo(["REQ-6-DAYS"]);
+    }
+
+    [Fact]
+    public async Task GetRecentCompletedAsync_LimitsToTenNewest()
+    {
+        await using var db = CreateDb();
+        var creator = TestData.SeedUser(db, login: "c-recent-limit");
+        for (var i = 0; i < 14; i++)
+        {
+            var r = SeedParentRequisition(db, creator.Id, no: $"REQ-{i:D2}",
+                status: RequisitionStatus.Released);
+            r.CompletedAt = DateTime.UtcNow.AddHours(-i);
+        }
+        db.SaveChanges();
+
+        var result = await CreateService(db).GetRecentCompletedAsync(creator.Id, viewAll: true, days: 7);
+
+        result.Result!.Should().HaveCount(10);
+        result.Result!.First().RequisitionNo.Should().Be("REQ-00", "eng yangisi birinchi");
+    }
+
+    [Fact]
+    public async Task GetRecentCompletedAsync_SplitParent_UsesLatestChildCompletion()
+    {
+        await using var db = CreateDb();
+        var creator = TestData.SeedUser(db, login: "c-recent-split");
+        var parent = SeedParentRequisition(db, creator.Id, no: "REQ-SPLIT-RECENT",
+            status: RequisitionStatus.Split);
+
+        var oldChild = SeedParentRequisition(db, creator.Id, no: "REQ-SPLIT-RECENT-W",
+            status: RequisitionStatus.Released);
+        oldChild.ParentRequisitionId = parent.Id;
+        oldChild.CompletedAt = DateTime.UtcNow.AddDays(-20);
+
+        var newChild = SeedParentRequisition(db, creator.Id, no: "REQ-SPLIT-RECENT-P",
+            status: RequisitionStatus.Delivered);
+        newChild.ParentRequisitionId = parent.Id;
+        newChild.CompletedAt = DateTime.UtcNow.AddDays(-2);
+        db.SaveChanges();
+
+        var result = await CreateService(db).GetRecentCompletedAsync(creator.Id, viewAll: true, days: 7);
+
+        var dto = result.Result!.Single();
+        dto.RequisitionNo.Should().Be("REQ-SPLIT-RECENT");
+        dto.CompletedAt.Should().Be(newChild.CompletedAt, "oxirgi child yakunlangan payt");
+    }
+
+    [Fact]
+    public async Task GetRecentCompletedAsync_ViewAllFalse_ReturnsOnlyOwn()
+    {
+        await using var db = CreateDb();
+        var mine = TestData.SeedUser(db, login: "c-recent-mine");
+        var other = TestData.SeedUser(db, login: "c-recent-other");
+        var a = SeedParentRequisition(db, mine.Id, no: "REQ-MINE", status: RequisitionStatus.Released);
+        a.CompletedAt = DateTime.UtcNow.AddDays(-1);
+        var b = SeedParentRequisition(db, other.Id, no: "REQ-OTHER", status: RequisitionStatus.Released);
+        b.CompletedAt = DateTime.UtcNow.AddDays(-1);
+        db.SaveChanges();
+
+        var result = await CreateService(db).GetRecentCompletedAsync(mine.Id, viewAll: false, days: 7);
+
+        result.Result!.Select(i => i.RequisitionNo).Should().BeEquivalentTo(["REQ-MINE"]);
+    }
 }

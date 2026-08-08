@@ -40,6 +40,13 @@ public class Requisition
     public DateTime? ApprovedAt { get; set; }
     public string? QrCodeData { get; set; }  // Base64 PNG — direktor imzosi
 
+    // ── Yakunlanish ────────────────────────────────────────────────────
+    // Talabnoma real bajarilgan (berilgan / yetkazilgan / rad etilgan) payt.
+    // Faqat Released, Delivered va Rejected statuslarida to'ldiriladi —
+    // "Ombordan olishga" / "Sotib olishga" hali bajarilgan hisoblanmaydi.
+    // Arxiv saralashi va "Yaqinda yakunlangan" bloki shu maydonga tayanadi.
+    public DateTime? CompletedAt { get; set; }
+
     public Guid CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

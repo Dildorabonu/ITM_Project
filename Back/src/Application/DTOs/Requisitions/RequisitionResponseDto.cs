@@ -44,6 +44,9 @@ public class RequisitionResponseDto
     public DateTime? ApprovedAt { get; set; }
     public string? QrCodeData { get; set; }  // Base64 PNG — direktor imzosi
 
+    // Real yakunlangan payt: split parent uchun childlarning eng kechki CompletedAt i.
+    public DateTime? CompletedAt { get; set; }
+
     // Yaratuvchi
     public string CreatedByName { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }

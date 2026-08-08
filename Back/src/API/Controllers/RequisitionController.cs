@@ -44,14 +44,15 @@ public class RequisitionController : ControllerBase
         [FromQuery] int pageSize = 20,
         [FromQuery] string? search = null,
         [FromQuery] RequisitionStatus? status = null,
-        [FromQuery] bool? completed = null)
+        [FromQuery] bool? completed = null,
+        [FromQuery] bool? rejected = null)
     {
         var userId = GetUserId();
         if (userId is null) return Unauthorized();
 
         var viewAll = User.HasClaim("perm", "Requisitions.ViewAll");
         var pagination = new PaginationParams { Page = page, PageSize = pageSize };
-        var result = await _requisitionService.GetPagedAsync(userId.Value, viewAll, pagination, search, status, completed);
+        var result = await _requisitionService.GetPagedAsync(userId.Value, viewAll, pagination, search, status, completed, rejected);
         return Ok(result);
     }
 
@@ -65,6 +66,19 @@ public class RequisitionController : ControllerBase
 
         var viewAll = User.HasClaim("perm", "Requisitions.ViewAll");
         var result = await _requisitionService.GetPendingWarehouseCheckCountAsync(userId.Value, viewAll);
+        return Ok(result);
+    }
+
+    /// Faol ro'yxat ostidagi "Yaqinda yakunlangan" bloki uchun.
+    [HasPermission("Requisitions.View")]
+    [HttpGet("recent-completed")]
+    public async Task<IActionResult> GetRecentCompleted([FromQuery] int days = 7)
+    {
+        var userId = GetUserId();
+        if (userId is null) return Unauthorized();
+
+        var viewAll = User.HasClaim("perm", "Requisitions.ViewAll");
+        var result = await _requisitionService.GetRecentCompletedAsync(userId.Value, viewAll, days);
         return Ok(result);
     }
 

@@ -980,6 +980,9 @@ namespace DataAccess.Migrations
                     b.Property<Guid?>("ApprovedBy")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid?>("ContractId")
                         .HasColumnType("uuid");
 

@@ -8,11 +8,15 @@ namespace Application.Services;
 public interface IRequisitionService
 {
     Task<ApiResult<IEnumerable<RequisitionResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, RequisitionStatus? status = null);
-    Task<ApiResult<PagedResult<RequisitionResponseDto>>> GetPagedAsync(Guid currentUserId, bool viewAll, PaginationParams pagination, string? search = null, RequisitionStatus? status = null, bool? completed = null);
+    Task<ApiResult<PagedResult<RequisitionResponseDto>>> GetPagedAsync(Guid currentUserId, bool viewAll, PaginationParams pagination, string? search = null, RequisitionStatus? status = null, bool? completed = null, bool? rejected = null);
     Task<ApiResult<RequisitionResponseDto>> GetByIdAsync(Guid id);
 
     /// Ombor tekshiruvini kutayotgan talabnomalar soni — sidebar badge uchun yengil so'rov.
     Task<ApiResult<int>> GetPendingWarehouseCheckCountAsync(Guid currentUserId, bool viewAll);
+
+    /// Faol ro'yxat ostidagi "Yaqinda yakunlangan" bloki: oxirgi N kunda real
+    /// bajarilgan talabnomalar, eng ko'pi 10 ta.
+    Task<ApiResult<IEnumerable<RequisitionResponseDto>>> GetRecentCompletedAsync(Guid currentUserId, bool viewAll, int days);
     Task<ApiResult<Guid>> CreateAsync(RequisitionCreateDto dto, Guid createdBy);
 
     // Omborchi tekshiruvi: PendingWarehouseCheck → Split (avto-bo'linish), child IDlarni qaytaradi

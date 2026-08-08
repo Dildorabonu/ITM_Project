@@ -16,7 +16,7 @@ import { RequisitionStatusBadge } from "../_components/StatusBadge";
 import { WorkflowDiagram } from "../_components/WorkflowDiagram";
 import { RequisitionMovements } from "../_components/RequisitionMovements";
 import { downloadRequisitionPdf, openRequisitionPdfInNewTab } from "../_utils/downloadRequisitionPdf";
-import { fmtDateTime, isRequisitionCompleted, REQUISITION_STATUS_LABELS, type RequisitionResponse } from "../_types";
+import { fmtDateTime, isRequisitionCompleted, isRequisitionRejected, REQUISITION_STATUS_LABELS, type RequisitionResponse } from "../_types";
 import { useT } from "@/lib/i18n";
 import { fmtDecimal } from "@/lib/num";
 
@@ -222,7 +222,7 @@ export default function RequisitionDetailPage() {
             {req.sourceLabel && <span style={{ marginLeft: 8, color: req.source === RequisitionSource.Warehouse ? "var(--success)" : "var(--accent)", fontWeight: 500 }}>· {t(req.sourceLabel)}</span>}
           </div>
         </div>
-        <RequisitionStatusBadge status={req.status} completed={isRequisitionCompleted(req)} />
+        <RequisitionStatusBadge status={req.status} completed={isRequisitionCompleted(req)} rejected={isRequisitionRejected(req)} />
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>

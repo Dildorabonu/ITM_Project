@@ -23,84 +23,95 @@ export const STATUS_STYLE: Partial<Record<RequisitionStatus, { bg: string; color
   [RequisitionStatus.Delivered]:                { bg: "var(--success-dim)", color: "var(--success)", border: "rgba(15,123,69,0.35)" },
 };
 
-// ─── Yakunlanganlik ────────────────────────────────────────────────────────────
+// ─── Bajarilganlik ─────────────────────────────────────────────────────────────
 
-// Talabnoma "yakunlangan" hisoblanadigan holatlar: direktor qarori chiqarilgan
-// (tasdiq yoki rad) — undan keyingi ombor harakatlari holatni o'zgartirmaydi.
-// Backenddagi RequisitionService.TerminalStatuses bilan aynan bir xil bo'lishi shart.
-export const TERMINAL_STATUSES = new Set<RequisitionStatus>([
-  RequisitionStatus.ReadyForWarehouseRelease,
-  RequisitionStatus.ReadyForPurchase,
+// Talabnoma REAL bajarilgan hisoblanadigan holatlar: material berildi, xarid
+// yetkazildi yoki rad etildi. "Ombordan olishga" / "Sotib olishga" — tasdiqlangan,
+// lekin hali bajarilmagan ish, shuning uchun bu ro'yxatda yo'q.
+// Backenddagi RequisitionService.FulfilledStatuses bilan aynan bir xil bo'lishi shart.
+export const FULFILLED_STATUSES = new Set<RequisitionStatus>([
   RequisitionStatus.Released,
   RequisitionStatus.Delivered,
   RequisitionStatus.Rejected,
 ]);
 
-// Bo'lingan (Split) talabnoma barcha child'lari yakunlangandagina yakunlangan;
+// Bo'lingan (Split) talabnoma barcha child'lari bajarilgandagina bajarilgan;
 // bo'linmagani esa o'z holatiga qarab.
 export function isRequisitionCompleted(r: RequisitionResponse): boolean {
   if (r.children && r.children.length > 0) {
-    return r.children.every(c => TERMINAL_STATUSES.has(c.status));
+    return r.children.every(c => FULFILLED_STATUSES.has(c.status));
   }
-  return TERMINAL_STATUSES.has(r.status);
+  return FULFILLED_STATUSES.has(r.status);
+}
+
+// To'liq rad etilgan: bo'lingan bo'lsa barcha childlari rad etilgan, aks holda o'zi.
+// Backenddagi `rejected` filtri bilan bir xil mantiq.
+export function isRequisitionRejected(r: RequisitionResponse): boolean {
+  if (r.children && r.children.length > 0) {
+    return r.children.every(c => c.status === RequisitionStatus.Rejected);
+  }
+  return r.status === RequisitionStatus.Rejected;
 }
 
 // ─── Workflow ─────────────────────────────────────────────────────────────────
 
+// "Tekshirildi" alohida bosqich emas: omborchi tekshiruvni tugatgan zahoti
+// talabnoma o'sha tranzaksiyada Split ga o'tadi (WarehouseChecked = 6 statusi
+// hech qachon yozilmaydi), ya'ni tekshiruvning tugashi — ayrilish nuqtasining
+// o'zi. Shu sababli sxemada faqat "Tekshiruvda" qoladi.
 type WorkflowStepKey =
   | RequisitionStatus.Draft
   | RequisitionStatus.PendingWarehouseCheck
-  | RequisitionStatus.WarehouseChecked
   | RequisitionStatus.PendingApproval
   | "final";
 
 export const WORKFLOW_STEPS: { key: WorkflowStepKey; label: string; shortLabel: string }[] = [
   { key: RequisitionStatus.Draft,                 label: "Talabnoma yaratildi",         shortLabel: "Yaratildi" },
   { key: RequisitionStatus.PendingWarehouseCheck, label: "Ombor tekshiruvida",          shortLabel: "Tekshiruvda" },
-  { key: RequisitionStatus.WarehouseChecked,      label: "Ombor tekshiruvi yakunlandi", shortLabel: "Tekshirildi" },
   { key: RequisitionStatus.PendingApproval,       label: "Tasdiqlash kutilmoqda",       shortLabel: "Tasdiqlash" },
   { key: "final",                                  label: "Yakunlandi",                  shortLabel: "Yakuniy" },
 ];
 
-export const STEP_COLORS: Record<Exclude<WorkflowStepKey, "final">, { active: string; text: string }> = {
-  [RequisitionStatus.Draft]:                 { active: "#6b7280", text: "#fff" },
-  [RequisitionStatus.PendingWarehouseCheck]: { active: "#e07b00", text: "#fff" },
-  [RequisitionStatus.WarehouseChecked]:      { active: "#0891b2", text: "#fff" },
-  [RequisitionStatus.PendingApproval]:       { active: "#db2777", text: "#fff" },
-};
+// Sxemada rang bosqichni emas, HOLATNI bildiradi — shuning uchun har bosqichga
+// alohida tus berilmaydi: yashil = bajarildi, to'q sariq = kutilmoqda,
+// kulrang = hali boshlanmagan, qizil = rad etilgan.
+export const WORKFLOW_COLORS = {
+  done:     "#0f7b45",
+  active:   "#e07b00",
+  rejected: "#dc2626",
+} as const;
 
 export function getWorkflowIndex(status: RequisitionStatus): number {
   switch (status) {
     case RequisitionStatus.Draft:                    return 0;
     case RequisitionStatus.PendingWarehouseCheck:    return 1;
-    case RequisitionStatus.WarehouseChecked:         return 2;
-    case RequisitionStatus.PendingApproval:          return 3;
-    case RequisitionStatus.ReadyForWarehouseRelease: return 4;
-    case RequisitionStatus.ReadyForPurchase:         return 4;
-    case RequisitionStatus.Released:                 return 4;
-    case RequisitionStatus.Delivered:                return 4;
+    case RequisitionStatus.PendingApproval:          return 2;
+    case RequisitionStatus.ReadyForWarehouseRelease: return 3;
+    case RequisitionStatus.ReadyForPurchase:         return 3;
+    case RequisitionStatus.Released:                 return 3;
+    case RequisitionStatus.Delivered:                return 3;
     default:                                         return -1;
   }
 }
 
-export function getFinalStepInfo(source?: RequisitionSource, status?: RequisitionStatus): { label: string; shortLabel: string; color: string } {
+export function getFinalStepInfo(source?: RequisitionSource, status?: RequisitionStatus): { label: string; shortLabel: string } {
   if (status === RequisitionStatus.Delivered) {
-    return { label: "Xarid yetkazildi", shortLabel: "Yetkazildi", color: "#0f7b45" };
+    return { label: "Xarid yetkazildi", shortLabel: "Yetkazildi" };
   }
   if (status === RequisitionStatus.Released) {
-    return { label: "Bo'lim omboriga berildi", shortLabel: "Berildi", color: "#0f7b45" };
+    return { label: "Bo'lim omboriga berildi", shortLabel: "Berildi" };
   }
   if (source === RequisitionSource.Warehouse) {
-    return { label: "Ombordan olishga tayyor", shortLabel: "Ombordan", color: "#0f7b45" };
+    return { label: "Ombordan olishga tayyor", shortLabel: "Ombordan" };
   }
   if (source === RequisitionSource.Purchase) {
     // Qabul qilingach status 9 ga o'tadi — endi omborda, berishga tayyor
     if (status === RequisitionStatus.ReadyForWarehouseRelease) {
-      return { label: "Omborda — berishga tayyor", shortLabel: "Omborda", color: "#0f7b45" };
+      return { label: "Omborda — berishga tayyor", shortLabel: "Omborda" };
     }
-    return { label: "Sotib olishga tayyor", shortLabel: "Sotib olish", color: "#1a6eeb" };
+    return { label: "Sotib olishga tayyor", shortLabel: "Sotib olish" };
   }
-  return { label: "Yakunlandi", shortLabel: "Yakuniy", color: "#0f7b45" };
+  return { label: "Yakunlandi", shortLabel: "Yakuniy" };
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -119,4 +130,13 @@ export function fmtDateTime(d?: string) {
     day: "2-digit", month: "2-digit", year: "2-digit",
     hour: "2-digit", minute: "2-digit",
   });
+}
+
+// "Yaqinda yakunlangan" bloki uchun: 0 → "bugun", 1 → "1 kun oldin".
+// Tarjima chaqiruvchi tomonda: t("kun oldin"), t("bugun").
+export function fmtRelativeDays(d?: string | null): { days: number; today: boolean } {
+  if (!d) return { days: 0, today: true };
+  const diffMs = Date.now() - new Date(d).getTime();
+  const days = Math.max(0, Math.floor(diffMs / 86_400_000));
+  return { days, today: days === 0 };
 }

@@ -1452,6 +1452,8 @@ export interface RequisitionResponse {
   approvedAt?: string;
   qrCodeData?: string;
 
+  completedAt?: string | null;
+
   createdByName: string;
   createdAt: string;
   items: RequisitionItemResponse[];
@@ -1477,12 +1479,13 @@ export const requisitionService = {
   getPaged: async (
     page = 1,
     pageSize = 20,
-    opts: { search?: string; status?: RequisitionStatus; completed?: boolean } = {},
+    opts: { search?: string; status?: RequisitionStatus; completed?: boolean; rejected?: boolean } = {},
   ): Promise<PagedResult<RequisitionResponse>> => {
     const params: Record<string, string> = { page: String(page), pageSize: String(pageSize) };
     if (opts.search?.trim()) params.search = opts.search.trim();
     if (opts.status !== undefined) params.status = String(opts.status);
     if (opts.completed !== undefined) params.completed = String(opts.completed);
+    if (opts.rejected !== undefined) params.rejected = String(opts.rejected);
     const res = await api.get("/api/requisition/paged", { params });
     return res.data?.result ?? res.data;
   },
@@ -1494,6 +1497,16 @@ export const requisitionService = {
       return res.data?.result ?? 0;
     } catch {
       return 0;
+    }
+  },
+
+  /** Faol ro'yxat ostidagi blok: oxirgi N kunda bajarilganlar (eng ko'pi 10 ta). */
+  getRecentCompleted: async (days = 7): Promise<RequisitionResponse[]> => {
+    try {
+      const res = await api.get("/api/requisition/recent-completed", { params: { days } });
+      return res.data?.result ?? res.data ?? [];
+    } catch {
+      return [];
     }
   },
 

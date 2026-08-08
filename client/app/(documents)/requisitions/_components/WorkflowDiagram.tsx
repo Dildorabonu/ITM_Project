@@ -1,5 +1,5 @@
 import { RequisitionStatus, RequisitionSource, type RequisitionChildSummary } from "@/lib/userService";
-import { WORKFLOW_STEPS, STEP_COLORS, getWorkflowIndex, getFinalStepInfo } from "../_types";
+import { WORKFLOW_STEPS, WORKFLOW_COLORS, getWorkflowIndex, getFinalStepInfo } from "../_types";
 import { useT } from "@/lib/i18n";
 
 interface Props {
@@ -35,12 +35,6 @@ export function WorkflowDiagram({ status, source, splitChildren }: Props) {
   const currentIdx = getWorkflowIndex(status);
   const finalInfo = getFinalStepInfo(source, status);
 
-  const colorForStep = (idx: number) => {
-    const step = WORKFLOW_STEPS[idx];
-    if (step.key === "final") return finalInfo.color;
-    return STEP_COLORS[step.key].active;
-  };
-
   const labelForStep = (idx: number) => {
     const step = WORKFLOW_STEPS[idx];
     return step.key === "final" ? finalInfo.shortLabel : step.shortLabel;
@@ -51,7 +45,14 @@ export function WorkflowDiagram({ status, source, splitChildren }: Props) {
     return step.key === "final" ? finalInfo.label : step.label;
   };
 
-  const currentColor = currentIdx >= 0 ? colorForStep(currentIdx) : "var(--border)";
+  // Material haqiqatan berilgan/yetkazilgan bo'lsa — bajarilgan (yashil);
+  // "olishga tayyor" holati hali kutish (to'q sariq).
+  const isFulfilled = status === RequisitionStatus.Released
+    || status === RequisitionStatus.Delivered;
+  const currentColor =
+    currentIdx < 0 ? "var(--border)"
+    : isFulfilled  ? WORKFLOW_COLORS.done
+    : WORKFLOW_COLORS.active;
 
   return (
     <div style={{ marginBottom: 22 }}>
@@ -70,15 +71,17 @@ export function WorkflowDiagram({ status, source, splitChildren }: Props) {
             position: "absolute", top: 16,
             left: `${50 / WORKFLOW_STEPS.length}%`,
             width: `${currentIdx * 100 / WORKFLOW_STEPS.length}%`,
-            height: 2, background: currentColor, zIndex: 0, transition: "width 0.4s",
+            height: 2, background: WORKFLOW_COLORS.done, zIndex: 0, transition: "width 0.4s",
           }} />
         )}
         <div style={{ display: "flex", justifyContent: "space-between", position: "relative", zIndex: 1 }}>
           {WORKFLOW_STEPS.map((step, idx) => {
-            const isDone = idx < currentIdx;
-            const isActive = idx === currentIdx;
-            const stepColor = colorForStep(idx);
-            const textColor = step.key === "final" ? "#fff" : STEP_COLORS[step.key].text;
+            // Yakuniy tugun faqat material haqiqatan berilgan/yetkazilganda
+            // belgilanadi; "olishga tayyor" holati hali kutish hisoblanadi.
+            const isDone = idx < currentIdx || (idx === currentIdx && isFulfilled);
+            const isActive = idx === currentIdx && !isFulfilled;
+            const stepColor = isDone ? WORKFLOW_COLORS.done : WORKFLOW_COLORS.active;
+            const textColor = "#fff";
             return (
               <div key={String(step.key)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flex: 1 }}>
                 <div style={{
@@ -138,12 +141,9 @@ function SplitDiagram({
   const purchase = splitChildren?.find(c => c.source === RequisitionSource.Purchase);
   const warehouse = splitChildren?.find(c => c.source === RequisitionSource.Warehouse);
 
-  const draftColor    = STEP_COLORS[RequisitionStatus.Draft].active;
-  const checkInColor  = STEP_COLORS[RequisitionStatus.PendingWarehouseCheck].active;
-  const checkedColor  = STEP_COLORS[RequisitionStatus.WarehouseChecked].active;
-  const forkColor     = "#7c3aed";
-  const purchaseColor = "#1a6eeb";
-  const warehouseColor = "#0f7b45";
+  // Bu yergacha bo'lgan hamma narsa allaqachon bajarilgan — bitta yashil.
+  const doneColor     = WORKFLOW_COLORS.done;
+  const awaitingColor = WORKFLOW_COLORS.active;
 
   // y-coordinates for circle centers (px)
   const TOP_Y    = 40;
@@ -151,37 +151,55 @@ function SplitDiagram({
   const BOTTOM_Y = 180;
   const HEIGHT   = 220;
 
-  // x-coordinates for circle centers (% of container width)
-  const X = { p1: 8, p2: 22, p3: 36, fork: 50, c1: 67, c2: 90 };
+  // x-coordinates for circle centers (% of container width).
+  // Tekshiruv tugashi = ayrilish nuqtasi, shuning uchun "Tekshirildi" qadami yo'q.
+  const X = { p1: 10, p2: 30, fork: 50, c1: 67, c2: 90 };
+
+  // Pastki banner holatga qarab o'zgaradi: tasdiq — yakun emas.
+  const kids = splitChildren ?? [];
+  const allSettled = kids.length > 0 && kids.every(c =>
+    c.status === RequisitionStatus.Released ||
+    c.status === RequisitionStatus.Delivered ||
+    c.status === RequisitionStatus.Rejected);
+  const anyAwaiting = kids.some(c =>
+    c.status === RequisitionStatus.ReadyForWarehouseRelease ||
+    c.status === RequisitionStatus.ReadyForPurchase);
+
+  // Hex bo'lishi shart — banner undan `${bannerColor}14` fon rangini yasaydi.
+  const bannerColor = allSettled ? doneColor : anyAwaiting ? awaitingColor : "#6b7280";
+  const bannerText = allSettled
+    ? "Barcha yo'nalishlar yakunlandi"
+    : anyAwaiting
+      ? "Tasdiqlandi — material qo'lga tegmaguncha talabnoma yakunlanmaydi"
+      : "Bo'lib yuborilgan — har bir yo'nalish alohida tasdiqlash bosqichidan o'tadi";
 
   return (
     <div style={{ marginBottom: 22 }}>
       <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 12 }}>{t("Jarayon holati")}</div>
       <div style={{ position: "relative", height: HEIGHT }}>
         {/* === Background connectors === */}
-        {/* Main parent path: step 1 → 2 → 3 */}
-        <div style={{ position: "absolute", left: `${X.p1}%`, width: `${X.p3 - X.p1}%`, top: MID_Y - 1, height: 2, background: checkedColor, zIndex: 0 }} />
-        {/* Step 3 → fork center */}
-        <div style={{ position: "absolute", left: `${X.p3}%`, width: `${X.fork - X.p3}%`, top: MID_Y - 1, height: 2, background: forkColor, zIndex: 0 }} />
+        {/* Main parent path: step 1 → 2 */}
+        <div style={{ position: "absolute", left: `${X.p1}%`, width: `${X.p2 - X.p1}%`, top: MID_Y - 1, height: 2, background: doneColor, zIndex: 0 }} />
+        {/* Step 2 → fork center */}
+        <div style={{ position: "absolute", left: `${X.p2}%`, width: `${X.fork - X.p2}%`, top: MID_Y - 1, height: 2, background: doneColor, zIndex: 0 }} />
         {/* Vertical fork: top branch ↑ bottom branch ↓ */}
-        <div style={{ position: "absolute", left: `calc(${X.fork}% - 1px)`, top: TOP_Y, width: 2, height: BOTTOM_Y - TOP_Y, background: forkColor, zIndex: 0 }} />
+        <div style={{ position: "absolute", left: `calc(${X.fork}% - 1px)`, top: TOP_Y, width: 2, height: BOTTOM_Y - TOP_Y, background: doneColor, zIndex: 0 }} />
         {/* Top branch horizontals */}
-        <div style={{ position: "absolute", left: `${X.fork}%`, width: `${X.c1 - X.fork}%`, top: TOP_Y - 1, height: 2, background: forkColor, zIndex: 0 }} />
+        <div style={{ position: "absolute", left: `${X.fork}%`, width: `${X.c1 - X.fork}%`, top: TOP_Y - 1, height: 2, background: getForkLineColor(purchase), zIndex: 0 }} />
         <div style={{ position: "absolute", left: `${X.c1}%`, width: `${X.c2 - X.c1}%`, top: TOP_Y - 1, height: 2,
-          background: getBranchLineColor(purchase, purchaseColor), zIndex: 0 }} />
+          background: getBranchLineColor(purchase), zIndex: 0 }} />
         {/* Bottom branch horizontals */}
-        <div style={{ position: "absolute", left: `${X.fork}%`, width: `${X.c1 - X.fork}%`, top: BOTTOM_Y - 1, height: 2, background: forkColor, zIndex: 0 }} />
+        <div style={{ position: "absolute", left: `${X.fork}%`, width: `${X.c1 - X.fork}%`, top: BOTTOM_Y - 1, height: 2, background: getForkLineColor(warehouse), zIndex: 0 }} />
         <div style={{ position: "absolute", left: `${X.c1}%`, width: `${X.c2 - X.c1}%`, top: BOTTOM_Y - 1, height: 2,
-          background: getBranchLineColor(warehouse, warehouseColor), zIndex: 0 }} />
+          background: getBranchLineColor(warehouse), zIndex: 0 }} />
 
         {/* === Steps === */}
         {/* Parent steps (all done) */}
-        <DoneStep x={`${X.p1}%`} y={MID_Y} color={draftColor}    label={t("Yaratildi")} />
-        <DoneStep x={`${X.p2}%`} y={MID_Y} color={checkInColor}  label={t("Tekshiruvda")} />
-        <DoneStep x={`${X.p3}%`} y={MID_Y} color={checkedColor}  label={t("Tekshirildi")} />
+        <DoneStep x={`${X.p1}%`} y={MID_Y} color={doneColor} label={t("Yaratildi")} />
+        <DoneStep x={`${X.p2}%`} y={MID_Y} color={doneColor} label={t("Tekshiruvda")} />
 
         {/* Fork node */}
-        <ForkNode x={`${X.fork}%`} y={MID_Y} color={forkColor} />
+        <ForkNode x={`${X.fork}%`} y={MID_Y} color={doneColor} />
 
         {/* Top branch (Purchase / Sotib olishga) */}
         {purchase ? (
@@ -190,13 +208,15 @@ function SplitDiagram({
             yCenter={TOP_Y}
             xApprove={X.c1}
             xFinal={X.c2}
-            finalColor={purchaseColor}
+            finalColor={doneColor}
             finalLabel={t("Sotib olishga")}
+            awaitingLabel={t("Sotib olinmoqda")}
+            doneLabel={t("Xarid yetkazildi")}
             approveLabel={t("Tasdiqlash")}
-            stepNumber={4}
+            stepNumber={3}
           />
         ) : (
-          <PendingBranch yCenter={TOP_Y} xApprove={X.c1} xFinal={X.c2} finalColor={purchaseColor} finalLabel={t("Sotib olishga")} approveLabel={t("Tasdiqlash")} />
+          <PendingBranch yCenter={TOP_Y} xApprove={X.c1} xFinal={X.c2} finalColor={doneColor} finalLabel={t("Sotib olishga")} approveLabel={t("Tasdiqlash")} />
         )}
 
         {/* Bottom branch (Warehouse / Ombordan olishga) */}
@@ -206,25 +226,27 @@ function SplitDiagram({
             yCenter={BOTTOM_Y}
             xApprove={X.c1}
             xFinal={X.c2}
-            finalColor={warehouseColor}
+            finalColor={doneColor}
             finalLabel={t("Ombordan olishga")}
+            awaitingLabel={t("Berish kutilmoqda")}
+            doneLabel={t("Chiqarib berildi")}
             approveLabel={t("Tasdiqlash")}
-            stepNumber={4}
+            stepNumber={3}
           />
         ) : (
-          <PendingBranch yCenter={BOTTOM_Y} xApprove={X.c1} xFinal={X.c2} finalColor={warehouseColor} finalLabel={t("Ombordan olishga")} approveLabel={t("Tasdiqlash")} />
+          <PendingBranch yCenter={BOTTOM_Y} xApprove={X.c1} xFinal={X.c2} finalColor={doneColor} finalLabel={t("Ombordan olishga")} approveLabel={t("Tasdiqlash")} />
         )}
       </div>
 
-      {/* Bottom banner */}
+      {/* Bottom banner — holatga qarab: tasdiq yakun emas, material kelishi kerak */}
       <div style={{
         marginTop: 4, padding: "8px 14px", borderRadius: 8,
-        background: `${forkColor}14`,
-        border: `1.5px solid ${forkColor}44`,
-        fontSize: 13, fontWeight: 600, color: forkColor,
+        background: `${bannerColor}14`,
+        border: `1.5px solid ${bannerColor}44`,
+        fontSize: 13, fontWeight: 600, color: bannerColor,
         textAlign: "center",
       }}>
-        {t("Bo'lib yuborilgan — har bir yo'nalish alohida tasdiqlash bosqichidan o'tadi")}
+        {t(bannerText)}
       </div>
     </div>
   );
@@ -232,14 +254,27 @@ function SplitDiagram({
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function getBranchLineColor(child: RequisitionChildSummary | undefined, finalColor: string): string {
+function getForkLineColor(child: RequisitionChildSummary | undefined): string {
   if (!child) return "var(--border)";
+  if (child.status === RequisitionStatus.Rejected) return `${WORKFLOW_COLORS.rejected}55`;
+  // Tasdiqlash kutilayotgan bo'lsa — bu bo'lak hali "yo'lda".
+  if (child.status === RequisitionStatus.PendingApproval) return `${WORKFLOW_COLORS.active}66`;
+  return WORKFLOW_COLORS.done;
+}
+
+function getBranchLineColor(child: RequisitionChildSummary | undefined): string {
+  if (!child) return "var(--border)";
+  // Yashil — faqat material haqiqatan berilgan/yetkazilganda. Tasdiqlangan,
+  // lekin hali olinmagan yo'nalish kutish rangida: yo'l boshlangan, tugamagan.
   if (
-    child.status === RequisitionStatus.ReadyForWarehouseRelease ||
-    child.status === RequisitionStatus.ReadyForPurchase ||
     child.status === RequisitionStatus.Released ||
     child.status === RequisitionStatus.Delivered
-  ) return finalColor;
+  ) return WORKFLOW_COLORS.done;
+  if (
+    child.status === RequisitionStatus.ReadyForWarehouseRelease ||
+    child.status === RequisitionStatus.ReadyForPurchase
+  ) return `${WORKFLOW_COLORS.active}66`;
+  if (child.status === RequisitionStatus.Rejected) return `${WORKFLOW_COLORS.rejected}55`;
   return "var(--border)";
 }
 
@@ -340,43 +375,59 @@ function PositionedStep({
 }
 
 function BranchPair({
-  child, yCenter, xApprove, xFinal, finalColor, finalLabel, approveLabel, stepNumber,
+  child, yCenter, xApprove, xFinal, finalColor, finalLabel, awaitingLabel, doneLabel, approveLabel, stepNumber,
 }: {
   child: RequisitionChildSummary;
   yCenter: number;
   xApprove: number;
   xFinal: number;
   finalColor: string;
+  /** Hali tasdiqlanmagan holat uchun: yo'nalish nomi. */
   finalLabel: string;
+  /** Tasdiqlangan, lekin material hali qo'lga tegmagan holat. */
+  awaitingLabel: string;
+  /** Material haqiqatan berilgan / yetkazilgan holat. */
+  doneLabel: string;
   approveLabel: string;
   stepNumber: number;
 }) {
-  const approvalColor = STEP_COLORS[RequisitionStatus.PendingApproval].active;
+  const approvalColor = WORKFLOW_COLORS.active;
+  const awaitingColor = WORKFLOW_COLORS.active;
 
-  const isApproved = child.status === RequisitionStatus.ReadyForWarehouseRelease
-    || child.status === RequisitionStatus.ReadyForPurchase
-    || child.status === RequisitionStatus.Released
+  // Tasdiq — bu hali yakun emas: "Ombordan olishga" / "Sotib olishga" degani
+  // material hali chiqarilmagan yoki hali kelmagan. Yakuniy tugun faqat
+  // Released / Delivered da belgilanadi, aks holda "kutilmoqda" ko'rinishida.
+  const isFulfilled = child.status === RequisitionStatus.Released
     || child.status === RequisitionStatus.Delivered;
+  const isAwaiting = child.status === RequisitionStatus.ReadyForWarehouseRelease
+    || child.status === RequisitionStatus.ReadyForPurchase;
   const isPending  = child.status === RequisitionStatus.PendingApproval;
   const isRejected = child.status === RequisitionStatus.Rejected;
 
   const approveState: "pending" | "active" | "done" | "rejected" =
-    isApproved ? "done" :
+    isFulfilled || isAwaiting ? "done" :
     isPending  ? "active" :
     isRejected ? "rejected" :
     "pending";
 
   const finalState: "pending" | "active" | "done" | "rejected" =
-    isApproved  ? "done" :
+    isFulfilled ? "done" :
+    isAwaiting  ? "active" :
     "pending";
+
+  const finalStepLabel =
+    isFulfilled ? doneLabel :
+    isAwaiting  ? awaitingLabel :
+    finalLabel;
 
   const approveLabelColor =
     approveState === "active"   ? approvalColor :
-    approveState === "rejected" ? "#dc2626" :
+    approveState === "rejected" ? WORKFLOW_COLORS.rejected :
     approveState === "done"     ? "var(--text2)" : "var(--text3)";
 
   const finalLabelColor =
     finalState === "done"   ? finalColor :
+    finalState === "active" ? awaitingColor :
     "var(--text3)";
 
   return (
@@ -387,16 +438,24 @@ function BranchPair({
         labelColor={approveLabelColor}
         labelWeight={approveState === "active" || approveState === "rejected" ? 700 : 500}
       >
-        <ChildCircle state={approveState} n={stepNumber} color={approvalColor} />
+        <ChildCircle
+          state={approveState}
+          n={stepNumber}
+          color={approveState === "done" ? WORKFLOW_COLORS.done : approvalColor}
+        />
       </PositionedStep>
 
       <PositionedStep
         x={`${xFinal}%`} y={yCenter}
-        label={finalLabel}
+        label={finalStepLabel}
         labelColor={finalLabelColor}
-        labelWeight={finalState === "done" ? 700 : 500}
+        labelWeight={finalState === "pending" ? 500 : 700}
       >
-        <ChildCircle state={finalState} n={stepNumber + 1} color={finalColor} />
+        <ChildCircle
+          state={finalState}
+          n={stepNumber + 1}
+          color={finalState === "active" ? awaitingColor : finalColor}
+        />
       </PositionedStep>
     </>
   );
@@ -407,14 +466,14 @@ function PendingBranch({
 }: {
   yCenter: number; xApprove: number; xFinal: number; finalColor: string; finalLabel: string; approveLabel: string;
 }) {
-  const approvalColor = STEP_COLORS[RequisitionStatus.PendingApproval].active;
+  const approvalColor = WORKFLOW_COLORS.active;
   return (
     <>
       <PositionedStep x={`${xApprove}%`} y={yCenter} label={approveLabel} labelColor="var(--text3)" labelWeight={500}>
-        <ChildCircle state="pending" n={4} color={approvalColor} />
+        <ChildCircle state="pending" n={3} color={approvalColor} />
       </PositionedStep>
       <PositionedStep x={`${xFinal}%`} y={yCenter} label={finalLabel} labelColor="var(--text3)" labelWeight={500}>
-        <ChildCircle state="pending" n={5} color={finalColor} />
+        <ChildCircle state="pending" n={4} color={finalColor} />
       </PositionedStep>
     </>
   );

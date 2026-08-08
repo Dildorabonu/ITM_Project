@@ -10,23 +10,29 @@ import {
 import {
   fmtDate,
   isRequisitionCompleted,
+  isRequisitionRejected,
   REQUISITION_STATUS_LABELS,
 } from "./_types";
 import { RequisitionStatusBadge } from "./_components/StatusBadge";
 import { RequisitionDrawer } from "./_components/RequisitionDrawer";
 import { CheckSelect } from "./_components/CheckSelect";
+import { RecentCompleted } from "./_components/RecentCompleted";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useT } from "@/lib/i18n";
 
 // ─── Status filter options ─────────────────────────────────────────────────────
 
-const COMPLETED_FILTER = "completed";
-
 const STATUS_FILTER = [
-  { value: "", label: "Barchasi" },
-  { value: String(RequisitionStatus.PendingWarehouseCheck), label: REQUISITION_STATUS_LABELS[RequisitionStatus.PendingWarehouseCheck] },
-  { value: String(RequisitionStatus.Split),                 label: REQUISITION_STATUS_LABELS[RequisitionStatus.Split] },
-  { value: COMPLETED_FILTER,                                label: "Yakunlangan" },
+  { value: String(RequisitionStatus.PendingWarehouseCheck),    label: REQUISITION_STATUS_LABELS[RequisitionStatus.PendingWarehouseCheck] },
+  { value: String(RequisitionStatus.PendingApproval),          label: REQUISITION_STATUS_LABELS[RequisitionStatus.PendingApproval] },
+  { value: String(RequisitionStatus.Split),                    label: REQUISITION_STATUS_LABELS[RequisitionStatus.Split] },
+  { value: String(RequisitionStatus.ReadyForWarehouseRelease), label: REQUISITION_STATUS_LABELS[RequisitionStatus.ReadyForWarehouseRelease] },
+  { value: String(RequisitionStatus.ReadyForPurchase),         label: REQUISITION_STATUS_LABELS[RequisitionStatus.ReadyForPurchase] },
+];
+
+const ARCHIVE_STATUS_FILTER = [
+  { value: String(RequisitionStatus.Released),  label: REQUISITION_STATUS_LABELS[RequisitionStatus.Released] },
+  { value: String(RequisitionStatus.Delivered), label: REQUISITION_STATUS_LABELS[RequisitionStatus.Delivered] },
 ];
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
@@ -43,7 +49,10 @@ function RequisitionsContent() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [viewMode, setViewMode]     = useState<"active" | "archive">("active");
+  const [archiveTab, setArchiveTab] = useState<"completed" | "rejected">("completed");
   const [drawerReq, setDrawerReq] = useState<RequisitionResponse | null>(null);
+  const [recentKey, setRecentKey] = useState(0);
 
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [pendingStatus, setPendingStatus] = useState("");
@@ -94,14 +103,16 @@ function RequisitionsContent() {
     try {
       setLoading(true);
       setError("");
-      const opts: { search?: string; status?: RequisitionStatus; completed?: boolean } = {};
+      const opts: { search?: string; status?: RequisitionStatus; completed?: boolean; rejected?: boolean } =
+        viewMode === "active"
+          ? { completed: false }
+          : archiveTab === "completed"
+            ? { completed: true, rejected: false }
+            // Arxiv saralashi CompletedAt bo'yicha ishlashi uchun completed:true
+            // ham yuboriladi — aks holda backend faol ro'yxat tartibiga (CreatedAt) tushib qoladi.
+            : { completed: true, rejected: true };
       if (search.trim()) opts.search = search.trim();
-      if (filterStatus === COMPLETED_FILTER) {
-        opts.completed = true;
-      } else if (filterStatus !== "") {
-        opts.status = Number(filterStatus) as RequisitionStatus;
-        opts.completed = false;
-      }
+      if (filterStatus !== "") opts.status = Number(filterStatus) as RequisitionStatus;
       const data = await requisitionService.getPaged(p, PAGE_SIZE, opts);
       setList(data.items);
       setTotalPages(data.totalPages);
@@ -116,17 +127,26 @@ function RequisitionsContent() {
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search, filterStatus]);
+  }, [page, search, filterStatus, viewMode, archiveTab]);
 
-  // Reset to page 1 when filters change
-  useEffect(() => { setPage(1); }, [search, filterStatus]);
+  // Ko'rinish yoki filtr o'zgarsa — birinchi sahifaga qaytish
+  useEffect(() => { setPage(1); }, [search, filterStatus, viewMode, archiveTab]);
 
   // Reload when page or any filter changes (debounce search)
   useEffect(() => {
-    const t = setTimeout(() => { load(page); }, search ? 250 : 0);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => { load(page); }, search ? 250 : 0);
+    return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search, filterStatus]);
+  }, [page, search, filterStatus, viewMode, archiveTab]);
+
+  // Faol va arxiv status variantlari umumiy emas — ko'rinish almashganda tozalanadi
+  useEffect(() => {
+    setFilterStatus("");
+    setPendingStatus("");
+    // Rad etilgan sub-tabida filtr tugmasi butunlay yashiriladi — panel ochiq
+    // qolib ketmasligi va orphan outside-click listener bo'lmasligi uchun yopamiz.
+    setFilterPanelOpen(false);
+  }, [viewMode, archiveTab]);
 
   // Pending-approval badge: count separately so it doesn't depend on the current filter
   useEffect(() => {
@@ -140,6 +160,70 @@ function RequisitionsContent() {
     <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       {/* Toolbar */}
       <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, padding: "8px 14px", flexWrap: "wrap", overflow: "visible" }}>
+        {/* Faol / Arxiv */}
+        <div style={{ display: "inline-flex", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 2, gap: 2, flexShrink: 0 }}>
+          <button
+            onClick={() => setViewMode("active")}
+            style={{
+              padding: "6px 14px", borderRadius: "var(--radius)", border: "none",
+              background: viewMode === "active" ? "var(--accent)" : "transparent",
+              color: viewMode === "active" ? "#fff" : "var(--text2)",
+              fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.15s",
+              display: "inline-flex", alignItems: "center", gap: 6,
+            }}
+          >
+            <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            {t("Faol")}
+          </button>
+          <button
+            onClick={() => setViewMode("archive")}
+            style={{
+              padding: "6px 14px", borderRadius: "var(--radius)", border: "none",
+              background: viewMode === "archive" ? "var(--text3)" : "transparent",
+              color: viewMode === "archive" ? "#fff" : "var(--text2)",
+              fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.15s",
+              display: "inline-flex", alignItems: "center", gap: 6,
+            }}
+          >
+            <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <polyline points="21 8 21 21 3 21 3 8"/>
+              <rect x="1" y="3" width="22" height="5"/>
+              <line x1="10" y1="12" x2="14" y2="12"/>
+            </svg>
+            {t("Arxiv")}
+          </button>
+        </div>
+
+        {/* Arxiv sub-tablari */}
+        {viewMode === "archive" && (
+          <div style={{ display: "inline-flex", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 2, gap: 2, flexShrink: 0, animation: "panel-appear 0.18s ease" }}>
+            <button
+              onClick={() => setArchiveTab("completed")}
+              style={{
+                padding: "6px 12px", borderRadius: "var(--radius)", border: "none",
+                background: archiveTab === "completed" ? "var(--success)" : "transparent",
+                color: archiveTab === "completed" ? "#fff" : "var(--text2)",
+                fontSize: 12.5, fontWeight: 600, cursor: "pointer", transition: "all 0.15s",
+              }}
+            >
+              {t("Yakunlangan")}
+            </button>
+            <button
+              onClick={() => setArchiveTab("rejected")}
+              style={{
+                padding: "6px 12px", borderRadius: "var(--radius)", border: "none",
+                background: archiveTab === "rejected" ? "var(--danger)" : "transparent",
+                color: archiveTab === "rejected" ? "#fff" : "var(--text2)",
+                fontSize: 12.5, fontWeight: 600, cursor: "pointer", transition: "all 0.15s",
+              }}
+            >
+              {t("Rad etilgan")}
+            </button>
+          </div>
+        )}
+
         <div className="search-wrap" style={{ maxWidth: "none", flex: 1, minWidth: 180 }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -152,6 +236,7 @@ function RequisitionsContent() {
           />
         </div>
         {/* Filter dropdown */}
+        {!(viewMode === "archive" && archiveTab === "rejected") && (
         <div style={{ position: "relative", flexShrink: 0 }}>
           <button
             ref={filterBtnRef}
@@ -244,7 +329,8 @@ function RequisitionsContent() {
                   <CheckSelect
                     value={pendingStatus}
                     onChange={setPendingStatus}
-                    options={STATUS_FILTER.filter(o => o.value !== "").map(o => ({ id: o.value, name: t(o.label) }))}
+                    options={(viewMode === "archive" ? ARCHIVE_STATUS_FILTER : STATUS_FILTER)
+                      .map(o => ({ id: o.value, name: t(o.label) }))}
                     placeholder={t("Barcha holatlar")}
                     disablePortal
                   />
@@ -275,8 +361,9 @@ function RequisitionsContent() {
             </div>
           )}
         </div>
+        )}
 
-        <button className="btn-icon" onClick={() => load()} title={t("Yangilash")}
+        <button className="btn-icon" onClick={() => { load(); setRecentKey(k => k + 1); }} title={t("Yangilash")}
           style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" />
@@ -356,7 +443,11 @@ function RequisitionsContent() {
               <tbody>
                 {list.length === 0 ? (
                   <tr><td colSpan={8} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>
-                    {t("Talabnomalar topilmadi")}
+                    {viewMode === "active"
+                      ? t("Talabnomalar topilmadi")
+                      : archiveTab === "completed"
+                        ? t("Yakunlangan talabnomalar yo'q")
+                        : t("Rad etilgan talabnomalar yo'q")}
                   </td></tr>
                 ) : list.map((r, i) => (
                   <tr key={r.id} onClick={() => setDrawerReq(r)} style={{ cursor: "pointer" }}>
@@ -368,7 +459,7 @@ function RequisitionsContent() {
                     <td style={{ textAlign: "center", maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fmtDate(r.createdAt)}</td>
                     <td style={{ textAlign: "center", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       <div style={{ maxWidth: 180, overflow: "hidden", display: "inline-flex", justifyContent: "center" }}>
-                        <RequisitionStatusBadge status={r.status} completed={isRequisitionCompleted(r)} small />
+                        <RequisitionStatusBadge status={r.status} completed={isRequisitionCompleted(r)} rejected={isRequisitionRejected(r)} small />
                       </div>
                     </td>
                     <td className="td-actions" style={{ borderLeft: "2px solid var(--border)" }}
@@ -451,6 +542,11 @@ function RequisitionsContent() {
         </div>
       </div>
 
+      {/* Qidiruv/filtr qo'llangan bo'lsa ko'rsatilmaydi — blok filtrlarga bo'ysunmaydi */}
+      {viewMode === "active" && !search.trim() && filterStatus === "" && (
+        <RecentCompleted reloadKey={recentKey} onOpen={setDrawerReq} />
+      )}
+
       {drawerReq && (
         <RequisitionDrawer
           req={drawerReq}
@@ -458,6 +554,11 @@ function RequisitionsContent() {
           onUpdate={updated => {
             setDrawerReq(updated);
             setList(prev => prev.map(r => r.id === updated.id ? updated : r));
+            // Holat bajarilgan holatga o'tishi mumkin (masalan, rad etildi) — asosiy
+            // ro'yxat endi faqat faol talabnomalarni ko'rsatadi, shuning uchun uni va
+            // "Yaqinda yakunlangan" blokini qayta yuklab, ikkalasini sinxron ushlab turamiz.
+            load();
+            setRecentKey(k => k + 1);
           }}
         />
       )}

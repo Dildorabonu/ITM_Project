@@ -64,15 +64,53 @@ public class RequisitionService : IRequisitionService
         return ApiResult<int>.Success(await query.CountAsync());
     }
 
-    // Talabnoma "yakunlangan" hisoblanadigan holatlar: direktor qarori chiqarilgan
-    // (tasdiq yoki rad) — undan keyingi ombor harakatlari holatni o'zgartirmaydi.
-    // Frontenddagi TERMINAL_STATUSES (client/app/(documents)/requisitions/_types.ts)
-    // bilan aynan bir xil bo'lishi shart — aks holda badge "Yakunlangan" deb
-    // ko'rsatgan qator "Yakunlangan" filtriga tushmaydi.
-    private static readonly RequisitionStatus[] TerminalStatuses =
+    // "Yaqinda yakunlangan" bloki uchun: faqat oxirgi N kunda real bajarilganlar,
+    // sahifalanmaydi — ro'yxat qisqa bo'lishi shart.
+    private const int RecentCompletedLimit = 10;
+
+    public async Task<ApiResult<IEnumerable<RequisitionResponseDto>>> GetRecentCompletedAsync(
+        Guid currentUserId, bool viewAll, int days)
+    {
+        var since = DateTime.UtcNow.AddDays(-Math.Clamp(days, 1, 90));
+
+        var query = _context.Requisitions
+            .Include(r => r.Creator)
+            .Include(r => r.Approver)
+            .Include(r => r.WarehouseChecker)
+            .Include(r => r.Contract)
+            .Include(r => r.Department)
+            .Include(r => r.Parent)
+            .Include(r => r.Children)
+            .Include(r => r.Items).ThenInclude(i => i.Material)
+            .AsNoTracking()
+            .Where(r => r.ParentRequisitionId == null);
+
+        if (!viewAll)
+            query = query.Where(r => r.CreatedBy == currentUserId);
+
+        query = query.Where(r => r.Children.Any()
+            ? r.Children.All(c => FulfilledStatuses.Contains(c.Status))
+              && r.Children.Max(c => c.CompletedAt) >= since
+            : FulfilledStatuses.Contains(r.Status) && r.CompletedAt >= since);
+
+        var items = await query
+            .OrderByDescending(r => r.Children.Any()
+                ? r.Children.Max(c => c.CompletedAt)
+                : r.CompletedAt)
+            .Take(RecentCompletedLimit)
+            .ToListAsync();
+
+        return ApiResult<IEnumerable<RequisitionResponseDto>>.Success(items.Select(MapToResponse));
+    }
+
+    // Talabnoma REAL bajarilgan hisoblanadigan holatlar: material bo'lim omboriga
+    // berildi, xarid yetkazildi yoki direktor rad etdi. Tasdiqlangan, lekin hali
+    // berilmagan ("Ombordan olishga") yoki hali kelmagan ("Sotib olishga")
+    // talabnoma faol ish hisoblanadi va ro'yxatdan chiqmaydi.
+    // Frontenddagi FULFILLED_STATUSES (client/app/(documents)/requisitions/_types.ts)
+    // bilan aynan bir xil bo'lishi shart — aks holda badge bilan ro'yxat mos kelmaydi.
+    private static readonly RequisitionStatus[] FulfilledStatuses =
     [
-        RequisitionStatus.ReadyForWarehouseRelease,
-        RequisitionStatus.ReadyForPurchase,
         RequisitionStatus.Released,
         RequisitionStatus.Delivered,
         RequisitionStatus.Rejected,
@@ -84,7 +122,8 @@ public class RequisitionService : IRequisitionService
         PaginationParams pagination,
         string? search = null,
         RequisitionStatus? status = null,
-        bool? completed = null)
+        bool? completed = null,
+        bool? rejected = null)
     {
         var query = _context.Requisitions
             .Include(r => r.Creator)
@@ -102,7 +141,14 @@ public class RequisitionService : IRequisitionService
             query = query.Where(r => r.CreatedBy == currentUserId);
 
         if (status.HasValue)
-            query = query.Where(r => r.Status == status.Value);
+        {
+            // Ro'yxat faqat parent qatorlarni ko'rsatadi, holat esa childlarda yashaydi —
+            // shuning uchun bo'lingan talabnoma childlaridan birortasi mos kelsa, parent chiqadi.
+            query = query.Where(r =>
+                r.Children.Any()
+                    ? r.Children.Any(c => c.Status == status.Value)
+                    : r.Status == status.Value);
+        }
 
         if (completed.HasValue)
         {
@@ -110,15 +156,35 @@ public class RequisitionService : IRequisitionService
             {
                 query = query.Where(r =>
                     r.Children.Any()
-                        ? r.Children.All(c => TerminalStatuses.Contains(c.Status))
-                        : TerminalStatuses.Contains(r.Status));
+                        ? r.Children.All(c => FulfilledStatuses.Contains(c.Status))
+                        : FulfilledStatuses.Contains(r.Status));
             }
             else
             {
                 query = query.Where(r =>
                     r.Children.Any()
-                        ? r.Children.Any(c => !TerminalStatuses.Contains(c.Status))
-                        : !TerminalStatuses.Contains(r.Status));
+                        ? r.Children.Any(c => !FulfilledStatuses.Contains(c.Status))
+                        : !FulfilledStatuses.Contains(r.Status));
+            }
+        }
+
+        // Arxiv sub-tablari: to'liq rad etilgan (o'zi yoki barcha childlari) —
+        // qisman rad etilgan split parent "Yakunlangan" tomonda qoladi.
+        if (rejected.HasValue)
+        {
+            if (rejected.Value)
+            {
+                query = query.Where(r =>
+                    r.Children.Any()
+                        ? r.Children.All(c => c.Status == RequisitionStatus.Rejected)
+                        : r.Status == RequisitionStatus.Rejected);
+            }
+            else
+            {
+                query = query.Where(r =>
+                    r.Children.Any()
+                        ? !r.Children.All(c => c.Status == RequisitionStatus.Rejected)
+                        : r.Status != RequisitionStatus.Rejected);
             }
         }
 
@@ -135,13 +201,25 @@ public class RequisitionService : IRequisitionService
 
         var totalCount = await query.CountAsync();
 
-        var items = await query
-            .OrderBy(r =>
-                r.Status == RequisitionStatus.PendingWarehouseCheck ? 1 :
-                (r.Children.Any()
-                    ? r.Children.All(c => TerminalStatuses.Contains(c.Status))
-                    : TerminalStatuses.Contains(r.Status)) ? 3 : 2)
-            .ThenByDescending(r => r.CreatedAt)
+        // Arxivda yakunlanish vaqti muhim; faol ro'yxatda esa tekshiruv kutayotganlar
+        // yuqorida turadi. Split parentning yakunlanish vaqti — childlarining eng
+        // kechkisi. PostgreSQL'da DESC — NULLS FIRST, shuning uchun CompletedAt
+        // to'ldirilmagan (masalan eski Rejected) yozuv tepaga chiqib ketmasin deb
+        // avval "bor/yo'q"ligi bo'yicha saralanadi, keyin haqiqiy sanaga qarab.
+        IOrderedQueryable<Requisition> ordered = completed == true
+            ? query
+                .OrderByDescending(r => (r.Children.Any()
+                    ? r.Children.Max(c => c.CompletedAt)
+                    : r.CompletedAt) != null)
+                .ThenByDescending(r => r.Children.Any()
+                    ? r.Children.Max(c => c.CompletedAt)
+                    : r.CompletedAt)
+                .ThenByDescending(r => r.CreatedAt)
+            : query
+                .OrderBy(r => r.Status == RequisitionStatus.PendingWarehouseCheck ? 1 : 2)
+                .ThenByDescending(r => r.CreatedAt);
+
+        var items = await ordered
             .Skip((pagination.Page - 1) * pagination.PageSize)
             .Take(pagination.PageSize)
             .ToListAsync();
@@ -680,6 +758,7 @@ public class RequisitionService : IRequisitionService
         r.RejectionReason = dto.RejectionReason;
         r.ApprovedBy = directorId;
         r.ApprovedAt = DateTime.UtcNow;
+        r.CompletedAt = r.ApprovedAt;
 
         await _context.SaveChangesAsync();
 
@@ -842,6 +921,7 @@ public class RequisitionService : IRequisitionService
         r.Status = r.Source == RequisitionSource.Purchase
             ? RequisitionStatus.Delivered
             : RequisitionStatus.Released;
+        r.CompletedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
         await tx.CommitAsync();
@@ -1188,6 +1268,7 @@ public class RequisitionService : IRequisitionService
         ApprovedByName = r.Approver is null ? null : $"{r.Approver.FirstName} {r.Approver.LastName}",
         ApprovedAt = r.ApprovedAt,
         QrCodeData = r.QrCodeData,
+        CompletedAt = r.Children.Count > 0 ? r.Children.Max(c => c.CompletedAt) : r.CompletedAt,
         CreatedByName = r.Creator is null ? string.Empty : $"{r.Creator.FirstName} {r.Creator.LastName}",
         CreatedAt = r.CreatedAt,
         Items = r.Items.Select(i => new RequisitionItemResponseDto
