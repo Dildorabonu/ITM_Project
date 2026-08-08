@@ -1229,4 +1229,27 @@ export const ru: Record<string, string> = {
   // qo'yiladi. So'z tartibi tilga qarab farq qilgani uchun butun ibora kalit.
   "{0} shartnoma talabnomasi": "Заявка по договору {0}",
   "{0} bo'lim talabnomasi": "Заявка отдела {0}",
+
+  // Ombor harakatlari jurnali — "Harakat turlari" yordam paneli va badge tooltiplari.
+  // Turlarning NOMI (Kirim, Chiqim...) ataylab tarjima qilinmaydi: jadvaldagi badge
+  // backenddan kelgan o'zbekcha yorliqni ko'rsatadi, izoh esa sof UI matni.
+  "Harakat turlari": "Типы движений",
+  "Harakat turlari nimani anglatadi?": "Что означают типы движений?",
+  "Nega 2 qator chiqadi?": "Почему появляются 2 строки?",
+  "Bitta amal ombor holatini ikki tomondan o'zgartiradi — shuning uchun jurnalga ikkita qator yoziladi:":
+    "Одно действие меняет состояние склада с двух сторон — поэтому в журнал записываются две строки:",
+  "Omborga tovar keldi": "Товар поступил на склад",
+  "Bo'limga berildi": "Выдано отделу",
+  "Omborga yangi tovar keldi — xarid qabul qilindi":
+    "На склад поступил новый товар — принята закупка",
+  "Tovar ombordan butunlay chiqdi — sarflandi yoki hisobdan chiqarildi":
+    "Товар полностью выбыл со склада — израсходован или списан",
+  "Markaziy ombordan bo'lim omboriga o'tkazildi — korxonadagi umumiy miqdor kamaymaydi":
+    "Перемещено с центрального склада на склад отдела — общее количество на предприятии не уменьшается",
+  "Talabnomaga band qilindi — tovar omborda turibdi, lekin boshqa talabnomaga berilmaydi":
+    "Забронировано под заявку — товар находится на складе, но не может быть выдан по другой заявке",
+  "Band bekor qilindi — tovar bo'limga berildi yoki talabnoma rad etildi":
+    "Бронь снята — товар выдан отделу либо заявка отклонена",
+  "Sanoq natijasi bo'yicha qo'lda tuzatildi — inventarizatsiya yoki yo'qotish":
+    "Скорректировано вручную по результатам пересчёта — инвентаризация или потеря",
 };

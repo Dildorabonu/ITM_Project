@@ -12,7 +12,9 @@ import {
 import { departmentService, type DepartmentOption } from "@/lib/userService";
 import { CheckSelect } from "@/app/_components/CheckSelect";
 import { RequisitionNo } from "@/app/_components/RequisitionNo";
-import { STOCK_MOVEMENT_TYPE_OPTIONS, PAGE_SIZE } from "./_types";
+import Tooltip from "@/app/_components/Tooltip";
+import { MovementTypeLegend } from "./_components/MovementTypeLegend";
+import { STOCK_MOVEMENT_TYPE_OPTIONS, STOCK_MOVEMENT_DESC, PAGE_SIZE } from "./_types";
 import { useT } from "@/lib/i18n";
 
 // "DD-MM-YY · HH:mm" — drawerdagi format bilan bir xil.
@@ -121,18 +123,21 @@ export default function WarehouseMovementsPage() {
             ✕ {t("Tozalash")}
           </button>
         )}
-        <button
-          className="btn-icon"
-          onClick={load}
-          title={t("Yangilash")}
-          style={{ marginLeft: "auto", background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polyline points="23 4 23 10 17 10" />
-            <polyline points="1 20 1 14 7 14" />
-            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-          </svg>
-        </button>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+          <MovementTypeLegend />
+          <button
+            className="btn-icon"
+            onClick={load}
+            title={t("Yangilash")}
+            style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="23 4 23 10 17 10" />
+              <polyline points="1 20 1 14 7 14" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Jadval */}
@@ -172,14 +177,17 @@ export default function WarehouseMovementsPage() {
                       </td>
                       <td style={{ textAlign: "center", color: "var(--text2)", fontFamily: "var(--font-mono)", fontSize: 12.5, whiteSpace: "nowrap" }}>{formatDateTime(m.createdAt)}</td>
                       <td style={{ textAlign: "center" }}>
-                        <span style={{
-                          display: "inline-flex", alignItems: "center", gap: 5,
-                          padding: "2px 9px", borderRadius: 999, background: dim, color,
-                          fontSize: 11, fontWeight: 600, fontFamily: "var(--font-mono)", whiteSpace: "nowrap",
-                        }}>
-                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: color }} />
-                          {m.typeLabel}
-                        </span>
+                        <Tooltip label={t(STOCK_MOVEMENT_DESC[m.type])}>
+                          <span style={{
+                            display: "inline-flex", alignItems: "center", gap: 5,
+                            padding: "2px 9px", borderRadius: 999, background: dim, color,
+                            fontSize: 11, fontWeight: 600, fontFamily: "var(--font-mono)", whiteSpace: "nowrap",
+                            cursor: "help",
+                          }}>
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: color }} />
+                            {m.typeLabel}
+                          </span>
+                        </Tooltip>
                       </td>
                       <td style={{ textAlign: "center", color: "var(--text1)" }}>{m.productName}</td>
                       <td style={{ textAlign: "center", color: "var(--text2)", fontFamily: "var(--font-mono)", fontSize: 12.5 }}>{directionLabel(m)}</td>
