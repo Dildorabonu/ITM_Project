@@ -750,7 +750,16 @@ public class RequisitionService : IRequisitionService
                 if (!item.ReservedProductId.HasValue) continue;
                 var product = await _context.Products.FindAsync(item.ReservedProductId.Value);
                 if (product is null) continue;
-                product.ReservedQuantity = Math.Max(0m, product.ReservedQuantity - item.Quantity);
+                var released = Math.Min(item.Quantity, product.ReservedQuantity);
+                product.ReservedQuantity -= released;
+
+                // Ledger: rezerv bo'shatildi — fizik qoldiq o'zgarmaydi, faqat band bekor bo'ladi.
+                // Bu Release'ning Transfer'siz yagona holati; yozilmasa jurnaldagi
+                // (Reserve − Release) Product.ReservedQuantity bilan mos kelmay qoladi.
+                if (released > 0)
+                    AddMovement(StockMovementType.Release, product, released, item.MaterialId,
+                        null, product.DepartmentId, r.Id, r.ContractId, directorId,
+                        $"Rad etildi: {r.RequisitionNo}");
             }
         }
 

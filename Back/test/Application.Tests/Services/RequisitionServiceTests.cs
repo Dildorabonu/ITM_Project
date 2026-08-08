@@ -856,6 +856,43 @@ public class RequisitionServiceTests
     }
 
     [Fact]
+    public async Task RejectAsync_WarehouseSource_WritesReleaseMovement()
+    {
+        // Arrange — rezerv qaytarilishi ledgerda ham iz qoldirishi kerak, aks holda
+        // Product.ReservedQuantity bilan (Reserve − Release) yig'indisi bir-biriga mos kelmaydi.
+        await using var db = CreateDb();
+        var director = TestData.SeedUser(db, login: "dir");
+        var creator = TestData.SeedUser(db, login: "c");
+        var warehouse = SeedDept(db, name: "Korxona", type: DepartmentType.Omborxona);
+        var product = SeedProduct(db, warehouse.Id, name: "Sement",
+            quantity: 100m, reservedQuantity: 10m);
+        var contract = SeedContract(db, creator.Id);
+        var child = SeedParentRequisition(db, creator.Id, contractId: contract.Id, no: "REQ-1-W",
+            status: RequisitionStatus.PendingApproval,
+            items: [MakeItem(quantity: 10m, freeName: "Sement", reservedProductId: product.Id)]);
+        child.Source = RequisitionSource.Warehouse;
+        db.SaveChanges();
+
+        // Act
+        var result = await CreateService(db).RejectAsync(child.Id, director.Id,
+            new RequisitionRejectDto { RejectionReason = "Kerakmas" });
+
+        // Assert
+        result.Succeeded.Should().BeTrue();
+        var movement = db.StockMovements.Should().ContainSingle().Subject;
+        movement.Type.Should().Be(StockMovementType.Release);
+        movement.ProductId.Should().Be(product.Id);
+        movement.Quantity.Should().Be(10m);
+        movement.QuantityAfter.Should().Be(100m, "rad etishda fizik qoldiq o'zgarmaydi");
+        movement.SourceDepartmentId.Should().BeNull();
+        movement.TargetDepartmentId.Should().Be(warehouse.Id);
+        movement.RequisitionId.Should().Be(child.Id);
+        movement.ContractId.Should().Be(contract.Id);
+        movement.UserId.Should().Be(director.Id);
+        movement.Notes.Should().Contain("REQ-1-W");
+    }
+
+    [Fact]
     public async Task RejectAsync_PurchaseSource_DoesNotTouchProductReservations()
     {
         // Sotib olinadigan childda hech qanday Product rezervi yo'q — Reject ta'sir qilmaydi
