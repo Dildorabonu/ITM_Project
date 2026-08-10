@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Core.Enums;
 
 namespace Application.DTOs.StockMovements;
@@ -5,6 +6,12 @@ namespace Application.DTOs.StockMovements;
 public class StockMovementResponseDto
 {
     public Guid Id { get; set; }
+
+    // Frontend `type` ni satr kaliti sifatida ishlatadi (STOCK_MOVEMENT_COLOR["Reserve"],
+    // stockMovementSign(...)). Defaultda System.Text.Json enumni raqam qilib yuboradi —
+    // o'shanda badge ranglari va +/- ishorasi yo'qoladi. Konverter ataylab shu maydonda,
+    // global emas: global qo'yilsa RequisitionStatus kabi raqam kutayotgan joylar buziladi.
+    [JsonConverter(typeof(JsonStringEnumConverter))]
     public StockMovementType Type { get; set; }
     public string TypeLabel { get; set; } = string.Empty;
 

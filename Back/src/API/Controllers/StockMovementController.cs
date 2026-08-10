@@ -26,4 +26,13 @@ public class StockMovementController : ControllerBase
         var result = await _stockMovementService.GetAsync(filter);
         return Ok(result);
     }
+
+    /// <summary>Filtr tugmachalari uchun harakatlar soni — tur kesimida. Type filtridan qat'i nazar hisoblanadi.</summary>
+    [HasPermission("WarehouseCheck.View")]
+    [HttpGet("summary")]
+    public async Task<IActionResult> GetSummary([FromQuery] StockMovementFilter filter)
+    {
+        var result = await _stockMovementService.GetSummaryAsync(filter);
+        return Ok(result);
+    }
 }

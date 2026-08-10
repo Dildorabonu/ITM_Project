@@ -59,6 +59,14 @@ export interface StockMovementParams {
   pageSize?: number;
 }
 
+// Filtr tugmachalaridagi sonlar — `GET /api/stock-movements/summary`.
+// Faqat harakatlar SONI: miqdorlarni qo'shib bo'lmaydi, chunki bitta filtrga
+// kg, dona va metrdagi qatorlar birga tushadi.
+export interface StockMovementSummary {
+  total: number;
+  byType: Record<StockMovementType, number>;
+}
+
 // Backend `PagedResult<T>` shape.
 export interface PagedResult<T> {
   items: T[];
@@ -106,15 +114,21 @@ export function stockMovementSign(type: StockMovementType): "+" | "-" | "" {
   }
 }
 
+// Bo'sh paramlarni tashlab, query obyektini yig'adi.
+function toQuery(params: StockMovementParams): Record<string, string | number> {
+  const query: Record<string, string | number> = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== "") {
+      query[key] = value as string | number;
+    }
+  }
+  return query;
+}
+
 export const stockMovementService = {
   // Filtrlangan, sahifalangan jurnal (CreatedAt DESC). Bo'sh paramlar yuborilmaydi.
   get: async (params: StockMovementParams = {}): Promise<PagedResult<StockMovement>> => {
-    const query: Record<string, string | number> = {};
-    for (const [key, value] of Object.entries(params)) {
-      if (value !== undefined && value !== null && value !== "") {
-        query[key] = value as string | number;
-      }
-    }
+    const query = toQuery(params);
     const res = await api.get("/api/stock-movements", { params: query });
     const result = res.data?.result;
     return (
@@ -128,5 +142,16 @@ export const stockMovementService = {
         hasNextPage: false,
       }
     );
+  },
+
+  // Tugmachalar uchun sonlar. `type` yuborilmaydi — backend uni baribir e'tiborsiz
+  // qoldiradi, lekin ortiqcha param jo'natmaslik uchun shu yerda ham tashlab ketamiz.
+  getSummary: async (params: StockMovementParams = {}): Promise<StockMovementSummary> => {
+    const { productId, materialId, departmentId, requisitionId, contractId, userId, from, to } = params;
+    const res = await api.get("/api/stock-movements/summary", {
+      params: toQuery({ productId, materialId, departmentId, requisitionId, contractId, userId, from, to }),
+    });
+    const result = res.data?.result;
+    return result ?? { total: 0, byType: {} as Record<StockMovementType, number> };
   },
 };

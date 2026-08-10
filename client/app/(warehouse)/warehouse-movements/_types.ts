@@ -65,4 +65,12 @@ export const STOCK_MOVEMENT_PAIRS: { action: string; types: StockMovementType[] 
   { action: "Bo'limga berildi", types: ["Transfer", "Release"] },
 ];
 
+// Kun guruhi sarlavhasi uchun oy nomlari — `t()` orqali tarjima qilinadi.
+// Format ikkala tilda ham "5 avgust 2026" / "5 августа 2026" ko'rinishida ishlaydi,
+// shuning uchun ruscha lug'atda oylar bosh kelishikda emas, qaratqichda beriladi.
+export const MONTHS = [
+  "yanvar", "fevral", "mart", "aprel", "may", "iyun",
+  "iyul", "avgust", "sentabr", "oktabr", "noyabr", "dekabr",
+];
+
 export const PAGE_SIZE = 50;

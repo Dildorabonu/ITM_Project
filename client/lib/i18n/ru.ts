@@ -1252,4 +1252,33 @@ export const ru: Record<string, string> = {
     "Бронь снята — товар выдан отделу либо заявка отклонена",
   "Sanoq natijasi bo'yicha qo'lda tuzatildi — inventarizatsiya yoki yo'qotish":
     "Скорректировано вручную по результатам пересчёта — инвентаризация или потеря",
+
+  // Jurnal jadvali: kun guruhlari, bo'sh holat va detal paneli.
+  // Oylar qaratqich kelishigida — sarlavha "5 августа 2026" ko'rinishida yig'iladi.
+  "yanvar": "января",
+  "fevral": "февраля",
+  "mart": "марта",
+  "aprel": "апреля",
+  "may": "мая",
+  "iyun": "июня",
+  "iyul": "июля",
+  "avgust": "августа",
+  "sentabr": "сентября",
+  "oktabr": "октября",
+  "noyabr": "ноября",
+  "dekabr": "декабря",
+  "Tafsilotni ochish": "Открыть подробности",
+  "Harakat tafsiloti": "Подробности движения",
+  "Harakatdan keyingi qoldiq": "Остаток после движения",
+  "Sana va vaqt": "Дата и время",
+  "Katalog": "Каталог",
+  "Izoh yozilmagan": "Примечание не указано",
+  "Jurnal hozircha bo'sh": "Журнал пока пуст",
+  "Ombordagi har bir kirim, chiqim va ko'chirish shu yerda qayd etiladi.":
+    "Каждое поступление, расход и перемещение на складе фиксируется здесь.",
+  "Bu filtrga mos harakat yo'q": "Нет движений по этому фильтру",
+  "Filtrlarni kengaytiring yoki tozalang.": "Расширьте или очистите фильтры.",
+  "Filtrlarni tozalash": "Очистить фильтры",
+  "Sahifani yangilang yoki keyinroq qayta urinib ko'ring.":
+    "Обновите страницу или повторите попытку позже.",
 };

@@ -19,16 +19,59 @@ public class StockMovementService : IStockMovementService
 
     public async Task<ApiResult<PagedResult<StockMovementResponseDto>>> GetAsync(StockMovementFilter filter)
     {
-        var query = _context.StockMovements
-            .Include(m => m.Product)
-            .Include(m => m.Material)
-            .Include(m => m.SourceDepartment)
-            .Include(m => m.TargetDepartment)
-            .Include(m => m.Requisition)
-            .Include(m => m.User)
-            .AsNoTracking()
-            .AsQueryable();
+        var query = ApplyFilters(
+            _context.StockMovements
+                .Include(m => m.Product)
+                .Include(m => m.Material)
+                .Include(m => m.SourceDepartment)
+                .Include(m => m.TargetDepartment)
+                .Include(m => m.Requisition)
+                .Include(m => m.User)
+                .AsNoTracking(),
+            filter,
+            includeType: true);
 
+        var pagination = new PaginationParams { Page = filter.Page, PageSize = filter.PageSize };
+
+        var totalCount = await query.CountAsync();
+
+        var items = await query
+            .OrderByDescending(m => m.CreatedAt)
+            .Skip((pagination.Page - 1) * pagination.PageSize)
+            .Take(pagination.PageSize)
+            .ToListAsync();
+
+        var paged = PagedResult<StockMovementResponseDto>.Create(items.Select(MapToResponse), totalCount, pagination);
+        return ApiResult<PagedResult<StockMovementResponseDto>>.Success(paged);
+    }
+
+    public async Task<ApiResult<StockMovementSummaryDto>> GetSummaryAsync(StockMovementFilter filter)
+    {
+        // includeType: false — tanlangan tur qolgan tugmachalarning sonini o'chirmasin.
+        var query = ApplyFilters(_context.StockMovements.AsNoTracking(), filter, includeType: false);
+
+        var counts = await query
+            .GroupBy(m => m.Type)
+            .Select(g => new { Type = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        // Oltala tur har doim kalit sifatida bo'lishi shart — mos qator bo'lmasa 0.
+        var byType = Enum.GetValues<StockMovementType>()
+            .ToDictionary(
+                t => t.ToString(),
+                t => counts.FirstOrDefault(c => c.Type == t)?.Count ?? 0);
+
+        return ApiResult<StockMovementSummaryDto>.Success(new StockMovementSummaryDto
+        {
+            Total = byType.Values.Sum(),
+            ByType = byType
+        });
+    }
+
+    // GetAsync va GetSummaryAsync bir xil filtrlarni qo'llaydi — mantiq shu yerda.
+    private static IQueryable<StockMovement> ApplyFilters(
+        IQueryable<StockMovement> query, StockMovementFilter filter, bool includeType)
+    {
         if (filter.ProductId.HasValue)
             query = query.Where(m => m.ProductId == filter.ProductId.Value);
 
@@ -49,7 +92,7 @@ public class StockMovementService : IStockMovementService
         if (filter.UserId.HasValue)
             query = query.Where(m => m.UserId == filter.UserId.Value);
 
-        if (filter.Type.HasValue)
+        if (includeType && filter.Type.HasValue)
             query = query.Where(m => m.Type == filter.Type.Value);
 
         if (filter.From.HasValue)
@@ -58,18 +101,7 @@ public class StockMovementService : IStockMovementService
         if (filter.To.HasValue)
             query = query.Where(m => m.CreatedAt <= filter.To.Value);
 
-        var pagination = new PaginationParams { Page = filter.Page, PageSize = filter.PageSize };
-
-        var totalCount = await query.CountAsync();
-
-        var items = await query
-            .OrderByDescending(m => m.CreatedAt)
-            .Skip((pagination.Page - 1) * pagination.PageSize)
-            .Take(pagination.PageSize)
-            .ToListAsync();
-
-        var paged = PagedResult<StockMovementResponseDto>.Create(items.Select(MapToResponse), totalCount, pagination);
-        return ApiResult<PagedResult<StockMovementResponseDto>>.Success(paged);
+        return query;
     }
 
     private static string TypeLabel(StockMovementType t) => t switch
