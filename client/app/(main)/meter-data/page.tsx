@@ -32,47 +32,77 @@ export default function MeterDataPage() {
 
   const [live, setLive] = useState(true);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  // Ikki manba mustaqil so'raladi (readings va summary) — biri yiqilsa
+  // ikkinchisining yaxshi natijasini yashirmasin. Hozircha faqat readings
+  // uchun ko'rinadigan xato bor (ReadingsTable `error` qabul qiladi); summary
+  // o'z xatosini ichida ushlaydi va keyingi muvaffaqiyatli urinishda o'zi
+  // tuzatadi — KpiRow bu bosqichda xato holatini ko'rsatmaydi.
+  const [readingsError, setReadingsError] = useState("");
   const [lastFetch, setLastFetch] = useState<Date | null>(null);
 
-  // Interval callback ichida so'nggi qiymatlar kerak.
+  // Interval callback ichida so'nggi qiymatlar kerak. Refga render paytida
+  // emas, effectda yoziladi (React qoidasi) — lekin effectlar commit'dan
+  // keyin, deklaratsiya tartibida darhol ishga tushgani uchun quyidagi
+  // "davr/qurilma o'zgarsa qayta yuklash" effektidan oldin doim yangilangan
+  // bo'ladi.
   const periodRef = useRef(period);
-  periodRef.current = period;
   const deviceRef = useRef(selectedDevice);
-  deviceRef.current = selectedDevice;
+  useEffect(() => {
+    periodRef.current = period;
+    deviceRef.current = selectedDevice;
+  }, [period, selectedDevice]);
+
+  // So'rovlar tartibsiz qaytishi mumkin (masalan davr tez-tez almashtirilsa).
+  // Har chaqiruvda hisoblagich oshiriladi — faqat eng so'nggi so'rovning
+  // javobi holatga yoziladi, eskirgani e'tiborsiz qoldiriladi.
+  const liveReqIdRef = useRef(0);
+  const summaryReqIdRef = useRef(0);
 
   const loadLive = useCallback(async () => {
-    const items = await meterDataService.getLatest(deviceRef.current ?? undefined, 100);
-    setReadings(items);
-    setLastFetch(new Date());
-  }, []);
+    const reqId = ++liveReqIdRef.current;
+    try {
+      const items = await meterDataService.getLatest(deviceRef.current ?? undefined, 100);
+      if (reqId !== liveReqIdRef.current) return; // eskirgan javob
+      setReadings(items);
+      setLastFetch(new Date());
+      setReadingsError("");
+    } catch {
+      if (reqId !== liveReqIdRef.current) return;
+      setReadingsError(t("Hisoblagich ma'lumotlarini yuklashda xatolik."));
+    }
+  }, [t]);
 
   const loadSummary = useCallback(async () => {
-    const data = await meterDataService.getSummary(periodRef.current);
-    setSummary(data);
+    const reqId = ++summaryReqIdRef.current;
+    try {
+      const data = await meterDataService.getSummary(periodRef.current);
+      if (reqId !== summaryReqIdRef.current) return; // eskirgan javob
+      setSummary(data);
+    } catch {
+      // Agregat (summary) xatosi readings jadvalini yashirmaydi — mustaqil
+      // so'raladi va keyingi muvaffaqiyatli pollingda o'zi tuzatadi.
+    }
   }, []);
 
   const loadAll = useCallback(async (silent = false) => {
     try {
       if (!silent) setLoading(true);
-      setError("");
-      await Promise.all([loadLive(), loadSummary()]);
-    } catch {
-      setError(t("Hisoblagich ma'lumotlarini yuklashda xatolik."));
+      await Promise.allSettled([loadLive(), loadSummary()]);
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [loadLive, loadSummary, t]);
+  }, [loadLive, loadSummary]);
 
   // Davr yoki qurilma o'zgarsa — darhol qayta yuklash.
   useEffect(() => { loadAll(); }, [period, selectedDevice, loadAll]);
 
-  // Jonli oqim: xom o'lchovlar tez, agregat sekin.
+  // Jonli oqim: xom o'lchovlar tez, agregat sekin. Ikkalasi ham o'z xatosini
+  // ichida ushlaydi (hech qachon reject qilmaydi) — polling to'xtamaydi.
   useEffect(() => {
     if (!live) return;
 
-    const liveId = setInterval(() => { loadLive().catch(() => {}); }, LIVE_POLL_MS);
-    const summaryId = setInterval(() => { loadSummary().catch(() => {}); }, SUMMARY_POLL_MS);
+    const liveId = setInterval(() => { loadLive(); }, LIVE_POLL_MS);
+    const summaryId = setInterval(() => { loadSummary(); }, SUMMARY_POLL_MS);
 
     return () => { clearInterval(liveId); clearInterval(summaryId); };
   }, [live, loadLive, loadSummary]);
@@ -100,7 +130,7 @@ export default function MeterDataPage() {
       <ReadingsTable
         items={readings}
         loading={loading}
-        error={error}
+        error={readingsError}
         showDeviceColumn={selectedDevice === null}
       />
 
