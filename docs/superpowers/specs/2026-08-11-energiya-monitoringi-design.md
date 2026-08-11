@@ -56,36 +56,25 @@ Unique indeks: `(DeviceName, HourUtc)`.
 
 ### 1.3 kWh formulasi
 
-Har ketma-ket ikki o'lchov orasidagi energiya = `ActivePower × Δt`. PostgreSQL'da
-`LAG` window funksiyasi bilan:
+Har ketma-ket ikki o'lchov orasidagi energiya = `ActivePower × Δt`:
 
-```sql
-SELECT "DeviceName",
-       date_trunc('hour', "CreatedAt")                    AS hour_utc,
-       SUM("ActivePower" * dt) / 3600000.0                AS kwh,
-       AVG("ActivePower")                                 AS avg_power,
-       MAX("ActivePower")                                 AS peak_power,
-       MIN("ActivePower")                                 AS min_power,
-       AVG("VoltagePhaseA")                               AS avg_voltage,
-       COUNT(*)                                           AS sample_count
-FROM (
-  SELECT "DeviceName", "CreatedAt", "ActivePower", "VoltagePhaseA",
-         LEAST(
-           EXTRACT(EPOCH FROM ("CreatedAt" - LAG("CreatedAt")
-             OVER (PARTITION BY "DeviceName" ORDER BY "CreatedAt"))),
-           60
-         ) AS dt
-  FROM "MeterReadings"
-  WHERE "CreatedAt" >= @from AND "CreatedAt" < @to
-) s
-WHERE dt IS NOT NULL
-GROUP BY "DeviceName", date_trunc('hour', "CreatedAt");
+```
+kWh = Σ ( P_i × min(Δt_i, 60) ) / 3 600 000        // W·s → kWh
+Δt_i = (t_i − t_{i−1}) soniyada
 ```
 
 `Δt` **60 soniya bilan cheklanadi** — qurilma uzilib qolsa (masalan 3 soat jim tursa)
 bo'shliq energiyani soxta ravishda shishirmaydi.
 
-EF Core `LAG` ni ifodalay olmaydi → `context.Database.SqlQueryRaw<T>()` ishlatiladi.
+**Hisob C# tomonda bajariladi**, raw SQL emas:
+
+- Bitta soatlik oyna kichik (~1200 qator/qurilma), xotiraga o'qish arzon.
+- `LAG`/`date_trunc` PostgreSQL'ga xos — test loyihasi InMemory/SQLite provayderda
+  ishlaydi, raw SQL u yerda tarjima qilinmaydi.
+- Yagona kod yo'li: bir xil funksiya ham rollup uchun, ham joriy soatni hisoblash
+  uchun ishlatiladi (§4.2).
+
+Toza funksiya: `EnergyMath.ComputeKwh(samples, maxGapSeconds: 60)`.
 
 ### 1.4 `EnergyRollupService`
 
@@ -97,13 +86,13 @@ Yangi `BackgroundService`:
   to'ldiradi (backfill), 24 soatlik bo'laklar bilan, log yozib.
 - Xato bo'lsa log qilib keyingi tsiklga o'tadi — servis to'xtamaydi.
 
-### 1.5 Indeks
+### 1.5 Indekslar
 
-`MeterReadings` da hozir `DeviceName`/`CreatedAt` bo'yicha indeks yo'q. Qo'shiladi:
+`MeterReadings` da kerakli kompozit indeks **allaqachon mavjud**
+(`MeterReadingConfiguration`: `HasIndex(x => new { x.DeviceName, x.CreatedAt })`) —
+qo'shimcha ish talab qilinmaydi.
 
-```
-IX_MeterReadings_DeviceName_CreatedAt  →  ("DeviceName", "CreatedAt")
-```
+Yangi `MeterEnergyHourly` uchun unique indeks: `(DeviceName, HourUtc)`.
 
 ---
 
@@ -283,8 +272,9 @@ Summary'dagi bitta qurilma ma'lumoti + qo'shimcha:
 }
 ```
 
-Kuchlanish/chastota statistikasi xom jadvaldan hisoblanadi (davr `7d` dan uzun
-bo'lsa — `MeterEnergyHourly.AvgVoltage` dan).
+Kuchlanish/chastota statistikasi har doim xom jadvaldan, **DB tomonidagi agregat
+so'rov** bilan olinadi (`AVG`/`MIN`/`MAX`) — qator ko'chirilmaydi, shu sababli uzoq
+davrlar uchun ham arzon va kod yagona yo'lda qoladi.
 
 ---
 
