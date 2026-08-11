@@ -1,14 +1,14 @@
 // Energiya panelidagi raqamlarni formatlash va qurilma ranglari.
 // Barcha ranglar CSS tokenlardan — dark/light rejimda o'zi moslashadi.
 
-/** Ming ajratgichi sifatida oddiy bo'shliq (ru-RU nozik bo'shliq beradi). */
+/** Ming ajratgichi sifatida oddiy bo'shliq (ru-RU U+00A0 yoki U+202F beradi). */
 function group(value: number, decimals = 0): string {
   return value
     .toLocaleString("ru-RU", {
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
     })
-    .replace(/ | /g, " ");
+    .replace(/[\u00A0\u202F]/g, " ");
 }
 
 /** kWh: kichik qiymatda aniqroq, kattasida yaxlit. */
@@ -57,8 +57,10 @@ export function formatBucketLabel(bucket: string, kind: "hour" | "day"): string 
 }
 
 // ── Qurilma ranglari ────────────────────────────────────────────────────
-// Palitra CSS tokenlardan. Rang qurilma nomining hash'i bo'yicha tayinlanadi —
-// sahifa yangilanganda yoki tartib o'zgarganda rang o'zgarmaydi.
+// Palitra CSS tokenlardan. Rang qurilma nomining hash'i bo'yicha tayinlanadi.
+// 14 ta qurilmagacha to'qnashuvlar bo'lmaydi; undan ortiq bo'lsa, ba'zi
+// qurilmalar bir xil rangni qabul qilishi mumkin, lekin bitta grafikdagi
+// ranglar tartibi har doim bir xil bo'ladi.
 
 const DEVICE_PALETTE = [
   "var(--accent)",
@@ -67,8 +69,14 @@ const DEVICE_PALETTE = [
   "var(--warn)",
   "var(--accent3)",
   "var(--danger)",
+  "var(--teal)",
+  "var(--pink)",
   "var(--accent-light)",
   "var(--accent2)",
+  "color-mix(in srgb, var(--accent) 60%, var(--success) 40%)",
+  "color-mix(in srgb, var(--warn) 70%, var(--danger) 30%)",
+  "color-mix(in srgb, var(--purple) 60%, var(--pink) 40%)",
+  "color-mix(in srgb, var(--teal) 70%, var(--accent) 30%)",
 ];
 
 function hash(text: string): number {
@@ -78,8 +86,11 @@ function hash(text: string): number {
 }
 
 /**
- * Qurilma nomi → rang. To'qnashuv bo'lsa keyingi bo'sh slotga suriladi,
- * shu sababli bitta grafikdagi ikki qurilma bir xil rangda chiqmaydi.
+ * Qurilma nomi → rang. Bir xil qurilma to'plami har doim bir xil ranglar
+ * oladi, va to'plam tartibi rangni ta'sir qilmaydi (ichki sort qilinadi).
+ * 14 qurilmagacha: to'qnashuvlar bo'lmaydi. Undan ortiq: forward-probe
+ * orqali bo'sh slot qidiriladi, lekin bo'lishi mumkin bir nechta qurilma
+ * bir xil rangni qabul qiladi.
  */
 export function buildDeviceColorMap(names: string[]): Record<string, string> {
   const used = new Set<number>();
