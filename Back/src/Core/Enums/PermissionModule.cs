@@ -51,4 +51,7 @@ public enum PermissionModule
 
     [Display(Name = "Xodimlar", Description = "users")]
     Employees = 16,
+
+    [Display(Name = "Elektr energiya", Description = "zap")]
+    Energy = 17,
 }

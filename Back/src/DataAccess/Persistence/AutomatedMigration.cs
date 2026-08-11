@@ -22,6 +22,7 @@ public static class AutomatedMigration
         await MigrateLegacyRequisitionStatusesAsync(context);
         await MigrateLegacyContractStatusesAsync(context);
         await BackfillProductQrCodesAsync(context);
+        await SeedEnergyTariffAsync(context);
     }
 
     /// <summary>
@@ -108,6 +109,7 @@ public static class AutomatedMigration
         [PermissionModule.Shipments]          = [PermissionAction.View, PermissionAction.Create],
         [PermissionModule.ProductCatalog]     = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete],
         [PermissionModule.Employees]          = [PermissionAction.View],
+        [PermissionModule.Energy]             = [PermissionAction.Update],
     };
 
     private static async System.Threading.Tasks.Task SeedPermissionsAsync(DatabaseContext context)
@@ -467,6 +469,28 @@ public static class AutomatedMigration
                 });
             }
         }
+
+        await context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Boshlang'ich elektr tarifi. Faqat jadval butunlay bo'sh bo'lsa yoziladi —
+    /// administrator keyin UI orqali yangi tarif qo'shsa, bu qayta tiklanmaydi.
+    /// </summary>
+    private static async System.Threading.Tasks.Task SeedEnergyTariffAsync(DatabaseContext context)
+    {
+        if (await context.EnergyTariffs.AnyAsync())
+            return;
+
+        context.EnergyTariffs.Add(new EnergyTariff
+        {
+            Id = Guid.NewGuid(),
+            PricePerKwh = 1100m,
+            Currency = "so'm",
+            EffectiveFrom = new DateTime(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc),
+            Note = "Yuridik shaxslar uchun tarif (2026-yil 1-iyundan)",
+            CreatedAt = DateTime.UtcNow,
+        });
 
         await context.SaveChangesAsync();
     }
