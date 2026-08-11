@@ -198,6 +198,37 @@ public class EnergySummaryServiceTests
     }
 
     [Fact]
+    public async Task GetSummaryAsync_WithDevicesResolvingToSameName_SucceedsAndListsNameOnce()
+    {
+        // Arrange — bitta Modbus gateway ortidagi ikki hisoblagich: Name berilmagan,
+        // shu sababli ResolveDevices() ikkalasiga ham IP ni nom qilib beradi.
+        // Sozlama noto'g'ri, lekin panel 500 bilan yiqilmasligi kerak.
+        await using var db = TestDbContextFactory.Create();
+        SeedTariff(db);
+        var options = new MeterPollerOptions
+        {
+            Enabled = true,
+            IntervalSeconds = 3,
+            Devices =
+            [
+                new MeterDeviceOptions { Ip = "10.0.0.7", SlaveId = 1 },
+                new MeterDeviceOptions { Ip = "10.0.0.7", SlaveId = 2 },
+            ],
+        };
+        SeedReading(db, "10.0.0.7", Now.AddSeconds(-5), 1500);
+        var sut = CreateSut(db, options);
+
+        // Act
+        var result = await sut.GetSummaryAsync("24h");
+
+        // Assert — bitta qurilma sifatida ko'rinadi, xato yo'q
+        result.Succeeded.Should().BeTrue();
+        result.Result!.Devices.Should().ContainSingle(d => d.DeviceName == "10.0.0.7");
+        result.Result.Total.DeviceCount.Should().Be(1);
+        result.Result.Total.OnlineCount.Should().Be(1);
+    }
+
+    [Fact]
     public async Task GetSummaryAsync_MarksDeviceOnlineWhenRecentReadingExists()
     {
         // Arrange — 5 soniya oldin yozuv kelgan (chegara: max(3 × 3s, 30s) = 30s)

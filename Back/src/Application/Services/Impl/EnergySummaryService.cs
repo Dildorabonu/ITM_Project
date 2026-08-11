@@ -362,7 +362,17 @@ public class EnergySummaryService : IEnergySummaryService
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
-        var configuredIndex = configured.ToDictionary(d => d.Name, d => d, StringComparer.Ordinal);
+        // Bir nechta yozuv bir xil nomga yechilishi mumkin: ResolveDevices() nom
+        // bo'sh bo'lsa IP ni nom qilib oladi, ya'ni bitta Modbus gateway ortidagi
+        // (bir xil IP, turli SlaveId) ikki hisoblagich bir xil nom oladi. Bu
+        // noto'g'ri sozlama — poller uni startupda ogohlantirish bilan bildiradi —
+        // lekin butun panelni yiqitmasligi kerak, shu sababli ToDictionary emas:
+        // oxirgi yozuv yutadi.
+        var configuredIndex = new Dictionary<string, MeterDeviceOptions>(StringComparer.Ordinal);
+
+        foreach (var device in configured)
+            configuredIndex[device.Name] = device;
+
         var statuses = new Dictionary<string, DeviceStatus>(StringComparer.Ordinal);
 
         foreach (var name in names)

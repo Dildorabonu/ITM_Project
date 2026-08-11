@@ -50,6 +50,22 @@ public class MeterPollerService : BackgroundService
 
         _logger.LogInformation("Meter poller ishga tushdi: {Count} ta qurilma.", devices.Count);
 
+        // Nom berilmagan qurilma IP ni nom sifatida oladi — bitta gateway ortidagi
+        // (bir xil IP, turli SlaveId) hisoblagichlar bazada bitta qurilmaga qo'shilib
+        // ketadi. Buni jimgina o'tkazib yubormaymiz.
+        var duplicateNames = devices
+            .GroupBy(d => d.Name, StringComparer.Ordinal)
+            .Where(g => g.Count() > 1)
+            .Select(g => $"{g.Key} ({g.Count()} ta)")
+            .ToList();
+
+        if (duplicateNames.Count > 0)
+            _logger.LogWarning(
+                "Meter poller: bir xil nomga yechilgan qurilmalar bor — {Names}. " +
+                "Ularning o'lchovlari bazada bitta qurilma bo'lib qo'shiladi. " +
+                "Har biriga MeterPoller:Devices ichida alohida Name bering.",
+                string.Join("; ", duplicateNames));
+
         await Task.WhenAll(devices.Select(device => PollDeviceAsync(device, stoppingToken)));
     }
 
