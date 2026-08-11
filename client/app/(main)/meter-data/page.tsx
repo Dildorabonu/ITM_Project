@@ -18,6 +18,7 @@ import { EnergyBarChart } from "./_components/EnergyBarChart";
 import { DeviceDonut } from "./_components/DeviceDonut";
 import { DeviceGrid } from "./_components/DeviceGrid";
 import { DeviceDetail } from "./_components/DeviceDetail";
+import { TariffModal } from "./_components/TariffModal";
 
 /** Xom o'lchovlar va statuslar — tez-tez. */
 const LIVE_POLL_MS = 5000;
@@ -207,8 +208,13 @@ export default function MeterDataPage() {
         </>
       )}
 
-      {/* Task 17: TariffModal shu yerga qo'shiladi */}
-      {tariffOpen && null}
+      {tariffOpen && (
+        <TariffModal
+          canEdit={canEditTariff}
+          onClose={() => setTariffOpen(false)}
+          onSaved={() => loadAll(true)}
+        />
+      )}
     </div>
   );
 }
