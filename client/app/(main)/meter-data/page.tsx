@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   meterDataService,
+  type DeviceEnergyDetail,
   type EnergyPeriodKey,
   type EnergySummary,
   type MeterReading,
@@ -15,6 +16,8 @@ import { KpiRow } from "./_components/KpiRow";
 import { ReadingsTable } from "./_components/ReadingsTable";
 import { EnergyBarChart } from "./_components/EnergyBarChart";
 import { DeviceDonut } from "./_components/DeviceDonut";
+import { DeviceGrid } from "./_components/DeviceGrid";
+import { DeviceDetail } from "./_components/DeviceDetail";
 
 /** Xom o'lchovlar va statuslar — tez-tez. */
 const LIVE_POLL_MS = 5000;
@@ -29,6 +32,7 @@ export default function MeterDataPage() {
   const [period, setPeriod] = useState<EnergyPeriodKey>("today");
   const [summary, setSummary] = useState<EnergySummary | null>(null);
   const [readings, setReadings] = useState<MeterReading[]>([]);
+  const [detail, setDetail] = useState<DeviceEnergyDetail | null>(null);
 
   // Rang qurilma nomi bo'yicha barqaror — tartib o'zgarganda sakramaydi.
   const deviceColors = useMemo(
@@ -66,6 +70,7 @@ export default function MeterDataPage() {
   // javobi holatga yoziladi, eskirgani e'tiborsiz qoldiriladi.
   const liveReqIdRef = useRef(0);
   const summaryReqIdRef = useRef(0);
+  const detailReqIdRef = useRef(0);
 
   const loadLive = useCallback(async () => {
     const reqId = ++liveReqIdRef.current;
@@ -93,28 +98,48 @@ export default function MeterDataPage() {
     }
   }, []);
 
+  // Qurilma tanlanmagan bo'lsa detalni darhol tozalaydi — shu bilan ham
+  // eski javob qaytib kelsa ham holatga yozilmasligini kafolatlaydi (reqId
+  // shart-shartsiz oshiriladi).
+  const loadDetail = useCallback(async () => {
+    const reqId = ++detailReqIdRef.current;
+    const device = deviceRef.current;
+    if (!device) { setDetail(null); return; }
+    try {
+      const data = await meterDataService.getDeviceDetail(device, periodRef.current);
+      if (reqId !== detailReqIdRef.current) return; // eskirgan javob
+      setDetail(data);
+    } catch {
+      // Detal uchun alohida xato holati yo'q — readings xatosi (ReadingsTable
+      // orqali) allaqachon ko'rinadi; keyingi muvaffaqiyatli pollingda tuzatiladi.
+    }
+  }, []);
+
   const loadAll = useCallback(async (silent = false) => {
     try {
       if (!silent) setLoading(true);
-      await Promise.allSettled([loadLive(), loadSummary()]);
+      await Promise.allSettled([loadLive(), loadSummary(), loadDetail()]);
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [loadLive, loadSummary]);
+  }, [loadLive, loadSummary, loadDetail]);
 
   // Davr yoki qurilma o'zgarsa — darhol qayta yuklash.
   useEffect(() => { loadAll(); }, [period, selectedDevice, loadAll]);
 
-  // Jonli oqim: xom o'lchovlar tez, agregat sekin. Ikkalasi ham o'z xatosini
+  // Jonli oqim: xom o'lchovlar tez, agregat sekin. Barchasi o'z xatosini
   // ichida ushlaydi (hech qachon reject qilmaydi) — polling to'xtamaydi.
   useEffect(() => {
     if (!live) return;
 
     const liveId = setInterval(() => { loadLive(); }, LIVE_POLL_MS);
-    const summaryId = setInterval(() => { loadSummary(); }, SUMMARY_POLL_MS);
+    const summaryId = setInterval(() => {
+      loadSummary();
+      loadDetail();
+    }, SUMMARY_POLL_MS);
 
     return () => { clearInterval(liveId); clearInterval(summaryId); };
-  }, [live, loadLive, loadSummary]);
+  }, [live, loadLive, loadSummary, loadDetail]);
 
   return (
     <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
@@ -133,39 +158,54 @@ export default function MeterDataPage() {
 
       <KpiRow total={summary?.total ?? null} currency={summary?.currency ?? "so'm"} loading={loading} />
 
-      {summary && (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "minmax(0, 2fr) minmax(280px, 1fr)",
-            gap: 10,
-            marginBottom: 8,
-          }}
-        >
-          <EnergyBarChart
-            series={summary.series}
-            byDevice={summary.byDevice}
-            bucket={summary.bucket}
-            currency={summary.currency}
-            colors={deviceColors}
-          />
-          <DeviceDonut
-            devices={summary.devices}
-            colors={deviceColors}
-            currency={summary.currency}
-            onSelect={setSelectedDevice}
-          />
-        </div>
+      {selectedDevice ? (
+        <DeviceDetail
+          detail={detail}
+          readings={readings}
+          loading={loading}
+          error={readingsError}
+          colors={deviceColors}
+          onBack={() => setSelectedDevice(null)}
+        />
+      ) : (
+        <>
+          {summary && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 2fr) minmax(280px, 1fr)",
+                gap: 10,
+                marginBottom: 8,
+              }}
+            >
+              <EnergyBarChart
+                series={summary.series}
+                byDevice={summary.byDevice}
+                bucket={summary.bucket}
+                currency={summary.currency}
+                colors={deviceColors}
+              />
+              <DeviceDonut
+                devices={summary.devices}
+                colors={deviceColors}
+                currency={summary.currency}
+                onSelect={setSelectedDevice}
+              />
+            </div>
+          )}
+
+          {summary && (
+            <DeviceGrid
+              devices={summary.devices}
+              colors={deviceColors}
+              currency={summary.currency}
+              onSelect={setSelectedDevice}
+            />
+          )}
+
+          <ReadingsTable items={readings} loading={loading} error={readingsError} showDeviceColumn />
+        </>
       )}
-
-      {/* Task 16: DeviceGrid / DeviceDetail shu yerga qo'shiladi */}
-
-      <ReadingsTable
-        items={readings}
-        loading={loading}
-        error={readingsError}
-        showDeviceColumn={selectedDevice === null}
-      />
 
       {/* Task 17: TariffModal shu yerga qo'shiladi */}
       {tariffOpen && null}
