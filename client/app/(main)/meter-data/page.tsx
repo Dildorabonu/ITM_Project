@@ -1,17 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   meterDataService,
   type EnergyPeriodKey,
   type EnergySummary,
   type MeterReading,
 } from "@/lib/meterData";
+import { buildDeviceColorMap } from "@/lib/energyFormat";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useT } from "@/lib/i18n";
 import { PeriodBar } from "./_components/PeriodBar";
 import { KpiRow } from "./_components/KpiRow";
 import { ReadingsTable } from "./_components/ReadingsTable";
+import { EnergyBarChart } from "./_components/EnergyBarChart";
+import { DeviceDonut } from "./_components/DeviceDonut";
 
 /** Xom o'lchovlar va statuslar — tez-tez. */
 const LIVE_POLL_MS = 5000;
@@ -26,6 +29,12 @@ export default function MeterDataPage() {
   const [period, setPeriod] = useState<EnergyPeriodKey>("today");
   const [summary, setSummary] = useState<EnergySummary | null>(null);
   const [readings, setReadings] = useState<MeterReading[]>([]);
+
+  // Rang qurilma nomi bo'yicha barqaror — tartib o'zgarganda sakramaydi.
+  const deviceColors = useMemo(
+    () => buildDeviceColorMap((summary?.devices ?? []).map(d => d.deviceName)),
+    [summary],
+  );
 
   const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
   const [tariffOpen, setTariffOpen] = useState(false);
@@ -124,7 +133,31 @@ export default function MeterDataPage() {
 
       <KpiRow total={summary?.total ?? null} currency={summary?.currency ?? "so'm"} loading={loading} />
 
-      {/* Task 15: grafiklar (EnergyBarChart + DeviceDonut) shu yerga qo'shiladi */}
+      {summary && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 2fr) minmax(280px, 1fr)",
+            gap: 10,
+            marginBottom: 8,
+          }}
+        >
+          <EnergyBarChart
+            series={summary.series}
+            byDevice={summary.byDevice}
+            bucket={summary.bucket}
+            currency={summary.currency}
+            colors={deviceColors}
+          />
+          <DeviceDonut
+            devices={summary.devices}
+            colors={deviceColors}
+            currency={summary.currency}
+            onSelect={setSelectedDevice}
+          />
+        </div>
+      )}
+
       {/* Task 16: DeviceGrid / DeviceDetail shu yerga qo'shiladi */}
 
       <ReadingsTable
