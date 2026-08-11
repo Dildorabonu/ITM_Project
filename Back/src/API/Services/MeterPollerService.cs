@@ -8,14 +8,13 @@ using NModbus;
 namespace API.Services;
 
 /// <summary>
-/// DR134 shlyuzidagi hisoblagichni Modbus TCP orqali faol so'rab turadi.
-/// Har IntervalSeconds da holding registrlarni o'qiydi (Function Code 3),
-/// qiymatlarni hisoblab bazaga yozadi:
-///   - Kuchlanish A: reg[100] * 0.1 * PT_RATIO
-///   - Aktiv quvvat: reg[111]
-///   - Chastota:     reg[150] * 0.01
+/// Konfiguratsiyadagi har bir hisoblagichni Modbus TCP orqali faol so'rab turadi.
+/// Har qurilma alohida, parallel siklda o'qiladi — biri uzilsa boshqalari
+/// ta'sirlanmaydi. Har IntervalSeconds da holding registrlar o'qiladi (FC 3):
+///   - Kuchlanish A: reg[StartAddress+0]  * 0.1 * PtRatio
+///   - Aktiv quvvat: reg[StartAddress+11]
+///   - Chastota:     reg[StartAddress+50] * 0.01
 ///   - Tok A:        P / U (hisoblab topiladi)
-/// Ulanish ochiq saqlanadi; uzilsa keyingi urinishda qayta ulanadi.
 /// </summary>
 public class MeterPollerService : BackgroundService
 {
@@ -35,21 +34,39 @@ public class MeterPollerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!_options.Enabled || string.IsNullOrWhiteSpace(_options.Ip))
+        if (!_options.Enabled)
         {
-            _logger.LogInformation("Meter poller o'chirilgan (MeterPoller:Enabled=false yoki Ip bo'sh).");
+            _logger.LogInformation("Meter poller o'chirilgan (MeterPoller:Enabled=false).");
             return;
         }
 
+        var devices = _options.ResolveDevices();
+
+        if (devices.Count == 0)
+        {
+            _logger.LogInformation("Meter poller uchun qurilma sozlanmagan (MeterPoller:Devices bo'sh).");
+            return;
+        }
+
+        _logger.LogInformation("Meter poller ishga tushdi: {Count} ta qurilma.", devices.Count);
+
+        await Task.WhenAll(devices.Select(device => PollDeviceAsync(device, stoppingToken)));
+    }
+
+    /// <summary>Bitta qurilmaning mustaqil o'qish sikli — o'z TCP ulanishi bilan.</summary>
+    private async Task PollDeviceAsync(MeterDeviceOptions device, CancellationToken stoppingToken)
+    {
+        var interval = _options.EffectiveInterval(device);
+
         _logger.LogInformation(
-            "Meter poller ishga tushdi: {Ip}:{Port} (SlaveId={SlaveId}, har {Interval}s da o'qiladi)",
-            _options.Ip, _options.Port, _options.SlaveId, _options.IntervalSeconds);
+            "Meter [{Device}]: {Ip}:{Port} (SlaveId={SlaveId}, har {Interval}s da)",
+            device.Name, device.Ip, device.Port, device.SlaveId, interval);
 
         var factory = new ModbusFactory();
         TcpClient? client = null;
         IModbusMaster? master = null;
 
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(Math.Max(1, _options.IntervalSeconds)));
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(interval));
 
         try
         {
@@ -65,27 +82,28 @@ public class MeterPollerService : BackgroundService
                         client = new TcpClient();
                         using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
                         connectCts.CancelAfter(TimeSpan.FromSeconds(5));
-                        await client.ConnectAsync(_options.Ip, _options.Port, connectCts.Token);
+                        await client.ConnectAsync(device.Ip, device.Port, connectCts.Token);
 
                         master = factory.CreateMaster(client);
                         master.Transport.ReadTimeout = 5000;
                         master.Transport.WriteTimeout = 5000;
 
-                        _logger.LogInformation("Meter poller ulandi: {Ip}:{Port}", _options.Ip, _options.Port);
+                        _logger.LogInformation("Meter [{Device}] ulandi: {Ip}:{Port}",
+                            device.Name, device.Ip, device.Port);
                     }
 
                     var regs = await master.ReadHoldingRegistersAsync(
-                        (byte)_options.SlaveId, (ushort)_options.StartAddress, (ushort)_options.RegisterCount);
+                        (byte)device.SlaveId, (ushort)device.StartAddress, (ushort)device.RegisterCount);
 
                     // Registr manzillari StartAddress ga nisbatan: 100 -> [0], 111 -> [11], 150 -> [50]
-                    var voltageA = regs[0] * 0.1 * _options.PtRatio;
+                    var voltageA = regs[0] * 0.1 * device.PtRatio;
                     var powerA = regs[11] * 1.0;
                     var frequency = regs[50] * 0.01;
                     var currentA = voltageA > 0 ? powerA / voltageA : 0.0;
 
                     _logger.LogInformation(
                         "Meter o'qildi [{Device}]: U={Voltage:F1} V | I={Current:F2} A | P={Power:F1} W | f={Frequency:F2} Hz",
-                        _options.DeviceName, voltageA, currentA, powerA, frequency);
+                        device.Name, voltageA, currentA, powerA, frequency);
 
                     var dto = new MeterDataCreateDto
                     {
@@ -97,10 +115,11 @@ public class MeterPollerService : BackgroundService
 
                     using var scope = _scopeFactory.CreateScope();
                     var service = scope.ServiceProvider.GetRequiredService<IMeterDataService>();
-                    var result = await service.CreateAsync(dto, _options.DeviceName);
+                    var result = await service.CreateAsync(dto, device.Name);
 
                     if (!result.Succeeded)
-                        _logger.LogWarning("Meter-data saqlanmadi: {Errors}", string.Join("; ", result.Errors));
+                        _logger.LogWarning("Meter-data saqlanmadi [{Device}]: {Errors}",
+                            device.Name, string.Join("; ", result.Errors));
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {
@@ -108,8 +127,8 @@ public class MeterPollerService : BackgroundService
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning("Meter o'qishda xato ({Ip}:{Port}): {Message}",
-                        _options.Ip, _options.Port, ex.Message);
+                    _logger.LogWarning("Meter o'qishda xato [{Device}] ({Ip}:{Port}): {Message}",
+                        device.Name, device.Ip, device.Port, ex.Message);
 
                     // Keyingi urinishda toza ulanish ochamiz
                     master?.Dispose();
