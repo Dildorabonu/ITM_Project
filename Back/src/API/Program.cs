@@ -182,6 +182,8 @@ namespace API
                 builder.Configuration.GetSection(MeterPollerOptions.SectionName));
             builder.Services.AddHostedService<API.Services.MeterPollerService>();
 
+            builder.Services.AddHostedService<API.Services.EnergyRollupBackgroundService>();
+
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
