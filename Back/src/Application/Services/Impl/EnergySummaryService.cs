@@ -299,7 +299,11 @@ public class EnergySummaryService : IEnergySummaryService
 
         foreach (var group in rows.GroupBy(r => r.DeviceName))
         {
-            var ordered = group.OrderBy(r => r.CreatedAt).ToList();
+            // Anchor oynasidan faqat oxirgi namuna qoladi — rollup bilan bir xil
+            // qoida. Aks holda soat boshidan oldingi intervallar (oldingi soatga
+            // allaqachon yozilgan energiya) ikkinchi marta qo'shilib ketardi.
+            var ordered = EnergyMath.TrimToAnchor(
+                group.OrderBy(r => r.CreatedAt), hourStart, r => r.CreatedAt);
 
             var samples = ordered
                 .Select(r => new PowerSample(r.CreatedAt, r.ActivePower))

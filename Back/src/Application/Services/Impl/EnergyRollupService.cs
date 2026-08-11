@@ -101,7 +101,10 @@ public class EnergyRollupService : IEnergyRollupService
 
         foreach (var group in readings.GroupBy(r => r.DeviceName))
         {
-            var ordered = group.OrderBy(r => r.CreatedAt).ToList();
+            // Anchor oynasidan faqat oxirgi namuna kerak — undan oldingilari
+            // oldingi oyna energiyasini takroran qo'shib yuborardi.
+            var ordered = EnergyMath.TrimToAnchor(
+                group.OrderBy(r => r.CreatedAt), fromUtc, r => r.CreatedAt);
 
             for (var i = 0; i < ordered.Count; i++)
             {
