@@ -50,6 +50,7 @@ public static class ApplicationDependencyInjection
         services.AddScoped<IMeterDataService, MeterDataService>();
         services.AddScoped<IEnergyRollupService, EnergyRollupService>();
         services.AddScoped<IEnergyTariffService, EnergyTariffService>();
+        services.AddScoped<IEnergySummaryService, EnergySummaryService>();
 
         return services;
     }
