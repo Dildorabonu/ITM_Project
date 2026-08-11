@@ -525,6 +525,42 @@ namespace DataAccess.Migrations
                     b.ToTable("Departments");
                 });
 
+            modelBuilder.Entity("Core.Entities.EnergyTariff", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTime>("EffectiveFrom")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<decimal>("PricePerKwh")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EffectiveFrom")
+                        .IsUnique();
+
+                    b.ToTable("EnergyTariffs");
+                });
+
             modelBuilder.Entity("Core.Entities.LicenseState", b =>
                 {
                     b.Property<Guid>("Id")
@@ -693,6 +729,51 @@ namespace DataAccess.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Materials");
+                });
+
+            modelBuilder.Entity("Core.Entities.MeterEnergyHourly", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<double>("AvgPowerW")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("AvgVoltage")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("DeviceName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("HourUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<double>("Kwh")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("MinPowerW")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("PeakPowerW")
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("SampleCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HourUtc");
+
+                    b.HasIndex("DeviceName", "HourUtc")
+                        .IsUnique();
+
+                    b.ToTable("MeterEnergyHourly");
                 });
 
             modelBuilder.Entity("Core.Entities.MeterReading", b =>
