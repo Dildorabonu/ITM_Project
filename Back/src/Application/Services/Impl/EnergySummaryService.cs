@@ -17,6 +17,16 @@ public class EnergySummaryService : IEnergySummaryService
     /// <summary>Oxirgi quvvat qiymatini olish uchun xom yozuvlar oynasi.</summary>
     private static readonly TimeSpan LastPowerWindow = TimeSpan.FromMinutes(10);
 
+    /// <summary>
+    /// "Oxirgi ko'rilgan" vaqtni xom <c>MeterReadings</c> dan qidirish oynasi. Jadval
+    /// 17 mln+ qatorga yetishi mumkin — har poll'da butun tarixni GROUP BY qilish
+    /// narxli. Bu oynadan tashqarida (uzoq vaqt jim turgan yoki konfiguratsiyadan
+    /// chiqarilgan eski qurilma) qolgan holatlar kichik <c>MeterEnergyHourly</c>
+    /// jadvalidagi so'nggi soatdan tiklanadi — tarixiy ma'lumot yo'qolmaydi,
+    /// faqat aniqligi soat darajasigacha taxminiy bo'ladi.
+    /// </summary>
+    private static readonly TimeSpan DeviceHistoryWindow = TimeSpan.FromDays(45);
+
     private readonly DatabaseContext _context;
     private readonly MeterPollerOptions _pollerOptions;
     private readonly Func<DateTime> _nowUtc;
@@ -331,12 +341,33 @@ public class EnergySummaryService : IEnergySummaryService
         var configured = _pollerOptions.ResolveDevices();
         var onlineThreshold = OnlineThreshold();
 
-        // Har qurilma uchun oxirgi yozuv vaqti — arzon GroupBy.
-        var lastSeen = await _context.MeterReadings
+        // Xom yozuvlardan "oxirgi ko'rilgan" — faqat DeviceHistoryWindow ichida (bounded,
+        // butun jadvalni skanerlamaslik uchun). Bu oyna ichida bo'lsa vaqt soniyagacha aniq.
+        var windowStart = now - DeviceHistoryWindow;
+        var recentLastSeen = await _context.MeterReadings
             .AsNoTracking()
+            .Where(r => r.CreatedAt >= windowStart && r.CreatedAt <= now)
             .GroupBy(r => r.DeviceName)
             .Select(g => new { Device = g.Key, Last = g.Max(x => x.CreatedAt) })
             .ToListAsync();
+
+        // Rollup — kichik jadval (qurilmalar × soatlar), oynadan tashqarida qolgan
+        // (uzoq muddat jim yoki endi konfiguratsiyada bo'lmagan) qurilmalarning
+        // tarixi shu yerdan tiklanadi — soat aniqligida, lekin hech qachon yo'qolmaydi.
+        var rollupLastSeen = await _context.MeterEnergyHourly
+            .AsNoTracking()
+            .GroupBy(r => r.DeviceName)
+            .Select(g => new { Device = g.Key, Last = g.Max(x => x.HourUtc) })
+            .ToListAsync();
+
+        // Ikkala manbani birlashtiramiz — kattasi (kechroq sana) haqiqiy oxirgi
+        // faoliyatga yaqinroq bo'ladi.
+        var lastSeen = recentLastSeen
+            .Select(r => (r.Device, r.Last))
+            .Concat(rollupLastSeen.Select(r => (r.Device, r.Last)))
+            .GroupBy(r => r.Device)
+            .Select(g => new { Device = g.Key, Last = g.Max(x => x.Last) })
+            .ToList();
 
         // Oxirgi quvvat faqat yaqinda yozgan qurilmalar uchun kerak.
         var recentRows = await _context.MeterReadings

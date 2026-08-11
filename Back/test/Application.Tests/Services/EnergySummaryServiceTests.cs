@@ -380,4 +380,59 @@ public class EnergySummaryServiceTests
         list.Single(d => d.Name == "DR000").IsConfigured.Should().BeFalse();
         list.Single(d => d.Name == "DR000").IsOnline.Should().BeFalse();
     }
+
+    [Fact]
+    public async Task GetSummaryAsync_CurrentHourAnchorSampleAffectsKwhButNotStats()
+    {
+        // Arrange — soat boshidan oldingi "anchor" namuna (yuqori quvvat) energiya
+        // integraliga qo'shilishi kerak, lekin soat statistikasiga (Peak/Avg) kirmasligi kerak —
+        // ular faqat soat ICHIDAGI namunalardan hisoblanadi.
+        await using var db = TestDbContextFactory.Create();
+        SeedTariff(db);
+        var hourStart = new DateTime(2026, 8, 11, 9, 0, 0, DateTimeKind.Utc);
+        SeedReading(db, "DR134", hourStart.AddSeconds(-10), 9000); // anchor: soatdan oldin
+        SeedReading(db, "DR134", hourStart.AddSeconds(20), 1000);  // soat ichida
+        var sut = CreateSut(db);
+
+        // Act
+        var result = await sut.GetSummaryAsync("24h");
+
+        // Assert
+        var device = result.Result!.Devices.Single(d => d.DeviceName == "DR134");
+
+        // kWh: trapetsiya (9000+1000)/2 W * 30 s = 150 000 W·s ≈ 0.0416667 kWh —
+        // anchor namuna integralga hisobga olingan.
+        device.Kwh.Should().BeApproximately(150_000d / 3_600_000d, 1e-6);
+
+        // Peak faqat soat ICHIDAGI yagona namunadan (1000 W) — anchor (9000 W) chiqarib
+        // tashlanadi. Agar statistikaga anchor ham kirsa, bu qiymat 9000 bo'lardi.
+        device.PeakPowerW.Should().Be(1000);
+    }
+
+    [Fact]
+    public async Task GetSummaryAsync_PricesEachHourAtItsOwnTariff_WhenTariffChangesMidPeriod()
+    {
+        // Arrange — eski tarif (1000) va davr ichida kiritilgan yangi tarif (2500)
+        await using var db = TestDbContextFactory.Create();
+        SeedTariff(db, 1000m); // EffectiveFrom = 2026-06-01, hali yangi tarif kirmagan
+        db.EnergyTariffs.Add(new EnergyTariff
+        {
+            Id = Guid.NewGuid(),
+            PricePerKwh = 2500m,
+            Currency = "so'm",
+            EffectiveFrom = Now.AddHours(-2),
+        });
+        db.SaveChanges();
+
+        SeedHour(db, "DR134", Now.AddHours(-3), 2.0); // eski tarif (1000) ostida
+        SeedHour(db, "DR134", Now.AddHours(-2), 3.0); // yangi tarif (2500) ostida
+        var sut = CreateSut(db);
+
+        // Act
+        var result = await sut.GetSummaryAsync("24h");
+
+        // Assert — har soat o'z tarifi bilan hisoblanadi: 2×1000 + 3×2500 = 9 500 so'm.
+        // Agar xato ravishda "jami kWh × oxirgi narx" hisoblansa, natija 5×2500 = 12 500 bo'lardi.
+        result.Result!.Total.Cost.Should().Be(9_500m);
+    }
 }
