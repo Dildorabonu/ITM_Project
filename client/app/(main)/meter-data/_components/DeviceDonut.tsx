@@ -106,7 +106,7 @@ export function DeviceDonut({
                   transition: "background 0.12s",
                 }}
               >
-                <span style={{ width: 9, height: 9, borderRadius: 2, background: colors[device.deviceName] ?? "var(--accent)", flexShrink: 0 }} />
+                <span style={{ width: 9, height: 9, borderRadius: "50%", background: colors[device.deviceName] ?? "var(--accent)", flexShrink: 0 }} />
                 <span style={{ flex: 1, fontSize: 11.5, fontFamily: "var(--font-mono)", color: "var(--text2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {device.deviceName}
                 </span>

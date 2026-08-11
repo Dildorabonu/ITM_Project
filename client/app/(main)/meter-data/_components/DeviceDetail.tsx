@@ -72,7 +72,7 @@ export function DeviceDetail({
           {t("Orqaga")}
         </button>
 
-        <span style={{ width: 10, height: 10, borderRadius: 2, background: color }} />
+        <span style={{ width: 10, height: 10, borderRadius: "50%", background: color }} />
 
         <span style={{ fontSize: 16, fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--text)" }}>
           {detail.deviceName}
@@ -105,7 +105,7 @@ export function DeviceDetail({
         <Metric
           label={t("Xarajat")}
           value={formatMoney(detail.cost)}
-          unit={detail.currency}
+          unit={detail.cost !== null ? detail.currency : undefined}
           accent="var(--accent)"
           title={formatMoneyFull(detail.cost, detail.currency)}
         />

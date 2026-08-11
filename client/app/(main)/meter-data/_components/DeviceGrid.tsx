@@ -154,7 +154,10 @@ export function DeviceGrid({
                     title={formatMoneyFull(device.cost, currency)}
                     style={{ fontSize: 12, fontWeight: 600, fontFamily: "var(--font-mono)", color: "var(--accent)" }}
                   >
-                    {formatMoney(device.cost)} <span style={{ fontSize: 9.5, fontWeight: 400, color: "var(--text3)" }}>{currency}</span>
+                    {formatMoney(device.cost)}
+                    {device.cost !== null && (
+                      <span style={{ fontSize: 9.5, fontWeight: 400, color: "var(--text3)" }}> {currency}</span>
+                    )}
                   </span>
                 </div>
 

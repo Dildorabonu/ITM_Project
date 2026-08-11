@@ -103,6 +103,7 @@ export interface DeviceEnergyDetail {
   series: DeviceDetailPoint[];
 }
 
+/** `GET /api/meter-data/devices` javobi. */
 export interface MeterDeviceStatus {
   name: string;
   isOnline: boolean;
@@ -116,11 +117,6 @@ export const meterDataService = {
     const res = await api.get("/api/meter-data", {
       params: { device: device || undefined, take },
     });
-    return res.data.result ?? [];
-  },
-
-  async getDevices(): Promise<MeterDeviceStatus[]> {
-    const res = await api.get("/api/meter-data/devices");
     return res.data.result ?? [];
   },
 

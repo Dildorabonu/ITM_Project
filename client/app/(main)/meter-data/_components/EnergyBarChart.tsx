@@ -143,7 +143,7 @@ export function EnergyBarChart({
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
               {activeDevices.map(device => (
                 <span key={device.deviceName} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ width: 9, height: 9, borderRadius: 2, background: colors[device.deviceName] ?? "var(--accent)" }} />
+                  <span style={{ width: 9, height: 9, borderRadius: "50%", background: colors[device.deviceName] ?? "var(--accent)" }} />
                   <span style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--text2)" }}>
                     {device.deviceName}
                   </span>
@@ -177,7 +177,7 @@ export function EnergyBarChart({
                   {hoveredBreakdown.map(row => (
                     <div key={row.name} style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "space-between" }}>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                        <span style={{ width: 7, height: 7, borderRadius: 2, background: colors[row.name] ?? "var(--accent)" }} />
+                        <span style={{ width: 7, height: 7, borderRadius: "50%", background: colors[row.name] ?? "var(--accent)" }} />
                         <span style={{ fontSize: 10.5, fontFamily: "var(--font-mono)", color: "var(--text2)" }}>{row.name}</span>
                       </span>
                       <span style={{ fontSize: 10.5, fontFamily: "var(--font-mono)", color: "var(--text)" }}>

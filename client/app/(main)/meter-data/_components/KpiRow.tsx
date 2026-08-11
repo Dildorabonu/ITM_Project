@@ -81,7 +81,7 @@ export function KpiRow({
         loading={loading}
         label={t("Xarajat")}
         value={total ? formatMoney(total.cost) : "—"}
-        unit={currency}
+        unit={total && total.cost !== null ? currency : undefined}
         accent="var(--accent)"
         title={total ? formatMoneyFull(total.cost, currency) : undefined}
       />
