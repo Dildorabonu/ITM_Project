@@ -101,7 +101,9 @@ public class MeterPollerService : BackgroundService
                     var frequency = regs[50] * 0.01;
                     var currentA = voltageA > 0 ? powerA / voltageA : 0.0;
 
-                    _logger.LogInformation(
+                    // Har o'lchov uchun bitta satr — 20 qurilmada daqiqasiga 400 satr.
+                    // Operatorga kerak emas, shu sababli Debug darajasida.
+                    _logger.LogDebug(
                         "Meter o'qildi [{Device}]: U={Voltage:F1} V | I={Current:F2} A | P={Power:F1} W | f={Frequency:F2} Hz",
                         device.Name, voltageA, currentA, powerA, frequency);
 

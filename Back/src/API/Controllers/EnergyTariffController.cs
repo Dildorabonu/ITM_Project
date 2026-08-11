@@ -34,7 +34,10 @@ public class EnergyTariffController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] EnergyTariffSaveDto dto)
     {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
         var result = await _service.CreateAsync(dto, userId);
         return StatusCode(result.StatusCode, result);
     }
