@@ -16,11 +16,11 @@ public static class EnergyPeriod
     public const string BucketDay = "day";
 
     /// <summary>UTC vaqtni mahalliy vaqtga o'tkazadi (Kind = Unspecified).</summary>
-    public static DateTime ToLocal(DateTime utc) =>
+    private static DateTime ToLocal(DateTime utc) =>
         DateTime.SpecifyKind(utc + TashkentOffset, DateTimeKind.Unspecified);
 
     /// <summary>Mahalliy vaqtni UTC ga qaytaradi.</summary>
-    public static DateTime ToUtc(DateTime local) =>
+    private static DateTime ToUtc(DateTime local) =>
         DateTime.SpecifyKind(local - TashkentOffset, DateTimeKind.Utc);
 
     /// <summary>
@@ -73,7 +73,7 @@ public static class EnergyPeriod
 
             while (day <= lastDay)
             {
-                keys.Add(day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+                keys.Add(BucketKey(ToUtc(day), BucketDay));
                 day = day.AddDays(1);
             }
 
