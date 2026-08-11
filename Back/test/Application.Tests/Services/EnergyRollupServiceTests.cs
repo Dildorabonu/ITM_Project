@@ -175,6 +175,41 @@ public class EnergyRollupServiceTests
     }
 
     [Fact]
+    public async Task RollupRangeAsync_AcrossMultipleChunks_WritesEachHourExactlyOnce()
+    {
+        // Arrange — 8 soat, ya'ni ChunkSize (6 soat) dan uzun: ikkinchi bo'lak
+        // birinchisining oxiridan davom etadi. Bu — deploy paytida ishga tushadigan
+        // backfill yo'li, shu sababli bo'lak chegarasi testda tekshiriladi.
+        await using var db = TestDbContextFactory.Create();
+        const int hoursCount = 8;
+
+        for (var h = 0; h < hoursCount; h++)
+            SeedConstantHour(db, "DR134", Hour10.AddHours(h), 1000);
+
+        var sut = new EnergyRollupService(db, () => Hour10.AddHours(hoursCount));
+
+        // Act
+        await sut.RollupRangeAsync(Hour10, Hour10.AddHours(hoursCount));
+
+        // Assert — har soat aynan bitta qatordan
+        var rows = await db.MeterEnergyHourly.OrderBy(r => r.HourUtc).ToListAsync();
+        rows.Should().HaveCount(hoursCount);
+        rows.Select(r => r.HourUtc).Should().OnlyHaveUniqueItems();
+        rows.Select(r => r.HourUtc).Should()
+            .BeEquivalentTo(Enumerable.Range(0, hoursCount).Select(h => Hour10.AddHours(h)));
+
+        // Birinchi soat: 119 ta 30-soniyalik interval (oldingi o'lchov yo'q).
+        rows[0].Kwh.Should().BeApproximately(1000d * 119 * 30 / 3_600_000d, 1e-9);
+
+        // Qolgan soatlar: oldingi soatning oxirgi o'lchovi anchor bo'lib, 120 ta
+        // interval chiqadi — bo'lak chegarasidagi soat (7-si) ham bundan mustasno emas.
+        foreach (var row in rows.Skip(1))
+            row.Kwh.Should().BeApproximately(1000d * 120 * 30 / 3_600_000d, 1e-9);
+
+        rows.Should().OnlyContain(r => r.SampleCount == 120);
+    }
+
+    [Fact]
     public async Task BackfillAsync_WithNoRollupRows_CoversAllReadingHours()
     {
         // Arrange — ketma-ket ikki soat

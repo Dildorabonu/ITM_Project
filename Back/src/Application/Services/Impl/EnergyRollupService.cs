@@ -180,6 +180,12 @@ public class EnergyRollupService : IEnergyRollupService
         }
 
         await _context.SaveChangesAsync(ct);
+
+        // Change tracker'ni tozalaymiz: backfill bitta scoped kontekst ustida
+        // yuzlab bo'lakni aylanib chiqadi (6 oy × 20 qurilma ≈ 87 000 qator).
+        // Tozalanmasa har SaveChanges'da DetectChanges butun to'plamni qayta
+        // ko'radi — vaqt kvadratik o'sadi va xotira ham bo'shamaydi.
+        _context.ChangeTracker.Clear();
     }
 
     private static Bucket GetOrAdd(
