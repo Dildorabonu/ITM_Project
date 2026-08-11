@@ -1,7 +1,7 @@
 "use client";
 
 import type { EnergyTotals } from "@/lib/meterData";
-import { formatKwh, formatMoney, formatMoneyFull, formatPower } from "@/lib/energyFormat";
+import { formatBucketLabel, formatKwh, formatMoney, formatMoneyFull, formatPower } from "@/lib/energyFormat";
 import { useT } from "@/lib/i18n";
 
 /** Bitta KPI karta — hover'da nozik shimmer bilan. */
@@ -63,7 +63,11 @@ export function KpiRow({
 
   const [currentValue, currentUnit] = formatPower(total?.currentPowerW ?? null);
   const [peakValue, peakUnit] = formatPower(total?.peakPowerW ?? null);
-  const peakHint = total?.peakAt ? `${t("Pik vaqti")}: ${total.peakAt.slice(11, 16)}` : undefined;
+  // Pik vaqti grafik ustunlari bilan bir xil mahalliy kalitdan formatlanadi —
+  // aks holda KPI UTC'da, grafik esa Toshkent vaqtida ko'rsatilardi.
+  const peakHint = total?.peakBucket
+    ? `${t("Pik vaqti")}: ${formatBucketLabel(total.peakBucket, "hour")}`
+    : undefined;
 
   return (
     <div style={{ display: "flex", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>

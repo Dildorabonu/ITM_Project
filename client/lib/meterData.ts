@@ -50,7 +50,10 @@ export interface EnergyTotals {
   cost: number | null;
   avgPowerW: number;
   peakPowerW: number;
+  /** Pik soati (UTC, ISO). Ko'rsatish uchun `peakBucket` ishlatiladi. */
   peakAt: string | null;
+  /** Pik soatining mahalliy bucket kaliti — grafik ustunlari bilan bir xil format. */
+  peakBucket: string | null;
   currentPowerW: number;
   deviceCount: number;
   onlineCount: number;

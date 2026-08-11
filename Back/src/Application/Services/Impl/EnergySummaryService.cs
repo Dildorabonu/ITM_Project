@@ -105,7 +105,14 @@ public class EnergySummaryService : IEnergySummaryService
             byDevice.Add(new DeviceSeriesDto { DeviceName = name, Points = devicePoints });
         }
 
-        var peak = hours.Count == 0 ? (HourAggregate?)null : hours.MaxBy(h => h.PeakPowerW);
+        // Zavod bo'yicha pik: har soat ichida qurilmalar piklari yig'iladi, so'ng
+        // eng katta soat olinadi. Aks holda "pik" bitta qurilmaniki bo'lib qolar,
+        // "hozirgi quvvat" esa hammasining yig'indisi — ikkalasi bir-biriga zid edi.
+        var peak = hours
+            .GroupBy(h => h.HourUtc)
+            .Select(g => new { Hour = g.Key, Peak = g.Sum(h => h.PeakPowerW) })
+            .MaxBy(x => x.Peak);
+
         var online = devices.Where(d => d.IsOnline).ToList();
 
         var dto = new EnergySummaryDto
@@ -124,8 +131,9 @@ public class EnergySummaryService : IEnergySummaryService
                 Kwh = totalKwh,
                 Cost = SumCost(series),
                 AvgPowerW = AveragePower(totalKwh, fromHour, now),
-                PeakPowerW = peak?.PeakPowerW ?? 0,
-                PeakAt = peak?.HourUtc,
+                PeakPowerW = peak?.Peak ?? 0,
+                PeakAt = peak?.Hour,
+                PeakBucket = peak is null ? null : EnergyPeriod.BucketKey(peak.Hour, EnergyPeriod.BucketHour),
                 CurrentPowerW = online.Sum(d => d.LastPowerW ?? 0),
                 DeviceCount = devices.Count,
                 OnlineCount = online.Count,

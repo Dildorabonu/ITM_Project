@@ -48,8 +48,22 @@ public class EnergyTotalsDto
     public double Kwh { get; set; }
     public decimal? Cost { get; set; }
     public double AvgPowerW { get; set; }
+
+    /// <summary>
+    /// Zavod bo'yicha eng yuqori quvvat: soat ichidagi qurilma piklari yig'indisining
+    /// maksimumi. Bu — haqiqiy bir vaqtdagi pikning YUQORI CHEGARASI: qurilmalarning
+    /// soatlik piklari aynan bir lahzada bo'lishi shart emas.
+    /// </summary>
     public double PeakPowerW { get; set; }
+
+    /// <summary>Pik qayd etilgan soat boshi (UTC).</summary>
     public DateTime? PeakAt { get; set; }
+
+    /// <summary>
+    /// O'sha soatning mahalliy (Toshkent) bucket kaliti — grafik ustunlari bilan
+    /// bir xil format, UI to'g'ridan-to'g'ri shu kalitni ko'rsatadi.
+    /// </summary>
+    public string? PeakBucket { get; set; }
 
     /// <summary>Hozirgi umumiy quvvat — onlayn qurilmalarning oxirgi qiymatlari yig'indisi.</summary>
     public double CurrentPowerW { get; set; }
