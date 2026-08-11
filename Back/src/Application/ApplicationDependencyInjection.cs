@@ -48,6 +48,7 @@ public static class ApplicationDependencyInjection
         services.AddScoped<IQrCodeService, QrCodeService>();
         services.AddScoped<IScanService, ScanService>();
         services.AddScoped<IMeterDataService, MeterDataService>();
+        services.AddScoped<IEnergyRollupService, EnergyRollupService>();
 
         return services;
     }
