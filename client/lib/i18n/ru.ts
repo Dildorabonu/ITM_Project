@@ -1236,8 +1236,8 @@ export const ru: Record<string, string> = {
   "onlayn": "онлайн",
   "Onlayn": "Онлайн",
   "Oflayn": "Офлайн",
-  "Joriy tarif": "Текущий тариф",
   "Tarifni o'zgartirish": "Изменить тариф",
+  "Tarif tarixini ko'rish": "Просмотреть историю тарифов",
   "Tarif belgilanmagan": "Тариф не задан",
   "Elektr tariflari": "Тарифы на электроэнергию",
   "Har tarif o'z sanasidan keyingi tarif kelguncha amal qiladi.":
@@ -1264,6 +1264,11 @@ export const ru: Record<string, string> = {
   "Ish vaqti": "Время работы",
   "jami kWh": "всего кВт·ч",
   "Qidirish...": "Поиск...",
+  // Davr tanlash tugmalari (PeriodBar) — massiv qiymatlari, t() dinamik chaqiriladi
+  "24 soat": "24 часа",
+  "7 kun": "7 дней",
+  "30 kun": "30 дней",
+  "Oy": "Месяц",
 
   // Talabnoma nomi shabloni — {0} o'rniga shartnoma raqami yoki bo'lim nomi
   // qo'yiladi. So'z tartibi tilga qarab farq qilgani uchun butun ibora kalit.

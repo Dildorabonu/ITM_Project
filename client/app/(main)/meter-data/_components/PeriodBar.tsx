@@ -92,11 +92,10 @@ export function PeriodBar({
         </span>
       )}
 
-      {/* Tarif chipi — tahrirlash ruxsati bo'lsa bosiladi */}
+      {/* Tarif chipi — hammaga ochiq (ro'yxatni ko'rish), tahrirlash faqat ruxsat bilan */}
       <button
-        onClick={canEditTariff ? onOpenTariff : undefined}
-        disabled={!canEditTariff}
-        title={canEditTariff ? t("Tarifni o'zgartirish") : t("Joriy tarif")}
+        onClick={onOpenTariff}
+        title={canEditTariff ? t("Tarifni o'zgartirish") : t("Tarif tarixini ko'rish")}
         style={{
           marginLeft: "auto",
           display: "inline-flex", alignItems: "center", gap: 7, padding: "6px 12px",
@@ -104,7 +103,7 @@ export function PeriodBar({
           borderRadius: 999,
           background: "var(--accent-dim)", border: "1px solid var(--accent-mid)",
           color: "var(--accent)",
-          cursor: canEditTariff ? "pointer" : "default",
+          cursor: "pointer",
           transition: "all 0.15s",
         }}
       >
