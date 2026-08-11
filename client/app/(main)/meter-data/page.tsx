@@ -354,11 +354,7 @@ export default function MeterDataPage() {
                   <th style={{ width: 56, minWidth: 56, textAlign: "center", borderRight: "2px solid var(--border)", background: "var(--bg2)" }}>{t("T/r")}</th>
                   <th style={{ textAlign: "center", background: "var(--bg2)" }}>{t("Qurilma")}</th>
                   <th style={{ textAlign: "center", background: "var(--bg2)" }}>Uₐ (V)</th>
-                  <th style={{ textAlign: "center", background: "var(--bg2)" }}>Uᵦ (V)</th>
-                  <th style={{ textAlign: "center", background: "var(--bg2)" }}>Uᵧ (V)</th>
                   <th style={{ textAlign: "center", background: "var(--bg2)" }}>Iₐ (A)</th>
-                  <th style={{ textAlign: "center", background: "var(--bg2)" }}>Iᵦ (A)</th>
-                  <th style={{ textAlign: "center", background: "var(--bg2)" }}>Iᵧ (A)</th>
                   <th style={{ textAlign: "center", background: "var(--bg2)" }}>P (W)</th>
                   <th style={{ textAlign: "center", background: "var(--bg2)" }}>f (Hz)</th>
                   <th style={{ textAlign: "center", background: "var(--bg2)" }}>{t("Sana")}</th>
@@ -367,7 +363,7 @@ export default function MeterDataPage() {
               <tbody>
                 {items.length === 0 ? (
                   <tr>
-                    <td colSpan={11} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>
+                    <td colSpan={7} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>
                       {t("Hali ma'lumot kelmagan — qurilma yuborishini kuting.")}
                     </td>
                   </tr>
@@ -387,11 +383,7 @@ export default function MeterDataPage() {
                       </span>
                     </td>
                     <td style={{ textAlign: "center", fontFamily: "var(--font-mono)" }}>{r.voltagePhaseA.toFixed(1)}</td>
-                    <td style={{ textAlign: "center", fontFamily: "var(--font-mono)" }}>{r.voltagePhaseB.toFixed(1)}</td>
-                    <td style={{ textAlign: "center", fontFamily: "var(--font-mono)" }}>{r.voltagePhaseC.toFixed(1)}</td>
                     <td style={{ textAlign: "center", fontFamily: "var(--font-mono)", color: "var(--text2)" }}>{r.currentPhaseA.toFixed(2)}</td>
-                    <td style={{ textAlign: "center", fontFamily: "var(--font-mono)", color: "var(--text2)" }}>{r.currentPhaseB.toFixed(2)}</td>
-                    <td style={{ textAlign: "center", fontFamily: "var(--font-mono)", color: "var(--text2)" }}>{r.currentPhaseC.toFixed(2)}</td>
                     <td style={{ textAlign: "center", fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--accent)" }}>{r.activePower}</td>
                     <td style={{ textAlign: "center", fontFamily: "var(--font-mono)" }}>{r.frequency.toFixed(2)}</td>
                     <td style={{ textAlign: "center", color: "var(--text2)", fontFamily: "var(--font-mono)", fontSize: 12.5, whiteSpace: "nowrap" }}>
