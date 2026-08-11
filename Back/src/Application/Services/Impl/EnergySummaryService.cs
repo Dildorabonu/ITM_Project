@@ -14,18 +14,11 @@ public class EnergySummaryService : IEnergySummaryService
     /// <summary>Qurilma "onlayn" hisoblanishi uchun oxirgi yozuv shu muddat ichida bo'lishi kerak.</summary>
     private static readonly TimeSpan MinOnlineWindow = TimeSpan.FromSeconds(30);
 
-    /// <summary>Oxirgi quvvat qiymatini olish uchun xom yozuvlar oynasi.</summary>
-    private static readonly TimeSpan LastPowerWindow = TimeSpan.FromMinutes(10);
-
     /// <summary>
-    /// "Oxirgi ko'rilgan" vaqtni xom <c>MeterReadings</c> dan qidirish oynasi. Jadval
-    /// 17 mln+ qatorga yetishi mumkin — har poll'da butun tarixni GROUP BY qilish
-    /// narxli. Bu oynadan tashqarida (uzoq vaqt jim turgan yoki konfiguratsiyadan
-    /// chiqarilgan eski qurilma) qolgan holatlar kichik <c>MeterEnergyHourly</c>
-    /// jadvalidagi so'nggi soatdan tiklanadi — tarixiy ma'lumot yo'qolmaydi,
-    /// faqat aniqligi soat darajasigacha taxminiy bo'ladi.
+    /// Xom yozuvlardan qurilma nomlarini qidirishda ("loose index scan")
+    /// bajariladigan qadamlar chegarasi — kutilmagan holatda cheksiz aylanmaslik uchun.
     /// </summary>
-    private static readonly TimeSpan DeviceHistoryWindow = TimeSpan.FromDays(45);
+    private const int MaxDeviceProbes = 500;
 
     private readonly DatabaseContext _context;
     private readonly MeterPollerOptions _pollerOptions;
@@ -339,80 +332,115 @@ public class EnergySummaryService : IEnergySummaryService
     private async Task<Dictionary<string, DeviceStatus>> LoadStatusesAsync(DateTime now)
     {
         var configured = _pollerOptions.ResolveDevices();
-        var onlineThreshold = OnlineThreshold();
 
-        // Xom yozuvlardan "oxirgi ko'rilgan" — faqat DeviceHistoryWindow ichida (bounded,
-        // butun jadvalni skanerlamaslik uchun). Bu oyna ichida bo'lsa vaqt soniyagacha aniq.
-        var windowStart = now - DeviceHistoryWindow;
-        var recentLastSeen = await _context.MeterReadings
-            .AsNoTracking()
-            .Where(r => r.CreatedAt >= windowStart && r.CreatedAt <= now)
-            .GroupBy(r => r.DeviceName)
-            .Select(g => new { Device = g.Key, Last = g.Max(x => x.CreatedAt) })
-            .ToListAsync();
-
-        // Rollup — kichik jadval (qurilmalar × soatlar), oynadan tashqarida qolgan
-        // (uzoq muddat jim yoki endi konfiguratsiyada bo'lmagan) qurilmalarning
-        // tarixi shu yerdan tiklanadi — soat aniqligida, lekin hech qachon yo'qolmaydi.
+        // Rollup — kichik jadval (qurilmalar × soatlar). Undan ham nomlar, ham
+        // "oxirgi ko'rilgan"ning soat aniqligidagi zaxira qiymati olinadi.
         var rollupLastSeen = await _context.MeterEnergyHourly
             .AsNoTracking()
             .GroupBy(r => r.DeviceName)
             .Select(g => new { Device = g.Key, Last = g.Max(x => x.HourUtc) })
             .ToListAsync();
 
-        // Ikkala manbani birlashtiramiz — kattasi (kechroq sana) haqiqiy oxirgi
-        // faoliyatga yaqinroq bo'ladi.
-        var lastSeen = recentLastSeen
-            .Select(r => (r.Device, r.Last))
-            .Concat(rollupLastSeen.Select(r => (r.Device, r.Last)))
-            .GroupBy(r => r.Device)
-            .Select(g => new { Device = g.Key, Last = g.Max(x => x.Last) })
+        var rollupIndex = rollupLastSeen.ToDictionary(r => r.Device, r => r.Last, StringComparer.Ordinal);
+
+        // Barcha ma'lum qurilmalar: konfiguratsiya ∪ rollup ∪ xom yozuvlar.
+        var names = configured.Select(d => d.Name)
+            .Concat(rollupIndex.Keys)
+            .Concat(await LoadRawDeviceNamesAsync())
+            .Distinct(StringComparer.Ordinal)
             .ToList();
 
-        // Oxirgi quvvat faqat yaqinda yozgan qurilmalar uchun kerak.
-        var recentRows = await _context.MeterReadings
-            .AsNoTracking()
-            .Where(r => r.CreatedAt >= now - LastPowerWindow && r.CreatedAt <= now)
-            .Select(r => new { r.DeviceName, r.CreatedAt, r.ActivePower })
-            .ToListAsync();
-
-        var lastPower = recentRows
-            .GroupBy(r => r.DeviceName)
-            .ToDictionary(
-                g => g.Key,
-                g => g.OrderByDescending(r => r.CreatedAt).First().ActivePower);
-
+        var configuredIndex = configured.ToDictionary(d => d.Name, d => d, StringComparer.Ordinal);
         var statuses = new Dictionary<string, DeviceStatus>(StringComparer.Ordinal);
 
-        foreach (var device in configured)
+        foreach (var name in names)
         {
-            statuses[device.Name] = new DeviceStatus
-            {
-                Name = device.Name,
-                IsConfigured = true,
-            };
-        }
+            var isConfigured = configuredIndex.TryGetValue(name, out var device);
 
-        foreach (var row in lastSeen)
-        {
-            if (!statuses.TryGetValue(row.Device, out var status))
+            var status = new DeviceStatus
             {
-                status = new DeviceStatus { Name = row.Device, IsConfigured = false };
-                statuses[row.Device] = status;
+                Name = name,
+                IsConfigured = isConfigured,
+            };
+
+            // Bitta indeks seek: (DeviceName, CreatedAt) bo'yicha oxirgi qator.
+            // Butun tarixni GROUP BY qilishning o'rniga qurilma boshiga bitta so'rov —
+            // 17 mln qatorli jadvalda farq soniyalar bilan o'lchanadi.
+            var last = await _context.MeterReadings
+                .AsNoTracking()
+                .Where(r => r.DeviceName == name && r.CreatedAt <= now)
+                .OrderByDescending(r => r.CreatedAt)
+                .Select(r => new { r.CreatedAt, r.ActivePower })
+                .FirstOrDefaultAsync();
+
+            var lastSeen = last?.CreatedAt;
+
+            // Xom yozuv topilmasa (masalan yozuvlar tozalangan, rollup qolgan) —
+            // soat aniqligidagi zaxira qiymat.
+            if (rollupIndex.TryGetValue(name, out var rollupHour) &&
+                (lastSeen is null || rollupHour > lastSeen.Value))
+            {
+                lastSeen = rollupHour;
             }
 
-            status.LastSeen = row.Last;
-            status.IsOnline = now - row.Last <= onlineThreshold;
-            status.LastPowerW = status.IsOnline ? lastPower.GetValueOrDefault(row.Device) : null;
+            if (lastSeen is not null)
+            {
+                var threshold = isConfigured
+                    ? OnlineThreshold(_pollerOptions.EffectiveInterval(device!))
+                    : OnlineThreshold(_pollerOptions.IntervalSeconds);
+
+                status.LastSeen = lastSeen;
+                status.IsOnline = now - lastSeen.Value <= threshold;
+                status.LastPowerW = status.IsOnline ? last?.ActivePower : null;
+            }
+
+            statuses[name] = status;
         }
 
         return statuses;
     }
 
-    /// <summary>Onlayn deb hisoblash oynasi: 3 × o'qish davri, lekin kamida 30 soniya.</summary>
-    private TimeSpan OnlineThreshold()
+    /// <summary>
+    /// Xom o'lchovlardagi turli qurilma nomlari. Oddiy <c>DISTINCT</c> butun
+    /// jadvalni (17 mln+ qator) o'qishga majbur qilardi; buning o'rniga
+    /// "loose index scan" — har qadamda (DeviceName, CreatedAt) indeksidan
+    /// keyingi nomni bitta seek bilan olamiz. So'rovlar soni qurilmalar soniga
+    /// bog'liq, qatorlar soniga emas.
+    /// </summary>
+    private async Task<List<string>> LoadRawDeviceNamesAsync()
     {
-        var interval = Math.Max(1, _pollerOptions.IntervalSeconds);
+        var names = new List<string>();
+        string? cursor = null;
+
+        for (var i = 0; i < MaxDeviceProbes; i++)
+        {
+            var query = _context.MeterReadings.AsNoTracking();
+
+            if (cursor is not null)
+            {
+                var bound = cursor;
+                query = query.Where(r => string.Compare(r.DeviceName, bound) > 0);
+            }
+
+            var next = await query
+                .OrderBy(r => r.DeviceName)
+                .Select(r => r.DeviceName)
+                .FirstOrDefaultAsync();
+
+            if (next is null)
+                break;
+
+            names.Add(next);
+            cursor = next;
+        }
+
+        return names;
+    }
+
+    /// <summary>Onlayn deb hisoblash oynasi: 3 × o'qish davri, lekin kamida 30 soniya.</summary>
+    private static TimeSpan OnlineThreshold(int intervalSeconds)
+    {
+        var interval = Math.Max(1, intervalSeconds);
         var window = TimeSpan.FromSeconds(interval * 3);
         return window < MinOnlineWindow ? MinOnlineWindow : window;
     }

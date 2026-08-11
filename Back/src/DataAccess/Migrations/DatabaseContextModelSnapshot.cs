@@ -816,6 +816,8 @@ namespace DataAccess.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CreatedAt");
+
                     b.HasIndex("DeviceName", "CreatedAt");
 
                     b.ToTable("MeterReadings");

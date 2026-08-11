@@ -13,5 +13,10 @@ public class MeterReadingConfiguration : IEntityTypeConfiguration<MeterReading>
 
         // Qurilma bo'yicha oxirgi o'lchovlarni tez olish uchun
         builder.HasIndex(x => new { x.DeviceName, x.CreatedAt });
+
+        // Faqat vaqt bo'yicha oyna so'rovlari uchun (joriy soat, rollup bo'laklari).
+        // Kompozit indeks CreatedAt bo'yicha range-seek bera olmaydi — birinchi
+        // ustun DeviceName bo'lgani uchun.
+        builder.HasIndex(x => x.CreatedAt);
     }
 }
