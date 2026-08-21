@@ -19,6 +19,8 @@ public class ContractTaskController : ControllerBase
         _service = service;
     }
 
+    private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
     // GET /api/contracttask/by-contract/{contractId}
     [HasPermission("Tasks.View")]
     [HttpGet("by-contract/{contractId:guid}")]
@@ -28,23 +30,12 @@ public class ContractTaskController : ControllerBase
         return StatusCode(result.StatusCode, result);
     }
 
-    // POST /api/contracttask
-    [HasPermission("Tasks.Create")]
-    [HttpPost]
-    public async Task<IActionResult> Create([FromBody] ContractTaskCreateDto dto)
-    {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var result = await _service.CreateAsync(dto, userId);
-        return StatusCode(result.StatusCode, result);
-    }
-
     // POST /api/contracttask/bulk
     [HasPermission("Tasks.Create")]
     [HttpPost("bulk")]
     public async Task<IActionResult> CreateBulk([FromBody] IEnumerable<ContractTaskCreateDto> dtos)
     {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var result = await _service.CreateBulkAsync(dtos, userId);
+        var result = await _service.CreateBulkAsync(dtos, CurrentUserId);
         return StatusCode(result.StatusCode, result);
     }
 
@@ -71,8 +62,7 @@ public class ContractTaskController : ControllerBase
     [HttpPost("{id:guid}/log")]
     public async Task<IActionResult> LogProgress(Guid id, [FromBody] ContractTaskLogCreateDto dto)
     {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var result = await _service.LogProgressAsync(id, dto, userId);
+        var result = await _service.LogProgressAsync(id, dto, CurrentUserId);
         return StatusCode(result.StatusCode, result);
     }
 

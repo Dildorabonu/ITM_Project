@@ -1292,11 +1292,6 @@ export const contractTaskService = {
     }
   },
 
-  create: async (dto: ContractTaskCreatePayload): Promise<string> => {
-    const res = await api.post("/api/contracttask", dto);
-    return res.data?.result as string;
-  },
-
   createBulk: async (dtos: ContractTaskCreatePayload[]): Promise<void> => {
     await api.post("/api/contracttask/bulk", dtos);
   },
