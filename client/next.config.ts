@@ -12,6 +12,25 @@ const nextConfig: NextConfig = {
     "*.trycloudflare.com",
     "loans-investigator-flip-bowling.trycloudflare.com",
   ],
+  // Xavfsizlik headerlari — barcha javoblar uchun. CSP bu yerda emas,
+  // middleware.ts da beriladi, chunki u har bir so'rov uchun alohida nonce talab qiladi.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(self), microphone=(), geolocation=(), payment=(), usb=()",
+          },
+          { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
+        ],
+      },
+    ];
+  },
   async rewrites() {
     return [
       {

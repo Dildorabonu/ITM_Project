@@ -5,6 +5,7 @@ using System.Threading.RateLimiting;
 using API.Authentication;
 using API.Authorization;
 using API.Licensing;
+using API.Middleware;
 using Application;
 using Application.Helpers;
 using Application.Options;
@@ -182,6 +183,12 @@ namespace API
                 builder.Configuration.GetSection(MeterPollerOptions.SectionName));
             builder.Services.AddHostedService<API.Services.MeterPollerService>();
 
+            // Global exception handler — ushlanmagan xatoliklar mijozga stack trace sifatida
+            // chiqmasligi uchun. AddProblemDetails ExceptionHandlerMiddleware talabi
+            // (handler false qaytargan kamdan-kam holat uchun zaxira javob).
+            builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+            builder.Services.AddProblemDetails();
+
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
@@ -215,6 +222,15 @@ namespace API
             });
 
             var app = builder.Build();
+
+            // Eng birinchi middleware — undan keyingi butun zanjirdagi xatoliklarni ushlaydi
+            // (forwarded headers, swagger, CORS, auth va controllerlar shu ichida qoladi).
+            app.UseExceptionHandler();
+
+            // Xavfsizlik headerlari (nosniff, X-Frame-Options, Referrer-Policy,
+            // Permissions-Policy, cheklovchi CSP) — zanjirning eng boshida, shunda
+            // xatolik javoblari va statik fayllar ham qamrab olinadi.
+            app.UseMiddleware<SecurityHeadersMiddleware>();
 
             // The frontend reaches the API through the Next.js rewrite proxy, so the
             // TCP connection always originates from the proxy host. Trust X-Forwarded-For
@@ -297,24 +313,14 @@ namespace API
             // (login ham). Autentifikatsiyadan oldin turadi — to'liq blok uchun.
             app.UseMiddleware<LicenseEnforcementMiddleware>();
 
-            // Barcha javoblarda MIME sniffing'ni o'chirish — yuklangan fayllarni
-            // browser noto'g'ri turdek talqin qilishining oldini oladi.
-            app.Use(async (ctx, next) =>
-            {
-                ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
-                await next();
-            });
-
             // Yuklangan fayllarni (rasmlarni) statik fayl sifatida serve qilish
             var uploadsPath = app.Services.GetRequiredService<IOptions<FileStorageOptions>>().Value.UploadsPath;
             app.UseStaticFiles(new StaticFileOptions
             {
                 FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadsPath),
-                RequestPath = "/uploads",
-                OnPrepareResponse = ctx =>
-                {
-                    ctx.Context.Response.Headers["X-Content-Type-Options"] = "nosniff";
-                }
+                // Xavfsizlik headerlari SecurityHeadersMiddleware da barcha javoblar
+                // uchun qo'yiladi — bu yerda takrorlash shart emas.
+                RequestPath = "/uploads"
             });
 
             app.UseAuthentication();
