@@ -9,5 +9,4 @@ public interface IAuthService
     Task<ApiResult<AuthResponseDto>> RefreshTokenAsync(string refreshToken);
     Task<ApiResult<bool>> RevokeTokenAsync(string refreshToken);
     Task<ApiResult<AuthUserDto>> GetUserAsync(Guid userId);
-    Task<ApiResult<bool>> UnlockUserAsync(Guid userId);
 }
