@@ -57,26 +57,51 @@ public class LicenseService : ILicenseService
             return new LicenseActivationResult { Success = false, Error = "Bu token boshqa serverga bog'langan." };
         }
 
-        // 4) Muddati allaqachon o'tmaganmi?
-        if (payload.ExpiresUtc <= DateTime.UtcNow)
-        {
-            return new LicenseActivationResult { Success = false, Error = "Token muddati allaqachon tugagan." };
-        }
-
-        // 5) Bazaga saqlaymiz (config/fayldan ustun turadi).
+        // 4) Joriy holat (tokendagi kalit ham shu yerda).
         var state = await _context.LicenseStates.FirstOrDefaultAsync(x => x.Id == LicenseState.SingletonId, ct);
         if (state is null)
         {
             state = new LicenseState { Id = LicenseState.SingletonId, HighWaterUtc = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow };
             _context.LicenseStates.Add(state);
         }
-        // Yangi (imzolangan) token faollashtirilishi — "toza start". TAMPER bayrog'ini
-        // olib tashlaymiz va soat-ortga-surishga qarshi belgilarni (HighWater + fayl nusxasi)
-        // hozirgi vaqtga qayta tiklaymiz. Aks holda soat hali ortga surilgan bo'lsa,
-        // keyingi EvaluateAsync darhol qayta TAMPER qo'yadi.
-        // Xavfsiz: bu faqat ta'minotchi imzolagan, shu serverga bog'langan va muddati
-        // o'tmagan token bilan ishlaydi — mijoz o'zi TAMPER'ni ocha olmaydi.
-        var baseline = DateTime.UtcNow;
+
+        // 5) Bu token amaldagi tokendan YANGIROQ bo'lishi shart.
+        // Aks holda mijoz soatni ortga surib, eski (yoki aynan o'sha) tokenni qayta
+        // kiritib muddatni cheksiz "tiklab" olardi: faollashtirish TAMPER'ni tozalab,
+        // high-water'ni ortga surilgan soatga tushirib yuborardi.
+        // IssuedUtc'ni faqat ta'minotchi imzolaydi — shuning uchun u mijoz soatidan
+        // qat'i nazar ishonchli vaqt manbai.
+        var currentToken = ResolveToken(state.LicenseKey);
+        if (LicenseTokenValidator.TryValidate(currentToken, out var currentPayload, out _) &&
+            currentPayload is not null && payload.IssuedUtc <= currentPayload.IssuedUtc)
+        {
+            var same = string.Equals(payload.Id, currentPayload.Id, StringComparison.OrdinalIgnoreCase);
+            return new LicenseActivationResult
+            {
+                Success = false,
+                Error = same
+                    ? "Bu token allaqachon faollashtirilgan. Uzaytirish uchun ta'minotchidan yangi token oling."
+                    : "Bu token amaldagi litsenziyadan eski. Uzaytirish uchun ta'minotchidan yangi token oling.",
+            };
+        }
+
+        // 6) Muddati o'tmaganmi? Tekshiruv mijoz soatiga emas, ortga surishga chidamli
+        // "effektiv vaqt"ga tayanadi (imzolangan IssuedUtc ham hisobga olinadi).
+        if (payload.ExpiresUtc <= Max(DateTime.UtcNow, payload.IssuedUtc))
+        {
+            return new LicenseActivationResult { Success = false, Error = "Token muddati allaqachon tugagan." };
+        }
+
+        // 7) Bazaga saqlaymiz (config/fayldan ustun turadi).
+        // Yangi (imzolangan va amaldagidan yangiroq) token — "toza start". TAMPER
+        // bayrog'ini olib tashlaymiz va soat-ortga-surishga qarshi belgilarni
+        // (HighWater + fayl nusxasi) qayta tiklaymiz. Aks holda soat hali noto'g'ri
+        // bo'lsa, keyingi EvaluateAsync darhol qayta TAMPER qo'yadi.
+        // Boshlang'ich nuqta — max(hozirgi soat, tokenning imzolangan IssuedUtc'si):
+        // soat ortga surilgan bo'lsa ham ta'minotchi imzolagan sanadan pastga tushmaydi,
+        // soat oldinga surib "high-water"ni zaharlab qo'yilgan bo'lsa esa yangi token
+        // uni haqiqiy sanaga qaytaradi.
+        var baseline = Max(DateTime.UtcNow, payload.IssuedUtc);
         state.LicenseKey = token;
         state.TamperDetected = false;
         state.TamperReason = null;
@@ -85,7 +110,7 @@ public class LicenseService : ILicenseService
         await _context.SaveChangesAsync(ct);
         WriteMirror(baseline);
 
-        // 6) Holatni qayta hisoblab, guard'ni yangilaymiz.
+        // 8) Holatni qayta hisoblab, guard'ni yangilaymiz.
         var status = await RefreshAsync(ct);
         return new LicenseActivationResult { Success = true, Status = status };
     }
