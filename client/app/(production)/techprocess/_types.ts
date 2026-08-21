@@ -4,6 +4,7 @@ import {
   PROCESS_STATUS_LABELS,
   DRAWING_STATUS_LABELS,
   type TechProcessResponse,
+  type CostNormListItem,
   type CostNormResponse,
   type CostNormItemResponse,
   type TechnicalDrawingResponse,
@@ -14,6 +15,7 @@ import {
 
 export type {
   TechProcessResponse,
+  CostNormListItem,
   CostNormResponse,
   CostNormItemResponse,
   TechnicalDrawingResponse,

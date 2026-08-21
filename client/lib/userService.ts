@@ -1134,7 +1134,8 @@ export interface CostNormMetadata {
   footerNote?: string | null;
 }
 
-export interface CostNormResponse {
+/** `getAll` javobi — material qatorlarisiz yengil ro'yxat elementi. */
+export interface CostNormListItem {
   id: string;
   contractProductId: string | null;
   productType: string | null;
@@ -1144,9 +1145,11 @@ export interface CostNormResponse {
   title: string;
   notes: string | null;
   isActive: boolean;
-  /** List endpointda (`getAll`) bo'sh keladi — to'liq items uchun `getById` chaqiring. */
+}
+
+/** `getById` javobi — ro'yxat maydonlari + material qatorlari. */
+export interface CostNormResponse extends CostNormListItem {
   items: CostNormItemResponse[];
-  metadata?: CostNormMetadata | null;
 }
 
 export interface CostNormItemCreatePayload {
@@ -1175,7 +1178,7 @@ export interface CostNormCreatePayload {
 }
 
 export const costNormService = {
-  getAll: async (contractId?: string, isActive?: boolean): Promise<CostNormResponse[]> => {
+  getAll: async (contractId?: string, isActive?: boolean): Promise<CostNormListItem[]> => {
     const params: Record<string, string> = {};
     if (contractId) params.contractId = contractId;
     if (isActive !== undefined) params.isActive = String(isActive);
@@ -1205,24 +1208,12 @@ export const costNormService = {
     await api.patch(`/api/costnorm/${id}/approve`);
   },
 
-  delete: async (id: string): Promise<void> => {
-    await api.delete(`/api/costnorm/${id}`);
-  },
-
   getFiles: async (id: string): Promise<AttachmentResponse[]> => {
     const res = await api.get(`/api/costnorm/${id}/files`);
     return res.data?.result ?? res.data ?? [];
   },
 
-  uploadFile: async (id: string, file: File): Promise<AttachmentResponse> => {
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await api.post(`/api/costnorm/${id}/files`, fd, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    return res.data?.result ?? res.data;
-  },
-
+  // Me'yoriy sarf fayli serverda generatsiya qilinadi — qo'lda yuklash yo'q.
   downloadFile: async (id: string, fileId: string, fileName: string): Promise<void> => {
     const res = await api.get(`/api/costnorm/${id}/files/${fileId}/download`, { responseType: "blob" });
     const url = URL.createObjectURL(res.data);

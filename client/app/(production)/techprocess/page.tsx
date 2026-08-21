@@ -26,6 +26,7 @@ import {
   type CnMode,
   type ContractReadinessScope,
   type TechProcessResponse,
+  type CostNormListItem,
   type CostNormResponse,
   type CostNormItemResponse,
   type CostNormMetadata,
@@ -92,7 +93,7 @@ export default function TechProductionPage() {
   // ── Cost Norm state ────────────────────────────────────────────────────────
   const [cnMode, setCnMode] = useState<CnMode>("list");
   const [cnShowPhotos, setCnShowPhotos] = useState(false);
-  const [cnList, setCnList] = useState<CostNormResponse[]>([]);
+  const [cnList, setCnList] = useState<CostNormListItem[]>([]);
   const [cnListLoading, setCnListLoading] = useState(true);
   const [cnSelected, setCnSelected] = useState<CostNormResponse|null>(null);
   const [cnActiveTab, setCnActiveTab] = useState(0);
@@ -352,9 +353,9 @@ export default function TechProductionPage() {
     } finally { setTpApproving(false); }
   }
 
-  function openCnDetail(norm: CostNormResponse) {
+  function openCnDetail(norm: CostNormListItem) {
     // List endpointda items kelmaydi — to'liq versiya (items bilan) shu yerda so'raladi.
-    setCnSelected(norm); setCnActiveTab(0); setCnShowPhotos(false); setCnDetailFiles([]); setCnDetailItems([]); setCnDetailLoading(true);
+    setCnSelected({ ...norm, items: [] }); setCnActiveTab(0); setCnShowPhotos(false); setCnDetailFiles([]); setCnDetailItems([]); setCnDetailLoading(true);
     window.history.pushState({mode:"detail"},""); setCnMode("detail");
     Promise.all([
       costNormService.getById(norm.id),
@@ -366,9 +367,9 @@ export default function TechProductionPage() {
     }).catch(()=>{}).finally(()=>setCnDetailLoading(false));
   }
 
-  async function openCnEdit(norm: CostNormResponse) {
+  async function openCnEdit(norm: CostNormListItem) {
     // List endpointda items kelmaydi — to'liq versiya (items bilan) shu yerda so'raladi.
-    setCnEditingNorm(norm); setCnEditForm({title:norm.title,notes:norm.notes||""}); setCnEditNewFile(null); setCnEditSaveError(null); setCnEditSaving(false); setCnShowPhotos(false);
+    setCnEditingNorm({ ...norm, items: [] }); setCnEditForm({title:norm.title,notes:norm.notes||""}); setCnEditNewFile(null); setCnEditSaveError(null); setCnEditSaving(false); setCnShowPhotos(false);
     setCnEditItems([]); setCnEditLoading(true);
     window.history.pushState({mode:"edit"},""); setCnMode("edit");
     try {

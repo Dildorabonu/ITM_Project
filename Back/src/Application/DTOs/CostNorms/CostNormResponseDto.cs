@@ -2,6 +2,8 @@ using Core.Enums;
 
 namespace Application.DTOs.CostNorms;
 
+// Metadata (imzo/tasdiq bloklari) javobda uzatilmaydi — u faqat DOCX
+// qayta generatsiyasi uchun DB da saqlanadi, hech bir klient uni o'qimaydi.
 public class CostNormResponseDto
 {
     public Guid Id { get; set; }
@@ -14,5 +16,4 @@ public class CostNormResponseDto
     public DrawingStatus Status { get; set; }
     public bool IsActive { get; set; }
     public List<CostNormItemResponseDto> Items { get; set; } = [];
-    public CostNormMetadataDto? Metadata { get; set; }
 }
