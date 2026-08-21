@@ -15,7 +15,7 @@ import {
   ProcessStatus,
   DrawingStatus,
   type TechProcessCreatePayload,
-  type ContractResponse,
+  type ContractSummary,
   type AttachmentResponse,
   type DepartmentOption,
 } from "@/lib/userService";
@@ -127,7 +127,7 @@ export default function TechProductionPage() {
   const [selectedScopeKey, setSelectedScopeKey] = useState<string|null>(null);
   const [tpInlineEditing, setTpInlineEditing] = useState(false);
   const [drawingWarningNo, setDrawingWarningNo] = useState<string|null>(null);
-  const [contractList, setContractList] = useState<ContractResponse[]>([]);
+  const [contractList, setContractList] = useState<ContractSummary[]>([]);
   const [departments, setDepartments] = useState<DepartmentOption[]>([]);
   const [viewMode, setViewMode] = useState<"active" | "archive">("active");
 
@@ -154,7 +154,7 @@ export default function TechProductionPage() {
   const loadContracts = useCallback(async()=>{
     try {
       const isActiveFlag = viewMode === "active";
-      const data = await contractService.getAll(undefined, undefined, isActiveFlag);
+      const data = await contractService.getAll(isActiveFlag);
       setContractList(data);
     } catch { setContractList([]); }
   },[viewMode]);

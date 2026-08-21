@@ -7,8 +7,8 @@ import { ConfirmModal } from "@/app/_components/ConfirmModal";
 import { CheckSelect } from "@/app/_components/CheckSelect";
 import {
   contractService,
-  ContractResponse,
-  ContractProductResponse,
+  ContractSummary,
+  ContractSummaryProduct,
   ContractStatus,
   contractTaskService,
   ContractTaskResponse,
@@ -28,7 +28,7 @@ import { useT } from "@/lib/i18n";
 // Bitta scope = (contract, mahsulot) yoki (contract, Umumiy).
 // Tasks sahifasidagi har bir card va panel scope bilan bog'liq.
 
-type Scope = { contract: ContractResponse; product: ContractProductResponse | null };
+type Scope = { contract: ContractSummary; product: ContractSummaryProduct | null };
 
 function scopeKey(s: Scope): string {
   return `${s.contract.id}::${s.product?.id ?? "umumiy"}`;
@@ -2027,7 +2027,7 @@ type Phase = "grid" | "grid-exit" | "panel" | "panel-exit";
 export default function TasksPage() {
   const t = useT();
   const hasPermission = useAuthStore(s => s.hasPermission);
-  const [contracts, setContracts] = useState<ContractResponse[]>([]);
+  const [contracts, setContracts] = useState<ContractSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Scope | null>(null);
   const [phase, setPhase] = useState<Phase>("grid");
@@ -2148,7 +2148,7 @@ export default function TasksPage() {
     }
   }, [viewMode, filterStatus]);
 
-  // `ContractResponse.products[].status` backenddan keladi — qaysi mahsulot
+  // `ContractSummary.products[].status` backenddan keladi — qaysi mahsulot
   // ishlab chiqarishga tayyorligini hisoblash uchun qo'shimcha so'rov shart emas.
   // Faol va Arxiv→Yakunlangan faol shartnomalardan, Arxiv→Bekor qilingan esa
   // noaktiv shartnomalardan oladi.

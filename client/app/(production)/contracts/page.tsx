@@ -13,6 +13,7 @@ import {
   ContractDeactivationReason,
   ContractType,
   type ContractResponse,
+  type ContractSummary,
   type ContractCreatePayload,
   type ContractUpdatePayload,
   type AttachmentResponse,
@@ -53,7 +54,7 @@ export default function ContractsPage() {
   const canCreate = hasPermission("Contracts.Create");
   const canUpdate = hasPermission("Contracts.Update");
 
-  const [contracts, setContracts]       = useState<ContractResponse[]>([]);
+  const [contracts, setContracts]       = useState<ContractSummary[]>([]);
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState("");
 
@@ -131,7 +132,7 @@ export default function ContractsPage() {
   const [activating, setActivating]     = useState(false);
 
   // Mijozga topshirish (pickup) modali
-  const [pickupContract, setPickupContract] = useState<ContractResponse | null>(null);
+  const [pickupContract, setPickupContract] = useState<ContractSummary | null>(null);
   const canShipments = hasPermission("Shipments.View") || hasPermission("Shipments.Create");
 
   // Mijoz to'liq olib ketmagan yakunlangan shartnomalar soni — arxiv tabidagi
@@ -150,8 +151,37 @@ export default function ContractsPage() {
 
   // ── Load drawer ────────────────────────────────────────────────────────────
 
-  const openDrawer = async (c: ContractResponse) => {
-    setViewContract(c);
+  const openDrawer = async (c: ContractSummary) => {
+    // Ro'yxat qatori yengil (`ContractSummary`) — drawer darhol shu ma'lumot bilan
+    // ochiladi, to'liq shartnoma (izohlar, bo'limlar, biriktirilgan xodimlar)
+    // yuklangach ustiga almashtiriladi.
+    setViewContract({
+      id: c.id,
+      contractNo: c.contractNo,
+      startDate: c.startDate,
+      endDate: c.endDate,
+      departments: c.departments ?? [],
+      contractType: c.contractType,
+      contractParty: c.contractParty,
+      status: c.status,
+      notes: null,
+      isActive: c.isActive,
+      createdByFullName: null,
+      products: c.products.map(p => ({
+        id: p.id,
+        contractId: c.id,
+        productCatalogId: null,
+        productCode: null,
+        productType: p.productType,
+        quantity: p.quantity,
+        unit: p.unit,
+        orderIndex: 0,
+        notes: p.notes ?? null,
+        status: p.status,
+        departments: p.departments ?? [],
+        assignedUsers: [],
+      })),
+    });
     setDrawerFiles([]);
     setDrawerUsers([]);
     setDrawerTzFiles([]);
@@ -166,7 +196,23 @@ export default function ContractsPage() {
         contractService.getTzFiles(c.id),
       ]);
       setViewContract(fresh);
-      setContracts(prev => prev.map(x => x.id === fresh.id ? fresh : x));
+      // Ro'yxat qatorini yangilaymiz, lekin faqat ro'yxatda hisoblanadigan
+      // topshirish miqdorlarini saqlab qolgan holda.
+      setContracts(prev => prev.map(x => x.id === fresh.id
+        ? {
+            ...x,
+            contractNo:    fresh.contractNo,
+            contractParty: fresh.contractParty,
+            startDate:     fresh.startDate,
+            endDate:       fresh.endDate,
+            contractType:  fresh.contractType,
+            status:        fresh.status,
+            isActive:      fresh.isActive,
+            products:      fresh.products.map(p => ({
+              id: p.id, productType: p.productType, quantity: p.quantity, unit: p.unit, status: p.status,
+            })),
+          }
+        : x));
       setDrawerFiles(files);
       setDrawerUsers(users);
       setDrawerTzFiles(tzFiles);
@@ -275,14 +321,18 @@ export default function ContractsPage() {
     setShowForm(true);
   };
 
-  const openEdit = async (c: ContractResponse) => {
+  const openEdit = async (summary: ContractSummary) => {
     sessionStorage.removeItem("draft_contracts");
-    setEditTarget(c);
 
-    const [lookup, depts] = await Promise.all([
+    // Ro'yxat qatorida forma uchun kerakli hamma narsa yo'q (izoh, katalog kodi,
+    // mahsulot bo'limlari va biriktirilgan xodimlar) — to'liq shartnoma faqat shu
+    // yerda, foydalanuvchi "Tahrirlash"ni bosganda yuklanadi.
+    const [c, lookup, depts] = await Promise.all([
+      contractService.getById(summary.id),
       allUsers.length > 0 ? Promise.resolve(allUsers) : userService.getLookup(),
       departments.length > 0 ? Promise.resolve(departments) : departmentService.getAllFull().then(d => d.filter(dep => dep.isActive)),
     ]);
+    setEditTarget(c);
     if (lookup !== allUsers) setAllUsers(lookup);
     if (depts !== departments) setDepartments(depts);
 

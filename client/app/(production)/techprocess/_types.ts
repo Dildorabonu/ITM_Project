@@ -47,10 +47,7 @@ export type ColField = "no"|"name"|"unit"|"readyQty"|"wasteQty"|"totalQty"|"phot
 // Backend `/api/contract/readiness` endpointidan keladi; tartibni va prioritetni back hisoblaydi.
 export interface ReadinessDrawingSummary {
   id: string;
-  title: string;
-  notes: string | null;
   status: DrawingStatus;
-  createdAt: string;
 }
 
 export interface ReadinessTechProcessSummary {
@@ -58,17 +55,13 @@ export interface ReadinessTechProcessSummary {
   title: string;
   notes: string | null;
   status: ProcessStatus;
-  currentStep: number;
-  createdAt: string;
 }
 
 export interface ReadinessCostNormSummary {
   id: string;
   title: string;
-  notes: string | null;
   status: DrawingStatus;
   itemCount: number;
-  createdAt: string;
 }
 
 export interface ContractReadinessScope {

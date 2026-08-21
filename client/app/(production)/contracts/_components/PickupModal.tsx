@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  contractService,
   ContractProductStatus,
-  type ContractResponse,
+  type ContractSummary,
 } from "@/lib/userService";
 import { shipmentBatchService, ShipmentBatchKind, type ShipmentBatch, type ShipmentReady } from "@/lib/shipments";
 import { useAuthStore } from "@/lib/store/authStore";
@@ -20,7 +21,7 @@ export function PickupModal({
   onClose,
   onChanged,
 }: {
-  contract: ContractResponse;
+  contract: ContractSummary;
   onClose: () => void;
   // Partiya qo'shilganda chaqiriladi — ro'yxatdagi badge yangilanishi uchun.
   onChanged: () => void;
@@ -34,6 +35,9 @@ export function PickupModal({
   // Ishlab chiqarish partiyalari — olib ketish qaysi partiyadan ekanini tanlash uchun.
   const [prodBatches, setProdBatches] = useState<ShipmentBatch[]>([]);
   const [readyList, setReadyList] = useState<ShipmentReady[] | null>(null);
+  // Mahsulot → bo'lim. Ro'yxat javobi yengil bo'lgani uchun bo'limlar shu yerda,
+  // modal ochilganda to'liq shartnomadan olinadi.
+  const [deptByProduct, setDeptByProduct] = useState<Map<string, string | null>>(new Map());
   const [loading, setLoading] = useState(true);
   const [productId, setProductId] = useState("");
   // "auto" — miqdor eng eski partiyadan boshlab avtomatik taqsimlanadi.
@@ -58,12 +62,16 @@ export function PickupModal({
         .catch(() => [] as ShipmentBatch[]),
       // Tayyor miqdor yuklanmasa (null) — eski xatti-harakat: to'liq miqdor limit.
       shipmentBatchService.getReady(contract.id).catch(() => null),
+      contractService.getById(contract.id).catch(() => null),
     ])
-      .then(([list, prod, ready]) => {
+      .then(([list, prod, ready, full]) => {
         if (ignore) return;
         setBatches(list);
         setProdBatches(prod);
         setReadyList(ready);
+        setDeptByProduct(new Map(
+          (full?.products ?? []).map((p) => [p.id, p.departments[0]?.id ?? null] as const),
+        ));
       })
       .finally(() => { if (!ignore) setLoading(false); });
     return () => { ignore = true; };
@@ -174,7 +182,7 @@ export function PickupModal({
         const createdList = await shipmentBatchService.createPickupAuto({
           contractId: contract.id,
           contractProductId: selected.id,
-          departmentId: selected.departments[0]?.id ?? null,
+          departmentId: deptByProduct.get(selected.id) ?? null,
           amount: parsed,
         });
         setBatches((prev) => [...prev, ...createdList]);
@@ -182,7 +190,7 @@ export function PickupModal({
         const created = await shipmentBatchService.create({
           contractId: contract.id,
           contractProductId: selected.id,
-          departmentId: selected.departments[0]?.id ?? null,
+          departmentId: deptByProduct.get(selected.id) ?? null,
           amount: parsed,
           kind: ShipmentBatchKind.CustomerPickup,
           sourceBatchId: sourceBatch?.id ?? null,

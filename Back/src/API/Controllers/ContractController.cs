@@ -23,23 +23,32 @@ public class ContractController : ControllerBase
         _attachmentService = attachmentService;
     }
 
-    [HttpGet]
-    public async Task<IActionResult> GetAll(
-        [FromQuery] ContractStatus? status = null,
-        [FromQuery] Guid? departmentId = null,
-        [FromQuery] bool? isActive = null)
-    {
-        var canView    = User.HasClaim("perm", "Contracts.View");
-        var viewAll    = User.HasClaim("perm", "Contracts.ViewAll");
+    // ── Claim helperlari ─────────────────────────────────────────────────────
 
-        if (!canView && !viewAll)
+    private bool TryGetUserId(out Guid userId)
+        => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out userId);
+
+    // Shartnomani ko'rish huquqi: "View" — faqat o'ziga biriktirilganlar,
+    // "ViewAll" — barchasi. `viewAll` shu yerda aniqlanib servisga uzatiladi.
+    private bool TryGetContractScope(string module, out bool viewAll)
+    {
+        viewAll = User.HasClaim("perm", $"{module}.ViewAll");
+        return viewAll || User.HasClaim("perm", $"{module}.View");
+    }
+
+    // ── Contracts ────────────────────────────────────────────────────────────
+
+    // Dropdown/lookup ro'yxati — yengil `ContractSummaryDto` qaytaradi.
+    [HttpGet]
+    public async Task<IActionResult> GetAll([FromQuery] bool? isActive = null)
+    {
+        if (!TryGetContractScope("Contracts", out var viewAll))
             return Forbid();
 
-        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!Guid.TryParse(userIdClaim, out var userId))
+        if (!TryGetUserId(out var userId))
             return Unauthorized();
 
-        var result = await _contractService.GetAllAsync(userId, viewAll, status, departmentId, isActive);
+        var result = await _contractService.GetAllAsync(userId, viewAll, isActive);
         return Ok(result);
     }
 
@@ -55,14 +64,10 @@ public class ContractController : ControllerBase
         [FromQuery] string? sortBy = null,
         [FromQuery] bool sortDesc = false)
     {
-        var canView = User.HasClaim("perm", "Contracts.View");
-        var viewAll = User.HasClaim("perm", "Contracts.ViewAll");
-
-        if (!canView && !viewAll)
+        if (!TryGetContractScope("Contracts", out var viewAll))
             return Forbid();
 
-        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!Guid.TryParse(userIdClaim, out var userId))
+        if (!TryGetUserId(out var userId))
             return Unauthorized();
 
         var pagination = new PaginationParams { Page = page, PageSize = pageSize };
@@ -75,20 +80,18 @@ public class ContractController : ControllerBase
     [HttpGet("pending-pickup-count")]
     public async Task<IActionResult> GetPendingPickupCount()
     {
-        var canView = User.HasClaim("perm", "Contracts.View");
-        var viewAll = User.HasClaim("perm", "Contracts.ViewAll");
-
-        if (!canView && !viewAll)
+        if (!TryGetContractScope("Contracts", out var viewAll))
             return Forbid();
 
-        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!Guid.TryParse(userIdClaim, out var userId))
+        if (!TryGetUserId(out var userId))
             return Unauthorized();
 
         var result = await _contractService.GetPendingPickupCountAsync(userId, viewAll);
         return Ok(result);
     }
 
+    // Diqqat: bu endpoint ataylab `[HasPermission]` siz — texnik chizma sahifasi
+    // uni Contracts huquqisiz ham chaqiradi. Faqat `[Authorize]` bilan himoyalangan.
     [HttpGet("{id:guid}/products-lookup")]
     public async Task<IActionResult> GetProductsLookup(Guid id)
     {
@@ -112,8 +115,7 @@ public class ContractController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] ContractCreateDto dto)
     {
-        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!Guid.TryParse(userIdClaim, out var userId))
+        if (!TryGetUserId(out var userId))
             return Unauthorized();
 
         var result = await _contractService.CreateAsync(dto, userId);
@@ -137,18 +139,6 @@ public class ContractController : ControllerBase
     }
 
     [HasPermission("Contracts.Update")]
-    [HttpPut("{id:guid}/status")]
-    public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] ContractStatusUpdateDto dto)
-    {
-        var result = await _contractService.UpdateStatusAsync(id, dto.Status);
-
-        if (!result.Succeeded)
-            return NotFound(result);
-
-        return Ok(result);
-    }
-
-    [HasPermission("Contracts.Update")]
     [HttpPatch("{id:guid}/deactivate")]
     public async Task<IActionResult> Deactivate(Guid id, [FromBody] ContractDeactivateDto dto)
     {
@@ -167,7 +157,7 @@ public class ContractController : ControllerBase
         var result = await _contractService.ActivateAsync(id);
 
         if (!result.Succeeded)
-            return NotFound(result);
+            return result.StatusCode == 404 ? NotFound(result) : BadRequest(result);
 
         return Ok(result);
     }
@@ -177,15 +167,11 @@ public class ContractController : ControllerBase
     [HttpGet("my-tasks")]
     public async Task<IActionResult> GetMyProductionTasks([FromQuery] bool? isActive = null)
     {
-        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!Guid.TryParse(userIdClaim, out var userId))
-            return Unauthorized();
-
-        var viewAll = User.HasClaim(c => c.Type == "perm" && c.Value == "Tasks.ViewAll");
-        var hasView = User.HasClaim(c => c.Type == "perm" && c.Value == "Tasks.View");
-
-        if (!viewAll && !hasView)
+        if (!TryGetContractScope("Tasks", out var viewAll))
             return Forbid();
+
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
 
         var result = await _contractService.GetMyProductionTasksAsync(userId, viewAll, isActive);
         return Ok(result);
@@ -200,15 +186,11 @@ public class ContractController : ControllerBase
         [FromQuery] string? search = null,
         [FromQuery] bool? isActive = null)
     {
-        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!Guid.TryParse(userIdClaim, out var userId))
-            return Unauthorized();
-
-        var canView = User.HasClaim("perm", "TechProcess.View");
-        var viewAll = User.HasClaim("perm", "TechProcess.ViewAll");
-
-        if (!canView && !viewAll)
+        if (!TryGetContractScope("TechProcess", out var viewAll))
             return Forbid();
+
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
 
         var pagination = new PaginationParams { Page = page, PageSize = pageSize };
         var result = await _contractService.GetReadinessOverviewAsync(userId, viewAll, pagination, search, isActive);
@@ -229,58 +211,29 @@ public class ContractController : ControllerBase
         return Ok(result);
     }
 
-    [HasPermission("Contracts.Update")]
-    [HttpPost("{id:guid}/users")]
-    public async Task<IActionResult> AssignUsers(Guid id, [FromBody] AssignContractUsersDto dto)
-    {
-        var result = await _contractService.AssignUsersAsync(id, dto.Users);
-
-        if (!result.Succeeded)
-            return result.StatusCode == 404 ? NotFound(result) : BadRequest(result);
-
-        return Ok(result);
-    }
-
-    [HasPermission("Contracts.Update")]
-    [HttpDelete("{id:guid}/users/{userId:guid}")]
-    public async Task<IActionResult> RemoveUser(Guid id, Guid userId)
-    {
-        var result = await _contractService.RemoveUserAsync(id, userId);
-
-        if (!result.Succeeded)
-            return NotFound(result);
-
-        return Ok(result);
-    }
-
     // ── Files ────────────────────────────────────────────────────────────────
+    //
+    // Uch xil fayl to'plami bitta Attachment servisiga tayanadi va faqat
+    // `entityType` bilan farqlanadi: shartnoma fayllari, shartnoma TZ fayllari
+    // va mahsulot TZ fayllari. Route'lar alohida, mantiq esa umumiy helperlarda.
 
-    private const string EntityType   = "contracts";
-    private const string TzEntityType = "contract-tz";
+    private const string EntityType          = "contracts";
+    private const string TzEntityType        = "contract-tz";
+    private const string ProductTzEntityType = "contract-product-tz";
 
-    [HasPermission("Contracts.View")]
-    [HttpGet("{id:guid}/files")]
-    public async Task<IActionResult> GetFiles(Guid id)
-    {
-        var result = await _attachmentService.GetAllAsync(EntityType, id);
-        return Ok(result);
-    }
+    private const int MaxUploadBytes = 50 * 1024 * 1024; // 50 MB
 
-    [HasPermission("Contracts.Update")]
-    [HttpPost("{id:guid}/files")]
-    [RequestSizeLimit(50 * 1024 * 1024)] // 50 MB
-    public async Task<IActionResult> UploadFile(Guid id, IFormFile file)
+    private async Task<IActionResult> UploadAsync(string entityType, Guid entityId, IFormFile file)
     {
         if (!FileValidator.TryValidate(file, out var validationError))
             return BadRequest(validationError);
 
-        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!Guid.TryParse(userIdClaim, out var userId))
+        if (!TryGetUserId(out var userId))
             return Unauthorized();
 
         await using var stream = file.OpenReadStream();
         var result = await _attachmentService.UploadAsync(
-            EntityType, id,
+            entityType, entityId,
             stream, file.FileName, file.ContentType, file.Length,
             userId);
 
@@ -290,151 +243,96 @@ public class ContractController : ControllerBase
         return StatusCode(201, result);
     }
 
-    [HasPermission("Contracts.View")]
-    [HttpGet("{id:guid}/files/{fileId:guid}/download")]
-    public async Task<IActionResult> DownloadFile(Guid id, Guid fileId)
+    // Fayl diskdan oqim (stream) bilan uzatiladi — butun faylni xotiraga
+    // o'qib olish 50 MB gacha bo'lgan yuklamalarda keraksiz yuk edi.
+    private async Task<IActionResult> DownloadAsync(string entityType, Guid entityId, Guid fileId)
     {
-        var result = await _attachmentService.GetForDownloadAsync(EntityType, id, fileId);
+        var result = await _attachmentService.GetForDownloadAsync(entityType, entityId, fileId);
 
         if (!result.Succeeded)
             return NotFound(result);
 
         var (filePath, contentType, fileName) = result.Result;
-        var bytes = await System.IO.File.ReadAllBytesAsync(filePath);
-        return File(bytes, contentType, fileName);
+        return PhysicalFile(filePath, contentType, fileName, enableRangeProcessing: true);
     }
 
-    [HasPermission("Contracts.Update")]
-    [HttpDelete("{id:guid}/files/{fileId:guid}")]
-    public async Task<IActionResult> DeleteFile(Guid id, Guid fileId)
+    private async Task<IActionResult> DeleteFileAsync(string entityType, Guid entityId, Guid fileId)
     {
-        var result = await _attachmentService.DeleteAsync(EntityType, id, fileId);
+        var result = await _attachmentService.DeleteAsync(entityType, entityId, fileId);
 
         if (!result.Succeeded)
             return NotFound(result);
 
         return Ok(result);
     }
+
+    [HasPermission("Contracts.View")]
+    [HttpGet("{id:guid}/files")]
+    public async Task<IActionResult> GetFiles(Guid id)
+        => Ok(await _attachmentService.GetAllAsync(EntityType, id));
+
+    [HasPermission("Contracts.Update")]
+    [HttpPost("{id:guid}/files")]
+    [RequestSizeLimit(MaxUploadBytes)]
+    public Task<IActionResult> UploadFile(Guid id, IFormFile file)
+        => UploadAsync(EntityType, id, file);
+
+    [HasPermission("Contracts.View")]
+    [HttpGet("{id:guid}/files/{fileId:guid}/download")]
+    public Task<IActionResult> DownloadFile(Guid id, Guid fileId)
+        => DownloadAsync(EntityType, id, fileId);
+
+    [HasPermission("Contracts.Update")]
+    [HttpDelete("{id:guid}/files/{fileId:guid}")]
+    public Task<IActionResult> DeleteFile(Guid id, Guid fileId)
+        => DeleteFileAsync(EntityType, id, fileId);
 
     // ── TZ Files ─────────────────────────────────────────────────────────────
 
     [HasPermission("Contracts.View")]
     [HttpGet("{id:guid}/tz-files")]
     public async Task<IActionResult> GetTzFiles(Guid id)
-    {
-        var result = await _attachmentService.GetAllAsync(TzEntityType, id);
-        return Ok(result);
-    }
+        => Ok(await _attachmentService.GetAllAsync(TzEntityType, id));
 
     [HasPermission("Contracts.Update")]
     [HttpPost("{id:guid}/tz-files")]
-    [RequestSizeLimit(50 * 1024 * 1024)]
-    public async Task<IActionResult> UploadTzFile(Guid id, IFormFile file)
-    {
-        if (!FileValidator.TryValidate(file, out var validationError))
-            return BadRequest(validationError);
-
-        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!Guid.TryParse(userIdClaim, out var userId))
-            return Unauthorized();
-
-        await using var stream = file.OpenReadStream();
-        var result = await _attachmentService.UploadAsync(
-            TzEntityType, id,
-            stream, file.FileName, file.ContentType, file.Length,
-            userId);
-
-        if (!result.Succeeded)
-            return BadRequest(result);
-
-        return StatusCode(201, result);
-    }
+    [RequestSizeLimit(MaxUploadBytes)]
+    public Task<IActionResult> UploadTzFile(Guid id, IFormFile file)
+        => UploadAsync(TzEntityType, id, file);
 
     [HasPermission("Contracts.View")]
     [HttpGet("{id:guid}/tz-files/{fileId:guid}/download")]
-    public async Task<IActionResult> DownloadTzFile(Guid id, Guid fileId)
-    {
-        var result = await _attachmentService.GetForDownloadAsync(TzEntityType, id, fileId);
-
-        if (!result.Succeeded)
-            return NotFound(result);
-
-        var (filePath, contentType, fileName) = result.Result;
-        var bytes = await System.IO.File.ReadAllBytesAsync(filePath);
-        return File(bytes, contentType, fileName);
-    }
+    public Task<IActionResult> DownloadTzFile(Guid id, Guid fileId)
+        => DownloadAsync(TzEntityType, id, fileId);
 
     [HasPermission("Contracts.Update")]
     [HttpDelete("{id:guid}/tz-files/{fileId:guid}")]
-    public async Task<IActionResult> DeleteTzFile(Guid id, Guid fileId)
-    {
-        var result = await _attachmentService.DeleteAsync(TzEntityType, id, fileId);
-
-        if (!result.Succeeded)
-            return NotFound(result);
-
-        return Ok(result);
-    }
+    public Task<IActionResult> DeleteTzFile(Guid id, Guid fileId)
+        => DeleteFileAsync(TzEntityType, id, fileId);
 
     // ── Product TZ Files ─────────────────────────────────────────────────────
-
-    private const string ProductTzEntityType = "contract-product-tz";
+    //
+    // Bu to'plam mahsulot Id'siga bog'lanadi; route'dagi shartnoma Id'si faqat
+    // manzil ierarxiyasi uchun.
 
     [HasPermission("Contracts.View")]
     [HttpGet("{id:guid}/products/{productId:guid}/tz-files")]
     public async Task<IActionResult> GetProductTzFiles(Guid id, Guid productId)
-    {
-        var result = await _attachmentService.GetAllAsync(ProductTzEntityType, productId);
-        return Ok(result);
-    }
+        => Ok(await _attachmentService.GetAllAsync(ProductTzEntityType, productId));
 
     [HasPermission("Contracts.Update")]
     [HttpPost("{id:guid}/products/{productId:guid}/tz-files")]
-    [RequestSizeLimit(50 * 1024 * 1024)]
-    public async Task<IActionResult> UploadProductTzFile(Guid id, Guid productId, IFormFile file)
-    {
-        if (!FileValidator.TryValidate(file, out var validationError))
-            return BadRequest(validationError);
-
-        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!Guid.TryParse(userIdClaim, out var userId))
-            return Unauthorized();
-
-        await using var stream = file.OpenReadStream();
-        var result = await _attachmentService.UploadAsync(
-            ProductTzEntityType, productId,
-            stream, file.FileName, file.ContentType, file.Length,
-            userId);
-
-        if (!result.Succeeded)
-            return BadRequest(result);
-
-        return StatusCode(201, result);
-    }
+    [RequestSizeLimit(MaxUploadBytes)]
+    public Task<IActionResult> UploadProductTzFile(Guid id, Guid productId, IFormFile file)
+        => UploadAsync(ProductTzEntityType, productId, file);
 
     [HasPermission("Contracts.View")]
     [HttpGet("{id:guid}/products/{productId:guid}/tz-files/{fileId:guid}/download")]
-    public async Task<IActionResult> DownloadProductTzFile(Guid id, Guid productId, Guid fileId)
-    {
-        var result = await _attachmentService.GetForDownloadAsync(ProductTzEntityType, productId, fileId);
-
-        if (!result.Succeeded)
-            return NotFound(result);
-
-        var (filePath, contentType, fileName) = result.Result;
-        var bytes = await System.IO.File.ReadAllBytesAsync(filePath);
-        return File(bytes, contentType, fileName);
-    }
+    public Task<IActionResult> DownloadProductTzFile(Guid id, Guid productId, Guid fileId)
+        => DownloadAsync(ProductTzEntityType, productId, fileId);
 
     [HasPermission("Contracts.Update")]
     [HttpDelete("{id:guid}/products/{productId:guid}/tz-files/{fileId:guid}")]
-    public async Task<IActionResult> DeleteProductTzFile(Guid id, Guid productId, Guid fileId)
-    {
-        var result = await _attachmentService.DeleteAsync(ProductTzEntityType, productId, fileId);
-
-        if (!result.Succeeded)
-            return NotFound(result);
-
-        return Ok(result);
-    }
+    public Task<IActionResult> DeleteProductTzFile(Guid id, Guid productId, Guid fileId)
+        => DeleteFileAsync(ProductTzEntityType, productId, fileId);
 }

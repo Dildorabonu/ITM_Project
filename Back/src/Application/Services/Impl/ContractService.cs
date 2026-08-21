@@ -28,54 +28,87 @@ public class ContractService : IContractService
         _activityLogService = activityLogService;
     }
 
-    public async Task<ApiResult<IEnumerable<ContractResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, ContractStatus? status = null, Guid? departmentId = null, bool? isActive = null)
+    // Ko'rinish filtri uchun foydalanuvchining bo'limi — har bir so'rovda
+    // bir marta olinadi va so'rov ichida parametr sifatida ishlatiladi.
+    private Task<Guid?> GetUserDepartmentIdAsync(Guid userId) =>
+        _context.Users.AsNoTracking()
+            .Where(u => u.Id == userId)
+            .Select(u => u.DepartmentId)
+            .FirstOrDefaultAsync();
+
+    // Lookup ro'yxati (`GET /api/contract`) — shartnoma/mahsulot tanlash uchun
+    // dropdownlarda ishlatiladi. Entity Include qilinmaydi: so'rov to'g'ridan-to'g'ri
+    // yengil DTO'ga proyeksiya qilinadi, shuning uchun yaratuvchi, biriktirilgan
+    // xodimlar va katalog kabi ortiqcha joinlar umuman bajarilmaydi.
+    public async Task<ApiResult<IEnumerable<ContractSummaryDto>>> GetAllAsync(Guid currentUserId, bool viewAll, bool? isActive = null)
     {
-        var query = _context.Contracts
-            .Include(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
-            .Include(c => c.Creator)
-            .Include(c => c.Products).ThenInclude(p => p.ProductCatalog)
-            .Include(c => c.Products).ThenInclude(p => p.ProductDepartments).ThenInclude(pd => pd.Department)
-            .Include(c => c.Products).ThenInclude(p => p.ProductUsers).ThenInclude(pu => pu.User).ThenInclude(u => u.Department)
-            .AsNoTracking()
-            // Bir nechta collection Include — Cartesian explosion'ni oldini olish uchun
-            // split query ishlatamiz (har bir collection alohida so'rov bilan yuklanadi).
-            .AsSplitQuery()
-            .AsQueryable();
+        Guid? userDeptId = viewAll ? null : await GetUserDepartmentIdAsync(currentUserId);
+
+        var query = _context.Contracts.AsNoTracking();
 
         if (!viewAll)
         {
             query = query.Where(c =>
                 c.ContractUsers.Any(cu => cu.UserId == currentUserId) ||
                 c.Products.Any(p => p.ProductUsers.Any(pu => pu.UserId == currentUserId)) ||
-                c.ContractDepartments.Any(cd =>
-                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == cd.DepartmentId)) ||
-                c.Products.Any(p => p.ProductDepartments.Any(pd =>
-                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == pd.DepartmentId))));
+                c.ContractDepartments.Any(cd => cd.DepartmentId == userDeptId) ||
+                c.Products.Any(p => p.ProductDepartments.Any(pd => pd.DepartmentId == userDeptId)));
         }
-
-        if (status.HasValue)
-            query = query.Where(c => c.Status == status.Value);
-
-        if (departmentId.HasValue)
-            query = query.Where(c =>
-                c.ContractDepartments.Any(cd => cd.DepartmentId == departmentId.Value) ||
-                c.Products.Any(p => p.ProductDepartments.Any(pd => pd.DepartmentId == departmentId.Value)));
 
         if (isActive.HasValue)
             query = query.Where(c => c.IsActive == isActive.Value);
 
         var contracts = await query
             .OrderByDescending(c => c.CreatedAt)
+            .Select(c => new ContractSummaryDto
+            {
+                Id            = c.Id,
+                ContractNo    = c.ContractNo,
+                ContractParty = c.ContractParty,
+                StartDate     = c.StartDate,
+                EndDate       = c.EndDate,
+                ContractType  = c.ContractType,
+                Status        = c.Status,
+                IsActive      = c.IsActive,
+                Departments   = c.ContractDepartments
+                    .Where(cd => cd.Department != null)
+                    .Select(cd => new ContractDepartmentDto
+                    {
+                        Id   = cd.Department!.Id,
+                        Name = cd.Department.Name,
+                        Type = cd.Department.Type,
+                    }).ToList(),
+                Products = c.Products
+                    .Where(p => viewAll
+                        || c.ContractUsers.Any(cu => cu.UserId == currentUserId)
+                        || c.ContractDepartments.Any(cd => cd.DepartmentId == userDeptId)
+                        || p.ProductUsers.Any(pu => pu.UserId == currentUserId)
+                        || p.ProductDepartments.Any(pd => pd.DepartmentId == userDeptId))
+                    .OrderBy(p => p.OrderIndex)
+                    .Select(p => new ContractSummaryProductDto
+                    {
+                        Id          = p.Id,
+                        ProductType = p.ProductType,
+                        Quantity    = p.Quantity,
+                        Unit        = p.Unit,
+                        Status      = p.Status,
+                        Notes       = p.Notes,
+                        Departments = p.ProductDepartments
+                            .Where(pd => pd.Department != null)
+                            .Select(pd => new ContractDepartmentDto
+                            {
+                                Id   = pd.Department!.Id,
+                                Name = pd.Department.Name,
+                                Type = pd.Department.Type,
+                            }).ToList(),
+                    }).ToList(),
+            })
             .ToListAsync();
 
-        // For non-admin users, hide products they aren't assigned to (by user-role or department-of-user).
-        if (!viewAll)
-            FilterVisibleProducts(contracts, currentUserId);
-
-        return ApiResult<IEnumerable<ContractResponseDto>>.Success(contracts.Select(MapToResponse));
+        return ApiResult<IEnumerable<ContractSummaryDto>>.Success(contracts);
     }
 
-    public async Task<ApiResult<PagedResult<ContractResponseDto>>> GetPagedAsync(
+    public async Task<ApiResult<PagedResult<ContractSummaryDto>>> GetPagedAsync(
         Guid currentUserId,
         bool viewAll,
         PaginationParams pagination,
@@ -87,24 +120,17 @@ public class ContractService : IContractService
         string? sortBy = null,
         bool sortDesc = false)
     {
-        var query = _context.Contracts
-            .Include(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
-            .Include(c => c.Creator)
-            .Include(c => c.Products).ThenInclude(p => p.ProductDepartments).ThenInclude(pd => pd.Department)
-            .Include(c => c.Products).ThenInclude(p => p.ProductUsers).ThenInclude(pu => pu.User).ThenInclude(u => u.Department)
-            .AsNoTracking()
-            .AsSplitQuery()
-            .AsQueryable();
+        Guid? userDeptId = viewAll ? null : await GetUserDepartmentIdAsync(currentUserId);
+
+        var query = _context.Contracts.AsNoTracking();
 
         if (!viewAll)
         {
             query = query.Where(c =>
                 c.ContractUsers.Any(cu => cu.UserId == currentUserId) ||
                 c.Products.Any(p => p.ProductUsers.Any(pu => pu.UserId == currentUserId)) ||
-                c.ContractDepartments.Any(cd =>
-                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == cd.DepartmentId)) ||
-                c.Products.Any(p => p.ProductDepartments.Any(pd =>
-                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == pd.DepartmentId))));
+                c.ContractDepartments.Any(cd => cd.DepartmentId == userDeptId) ||
+                c.Products.Any(p => p.ProductDepartments.Any(pd => pd.DepartmentId == userDeptId)));
         }
 
         if (status.HasValue)
@@ -159,51 +185,56 @@ public class ContractService : IContractService
             _                       => query.OrderByDescending(c => c.CreatedAt),
         };
 
-        var contracts = await ordered
-            // Split query + Skip/Take uchun barqaror tartib shart — saralash ustuni
-            // unikal bo'lmasligi mumkin, shuning uchun Id bilan ham tartiblaymiz.
+        // Ro'yxat jadvali uchun kerakli maydonlargina tanlanadi. Mijozga topshirish
+        // hisobi (umumiy/jo'natilgan miqdor) shu bitta so'rov ichida korrelyatsion
+        // subquery sifatida hisoblanadi — oldingi qo'shimcha ikkita GROUP BY so'rovi
+        // va butun entity grafini yuklash olib tashlandi.
+        var items = await ordered
+            // Skip/Take uchun barqaror tartib shart — saralash ustuni unikal
+            // bo'lmasligi mumkin, shuning uchun Id bilan ham tartiblaymiz.
             .ThenBy(c => c.Id)
             .Skip((pagination.Page - 1) * pagination.PageSize)
             .Take(pagination.PageSize)
+            .Select(c => new ContractSummaryDto
+            {
+                Id            = c.Id,
+                ContractNo    = c.ContractNo,
+                ContractParty = c.ContractParty,
+                StartDate     = c.StartDate,
+                EndDate       = c.EndDate,
+                ContractType  = c.ContractType,
+                Status        = c.Status,
+                IsActive      = c.IsActive,
+                // Umumiy miqdor barcha faol mahsulotlardan olinadi (ko'rinish
+                // filtridan mustaqil) — arxiv "Yakunlangan" badge'i uchun.
+                TotalQuantity = c.Products
+                    .Where(p => p.IsActive && p.Status != ContractProductStatus.Cancelled)
+                    .Sum(p => (decimal?)p.Quantity) ?? 0,
+                // Faqat mijoz olib ketgan partiyalar — ishlab chiqarishning ichki
+                // partiyalari (Production) mijozga topshirilgan hisoblanmaydi.
+                ShippedQuantity = _context.ShipmentBatches
+                    .Where(s => s.ContractId == c.Id && s.Kind == ShipmentBatchKind.CustomerPickup)
+                    .Sum(s => (decimal?)s.Amount) ?? 0,
+                Products = c.Products
+                    .Where(p => viewAll
+                        || c.ContractUsers.Any(cu => cu.UserId == currentUserId)
+                        || c.ContractDepartments.Any(cd => cd.DepartmentId == userDeptId)
+                        || p.ProductUsers.Any(pu => pu.UserId == currentUserId)
+                        || p.ProductDepartments.Any(pd => pd.DepartmentId == userDeptId))
+                    .OrderBy(p => p.OrderIndex)
+                    .Select(p => new ContractSummaryProductDto
+                    {
+                        Id          = p.Id,
+                        ProductType = p.ProductType,
+                        Quantity    = p.Quantity,
+                        Unit        = p.Unit,
+                        Status      = p.Status,
+                    }).ToList(),
+            })
             .ToListAsync();
 
-        if (!viewAll)
-            FilterVisibleProducts(contracts, currentUserId);
-
-        // Mijozga topshirish hisobi (arxiv "Yakunlangan" badge'i uchun): umumiy
-        // miqdor barcha faol mahsulotlardan olinadi (ko'rinish filtridan mustaqil),
-        // jo'natilgan miqdor esa ShipmentBatch yig'indisi.
-        var pageIds = contracts.Select(c => c.Id).ToList();
-
-        var totalsByContract = await _context.ContractProducts
-            .AsNoTracking()
-            .Where(p => pageIds.Contains(p.ContractId)
-                        && p.IsActive
-                        && p.Status != ContractProductStatus.Cancelled)
-            .GroupBy(p => p.ContractId)
-            .Select(g => new { ContractId = g.Key, Total = g.Sum(p => p.Quantity) })
-            .ToDictionaryAsync(x => x.ContractId, x => x.Total);
-
-        // Faqat mijoz olib ketgan partiyalar — ishlab chiqarishning ichki
-        // partiyalari (Production) mijozga topshirilgan hisoblanmaydi.
-        var shippedByContract = await _context.ShipmentBatches
-            .AsNoTracking()
-            .Where(s => pageIds.Contains(s.ContractId)
-                        && s.Kind == ShipmentBatchKind.CustomerPickup)
-            .GroupBy(s => s.ContractId)
-            .Select(g => new { ContractId = g.Key, Shipped = g.Sum(s => s.Amount) })
-            .ToDictionaryAsync(x => x.ContractId, x => x.Shipped);
-
-        var items = contracts.Select(c =>
-        {
-            var dto = MapToResponse(c);
-            dto.TotalQuantity   = totalsByContract.GetValueOrDefault(c.Id);
-            dto.ShippedQuantity = shippedByContract.GetValueOrDefault(c.Id);
-            return dto;
-        });
-
-        var paged = PagedResult<ContractResponseDto>.Create(items, totalCount, pagination);
-        return ApiResult<PagedResult<ContractResponseDto>>.Success(paged);
+        var paged = PagedResult<ContractSummaryDto>.Create(items, totalCount, pagination);
+        return ApiResult<PagedResult<ContractSummaryDto>>.Success(paged);
     }
 
     // Mijoz hali to'liq olib ketmagan yakunlangan shartnomalar soni — arxiv
@@ -211,6 +242,8 @@ public class ContractService : IContractService
     // jo'natilgan partiyalar yig'indisidan katta bo'lsa — qoldiq bor.
     public async Task<ApiResult<int>> GetPendingPickupCountAsync(Guid currentUserId, bool viewAll)
     {
+        Guid? userDeptId = viewAll ? null : await GetUserDepartmentIdAsync(currentUserId);
+
         var query = _context.Contracts
             .AsNoTracking()
             .Where(c => c.IsActive && c.Status == ContractStatus.Completed);
@@ -220,10 +253,8 @@ public class ContractService : IContractService
             query = query.Where(c =>
                 c.ContractUsers.Any(cu => cu.UserId == currentUserId) ||
                 c.Products.Any(p => p.ProductUsers.Any(pu => pu.UserId == currentUserId)) ||
-                c.ContractDepartments.Any(cd =>
-                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == cd.DepartmentId)) ||
-                c.Products.Any(p => p.ProductDepartments.Any(pd =>
-                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == pd.DepartmentId))));
+                c.ContractDepartments.Any(cd => cd.DepartmentId == userDeptId) ||
+                c.Products.Any(p => p.ProductDepartments.Any(pd => pd.DepartmentId == userDeptId)));
         }
 
         var count = await query.CountAsync(c =>
@@ -239,47 +270,24 @@ public class ContractService : IContractService
         return ApiResult<int>.Success(count);
     }
 
-    private void FilterVisibleProducts(List<Contract> contracts, Guid currentUserId)
-    {
-        var userDeptId = _context.Users.AsNoTracking()
-            .Where(u => u.Id == currentUserId)
-            .Select(u => u.DepartmentId)
-            .FirstOrDefault();
-
-        foreach (var c in contracts)
-        {
-            // If the user is directly attached to the contract (legacy or contract-wide role), show all products.
-            var directContractAccess = c.ContractUsers.Any(cu => cu.UserId == currentUserId)
-                || (userDeptId.HasValue && c.ContractDepartments.Any(cd => cd.DepartmentId == userDeptId.Value));
-            if (directContractAccess) continue;
-
-            c.Products = c.Products
-                .Where(p =>
-                    p.ProductUsers.Any(pu => pu.UserId == currentUserId) ||
-                    (userDeptId.HasValue && p.ProductDepartments.Any(pd => pd.DepartmentId == userDeptId.Value)))
-                .ToList();
-        }
-    }
-
-    public async Task<ApiResult<IEnumerable<ContractProductResponseDto>>> GetProductsLookupAsync(Guid contractId)
+    // Mahsulot tanlash dropdowni uchun — nomi va miqdoridan boshqa hech narsa kerak emas.
+    public async Task<ApiResult<IEnumerable<ContractSummaryProductDto>>> GetProductsLookupAsync(Guid contractId)
     {
         var products = await _context.ContractProducts
             .AsNoTracking()
             .Where(p => p.ContractId == contractId)
             .OrderBy(p => p.OrderIndex)
-            .Select(p => new ContractProductResponseDto
+            .Select(p => new ContractSummaryProductDto
             {
-                Id = p.Id,
-                ContractId = p.ContractId,
-                ProductCatalogId = p.ProductCatalogId,
-                ProductCode = p.ProductCatalog != null ? p.ProductCatalog.Code : null,
+                Id          = p.Id,
                 ProductType = p.ProductType,
-                Quantity = p.Quantity,
-                Unit = p.Unit,
+                Quantity    = p.Quantity,
+                Unit        = p.Unit,
+                Status      = p.Status,
             })
             .ToListAsync();
 
-        return ApiResult<IEnumerable<ContractProductResponseDto>>.Success(products);
+        return ApiResult<IEnumerable<ContractSummaryProductDto>>.Success(products);
     }
 
     public async Task<ApiResult<ContractResponseDto>> GetByIdAsync(Guid id)
@@ -632,85 +640,6 @@ public class ContractService : IContractService
         });
     }
 
-    public async Task<ApiResult<int>> UpdateStatusAsync(Guid id, ContractStatus status)
-    {
-        var contract = await _context.Contracts
-            .Include(c => c.ContractDepartments)
-            .Include(c => c.ContractUsers)
-            .Include(c => c.Products)
-            .FirstOrDefaultAsync(c => c.Id == id);
-
-        if (contract is null)
-            return ApiResult<int>.Failure([$"Contract with id '{id}' not found."], 404);
-
-        // Manual status changes propagate to active products so the per-product
-        // workflow stays in sync with whatever the operator forced at the
-        // contract level — BUT only forward. Regressing a product to an earlier
-        // stage (e.g. InProduction → DrawingPending) would silently discard
-        // manufactured-product tracking, so backward moves are ignored. A product
-        // that is already further along keeps its advanced state.
-        var productStatus = MapToProductStatus(status);
-        if (productStatus.HasValue)
-        {
-            foreach (var p in contract.Products.Where(p => p.IsActive && p.Status != ContractProductStatus.Cancelled))
-            {
-                if (ProductStageRank(productStatus.Value) > ProductStageRank(p.Status))
-                    p.Status = productStatus.Value;
-            }
-        }
-
-        contract.Status = status;
-        await _context.SaveChangesAsync();
-
-        if (status != ContractStatus.DrawingPending)
-        {
-            var title = $"Shartnoma holati o'zgardi: {contract.ContractNo}";
-            var body  = $"{contract.ContractNo} shartnoma holati «{status}» ga o'zgartirildi.";
-
-            var userIds = contract.ContractUsers.Select(cu => cu.UserId).ToHashSet();
-
-            var deptUserIds = await _context.Users
-                .Where(u => u.IsActive && contract.ContractDepartments.Select(cd => cd.DepartmentId).Contains(u.DepartmentId!.Value))
-                .Select(u => u.Id)
-                .ToListAsync();
-
-            await _notificationService.NotifyUsersAndSuperAdminsAsync(
-                userIds.Union(deptUserIds), title, body, NotificationType.Info, contract.Id);
-        }
-
-        // Recompute from products in case the manual status disagrees with
-        // actual per-product progress (e.g. one product still pending).
-        await ContractStatusHelper.RecomputeContractStatusAsync(_context, contract.Id);
-        await _context.SaveChangesAsync();
-
-        await _manufacturedProductService.SyncForContractAsync(contract.Id);
-
-        return ApiResult<int>.Success(200);
-    }
-
-    // Mahsulot ish bosqichlarining tartibi. Faqat oldinga siljishga ruxsat berish uchun
-    // ishlatiladi. Cancelled — alohida terminal holat (Deactivate orqali boshqariladi),
-    // shuning uchun bu yerda eng yuqori darajada.
-    private static int ProductStageRank(ContractProductStatus status) => status switch
-    {
-        ContractProductStatus.DrawingPending => 0,
-        ContractProductStatus.TechProcessing => 1,
-        ContractProductStatus.InProduction   => 2,
-        ContractProductStatus.Completed      => 3,
-        ContractProductStatus.Cancelled      => 4,
-        _ => 0,
-    };
-
-    private static ContractProductStatus? MapToProductStatus(ContractStatus status) => status switch
-    {
-        ContractStatus.DrawingPending => ContractProductStatus.DrawingPending,
-        ContractStatus.TechProcessing => ContractProductStatus.TechProcessing,
-        ContractStatus.InProduction   => ContractProductStatus.InProduction,
-        ContractStatus.Completed      => ContractProductStatus.Completed,
-        ContractStatus.Cancelled      => ContractProductStatus.Cancelled,
-        _ => null,
-    };
-
     // Re-derives a product's stage from its current TP/CN/drawing state. Used
     // when reactivating a contract — frozen Cancelled status would otherwise
     // hide the product from /manufactured even after its work resumes.
@@ -897,167 +826,98 @@ public class ContractService : IContractService
         return ApiResult<IEnumerable<ContractUserDto>>.Success(users);
     }
 
-    public async Task<ApiResult<int>> AssignUsersAsync(Guid contractId, List<ContractUserAssignItem> users)
+    // Ishlab chiqarish bo'limi xodimining vazifalari. Faqat vazifalar jadvali
+    // uchun kerak bo'lgan maydonlar qaytariladi.
+    public async Task<ApiResult<IEnumerable<ContractSummaryDto>>> GetMyProductionTasksAsync(Guid userId, bool viewAll, bool? isActive = null)
     {
-        var exists = await _context.Contracts.AnyAsync(c => c.Id == contractId);
-        if (!exists)
-            return ApiResult<int>.Failure([$"Contract '{contractId}' not found."], 404);
+        Guid? userDeptId = null;
+        var query = _context.Contracts.AsNoTracking();
 
-        var existing = await _context.ContractUsers
-            .Where(cu => cu.ContractId == contractId)
-            .ToListAsync();
-
-        var newlyAssigned = new List<Guid>();
-
-        foreach (var item in users.DistinctBy(u => u.UserId))
+        if (!viewAll)
         {
-            var ex = existing.FirstOrDefault(e => e.UserId == item.UserId);
-            if (ex is null)
-            {
-                _context.ContractUsers.Add(new ContractUser
+            var user = await _context.Users.AsNoTracking()
+                .Where(u => u.Id == userId)
+                .Select(u => new
                 {
-                    ContractId = contractId,
-                    UserId     = item.UserId,
-                    Role       = item.Role,
-                });
-                newlyAssigned.Add(item.UserId);
-            }
-            else
-            {
-                ex.Role = item.Role;
-            }
-        }
+                    u.DepartmentId,
+                    DepartmentType = u.Department != null ? (DepartmentType?)u.Department.Type : null,
+                })
+                .FirstOrDefaultAsync();
 
-        await _context.SaveChangesAsync();
+            if (user is null)
+                return ApiResult<IEnumerable<ContractSummaryDto>>.Failure(["User not found."], 404);
 
-        if (newlyAssigned.Count > 0)
-        {
-            var contract = await _context.Contracts.AsNoTracking().FirstOrDefaultAsync(c => c.Id == contractId);
-            foreach (var uid in newlyAssigned)
-            {
-                await _notificationService.CreateAsync(
-                    uid,
-                    $"Shartnomaga tayinlandingiz: {contract?.ContractNo}",
-                    $"Sizga «{contract?.ContractNo}» shartnomasi bo'yicha vazifa berildi.",
-                    NotificationType.Task,
-                    contractId);
-            }
+            if (user.DepartmentType != DepartmentType.IshlabChiqarish)
+                return ApiResult<IEnumerable<ContractSummaryDto>>.Success(Array.Empty<ContractSummaryDto>());
 
-            // SuperAdminlarga faqat allaqachon tayinlanmagan (va notification olgan)laridan tashqarisiga yuboramiz
-            var superAdminRoleId = new Guid("00000000-0000-0000-0000-000000000001");
-            var newlyAssignedSet = newlyAssigned.ToHashSet();
-            var superAdminObservers = await _context.Users
-                .Where(u => u.IsActive && u.RoleId == superAdminRoleId && !newlyAssignedSet.Contains(u.Id))
-                .Select(u => u.Id)
-                .ToListAsync();
+            userDeptId = user.DepartmentId;
 
-            foreach (var uid in superAdminObservers)
-            {
-                await _notificationService.CreateAsync(
-                    uid,
-                    $"Shartnomaga yangi xodimlar tayinlandi: {contract?.ContractNo}",
-                    $"«{contract?.ContractNo}» shartnomasi uchun {newlyAssigned.Count} ta yangi xodim tayinlandi.",
-                    NotificationType.Task,
-                    contractId);
-            }
-        }
-
-        return ApiResult<int>.Success(200);
-    }
-
-    public async Task<ApiResult<int>> RemoveUserAsync(Guid contractId, Guid userId)
-    {
-        var row = await _context.ContractUsers
-            .FirstOrDefaultAsync(cu => cu.ContractId == contractId && cu.UserId == userId);
-
-        if (row is null)
-            return ApiResult<int>.Failure(["Assignment not found."], 404);
-
-        _context.ContractUsers.Remove(row);
-        await _context.SaveChangesAsync();
-
-        return ApiResult<int>.Success(200);
-    }
-
-    public async Task<ApiResult<IEnumerable<ContractResponseDto>>> GetMyProductionTasksAsync(Guid userId, bool viewAll, bool? isActive = null)
-    {
-        if (viewAll)
-        {
-            var allContractsQuery = _context.Contracts
-                .Include(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
-                .Include(c => c.Creator)
-                .Include(c => c.ContractUsers).ThenInclude(cu => cu.User).ThenInclude(u => u!.Department)
-                .Include(c => c.Products).ThenInclude(p => p.ProductDepartments).ThenInclude(pd => pd.Department)
-                .Include(c => c.Products).ThenInclude(p => p.ProductUsers).ThenInclude(pu => pu.User).ThenInclude(u => u!.Department)
-                .AsNoTracking()
-                .AsSplitQuery()
-                .AsQueryable();
-
-            if (isActive.HasValue)
-                allContractsQuery = allContractsQuery.Where(c => c.IsActive == isActive.Value);
-
-            var allContracts = await allContractsQuery
-                .OrderByDescending(c => c.CreatedAt)
-                .ToListAsync();
-
-            return ApiResult<IEnumerable<ContractResponseDto>>.Success(allContracts.Select(MapToResponse));
-        }
-
-        var user = await _context.Users
-            .Include(u => u.Department)
-            .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Id == userId);
-
-        if (user is null)
-            return ApiResult<IEnumerable<ContractResponseDto>>.Failure(["User not found."], 404);
-
-        if (user.Department is null || user.Department.Type != Core.Enums.DepartmentType.IshlabChiqarish)
-            return ApiResult<IEnumerable<ContractResponseDto>>.Success(Enumerable.Empty<ContractResponseDto>());
-
-        var contractsQuery = _context.Contracts
-            .Where(c =>
+            query = query.Where(c =>
                 c.ContractUsers.Any(cu => cu.UserId == userId) ||
-                c.Products.Any(p => p.ProductUsers.Any(pu => pu.UserId == userId)))
-            .Include(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
-            .Include(c => c.Creator)
-            .Include(c => c.ContractUsers).ThenInclude(cu => cu.User).ThenInclude(u => u!.Department)
-            .Include(c => c.Products).ThenInclude(p => p.ProductDepartments).ThenInclude(pd => pd.Department)
-            .Include(c => c.Products).ThenInclude(p => p.ProductUsers).ThenInclude(pu => pu.User).ThenInclude(u => u!.Department)
-            .AsNoTracking()
-            .AsSplitQuery();
+                c.Products.Any(p => p.ProductUsers.Any(pu => pu.UserId == userId)));
+        }
 
         if (isActive.HasValue)
-            contractsQuery = contractsQuery.Where(c => c.IsActive == isActive.Value);
+            query = query.Where(c => c.IsActive == isActive.Value);
 
-        var contracts = await contractsQuery
+        var contracts = await query
             .OrderByDescending(c => c.CreatedAt)
+            .Select(c => new ContractSummaryDto
+            {
+                Id            = c.Id,
+                ContractNo    = c.ContractNo,
+                ContractParty = c.ContractParty,
+                StartDate     = c.StartDate,
+                EndDate       = c.EndDate,
+                ContractType  = c.ContractType,
+                Status        = c.Status,
+                IsActive      = c.IsActive,
+                // Faqat foydalanuvchi biriktirilgan mahsulotlar (shartnoma
+                // darajasida biriktirilgan bo'lsa — hammasi).
+                Products = c.Products
+                    .Where(p => viewAll
+                        || c.ContractUsers.Any(cu => cu.UserId == userId)
+                        || c.ContractDepartments.Any(cd => cd.DepartmentId == userDeptId)
+                        || p.ProductUsers.Any(pu => pu.UserId == userId)
+                        || p.ProductDepartments.Any(pd => pd.DepartmentId == userDeptId))
+                    .OrderBy(p => p.OrderIndex)
+                    .Select(p => new ContractSummaryProductDto
+                    {
+                        Id          = p.Id,
+                        ProductType = p.ProductType,
+                        Quantity    = p.Quantity,
+                        Unit        = p.Unit,
+                        Status      = p.Status,
+                        // Jo'natish modali mahsulotning ishlab chiqarish bo'limini
+                        // aniqlash uchun ishlatadi.
+                        Departments = p.ProductDepartments
+                            .Where(pd => pd.Department != null)
+                            .Select(pd => new ContractDepartmentDto
+                            {
+                                Id   = pd.Department!.Id,
+                                Name = pd.Department.Name,
+                                Type = pd.Department.Type,
+                            }).ToList(),
+                    }).ToList(),
+            })
             .ToListAsync();
 
-        // Show only the products this user is assigned to (or fall back to contract-level assignment).
-        FilterVisibleProducts(contracts, userId);
-
-        return ApiResult<IEnumerable<ContractResponseDto>>.Success(contracts.Select(MapToResponse));
+        return ApiResult<IEnumerable<ContractSummaryDto>>.Success(contracts);
     }
 
     public async Task<ApiResult<PagedResult<ContractReadinessDto>>> GetReadinessOverviewAsync(Guid currentUserId, bool viewAll, PaginationParams pagination, string? search = null, bool? isActive = null)
     {
-        var query = _context.Contracts
-            .Include(c => c.Products).ThenInclude(p => p.ProductUsers)
-            .Include(c => c.Products).ThenInclude(p => p.ProductDepartments)
-            .Include(c => c.ContractUsers)
-            .Include(c => c.ContractDepartments)
-            .AsNoTracking()
-            .AsQueryable();
+        Guid? userDeptId = viewAll ? null : await GetUserDepartmentIdAsync(currentUserId);
+
+        var query = _context.Contracts.AsNoTracking();
 
         if (!viewAll)
         {
             query = query.Where(c =>
                 c.ContractUsers.Any(cu => cu.UserId == currentUserId) ||
                 c.Products.Any(p => p.ProductUsers.Any(pu => pu.UserId == currentUserId)) ||
-                c.ContractDepartments.Any(cd =>
-                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == cd.DepartmentId)) ||
-                c.Products.Any(p => p.ProductDepartments.Any(pd =>
-                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == pd.DepartmentId))));
+                c.ContractDepartments.Any(cd => cd.DepartmentId == userDeptId) ||
+                c.Products.Any(p => p.ProductDepartments.Any(pd => pd.DepartmentId == userDeptId)));
         }
 
         if (isActive.HasValue)
@@ -1069,9 +929,30 @@ public class ContractService : IContractService
             query = query.Where(c => c.ContractNo.ToLower().Contains(lower));
         }
 
-        var contracts = await query.ToListAsync();
-        if (!viewAll)
-            FilterVisibleProducts(contracts, currentUserId);
+        // Faqat qator qurish uchun kerak bo'lgan ustunlar tanlanadi — ilgari
+        // bu yerda butun shartnoma grafi (xodimlar, bo'limlar) xotiraga yuklanardi.
+        var contracts = await query
+            .Select(c => new ReadinessContractRow
+            {
+                Id         = c.Id,
+                ContractNo = c.ContractNo,
+                IsActive   = c.IsActive,
+                Products   = c.Products
+                    .Where(p => viewAll
+                        || c.ContractUsers.Any(cu => cu.UserId == currentUserId)
+                        || c.ContractDepartments.Any(cd => cd.DepartmentId == userDeptId)
+                        || p.ProductUsers.Any(pu => pu.UserId == currentUserId)
+                        || p.ProductDepartments.Any(pd => pd.DepartmentId == userDeptId))
+                    .OrderBy(p => p.OrderIndex)
+                    .Select(p => new ReadinessProductRow
+                    {
+                        Id          = p.Id,
+                        ProductType = p.ProductType,
+                        Quantity    = p.Quantity,
+                        Unit        = p.Unit,
+                    }).ToList(),
+            })
+            .ToListAsync();
 
         var contractIds = contracts.Select(c => c.Id).ToList();
 
@@ -1090,30 +971,43 @@ public class ContractService : IContractService
         }
 
         var drawings = await drawingsQuery
-            .Select(d => new ContractReadinessDrawingRow(d.Id, d.ContractId, d.ContractProductId, d.Title, d.Notes, d.Status, d.CreatedAt))
+            .Select(d => new ContractReadinessDrawingRow(d.Id, d.ContractId, d.ContractProductId, d.Status))
             .ToListAsync();
 
         var techProcesses = await tpsQuery
-            .Select(t => new ContractReadinessTechProcessRow(t.Id, t.ContractId, t.ContractProductId, t.Title, t.Notes, t.Status, t.CurrentStep, t.CreatedAt))
+            .Select(t => new ContractReadinessTechProcessRow(t.Id, t.ContractId, t.ContractProductId, t.Title, t.Notes, t.Status))
             .ToListAsync();
 
         var costNorms = await cnsQuery
-            .Select(n => new ContractReadinessCostNormRow(n.Id, n.ContractId, n.ContractProductId, n.Title, n.Notes, n.Status, n.Items.Count, n.CreatedAt))
+            .Select(n => new ContractReadinessCostNormRow(n.Id, n.ContractId, n.ContractProductId, n.Title, n.Status, n.Items.Count))
             .ToListAsync();
+
+        // Har bir scope uchun butun ro'yxatni skanerlash o'rniga (contract, mahsulot)
+        // kaliti bo'yicha bir marta guruhlanadi — eng yaxshi nomzod shu yerda tanlanadi.
+        var drawingByScope = drawings
+            .GroupBy(d => (d.ContractId, d.ContractProductId))
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(d => (int)d.Status).First());
+
+        var tpByScope = techProcesses
+            .GroupBy(t => (t.ContractId, t.ContractProductId))
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(t => (int)t.Status).First());
+
+        // Me'yoriy sarfda birinchi navbatda qatorlari bor varianti tanlanadi.
+        var cnByScope = costNorms
+            .GroupBy(n => (n.ContractId, n.ContractProductId))
+            .ToDictionary(g => g.Key, g => g.FirstOrDefault(n => n.ItemCount > 0) ?? g.First());
 
         var scopes = new List<ContractReadinessDto>();
         foreach (var contract in contracts)
         {
             if (contract.Products.Count == 0)
             {
-                scopes.Add(BuildReadinessScope(contract, productId: null, productInfo: null, drawings, techProcesses, costNorms));
+                scopes.Add(BuildReadinessScope(contract, null, drawingByScope, tpByScope, cnByScope));
             }
             else
             {
-                foreach (var product in contract.Products.OrderBy(p => p.OrderIndex))
-                {
-                    scopes.Add(BuildReadinessScope(contract, product.Id, product, drawings, techProcesses, costNorms));
-                }
+                foreach (var product in contract.Products)
+                    scopes.Add(BuildReadinessScope(contract, product, drawingByScope, tpByScope, cnByScope));
             }
         }
 
@@ -1134,55 +1028,52 @@ public class ContractService : IContractService
         return ApiResult<PagedResult<ContractReadinessDto>>.Success(paged);
     }
 
-    private record ContractReadinessDrawingRow(Guid Id, Guid ContractId, Guid? ContractProductId, string Title, string? Notes, DrawingStatus Status, DateTime CreatedAt);
-    private record ContractReadinessTechProcessRow(Guid Id, Guid ContractId, Guid? ContractProductId, string Title, string? Notes, ProcessStatus Status, int CurrentStep, DateTime CreatedAt);
-    private record ContractReadinessCostNormRow(Guid Id, Guid ContractId, Guid? ContractProductId, string Title, string? Notes, DrawingStatus Status, int ItemCount, DateTime CreatedAt);
+    private sealed class ReadinessContractRow
+    {
+        public Guid Id { get; set; }
+        public string ContractNo { get; set; } = string.Empty;
+        public bool IsActive { get; set; }
+        public List<ReadinessProductRow> Products { get; set; } = [];
+    }
+
+    private sealed class ReadinessProductRow
+    {
+        public Guid Id { get; set; }
+        public string ProductType { get; set; } = string.Empty;
+        public int Quantity { get; set; }
+        public string Unit { get; set; } = string.Empty;
+    }
+
+    private record ContractReadinessDrawingRow(Guid Id, Guid ContractId, Guid? ContractProductId, DrawingStatus Status);
+    private record ContractReadinessTechProcessRow(Guid Id, Guid ContractId, Guid? ContractProductId, string Title, string? Notes, ProcessStatus Status);
+    private record ContractReadinessCostNormRow(Guid Id, Guid ContractId, Guid? ContractProductId, string Title, DrawingStatus Status, int ItemCount);
 
     private static ContractReadinessDto BuildReadinessScope(
-        Contract contract,
-        Guid? productId,
-        ContractProduct? productInfo,
-        List<ContractReadinessDrawingRow> allDrawings,
-        List<ContractReadinessTechProcessRow> allTechProcesses,
-        List<ContractReadinessCostNormRow> allCostNorms)
+        ReadinessContractRow contract,
+        ReadinessProductRow? product,
+        Dictionary<(Guid, Guid?), ContractReadinessDrawingRow> drawingByScope,
+        Dictionary<(Guid, Guid?), ContractReadinessTechProcessRow> tpByScope,
+        Dictionary<(Guid, Guid?), ContractReadinessCostNormRow> cnByScope)
     {
-        ContractReadinessDrawingRow? bestDrawing = null;
-        foreach (var d in allDrawings)
-        {
-            if (d.ContractId != contract.Id || d.ContractProductId != productId) continue;
-            if (bestDrawing is null || (int)d.Status > (int)bestDrawing.Status) bestDrawing = d;
-        }
+        var key = (contract.Id, product?.Id);
 
-        ContractReadinessTechProcessRow? bestTp = null;
-        foreach (var t in allTechProcesses)
-        {
-            if (t.ContractId != contract.Id || t.ContractProductId != productId) continue;
-            if (bestTp is null || (int)t.Status > (int)bestTp.Status) bestTp = t;
-        }
-
-        ContractReadinessCostNormRow? bestCn = null;
-        foreach (var n in allCostNorms)
-        {
-            if (n.ContractId != contract.Id || n.ContractProductId != productId) continue;
-            if (bestCn is null || (bestCn.ItemCount == 0 && n.ItemCount > 0)) bestCn = n;
-        }
+        drawingByScope.TryGetValue(key, out var bestDrawing);
+        tpByScope.TryGetValue(key, out var bestTp);
+        cnByScope.TryGetValue(key, out var bestCn);
 
         var dto = new ContractReadinessDto
         {
             ContractId = contract.Id,
             ContractNo = contract.ContractNo,
             ContractIsActive = contract.IsActive,
-            ContractProductId = productId,
-            ProductType = productInfo?.ProductType,
-            ProductQuantity = productInfo?.Quantity,
-            ProductUnit = productInfo?.Unit,
+            ContractProductId = product?.Id,
+            ProductType = product?.ProductType,
+            ProductQuantity = product?.Quantity,
+            ProductUnit = product?.Unit,
             Drawing = bestDrawing is null ? null : new ContractReadinessDrawingDto
             {
                 Id = bestDrawing.Id,
-                Title = bestDrawing.Title,
-                Notes = bestDrawing.Notes,
                 Status = bestDrawing.Status,
-                CreatedAt = bestDrawing.CreatedAt,
             },
             TechProcess = bestTp is null ? null : new ContractReadinessTechProcessDto
             {
@@ -1190,17 +1081,13 @@ public class ContractService : IContractService
                 Title = bestTp.Title,
                 Notes = bestTp.Notes,
                 Status = bestTp.Status,
-                CurrentStep = bestTp.CurrentStep,
-                CreatedAt = bestTp.CreatedAt,
             },
             CostNorm = bestCn is null ? null : new ContractReadinessCostNormDto
             {
                 Id = bestCn.Id,
                 Title = bestCn.Title,
-                Notes = bestCn.Notes,
                 Status = bestCn.Status,
                 ItemCount = bestCn.ItemCount,
-                CreatedAt = bestCn.CreatedAt,
             },
         };
 
@@ -1272,7 +1159,7 @@ public class ContractService : IContractService
                 Status      = p.Status,
                 Departments = p.ProductDepartments
                     .Where(pd => pd.Department is not null)
-                    .Select(pd => new ContractProductDepartmentDto
+                    .Select(pd => new ContractDepartmentDto
                     {
                         Id   = pd.Department.Id,
                         Name = pd.Department.Name,
@@ -1280,7 +1167,7 @@ public class ContractService : IContractService
                     }).ToList(),
                 AssignedUsers = p.ProductUsers
                     .Where(pu => pu.User is not null)
-                    .Select(pu => new ContractProductUserDto
+                    .Select(pu => new ContractUserDto
                     {
                         UserId         = pu.UserId,
                         FullName       = $"{pu.User!.FirstName} {pu.User.LastName}",

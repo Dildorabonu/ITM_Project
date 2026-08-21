@@ -593,6 +593,8 @@ export const ContractDeactivationReason = {
 export type ContractDeactivationReason =
   (typeof ContractDeactivationReason)[keyof typeof ContractDeactivationReason];
 
+// To'liq shartnoma — faqat `GET /api/contract/{id}` dan keladi (drawer va
+// tahrirlash formasi uchun).
 export interface ContractResponse {
   id: string;
   contractNo: string;
@@ -604,12 +606,37 @@ export interface ContractResponse {
   status: ContractStatus;
   notes: string | null;
   isActive: boolean;
-  // Mijozga topshirish hisobi (paged ro'yxatda to'ldiriladi):
-  // umumiy mahsulot miqdori va jo'natilgan partiyalar yig'indisi.
-  totalQuantity: number;
-  shippedQuantity: number;
   createdByFullName: string | null;
   products: ContractProductResponse[];
+}
+
+// Ro'yxat/lookup endpointlari (`/api/contract`, `/paged`, `/my-tasks`) qaytaradigan
+// yengil shakl. `departments` va mahsulot `notes`/`departments` maydonlari faqat
+// ularga muhtoj endpointlarda keladi — aks holda JSON'da umuman bo'lmaydi.
+export interface ContractSummaryProduct {
+  id: string;
+  productType: string;
+  quantity: number;
+  unit: string;
+  status: ContractProductStatus;
+  notes?: string | null;
+  departments?: ContractProductDepartmentInfo[];
+}
+
+export interface ContractSummary {
+  id: string;
+  contractNo: string;
+  contractParty: string;
+  startDate: string;
+  endDate: string;
+  contractType: ContractType;
+  status: ContractStatus;
+  isActive: boolean;
+  // Mijozga topshirish hisobi — faqat `/paged` da hisoblanadi.
+  totalQuantity: number;
+  shippedQuantity: number;
+  departments?: ContractDepartmentInfo[];
+  products: ContractSummaryProduct[];
 }
 
 export interface ContractCreatePayload {
@@ -642,10 +669,9 @@ export interface ContractUserResponse {
 }
 
 export const contractService = {
-  getAll: async (status?: ContractStatus, departmentId?: string, isActive?: boolean): Promise<ContractResponse[]> => {
+  // Dropdown/lookup ro'yxati — mahsulot va bo'lim tanlash uchun.
+  getAll: async (isActive?: boolean): Promise<ContractSummary[]> => {
     const params: Record<string, string> = {};
-    if (status !== undefined) params.status = String(status);
-    if (departmentId) params.departmentId = departmentId;
     if (isActive !== undefined) params.isActive = String(isActive);
     try {
       const res = await api.get("/api/contract", { params });
@@ -660,7 +686,7 @@ export const contractService = {
     page = 1,
     pageSize = 20,
     opts: { search?: string; status?: ContractStatus; contractType?: ContractType; isActive?: boolean; excludeCompleted?: boolean; sortBy?: string; sortDesc?: boolean } = {},
-  ): Promise<PagedResult<ContractResponse>> => {
+  ): Promise<PagedResult<ContractSummary>> => {
     const params: Record<string, string> = { page: String(page), pageSize: String(pageSize) };
     if (opts.search?.trim())     params.search   = opts.search.trim();
     if (opts.status   !== undefined) params.status   = String(opts.status);
@@ -688,7 +714,7 @@ export const contractService = {
     }
   },
 
-  getProductsLookup: async (id: string): Promise<ContractProductResponse[]> => {
+  getProductsLookup: async (id: string): Promise<ContractSummaryProduct[]> => {
     const res = await api.get(`/api/contract/${id}/products-lookup`);
     return res.data?.result ?? res.data ?? [];
   },
@@ -701,10 +727,6 @@ export const contractService = {
   update: async (id: string, dto: ContractUpdatePayload): Promise<ContractCreateResult> => {
     const res = await api.put(`/api/contract/${id}`, dto);
     return res.data?.result as ContractCreateResult;
-  },
-
-  updateStatus: async (id: string, status: ContractStatus): Promise<void> => {
-    await api.put(`/api/contract/${id}/status`, { status });
   },
 
   deactivate: async (id: string, reason: ContractDeactivationReason, note: string): Promise<void> => {
@@ -798,7 +820,7 @@ export const contractService = {
     return res.data?.result ?? res.data ?? [];
   },
 
-  getMyProductionTasks: async (isActive?: boolean): Promise<ContractResponse[]> => {
+  getMyProductionTasks: async (isActive?: boolean): Promise<ContractSummary[]> => {
     try {
       const params: Record<string, string> = {};
       if (isActive !== undefined) params.isActive = String(isActive);

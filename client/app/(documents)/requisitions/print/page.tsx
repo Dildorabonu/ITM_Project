@@ -14,8 +14,8 @@ import {
   RequisitionType,
   ProductUnit,
   PRODUCT_UNIT_LABELS_CYR,
-  type ContractResponse,
-  type ContractProductResponse,
+  type ContractSummary,
+  type ContractSummaryProduct,
   type DepartmentResponse,
   type CostNormResponse,
 } from "@/lib/userService";
@@ -103,7 +103,7 @@ function RequisitionPrintContent() {
   const [type, setType] = useState<RequisitionType>(RequisitionType.Contract);
   const [contractId, setContractId] = useState("");
   const [departmentId, setDepartmentId] = useState("");
-  const [contracts, setContracts] = useState<ContractResponse[]>([]);
+  const [contracts, setContracts] = useState<ContractSummary[]>([]);
   const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
 
   // Nom manba hujjatdan taklif qilinadi (joriy interfeys tilida), lekin
@@ -477,7 +477,7 @@ function RequisitionPrintContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type, contractId, contracts]);
 
-  const handleProductPick = (product: ContractProductResponse) => {
+  const handleProductPick = (product: ContractSummaryProduct) => {
     setNormPickerOpen(false);
     fetchAndApplyNorm(product.id, product.productType);
   };
@@ -485,7 +485,7 @@ function RequisitionPrintContent() {
   useEffect(() => {
     const urlContractId = searchParams.get("contractId");
     Promise.all([
-      contractService.getAll(undefined, undefined, true),
+      contractService.getAll(true),
       departmentService.getAllFull(),
     ]).then(([contractsData, depsData]) => {
       setContracts(contractsData);
