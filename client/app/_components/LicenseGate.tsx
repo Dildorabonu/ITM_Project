@@ -10,7 +10,6 @@ type LicenseInfo = {
   message: string;
   customer?: string | null;
   expiresUtc?: string | null;
-  daysLeft: number;
 };
 
 /**

@@ -5,7 +5,6 @@ public sealed class LicenseStatus
     public bool Valid { get; init; }
     public string? Customer { get; init; }
     public DateTime? ExpiresUtc { get; init; }
-    public int DaysLeft { get; init; }
 
     // Mashina o'qiy oladigan kod: OK | NO_KEY | INVALID | EXPIRED | TAMPER
     public string Reason { get; init; } = string.Empty;

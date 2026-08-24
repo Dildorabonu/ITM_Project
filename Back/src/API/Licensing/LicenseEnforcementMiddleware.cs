@@ -18,29 +18,32 @@ public class LicenseEnforcementMiddleware
         _guard = guard;
     }
 
-    public async Task InvokeAsync(HttpContext ctx)
+    public Task InvokeAsync(HttpContext ctx)
     {
+        // Odatiy holat: litsenziya faol — bitta xotira o'qishdan keyin darhol o'tkazamiz
+        // (path solishtirish ham, async state machine ham keraksiz).
+        var status = _guard.Status;
+        if (status.Valid) return _next(ctx);
+
         var path = ctx.Request.Path;
+        if (!path.StartsWithSegments("/api") || path.StartsWithSegments("/api/license"))
+            return _next(ctx);
 
-        if (path.StartsWithSegments("/api") && !path.StartsWithSegments("/api/license"))
+        return BlockAsync(ctx, status);
+    }
+
+    private static Task BlockAsync(HttpContext ctx, LicenseStatus status)
+    {
+        ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+        ctx.Response.Headers["X-License-Status"] = status.Reason;
+
+        // HTTP status kodining o'zi 403 — javob tanasida takrorlanmaydi.
+        return ctx.Response.WriteAsJsonAsync(new
         {
-            var status = _guard.Status;
-            if (!status.Valid)
-            {
-                ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
-                ctx.Response.Headers["X-License-Status"] = status.Reason;
-                await ctx.Response.WriteAsJsonAsync(new
-                {
-                    succeeded = false,
-                    statusCode = 403,
-                    licenseExpired = true,
-                    reason = status.Reason,
-                    errors = new[] { status.Message },
-                });
-                return;
-            }
-        }
-
-        await _next(ctx);
+            succeeded = false,
+            licenseExpired = true,
+            reason = status.Reason,
+            errors = new[] { status.Message },
+        });
     }
 }

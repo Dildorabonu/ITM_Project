@@ -36,8 +36,14 @@ public class LicenseService : ILicenseService
     public async Task<LicenseActivationResult> ActivateAsync(string token, string secret, CancellationToken ct = default)
     {
         // 1) Superadmin paroli tekshiruvi — bloklangan holatda ham ishlaydi.
-        var admin = await _context.Users.FirstOrDefaultAsync(u => u.Id == SuperAdminUserId, ct);
-        if (admin is null || !BCrypt.Net.BCrypt.Verify(secret ?? string.Empty, admin.PasswordHash))
+        // Butun User entity emas — faqat parol xeshi kerak.
+        var passwordHash = await _context.Users
+            .AsNoTracking()
+            .Where(u => u.Id == SuperAdminUserId)
+            .Select(u => u.PasswordHash)
+            .FirstOrDefaultAsync(ct);
+
+        if (passwordHash is null || !BCrypt.Net.BCrypt.Verify(secret ?? string.Empty, passwordHash))
         {
             return new LicenseActivationResult { Success = false, Error = "Superadmin paroli noto'g'ri." };
         }
@@ -151,7 +157,6 @@ public class LicenseService : ILicenseService
                 Valid = false,
                 Customer = payload.Customer,
                 ExpiresUtc = payload.ExpiresUtc,
-                DaysLeft = 0,
                 Reason = "MACHINE",
                 Message = "Litsenziya bu serverga tegishli emas. Har bir server uchun alohida litsenziya kerak.",
             };
@@ -178,10 +183,6 @@ public class LicenseService : ILicenseService
         await _context.SaveChangesAsync(ct);
         WriteMirror(highWater);
 
-        // Muddatni tekshirishda ortga surishga chidamli "effektiv vaqt" ishlatiladi.
-        var effectiveNow = highWater;
-        var daysLeft = (int)Math.Ceiling((payload.ExpiresUtc - effectiveNow).TotalDays);
-
         if (tamper)
         {
             return new LicenseStatus
@@ -189,20 +190,19 @@ public class LicenseService : ILicenseService
                 Valid = false,
                 Customer = payload.Customer,
                 ExpiresUtc = payload.ExpiresUtc,
-                DaysLeft = 0,
                 Reason = "TAMPER",
                 Message = "Server vaqti buzilgani aniqlandi. Tizim bloklandi. Iltimos, ta'minotchi bilan bog'laning.",
             };
         }
 
-        if (effectiveNow >= payload.ExpiresUtc)
+        // Muddat tekshiruvi mijoz soatiga emas, ortga surishga chidamli "effektiv vaqt"ga (highWater) tayanadi.
+        if (highWater >= payload.ExpiresUtc)
         {
             return new LicenseStatus
             {
                 Valid = false,
                 Customer = payload.Customer,
                 ExpiresUtc = payload.ExpiresUtc,
-                DaysLeft = 0,
                 Reason = "EXPIRED",
                 Message = "Litsenziya muddati tugagan. Davom etish uchun ta'minotchi bilan bog'laning.",
             };
@@ -213,7 +213,6 @@ public class LicenseService : ILicenseService
             Valid = true,
             Customer = payload.Customer,
             ExpiresUtc = payload.ExpiresUtc,
-            DaysLeft = Math.Max(daysLeft, 0),
             Reason = "OK",
             Message = "Litsenziya faol.",
         };

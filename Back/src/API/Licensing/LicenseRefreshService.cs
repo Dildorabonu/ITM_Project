@@ -17,7 +17,9 @@ public class LicenseRefreshService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        while (!stoppingToken.IsCancellationRequested)
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(60));
+
+        do
         {
             try
             {
@@ -29,15 +31,13 @@ public class LicenseRefreshService : BackgroundService
             {
                 // Xatoda ham davom etamiz — keyingi urinishda qayta tekshiriladi.
             }
-
-            try
-            {
-                await Task.Delay(TimeSpan.FromSeconds(60), stoppingToken);
-            }
-            catch (TaskCanceledException)
-            {
-                break;
-            }
         }
+        while (await SafeWaitAsync(timer, stoppingToken));
+    }
+
+    private static async Task<bool> SafeWaitAsync(PeriodicTimer timer, CancellationToken ct)
+    {
+        try { return await timer.WaitForNextTickAsync(ct); }
+        catch (OperationCanceledException) { return false; }
     }
 }
