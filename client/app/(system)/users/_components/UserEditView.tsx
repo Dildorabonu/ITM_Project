@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { createPortal } from "react-dom";
 import { type RoleOption, type DepartmentOption } from "@/lib/userService";
 import { CustomSelect } from "./CustomSelect";
 import { CustomGroupedSelect } from "./CustomGroupedSelect";
@@ -17,17 +16,14 @@ interface UserEditViewProps {
   saveError: string;
   roles: RoleOption[];
   departments: DepartmentOption[];
-  confirmHead: { headName: string } | null;
-  setConfirmHead: (v: { headName: string } | null) => void;
   handleUpdate: () => void;
-  handleIsHeadChange: (checked: boolean) => void;
   onCancel: () => void;
 }
 
 export function UserEditView({
   form, setForm, formSubmitted, saving, saveError,
-  roles, departments, confirmHead, setConfirmHead,
-  handleUpdate, handleIsHeadChange, onCancel,
+  roles, departments,
+  handleUpdate, onCancel,
 }: UserEditViewProps) {
   const t = useT();
   const [showPassword, setShowPassword] = useState(false);
@@ -186,7 +182,7 @@ export function UserEditView({
             transition: "all 0.15s",
           }}>
             <input type="checkbox" checked={form.isHead}
-              onChange={e => handleIsHeadChange(e.target.checked)}
+              onChange={e => setForm(f => ({ ...f, isHead: e.target.checked }))}
               disabled={!form.departmentId}
               style={{ width: 16, height: 16, cursor: form.departmentId ? "pointer" : "not-allowed", accentColor: "#f59e0b" }} />
             <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -221,23 +217,6 @@ export function UserEditView({
           {saving ? t("Saqlanmoqda...") : t("Saqlash")}
         </button>
       </div>
-
-      {confirmHead && createPortal(
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: 28, width: 360, maxWidth: "95vw", textAlign: "center" }}>
-            <div style={{ fontSize: 22, marginBottom: 10 }}>👑</div>
-            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8, color: "var(--text1)" }}>{t("Rahbar allaqachon belgilangan")}</div>
-            <div style={{ color: "var(--text2)", fontSize: 13, marginBottom: 20 }}>
-              {t("Ushbu tuzilmaning rahbari:")} <strong>{confirmHead.headName}</strong>.<br />
-              {t("Yangi rahbar belgilash uchun avval mavjud rahbarni olib tashlang.")}
-            </div>
-            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-              <button className="btn btn-outline" onClick={() => setConfirmHead(null)}>{t("Tushundim")}</button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
     </div>
   );
 }

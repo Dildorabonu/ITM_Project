@@ -7,6 +7,6 @@ namespace Application.Services;
 // Korxona omborxonasi (ProductService) CRUD mantig'idan ajratilgan.
 public interface IDepartmentWarehouseService
 {
-    Task<ApiResult<IEnumerable<DepartmentWarehouseSummaryDto>>> GetDepartmentSummariesAsync(Guid? restrictToDepartmentId = null);
-    Task<ApiResult<IEnumerable<DepartmentProductDto>>> GetByDepartmentAsync(Guid departmentId);
+    Task<ApiResult<List<DepartmentWarehouseSummaryDto>>> GetDepartmentSummariesAsync(Guid? restrictToDepartmentId = null);
+    Task<ApiResult<DepartmentWarehouseDetailDto>> GetByDepartmentAsync(Guid departmentId);
 }

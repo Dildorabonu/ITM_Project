@@ -28,14 +28,6 @@ public class DepartmentController : ControllerBase
     }
 
     [HasPermission("Departments.View")]
-    [HttpGet]
-    public async Task<IActionResult> GetAll()
-    {
-        var result = await _departmentService.GetAllAsync();
-        return Ok(result);
-    }
-
-    [HasPermission("Departments.View")]
     [HttpGet("paged")]
     public async Task<IActionResult> GetPaged(
         [FromQuery] int page = 1,
@@ -45,18 +37,6 @@ public class DepartmentController : ControllerBase
     {
         var pagination = new PaginationParams { Page = page, PageSize = pageSize };
         var result = await _departmentService.GetPagedAsync(pagination, search, type);
-        return Ok(result);
-    }
-
-    [HasPermission("Departments.View")]
-    [HttpGet("{id:guid}")]
-    public async Task<IActionResult> GetById(Guid id)
-    {
-        var result = await _departmentService.GetByIdAsync(id);
-
-        if (!result.Succeeded)
-            return NotFound(result);
-
         return Ok(result);
     }
 

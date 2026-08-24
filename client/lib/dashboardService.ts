@@ -1,20 +1,13 @@
 import { api } from "./api";
-import { ContractStatus, DepartmentType, ManufacturingStatus, ProductUnit } from "./userService";
+import { ContractStatus, DepartmentType, ProductUnit } from "./userService";
 
+// Faqat dashboardda chizilinadigan ko'rsatkichlar. Qolgan jamlanmalar
+// (jami/yakunlangan/bekor qilingan shartnoma, mahsulot, foydalanuvchi sonlari)
+// hech qayerda ishlatilmagani uchun backend javobidan olib tashlangan.
 export interface DashboardKpis {
-  totalContracts: number;
   activeContracts: number;
-  completedContracts: number;
-  cancelledContracts: number;
-  completionRate: number;
-  overdueContracts: number;
-  totalProducts: number;
-  inProductionProducts: number;
   manufacturedInProgress: number;
   manufacturedCompleted: number;
-  totalShipments: number;
-  totalUsers: number;
-  activeDepartments: number;
   totalEmployees: number;
   totalContractedAmount: number;
   totalProducedAmount: number;
@@ -27,10 +20,12 @@ export interface ContractStatusBucket {
   count: number;
 }
 
-export interface ProductionTrendPoint {
-  date: string;
-  amount: number;
-  logCount: number;
+// Ishlab chiqarish va jo'natma bir xil sanalar bo'yicha tekislangan —
+// bitta nuqtada ikkalasi ham keladi.
+export interface TrendPoint {
+  date: string; // YYYY-MM-DD
+  prod: number;
+  ship: number;
 }
 
 export interface DepartmentWorkload {
@@ -40,7 +35,6 @@ export interface DepartmentWorkload {
   employeeCount: number;
   activeContracts: number;
   activeManufactured: number;
-  loggedAmount: number;
 }
 
 export interface ManufacturingProgress {
@@ -50,10 +44,8 @@ export interface ManufacturingProgress {
   unit: ProductUnit;
   quantity: number;
   producedQuantity: number;
-  status: ManufacturingStatus;
   departmentName: string | null;
   contractNo: string | null;
-  startedAt: string | null;
   progressPercent: number;
 }
 
@@ -62,7 +54,6 @@ export interface UpcomingDeadline {
   contractNo: string;
   contractParty: string;
   endDate: string;
-  status: ContractStatus;
   daysRemaining: number;
   overallProgress: number;
   primaryProduct: string | null;
@@ -74,23 +65,20 @@ export interface RecentActivity {
   subtitle: string | null;
   actorName: string | null;
   at: string;
-  refId: string | null;
 }
 
-export interface TopPerformer {
-  userId: string;
-  fullName: string;
-  departmentName: string | null;
-  logCount: number;
-  totalAmount: number;
-}
-
+// Faollik xaritasi: `start` dan boshlab `days` ta kun. `cells` — faqat yozuvi
+// bor kunlar (`day` = start'dan ofset); qolgan kataklar bo'sh deb chiziladi.
 export interface HeatmapCell {
-  date: string;
-  dayOfWeek: number;
-  weekIndex: number;
+  day: number;
   amount: number;
   logCount: number;
+}
+
+export interface ActivityHeatmap {
+  start: string; // YYYY-MM-DD
+  days: number;
+  cells: HeatmapCell[];
 }
 
 // Month-to-date increment for each KPI card (how many items were added this month).
@@ -101,27 +89,25 @@ export interface DashboardKpiMonthly {
   totalEmployees: number;
 }
 
-export interface KpiSparklinePoint {
-  date: string; // YYYY-MM-DD
-  activeContracts: number;
-  manufacturedCompleted: number;
-  manufacturedInProgress: number;
-  totalEmployees: number;
+// KPI kartalaridagi sparkline — faqat qiymatlar ketma-ketligi (sana chizilmaydi).
+export interface KpiSparkline {
+  activeContracts: number[];
+  manufacturedCompleted: number[];
+  manufacturedInProgress: number[];
+  totalEmployees: number[];
 }
 
 export interface DashboardSummary {
   kpis: DashboardKpis;
   monthlyAdded: DashboardKpiMonthly;
-  kpiSparkline: KpiSparklinePoint[];
+  kpiSparkline: KpiSparkline;
   contractStatus: ContractStatusBucket[];
-  productionTrend: ProductionTrendPoint[];
-  shipmentTrend: ProductionTrendPoint[];
+  trend: TrendPoint[];
   departmentWorkload: DepartmentWorkload[];
   manufacturingProgress: ManufacturingProgress[];
   upcomingDeadlines: UpcomingDeadline[];
   recentActivity: RecentActivity[];
-  topPerformers: TopPerformer[];
-  activityHeatmap: HeatmapCell[];
+  activityHeatmap: ActivityHeatmap;
 }
 
 export interface DashboardSummaryParams {

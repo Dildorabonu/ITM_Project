@@ -5,12 +5,10 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
   productService,
-  departmentService,
   PRODUCT_UNIT_LABELS,
   DepartmentType,
   DEPARTMENT_TYPE_LABELS,
-  type DepartmentProduct,
-  type DepartmentResponse,
+  type DepartmentWarehouseDetail,
 } from "@/lib/userService";
 import { useAuthStore } from "@/lib/store/authStore";
 import { CheckSelect } from "@/app/_components/CheckSelect";
@@ -32,8 +30,7 @@ export default function DepartmentWarehouseDetailPage() {
   const isOwnDept = !!user?.departmentId && user.departmentId === departmentId;
   const isAuthorized = canViewAll || isOwnDept;
 
-  const [department, setDepartment] = useState<DepartmentResponse | null>(null);
-  const [products, setProducts] = useState<DepartmentProduct[]>([]);
+  const [detail, setDetail] = useState<DepartmentWarehouseDetail | null>(null);
   const [search, setSearch] = useState("");
   const [filterUnit, setFilterUnit] = useState<string>("");
   const [loading, setLoading] = useState(true);
@@ -46,26 +43,23 @@ export default function DepartmentWarehouseDetailPage() {
     let active = true;
     (async () => {
       setLoading(true);
-      const [dept, list] = await Promise.all([
-        departmentService.getById(departmentId).catch(() => null),
-        productService.getByDepartment(departmentId).catch(() => [] as DepartmentProduct[]),
-      ]);
+      const data = await productService.getByDepartment(departmentId).catch(() => null);
       if (!active) return;
-      setDepartment(dept);
-      setProducts(list);
+      setDetail(data);
       setLoading(false);
     })();
     return () => { active = false; };
   }, [hasHydrated, departmentId, isAuthorized]);
 
   const filtered = useMemo(() => {
+    const products = detail?.products ?? [];
     const q = search.trim().toLowerCase();
     return products.filter(p => {
       if (filterUnit !== "" && p.unit !== Number(filterUnit)) return false;
       if (q && !p.name.toLowerCase().includes(q) && !p.invoiceNumber.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [products, search, filterUnit]);
+  }, [detail, search, filterUnit]);
 
   if (!hasHydrated) {
     return (
@@ -102,7 +96,7 @@ export default function DepartmentWarehouseDetailPage() {
     );
   }
 
-  const deptType = department?.type ?? DepartmentType.Bolim;
+  const deptType = detail?.departmentType ?? DepartmentType.Bolim;
   const badge = TYPE_BADGE[deptType] ?? TYPE_BADGE[DepartmentType.Bolim];
 
   return (
@@ -140,10 +134,10 @@ export default function DepartmentWarehouseDetailPage() {
         </div>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.16em", color: badge.color, textTransform: "uppercase", marginBottom: 2 }}>
-            {department ? DEPARTMENT_TYPE_LABELS[deptType] : t("Bo'lim ombori")}
+            {detail ? DEPARTMENT_TYPE_LABELS[deptType] : t("Bo'lim ombori")}
           </div>
           <div className="font-head-itm" style={{ fontSize: 18, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.01em", lineHeight: 1.2 }}>
-            {department?.name ?? t("Bo'lim ombori")}
+            {detail?.departmentName || t("Bo'lim ombori")}
           </div>
         </div>
       </div>

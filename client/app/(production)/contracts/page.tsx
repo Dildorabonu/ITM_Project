@@ -20,7 +20,7 @@ import {
   type ContractUserResponse,
   type ContractProductPayload,
   type UserLookup,
-  type DepartmentResponse,
+  type DepartmentOption,
 } from "@/lib/userService";
 
 import {
@@ -95,7 +95,7 @@ export default function ContractsPage() {
   const [filesLoading, setFilesLoading] = useState(false);
 
   // Departments
-  const [departments, setDepartments]   = useState<DepartmentResponse[]>([]);
+  const [departments, setDepartments]   = useState<DepartmentOption[]>([]);
 
   // TZ files
   const [drawerTzFiles, setDrawerTzFiles]   = useState<AttachmentResponse[]>([]);
@@ -276,7 +276,7 @@ export default function ContractsPage() {
   }, [viewMode, archiveTab]);
 
   useEffect(() => {
-    departmentService.getAllFull().then(d => setDepartments(d)).catch(() => {});
+    departmentService.getAll().then(d => setDepartments(d)).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -304,7 +304,7 @@ export default function ContractsPage() {
   const ensureDataLoaded = async () => {
     await Promise.all([
       allUsers.length === 0 ? userService.getLookup().then(items => setAllUsers(items)) : Promise.resolve(),
-      departments.length === 0 ? departmentService.getAllFull().then(d => setDepartments(d.filter(dep => dep.isActive))) : Promise.resolve(),
+      departments.length === 0 ? departmentService.getAll().then(d => setDepartments(d)) : Promise.resolve(),
     ]);
   };
 
@@ -330,7 +330,7 @@ export default function ContractsPage() {
     const [c, lookup, depts] = await Promise.all([
       contractService.getById(summary.id),
       allUsers.length > 0 ? Promise.resolve(allUsers) : userService.getLookup(),
-      departments.length > 0 ? Promise.resolve(departments) : departmentService.getAllFull().then(d => d.filter(dep => dep.isActive)),
+      departments.length > 0 ? Promise.resolve(departments) : departmentService.getAll(),
     ]);
     setEditTarget(c);
     if (lookup !== allUsers) setAllUsers(lookup);

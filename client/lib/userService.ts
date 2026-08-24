@@ -131,11 +131,11 @@ export interface RoleOption {
   name: string;
 }
 
+// `/api/department/lookup` javobi — dropdown uchun yetarli minimal to'plam.
 export interface DepartmentOption {
   id: string;
   name: string;
-  type?: DepartmentType;
-  headUserName?: string | null;
+  type: DepartmentType;
 }
 
 export const userService = {
@@ -381,6 +381,14 @@ export interface DepartmentProduct {
   createdAt: string;
 }
 
+// by-department javobi: sahifa sarlavhasi uchun bo'lim nomi/turi + jadval qatorlari.
+// Ilgari nom/tur uchun alohida /api/department/{id} chaqirilardi.
+export interface DepartmentWarehouseDetail {
+  departmentName: string;
+  departmentType: DepartmentType;
+  products: DepartmentProduct[];
+}
+
 export interface ProductReservationResponse {
   productId: string;
   productName: string;
@@ -406,9 +414,9 @@ export const productService = {
     return res.data?.result ?? res.data;
   },
 
-  getByDepartment: async (departmentId: string): Promise<DepartmentProduct[]> => {
+  getByDepartment: async (departmentId: string): Promise<DepartmentWarehouseDetail | null> => {
     const res = await api.get(`/api/departmentwarehouse/by-department/${departmentId}`);
-    return res.data?.result ?? res.data ?? [];
+    return res.data?.result ?? null;
   },
 
   getDepartmentSummaries: async (): Promise<DepartmentWarehouseSummary[]> => {
@@ -845,15 +853,9 @@ export const contractService = {
 };
 
 export const departmentService = {
+  // Backend faqat aktiv bo'limlarni va faqat id/name/type ni qaytaradi —
+  // klientda filtrlash yoki qayta map qilish shart emas.
   getAll: async (): Promise<DepartmentOption[]> => {
-    const res = await api.get("/api/department/lookup");
-    const data = res.data?.result ?? res.data ?? [];
-    return data
-      .filter((d: { id: string; name: string; type: DepartmentType; isActive: boolean }) => d.isActive !== false)
-      .map((d: { id: string; name: string; type: DepartmentType; headUserName?: string | null }) => ({ id: d.id, name: d.name, type: d.type, headUserName: d.headUserName }));
-  },
-
-  getAllFull: async (): Promise<DepartmentResponse[]> => {
     const res = await api.get("/api/department/lookup");
     return res.data?.result ?? res.data ?? [];
   },
@@ -867,11 +869,6 @@ export const departmentService = {
     if (opts.search?.trim()) params.search = opts.search.trim();
     if (opts.type !== undefined) params.type = String(opts.type);
     const res = await api.get("/api/department/paged", { params });
-    return res.data?.result ?? res.data;
-  },
-
-  getById: async (id: string): Promise<DepartmentResponse> => {
-    const res = await api.get(`/api/department/${id}`);
     return res.data?.result ?? res.data;
   },
 

@@ -4,7 +4,7 @@ import {
   DepartmentType,
   type ContractResponse,
   type UserLookup,
-  type DepartmentResponse,
+  type DepartmentOption,
 } from "@/lib/userService";
 import { ContractForm as ContractFormType, UNIT_OPTIONS, CONTRACT_TYPE_OPTIONS, emptyProduct } from "../_types";
 import { CheckSelect } from "@/app/_components/CheckSelect";
@@ -32,7 +32,7 @@ interface Props {
   setOpenPickerKey: (k: PickerKey) => void;
   pickerRef: React.RefObject<HTMLDivElement | null>;
   allUsers: UserLookup[];
-  departments: DepartmentResponse[];
+  departments: DepartmentOption[];
   handleSave: () => void;
   openScanModal: (target: { kind: "contract" } | { kind: "product-tz"; productIdx: number }) => void;
   onCancel: () => void;

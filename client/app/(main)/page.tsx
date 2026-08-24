@@ -8,20 +8,18 @@ import {
   dashboardService,
   ACTIVITY_PAGE_SIZE,
   type DashboardSummary,
-  type ProductionTrendPoint,
+  type TrendPoint,
   type DepartmentWorkload,
-  type HeatmapCell,
+  type ActivityHeatmap,
   type ContractStatusBucket,
   type ManufacturingProgress,
   type UpcomingDeadline,
-  type TopPerformer,
   type RecentActivity,
 } from "@/lib/dashboardService";
 import {
   ContractStatus,
   DepartmentType,
   DEPARTMENT_TYPE_LABELS,
-  ManufacturingStatus,
   ProductUnit,
 } from "@/lib/userService";
 import { useT } from "@/lib/i18n";
@@ -48,7 +46,6 @@ const Ico = {
   Box:        () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></svg>,
   Building:   () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" /></svg>,
   Zap:        () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>,
-  Trophy:     () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 22a7 7 0 1 0 4 0" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2z" /></svg>,
   PieChart:   () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M21.21 15.89A10 10 0 1 1 8 2.83" /><path d="M22 12A10 10 0 0 0 12 2v10z" /></svg>,
   Search:     () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>,
   X:          () => <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.4" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>,
@@ -467,10 +464,9 @@ function CompletionPieChart({
 ═══════════════════════════════════════════════════════════════════ */
 
 function DualAreaChart({
-  prod, ship, height = 240,
+  points, height = 240,
 }: {
-  prod: ProductionTrendPoint[];
-  ship: ProductionTrendPoint[];
+  points: TrendPoint[];
   height?: number;
 }) {
   const t = useT();
@@ -487,21 +483,19 @@ function DualAreaChart({
     const d = new Date(iso);
     return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
   };
-  const data = prod.map((p, i) => ({
+  const data = points.map((p) => ({
     date: p.date,
-    prod: p.amount,
-    ship: ship[i]?.amount ?? 0,
+    prod: p.prod,
+    ship: p.ship,
     future: dayMs(p.date) > todayMs,
   }));
-  const realData = data;
 
   // Content-based change detector — array reference changes on every load
   // even when the underlying values (last 30 days) didn't change. Avoid
   // replaying the line/area animation unless the numbers themselves move.
   const dataKey = useMemo(() =>
-    prod.map(p => `${p.date}:${p.amount}`).join("|") + "::" +
-    ship.map(p => `${p.date}:${p.amount}`).join("|"),
-    [prod, ship]
+    points.map(p => `${p.date}:${p.prod}:${p.ship}`).join("|"),
+    [points]
   );
   useEffect(() => {
     if (firstRunRef.current) {
@@ -518,7 +512,7 @@ function DualAreaChart({
   const padL = 44, padR = 24, padT = 18, padB = 28;
   const cw = W - padL - padR;
   const ch = H - padT - padB;
-  const maxVal = Math.max(1, ...realData.map(d => Math.max(d.prod, d.ship)));
+  const maxVal = Math.max(1, ...data.map(d => Math.max(d.prod, d.ship)));
 
   const xAt = (i: number) => padL + (i / Math.max(1, data.length - 1)) * cw;
   const yAt = (v: number) => padT + ch - (v / maxVal) * ch;
@@ -529,10 +523,7 @@ function DualAreaChart({
   // Kuchli "monotone cubic" silliqlashdagi soxta to'lqinlar paydo bo'lmaydi,
   // ammo "dag'il" tik burchaklar ham ketadi.
   const buildLine = (key: "prod" | "ship") => {
-    const lineData = realData.length > 0 && data.length > realData.length
-      ? [...realData, data[realData.length]]
-      : realData;
-    const pts = lineData.map((d, i) => ({ x: xAt(i), y: yAt(d[key]) }));
+    const pts = data.map((d, i) => ({ x: xAt(i), y: yAt(d[key]) }));
     const n = pts.length;
     if (n === 0) return "M0,0";
     if (n < 3) return pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
@@ -1185,30 +1176,43 @@ function HBarList({ data }: { data: DepartmentWorkload[] }) {
    HEATMAP (production activity, 12 weeks × 7 days)
 ═══════════════════════════════════════════════════════════════════ */
 
-function Heatmap({ cells }: { cells: HeatmapCell[] }) {
-  const t = useT();
-  const weeks = Math.max(0, ...cells.map(c => c.weekIndex)) + 1;
-  const max = Math.max(1, ...cells.map(c => c.amount));
+// Backend faqat yozuvi bor kunlarni yuboradi (oyna boshi + kunlar soni bilan).
+// To'liq katakli setka shu yerda tiklanadi — har katak `start`dan ofseti
+// bo'yicha, hafta = ketma-ket 7 kun.
+type HeatCell = { date: Date; amount: number; logCount: number };
 
-  const grid: (HeatmapCell | undefined)[][] = Array.from({ length: 7 }, () =>
-    Array.from({ length: weeks }, () => undefined)
-  );
-  for (const c of cells) {
-    if (c.dayOfWeek >= 0 && c.dayOfWeek < 7 && c.weekIndex < weeks) {
-      grid[c.dayOfWeek][c.weekIndex] = c;
+function Heatmap({ data }: { data: ActivityHeatmap }) {
+  const t = useT();
+  const { grid, weeks, max } = useMemo(() => {
+    const start = parseIsoDate(data.start);
+    const days = Math.max(0, data.days);
+    const weeks = Math.ceil(days / 7);
+    const byDay = new Map(data.cells.map(c => [c.day, c]));
+
+    const grid: (HeatCell | undefined)[][] = Array.from({ length: 7 }, () =>
+      Array.from({ length: weeks }, () => undefined)
+    );
+    let max = 1;
+    for (let i = 0; i < days; i++) {
+      const date = addDays(start, i);
+      const hit = byDay.get(i);
+      const amount = hit?.amount ?? 0;
+      if (amount > max) max = amount;
+      grid[date.getDay()][Math.floor(i / 7)] = { date, amount, logCount: hit?.logCount ?? 0 };
     }
-  }
+    return { grid, weeks, max };
+  }, [data]);
 
   // Group consecutive weeks by month — each block renders independently with a gap between them
   type MonthBlock = { month: number; label: string; weekIndices: number[] };
   const blocks: MonthBlock[] = [];
   for (let w = 0; w < weeks; w++) {
-    let sample: HeatmapCell | undefined;
+    let sample: HeatCell | undefined;
     for (let d = 0; d < 7; d++) {
       if (grid[d][w]) { sample = grid[d][w]; break; }
     }
     if (!sample) continue;
-    const m = new Date(sample.date).getMonth();
+    const m = sample.date.getMonth();
     const last = blocks[blocks.length - 1];
     if (last && last.month === m) {
       last.weekIndices.push(w);
@@ -1251,7 +1255,7 @@ function Heatmap({ cells }: { cells: HeatmapCell[] }) {
                       <div
                         key={`${day}-${w}`}
                         className={`dx-heat-cell dx-heat-l${lvl >= 0 ? lvl : 0}`}
-                        title={c ? `${c.date}: ${c.amount} (${c.logCount})` : ""}
+                        title={c ? `${toIsoDate(c.date)}: ${c.amount} (${c.logCount})` : ""}
                       />
                     );
                   })
@@ -1302,9 +1306,8 @@ function MfgProgressList({ items }: { items: ManufacturingProgress[] }) {
             </div>
             <div className="dx-mfg-foot">
               <span className="dx-mfg-qty">{m.producedQuantity.toLocaleString()} / {m.quantity.toLocaleString()} {unitLabel(m.unit)}</span>
-              <span className="dx-mfg-status">
-                {m.status === ManufacturingStatus.Completed ? t("Yakunlandi") : t("Jarayonda")}
-              </span>
+              {/* Ro'yxat faqat ishlab chiqarishdagi mahsulotlardan iborat */}
+              <span className="dx-mfg-status">{t("Jarayonda")}</span>
             </div>
           </div>
         );
@@ -1539,36 +1542,6 @@ function ActivityFeed({ items }: { items: RecentActivity[] }) {
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   TOP PERFORMERS
-═══════════════════════════════════════════════════════════════════ */
-
-function TopPerformers({ items }: { items: TopPerformer[] }) {
-  const t = useT();
-  if (items.length === 0) return <div className="dx-empty"><Ico.Trophy /><span>{t("Ma'lumot yo'q")}</span></div>;
-  const max = Math.max(1, ...items.map(p => Number(p.totalAmount)));
-  return (
-    <div className="dx-perf-list">
-      {items.map((p, i) => (
-        <div key={p.userId} className={`dx-perf-item dx-fadein-${Math.min(i, 4)}`}>
-          <div className={`dx-perf-rank dxr-${i}`}>{i + 1}</div>
-          <div className="dx-perf-info">
-            <div className="dx-perf-name">{p.fullName.trim() || "—"}</div>
-            <div className="dx-perf-dept">{p.departmentName || t("Bo'limsiz")}</div>
-            <div className="dx-perf-track">
-              <div className="dx-perf-fill" style={{ width: `${(Number(p.totalAmount) / max) * 100}%` }} />
-            </div>
-          </div>
-          <div className="dx-perf-stats">
-            <div className="dx-perf-num">{formatNum(Number(p.totalAmount))}</div>
-            <div className="dx-perf-cap">{p.logCount} {t("yozuv")}</div>
-          </div>
-        </div>
-      ))}
     </div>
   );
 }
@@ -2106,11 +2079,11 @@ export default function DashboardPage() {
   const deltaMfgIp      = monthlyDelta(m?.manufacturedInProgress ?? 0);
   const deltaEmployees  = monthlyDelta(m?.totalEmployees ?? 0);
 
-  const sparklinePoints = data?.kpiSparkline ?? [];
-  const sparkActive    = sparklinePoints.map(p => p.activeContracts);
-  const sparkMfgDone   = sparklinePoints.map(p => p.manufacturedCompleted);
-  const sparkMfgIp     = sparklinePoints.map(p => p.manufacturedInProgress);
-  const sparkEmployees = sparklinePoints.map(p => p.totalEmployees);
+  const spark = data?.kpiSparkline;
+  const sparkActive    = spark?.activeContracts ?? [];
+  const sparkMfgDone   = spark?.manufacturedCompleted ?? [];
+  const sparkMfgIp     = spark?.manufacturedInProgress ?? [];
+  const sparkEmployees = spark?.totalEmployees ?? [];
   const sparkTone = (d: KpiDelta): "up" | "down" | "flat" | "neutral" =>
     d.kind === "up" ? "up" : "neutral";
 
@@ -2288,7 +2261,7 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="dx-section-body dx-trend-body-wide">
-              <DualAreaChart prod={data.productionTrend} ship={data.shipmentTrend} />
+              <DualAreaChart points={data.trend} />
             </div>
           </RevealSection>
         </div>
@@ -2390,7 +2363,7 @@ export default function DashboardPage() {
           <h3 className="dx-section-title">{t("Faollik xaritasi")}</h3>
           <span className="dx-section-meta">{t("1 yil · kunlik yozuvlar")}</span>
         </div>
-        <Heatmap cells={data.activityHeatmap} />
+        <Heatmap data={data.activityHeatmap} />
       </RevealSection>
 
       {pieTipPos && createPortal(

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { DepartmentType, DEPARTMENT_TYPE_LABELS, type DepartmentResponse } from "@/lib/userService";
+import { DepartmentType, DEPARTMENT_TYPE_LABELS, type DepartmentOption } from "@/lib/userService";
 import { useT } from "@/lib/i18n";
 
 const TYPE_STYLE = {
@@ -16,7 +16,7 @@ export function CustomGroupedMultiSelect({
 }: {
   values: string[];
   onChange: (v: string[]) => void;
-  departments: DepartmentResponse[];
+  departments: DepartmentOption[];
   placeholder: string;
   hasError?: boolean;
 }) {

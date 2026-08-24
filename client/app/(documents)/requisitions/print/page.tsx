@@ -16,7 +16,7 @@ import {
   PRODUCT_UNIT_LABELS_CYR,
   type ContractSummary,
   type ContractSummaryProduct,
-  type DepartmentResponse,
+  type DepartmentOption,
   type CostNormResponse,
 } from "@/lib/userService";
 import { CheckSelect } from "../_components/CheckSelect";
@@ -104,7 +104,7 @@ function RequisitionPrintContent() {
   const [contractId, setContractId] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [contracts, setContracts] = useState<ContractSummary[]>([]);
-  const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
+  const [departments, setDepartments] = useState<DepartmentOption[]>([]);
 
   // Nom manba hujjatdan taklif qilinadi (joriy interfeys tilida), lekin
   // foydalanuvchi uni tahrirlashi mumkin — kirill yoki ruscha nom shu yerdan
@@ -486,7 +486,7 @@ function RequisitionPrintContent() {
     const urlContractId = searchParams.get("contractId");
     Promise.all([
       contractService.getAll(true),
-      departmentService.getAllFull(),
+      departmentService.getAll(),
     ]).then(([contractsData, depsData]) => {
       setContracts(contractsData);
       setDepartments(depsData);
