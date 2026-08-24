@@ -218,12 +218,7 @@ export default function MeterDataPage() {
     try {
       if (!silent) setLoading(true);
       setError("");
-      const [readings, devs] = await Promise.all([
-        meterDataService.getLatest(deviceRef.current || undefined, 100),
-        meterDataService.getDevices(),
-      ]);
-      setItems(readings);
-      setDevices(devs);
+      setItems(await meterDataService.getLatest(deviceRef.current || undefined, 100));
       setLastFetch(new Date());
     } catch {
       setError(t("Hisoblagich ma'lumotlarini yuklashda xatolik."));
@@ -232,8 +227,21 @@ export default function MeterDataPage() {
     }
   };
 
+  // Qurilmalar ro'yxati deyarli o'zgarmaydi — jonli pollingda emas, faqat
+  // sahifa ochilganda va qo'lda yangilashda so'raladi (butun jadval bo'yicha
+  // DISTINCT skani har 5 soniyada takrorlanmasin).
+  const loadDevices = async () => {
+    try {
+      setDevices(await meterDataService.getDevices());
+    } catch {
+      /* qurilmalar ro'yxati kritik emas — filtr bo'sh qoladi */
+    }
+  };
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [device]);
+
+  useEffect(() => { loadDevices(); }, []);
 
   useEffect(() => {
     if (!live) return;
@@ -292,7 +300,7 @@ export default function MeterDataPage() {
 
         <button
           className="btn-icon"
-          onClick={() => load()}
+          onClick={() => { load(); loadDevices(); }}
           title={t("Yangilash")}
           style={{ marginLeft: "auto", background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}
         >
@@ -368,7 +376,7 @@ export default function MeterDataPage() {
                     </td>
                   </tr>
                 ) : items.map((r, i) => (
-                  <tr key={r.id} className={i === 0 ? "nd-fadein-0" : undefined}>
+                  <tr key={`${r.deviceName}-${r.createdAt}`} className={i === 0 ? "nd-fadein-0" : undefined}>
                     <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text3)", fontFamily: "var(--font-mono)" }}>
                       {String(i + 1).padStart(2, "0")}
                     </td>

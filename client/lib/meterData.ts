@@ -1,17 +1,13 @@
 import { api } from "./api";
 
 // Elektr hisoblagich o'lchovlari — backenddagi `GET /api/meter-data` ga mos.
-// Qurilmalar ma'lumotni POST /api/meter-data ga o'zi yuboradi, frontend faqat o'qiydi.
+// Qurilma ma'lumotni Modbus orqali yuboradi, frontend faqat o'qiydi.
+// Backend faqat UI ishlatadigan maydonlarni qaytaradi (B/C fazalar o'qilmaydi).
 
 export interface MeterReading {
-  id: string;
   deviceName: string;
   voltagePhaseA: number;
-  voltagePhaseB: number;
-  voltagePhaseC: number;
   currentPhaseA: number;
-  currentPhaseB: number;
-  currentPhaseC: number;
   activePower: number;
   frequency: number;
   createdAt: string;
