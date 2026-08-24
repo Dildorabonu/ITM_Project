@@ -397,8 +397,9 @@ public class AuthServiceTests
     [Fact]
     public async Task RevokeTokenAsync_OnLogout_MarksTokenRevoked()
     {
-        // Arrange
-        await using var db = TestDbContextFactory.Create();
+        // Arrange — RevokeTokenAsync ExecuteUpdateAsync ishlatadi, uni InMemory
+        // provider tarjima qila olmaydi: relyatsion (SQLite) kontekst kerak.
+        await using var db = TestDbContextFactory.CreateSqlite();
         var user = SeedActiveUser(db, login: "ali", password: ValidPassword);
         var sut = CreateService(db);
 
@@ -411,7 +412,7 @@ public class AuthServiceTests
         // Assert
         result.Succeeded.Should().BeTrue();
 
-        var stored = await db.RefreshTokens.SingleAsync(rt => rt.Token == refreshToken);
+        var stored = await db.RefreshTokens.AsNoTracking().SingleAsync(rt => rt.Token == refreshToken);
         stored.IsRevoked.Should().BeTrue();
         stored.RevokedAt.Should().NotBeNull();
         stored.RevokedReason.Should().Be("ManualRevoke");
