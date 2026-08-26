@@ -11,6 +11,9 @@ public class NotificationService : INotificationService
 {
     private static readonly Guid SuperAdminRoleId = new("00000000-0000-0000-0000-000000000001");
 
+    private const int ListLimit = 100;
+    private const int UnreadPreviewLimit = 10;
+
     private readonly DatabaseContext _context;
     private readonly ILogger<NotificationService> _logger;
 
@@ -25,7 +28,7 @@ public class NotificationService : INotificationService
         var notifs = await _context.Notifications
             .Where(n => n.UserId == userId)
             .OrderByDescending(n => n.CreatedAt)
-            .AsNoTracking()
+            .Take(ListLimit)
             .Select(n => new NotificationResponseDto
             {
                 Id = n.Id,
@@ -36,78 +39,88 @@ public class NotificationService : INotificationService
                 IsRead = n.IsRead,
                 CreatedAt = n.CreatedAt,
             })
-            .Take(100)
             .ToListAsync();
 
         return ApiResult<IEnumerable<NotificationResponseDto>>.Success(notifs);
     }
 
-    public async Task<ApiResult<int>> GetUnreadCountAsync(Guid userId)
+    // Qo'ng'iroq belgisi har 30 soniyada shu yerga uriladi — shuning uchun javob
+    // faqat hisob va ochiladigan ro'yxat ko'rsatadigan bir nechta sarlavhadan iborat.
+    public async Task<ApiResult<NotificationUnreadDto>> GetUnreadAsync(Guid userId)
     {
-        var count = await _context.Notifications
-            .CountAsync(n => n.UserId == userId && !n.IsRead);
+        var unread = _context.Notifications.Where(n => n.UserId == userId && !n.IsRead);
 
-        return ApiResult<int>.Success(count);
+        var count = await unread.CountAsync();
+
+        List<NotificationPreviewDto> items = count == 0
+            ? []
+            : await unread
+                .OrderByDescending(n => n.CreatedAt)
+                .Take(UnreadPreviewLimit)
+                .Select(n => new NotificationPreviewDto
+                {
+                    Id = n.Id,
+                    Title = n.Title,
+                    Body = n.Body,
+                })
+                .ToListAsync();
+
+        return ApiResult<NotificationUnreadDto>.Success(new NotificationUnreadDto
+        {
+            Count = count,
+            Items = items,
+        });
     }
 
-    public async Task<ApiResult<int>> MarkAsReadAsync(Guid id, Guid userId)
+    public async Task<ApiResult<bool>> MarkAsReadAsync(Guid id, Guid userId)
     {
-        var notif = await _context.Notifications
-            .FirstOrDefaultAsync(n => n.Id == id && n.UserId == userId);
+        // Yozuvni o'qib olib, keyin saqlash o'rniga bitta UPDATE — egasi WHERE da
+        // tekshiriladi, ya'ni begona bildirishnoma avvalgidek 404 qaytaradi.
+        var updated = await _context.Notifications
+            .Where(n => n.Id == id && n.UserId == userId)
+            .ExecuteUpdateAsync(s => s.SetProperty(n => n.IsRead, true));
 
-        if (notif is null)
-            return ApiResult<int>.Failure(["Bildirishnoma topilmadi."], 404);
+        if (updated == 0)
+            return ApiResult<bool>.Failure(["Bildirishnoma topilmadi."], 404);
 
-        notif.IsRead = true;
-        await _context.SaveChangesAsync();
-
-        return ApiResult<int>.Success(200);
+        return ApiResult<bool>.Success(true);
     }
 
-    public async Task<ApiResult<int>> MarkAllAsReadAsync(Guid userId)
+    public async Task<ApiResult<bool>> MarkAllAsReadAsync(Guid userId)
     {
         await _context.Notifications
             .Where(n => n.UserId == userId && !n.IsRead)
             .ExecuteUpdateAsync(s => s.SetProperty(n => n.IsRead, true));
 
-        return ApiResult<int>.Success(200);
+        return ApiResult<bool>.Success(true);
     }
 
-    public async Task<ApiResult<int>> DeleteOwnAsync(Guid id, Guid userId)
+    public async Task<ApiResult<bool>> DeleteOwnAsync(Guid id, Guid userId)
     {
-        var notif = await _context.Notifications
-            .FirstOrDefaultAsync(n => n.Id == id);
+        // 404 va 403 ni ajratish uchun faqat egasining Id si o'qiladi — butun yozuv emas.
+        var ownerId = await _context.Notifications
+            .Where(n => n.Id == id)
+            .Select(n => (Guid?)n.UserId)
+            .FirstOrDefaultAsync();
 
-        if (notif is null)
-            return ApiResult<int>.Failure(["Bildirishnoma topilmadi."], 404);
+        if (ownerId is null)
+            return ApiResult<bool>.Failure(["Bildirishnoma topilmadi."], 404);
 
-        if (notif.UserId != userId)
-            return ApiResult<int>.Failure(["Bu bildirishnomani o'chirish huquqi yo'q."], 403);
+        if (ownerId != userId)
+            return ApiResult<bool>.Failure(["Bu bildirishnomani o'chirish huquqi yo'q."], 403);
 
-        _context.Notifications.Remove(notif);
-        await _context.SaveChangesAsync();
+        await _context.Notifications
+            .Where(n => n.Id == id)
+            .ExecuteDeleteAsync();
 
-        return ApiResult<int>.Success(200);
+        return ApiResult<bool>.Success(true);
     }
 
     public async Task CreateAsync(Guid userId, string title, string body, NotificationType type, Guid? contractId = null)
     {
         try
         {
-            var notification = new Core.Entities.Notification
-            {
-                Id = Guid.NewGuid(),
-                UserId = userId,
-                Title = title,
-                Body = body,
-                Type = type,
-                ContractId = contractId,
-                IsRead = false,
-                CreatedAt = DateTime.UtcNow,
-            };
-
-            _context.Notifications.Add(notification);
-            await _context.SaveChangesAsync();
+            await SaveManyAsync([userId], title, body, type, contractId);
         }
         catch (Exception ex)
         {
@@ -123,24 +136,7 @@ public class NotificationService : INotificationService
     {
         try
         {
-            var ids = userIds.Distinct().ToList();
-            if (ids.Count == 0)
-                return;
-
-            var notifications = ids.Select(uid => new Core.Entities.Notification
-            {
-                Id = Guid.NewGuid(),
-                UserId = uid,
-                Title = title,
-                Body = body,
-                Type = type,
-                ContractId = contractId,
-                IsRead = false,
-                CreatedAt = DateTime.UtcNow,
-            }).ToList();
-
-            _context.Notifications.AddRange(notifications);
-            await _context.SaveChangesAsync();
+            await SaveManyAsync(userIds, title, body, type, contractId);
         }
         catch (Exception ex)
         {
@@ -152,25 +148,7 @@ public class NotificationService : INotificationService
     {
         try
         {
-            var superAdminIds = await _context.Users
-                .Where(u => u.IsActive && u.RoleId == SuperAdminRoleId)
-                .Select(u => u.Id)
-                .ToListAsync();
-
-            var notifications = superAdminIds.Select(uid => new Core.Entities.Notification
-            {
-                Id = Guid.NewGuid(),
-                UserId = uid,
-                Title = title,
-                Body = body,
-                Type = type,
-                ContractId = contractId,
-                IsRead = false,
-                CreatedAt = DateTime.UtcNow,
-            }).ToList();
-
-            _context.Notifications.AddRange(notifications);
-            await _context.SaveChangesAsync();
+            await SaveManyAsync(await ActiveSuperAdminIdsAsync(), title, body, type, contractId);
         }
         catch (Exception ex)
         {
@@ -182,31 +160,41 @@ public class NotificationService : INotificationService
     {
         try
         {
-            var superAdminIds = await _context.Users
-                .Where(u => u.IsActive && u.RoleId == SuperAdminRoleId)
-                .Select(u => u.Id)
-                .ToListAsync();
-
-            var allIds = userIds.Union(superAdminIds).Distinct().ToList();
-
-            var notifications = allIds.Select(uid => new Core.Entities.Notification
-            {
-                Id = Guid.NewGuid(),
-                UserId = uid,
-                Title = title,
-                Body = body,
-                Type = type,
-                ContractId = contractId,
-                IsRead = false,
-                CreatedAt = DateTime.UtcNow,
-            }).ToList();
-
-            _context.Notifications.AddRange(notifications);
-            await _context.SaveChangesAsync();
+            var superAdminIds = await ActiveSuperAdminIdsAsync();
+            await SaveManyAsync(userIds.Concat(superAdminIds), title, body, type, contractId);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Foydalanuvchilar va superadminlarga bildirishnoma yuborishda xatolik: {Title}", title);
         }
+    }
+
+    private Task<List<Guid>> ActiveSuperAdminIdsAsync() =>
+        _context.Users
+            .Where(u => u.IsActive && u.RoleId == SuperAdminRoleId)
+            .Select(u => u.Id)
+            .ToListAsync();
+
+    private async Task SaveManyAsync(IEnumerable<Guid> userIds, string title, string body, NotificationType type, Guid? contractId)
+    {
+        var ids = userIds.Distinct().ToList();
+        if (ids.Count == 0)
+            return;
+
+        var createdAt = DateTime.UtcNow;
+
+        _context.Notifications.AddRange(ids.Select(uid => new Core.Entities.Notification
+        {
+            Id = Guid.NewGuid(),
+            UserId = uid,
+            Title = title,
+            Body = body,
+            Type = type,
+            ContractId = contractId,
+            IsRead = false,
+            CreatedAt = createdAt,
+        }));
+
+        await _context.SaveChangesAsync();
     }
 }

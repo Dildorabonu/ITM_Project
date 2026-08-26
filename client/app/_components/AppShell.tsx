@@ -184,7 +184,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // Ombor tekshiruvini kutayotgan talabnomalar soni — sidebar badge uchun
   const [pendingCheckCount, setPendingCheckCount] = useState(0);
   const [bellOpen, setBellOpen] = useState(false);
-  const [unreadNotifs, setUnreadNotifs] = useState<{ id: string; title: string; body: string; createdAt: string }[]>([]);
+  const [unreadNotifs, setUnreadNotifs] = useState<{ id: string; title: string; body: string }[]>([]);
 
   const [pageLoaded, setPageLoaded] = useState(false);
   const [minTimeElapsed, setMinTimeElapsed] = useState(false);
@@ -213,17 +213,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(t);
   }, [hasHydrated, pageLoaded, minTimeElapsed, splashFading]);
 
+  // Faqat hisob va ochiladigan ro'yxatning bir nechta sarlavhasi -- butun
+  // bildirishnomalar ro'yxatini 30 soniyada bir marta tortib olish o'rniga.
   const fetchUnreadNotifs = useCallback(async () => {
     try {
-      const res = await api.get("/api/notification");
-      const all = res.data.result || [];
-      const unread = all.filter((n: any) => !n.isRead);
-      setNotifCount(unread.length);
-      setUnreadNotifs(
-        unread.map((n: any) => ({
-          id: n.id, title: n.title, body: n.body, createdAt: n.createdAt,
-        }))
-      );
+      const res = await api.get("/api/notification/unread");
+      const data = res.data.result;
+      setNotifCount(data?.count ?? 0);
+      setUnreadNotifs(data?.items ?? []);
     } catch { /* ignore */ }
   }, []);
 
@@ -1084,7 +1081,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                         <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{t("O'qilmagan xabarlar")}</span>
                         <span style={{ fontSize: 12, fontWeight: 700, background: "var(--danger)", color: "#fff", borderRadius: 9, padding: "1px 8px", fontFamily: "var(--font-mono)" }}>
-                          {unreadNotifs.length}
+                          {notifCount}
                         </span>
                       </div>
                       {unreadNotifs.length === 0 ? (

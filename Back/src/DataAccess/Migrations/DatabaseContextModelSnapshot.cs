@@ -775,7 +775,12 @@ namespace DataAccess.Migrations
 
                     b.HasIndex("ContractId");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex(new[] { "UserId", "CreatedAt" }, "IX_Notifications_UserId_CreatedAt")
+                        .IsDescending(false, true);
+
+                    b.HasIndex(new[] { "UserId", "CreatedAt" }, "IX_Notifications_UserId_CreatedAt_Unread")
+                        .IsDescending(false, true)
+                        .HasFilter("NOT \"IsRead\"");
 
                     b.ToTable("Notifications");
                 });
