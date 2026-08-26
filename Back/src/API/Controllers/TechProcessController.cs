@@ -23,17 +23,20 @@ public class TechProcessController : ControllerBase
         _attachmentService = attachmentService;
     }
 
+    private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
     // GET /api/techprocess
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] ProcessStatus? status = null, [FromQuery] bool? isActive = null)
     {
-        var canView = User.HasClaim("perm", "TechProcess.View");
         var viewAll = User.HasClaim("perm", "TechProcess.ViewAll");
 
-        if (!canView && !viewAll)
+        if (!viewAll && !User.HasClaim("perm", "TechProcess.View"))
             return Forbid();
 
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        // The scope filter is only applied when the caller lacks ViewAll, so the
+        // id is only needed then.
+        var userId = viewAll ? Guid.Empty : CurrentUserId;
         var result = await _techProcessService.GetAllAsync(userId, viewAll, status, isActive);
         return StatusCode(result.StatusCode, result);
     }
@@ -70,8 +73,7 @@ public class TechProcessController : ControllerBase
     [HttpPut("{id:guid}/approve")]
     public async Task<IActionResult> Approve(Guid id)
     {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var result = await _techProcessService.ApproveAsync(id, userId);
+        var result = await _techProcessService.ApproveAsync(id, CurrentUserId);
         return StatusCode(result.StatusCode, result);
     }
 
@@ -95,10 +97,9 @@ public class TechProcessController : ControllerBase
         if (!FileValidator.TryValidate(file, out var validationError))
             return BadRequest(validationError);
 
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         await using var stream = file.OpenReadStream();
         var result = await _attachmentService.UploadAsync(
-            EntityType, id, stream, file.FileName, file.ContentType, file.Length, userId);
+            EntityType, id, stream, file.FileName, file.ContentType, file.Length, CurrentUserId);
 
         return StatusCode(result.StatusCode, result);
     }
@@ -112,7 +113,6 @@ public class TechProcessController : ControllerBase
             return NotFound(result);
 
         var (filePath, contentType, fileName) = result.Result;
-        var bytes = await System.IO.File.ReadAllBytesAsync(filePath);
-        return File(bytes, contentType, fileName);
+        return PhysicalFile(filePath, contentType, fileName, enableRangeProcessing: true);
     }
 }

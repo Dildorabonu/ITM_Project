@@ -25,6 +25,7 @@ import {
   type TpMode,
   type CnMode,
   type ContractReadinessScope,
+  type ReadinessTechProcessSummary,
   type TechProcessResponse,
   type CostNormListItem,
   type CostNormResponse,
@@ -46,13 +47,12 @@ import { FileParsingOverlay } from "./_components/FileParsingOverlay";
 
 export default function TechProductionPage() {
   // ── Tech Process state ─────────────────────────────────────────────────────
-  const [tpList, setTpList] = useState<TechProcessResponse[]>([]);
-  const [tpLoading, setTpLoading] = useState(true);
   const [tpSearch, setTpSearch] = useState("");
 
   // TP detail / edit
   const [tpMode, setTpMode] = useState<TpMode>("list");
   const [tpSelected, setTpSelected] = useState<TechProcessResponse | null>(null);
+  const [tpEditingId, setTpEditingId] = useState<string|null>(null);
   const [tpEditForm, setTpEditForm] = useState({ title:"", notes:"" });
   const [tpEditSaving, setTpEditSaving] = useState(false);
   const [tpEditNewFile, setTpEditNewFile] = useState<File|null>(null);
@@ -160,12 +160,6 @@ export default function TechProductionPage() {
     } catch { setContractList([]); }
   },[viewMode]);
 
-  const loadTp = useCallback(async () => {
-    try { setTpLoading(true); const data=await techProcessService.getAll(undefined, viewMode === "active"); setTpList(data); }
-    catch { /* ignore */ }
-    finally { setTpLoading(false); }
-  },[viewMode]);
-
   const loadCn = useCallback(async()=>{ setCnListLoading(true); const d=await costNormService.getAll(undefined, viewMode === "active"); setCnList(d); setCnListLoading(false); },[viewMode]);
 
   const loadReadiness = useCallback(async(p = page)=>{
@@ -187,7 +181,7 @@ export default function TechProductionPage() {
     }
   },[viewMode, tpSearch, page]);
 
-  useEffect(()=>{ loadTp(); loadCn(); loadContracts(); },[loadTp, loadCn, loadContracts]);
+  useEffect(()=>{ loadCn(); loadContracts(); },[loadCn, loadContracts]);
   useEffect(()=>{ departmentService.getAll().then(setDepartments).catch(()=>setDepartments([])); },[]);
 
   // Reset to page 1 when filters change
@@ -204,31 +198,42 @@ export default function TechProductionPage() {
 
   // ── TP Drawer ──────────────────────────────────────────────────────────────
 
-  const openTpDetail = async (tp: TechProcessResponse) => {
-    setTpSelected(tp); setTpMode("detail"); setTpDetailFiles([]);
+  // Opens instantly on a placeholder built from the readiness row the user just
+  // clicked, then swaps in the full record. The fields the placeholder can't
+  // supply (createdAt, approver) render as "—" or stay hidden for that moment.
+  const openTpDetail = async (seed: ReadinessTechProcessSummary, scope: ContractReadinessScope) => {
+    setTpSelected({
+      id: seed.id,
+      contractNo: scope.contractNo,
+      productType: scope.productType,
+      title: seed.title,
+      notes: seed.notes,
+      status: seed.status,
+      approvedByFullName: null,
+      approvedAt: null,
+      createdAt: "",
+    });
+    setTpMode("detail"); setTpDetailFiles([]);
     window.history.pushState({mode:"detail"},"");
     const [fresh, files] = await Promise.all([
-      techProcessService.getById(tp.id),
-      techProcessService.getFiles(tp.id).catch(()=>[] as AttachmentResponse[]),
+      techProcessService.getById(seed.id),
+      techProcessService.getFiles(seed.id).catch(()=>[] as AttachmentResponse[]),
     ]);
     setTpSelected(fresh);
     setTpDetailFiles(files);
   };
 
   const tpRefreshSelected = async (id: string) => {
-    const fresh = await techProcessService.getById(id);
-    setTpSelected(fresh);
-    setTpList(prev=>prev.map(t=>t.id===id?fresh:t));
+    setTpSelected(await techProcessService.getById(id));
   };
 
   const handleTpEditSave = async () => {
-    if(!tpSelected) return;
+    if(!tpEditingId) return;
     setTpEditSaving(true);
     try {
-      await techProcessService.update(tpSelected.id, { title: tpEditForm.title, notes: tpEditForm.notes||null });
-      if(tpEditNewFile) await techProcessService.uploadFile(tpSelected.id, tpEditNewFile);
-      await tpRefreshSelected(tpSelected.id);
-      await Promise.all([loadTp(), loadReadiness()]);
+      await techProcessService.update(tpEditingId, { title: tpEditForm.title, notes: tpEditForm.notes||null });
+      if(tpEditNewFile) await techProcessService.uploadFile(tpEditingId, tpEditNewFile);
+      await loadReadiness();
     } catch(e: unknown) {
       const msg=(e as {response?:{data?:{errors?:string[]}}})?.response?.data?.errors?.[0];
       alert(msg??t("Saqlashda xatolik yuz berdi. Qayta urinib ko'ring."));
@@ -258,8 +263,6 @@ export default function TechProductionPage() {
       const dto: TechProcessCreatePayload = { contractId:tpForm.contractId, contractProductId: tpForm.contractProductId || null, title:tpForm.title.trim()||finalFile!.name.replace(/\.[^.]+$/,""), notes:tpForm.notes||null };
       const newId = await techProcessService.create(dto);
       await techProcessService.uploadFile(newId, finalFile!);
-      const fresh = await techProcessService.getById(newId);
-      setTpList(prev=>[fresh,...prev]);
       await loadReadiness();
       setTpDraftWarning(null);
       setTpShowForm(false);
@@ -347,7 +350,7 @@ export default function TechProductionPage() {
     try {
       await techProcessService.approve(tpApproveTarget.id);
       if (tpSelected?.id === tpApproveTarget.id) await tpRefreshSelected(tpApproveTarget.id);
-      await Promise.all([loadTp(), loadReadiness()]);
+      await loadReadiness();
       setTpApproveTarget(null);
       showToast(t("Texnologik jarayon tasdiqlandi!"));
     } finally { setTpApproving(false); }
@@ -1209,13 +1212,13 @@ export default function TechProductionPage() {
                       {tpApproving?"...":t("Tasdiqlash")}
                     </button>
                   )}
-                  <button onClick={()=>{ const full=tpList.find(t=>t.id===tpEffective.id); if(full) openTpDetail(full); }}
+                  <button onClick={()=>openTpDetail(tpEffective, selectedItem)}
                     style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"#e8f0fe",border:"1px solid #a4c0f4",color:"#1a56db",cursor:"pointer" }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                     {t("Ko'rish")}
                   </button>
                   {canUpdateTp&&(
-                  <button onClick={()=>{ const full=tpList.find(t=>t.id===tpEffective.id); if(!full) return; setTpSelected(full); setTpEditForm({title:full.title,notes:full.notes||""}); setTpEditNewFile(null); setTpInlineEditing(true); }}
+                  <button onClick={()=>{ setTpEditingId(tpEffective.id); setTpEditForm({title:tpEffective.title,notes:tpEffective.notes||""}); setTpEditNewFile(null); setTpInlineEditing(true); }}
                     style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--text2)",cursor:"pointer" }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     {t("Tahrirlash")}
@@ -1525,14 +1528,14 @@ export default function TechProductionPage() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input className="search-input" placeholder={t("Shartnoma raqami bo'yicha qidirish...")} value={tpSearch} onChange={e=>setTpSearch(e.target.value)}/>
         </div>
-        <button className="btn-icon" onClick={()=>{ loadTp(); loadCn(); loadContracts(); loadReadiness(page); }} title={t("Yangilash")} style={{ background:"var(--accent-dim)",borderColor:"var(--accent)",color:"var(--accent)",width:36,height:36 }}>
+        <button className="btn-icon" onClick={()=>{ loadCn(); loadContracts(); loadReadiness(page); }} title={t("Yangilash")} style={{ background:"var(--accent-dim)",borderColor:"var(--accent)",color:"var(--accent)",width:36,height:36 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
         </button>
       </div>
 
       {/* ── Contracts table ── */}
       <div className="itm-card" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "clip" } as React.CSSProperties}>
-        {(readinessLoading||tpLoading||cnListLoading)?(
+        {(readinessLoading||cnListLoading)?(
           <div style={{ flex:1,padding:40,textAlign:"center",color:"var(--text2)" }}>{t("Yuklanmoqda...")}</div>
         ):readinessItems.length===0?(
           <div style={{ flex:1,padding:40,textAlign:"center",color:"var(--text2)" }}>
