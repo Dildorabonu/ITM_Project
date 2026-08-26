@@ -560,6 +560,8 @@ export const ru: Record<string, string> = {
   "Muzlatilgan mahsulotlar yo'q": "Замороженных товаров нет",
   "Muzlatilgan mahsulotlar yuklanmadi.": "Не удалось загрузить замороженные товары.",
   "Muzlatilgan miqdor": "Замороженное количество",
+  "Tasdiqlash kutilmoqda": "Ожидает утверждения",
+  "Chiqarish kutilmoqda": "Ожидает выдачи",
   "Namuna": "Образец",
   "Namuna fayl": "Образец файла",
   "Namuna faylni yuklash (.xlsx)": "Скачать файл-образец (.xlsx)",

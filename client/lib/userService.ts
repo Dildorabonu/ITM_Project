@@ -350,7 +350,6 @@ export interface ProductSimilar {
   id: string;
   name: string;
   invoiceNumber: string;
-  similarity: number;
 }
 
 export interface ProductDuplicateCheckResult {
@@ -400,7 +399,6 @@ export interface ProductReservationResponse {
   purpose: string;
   targetDepartmentName: string | null;
   status: number;
-  statusLabel: string;
   warehouseCheckedAt: string | null;
 }
 
@@ -429,13 +427,6 @@ export const productService = {
     if (search) params.search = search;
     const res = await api.get("/api/product/reservations", { params });
     return res.data?.result ?? res.data;
-  },
-
-  findSimilar: async (name: string, departmentId?: string): Promise<ProductSimilar[]> => {
-    const params: Record<string, unknown> = { name };
-    if (departmentId) params.departmentId = departmentId;
-    const res = await api.get("/api/product/similar", { params });
-    return res.data?.result ?? res.data ?? [];
   },
 
   // Nom maydoni typeahead'i — kiritilgan matn bilan boshlanadigan mahsulotlar.

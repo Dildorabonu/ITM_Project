@@ -23,9 +23,7 @@ public partial class ProductService : IProductService
 
     public async Task<ApiResult<PagedResult<ProductResponseDto>>> GetAllAsync(int page, int pageSize, string? search, Guid? departmentId, Guid? restrictToDepartmentId = null, DepartmentType? departmentType = null)
     {
-        var query = _context.Products
-            .Include(p => p.Department)
-            .AsNoTracking();
+        var query = _context.Products.AsNoTracking();
 
         // Permission cheklov: agar foydalanuvchida Products.ViewAll yo'q bo'lsa,
         // faqat o'zining bo'limidagi mahsulotlar ko'rinadi.
@@ -51,13 +49,29 @@ public partial class ProductService : IProductService
         var totalCount = await query.CountAsync();
 
         var pagination = new PaginationParams { Page = page, PageSize = pageSize };
+
+        // To'liq entity (QrCode, NameNormalized, ReservedQuantity + butun Department qatori)
+        // o'rniga to'g'ridan-to'g'ri DTO ga proyeksiya — SQL faqat kerakli ustunlarni oladi.
         var items = await query
             .OrderBy(p => p.Name)
             .Skip((pagination.Page - 1) * pagination.PageSize)
             .Take(pagination.PageSize)
+            .Select(p => new ProductResponseDto
+            {
+                Id = p.Id,
+                Name = p.Name,
+                InvoiceNumber = p.InvoiceNumber,
+                Description = p.Description,
+                Quantity = p.Quantity,
+                AvailableQuantity = p.Quantity - p.ReservedQuantity > 0m ? p.Quantity - p.ReservedQuantity : 0m,
+                Unit = p.Unit,
+                DepartmentId = p.DepartmentId,
+                DepartmentName = p.Department!.Name,
+                CreatedAt = p.CreatedAt
+            })
             .ToListAsync();
 
-        var paged = PagedResult<ProductResponseDto>.Create(items.Select(MapToResponse), totalCount, pagination);
+        var paged = PagedResult<ProductResponseDto>.Create(items, totalCount, pagination);
         return ApiResult<PagedResult<ProductResponseDto>>.Success(paged);
     }
 
@@ -84,7 +98,7 @@ public partial class ProductService : IProductService
         {
             Id = Guid.NewGuid(),
             Name = dto.Name,
-            NameNormalized = TextNormalizer.Normalize(dto.Name),
+            NameNormalized = norm,
             InvoiceNumber = dto.InvoiceNumber.Trim(),
             QrCode = await ProductCodeGenerator.NewUniqueAsync(_context),
             Description = dto.Description,
@@ -107,6 +121,43 @@ public partial class ProductService : IProductService
         if (list.Count > 200)
             return ApiResult<int>.Failure(["Bir vaqtda 200 tadan ortiq mahsulot qo'shib bo'lmaydi."]);
 
+        if (list.Count == 0)
+            return ApiResult<int>.Success(201);
+
+        // Tekshiruv uchun kerak bo'lgan hamma narsa oldindan bir necha so'rovda olinadi.
+        // Ilgari har bir qator uchun 4 ta so'rov ketardi (200 qatorga ~800 ta so'rov).
+        var deptIds = list.Select(d => d.DepartmentId).Distinct().ToList();
+        var names = list.Select(d => d.Name).Distinct().ToList();
+        var norms = list.Select(d => TextNormalizer.Normalize(d.Name)).Where(n => n.Length >= 2).Distinct().ToList();
+        var invoices = list.Select(d => (d.InvoiceNumber ?? string.Empty).Trim()).Where(i => i.Length > 0).Distinct().ToList();
+
+        var knownDepts = (await _context.Departments
+            .AsNoTracking()
+            .Where(d => deptIds.Contains(d.Id))
+            .Select(d => d.Id)
+            .ToListAsync())
+            .ToHashSet();
+
+        // Faqat kiritilayotgan nom/normalized bilan to'qnashadigan qatorlar qaytadi.
+        var clashing = await _context.Products
+            .AsNoTracking()
+            .Where(p => deptIds.Contains(p.DepartmentId) && (names.Contains(p.Name) || norms.Contains(p.NameNormalized)))
+            .Select(p => new { p.DepartmentId, p.Name, p.NameNormalized })
+            .ToListAsync();
+
+        var takenNames = clashing.Select(p => (p.DepartmentId, p.Name)).ToHashSet();
+        var takenNorms = clashing.Select(p => (p.DepartmentId, p.NameNormalized)).ToHashSet();
+
+        // Invoice raqami butun baza bo'yicha unikal (bo'lim ahamiyatsiz).
+        var takenInvoices = invoices.Count == 0
+            ? new HashSet<string>()
+            : (await _context.Products
+                .AsNoTracking()
+                .Where(p => invoices.Contains(p.InvoiceNumber))
+                .Select(p => p.InvoiceNumber)
+                .ToListAsync())
+                .ToHashSet();
+
         var batchInvoices = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         // Fayl ichidagi (bo'lim + normalized nom) takrorlarini ushlash uchun.
         var batchNames = new HashSet<(Guid, string)>();
@@ -119,10 +170,10 @@ public partial class ProductService : IProductService
             if (!batchInvoices.Add(inv))
                 return ApiResult<int>.Failure([$"Invoice raqami '{inv}' ushbu yuborilgan ro'yxatda takrorlangan."]);
 
-            if (!await _context.Departments.AnyAsync(d => d.Id == dto.DepartmentId))
+            if (!knownDepts.Contains(dto.DepartmentId))
                 return ApiResult<int>.Failure([$"Department with id '{dto.DepartmentId}' not found."]);
 
-            if (await _context.Products.AnyAsync(p => p.Name == dto.Name && p.DepartmentId == dto.DepartmentId))
+            if (takenNames.Contains((dto.DepartmentId, dto.Name)))
                 return ApiResult<int>.Failure([$"Product with name '{dto.Name}' already exists in this department."]);
 
             var norm = TextNormalizer.Normalize(dto.Name);
@@ -131,35 +182,38 @@ public partial class ProductService : IProductService
                 if (!batchNames.Add((dto.DepartmentId, norm)))
                     return ApiResult<int>.Failure([$"'{dto.Name}' bilan bir xil (boshqacha yozilgan) mahsulot ushbu ro'yxatda takrorlangan."]);
 
-                if (await _context.Products.AnyAsync(p => p.NameNormalized == norm && p.DepartmentId == dto.DepartmentId))
+                if (takenNorms.Contains((dto.DepartmentId, norm)))
                     return ApiResult<int>.Failure([$"Bu bo'limda '{dto.Name}' bilan bir xil (boshqacha yozilgan) mahsulot allaqachon mavjud."]);
             }
 
-            if (await _context.Products.AnyAsync(p => p.InvoiceNumber == inv))
+            if (takenInvoices.Contains(inv))
                 return ApiResult<int>.Failure([$"Invoice raqami '{inv}' allaqachon mavjud."]);
         }
 
-        // Shu yuklamada yaratiladigan Productlarga noyob QR kod (DB + batch ichida).
-        var assignedQrCodes = new HashSet<string>();
+        // Butun yuklama uchun QR kodlar bitta so'rovda tekshiriladi (har biri uchun alohida emas).
+        var qrCodes = await ProductCodeGenerator.NewUniqueBatchAsync(_context, list.Count);
+
+        var now = DateTime.UtcNow;
         var products = new List<Product>(list.Count);
-        foreach (var dto in list)
+        for (var i = 0; i < list.Count; i++)
         {
+            var dto = list[i];
             products.Add(new Product
             {
                 Id = Guid.NewGuid(),
                 Name = dto.Name,
                 NameNormalized = TextNormalizer.Normalize(dto.Name),
                 InvoiceNumber = dto.InvoiceNumber.Trim(),
-                QrCode = await ProductCodeGenerator.NewUniqueAsync(_context, assignedQrCodes),
+                QrCode = qrCodes[i],
                 Description = dto.Description,
                 Quantity = dto.Quantity,
                 Unit = dto.Unit,
                 DepartmentId = dto.DepartmentId,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = now
             });
         }
 
-        await _context.Products.AddRangeAsync(products);
+        _context.Products.AddRange(products);
         await _context.SaveChangesAsync();
 
         return ApiResult<int>.Success(201);
@@ -226,18 +280,4 @@ public partial class ProductService : IProductService
 
         return ApiResult<int>.Success(200);
     }
-
-    private static ProductResponseDto MapToResponse(Product product) => new()
-    {
-        Id = product.Id,
-        Name = product.Name,
-        InvoiceNumber = product.InvoiceNumber,
-        Description = product.Description,
-        Quantity = product.Quantity,
-        AvailableQuantity = Math.Max(0m, product.Quantity - product.ReservedQuantity),
-        Unit = product.Unit,
-        DepartmentId = product.DepartmentId,
-        DepartmentName = product.Department?.Name ?? string.Empty,
-        CreatedAt = product.CreatedAt
-    };
 }

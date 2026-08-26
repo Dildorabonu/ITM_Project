@@ -21,9 +21,8 @@ public class ProductReservationDto
     // Qaysi bo'lim uchun muzlatilgan
     public string? TargetDepartmentName { get; set; }
 
-    // Holat — direktor tasdig'ini kutmoqda yoki tasdiqlanib chiqarish kutmoqda
+    // Holat — matn yorlig'i frontendda (i18n) hosil qilinadi.
     public RequisitionStatus Status { get; set; }
-    public string StatusLabel { get; set; } = string.Empty;
 
     // Vaqt
     public DateTime? WarehouseCheckedAt { get; set; }

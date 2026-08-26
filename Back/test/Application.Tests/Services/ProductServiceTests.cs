@@ -671,7 +671,6 @@ public class ProductServiceTests
         items[0].RequisitionNo.Should().Be("REQ-PND");
         items[0].ReservedQuantity.Should().Be(5m);
         items[0].Status.Should().Be(RequisitionStatus.PendingApproval);
-        items[0].StatusLabel.Should().Be("Tasdiqlash kutilmoqda");
         items[0].ProductId.Should().Be(product.Id);
         items[0].InvoiceNumber.Should().Be("INV-S");
     }

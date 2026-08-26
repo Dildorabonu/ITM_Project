@@ -28,4 +28,42 @@ public static class ProductCodeGenerator
 
         throw new InvalidOperationException("Mahsulot uchun noyob QR kod yaratib bo'lmadi.");
     }
+
+    // Bir yuklamada bir nechta Product uchun noyob kod. Har bir kodni alohida
+    // so'rov bilan tekshirish o'rniga barcha nomzodlarni bitta so'rovda solishtiradi
+    // (to'qnashuv juda kam uchraydi, shuning uchun odatda bitta aylanish yetadi).
+    public static async Task<List<string>> NewUniqueBatchAsync(DatabaseContext context, int count)
+    {
+        var accepted = new List<string>(count);
+        var assigned = new HashSet<string>();
+
+        for (var attempt = 0; attempt < 10 && accepted.Count < count; attempt++)
+        {
+            var candidates = new HashSet<string>();
+            while (candidates.Count < count - accepted.Count)
+            {
+                var code = New();
+                if (!assigned.Contains(code)) candidates.Add(code);
+            }
+
+            var list = candidates.ToList();
+            var taken = await context.Products
+                .AsNoTracking()
+                .Where(p => p.QrCode != null && list.Contains(p.QrCode))
+                .Select(p => p.QrCode!)
+                .ToListAsync();
+
+            foreach (var code in candidates)
+            {
+                if (taken.Contains(code)) continue;
+                assigned.Add(code);
+                accepted.Add(code);
+            }
+        }
+
+        if (accepted.Count < count)
+            throw new InvalidOperationException("Mahsulot uchun noyob QR kod yaratib bo'lmadi.");
+
+        return accepted;
+    }
 }

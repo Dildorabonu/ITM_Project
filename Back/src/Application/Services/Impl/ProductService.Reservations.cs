@@ -2,7 +2,6 @@ using Application.DTOs;
 using Application.DTOs.Products;
 using Application.Helpers;
 using Core.Enums;
-using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services.Impl;
@@ -14,19 +13,12 @@ public partial class ProductService
     public async Task<ApiResult<PagedResult<ProductReservationDto>>> GetReservationsAsync(int page, int pageSize, string? search, Guid? restrictToDepartmentId = null)
     {
         // Rezerv hali "tirik" deb hisoblanadigan statuslar — Released yoki Rejected emas.
-        var activeStatuses = new[]
-        {
-            RequisitionStatus.PendingApproval,
-            RequisitionStatus.ReadyForWarehouseRelease
-        };
-
         var query = _context.RequisitionItems
-            .Include(i => i.ReservedProduct)
-            .Include(i => i.Requisition).ThenInclude(r => r!.Department)
+            .AsNoTracking()
             .Where(i => i.ReservedProductId != null
                 && i.Requisition != null
-                && activeStatuses.Contains(i.Requisition.Status))
-            .AsNoTracking();
+                && (i.Requisition.Status == RequisitionStatus.PendingApproval
+                    || i.Requisition.Status == RequisitionStatus.ReadyForWarehouseRelease));
 
         if (restrictToDepartmentId.HasValue)
             query = query.Where(i => i.ReservedProduct!.DepartmentId == restrictToDepartmentId.Value);
@@ -45,36 +37,31 @@ public partial class ProductService
         var totalCount = await query.CountAsync();
 
         var pagination = new PaginationParams { Page = page, PageSize = pageSize };
+
+        // To'g'ridan-to'g'ri DTO ga proyeksiya. Include bilan to'liq entity yuklansa
+        // Requisition ning base64 imzo rasmlari (QrCodeData, WarehouseCheckQrCodeData) va
+        // RequisitionItem ning FreeTextPhoto maydoni ham bekorga o'qilardi.
         var items = await query
             .OrderByDescending(i => i.Requisition!.WarehouseCheckedAt ?? i.Requisition.CreatedAt)
             .Skip((pagination.Page - 1) * pagination.PageSize)
             .Take(pagination.PageSize)
+            .Select(i => new ProductReservationDto
+            {
+                ProductId = i.ReservedProduct!.Id,
+                ProductName = i.ReservedProduct.Name,
+                InvoiceNumber = i.ReservedProduct.InvoiceNumber,
+                Unit = i.ReservedProduct.Unit,
+                ReservedQuantity = i.Quantity,
+                RequisitionId = i.Requisition!.Id,
+                RequisitionNo = i.Requisition.RequisitionNo,
+                Purpose = i.Requisition.Purpose,
+                TargetDepartmentName = i.Requisition.Department != null ? i.Requisition.Department.Name : null,
+                Status = i.Requisition.Status,
+                WarehouseCheckedAt = i.Requisition.WarehouseCheckedAt
+            })
             .ToListAsync();
 
-        var dtos = items.Select(i => new ProductReservationDto
-        {
-            ProductId = i.ReservedProduct!.Id,
-            ProductName = i.ReservedProduct.Name,
-            InvoiceNumber = i.ReservedProduct.InvoiceNumber,
-            Unit = i.ReservedProduct.Unit,
-            ReservedQuantity = i.Quantity,
-            RequisitionId = i.Requisition!.Id,
-            RequisitionNo = i.Requisition.RequisitionNo,
-            Purpose = i.Requisition.Purpose,
-            TargetDepartmentName = i.Requisition.Department?.Name,
-            Status = i.Requisition.Status,
-            StatusLabel = ReservationStatusLabel(i.Requisition.Status),
-            WarehouseCheckedAt = i.Requisition.WarehouseCheckedAt
-        });
-
-        var paged = PagedResult<ProductReservationDto>.Create(dtos, totalCount, pagination);
+        var paged = PagedResult<ProductReservationDto>.Create(items, totalCount, pagination);
         return ApiResult<PagedResult<ProductReservationDto>>.Success(paged);
     }
-
-    private static string ReservationStatusLabel(RequisitionStatus s) => s switch
-    {
-        RequisitionStatus.PendingApproval          => "Tasdiqlash kutilmoqda",
-        RequisitionStatus.ReadyForWarehouseRelease => "Chiqarish kutilmoqda",
-        _                                          => s.ToString()
-    };
 }

@@ -1,7 +1,6 @@
 using Application.DTOs;
 using Application.DTOs.Products;
 using Application.Helpers;
-using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services.Impl;
@@ -10,57 +9,8 @@ namespace Application.Services.Impl;
 // mahsulotni boshqacha yozib qayta kiritishidan saqlaydi (faqat ogohlantirish/bloklash).
 public partial class ProductService
 {
-    // Berilgan nomga "o'xshash" mavjud mahsulotlarni topadi (pg_trgm similarity).
-    // Maqsad: foydalanuvchi bir xil mahsulotni biroz boshqacha nom bilan (katta/kichik
-    // harf, ortiqcha probel, bitta-ikki harf farqi) qayta kiritib yuborishining oldini olish.
-    // Bloklamaydi — faqat ogohlantirish uchun ro'yxat qaytaradi.
-    public async Task<ApiResult<IEnumerable<ProductSimilarDto>>> FindSimilarAsync(string name, Guid? departmentId, Guid? restrictToDepartmentId = null)
-    {
-        var term = name?.Trim() ?? string.Empty;
-        if (term.Length < 2)
-            return ApiResult<IEnumerable<ProductSimilarDto>>.Success([]);
-
-        // Kirill/lotin, katta-kichik harf, probel farqini yo'qotib taqqoslash uchun
-        // kiritilgan nomni ham kanonik ko'rinishga keltiramiz.
-        var normTerm = TextNormalizer.Normalize(term);
-        if (normTerm.Length < 2)
-            return ApiResult<IEnumerable<ProductSimilarDto>>.Success([]);
-
-        // 0..1 oralig'ida; pastroq qiymat ko'proq (shovqinli) natija beradi.
-        const double threshold = 0.4;
-
-        var query = _context.Products
-            .AsNoTracking()
-            .AsQueryable();
-
-        // Mahsulot nomi takrorlanmasligi bo'lim ichida tekshiriladi, shuning uchun
-        // o'xshashlikni ham tanlangan bo'lim doirasida qidiramiz.
-        if (departmentId.HasValue)
-            query = query.Where(p => p.DepartmentId == departmentId.Value);
-
-        // Permission cheklovi: ViewAll yo'q foydalanuvchi faqat o'z bo'limini ko'radi.
-        if (restrictToDepartmentId.HasValue)
-            query = query.Where(p => p.DepartmentId == restrictToDepartmentId.Value);
-
-        var matches = await query
-            .Where(p => EF.Functions.TrigramsSimilarity(p.NameNormalized, normTerm) >= threshold)
-            .OrderByDescending(p => EF.Functions.TrigramsSimilarity(p.NameNormalized, normTerm))
-            .Take(5)
-            .Select(p => new ProductSimilarDto
-            {
-                Id = p.Id,
-                Name = p.Name,
-                InvoiceNumber = p.InvoiceNumber,
-                Similarity = EF.Functions.TrigramsSimilarity(p.NameNormalized, normTerm)
-            })
-            .ToListAsync();
-
-        return ApiResult<IEnumerable<ProductSimilarDto>>.Success(matches);
-    }
-
     // Nom maydoni uchun typeahead — kiritilgan matn bilan BOSHLANADIGAN (StartsWith)
-    // mavjud mahsulotlarni qaytaradi. Trigram "o'xshashlik"dan farqli o'laroq, faqat
-    // ilk harflarga mos keladiganlarni ko'rsatadi (autocomplete uchun).
+    // mavjud mahsulotlarni qaytaradi.
     public async Task<ApiResult<IEnumerable<ProductSimilarDto>>> SearchByNamePrefixAsync(string name, Guid? departmentId, Guid? restrictToDepartmentId = null)
     {
         var term = (name ?? string.Empty).Trim();
@@ -74,7 +24,7 @@ public partial class ProductService
         if (normTerm.Length < 1)
             return ApiResult<IEnumerable<ProductSimilarDto>>.Success([]);
 
-        var query = _context.Products.AsNoTracking().AsQueryable();
+        var query = _context.Products.AsNoTracking();
 
         // Bo'lim ichida qidiramiz (nom takrorlanmasligi bo'lim doirasida tekshiriladi).
         if (departmentId.HasValue)
@@ -92,8 +42,7 @@ public partial class ProductService
             {
                 Id = p.Id,
                 Name = p.Name,
-                InvoiceNumber = p.InvoiceNumber,
-                Similarity = 1d
+                InvoiceNumber = p.InvoiceNumber
             })
             .ToListAsync();
 
@@ -103,13 +52,14 @@ public partial class ProductService
     // Fayldan import qilishda butun ro'yxatni bitta so'rovda tekshiradi:
     //  - bazada normalized-aynan bir xil (chinakam dublikat) — ExactDuplicate
     //  - shu fayl ichida normalized-takror — DuplicateInFile
-    //  - 40%+ o'xshash mavjud mahsulotlar — Similar (faqat ogohlantirish)
+    //  - bazada shu invoice raqami bor — InvoiceDuplicate
+    //  - 40%+ o'xshash mavjud mahsulot — Similar (faqat ogohlantirish)
     // O'xshashlik C# da (TextNormalizer.TrigramSimilarity) hisoblanadi, shunda har qator
     // uchun alohida DB so'rovi yubormaymiz.
     public async Task<ApiResult<IEnumerable<ProductDuplicateCheckResultDto>>> CheckDuplicatesAsync(IEnumerable<ProductDuplicateCheckItemDto> items, Guid? restrictToDepartmentId = null)
     {
         var prepared = (items ?? [])
-            .Select(i => new { i.Index, i.Name, i.DepartmentId, Invoice = (i.InvoiceNumber ?? string.Empty).Trim(), Norm = TextNormalizer.Normalize(i.Name) })
+            .Select(i => new { i.Index, i.DepartmentId, Invoice = (i.InvoiceNumber ?? string.Empty).Trim(), Norm = TextNormalizer.Normalize(i.Name) })
             .ToList();
 
         var results = new List<ProductDuplicateCheckResultDto>();
@@ -127,6 +77,8 @@ public partial class ProductService
         if (restrictToDepartmentId.HasValue)
             existingQuery = existingQuery.Where(p => p.DepartmentId == restrictToDepartmentId.Value);
 
+        // Faqat taqqoslash va javob uchun kerakli ustunlar (Id javobga tushmaydi, lekin
+        // ExactDuplicate/Similar ni yig'ishda ishlatiladi).
         var existing = await existingQuery
             .Select(p => new
             {
@@ -183,24 +135,27 @@ public partial class ProductService
                         {
                             Id = exact.Id,
                             Name = exact.Name,
-                            InvoiceNumber = exact.InvoiceNumber,
-                            Similarity = 1d
+                            InvoiceNumber = exact.InvoiceNumber
                         };
 
-                    res.Similar = pool
+                    // UI faqat birinchi o'xshashning nomini ko'rsatadi — eng yaqinini
+                    // topish uchun butun ro'yxatni ko'rib chiqamiz, lekin bittasini yuboramiz.
+                    var best = pool
                         .Where(e => e.NameNormalized != p.Norm)
                         .Select(e => new { e, sim = TextNormalizer.TrigramSimilarity(e.NameNormalized, p.Norm) })
                         .Where(x => x.sim >= threshold)
-                        .OrderByDescending(x => x.sim)
-                        .Take(3)
-                        .Select(x => new ProductSimilarDto
-                        {
-                            Id = x.e.Id,
-                            Name = x.e.Name,
-                            InvoiceNumber = x.e.InvoiceNumber,
-                            Similarity = x.sim
-                        })
-                        .ToList();
+                        .MaxBy(x => x.sim);
+
+                    if (best is not null)
+                        res.Similar =
+                        [
+                            new ProductSimilarDto
+                            {
+                                Id = best.e.Id,
+                                Name = best.e.Name,
+                                InvoiceNumber = best.e.InvoiceNumber
+                            }
+                        ];
                 }
             }
 
