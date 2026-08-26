@@ -18,8 +18,6 @@ public class PermissionConfiguration : IEntityTypeConfiguration<Permission>
 
         builder.HasIndex(p => new { p.Module, p.Action }).IsUnique();
 
-        builder.Ignore(p => p.Key);
-
         builder.HasMany(p => p.RolePermissions)
             .WithOne(rp => rp.Permission)
             .HasForeignKey(rp => rp.PermissionId)

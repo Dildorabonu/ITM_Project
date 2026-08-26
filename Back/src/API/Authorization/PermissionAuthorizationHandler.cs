@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using System.Security.Claims;
+using Core.Enums;
 using DataAccess.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -8,6 +10,10 @@ namespace API.Authorization;
 public class PermissionAuthorizationHandler : AuthorizationHandler<PermissionRequirement>
 {
     private readonly IServiceScopeFactory _scopeFactory;
+
+    // "Contracts.View" -> (Module, Action). Policy nomlari cheklangan to'plam,
+    // shuning uchun parse natijasi bir marta hisoblanib keshlanadi.
+    private static readonly ConcurrentDictionary<string, (PermissionModule Module, PermissionAction Action)?> ParsedKeys = new();
 
     public PermissionAuthorizationHandler(IServiceScopeFactory scopeFactory)
     {
@@ -24,19 +30,36 @@ public class PermissionAuthorizationHandler : AuthorizationHandler<PermissionReq
         if (!Guid.TryParse(userIdStr, out var userId))
             return;
 
+        var parsed = ParsedKeys.GetOrAdd(requirement.Permission, static key =>
+        {
+            var dot = key.IndexOf('.');
+            if (dot <= 0 || dot == key.Length - 1)
+                return null;
+
+            if (!Enum.TryParse<PermissionModule>(key[..dot], out var module) ||
+                !Enum.TryParse<PermissionAction>(key[(dot + 1)..], out var action))
+                return null;
+
+            return (module, action);
+        });
+
+        if (parsed is not { } permission)
+            return;
+
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<DatabaseContext>();
 
-        // Permission.Key (Module.Action) computed property — mapped ustun emas, shuning uchun
-        // Module/Action juftliklarini bazadan olib, kalitni xotirada solishtiramiz.
-        var pairs = await db.Users
+        // Barcha ruxsat juftliklarini yuklab xotirada solishtirish o'rniga, bitta
+        // EXISTS so'rovi — (Module, Action) unique indeksidan foydalanib bool qaytaradi.
+        var granted = await db.Users
             .AsNoTracking()
-            .Where(u => u.Id == userId && u.IsActive)
-            .SelectMany(u => u.Role!.RolePermissions
-                .Select(rp => new { rp.Permission.Module, rp.Permission.Action }))
-            .ToListAsync();
+            .AnyAsync(u => u.Id == userId
+                        && u.IsActive
+                        && u.Role!.RolePermissions.Any(rp =>
+                               rp.Permission.Module == permission.Module &&
+                               rp.Permission.Action == permission.Action));
 
-        if (pairs.Any(p => $"{p.Module}.{p.Action}" == requirement.Permission))
+        if (granted)
             context.Succeed(requirement);
     }
 }

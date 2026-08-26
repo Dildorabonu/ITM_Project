@@ -222,8 +222,7 @@ public class AuthService : IAuthService
         if (row is null)
             return RoleContext.Empty;
 
-        // Permission.Key — hisoblanadigan xossa (DB kolonkasi emas), shuning uchun
-        // kalit xotirada, entity yuklamasdan yig'iladi.
+        // Kalit (Module.Action) entity yuklamasdan, faqat shu ikki ustundan xotirada yig'iladi.
         return new RoleContext(row.Name, row.Permissions.Select(p => $"{p.Module}.{p.Action}").ToList());
     }
 
