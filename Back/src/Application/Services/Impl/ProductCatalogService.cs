@@ -32,185 +32,164 @@ public class ProductCatalogService : IProductCatalogService
             (norm != "" && p.NameNormalized.Contains(norm)));
     }
 
-    public async Task<ApiResult<PagedResult<ProductCatalogResponseDto>>> GetAllAsync(int page, int pageSize, string? search)
+    // Faol katalog yozuvlari ustidan sahifalangan so'rov — ro'yxat va lookup faqat
+    // qaytariladigan maydonlari bilan farq qiladi, qolgan mantiq bir xil.
+    private async Task<ApiResult<PagedResult<TDto>>> PageAsync<TDto>(
+        int page, int pageSize, string? search,
+        Func<IQueryable<ProductCatalog>, IQueryable<TDto>> project)
     {
         var query = ApplySearch(_context.ProductCatalogs.AsNoTracking().Where(p => p.IsActive), search);
 
         var totalCount = await query.CountAsync();
 
         var pagination = new PaginationParams { Page = page, PageSize = pageSize };
-        var items = await query
-            .OrderBy(p => p.Name)
-            .Skip((pagination.Page - 1) * pagination.PageSize)
-            .Take(pagination.PageSize)
-            .Select(p => new ProductCatalogResponseDto
-            {
-                Id = p.Id,
-                Name = p.Name,
-                Code = p.Code,
-                Unit = p.Unit,
-                Description = p.Description,
-                UsageCount = p.ContractProducts.Count,
-                CreatedAt = p.CreatedAt,
-            })
+        var items = await project(query
+                .OrderBy(p => p.Name)
+                .Skip((pagination.Page - 1) * pagination.PageSize)
+                .Take(pagination.PageSize))
             .ToListAsync();
 
-        var paged = PagedResult<ProductCatalogResponseDto>.Create(items, totalCount, pagination);
-        return ApiResult<PagedResult<ProductCatalogResponseDto>>.Success(paged);
+        return ApiResult<PagedResult<TDto>>.Success(PagedResult<TDto>.Create(items, totalCount, pagination));
     }
 
-    public async Task<ApiResult<PagedResult<ProductCatalogResponseDto>>> LookupAsync(int page, int pageSize, string? search)
-    {
-        var query = ApplySearch(_context.ProductCatalogs.AsNoTracking().Where(p => p.IsActive), search);
+    public Task<ApiResult<PagedResult<ProductCatalogResponseDto>>> GetAllAsync(int page, int pageSize, string? search)
+        => PageAsync(page, pageSize, search, q => q.Select(p => new ProductCatalogResponseDto
+        {
+            Id = p.Id,
+            Name = p.Name,
+            Code = p.Code,
+            Unit = p.Unit,
+            Description = p.Description,
+            UsageCount = p.ContractProducts.Count,
+        }));
 
-        var totalCount = await query.CountAsync();
+    public Task<ApiResult<PagedResult<ProductCatalogLookupDto>>> LookupAsync(int page, int pageSize, string? search)
+        => PageAsync(page, pageSize, search, q => q.Select(p => new ProductCatalogLookupDto
+        {
+            Id = p.Id,
+            Name = p.Name,
+            Code = p.Code,
+            Unit = p.Unit,
+        }));
 
-        var pagination = new PaginationParams { Page = page, PageSize = pageSize };
-        var items = await query
-            .OrderBy(p => p.Name)
-            .Skip((pagination.Page - 1) * pagination.PageSize)
-            .Take(pagination.PageSize)
-            .Select(p => new ProductCatalogResponseDto
-            {
-                Id = p.Id,
-                Name = p.Name,
-                Code = p.Code,
-                Unit = p.Unit,
-                Description = p.Description,
-                CreatedAt = p.CreatedAt,
-            })
-            .ToListAsync();
-
-        var paged = PagedResult<ProductCatalogResponseDto>.Create(items, totalCount, pagination);
-        return ApiResult<PagedResult<ProductCatalogResponseDto>>.Success(paged);
-    }
+    // Shartnoma qatori + faqat agregatlar uchun kerak bo'lgan ContractId (javobga chiqmaydi).
+    private sealed record UsageRow(Guid ContractId, ProductCatalogContractUsageDto Dto);
 
     public async Task<ApiResult<ProductCatalogDetailDto>> GetDetailAsync(Guid id)
     {
-        var product = await _context.ProductCatalogs
+        var detail = await _context.ProductCatalogs
             .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == id && p.IsActive);
-        if (product is null)
+            .Where(p => p.Id == id && p.IsActive)
+            .Select(p => new ProductCatalogDetailDto
+            {
+                Name = p.Name,
+                Code = p.Code,
+                Unit = p.Unit,
+                Description = p.Description,
+            })
+            .FirstOrDefaultAsync();
+        if (detail is null)
             return ApiResult<ProductCatalogDetailDto>.Failure(["Katalog mahsuloti topilmadi."], 404);
 
-        // Shu katalog yozuviga bog'langan barcha shartnoma mahsulot qatorlari + shartnoma ma'lumotlari.
-        var usages = await _context.ContractProducts
+        // Shu katalog yozuviga bog'langan mahsulot qatorlari — eng yangi shartnoma birinchi.
+        // Ishlab chiqarilgan miqdor ManufacturedProduct bilan 1:1 (ContractProductId noyob
+        // indeks), shuning uchun alohida so'rov o'rniga ichki so'rov bilan olinadi.
+        var rows = await _context.ContractProducts
             .AsNoTracking()
             .Where(cp => cp.ProductCatalogId == id && cp.IsActive && cp.Contract != null)
-            .Select(cp => new ProductCatalogContractUsageDto
+            .OrderByDescending(cp => cp.Contract!.CreatedAt)
+            .Select(cp => new UsageRow(cp.ContractId, new ProductCatalogContractUsageDto
             {
                 ContractProductId = cp.Id,
-                ContractId = cp.ContractId,
                 ContractNo = cp.Contract!.ContractNo,
                 ContractParty = cp.Contract.ContractParty,
                 ContractType = cp.Contract.ContractType,
-                ContractStatus = cp.Contract.Status,
                 StartDate = cp.Contract.StartDate,
                 EndDate = cp.Contract.EndDate,
                 ContractIsActive = cp.Contract.IsActive,
                 Quantity = cp.Quantity,
                 Unit = cp.Unit,
                 ProductStatus = cp.Status,
-                ContractCreatedAt = cp.Contract.CreatedAt,
-            })
+                ProducedQuantity = _context.ManufacturedProducts
+                    .Where(m => m.ContractProductId == cp.Id)
+                    .Select(m => m.ProducedQuantity)
+                    .FirstOrDefault(),
+            }))
             .ToListAsync();
 
-        // Ishlab chiqarilgan miqdorlar — ManufacturedProduct.ProducedQuantity, mahsulot qatori bo'yicha yig'iladi.
+        var usages = rows.Select(r => r.Dto).ToList();
+        if (usages.Count > 0)
+            await AttachResourcesAsync(usages);
+
+        detail.ContractCount = rows.Select(r => r.ContractId).Distinct().Count();
+        detail.ActiveContractCount = rows
+            .Where(r => r.Dto.ContractIsActive)
+            .Select(r => r.ContractId)
+            .Distinct()
+            .Count();
+        detail.TotalOrderedQuantity = usages.Sum(u => u.Quantity);
+        detail.TotalProducedQuantity = usages.Sum(u => u.ProducedQuantity);
+        detail.CompletedProductCount = usages.Count(u => u.ProductStatus == ContractProductStatus.Completed);
+        detail.StatusBreakdown = usages
+            .GroupBy(u => u.ProductStatus)
+            .Select(g => new ProductCatalogStatusCountDto { Status = g.Key, Count = g.Count() })
+            .OrderBy(s => s.Status)
+            .ToList();
+        detail.Contracts = usages;
+
+        return ApiResult<ProductCatalogDetailDto>.Success(detail);
+    }
+
+    // Bazadan keladigan yengil qatorlar — tartiblash ham, filtrlash ham so'rov ichida
+    // bajariladi, shuning uchun CreatedAt kabi maydonlar umuman o'qilmaydi.
+    private sealed record ResourceRow(Guid CpId, Guid Id, string Title, int Status, int? MetaValue);
+    private sealed record TaskRow(Guid CpId, ProductCatalogTaskDto Task);
+
+    // Mahsulot qatorlariga biriktirilgan hujjatlar (tex jarayon, chizma, me'yoriy sarf)
+    // va vazifalarni yuklab, ContractProductId bo'yicha tarqatadi.
+    private async System.Threading.Tasks.Task AttachResourcesAsync(List<ProductCatalogContractUsageDto> usages)
+    {
         var productIds = usages.Select(u => u.ContractProductId).ToList();
-        var producedByProduct = await _context.ManufacturedProducts
-            .AsNoTracking()
-            .Where(m => m.ContractProductId != null && productIds.Contains(m.ContractProductId.Value))
-            .GroupBy(m => m.ContractProductId!.Value)
-            .Select(g => new { ContractProductId = g.Key, Produced = g.Sum(x => x.ProducedQuantity) })
-            .ToListAsync();
-        var producedMap = producedByProduct.ToDictionary(x => x.ContractProductId, x => x.Produced);
 
-        foreach (var u in usages)
-            u.ProducedQuantity = producedMap.TryGetValue(u.ContractProductId, out var q) ? q : 0m;
-
-        // Shu mahsulot qatorlariga biriktirilgan hujjatlar — tex jarayon, chizma,
-        // me'yoriy sarf va vazifalar. Har biri ContractProductId bo'yicha guruhlanadi.
-        var techRaw = await _context.TechProcesses
+        var techMap = await ResourceMapAsync(_context.TechProcesses
             .AsNoTracking()
             .Where(x => x.ContractProductId != null && productIds.Contains(x.ContractProductId.Value) && x.IsActive)
-            .Select(x => new { CpId = x.ContractProductId!.Value, x.Id, x.Title, x.Status, x.CurrentStep, x.CreatedAt })
-            .ToListAsync();
-        var techMap = techRaw
-            .GroupBy(x => x.CpId)
-            .ToDictionary(g => g.Key, g => g
-                .OrderByDescending(x => x.CreatedAt)
-                .Select(x => new ProductCatalogResourceDto
-                {
-                    Id = x.Id,
-                    Title = x.Title,
-                    Status = (int)x.Status,
-                    MetaValue = x.CurrentStep > 0 ? x.CurrentStep : null,
-                })
-                .ToList());
+            .OrderByDescending(x => x.CreatedAt)
+            .Select(x => new ResourceRow(
+                x.ContractProductId!.Value, x.Id, x.Title, (int)x.Status, x.CurrentStep)));
 
-        var drawingRaw = await _context.TechnicalDrawings
+        var drawingMap = await ResourceMapAsync(_context.TechnicalDrawings
             .AsNoTracking()
             .Where(x => x.ContractProductId != null && productIds.Contains(x.ContractProductId.Value) && x.IsActive)
-            .Select(x => new { CpId = x.ContractProductId!.Value, x.Id, x.Title, x.Status, x.CreatedAt })
-            .ToListAsync();
-        var drawingMap = drawingRaw
-            .GroupBy(x => x.CpId)
-            .ToDictionary(g => g.Key, g => g
-                .OrderByDescending(x => x.CreatedAt)
-                .Select(x => new ProductCatalogResourceDto
-                {
-                    Id = x.Id,
-                    Title = x.Title,
-                    Status = (int)x.Status,
-                })
-                .ToList());
+            .OrderByDescending(x => x.CreatedAt)
+            .Select(x => new ResourceRow(
+                x.ContractProductId!.Value, x.Id, x.Title, (int)x.Status, null)));
 
-        var normRaw = await _context.CostNorms
+        var normMap = await ResourceMapAsync(_context.CostNorms
             .AsNoTracking()
             .Where(x => x.ContractProductId != null && productIds.Contains(x.ContractProductId.Value) && x.IsActive)
-            .Select(x => new
+            .OrderByDescending(x => x.CreatedAt)
+            .Select(x => new ResourceRow(
+                x.ContractProductId!.Value, x.Id, x.Title, (int)x.Status,
+                x.Items.Count(i => i.IsActive && !i.IsSection))));
+
+        var taskRows = await _context.ContractTasks
+            .AsNoTracking()
+            .Where(x => x.ContractProductId != null && productIds.Contains(x.ContractProductId.Value) && x.IsActive)
+            .OrderBy(x => x.OrderNo)
+            .Select(x => new TaskRow(x.ContractProductId!.Value, new ProductCatalogTaskDto
             {
-                CpId = x.ContractProductId!.Value,
-                x.Id,
-                x.Title,
-                x.Status,
-                x.CreatedAt,
-                ItemCount = x.Items.Count(i => i.IsActive && !i.IsSection),
-            })
+                Id = x.Id,
+                OrderNo = x.OrderNo,
+                Name = x.Name,
+                CompletedAmount = x.CompletedAmount,
+                TotalAmount = x.TotalAmount,
+                Importance = x.Importance,
+            }))
             .ToListAsync();
-        var normMap = normRaw
+        var taskMap = taskRows
             .GroupBy(x => x.CpId)
-            .ToDictionary(g => g.Key, g => g
-                .OrderByDescending(x => x.CreatedAt)
-                .Select(x => new ProductCatalogResourceDto
-                {
-                    Id = x.Id,
-                    Title = x.Title,
-                    Status = (int)x.Status,
-                    MetaValue = x.ItemCount > 0 ? x.ItemCount : null,
-                })
-                .ToList());
-
-        var taskRaw = await _context.ContractTasks
-            .AsNoTracking()
-            .Where(x => x.ContractProductId != null && productIds.Contains(x.ContractProductId.Value) && x.IsActive)
-            .Select(x => new
-            {
-                CpId = x.ContractProductId!.Value,
-                Task = new ProductCatalogTaskDto
-                {
-                    Id = x.Id,
-                    OrderNo = x.OrderNo,
-                    Name = x.Name,
-                    CompletedAmount = x.CompletedAmount,
-                    TotalAmount = x.TotalAmount,
-                    Importance = x.Importance,
-                },
-            })
-            .ToListAsync();
-        var taskMap = taskRaw
-            .GroupBy(x => x.CpId)
-            .ToDictionary(g => g.Key, g => g.Select(x => x.Task).OrderBy(x => x.OrderNo).ToList());
+            .ToDictionary(g => g.Key, g => g.Select(x => x.Task).ToList());
 
         foreach (var u in usages)
         {
@@ -219,35 +198,21 @@ public class ProductCatalogService : IProductCatalogService
             u.CostNorms = normMap.TryGetValue(u.ContractProductId, out var cn) ? cn : [];
             u.Tasks = taskMap.TryGetValue(u.ContractProductId, out var tk) ? tk : [];
         }
-
-        // Eng yangi shartnomalar birinchi.
-        usages = usages.OrderByDescending(u => u.ContractCreatedAt).ToList();
-
-        var statusBreakdown = usages
-            .GroupBy(u => u.ProductStatus)
-            .Select(g => new ProductCatalogStatusCountDto { Status = g.Key, Count = g.Count() })
-            .OrderBy(s => s.Status)
-            .ToList();
-
-        var detail = new ProductCatalogDetailDto
-        {
-            Id = product.Id,
-            Name = product.Name,
-            Code = product.Code,
-            Unit = product.Unit,
-            Description = product.Description,
-            CreatedAt = product.CreatedAt,
-            ContractCount = usages.Select(u => u.ContractId).Distinct().Count(),
-            ActiveContractCount = usages.Where(u => u.ContractIsActive).Select(u => u.ContractId).Distinct().Count(),
-            TotalOrderedQuantity = usages.Sum(u => u.Quantity),
-            TotalProducedQuantity = usages.Sum(u => u.ProducedQuantity),
-            CompletedProductCount = usages.Count(u => u.ProductStatus == ContractProductStatus.Completed),
-            StatusBreakdown = statusBreakdown,
-            Contracts = usages,
-        };
-
-        return ApiResult<ProductCatalogDetailDto>.Success(detail);
     }
+
+    // GroupBy xotirada — bazadan kelgan tartib saqlanadi. MetaValue 0 bo'lsa
+    // yuborilmaydi (frontend uni "yo'q" deb talqin qiladi).
+    private static async Task<Dictionary<Guid, List<ProductCatalogResourceDto>>> ResourceMapAsync(
+        IQueryable<ResourceRow> query)
+        => (await query.ToListAsync())
+            .GroupBy(x => x.CpId)
+            .ToDictionary(g => g.Key, g => g.Select(x => new ProductCatalogResourceDto
+            {
+                Id = x.Id,
+                Title = x.Title,
+                Status = x.Status,
+                MetaValue = x.MetaValue > 0 ? x.MetaValue : null,
+            }).ToList());
 
     public async Task<ApiResult<ProductCatalogResponseDto>> CreateAsync(ProductCatalogCreateDto dto, Guid userId)
     {
@@ -261,9 +226,18 @@ public class ProductCatalogService : IProductCatalogService
         // mavjud yozuvni qaytaramiz (idempotent — frontend uni tanlab davom etadi).
         var existing = await _context.ProductCatalogs
             .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.NameNormalized == normalized && p.IsActive);
+            .Where(p => p.NameNormalized == normalized && p.IsActive)
+            .Select(p => new ProductCatalogResponseDto
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Code = p.Code,
+                Unit = p.Unit,
+                Description = p.Description,
+            })
+            .FirstOrDefaultAsync();
         if (existing is not null)
-            return ApiResult<ProductCatalogResponseDto>.Success(MapToResponse(existing), 200);
+            return ApiResult<ProductCatalogResponseDto>.Success(existing, 200);
 
         var entity = new ProductCatalog
         {
@@ -293,12 +267,12 @@ public class ProductCatalogService : IProductCatalogService
 
     public async Task<ApiResult<ProductCatalogResponseDto>> UpdateAsync(Guid id, ProductCatalogUpdateDto dto)
     {
+        if (string.IsNullOrWhiteSpace(dto.Name))
+            return ApiResult<ProductCatalogResponseDto>.Failure(["Mahsulot nomi bo'sh bo'lishi mumkin emas."]);
+
         var entity = await _context.ProductCatalogs.FirstOrDefaultAsync(p => p.Id == id && p.IsActive);
         if (entity is null)
             return ApiResult<ProductCatalogResponseDto>.Failure(["Katalog mahsuloti topilmadi."], 404);
-
-        if (string.IsNullOrWhiteSpace(dto.Name))
-            return ApiResult<ProductCatalogResponseDto>.Failure(["Mahsulot nomi bo'sh bo'lishi mumkin emas."]);
 
         var name = dto.Name.Trim();
         var normalized = TextNormalizer.Normalize(name);
@@ -319,20 +293,19 @@ public class ProductCatalogService : IProductCatalogService
         return ApiResult<ProductCatalogResponseDto>.Success(MapToResponse(entity));
     }
 
-    public async Task<ApiResult<int>> DeleteAsync(Guid id)
+    public async Task<ApiResult<bool>> DeleteAsync(Guid id)
     {
-        var entity = await _context.ProductCatalogs.FirstOrDefaultAsync(p => p.Id == id);
-        if (entity is null)
-            return ApiResult<int>.Failure(["Katalog mahsuloti topilmadi."], 404);
-
         // FK SetNull — o'chirilsa, bog'langan shartnoma mahsulotlari ProductType (nom) matnini
         // saqlab qoladi, faqat bog'lanish uziladi. Shuning uchun to'g'ridan-to'g'ri o'chiramiz.
-        _context.ProductCatalogs.Remove(entity);
-        await _context.SaveChangesAsync();
+        var removed = await _context.ProductCatalogs.Where(p => p.Id == id).ExecuteDeleteAsync();
+        if (removed == 0)
+            return ApiResult<bool>.Failure(["Katalog mahsuloti topilmadi."], 404);
 
-        return ApiResult<int>.Success(200);
+        return ApiResult<bool>.Success(true);
     }
 
+    // Yangi/tahrirlangan yozuv javobi — hozirgina yaratilganda UsageCount har doim 0,
+    // tahrirlashda esa bog'lanishlar soni o'zgarmaydi, shuning uchun so'rov qilinmaydi.
     private static ProductCatalogResponseDto MapToResponse(ProductCatalog p) => new()
     {
         Id = p.Id,
@@ -340,6 +313,5 @@ public class ProductCatalogService : IProductCatalogService
         Code = p.Code,
         Unit = p.Unit,
         Description = p.Description,
-        CreatedAt = p.CreatedAt,
     };
 }

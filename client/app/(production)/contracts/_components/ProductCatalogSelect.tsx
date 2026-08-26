@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   productCatalogService,
-  type ProductCatalogResponse,
+  type ProductCatalogLookup,
 } from "@/lib/userService";
 import { useT } from "@/lib/i18n";
 
@@ -35,7 +35,7 @@ export function ProductCatalogSelect({
   const t = useT();
 
   const [open, setOpen] = useState(false);
-  const [results, setResults] = useState<ProductCatalogResponse[]>([]);
+  const [results, setResults] = useState<ProductCatalogLookup[]>([]);
   const [loading, setLoading] = useState(false);
   const boxRef = useRef<HTMLDivElement | null>(null);
 
@@ -75,7 +75,7 @@ export function ProductCatalogSelect({
   );
   const showCreate = canCreate && term.length > 0 && !exactMatch && !loading;
 
-  const pick = (r: ProductCatalogResponse) => {
+  const pick = (r: ProductCatalogLookup) => {
     onSelect({ productCatalogId: r.id, productCode: r.code, productType: r.name, unit: r.unit });
     setOpen(false);
   };

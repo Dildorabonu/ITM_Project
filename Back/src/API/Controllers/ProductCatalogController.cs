@@ -9,8 +9,8 @@ namespace API.Controllers;
 
 // Tayyor mahsulotlar katalogi.
 // Ruxsatlar ikki maqsadga bo'lingan:
-//   • /lookup va /quick — shartnoma yaratish oqimi uchun (Contracts.* bilan). Shartnoma yarata
-//     oladigan foydalanuvchi katalogdan tanlashi va yangi mahsulot qo'shishi mumkin.
+//   • /lookup — shartnoma yaratish oqimi uchun (Contracts.View bilan): katalogdan tanlash.
+//     Yangi mahsulot shu yerda emas, katalog sahifasida qo'shiladi (ProductCatalog.Create).
 //   • qolgan CRUD — mustaqil boshqaruv sahifasi uchun (ProductCatalog.* moduli bilan).
 [ApiController]
 [Route("api/[controller]")]
@@ -24,35 +24,14 @@ public class ProductCatalogController : ControllerBase
         _service = service;
     }
 
-    // ─── Shartnoma formasi uchun (Contracts.*) ──────────────────────────────────
-
+    // Shartnoma formasidagi tanlash ro'yxati — yengil javob (Id/Nom/Kod/O'lchov).
     [HasPermission("Contracts.View")]
     [HttpGet("lookup")]
     public async Task<IActionResult> Lookup(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] string? search = null)
-    {
-        var result = await _service.LookupAsync(page, pageSize, search);
-        return Ok(result);
-    }
-
-    [HasPermission("Contracts.Create")]
-    [HttpPost("quick")]
-    public async Task<IActionResult> QuickCreate([FromBody] ProductCatalogCreateDto dto)
-    {
-        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!Guid.TryParse(userIdClaim, out var userId))
-            return Unauthorized();
-
-        var result = await _service.CreateAsync(dto, userId);
-        if (!result.Succeeded)
-            return BadRequest(result);
-
-        return StatusCode(result.StatusCode, result);
-    }
-
-    // ─── Boshqaruv sahifasi uchun (ProductCatalog.*) ────────────────────────────
+        => Ok(await _service.LookupAsync(page, pageSize, search));
 
     [HasPermission("ProductCatalog.View")]
     [HttpGet]
@@ -60,34 +39,24 @@ public class ProductCatalogController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] string? search = null)
-    {
-        var result = await _service.GetAllAsync(page, pageSize, search);
-        return Ok(result);
-    }
+        => Ok(await _service.GetAllAsync(page, pageSize, search));
 
     [HasPermission("ProductCatalog.View")]
     [HttpGet("{id:guid}/details")]
     public async Task<IActionResult> GetDetail(Guid id)
     {
         var result = await _service.GetDetailAsync(id);
-        if (!result.Succeeded)
-            return StatusCode(result.StatusCode, result);
-
-        return Ok(result);
+        return StatusCode(result.StatusCode, result);
     }
 
     [HasPermission("ProductCatalog.Create")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] ProductCatalogCreateDto dto)
     {
-        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!Guid.TryParse(userIdClaim, out var userId))
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
             return Unauthorized();
 
         var result = await _service.CreateAsync(dto, userId);
-        if (!result.Succeeded)
-            return BadRequest(result);
-
         return StatusCode(result.StatusCode, result);
     }
 
@@ -96,10 +65,7 @@ public class ProductCatalogController : ControllerBase
     public async Task<IActionResult> Update(Guid id, [FromBody] ProductCatalogUpdateDto dto)
     {
         var result = await _service.UpdateAsync(id, dto);
-        if (!result.Succeeded)
-            return StatusCode(result.StatusCode, result);
-
-        return Ok(result);
+        return StatusCode(result.StatusCode, result);
     }
 
     [HasPermission("ProductCatalog.Delete")]
@@ -107,9 +73,6 @@ public class ProductCatalogController : ControllerBase
     public async Task<IActionResult> Delete(Guid id)
     {
         var result = await _service.DeleteAsync(id);
-        if (!result.Succeeded)
-            return StatusCode(result.StatusCode, result);
-
-        return Ok(result);
+        return StatusCode(result.StatusCode, result);
     }
 }

@@ -1711,6 +1711,7 @@ export const manufacturedProductService = {
 // Shartnoma yaratishda mahsulot shu katalogdan tanlanadi. Har mahsulotning noyob
 // Id va kodi (masalan "PRD-9F3A1C") bo'ladi.
 
+// Boshqaruv sahifasining jadvali va yaratish/tahrirlash javobi.
 export interface ProductCatalogResponse {
   id: string;
   name: string;
@@ -1718,7 +1719,15 @@ export interface ProductCatalogResponse {
   unit: string | null;
   description: string | null;
   usageCount: number;
-  createdAt: string;
+}
+
+// Shartnoma formasidagi tanlash ro'yxati — faqat ko'rsatiladigan va formaga
+// ko'chiriladigan maydonlar (/lookup shundan boshqasini qaytarmaydi).
+export interface ProductCatalogLookup {
+  id: string;
+  name: string;
+  code: string;
+  unit: string | null;
 }
 
 export interface ProductCatalogCreatePayload {
@@ -1755,11 +1764,9 @@ export interface ProductCatalogTask {
 
 export interface ProductCatalogContractUsage {
   contractProductId: string;
-  contractId: string;
   contractNo: string;
   contractParty: string;
   contractType: ContractType;
-  contractStatus: ContractStatus;
   startDate: string;
   endDate: string;
   contractIsActive: boolean;
@@ -1767,7 +1774,6 @@ export interface ProductCatalogContractUsage {
   unit: string;
   productStatus: ContractProductStatus;
   producedQuantity: number;
-  contractCreatedAt: string;
   techProcesses: ProductCatalogResource[];
   drawings: ProductCatalogResource[];
   costNorms: ProductCatalogResource[];
@@ -1775,12 +1781,10 @@ export interface ProductCatalogContractUsage {
 }
 
 export interface ProductCatalogDetail {
-  id: string;
   name: string;
   code: string;
   unit: string | null;
   description: string | null;
-  createdAt: string;
   contractCount: number;
   activeContractCount: number;
   totalOrderedQuantity: number;
@@ -1803,15 +1807,10 @@ export const productCatalogService = {
     page = 1,
     pageSize = 20,
     signal?: AbortSignal,
-  ): Promise<PagedResult<ProductCatalogResponse>> => {
+  ): Promise<PagedResult<ProductCatalogLookup>> => {
     const params: Record<string, unknown> = { page, pageSize };
     if (search) params.search = search;
     const res = await api.get("/api/productcatalog/lookup", { params, signal });
-    return res.data?.result ?? res.data;
-  },
-
-  quickCreate: async (dto: ProductCatalogCreatePayload): Promise<ProductCatalogResponse> => {
-    const res = await api.post("/api/productcatalog/quick", dto);
     return res.data?.result ?? res.data;
   },
 
