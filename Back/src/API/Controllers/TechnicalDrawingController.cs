@@ -117,8 +117,6 @@ public class TechnicalDrawingController : ControllerBase
             return NotFound(result);
 
         var (filePath, contentType, fileName) = result.Result;
-        var bytes = await System.IO.File.ReadAllBytesAsync(filePath);
-        return File(bytes, contentType, fileName);
+        return PhysicalFile(filePath, contentType, fileName, enableRangeProcessing: true);
     }
-
 }
