@@ -1,6 +1,5 @@
 using Application.DTOs;
 using Application.DTOs.Scan;
-using Application.DTOs.StockMovements;
 using Application.Helpers;
 using Core.Entities;
 using Core.Enums;
@@ -235,19 +234,6 @@ public class ScanService : IScanService
             };
         }
 
-        var movements = await _context.StockMovements
-            .Where(m => m.ProductId == product.Id)
-            .Include(m => m.Product)
-            .Include(m => m.Material)
-            .Include(m => m.SourceDepartment)
-            .Include(m => m.TargetDepartment)
-            .Include(m => m.Requisition)
-            .Include(m => m.User)
-            .AsNoTracking()
-            .OrderByDescending(m => m.CreatedAt)
-            .Take(10)
-            .ToListAsync();
-
         return new ScanLookupDto
         {
             Id = product.Id,
@@ -261,45 +247,7 @@ public class ScanService : IScanService
             DepartmentName = product.Department?.Name ?? string.Empty,
             InvoiceNumber = product.InvoiceNumber,
             QrPngBase64 = product.QrCode is null ? null : _qrCodeService.RenderPngBase64(product.QrCode),
-            Material = aggregate,
-            RecentMovements = movements.Select(MapMovement).ToList()
+            Material = aggregate
         };
     }
-
-    // StockMovementService.MapToResponse/TypeLabel bilan bir xil (u private static
-    // bo'lgani uchun shu yerda takrorlanadi).
-    private static string TypeLabel(StockMovementType t) => t switch
-    {
-        StockMovementType.In       => "Kirim",
-        StockMovementType.Out      => "Chiqim",
-        StockMovementType.Transfer => "Ko'chirish",
-        StockMovementType.Adjust   => "Tuzatish",
-        StockMovementType.Reserve  => "Rezerv",
-        StockMovementType.Release  => "Rezervdan chiqarish",
-        _                          => t.ToString()
-    };
-
-    private static StockMovementResponseDto MapMovement(StockMovement m) => new()
-    {
-        Id = m.Id,
-        Type = m.Type,
-        TypeLabel = TypeLabel(m.Type),
-        ProductId = m.ProductId,
-        ProductName = m.Product?.Name ?? string.Empty,
-        MaterialId = m.MaterialId,
-        MaterialName = m.Material?.Name,
-        SourceDepartmentId = m.SourceDepartmentId,
-        SourceDepartmentName = m.SourceDepartment?.Name,
-        TargetDepartmentId = m.TargetDepartmentId,
-        TargetDepartmentName = m.TargetDepartment?.Name,
-        Quantity = m.Quantity,
-        QuantityAfter = m.QuantityAfter,
-        RequisitionId = m.RequisitionId,
-        RequisitionNo = m.Requisition?.RequisitionNo,
-        ContractId = m.ContractId,
-        UserId = m.UserId,
-        UserFullName = m.User is null ? string.Empty : $"{m.User.FirstName} {m.User.LastName}",
-        CreatedAt = m.CreatedAt,
-        Notes = m.Notes
-    };
 }

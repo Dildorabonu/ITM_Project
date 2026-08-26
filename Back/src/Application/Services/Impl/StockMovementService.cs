@@ -19,29 +19,38 @@ public class StockMovementService : IStockMovementService
 
     public async Task<ApiResult<PagedResult<StockMovementResponseDto>>> GetAsync(StockMovementFilter filter)
     {
-        var query = ApplyFilters(
-            _context.StockMovements
-                .Include(m => m.Product)
-                .Include(m => m.Material)
-                .Include(m => m.SourceDepartment)
-                .Include(m => m.TargetDepartment)
-                .Include(m => m.Requisition)
-                .Include(m => m.User)
-                .AsNoTracking(),
-            filter,
-            includeType: true);
+        var query = ApplyFilters(_context.StockMovements.AsNoTracking(), filter, includeType: true);
 
         var pagination = new PaginationParams { Page = filter.Page, PageSize = filter.PageSize };
 
         var totalCount = await query.CountAsync();
 
+        // Include emas, Select: bog'langan jadvallardan faqat bitta nom ustuni kerak.
+        // Include bilan Product/Material/Department/Requisition/User qatorlari to'liq
+        // (barcha ustunlari bilan) tortilar edi va EF ularni tracking'siz ham
+        // materializatsiya qilardi.
         var items = await query
             .OrderByDescending(m => m.CreatedAt)
             .Skip((pagination.Page - 1) * pagination.PageSize)
             .Take(pagination.PageSize)
+            .Select(m => new StockMovementResponseDto
+            {
+                Id = m.Id,
+                Type = m.Type,
+                ProductName = m.Product!.Name,
+                MaterialName = m.Material!.Name,
+                SourceDepartmentName = m.SourceDepartment!.Name,
+                TargetDepartmentName = m.TargetDepartment!.Name,
+                Quantity = m.Quantity,
+                QuantityAfter = m.QuantityAfter,
+                RequisitionNo = m.Requisition!.RequisitionNo,
+                UserFullName = m.User!.FirstName + " " + m.User.LastName,
+                CreatedAt = m.CreatedAt,
+                Notes = m.Notes
+            })
             .ToListAsync();
 
-        var paged = PagedResult<StockMovementResponseDto>.Create(items.Select(MapToResponse), totalCount, pagination);
+        var paged = PagedResult<StockMovementResponseDto>.Create(items, totalCount, pagination);
         return ApiResult<PagedResult<StockMovementResponseDto>>.Success(paged);
     }
 
@@ -103,39 +112,4 @@ public class StockMovementService : IStockMovementService
 
         return query;
     }
-
-    private static string TypeLabel(StockMovementType t) => t switch
-    {
-        StockMovementType.In       => "Kirim",
-        StockMovementType.Out      => "Chiqim",
-        StockMovementType.Transfer => "Ko'chirish",
-        StockMovementType.Adjust   => "Tuzatish",
-        StockMovementType.Reserve  => "Rezerv",
-        StockMovementType.Release  => "Rezervdan chiqarish",
-        _                          => t.ToString()
-    };
-
-    private static StockMovementResponseDto MapToResponse(StockMovement m) => new()
-    {
-        Id = m.Id,
-        Type = m.Type,
-        TypeLabel = TypeLabel(m.Type),
-        ProductId = m.ProductId,
-        ProductName = m.Product?.Name ?? string.Empty,
-        MaterialId = m.MaterialId,
-        MaterialName = m.Material?.Name,
-        SourceDepartmentId = m.SourceDepartmentId,
-        SourceDepartmentName = m.SourceDepartment?.Name,
-        TargetDepartmentId = m.TargetDepartmentId,
-        TargetDepartmentName = m.TargetDepartment?.Name,
-        Quantity = m.Quantity,
-        QuantityAfter = m.QuantityAfter,
-        RequisitionId = m.RequisitionId,
-        RequisitionNo = m.Requisition?.RequisitionNo,
-        ContractId = m.ContractId,
-        UserId = m.UserId,
-        UserFullName = m.User is null ? string.Empty : $"{m.User.FirstName} {m.User.LastName}",
-        CreatedAt = m.CreatedAt,
-        Notes = m.Notes
-    };
 }

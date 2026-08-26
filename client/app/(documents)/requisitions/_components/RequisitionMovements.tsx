@@ -6,6 +6,7 @@ import {
   stockMovementSign,
   STOCK_MOVEMENT_COLOR,
   STOCK_MOVEMENT_DIM,
+  STOCK_MOVEMENT_LABEL,
   type StockMovement,
 } from "@/lib/stockMovements";
 import { useT } from "@/lib/i18n";
@@ -84,7 +85,7 @@ export function RequisitionMovements({ requisitionId }: Props) {
                     fontSize: 11, fontWeight: 600, fontFamily: "var(--font-mono)",
                   }}>
                     <span style={{ width: 6, height: 6, borderRadius: "50%", background: color }} />
-                    {m.typeLabel}
+                    {STOCK_MOVEMENT_LABEL[m.type]}
                   </span>
                   <span style={{ fontSize: 13, color: "var(--text1)", fontWeight: 500 }}>{m.productName}</span>
                   <span style={{ fontSize: 13, fontWeight: 700, fontFamily: "var(--font-mono)", color }}>{sign}{fmtDecimal(m.quantity)}</span>

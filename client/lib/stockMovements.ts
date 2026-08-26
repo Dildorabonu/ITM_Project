@@ -18,27 +18,19 @@ export type StockMovementType =
 export interface StockMovement {
   id: string;
   type: StockMovementType;
-  typeLabel: string;
 
-  productId: string;
   productName: string;
 
-  materialId: string | null;
   materialName: string | null;
 
-  sourceDepartmentId: string | null;
   sourceDepartmentName: string | null;
-  targetDepartmentId: string | null;
   targetDepartmentName: string | null;
 
   quantity: number;
   quantityAfter: number;
 
-  requisitionId: string | null;
   requisitionNo: string | null;
-  contractId: string | null;
 
-  userId: string;
   userFullName: string;
 
   createdAt: string;
@@ -77,6 +69,19 @@ export interface PagedResult<T> {
   hasPreviousPage: boolean;
   hasNextPage: boolean;
 }
+
+// Type → o'zbekcha nom. Backend bu satrni jo'natmaydi (u `type` ning sof funksiyasi —
+// har qatorga takrorlab yuborish ortiqcha trafik edi), badge'lar shu lug'atdan oladi.
+// ATAYLAB tarjima qilinmaydi: jurnal turi — domen atamasi, `_types.ts` dagi legend
+// nomlari ham shu manbadan oziqlanadi.
+export const STOCK_MOVEMENT_LABEL: Record<StockMovementType, string> = {
+  In: "Kirim",
+  Out: "Chiqim",
+  Transfer: "Ko'chirish",
+  Adjust: "Tuzatish",
+  Reserve: "Rezerv",
+  Release: "Rezervdan chiqarish",
+};
 
 // Type → semantik rang tokeni (CLAUDE.md status ranglariga mos).
 // In=success (kirim), Out=danger (chiqim), Transfer=accent (ko'chirish),
