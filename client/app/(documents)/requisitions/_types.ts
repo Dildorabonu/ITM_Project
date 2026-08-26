@@ -37,20 +37,27 @@ export const FULFILLED_STATUSES = new Set<RequisitionStatus>([
 
 // Bo'lingan (Split) talabnoma barcha child'lari bajarilgandagina bajarilgan;
 // bo'linmagani esa o'z holatiga qarab.
-export function isRequisitionCompleted(r: RequisitionResponse): boolean {
-  if (r.children && r.children.length > 0) {
-    return r.children.every(c => FULFILLED_STATUSES.has(c.status));
+// Ro'yxat javobi childlarning faqat statuslarini yuboradi, detal esa to'liq
+// child obyektlarini — shuning uchun ikkalasi ham statuslar massivini beradi.
+export function isRequisitionCompleted(status: RequisitionStatus, childStatuses?: RequisitionStatus[]): boolean {
+  if (childStatuses && childStatuses.length > 0) {
+    return childStatuses.every(s => FULFILLED_STATUSES.has(s));
   }
-  return FULFILLED_STATUSES.has(r.status);
+  return FULFILLED_STATUSES.has(status);
 }
 
 // To'liq rad etilgan: bo'lingan bo'lsa barcha childlari rad etilgan, aks holda o'zi.
 // Backenddagi `rejected` filtri bilan bir xil mantiq.
-export function isRequisitionRejected(r: RequisitionResponse): boolean {
-  if (r.children && r.children.length > 0) {
-    return r.children.every(c => c.status === RequisitionStatus.Rejected);
+export function isRequisitionRejected(status: RequisitionStatus, childStatuses?: RequisitionStatus[]): boolean {
+  if (childStatuses && childStatuses.length > 0) {
+    return childStatuses.every(s => s === RequisitionStatus.Rejected);
   }
-  return r.status === RequisitionStatus.Rejected;
+  return status === RequisitionStatus.Rejected;
+}
+
+/** Detal javobidagi child obyektlaridan status massivini oladi. */
+export function childStatusesOf(r: Pick<RequisitionResponse, "children">): RequisitionStatus[] {
+  return r.children?.map(c => c.status) ?? [];
 }
 
 // ─── Workflow ─────────────────────────────────────────────────────────────────

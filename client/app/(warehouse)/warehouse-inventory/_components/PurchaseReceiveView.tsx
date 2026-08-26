@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import {
   requisitionService,
   RequisitionStatus,
-  type RequisitionResponse,
+  REQUISITION_STATUS_LABELS,
+  type RequisitionQueueRow,
 } from "@/lib/userService";
 import { useToastStore } from "@/lib/store/toastStore";
 import { useT } from "@/lib/i18n";
@@ -31,7 +32,7 @@ export function PurchaseReceiveView({ canReceive, onClose, onReceived }: Props) 
   const t = useT();
   const showToast = useToastStore(s => s.show);
 
-  const [items, setItems] = useState<RequisitionResponse[]>([]);
+  const [items, setItems] = useState<RequisitionQueueRow[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -195,7 +196,7 @@ export function PurchaseReceiveView({ canReceive, onClose, onReceived }: Props) 
                   background: "var(--accent-dim)", color: "var(--accent)",
                 }}>
                   <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--accent)" }} />
-                  {r.statusLabel}
+                  {t(REQUISITION_STATUS_LABELS[r.status])}
                 </span>
 
                 {canReceive && (

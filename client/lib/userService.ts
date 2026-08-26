@@ -1417,6 +1417,50 @@ export interface RequisitionChildSummary {
   itemCount: number;
 }
 
+/**
+ * Jadval qatori (`getPaged` / `getRecentCompleted`). Materiallar, QR rasmlari va
+ * imzo maydonlari bu javobda kelmaydi — ular faqat `getById` detalida bo'ladi.
+ * Label matnlari ham kelmaydi: REQUISITION_*_LABELS lug'atlaridan olinadi.
+ */
+export interface RequisitionListRow {
+  id: string;
+  requisitionNo: string;
+  type: RequisitionType;
+  status: RequisitionStatus;
+  contractNo?: string;
+  departmentName?: string;
+  createdByName: string;
+  createdAt: string;
+  completedAt?: string | null;
+  /** Bo'lingan talabnoma childlarining statuslari — "bajarilgan / rad etilgan" hisobi uchun. */
+  childStatuses: RequisitionStatus[];
+}
+
+/** Navbat ekranlari qatori (`getAll`) — materiallarning ko'rinadigan maydonlari bilan. */
+export interface RequisitionQueueItem {
+  id: string;
+  materialName: string;
+  unit: string;
+  quantity: number;
+  notes?: string;
+}
+
+export interface RequisitionQueueRow {
+  id: string;
+  requisitionNo: string;
+  type: RequisitionType;
+  status: RequisitionStatus;
+  source?: RequisitionSource;
+  contractNo?: string;
+  departmentName?: string;
+  purpose: string;
+  createdByName: string;
+  createdAt: string;
+  warehouseCheckedAt?: string;
+  approvedAt?: string;
+  items: RequisitionQueueItem[];
+}
+
 export interface RequisitionResponse {
   id: string;
   requisitionNo: string;
@@ -1424,7 +1468,6 @@ export interface RequisitionResponse {
   typeLabel: string;
   status: RequisitionStatus;
   statusLabel: string;
-  contractId?: string;
   contractNo?: string;
   departmentName?: string;
   purpose: string;
@@ -1462,7 +1505,7 @@ export interface RequisitionWarehouseCheckItem {
 }
 
 export const requisitionService = {
-  getAll: async (status?: RequisitionStatus): Promise<RequisitionResponse[]> => {
+  getAll: async (status?: RequisitionStatus): Promise<RequisitionQueueRow[]> => {
     try {
       const params = status !== undefined ? { status } : {};
       const res = await api.get("/api/requisition", { params });
@@ -1476,7 +1519,7 @@ export const requisitionService = {
     page = 1,
     pageSize = 20,
     opts: { search?: string; status?: RequisitionStatus; completed?: boolean; rejected?: boolean } = {},
-  ): Promise<PagedResult<RequisitionResponse>> => {
+  ): Promise<PagedResult<RequisitionListRow>> => {
     const params: Record<string, string> = { page: String(page), pageSize: String(pageSize) };
     if (opts.search?.trim()) params.search = opts.search.trim();
     if (opts.status !== undefined) params.status = String(opts.status);
@@ -1496,8 +1539,18 @@ export const requisitionService = {
     }
   },
 
+  /** Tasdiqlash badge'i uchun: tasdiqlash kutayotganlar soni (ro'yxatning o'zi emas). */
+  getPendingApprovalCount: async (): Promise<number> => {
+    try {
+      const res = await api.get("/api/requisition/pending-approval-count");
+      return res.data?.result ?? 0;
+    } catch {
+      return 0;
+    }
+  },
+
   /** Faol ro'yxat ostidagi blok: oxirgi N kunda bajarilganlar (eng ko'pi 10 ta). */
-  getRecentCompleted: async (days = 7): Promise<RequisitionResponse[]> => {
+  getRecentCompleted: async (days = 7): Promise<RequisitionListRow[]> => {
     try {
       const res = await api.get("/api/requisition/recent-completed", { params: { days } });
       return res.data?.result ?? res.data ?? [];

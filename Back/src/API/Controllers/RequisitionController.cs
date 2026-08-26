@@ -25,6 +25,8 @@ public class RequisitionController : ControllerBase
         _attachmentService = attachmentService;
     }
 
+    /// Navbat ekranlari uchun ro'yxat — materiallarning ko'rinadigan maydonlari bilan,
+    /// QR imzolari va child grafisiz.
     [HasPermission("Requisitions.View")]
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] RequisitionStatus? status = null)
@@ -32,8 +34,7 @@ public class RequisitionController : ControllerBase
         var userId = GetUserId();
         if (userId is null) return Unauthorized();
 
-        var viewAll = User.HasClaim("perm", "Requisitions.ViewAll");
-        var result = await _requisitionService.GetAllAsync(userId.Value, viewAll, status);
+        var result = await _requisitionService.GetAllAsync(userId.Value, ViewAll, status);
         return Ok(result);
     }
 
@@ -50,9 +51,8 @@ public class RequisitionController : ControllerBase
         var userId = GetUserId();
         if (userId is null) return Unauthorized();
 
-        var viewAll = User.HasClaim("perm", "Requisitions.ViewAll");
         var pagination = new PaginationParams { Page = page, PageSize = pageSize };
-        var result = await _requisitionService.GetPagedAsync(userId.Value, viewAll, pagination, search, status, completed, rejected);
+        var result = await _requisitionService.GetPagedAsync(userId.Value, ViewAll, pagination, search, status, completed, rejected);
         return Ok(result);
     }
 
@@ -64,8 +64,22 @@ public class RequisitionController : ControllerBase
         var userId = GetUserId();
         if (userId is null) return Unauthorized();
 
-        var viewAll = User.HasClaim("perm", "Requisitions.ViewAll");
-        var result = await _requisitionService.GetPendingWarehouseCheckCountAsync(userId.Value, viewAll);
+        var result = await _requisitionService.GetCountByStatusAsync(
+            userId.Value, ViewAll, RequisitionStatus.PendingWarehouseCheck);
+        return Ok(result);
+    }
+
+    /// Talabnomalar sahifasidagi "Tasdiqlash" badge'i uchun: tasdiqlash kutayotganlar soni.
+    /// Ilgari buning uchun butun ro'yxat tortilib, faqat uzunligi olinardi.
+    [HasPermission("Requisitions.Approve")]
+    [HttpGet("pending-approval-count")]
+    public async Task<IActionResult> GetPendingApprovalCount()
+    {
+        var userId = GetUserId();
+        if (userId is null) return Unauthorized();
+
+        var result = await _requisitionService.GetCountByStatusAsync(
+            userId.Value, ViewAll, RequisitionStatus.PendingApproval);
         return Ok(result);
     }
 
@@ -77,11 +91,11 @@ public class RequisitionController : ControllerBase
         var userId = GetUserId();
         if (userId is null) return Unauthorized();
 
-        var viewAll = User.HasClaim("perm", "Requisitions.ViewAll");
-        var result = await _requisitionService.GetRecentCompletedAsync(userId.Value, viewAll, days);
+        var result = await _requisitionService.GetRecentCompletedAsync(userId.Value, ViewAll, days);
         return Ok(result);
     }
 
+    /// To'liq detal: materiallar, childlar va QR imzolari faqat shu javobda keladi.
     [HasPermission("Requisitions.View")]
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id)
@@ -178,7 +192,6 @@ public class RequisitionController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize]
     [HttpPost("{id:guid}/files")]
     [RequestSizeLimit(50 * 1024 * 1024)] // 50 MB
     public async Task<IActionResult> UploadFile(Guid id, IFormFile file, [FromQuery] string? label = null)
@@ -203,6 +216,8 @@ public class RequisitionController : ControllerBase
         return StatusCode(201, result);
     }
 
+    // Fayl diskdan oqim (stream) bilan uzatiladi — butun faylni xotiraga
+    // o'qib olish 50 MB gacha bo'lgan yuklamalarda keraksiz yuk edi.
     [HasPermission("Requisitions.View")]
     [HttpGet("{id:guid}/files/{fileId:guid}/download")]
     public async Task<IActionResult> DownloadFile(Guid id, Guid fileId)
@@ -211,8 +226,7 @@ public class RequisitionController : ControllerBase
         if (!result.Succeeded) return NotFound(result);
 
         var (filePath, contentType, fileName) = result.Result;
-        var bytes = await System.IO.File.ReadAllBytesAsync(filePath);
-        return File(bytes, contentType, fileName);
+        return PhysicalFile(filePath, contentType, fileName, enableRangeProcessing: true);
     }
 
     [HasPermission("Requisitions.Create")]
@@ -223,6 +237,9 @@ public class RequisitionController : ControllerBase
         if (!result.Succeeded) return NotFound(result);
         return Ok(result);
     }
+
+    /// Requisitions.ViewAll — boshqalarning talabnomalarini ham ko'rish huquqi.
+    private bool ViewAll => User.HasClaim("perm", "Requisitions.ViewAll");
 
     private Guid? GetUserId()
     {

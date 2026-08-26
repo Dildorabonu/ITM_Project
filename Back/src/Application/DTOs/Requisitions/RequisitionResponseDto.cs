@@ -12,7 +12,6 @@ public class RequisitionResponseDto
     public string StatusLabel { get; set; } = string.Empty;
 
     // Shartnoma bo'yicha
-    public Guid? ContractId { get; set; }
     public string? ContractNo { get; set; }
 
     // Individual
