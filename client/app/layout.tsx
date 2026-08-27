@@ -1,5 +1,7 @@
 import React from "react";
+import { cookies } from "next/headers";
 import AppShell from "@/app/_components/AppShell";
+import { THEME_COOKIE } from "@/lib/theme";
 
 /**
  * Ildiz layout — server komponenti sifatida qoladi, chunki faqat shu yerdan
@@ -11,9 +13,15 @@ import AppShell from "@/app/_components/AppShell";
  * bo'lmaydi va brauzer ularni bloklaydi.
  *
  * Butun interfeys (sidebar, topbar, tema, til) AppShell client komponentida.
+ *
+ * Tema cookie'dan o'qiladi: localStorage faqat brauzerda, effekt ishlagandan
+ * keyin mavjud bo'ladi — shuning uchun SSR HTML doim kunduzgi chiqib, splash
+ * animatsiyasi bir lahza oq ko'rinardi. Cookie server render paytida ham
+ * o'qilgani uchun tungi rejim birinchi bo'yoqdanoq to'g'ri chiqadi.
  */
 export const dynamic = "force-dynamic";
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return <AppShell>{children}</AppShell>;
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const initialDark = (await cookies()).get(THEME_COOKIE)?.value === "dark";
+  return <AppShell initialDark={initialDark}>{children}</AppShell>;
 }

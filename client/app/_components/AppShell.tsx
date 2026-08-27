@@ -12,6 +12,7 @@ import LicenseGate from "@/app/_components/LicenseGate";
 import EkLogo from "@/app/_components/EkLogo";
 import SplashScreen from "@/app/_components/SplashScreen";
 import { useT, useLangStore } from "@/lib/i18n";
+import { writeThemeCookie, type ThemeValue } from "@/lib/theme";
 
 type NavItem = { name: string; href: string; icon: string; badge?: number; badgeWarn?: boolean; permission?: string | string[]; superadminOnly?: boolean };
 type NavGroup = { label: string; icon: string; items: NavItem[] };
@@ -161,7 +162,7 @@ const pageTitles: Record<string, string> = {
   "/requisitions/print":     "Talabnoma",
 };
 
-export default function AppShell({ children }: { children: React.ReactNode }) {
+export default function AppShell({ children, initialDark }: { children: React.ReactNode; initialDark: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const t = useT();
@@ -273,7 +274,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // Yig'ilgan sidebar uchun: guruh ikonkasi yonida chiqadigan menyu
   const [flyout, setFlyout] = useState<{ label: string; top: number } | null>(null);
   const flyoutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [darkMode, setDarkMode] = useState(false);
+  // Server cookie'dan o'qigan qiymat bilan boshlanadi — SSR va birinchi klient
+  // renderi bir xil bo'ladi, shuning uchun hydration mos keladi va splash
+  // animatsiyasi darhol to'g'ri temada chiziladi.
+  const [darkMode, setDarkMode] = useState(initialDark);
   const [hasScroll, setHasScroll] = useState(false);
   const [thumbTop, setThumbTop] = useState(0);
   const [thumbHeight, setThumbHeight] = useState(30);
@@ -361,8 +365,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => { updateScrollState(); }, [sidebarCollapsed, collapsedGroups]);
 
   useEffect(() => {
+    // localStorage manba bo'lib qoladi; cookie undan nusxa (SSR uchun). Cookie
+    // hali yo'q eski brauzerlarda ham birinchi yuklashdayoq to'g'rilanadi.
     const saved = localStorage.getItem("theme");
-    if (saved === "dark") setDarkMode(true);
+    const resolved: ThemeValue = saved === "dark" || saved === "light" ? saved : (initialDark ? "dark" : "light");
+    if (saved !== resolved) localStorage.setItem("theme", resolved);
+    writeThemeCookie(resolved);
+    if ((resolved === "dark") !== initialDark) setDarkMode(resolved === "dark");
 
     // Apply saved accent color
     const savedAccent = localStorage.getItem("appearance_accent");
@@ -389,11 +398,23 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("appearance-theme", onThemeChange);
   }, []);
 
+  // Birinchi renderda darkMode hali localStorage dan o'qilmagan (false) bo'ladi.
+  // O'sha paytda yozib yuborsak "light" saqlanadi, ustiga dispatch qilingan hodisa
+  // yuqoridagi onThemeChange ni sinxron chaqirib setDarkMode(true) ni bekor qiladi —
+  // natijada sahifa yangilanganda tungi rejim kunduzgiga qaytadi.
+  // Shuning uchun effektning birinchi ishga tushishini o'tkazib yuboramiz.
+  const themeInitRef = useRef(false);
   useEffect(() => {
-    localStorage.setItem("theme", darkMode ? "dark" : "light");
+    if (!themeInitRef.current) {
+      themeInitRef.current = true;
+      return;
+    }
+    const theme: ThemeValue = darkMode ? "dark" : "light";
+    localStorage.setItem("theme", theme);
+    writeThemeCookie(theme);
     const savedAccent = localStorage.getItem("appearance_accent");
     if (savedAccent) applyAppearanceAccent(savedAccent);
-    window.dispatchEvent(new CustomEvent("appearance-theme", { detail: { theme: darkMode ? "dark" : "light" } }));
+    window.dispatchEvent(new CustomEvent("appearance-theme", { detail: { theme } }));
   }, [darkMode]);
 
   const themeVars = darkMode ? {
