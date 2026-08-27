@@ -320,7 +320,19 @@ namespace API
                 FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadsPath),
                 // Xavfsizlik headerlari SecurityHeadersMiddleware da barcha javoblar
                 // uchun qo'yiladi — bu yerda takrorlash shart emas.
-                RequestPath = "/uploads"
+                RequestPath = "/uploads",
+
+                // /uploads/req-items ostidagi fayl nomlari — Guid, ular hech qachon
+                // qayta ishlatilmaydi va o'zgarmaydi. Shuning uchun "immutable" qilib
+                // keshlaymiz: brauzer rasmni bir marta olgach, talabnoma har ochilganda
+                // qayta so'ramaydi. Boshqa papkalarda (attachments) fayl nomi original
+                // nomdan olinadi va o'chirilgandan keyin takrorlanishi mumkin —
+                // ularga kesh qo'ymaymiz.
+                OnPrepareResponse = ctx =>
+                {
+                    if (ctx.Context.Request.Path.StartsWithSegments("/uploads/req-items", StringComparison.OrdinalIgnoreCase))
+                        ctx.Context.Response.Headers["Cache-Control"] = "public, max-age=31536000, immutable";
+                }
             });
 
             app.UseAuthentication();
