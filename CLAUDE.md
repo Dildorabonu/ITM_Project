@@ -430,3 +430,16 @@ Migrations avtomatik qo'llaniladi — `Program.cs` da `ApplyMigrationsAsync()` c
 - Yangi route qo'shilganda `app/layout.tsx` dagi `readyRoutes` setiga va `pageTitles` ga ham qo'shish kerak.
 - Nav menyu `navGroups` massivida, har bir item `permission` field orqali ko'rinishini cheklaydi.
 - Backend `appsettings.json` da: DB connection string, JWT `SecretKey`/`Issuer`/`Audience`, `FileStorageOptions`.
+
+## Kod uslubi — izohlar (comments)
+
+Kodda izoh **kam** bo'lsin. Izoh faqat kodning o'zidan **ko'rinmaydigan sabab** bo'lganda yoziladi:
+workaround, noaniq shart/invariant, "nega oddiy yo'l bilan emas" degan holatlar.
+
+Yozilmaydi:
+- bo'lim sarlavhalari (`// ===== State =====`)
+- keyingi satrni takrorlaydigan izoh (`// userni olamiz` → `const user = ...`)
+- o'z-o'zidan tushunarli metod/propertyga JSDoc yoki XML-doc
+- vaqtincha kommentga olingan eski kod — o'chirib tashlang, git'da bor
+
+Har doim atrofdagi faylning mavjud izoh zichligiga moslashing (`client/` ham, `Back/` ham past zichlikda).
