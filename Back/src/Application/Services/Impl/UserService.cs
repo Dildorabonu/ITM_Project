@@ -38,23 +38,34 @@ public class UserService : IUserService
         _cache   = cache;
     }
 
+    // Faqat DTO maydonlari SELECT qilinadi — PasswordHash/LockoutEnd va to'liq
+    // Role/Department qatorlari bazadan umuman o'qilmaydi.
     public async Task<ApiResult<PagedResult<UserResponseDto>>> GetAllAsync(PaginationParams pagination)
     {
-        var query = _context.Users
-            .Include(u => u.Role)
-            .Include(u => u.Department)
-            .AsNoTracking()
-            .OrderBy(u => u.FirstName);
+        var totalCount = await _context.Users.CountAsync();
 
-        var totalCount = await query.CountAsync();
-        var users = await query
+        var users = await _context.Users
+            .AsNoTracking()
+            .OrderBy(u => u.FirstName).ThenBy(u => u.LastName)
             .Skip((pagination.Page - 1) * pagination.PageSize)
             .Take(pagination.PageSize)
+            .Select(u => new UserResponseDto
+            {
+                Id             = u.Id,
+                FirstName      = u.FirstName,
+                LastName       = u.LastName,
+                Login          = u.Login,
+                RoleId         = u.RoleId,
+                RoleName       = u.Role != null ? u.Role.Name : null,
+                DepartmentId   = u.DepartmentId,
+                DepartmentName = u.Department != null ? u.Department.Name : null,
+                IsActive       = u.IsActive,
+                IsHead         = u.IsHead,
+            })
             .ToListAsync();
 
-        var paged = PagedResult<UserResponseDto>.Create(users.Select(MapToResponse), totalCount, pagination);
-
-        return ApiResult<PagedResult<UserResponseDto>>.Success(paged);
+        return ApiResult<PagedResult<UserResponseDto>>.Success(
+            PagedResult<UserResponseDto>.Create(users, totalCount, pagination));
     }
 
     public async Task<ApiResult<IEnumerable<UserLookupDto>>> GetLookupAsync()
@@ -71,52 +82,33 @@ public class UserService : IUserService
         return ApiResult<IEnumerable<UserLookupDto>>.Success(users);
     }
 
-    public async Task<ApiResult<UserResponseDto>> GetByIdAsync(Guid id)
-    {
-        var user = await _context.Users
-            .Include(u => u.Role)
-            .Include(u => u.Department)
-            .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Id == id);
-
-        if (user is null)
-            return ApiResult<UserResponseDto>.Failure([$"User with id '{id}' not found."]);
-
-        return ApiResult<UserResponseDto>.Success(MapToResponse(user));
-    }
-
     // Xodimlar sahifasi uchun — login/rol kabi maxfiy maydonlarsiz, shartnoma soni bilan.
     public async Task<ApiResult<PagedResult<EmployeeResponseDto>>> GetEmployeesAsync(PaginationParams pagination)
     {
-        var query = _context.Users
-            .Include(u => u.Department)
-            .AsNoTracking()
-            .OrderBy(u => u.FirstName);
+        var totalCount = await _context.Users.CountAsync();
 
-        var totalCount = await query.CountAsync();
-        var users = await query
+        var users = await _context.Users
+            .AsNoTracking()
+            .OrderBy(u => u.FirstName).ThenBy(u => u.LastName)
             .Skip((pagination.Page - 1) * pagination.PageSize)
             .Take(pagination.PageSize)
+            .Select(u => new EmployeeResponseDto
+            {
+                Id             = u.Id,
+                FirstName      = u.FirstName,
+                LastName       = u.LastName,
+                DepartmentName = u.Department != null ? u.Department.Name : null,
+                DepartmentType = u.Department != null ? (DepartmentType?)u.Department.Type : null,
+                IsActive       = u.IsActive,
+            })
             .ToListAsync();
 
         var contractCounts = await GetActiveContractCountsAsync(users.Select(u => u.Id).ToList());
+        foreach (var u in users)
+            u.ActiveContractCount = contractCounts.GetValueOrDefault(u.Id);
 
-        var paged = PagedResult<EmployeeResponseDto>.Create(
-            users.Select(u => new EmployeeResponseDto
-            {
-                Id = u.Id,
-                FirstName = u.FirstName,
-                LastName = u.LastName,
-                DepartmentId = u.DepartmentId,
-                DepartmentName = u.Department?.Name,
-                DepartmentType = u.Department?.Type,
-                IsActive = u.IsActive,
-                IsHead = u.IsHead,
-                ActiveContractCount = contractCounts.GetValueOrDefault(u.Id),
-            }),
-            totalCount, pagination);
-
-        return ApiResult<PagedResult<EmployeeResponseDto>>.Success(paged);
+        return ApiResult<PagedResult<EmployeeResponseDto>>.Success(
+            PagedResult<EmployeeResponseDto>.Create(users, totalCount, pagination));
     }
 
     // Xodim ishlayotgan shartnomalar: ContractUser (shartnoma darajasi) va
@@ -264,11 +256,14 @@ public class UserService : IUserService
 
         if (dto.IsHead && dto.DepartmentId.HasValue)
         {
+            // Faqat ism-familiya kerak — butun User qatorini o'qishning hojati yo'q.
             var previousHead = await _context.Users
+                .AsNoTracking()
                 .Where(u => u.DepartmentId == dto.DepartmentId && u.IsHead)
+                .Select(u => u.FirstName + " " + u.LastName)
                 .FirstOrDefaultAsync();
             if (previousHead is not null)
-                return ApiResult<int>.Failure([$"Ushbu bo'limda allaqachon rahbar mavjud: {previousHead.FirstName} {previousHead.LastName}. Yangi rahbar belgilash uchun avval mavjud rahbarni olib tashlang."]);
+                return ApiResult<int>.Failure([$"Ushbu bo'limda allaqachon rahbar mavjud: {previousHead}. Yangi rahbar belgilash uchun avval mavjud rahbarni olib tashlang."]);
         }
 
         var user = new User
@@ -334,10 +329,12 @@ public class UserService : IUserService
             if (dto.IsHead.Value && user.DepartmentId.HasValue)
             {
                 var previousHead = await _context.Users
+                    .AsNoTracking()
                     .Where(u => u.DepartmentId == user.DepartmentId && u.IsHead && u.Id != id)
+                    .Select(u => u.FirstName + " " + u.LastName)
                     .FirstOrDefaultAsync();
                 if (previousHead is not null)
-                    return ApiResult<int>.Failure([$"Ushbu bo'limda allaqachon rahbar mavjud: {previousHead.FirstName} {previousHead.LastName}. Yangi rahbar belgilash uchun avval mavjud rahbarni olib tashlang."]);
+                    return ApiResult<int>.Failure([$"Ushbu bo'limda allaqachon rahbar mavjud: {previousHead}. Yangi rahbar belgilash uchun avval mavjud rahbarni olib tashlang."]);
             }
             user.IsHead = dto.IsHead.Value;
         }
@@ -348,18 +345,28 @@ public class UserService : IUserService
         return ApiResult<int>.Success(200);
     }
 
-    private static UserResponseDto MapToResponse(User user) => new()
+    // Aktivlashtirish/deaktivatsiya — bitta UPDATE bilan, User qatorini o'qimasdan.
+    // Deaktivatsiyada rahbarlik ham olib tashlanadi (UpdateAsync bilan bir xil xatti-harakat).
+    public async Task<ApiResult<int>> SetActiveAsync(Guid id, bool isActive)
     {
-        Id = user.Id,
-        FirstName = user.FirstName,
-        LastName = user.LastName,
-        Login = user.Login,
-        RoleId = user.RoleId,
-        RoleName = user.Role?.Name,
-        DepartmentId = user.DepartmentId,
-        DepartmentName = user.Department?.Name,
-        IsActive = user.IsActive,
-        IsHead = user.IsHead
-    };
+        if (id == SuperAdminId)
+            return ApiResult<int>.Failure(["SuperAdmin foydalanuvchisini tahrirlash mumkin emas."], statusCode: 403);
 
+        var affected = isActive
+            ? await _context.Users
+                .Where(u => u.Id == id)
+                .ExecuteUpdateAsync(s => s.SetProperty(u => u.IsActive, true))
+            : await _context.Users
+                .Where(u => u.Id == id)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(u => u.IsActive, false)
+                    .SetProperty(u => u.IsHead, false));
+
+        if (affected == 0)
+            return ApiResult<int>.Failure([$"User with id '{id}' not found."]);
+
+        _cache.Remove(LookupCacheKey);
+
+        return ApiResult<int>.Success(200);
+    }
 }
