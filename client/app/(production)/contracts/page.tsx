@@ -146,7 +146,16 @@ export default function ContractsPage() {
     "draft_contracts",
     showForm && !editTarget,
     { form, editTarget },
-    (d) => { if (!d.editTarget) { setForm(d.form); ensureDataLoaded().then(() => setShowForm(true)); } },
+    (d) => {
+      if (d.editTarget) return;
+      setForm(d.form);
+      // Sana inputlarining ko'rinadigan matni `form` dan tashqarida saqlanadi —
+      // draftdan tiklanganda uni ISO qiymatdan qayta hosil qilamiz, aks holda
+      // sana tanlangan bo'lsa ham maydon bo'sh ko'rinadi.
+      setStartDateDisp(isoToDisplayDate(d.form.startDate));
+      setEndDateDisp(isoToDisplayDate(d.form.endDate));
+      ensureDataLoaded().then(() => setShowForm(true));
+    },
   );
 
   // ── Load drawer ────────────────────────────────────────────────────────────
