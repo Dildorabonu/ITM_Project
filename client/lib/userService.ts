@@ -562,6 +562,8 @@ export interface ContractProductResponse {
   productType: string;
   quantity: number;
   unit: string;
+  // Katalogdagi standart birlik — bo'sh bo'lmasa `unit` shundan olingan va o'zgartirib bo'lmaydi.
+  catalogUnit: string | null;
   orderIndex: number;
   notes: string | null;
   status: ContractProductStatus;

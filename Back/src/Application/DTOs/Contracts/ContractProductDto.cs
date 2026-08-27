@@ -5,7 +5,8 @@ namespace Application.DTOs.Contracts;
 public class ContractProductCreateDto
 {
     // Katalog mahsulotining Id'si (ProductCatalog). Frontend mahsulotni katalogdan tanlaydi
-    // yoki yangi yaratib shu Id'ni yuboradi. Berilsa — ProductType katalog nomidan olinadi.
+    // yoki yangi yaratib shu Id'ni yuboradi. Berilsa — ProductType katalog nomidan, Unit esa
+    // katalogning standart birligidan olinadi; mijoz yuborgan qiymatlar e'tiborsiz qoldiriladi.
     public Guid? ProductCatalogId { get; set; }
     public string ProductType { get; set; } = string.Empty;
     public int Quantity { get; set; }
@@ -43,6 +44,9 @@ public class ContractProductResponseDto
     public string ProductType { get; set; } = string.Empty;
     public int Quantity { get; set; }
     public string Unit { get; set; } = string.Empty;
+    // Katalogda ko'rsatilgan standart birlik. Bo'sh bo'lmasa — Unit shundan olingan va
+    // tahrirlash formasida qulflanadi (katalog bilan farq qilmasligi uchun).
+    public string? CatalogUnit { get; set; }
     public int OrderIndex { get; set; }
     public string? Notes { get; set; }
     public ContractProductStatus Status { get; set; }

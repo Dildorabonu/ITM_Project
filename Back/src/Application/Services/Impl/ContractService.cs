@@ -427,9 +427,50 @@ public class ContractService : IContractService
         return ApiResult<ContractCreateResultDto>.Success(createResult, 201);
     }
 
-    private async Task<List<string>> ValidateProductsAsync(IEnumerable<ContractProductCreateDto> products)
+    // Katalogdan tanlangan qatorlarda mahsulot nomi va o'lchov birligi ProductCatalog'ning
+    // o'zidan olinadi — mijoz yuborgan qiymatlar e'tiborsiz qoldiriladi. Shu tufayli shartnoma
+    // qatori katalogdagi yozuvdan hech qachon farq qila olmaydi (formada birlik qulflangan
+    // bo'lsa ham, API'ga to'g'ridan-to'g'ri murojaat qilinsa ham). Katalogda birlik
+    // ko'rsatilmagan bo'lsa — kiritilgan qiymat saqlanadi (eski, birliksiz yozuvlar uchun).
+    private async Task<List<string>> ApplyCatalogValuesAsync(IEnumerable<ContractProductCreateDto> products)
     {
         var errors = new List<string>();
+
+        var catalogIds = products
+            .Where(p => p.ProductCatalogId.HasValue)
+            .Select(p => p.ProductCatalogId!.Value)
+            .Distinct()
+            .ToList();
+        if (catalogIds.Count == 0) return errors;
+
+        var catalog = await _context.ProductCatalogs
+            .Where(pc => catalogIds.Contains(pc.Id))
+            .Select(pc => new { pc.Id, pc.Name, pc.Unit })
+            .ToDictionaryAsync(pc => pc.Id);
+
+        foreach (var p in products)
+        {
+            if (!p.ProductCatalogId.HasValue) continue;
+            if (!catalog.TryGetValue(p.ProductCatalogId.Value, out var entry))
+            {
+                errors.Add($"Katalog mahsuloti topilmadi: {p.ProductCatalogId.Value}");
+                continue;
+            }
+
+            p.ProductType = entry.Name;
+            if (!string.IsNullOrWhiteSpace(entry.Unit))
+                p.Unit = entry.Unit;
+        }
+
+        return errors;
+    }
+
+    // Mahsulot qatorlarini tekshiradi. Tekshirishdan oldin katalog qiymatlarini qo'llaydi,
+    // shuning uchun quyidagi xatolar allaqachon katalogdan olingan nom/birlikka tegishli.
+    private async Task<List<string>> ValidateProductsAsync(IEnumerable<ContractProductCreateDto> products)
+    {
+        var errors = await ApplyCatalogValuesAsync(products);
+        if (errors.Count > 0) return errors;
 
         // Bo'sh shartnomalarga yo'l qo'ymaymiz — kamida bitta to'g'ri mahsulot bo'lishi shart.
         // Aks holda ProductType bo'sh qatorlar quyida tashlab yuborilib, hech bir mahsulotsiz
@@ -449,21 +490,6 @@ public class ContractService : IContractService
                 errors.Add($"Mahsulot #{idx}: miqdorni kiriting (0 dan katta son).");
             if (string.IsNullOrWhiteSpace(p.Unit))
                 errors.Add($"Mahsulot #{idx}: o'lchov birligini tanlang.");
-        }
-
-        var catalogIds = products
-            .Where(p => p.ProductCatalogId.HasValue)
-            .Select(p => p.ProductCatalogId!.Value)
-            .Distinct()
-            .ToList();
-        if (catalogIds.Count > 0)
-        {
-            var existingCatalog = await _context.ProductCatalogs
-                .Where(pc => catalogIds.Contains(pc.Id))
-                .Select(pc => pc.Id)
-                .ToListAsync();
-            foreach (var missing in catalogIds.Except(existingCatalog))
-                errors.Add($"Katalog mahsuloti topilmadi: {missing}");
         }
 
         var deptIds = products.SelectMany(p => p.DepartmentIds).Distinct().ToList();
@@ -1154,6 +1180,7 @@ public class ContractService : IContractService
                 ProductType = p.ProductType,
                 Quantity    = p.Quantity,
                 Unit        = p.Unit,
+                CatalogUnit = p.ProductCatalog != null ? p.ProductCatalog.Unit : null,
                 OrderIndex  = p.OrderIndex,
                 Notes       = p.Notes,
                 Status      = p.Status,

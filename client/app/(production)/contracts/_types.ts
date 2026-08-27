@@ -6,6 +6,9 @@ export interface ContractProductForm {
   productCode: string | null;
   productType: string;
   quantity: string;
+  // Katalogda ko'rsatilgan birlik. Bo'sh bo'lmasa — `unit` shundan olingan va forma uni
+  // tahrirlashga ruxsat bermaydi (shartnoma katalogdan farq qilmasligi uchun).
+  catalogUnit: string | null;
   unit: string;
   notes: string;
   departmentIds: string[];
@@ -17,7 +20,7 @@ export interface ContractProductForm {
 
 export const emptyProduct: ContractProductForm = {
   productCatalogId: null, productCode: null,
-  productType: "", quantity: "", unit: "", notes: "",
+  productType: "", quantity: "", catalogUnit: null, unit: "", notes: "",
   departmentIds: [], responsibleUsers: [], supervisorUsers: [], observerUsers: [],
   pendingTzFiles: [],
 };

@@ -219,6 +219,10 @@ public class ProductCatalogService : IProductCatalogService
         if (string.IsNullOrWhiteSpace(dto.Name))
             return ApiResult<ProductCatalogResponseDto>.Failure(["Mahsulot nomi bo'sh bo'lishi mumkin emas."]);
 
+        // Birlik majburiy — shartnoma mahsuloti uni katalogdan oladi va o'zgartira olmaydi.
+        if (string.IsNullOrWhiteSpace(dto.Unit))
+            return ApiResult<ProductCatalogResponseDto>.Failure(["O'lchov birligini tanlang."]);
+
         var name = dto.Name.Trim();
         var normalized = TextNormalizer.Normalize(name);
 
@@ -269,6 +273,10 @@ public class ProductCatalogService : IProductCatalogService
     {
         if (string.IsNullOrWhiteSpace(dto.Name))
             return ApiResult<ProductCatalogResponseDto>.Failure(["Mahsulot nomi bo'sh bo'lishi mumkin emas."]);
+
+        // Birlik majburiy — shartnoma mahsuloti uni katalogdan oladi va o'zgartira olmaydi.
+        if (string.IsNullOrWhiteSpace(dto.Unit))
+            return ApiResult<ProductCatalogResponseDto>.Failure(["O'lchov birligini tanlang."]);
 
         var entity = await _context.ProductCatalogs.FirstOrDefaultAsync(p => p.Id == id && p.IsActive);
         if (entity is null)

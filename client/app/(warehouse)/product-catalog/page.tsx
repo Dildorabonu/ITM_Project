@@ -129,7 +129,8 @@ export default function ProductCatalogPage() {
 
   const handleSave = async () => {
     setSubmitted(true);
-    if (!form.name.trim()) return;
+    // Birlik majburiy — shartnoma formasi uni shu yerdan oladi va o'zgartirishga ruxsat bermaydi.
+    if (!form.name.trim() || !form.unit) return;
     setSaving(true);
     try {
       const dto = {
@@ -175,6 +176,7 @@ export default function ProductCatalogPage() {
   };
 
   const nameErr = submitted && !form.name.trim();
+  const unitErr = submitted && !form.unit;
 
   return (
     <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
@@ -407,15 +409,20 @@ export default function ProductCatalogPage() {
               </div>
 
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>
-                  {t("O'lchov birligi")}
+                <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: unitErr ? "var(--danger)" : "var(--text2)" }}>
+                  {t("O'lchov birligi")} <span style={{ color: "var(--danger)" }}>*</span>
                 </label>
-                <CheckSelect
-                  value={form.unit}
-                  onChange={v => setForm(f => ({ ...f, unit: v }))}
-                  options={UNIT_OPTIONS.map(o => ({ id: o.id, name: t(o.name), icon: o.icon }))}
-                  placeholder={t("— Tanlang —")}
-                />
+                <div style={unitErr ? { borderRadius: "var(--radius)", boxShadow: "0 0 0 1.5px var(--danger)" } : undefined}>
+                  <CheckSelect
+                    value={form.unit}
+                    onChange={v => setForm(f => ({ ...f, unit: v }))}
+                    options={UNIT_OPTIONS.map(o => ({ id: o.id, name: t(o.name), icon: o.icon }))}
+                    placeholder={t("— Tanlang —")}
+                  />
+                </div>
+                {unitErr
+                  ? <div style={{ color: "var(--danger)", fontSize: 11, marginTop: 4 }}>{t("Birlikni tanlang")}</div>
+                  : <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4 }}>{t("Shartnomalarda shu birlik ishlatiladi")}</div>}
               </div>
 
               <div>

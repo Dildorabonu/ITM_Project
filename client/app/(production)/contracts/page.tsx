@@ -175,6 +175,7 @@ export default function ContractsPage() {
         productType: p.productType,
         quantity: p.quantity,
         unit: p.unit,
+        catalogUnit: null,
         orderIndex: 0,
         notes: p.notes ?? null,
         status: p.status,
@@ -351,7 +352,8 @@ export default function ContractsPage() {
             productCode: p.productCode ?? null,
             productType: p.productType ?? "",
             quantity:    p.quantity != null ? String(p.quantity) : "",
-            unit:        p.unit ?? "",
+            catalogUnit: p.catalogUnit || null,
+            unit:        p.catalogUnit || p.unit || "",
             notes:       p.notes ?? "",
             departmentIds: p.departments?.map(d => d.id) ?? [],
             responsibleUsers: (p.assignedUsers ?? []).filter(u => u.role === 0).map(u => lookupById.get(u.userId)).filter((u): u is UserLookup => !!u),
@@ -359,7 +361,7 @@ export default function ContractsPage() {
             observerUsers:    (p.assignedUsers ?? []).filter(u => u.role === 2).map(u => lookupById.get(u.userId)).filter((u): u is UserLookup => !!u),
             pendingTzFiles: [],
           }))
-        : [{ productCatalogId: null, productCode: null, productType: "", quantity: "", unit: "", notes: "", departmentIds: [], responsibleUsers: [], supervisorUsers: [], observerUsers: [], pendingTzFiles: [] }],
+        : [{ productCatalogId: null, productCode: null, productType: "", quantity: "", catalogUnit: null, unit: "", notes: "", departmentIds: [], responsibleUsers: [], supervisorUsers: [], observerUsers: [], pendingTzFiles: [] }],
     });
     setStartDateDisp(c.startDate ? isoToDisplayDate(c.startDate.slice(0, 10)) : "");
     setEndDateDisp(c.endDate ? isoToDisplayDate(c.endDate.slice(0, 10)) : "");
