@@ -5,7 +5,7 @@ import { type RoleOption, type DepartmentOption } from "@/lib/userService";
 import { CustomSelect } from "./CustomSelect";
 import { CustomGroupedSelect } from "./CustomGroupedSelect";
 import { type UserForm } from "./constants";
-import { PasswordStrengthHint, isPasswordStrong } from "./PasswordStrengthHint";
+import { PasswordStrengthHint, isPasswordStrong } from "@/app/_components/PasswordStrengthHint";
 import { useT } from "@/lib/i18n";
 
 interface UserEditViewProps {

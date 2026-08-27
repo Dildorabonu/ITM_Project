@@ -41,11 +41,12 @@ public class AuthServiceTests
         string password = ValidPassword,
         bool isActive = true,
         DateTime? lockoutEnd = null,
-        Guid? roleId = null)
+        Guid? roleId = null,
+        Guid? id = null)
     {
         var user = new User
         {
-            Id = Guid.NewGuid(),
+            Id = id ?? Guid.NewGuid(),
             Login = login,
             FirstName = "Ali",
             LastName = "Valiyev",
@@ -416,5 +417,217 @@ public class AuthServiceTests
         stored.IsRevoked.Should().BeTrue();
         stored.RevokedAt.Should().NotBeNull();
         stored.RevokedReason.Should().Be("ManualRevoke");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    //  ChangePasswordAsync
+    // ─────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task ChangePasswordAsync_WithWrongCurrentPassword_FailsAndKeepsOldPassword()
+    {
+        // Arrange
+        await using var db = TestDbContextFactory.Create();
+        var user = SeedActiveUser(db, login: "ali", password: ValidPassword);
+        var sut = CreateService(db);
+
+        // Act
+        var result = await sut.ChangePasswordAsync(user.Id, new ChangePasswordDto
+        {
+            CurrentPassword = "Butun@Boshqa1",
+            NewPassword = "Yangi@Parol1",
+        });
+
+        // Assert — 401 emas: klientdagi interceptor 401 ni "sessiya tugadi" deb
+        // tushunib, foydalanuvchini login sahifasiga uloqtirib yuboradi.
+        result.Succeeded.Should().BeFalse();
+        result.StatusCode.Should().Be(400);
+
+        var stored = await db.Users.AsNoTracking().SingleAsync(u => u.Id == user.Id);
+        PasswordHelper.VerifyPassword(ValidPassword, stored.PasswordHash).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_WithWeakNewPassword_Fails()
+    {
+        // Arrange
+        await using var db = TestDbContextFactory.Create();
+        var user = SeedActiveUser(db, login: "ali", password: ValidPassword);
+        var sut = CreateService(db);
+
+        // Act
+        var result = await sut.ChangePasswordAsync(user.Id, new ChangePasswordDto
+        {
+            CurrentPassword = ValidPassword,
+            NewPassword = "parol",
+        });
+
+        // Assert
+        result.Succeeded.Should().BeFalse();
+
+        var stored = await db.Users.AsNoTracking().SingleAsync(u => u.Id == user.Id);
+        PasswordHelper.VerifyPassword(ValidPassword, stored.PasswordHash).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_WithNewPasswordEqualToCurrent_Fails()
+    {
+        // Arrange
+        await using var db = TestDbContextFactory.Create();
+        var user = SeedActiveUser(db, login: "ali", password: ValidPassword);
+        var sut = CreateService(db);
+
+        // Act
+        var result = await sut.ChangePasswordAsync(user.Id, new ChangePasswordDto
+        {
+            CurrentPassword = ValidPassword,
+            NewPassword = ValidPassword,
+        });
+
+        // Assert
+        result.Succeeded.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_WithEmptyNewPassword_Fails()
+    {
+        // Arrange
+        await using var db = TestDbContextFactory.Create();
+        var user = SeedActiveUser(db, login: "ali", password: ValidPassword);
+        var sut = CreateService(db);
+
+        // Act
+        var result = await sut.ChangePasswordAsync(user.Id, new ChangePasswordDto());
+
+        // Assert
+        result.Succeeded.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_WithNewPasswordButNoCurrentPassword_Fails()
+    {
+        // Arrange
+        await using var db = TestDbContextFactory.Create();
+        var user = SeedActiveUser(db, login: "ali", password: ValidPassword);
+        var sut = CreateService(db);
+
+        // Act
+        var result = await sut.ChangePasswordAsync(user.Id, new ChangePasswordDto
+        {
+            NewPassword = "Yangi@Parol1",
+        });
+
+        // Assert
+        result.Succeeded.Should().BeFalse();
+
+        var stored = await db.Users.AsNoTracking().SingleAsync(u => u.Id == user.Id);
+        PasswordHelper.VerifyPassword(ValidPassword, stored.PasswordHash).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_WithInactiveUser_Fails()
+    {
+        // Arrange
+        await using var db = TestDbContextFactory.Create();
+        var user = SeedActiveUser(db, login: "ali", password: ValidPassword, isActive: false);
+        var sut = CreateService(db);
+
+        // Act
+        var result = await sut.ChangePasswordAsync(user.Id, new ChangePasswordDto
+        {
+            CurrentPassword = ValidPassword,
+            NewPassword = "Yangi@Parol1",
+        });
+
+        // Assert
+        result.Succeeded.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_WithValidNewPassword_ReplacesPasswordAndRevokesOldSessions()
+    {
+        // Arrange — muvaffaqiyatli yo'l eski tokenlarni ExecuteUpdateAsync bilan
+        // bekor qiladi, uni InMemory provider tarjima qila olmaydi.
+        await using var db = TestDbContextFactory.CreateSqlite();
+        var user = SeedActiveUser(db, login: "ali", password: ValidPassword);
+        var sut = CreateService(db);
+
+        var firstLogin = await sut.LoginAsync(new LoginDto { Login = "ali", Password = ValidPassword });
+        var oldRefreshToken = firstLogin.Result!.RefreshToken;
+
+        const string newPassword = "Yangi@Parol1";
+
+        // Act
+        var result = await sut.ChangePasswordAsync(user.Id, new ChangePasswordDto
+        {
+            CurrentPassword = ValidPassword,
+            NewPassword = newPassword,
+        });
+
+        // Assert
+        result.Succeeded.Should().BeTrue();
+        result.Result.Should().NotBeNull();
+        result.Result!.AccessToken.Should().NotBeNullOrWhiteSpace();
+        result.Result.RefreshToken.Should().NotBe(oldRefreshToken);
+
+        var stored = await db.Users.AsNoTracking().SingleAsync(u => u.Id == user.Id);
+        PasswordHelper.VerifyPassword(newPassword, stored.PasswordHash).Should().BeTrue();
+        PasswordHelper.VerifyPassword(ValidPassword, stored.PasswordHash).Should().BeFalse();
+
+        var oldToken = await db.RefreshTokens.AsNoTracking().SingleAsync(rt => rt.Token == oldRefreshToken);
+        oldToken.IsRevoked.Should().BeTrue();
+        oldToken.RevokedReason.Should().Be("PasswordChanged");
+
+        var newToken = await db.RefreshTokens.AsNoTracking()
+            .SingleAsync(rt => rt.Token == result.Result.RefreshToken);
+        newToken.IsRevoked.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_AfterPasswordChange_OldPasswordNoLongerLogsIn()
+    {
+        // Arrange
+        await using var db = TestDbContextFactory.CreateSqlite();
+        var user = SeedActiveUser(db, login: "ali", password: ValidPassword);
+        var sut = CreateService(db);
+
+        const string newPassword = "Yangi@Parol1";
+
+        // Act
+        await sut.ChangePasswordAsync(user.Id, new ChangePasswordDto
+        {
+            CurrentPassword = ValidPassword,
+            NewPassword = newPassword,
+        });
+
+        // Assert
+        var withOld = await sut.LoginAsync(new LoginDto { Login = "ali", Password = ValidPassword });
+        withOld.Succeeded.Should().BeFalse();
+
+        var withNew = await sut.LoginAsync(new LoginDto { Login = "ali", Password = newPassword });
+        withNew.Succeeded.Should().BeTrue();
+    }
+    [Fact]
+    public async Task ChangePasswordAsync_ForSuperAdmin_IsAllowed()
+    {
+        // Arrange — UserService superadminni tahrirlashni bloklaydi; foydalanuvchi
+        // o'zini o'zgartiradigan bu yo'l esa aynan unga ham ochiq bo'lishi kerak.
+        await using var db = TestDbContextFactory.CreateSqlite();
+        var superAdminId = new Guid("00000000-0000-0000-0000-000000000001");
+        SeedActiveUser(db, login: "superadmin", password: ValidPassword, id: superAdminId);
+        var sut = CreateService(db);
+
+        // Act
+        var result = await sut.ChangePasswordAsync(superAdminId, new ChangePasswordDto
+        {
+            CurrentPassword = ValidPassword,
+            NewPassword = "Yangi@Parol1",
+        });
+
+        // Assert
+        result.Succeeded.Should().BeTrue();
+
+        var stored = await db.Users.AsNoTracking().SingleAsync(u => u.Id == superAdminId);
+        PasswordHelper.VerifyPassword("Yangi@Parol1", stored.PasswordHash).Should().BeTrue();
     }
 }

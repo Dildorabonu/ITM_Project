@@ -35,6 +35,7 @@ export const ru: Record<string, string> = {
   "Foydalanuvchilar": "Пользователи",
   "Rollar": "Роли",
   "Tashqi ko'rinish": "Внешний вид",
+  "Profil": "Профиль",
 
   // ───────── Shell (sidebar / topbar / profil / bell) ─────────
   "Yig'ish": "Свернуть",
@@ -1283,4 +1284,19 @@ export const ru: Record<string, string> = {
   "Filtrlarni tozalash": "Очистить фильтры",
   "Sahifani yangilang yoki keyinroq qayta urinib ko'ring.":
     "Обновите страницу или повторите попытку позже.",
+
+  // ───────── Profil ─────────
+  "Xavfsizlik": "Безопасность",
+  "Bu ma'lumotlarni administrator o'zgartiradi.": "Эти данные изменяет администратор.",
+  "Parolni o'zgartirish": "Сменить пароль",
+  "Yangi parolni takrorlang": "Повторите новый пароль",
+  "Joriy parol": "Текущий пароль",
+  "Parolni ko'rsatish": "Показать пароль",
+  "Saqlangandan so'ng boshqa qurilmalardagi seanslar yopiladi.":
+    "После сохранения сеансы на других устройствах будут закрыты.",
+  "Yangi parol va tasdiq mos kelmadi.": "Новый пароль и подтверждение не совпадают.",
+  "Yangi parol quyidagi talablarga javob bermaydi.": "Новый пароль не отвечает требованиям.",
+  "Joriy parolni kiriting.": "Введите текущий пароль.",
+  "Saqlab bo'lmadi. Qaytadan urinib ko'ring.": "Не удалось сохранить. Попробуйте ещё раз.",
+  "Parol yangilandi": "Пароль обновлён",
 };

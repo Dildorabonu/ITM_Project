@@ -133,7 +133,7 @@ function applyAppearanceFont(family: string, scale: number) {
 }
 
 // Sahifalar API ga ulangan bo'lsa shu ro'yxatga qo'shiladi
-const readyRoutes = new Set(["/", "/users", "/employees", "/roles", "/login", "/departments", "/warehouse-inventory", "/warehouse-check", "/warehouse-movements", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions", "/requisitions/approvals", "/manufactured", "/product-catalog", "/department-warehouses", "/litsenziya", "/meter-data"]);
+const readyRoutes = new Set(["/", "/users", "/employees", "/roles", "/login", "/departments", "/warehouse-inventory", "/warehouse-check", "/warehouse-movements", "/contracts", "/techprocess", "/technicaldrawings", "/appearance", "/tasks", "/notifications", "/requisitions", "/requisitions/approvals", "/manufactured", "/product-catalog", "/department-warehouses", "/litsenziya", "/meter-data", "/profile"]);
 const readyPrefixes = ["/requisitions/", "/contracts/", "/techprocess/", "/technicaldrawings/", "/requisitions/print", "/department-warehouses/", "/warehouse-inventory/label/"];
 
 const pageTitles: Record<string, string> = {
@@ -156,6 +156,7 @@ const pageTitles: Record<string, string> = {
   "/warehouse-scan": "Ombor skaneri",
   "/department-warehouses": "Bo'lim Omborlari",
   "/appearance":    "Tashqi ko'rinish",
+  "/profile":       "Profil",
   "/litsenziya":    "Litsenziya",
   "/requisitions":           "Talabnomalar",
   "/requisitions/approvals": "Talabnomalar — Tasdiqlash",
@@ -895,6 +896,25 @@ export default function AppShell({ children, initialDark }: { children: React.Re
                       borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
                       minWidth: 150, zIndex: 100, overflow: "hidden",
                     }}>
+                      <Link
+                        href="/profile"
+                        onClick={() => setProfileOpen(false)}
+                        style={{
+                          width: "100%", padding: "10px 16px",
+                          display: "flex", alignItems: "center", gap: 8,
+                          color: "var(--text)", fontSize: 14, fontWeight: 500,
+                          textDecoration: "none",
+                        }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = "var(--surface2)"; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = "none"; }}
+                      >
+                        <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                          <circle cx="12" cy="7" r="4"/>
+                        </svg>
+                        {t("Profil")}
+                      </Link>
+                      <div style={{ height: 1, background: "var(--border)" }} />
                       <button
                         onClick={handleLogout}
                         style={{

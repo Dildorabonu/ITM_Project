@@ -239,17 +239,10 @@ public class UserService : IUserService
             .ToDictionaryAsync(x => x.Key, x => x.Count);
     }
 
-    private static bool IsPasswordStrong(string password) =>
-        password.Length >= 8 &&
-        password.Any(char.IsUpper) &&
-        password.Any(char.IsLower) &&
-        password.Any(char.IsDigit) &&
-        password.Any(c => !char.IsLetterOrDigit(c));
-
     public async Task<ApiResult<int>> CreateAsync(UserCreateDto dto)
     {
-        if (!IsPasswordStrong(dto.Password))
-            return ApiResult<int>.Failure(["Parol yetarlicha kuchli emas. Kamida 8 ta belgi, katta va kichik harf, raqam va maxsus belgi bo'lishi kerak."]);
+        if (!PasswordHelper.IsStrong(dto.Password))
+            return ApiResult<int>.Failure([PasswordHelper.StrengthRequirement]);
 
         if (await _context.Users.AnyAsync(u => u.Login == dto.Login))
             return ApiResult<int>.Failure([$"Login '{dto.Login}' is already taken."]);
@@ -311,8 +304,8 @@ public class UserService : IUserService
         if (dto.LastName is not null) user.LastName = dto.LastName;
         if (dto.Password is not null)
         {
-            if (!IsPasswordStrong(dto.Password))
-                return ApiResult<int>.Failure(["Parol yetarlicha kuchli emas. Kamida 8 ta belgi, katta va kichik harf, raqam va maxsus belgi bo'lishi kerak."]);
+            if (!PasswordHelper.IsStrong(dto.Password))
+                return ApiResult<int>.Failure([PasswordHelper.StrengthRequirement]);
             user.PasswordHash = PasswordHelper.HashPassword(dto.Password);
         }
         if (dto.RoleId.HasValue) user.RoleId = dto.RoleId;

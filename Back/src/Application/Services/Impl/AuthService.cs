@@ -174,6 +174,51 @@ public class AuthService : IAuthService
             : ApiResult<bool>.Failure(["Refresh token not found or already revoked."]);
     }
 
+    public async Task<ApiResult<AuthResponseDto>> ChangePasswordAsync(Guid userId, ChangePasswordDto dto)
+    {
+        if (string.IsNullOrEmpty(dto.NewPassword))
+            return ApiResult<AuthResponseDto>.Failure(["Yangi parol kiritilishi kerak."]);
+
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
+        if (user is null)
+            return ApiResult<AuthResponseDto>.Failure(["Foydalanuvchi topilmadi."]);
+
+        // 401 qaytarib bo'lmaydi: klientdagi interceptor uni tugagan sessiya deb bilib,
+        // refresh qilishga urinadi va foydalanuvchini login sahifasiga uloqtiradi.
+        if (!PasswordHelper.VerifyPassword(dto.CurrentPassword ?? string.Empty, user.PasswordHash))
+            return ApiResult<AuthResponseDto>.Failure(["Joriy parol noto'g'ri."]);
+
+        if (!PasswordHelper.IsStrong(dto.NewPassword))
+            return ApiResult<AuthResponseDto>.Failure([PasswordHelper.StrengthRequirement]);
+
+        if (PasswordHelper.VerifyPassword(dto.NewPassword, user.PasswordHash))
+            return ApiResult<AuthResponseDto>.Failure(["Yangi parol joriy paroldan farq qilishi kerak."]);
+
+        user.PasswordHash = PasswordHelper.HashPassword(dto.NewPassword);
+        await _context.SaveChangesAsync();
+
+        // Eski seanslar (boshqa qurilma, boshqa brauzer) yopiladi — yangi token esa
+        // shu so'rovni yuborgan klientga qaytariladi, ya'ni u tizimda qoladi.
+        await RevokeAllUserTokensAsync(userId, "PasswordChanged");
+
+        var refreshToken = CreateRefreshToken(user.Id, familyId: Guid.NewGuid());
+        _context.RefreshTokens.Add(refreshToken);
+        await _context.SaveChangesAsync();
+
+        var role = await LoadRoleContextAsync(user.RoleId);
+        var userDto = BuildUserDto(user.Login, user.FirstName, user.LastName, user.DepartmentId, role);
+        var (accessToken, accessExpiresAt) = BuildAccessToken(user.Id, userDto);
+
+        return ApiResult<AuthResponseDto>.Success(new AuthResponseDto
+        {
+            AccessToken = accessToken,
+            RefreshToken = refreshToken.Token,
+            AccessTokenExpiresAt = accessExpiresAt,
+            RefreshTokenExpiresAt = refreshToken.ExpiresAt,
+            User = userDto
+        });
+    }
+
     public async Task<ApiResult<AuthUserDto>> GetUserAsync(Guid userId)
     {
         var user = await LoadActiveUserAsync(userId);
@@ -318,6 +363,17 @@ public class AuthService : IAuthService
         var now = DateTime.UtcNow;
         await _context.RefreshTokens
             .Where(rt => rt.FamilyId == familyId && !rt.IsRevoked)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(rt => rt.IsRevoked, true)
+                .SetProperty(rt => rt.RevokedAt, now)
+                .SetProperty(rt => rt.RevokedReason, reason));
+    }
+
+    private async System.Threading.Tasks.Task RevokeAllUserTokensAsync(Guid userId, string reason)
+    {
+        var now = DateTime.UtcNow;
+        await _context.RefreshTokens
+            .Where(rt => rt.UserId == userId && !rt.IsRevoked)
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(rt => rt.IsRevoked, true)
                 .SetProperty(rt => rt.RevokedAt, now)

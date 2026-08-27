@@ -84,6 +84,25 @@ public class AuthController : ControllerBase
         return Ok(ApiResult<bool>.Success(true));
     }
 
+    [EnableRateLimiting("login")]
+    [HttpPost("change-password")]
+    [Authorize]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)
+    {
+        var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userIdStr, out var userId))
+            return Unauthorized();
+
+        var result = await _authService.ChangePasswordAsync(userId, dto);
+
+        if (!result.Succeeded || result.Result is null)
+            return StatusCode(result.StatusCode > 0 ? result.StatusCode : 400, result);
+
+        WriteAuthCookies(result.Result);
+
+        return Ok(ApiResult<AuthUserDto>.Success(result.Result.User));
+    }
+
     [HttpGet("me")]
     [Authorize]
     public async Task<IActionResult> Me()
