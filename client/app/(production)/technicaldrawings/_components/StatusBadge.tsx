@@ -1,7 +1,9 @@
 import { DrawingStatus, DRAWING_STATUS_LABELS } from "@/lib/userService";
+import { useT } from "@/lib/i18n";
 import { STATUS_STYLE } from "../_types";
 
 export function StatusBadge({ status, className }: { status: DrawingStatus; className?: string }) {
+  const t = useT();
   const style = STATUS_STYLE[status];
   return (
     <span
@@ -20,7 +22,7 @@ export function StatusBadge({ status, className }: { status: DrawingStatus; clas
         border: `1px solid ${style.border}`,
       }}
     >
-      {DRAWING_STATUS_LABELS[status]}
+      {t(DRAWING_STATUS_LABELS[status])}
     </span>
   );
 }
