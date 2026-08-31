@@ -13,7 +13,8 @@ public static class TokenHelper
         Guid userId, string username, string role, JwtOptions jwtOptions,
         string firstName = "", string lastName = "",
         IEnumerable<string>? permissions = null,
-        Guid? departmentId = null)
+        Guid? departmentId = null,
+        Guid? sessionId = null)
     {
         var claims = new List<Claim>
         {
@@ -26,6 +27,10 @@ public static class TokenHelper
 
         if (departmentId.HasValue)
             claims.Add(new Claim("dept", departmentId.Value.ToString()));
+
+        // Standart "sid" emas — uni JwtSecurityTokenHandler uzun URI'ga o'girib yuboradi.
+        if (sessionId.HasValue)
+            claims.Add(new Claim("sess", sessionId.Value.ToString()));
 
         if (permissions is not null)
         {

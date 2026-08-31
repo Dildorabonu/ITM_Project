@@ -103,6 +103,41 @@ public class AuthController : ControllerBase
         return Ok(ApiResult<AuthUserDto>.Success(result.Result.User));
     }
 
+    [HttpGet("sessions")]
+    [Authorize]
+    public async Task<IActionResult> Sessions()
+    {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
+
+        return Ok(await _authService.GetSessionsAsync(userId, CurrentRefreshToken()));
+    }
+
+    [HttpDelete("sessions/{familyId:guid}")]
+    [Authorize]
+    public async Task<IActionResult> RevokeSession(Guid familyId)
+    {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
+
+        var result = await _authService.RevokeSessionAsync(userId, familyId, CurrentRefreshToken());
+
+        if (!result.Succeeded)
+            return StatusCode(result.StatusCode > 0 ? result.StatusCode : 400, result);
+
+        return Ok(result);
+    }
+
+    [HttpDelete("sessions")]
+    [Authorize]
+    public async Task<IActionResult> RevokeOtherSessions()
+    {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
+
+        return Ok(await _authService.RevokeOtherSessionsAsync(userId, CurrentRefreshToken()));
+    }
+
     [HttpGet("me")]
     [Authorize]
     public async Task<IActionResult> Me()
@@ -118,6 +153,11 @@ public class AuthController : ControllerBase
 
         return Ok(result);
     }
+
+    private bool TryGetUserId(out Guid userId) =>
+        Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out userId);
+
+    private string? CurrentRefreshToken() => Request.Cookies[_cookieOptions.RefreshTokenName];
 
     private void WriteAuthCookies(AuthResponseDto dto)
     {

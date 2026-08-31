@@ -7,6 +7,7 @@ import { useAuthStore } from "@/lib/store/authStore";
 import { useToastStore } from "@/lib/store/toastStore";
 import { useT } from "@/lib/i18n";
 import { PasswordStrengthHint, isPasswordStrong } from "@/app/_components/PasswordStrengthHint";
+import { SessionList } from "./_components/SessionList";
 
 const TABS = ["umumiy", "xavfsizlik"] as const;
 type Tab = (typeof TABS)[number];
@@ -54,6 +55,7 @@ export default function ProfilePage() {
   const [showNew, setShowNew] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [sessionsReloadKey, setSessionsReloadKey] = useState(0);
 
   const initials = useMemo(() => {
     if (user?.firstName && user?.lastName) return (user.firstName[0] + user.lastName[0]).toUpperCase();
@@ -85,6 +87,8 @@ export default function ProfilePage() {
       setNewPassword("");
       setConfirmPassword("");
       setTab("umumiy");
+      // Parol almashgach eski seanslar bekor bo'ldi — ro'yxat eskirgan.
+      setSessionsReloadKey((k) => k + 1);
       showToast(t("Parol yangilandi"));
     } catch (err) {
       const message = axios.isAxiosError(err) ? err.response?.data?.errors?.[0] : null;
@@ -252,6 +256,12 @@ export default function ProfilePage() {
                 {saving ? t("Saqlanmoqda...") : t("Parolni o'zgartirish")}
               </button>
             </form>
+          )}
+
+          {tab === "xavfsizlik" && (
+            <div style={{ marginTop: 32, paddingTop: 26, borderTop: "1px solid var(--border)" }}>
+              <SessionList reloadKey={sessionsReloadKey} />
+            </div>
           )}
         </div>
       </div>

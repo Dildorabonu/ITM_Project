@@ -1299,4 +1299,22 @@ export const ru: Record<string, string> = {
   "Joriy parolni kiriting.": "Введите текущий пароль.",
   "Saqlab bo'lmadi. Qaytadan urinib ko'ring.": "Не удалось сохранить. Попробуйте ещё раз.",
   "Parol yangilandi": "Пароль обновлён",
+  "Faol seanslar": "Активные сеансы",
+  "Hisobingizga kirilgan qurilmalar": "Устройства, вошедшие в вашу учётную запись",
+  "Shu qurilma": "Это устройство",
+  "Tugatish": "Завершить",
+  "Boshqa hammasini tugatish": "Завершить все остальные",
+  "Seansni tugatish": "Завершить сеанс",
+  "Bu qurilma tizimdan chiqariladi va qayta kirish uchun parol so'raladi.":
+    "Это устройство выйдет из системы, для повторного входа потребуется пароль.",
+  "Shu qurilmadan tashqari barcha seanslar tugatiladi.":
+    "Будут завершены все сеансы, кроме текущего устройства.",
+  "Seans tugatildi": "Сеанс завершён",
+  "ta seans tugatildi": "сеансов завершено",
+  "Faol seans topilmadi.": "Активных сеансов не найдено.",
+  "Seanslarni yuklab bo'lmadi.": "Не удалось загрузить сеансы.",
+  "Seansni tugatib bo'lmadi.": "Не удалось завершить сеанс.",
+  "Seanslarni tugatib bo'lmadi.": "Не удалось завершить сеансы.",
+  "kecha": "вчера",
+  "kirilgan": "вход",
 };

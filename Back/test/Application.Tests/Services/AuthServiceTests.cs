@@ -8,6 +8,8 @@ using Core.Enums;
 using DataAccess.Persistence;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using System.IdentityModel.Tokens.Jwt;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -29,10 +31,11 @@ public class AuthServiceTests
     private static AuthService CreateService(
         DatabaseContext db,
         JwtOptions? jwt = null,
-        Guid? userId = null)
+        Guid? userId = null,
+        SessionGuard? guard = null)
     {
         var http = TestHttpContext.CreateAccessor(userId: userId, ip: "10.0.0.1");
-        return new AuthService(db, OptionsHelper.Wrap(jwt ?? DefaultJwt()), http.Object);
+        return new AuthService(db, OptionsHelper.Wrap(jwt ?? DefaultJwt()), http.Object, sessionGuard: guard);
     }
 
     private static User SeedActiveUser(
@@ -629,5 +632,333 @@ public class AuthServiceTests
 
         var stored = await db.Users.AsNoTracking().SingleAsync(u => u.Id == superAdminId);
         PasswordHelper.VerifyPassword("Yangi@Parol1", stored.PasswordHash).Should().BeTrue();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    //  Sessions
+    // ─────────────────────────────────────────────────────────────────────
+
+    private static RefreshToken SeedToken(
+        DatabaseContext db,
+        Guid userId,
+        Guid familyId,
+        string token,
+        DateTime createdAt,
+        bool isRevoked = false,
+        DateTime? expiresAt = null,
+        string? ip = "10.0.0.1",
+        string? userAgent = "Chrome")
+    {
+        var row = new RefreshToken
+        {
+            Id = Guid.NewGuid(),
+            Token = token,
+            UserId = userId,
+            FamilyId = familyId,
+            CreatedAt = createdAt,
+            ExpiresAt = expiresAt ?? DateTime.UtcNow.AddDays(7),
+            IsRevoked = isRevoked,
+            RevokedAt = isRevoked ? createdAt : null,
+            RevokedReason = isRevoked ? "Rotated" : null,
+            CreatedByIp = ip,
+            UserAgent = userAgent,
+        };
+        db.RefreshTokens.Add(row);
+        db.SaveChanges();
+        return row;
+    }
+
+    [Fact]
+    public async Task GetSessionsAsync_GroupsTokensByFamilyAndMarksCurrent()
+    {
+        // Arrange — bitta oila = bitta seans, tokenlar aylanishidan qat'i nazar.
+        await using var db = TestDbContextFactory.Create();
+        var user = SeedActiveUser(db, login: "ali", password: ValidPassword);
+        var now = DateTime.UtcNow;
+
+        var familyA = Guid.NewGuid();
+        SeedToken(db, user.Id, familyA, "a-old", now.AddHours(-3), isRevoked: true, ip: "10.0.0.1", userAgent: "Chrome");
+        SeedToken(db, user.Id, familyA, "a-live", now.AddMinutes(-10), ip: "10.0.0.1", userAgent: "Chrome");
+
+        var familyB = Guid.NewGuid();
+        SeedToken(db, user.Id, familyB, "b-live", now.AddHours(-1), ip: "10.0.0.9", userAgent: "Firefox");
+
+        var sut = CreateService(db);
+
+        // Act
+        var result = await sut.GetSessionsAsync(user.Id, "a-live");
+
+        // Assert
+        result.Succeeded.Should().BeTrue();
+        result.Result.Should().HaveCount(2);
+
+        var current = result.Result!.Single(s => s.Id == familyA);
+        current.IsCurrent.Should().BeTrue();
+        current.IpAddress.Should().Be("10.0.0.1");
+        current.UserAgent.Should().Be("Chrome");
+        current.StartedAt.Should().BeCloseTo(now.AddHours(-3), TimeSpan.FromSeconds(5));
+        current.LastActiveAt.Should().BeCloseTo(now.AddMinutes(-10), TimeSpan.FromSeconds(5));
+
+        result.Result.Single(s => s.Id == familyB).IsCurrent.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetSessionsAsync_ExcludesRevokedAndExpiredSessions()
+    {
+        // Arrange
+        await using var db = TestDbContextFactory.Create();
+        var user = SeedActiveUser(db, login: "ali", password: ValidPassword);
+        var now = DateTime.UtcNow;
+
+        var live = Guid.NewGuid();
+        SeedToken(db, user.Id, live, "live", now.AddMinutes(-5));
+        SeedToken(db, user.Id, Guid.NewGuid(), "revoked", now.AddMinutes(-5), isRevoked: true);
+        SeedToken(db, user.Id, Guid.NewGuid(), "expired", now.AddDays(-30), expiresAt: now.AddDays(-1));
+
+        var sut = CreateService(db);
+
+        // Act
+        var result = await sut.GetSessionsAsync(user.Id, null);
+
+        // Assert
+        result.Result.Should().ContainSingle().Which.Id.Should().Be(live);
+    }
+
+    [Fact]
+    public async Task GetSessionsAsync_ReturnsOnlyOwnSessions()
+    {
+        // Arrange
+        await using var db = TestDbContextFactory.Create();
+        var user = SeedActiveUser(db, login: "ali", password: ValidPassword);
+        var other = SeedActiveUser(db, login: "vali", password: ValidPassword);
+        var now = DateTime.UtcNow;
+
+        var mine = Guid.NewGuid();
+        SeedToken(db, user.Id, mine, "mine", now.AddMinutes(-5));
+        SeedToken(db, other.Id, Guid.NewGuid(), "theirs", now.AddMinutes(-5));
+
+        var sut = CreateService(db);
+
+        // Act
+        var result = await sut.GetSessionsAsync(user.Id, null);
+
+        // Assert
+        result.Result.Should().ContainSingle().Which.Id.Should().Be(mine);
+    }
+
+    [Fact]
+    public async Task RevokeSessionAsync_RevokesEveryTokenInThatFamily()
+    {
+        // Arrange
+        await using var db = TestDbContextFactory.CreateSqlite();
+        var user = SeedActiveUser(db, login: "ali", password: ValidPassword);
+        var now = DateTime.UtcNow;
+
+        var target = Guid.NewGuid();
+        SeedToken(db, user.Id, target, "t-live", now.AddMinutes(-5));
+        var keep = Guid.NewGuid();
+        SeedToken(db, user.Id, keep, "k-live", now.AddMinutes(-5));
+
+        var sut = CreateService(db);
+
+        // Act
+        var result = await sut.RevokeSessionAsync(user.Id, target, "k-live");
+
+        // Assert
+        result.Succeeded.Should().BeTrue();
+
+        var revoked = await db.RefreshTokens.AsNoTracking().SingleAsync(rt => rt.Token == "t-live");
+        revoked.IsRevoked.Should().BeTrue();
+        revoked.RevokedReason.Should().Be("SessionRevoked");
+
+        var untouched = await db.RefreshTokens.AsNoTracking().SingleAsync(rt => rt.Token == "k-live");
+        untouched.IsRevoked.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RevokeSessionAsync_ForAnotherUsersSession_FailsAndLeavesItAlone()
+    {
+        // Arrange
+        await using var db = TestDbContextFactory.CreateSqlite();
+        var user = SeedActiveUser(db, login: "ali", password: ValidPassword);
+        var other = SeedActiveUser(db, login: "vali", password: ValidPassword);
+
+        var theirFamily = Guid.NewGuid();
+        SeedToken(db, other.Id, theirFamily, "theirs", DateTime.UtcNow.AddMinutes(-5));
+
+        var sut = CreateService(db);
+
+        // Act
+        var result = await sut.RevokeSessionAsync(user.Id, theirFamily, null);
+
+        // Assert
+        result.Succeeded.Should().BeFalse();
+
+        var stored = await db.RefreshTokens.AsNoTracking().SingleAsync(rt => rt.Token == "theirs");
+        stored.IsRevoked.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RevokeSessionAsync_ForCurrentSession_IsRejectedByTheServer()
+    {
+        // Arrange — UI joriy seansda tugmani ko'rsatmaydi, lekin himoya serverda ham bo'lishi kerak.
+        await using var db = TestDbContextFactory.CreateSqlite();
+        var user = SeedActiveUser(db, login: "ali", password: ValidPassword);
+
+        var current = Guid.NewGuid();
+        SeedToken(db, user.Id, current, "c-live", DateTime.UtcNow.AddMinutes(-5));
+
+        var sut = CreateService(db);
+
+        // Act
+        var result = await sut.RevokeSessionAsync(user.Id, current, "c-live");
+
+        // Assert
+        result.Succeeded.Should().BeFalse();
+
+        var stored = await db.RefreshTokens.AsNoTracking().SingleAsync(rt => rt.Token == "c-live");
+        stored.IsRevoked.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RevokeOtherSessionsAsync_KeepsOnlyTheCurrentSession()
+    {
+        // Arrange
+        await using var db = TestDbContextFactory.CreateSqlite();
+        var user = SeedActiveUser(db, login: "ali", password: ValidPassword);
+        var now = DateTime.UtcNow;
+
+        var current = Guid.NewGuid();
+        SeedToken(db, user.Id, current, "c-live", now.AddMinutes(-5));
+        SeedToken(db, user.Id, Guid.NewGuid(), "x-live", now.AddMinutes(-5));
+        SeedToken(db, user.Id, Guid.NewGuid(), "y-live", now.AddMinutes(-5));
+
+        var sut = CreateService(db);
+
+        // Act
+        var result = await sut.RevokeOtherSessionsAsync(user.Id, "c-live");
+
+        // Assert — ikkita seans tugatildi
+        result.Succeeded.Should().BeTrue();
+        result.Result.Should().Be(2);
+
+        var remaining = await sut.GetSessionsAsync(user.Id, "c-live");
+        remaining.Result.Should().ContainSingle().Which.Id.Should().Be(current);
+    }
+
+    [Fact]
+    public async Task LoginAsync_PutsTheSessionIdIntoTheAccessToken()
+    {
+        // Arrange — seansni tugatgach access token ham darhol ishlamay qolishi uchun
+        // tokenning o'zi qaysi seansga tegishli ekanini olib yurishi kerak.
+        await using var db = TestDbContextFactory.Create();
+        var user = SeedActiveUser(db, login: "ali", password: ValidPassword);
+        var sut = CreateService(db);
+
+        // Act
+        var result = await sut.LoginAsync(new LoginDto { Login = "ali", Password = ValidPassword });
+
+        // Assert
+        var stored = await db.RefreshTokens.AsNoTracking().SingleAsync(rt => rt.UserId == user.Id);
+        var claims = new JwtSecurityTokenHandler().ReadJwtToken(result.Result!.AccessToken).Claims;
+        claims.Should().ContainSingle(c => c.Type == "sess")
+            .Which.Value.Should().Be(stored.FamilyId.ToString());
+    }
+
+    [Fact]
+    public async Task RefreshTokenAsync_KeepsTheSameSessionIdInTheNewAccessToken()
+    {
+        // Arrange — token aylanishi seansni almashtirmaydi, oila o'sha-o'sha qoladi.
+        await using var db = TestDbContextFactory.CreateSqlite();
+        SeedActiveUser(db, login: "ali", password: ValidPassword);
+        var sut = CreateService(db);
+
+        var login = await sut.LoginAsync(new LoginDto { Login = "ali", Password = ValidPassword });
+        var sessionBefore = new JwtSecurityTokenHandler()
+            .ReadJwtToken(login.Result!.AccessToken).Claims.Single(c => c.Type == "sess").Value;
+
+        // Act
+        var refreshed = await sut.RefreshTokenAsync(login.Result.RefreshToken);
+
+        // Assert
+        new JwtSecurityTokenHandler().ReadJwtToken(refreshed.Result!.AccessToken)
+            .Claims.Single(c => c.Type == "sess").Value.Should().Be(sessionBefore);
+    }
+
+    [Fact]
+    public async Task RevokeSessionAsync_TellsTheSessionGuardImmediately()
+    {
+        // Arrange
+        await using var db = TestDbContextFactory.CreateSqlite();
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var guard = new SessionGuard(db, cache);
+        var user = SeedActiveUser(db, login: "ali", password: ValidPassword);
+
+        var target = Guid.NewGuid();
+        SeedToken(db, user.Id, target, "t-live", DateTime.UtcNow.AddMinutes(-5));
+        var keep = Guid.NewGuid();
+        SeedToken(db, user.Id, keep, "k-live", DateTime.UtcNow.AddMinutes(-5));
+
+        var sut = CreateService(db, guard: guard);
+        (await guard.IsActiveAsync(target)).Should().BeTrue();
+
+        // Act
+        await sut.RevokeSessionAsync(user.Id, target, "k-live");
+
+        // Assert
+        (await guard.IsActiveAsync(target)).Should().BeFalse();
+        (await guard.IsActiveAsync(keep)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_TellsTheSessionGuardAboutEveryClosedSession()
+    {
+        // Arrange
+        await using var db = TestDbContextFactory.CreateSqlite();
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var guard = new SessionGuard(db, cache);
+        var user = SeedActiveUser(db, login: "ali", password: ValidPassword);
+
+        var other = Guid.NewGuid();
+        SeedToken(db, user.Id, other, "other-live", DateTime.UtcNow.AddMinutes(-5));
+
+        var sut = CreateService(db, guard: guard);
+        (await guard.IsActiveAsync(other)).Should().BeTrue();
+
+        // Act
+        var result = await sut.ChangePasswordAsync(user.Id, new ChangePasswordDto
+        {
+            CurrentPassword = ValidPassword,
+            NewPassword = "Yangi@Parol1",
+        });
+
+        // Assert
+        result.Succeeded.Should().BeTrue();
+        (await guard.IsActiveAsync(other)).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RevokeOtherSessionsAsync_TellsTheSessionGuardAboutEachOne()
+    {
+        // Arrange
+        await using var db = TestDbContextFactory.CreateSqlite();
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var guard = new SessionGuard(db, cache);
+        var user = SeedActiveUser(db, login: "ali", password: ValidPassword);
+
+        var current = Guid.NewGuid();
+        SeedToken(db, user.Id, current, "c-live", DateTime.UtcNow.AddMinutes(-5));
+        var gone = Guid.NewGuid();
+        SeedToken(db, user.Id, gone, "x-live", DateTime.UtcNow.AddMinutes(-5));
+
+        var sut = CreateService(db, guard: guard);
+        (await guard.IsActiveAsync(gone)).Should().BeTrue();
+
+        // Act
+        await sut.RevokeOtherSessionsAsync(user.Id, "c-live");
+
+        // Assert
+        (await guard.IsActiveAsync(gone)).Should().BeFalse();
+        (await guard.IsActiveAsync(current)).Should().BeTrue();
     }
 }

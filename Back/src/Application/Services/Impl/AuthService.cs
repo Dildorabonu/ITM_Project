@@ -16,17 +16,20 @@ public class AuthService : IAuthService
     private readonly JwtOptions _jwtOptions;
     private readonly LockoutOptions _lockout;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ISessionGuard? _sessionGuard;
 
     public AuthService(
         DatabaseContext context,
         IOptions<JwtOptions> jwtOptions,
         IHttpContextAccessor httpContextAccessor,
-        IOptions<LockoutOptions>? lockoutOptions = null)
+        IOptions<LockoutOptions>? lockoutOptions = null,
+        ISessionGuard? sessionGuard = null)
     {
         _context = context;
         _jwtOptions = jwtOptions.Value;
         _lockout = lockoutOptions?.Value ?? new LockoutOptions();
         _httpContextAccessor = httpContextAccessor;
+        _sessionGuard = sessionGuard;
     }
 
     /// <summary>Autentifikatsiya uchun kerak bo'lgan User maydonlari — butun entity emas.</summary>
@@ -95,7 +98,7 @@ public class AuthService : IAuthService
 
         var role = await LoadRoleContextAsync(user.RoleId);
         var userDto = BuildUserDto(user.Login, user.FirstName, user.LastName, user.DepartmentId, role);
-        var (accessToken, accessExpiresAt) = BuildAccessToken(user.Id, userDto);
+        var (accessToken, accessExpiresAt) = BuildAccessToken(user.Id, userDto, refreshToken.FamilyId);
 
         return ApiResult<AuthResponseDto>.Success(new AuthResponseDto
         {
@@ -146,7 +149,7 @@ public class AuthService : IAuthService
 
         var role = await LoadRoleContextAsync(user.RoleId);
         var userDto = BuildUserDto(user.Login, user.FirstName, user.LastName, user.DepartmentId, role);
-        var (accessToken, accessExpiresAt) = BuildAccessToken(user.Id, userDto);
+        var (accessToken, accessExpiresAt) = BuildAccessToken(user.Id, userDto, newToken.FamilyId);
 
         return ApiResult<AuthResponseDto>.Success(new AuthResponseDto
         {
@@ -160,6 +163,12 @@ public class AuthService : IAuthService
 
     public async Task<ApiResult<bool>> RevokeTokenAsync(string refreshToken)
     {
+        var familyId = await _context.RefreshTokens
+            .AsNoTracking()
+            .Where(rt => rt.Token == refreshToken && !rt.IsRevoked)
+            .Select(rt => (Guid?)rt.FamilyId)
+            .FirstOrDefaultAsync();
+
         // Entity'ni yuklab, o'zgartirib, qayta saqlash o'rniga bitta UPDATE bayonoti.
         var revokedAt = DateTime.UtcNow;
         var affected = await _context.RefreshTokens
@@ -168,6 +177,9 @@ public class AuthService : IAuthService
                 .SetProperty(rt => rt.IsRevoked, true)
                 .SetProperty(rt => rt.RevokedAt, revokedAt)
                 .SetProperty(rt => rt.RevokedReason, "ManualRevoke"));
+
+        if (affected > 0 && familyId.HasValue)
+            _sessionGuard?.MarkRevoked(familyId.Value);
 
         return affected > 0
             ? ApiResult<bool>.Success(true)
@@ -207,7 +219,7 @@ public class AuthService : IAuthService
 
         var role = await LoadRoleContextAsync(user.RoleId);
         var userDto = BuildUserDto(user.Login, user.FirstName, user.LastName, user.DepartmentId, role);
-        var (accessToken, accessExpiresAt) = BuildAccessToken(user.Id, userDto);
+        var (accessToken, accessExpiresAt) = BuildAccessToken(user.Id, userDto, refreshToken.FamilyId);
 
         return ApiResult<AuthResponseDto>.Success(new AuthResponseDto
         {
@@ -217,6 +229,116 @@ public class AuthService : IAuthService
             RefreshTokenExpiresAt = refreshToken.ExpiresAt,
             User = userDto
         });
+    }
+
+    /// <summary>
+    /// Bitta seans = bitta token oilasi. Token har yangilanganda o'sha oilada yangi qator
+    /// paydo bo'ladi, shuning uchun ro'yxat oila bo'yicha guruhlanadi: aks holda bitta
+    /// qurilma o'nlab qator bo'lib chiqadi.
+    /// </summary>
+    public async Task<ApiResult<List<SessionDto>>> GetSessionsAsync(Guid userId, string? currentRefreshToken)
+    {
+        var now = DateTime.UtcNow;
+
+        var live = await _context.RefreshTokens
+            .AsNoTracking()
+            .Where(rt => rt.UserId == userId && !rt.IsRevoked && rt.ExpiresAt > now)
+            .Select(rt => new { rt.FamilyId, rt.Token, rt.CreatedAt, rt.ExpiresAt, rt.CreatedByIp, rt.UserAgent })
+            .ToListAsync();
+
+        if (live.Count == 0)
+            return ApiResult<List<SessionDto>>.Success([]);
+
+        var familyIds = live.Select(x => x.FamilyId).Distinct().ToList();
+
+        // Seans boshlangan payt oilaning eng eski tokenida — u aylanish paytida bekor
+        // qilingani uchun yuqoridagi so'rovga tushmaydi.
+        var startedAt = await _context.RefreshTokens
+            .AsNoTracking()
+            .Where(rt => rt.UserId == userId && familyIds.Contains(rt.FamilyId))
+            .GroupBy(rt => rt.FamilyId)
+            .Select(g => new { FamilyId = g.Key, StartedAt = g.Min(x => x.CreatedAt) })
+            .ToDictionaryAsync(x => x.FamilyId, x => x.StartedAt);
+
+        var sessions = live
+            .GroupBy(x => x.FamilyId)
+            .Select(g =>
+            {
+                var newest = g.OrderByDescending(x => x.CreatedAt).First();
+                return new SessionDto
+                {
+                    Id = g.Key,
+                    IpAddress = newest.CreatedByIp,
+                    UserAgent = newest.UserAgent,
+                    StartedAt = startedAt.TryGetValue(g.Key, out var start) ? start : newest.CreatedAt,
+                    LastActiveAt = newest.CreatedAt,
+                    ExpiresAt = newest.ExpiresAt,
+                    IsCurrent = currentRefreshToken is not null && g.Any(x => x.Token == currentRefreshToken),
+                };
+            })
+            .OrderByDescending(s => s.IsCurrent)
+            .ThenByDescending(s => s.LastActiveAt)
+            .ToList();
+
+        return ApiResult<List<SessionDto>>.Success(sessions);
+    }
+
+    public async Task<ApiResult<bool>> RevokeSessionAsync(Guid userId, Guid familyId, string? currentRefreshToken)
+    {
+        var now = DateTime.UtcNow;
+
+        var tokens = await _context.RefreshTokens
+            .AsNoTracking()
+            .Where(rt => rt.UserId == userId && rt.FamilyId == familyId && !rt.IsRevoked && rt.ExpiresAt > now)
+            .Select(rt => rt.Token)
+            .ToListAsync();
+
+        if (tokens.Count == 0)
+            return ApiResult<bool>.Failure(["Seans topilmadi."], statusCode: 404);
+
+        if (currentRefreshToken is not null && tokens.Contains(currentRefreshToken))
+            return ApiResult<bool>.Failure(["Joriy seansni bu yerdan tugatib bo'lmaydi — \"Chiqish\" tugmasidan foydalaning."]);
+
+        await RevokeFamilyAsync(familyId, "SessionRevoked");
+
+        return ApiResult<bool>.Success(true);
+    }
+
+    public async Task<ApiResult<int>> RevokeOtherSessionsAsync(Guid userId, string? currentRefreshToken)
+    {
+        var now = DateTime.UtcNow;
+
+        var currentFamily = currentRefreshToken is null
+            ? null
+            : await _context.RefreshTokens
+                .AsNoTracking()
+                .Where(rt => rt.UserId == userId && rt.Token == currentRefreshToken)
+                .Select(rt => (Guid?)rt.FamilyId)
+                .FirstOrDefaultAsync();
+
+        var doomed = await _context.RefreshTokens
+            .AsNoTracking()
+            .Where(rt => rt.UserId == userId && !rt.IsRevoked && rt.ExpiresAt > now
+                         && (currentFamily == null || rt.FamilyId != currentFamily))
+            .Select(rt => rt.FamilyId)
+            .Distinct()
+            .ToListAsync();
+
+        if (doomed.Count == 0)
+            return ApiResult<int>.Success(0);
+
+        var revokedAt = DateTime.UtcNow;
+        await _context.RefreshTokens
+            .Where(rt => rt.UserId == userId && !rt.IsRevoked && doomed.Contains(rt.FamilyId))
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(rt => rt.IsRevoked, true)
+                .SetProperty(rt => rt.RevokedAt, revokedAt)
+                .SetProperty(rt => rt.RevokedReason, "SessionRevoked"));
+
+        foreach (var familyId in doomed)
+            _sessionGuard?.MarkRevoked(familyId);
+
+        return ApiResult<int>.Success(doomed.Count);
     }
 
     public async Task<ApiResult<AuthUserDto>> GetUserAsync(Guid userId)
@@ -320,11 +442,11 @@ public class AuthService : IAuthService
             .CountAsync(a => a.UserId == userId && !a.Success && a.AttemptedAt > since);
     }
 
-    private (string Token, DateTime ExpiresAt) BuildAccessToken(Guid userId, AuthUserDto user)
+    private (string Token, DateTime ExpiresAt) BuildAccessToken(Guid userId, AuthUserDto user, Guid sessionId)
     {
         return TokenHelper.GenerateToken(
             userId, user.Login, user.Role, _jwtOptions,
-            user.FirstName, user.LastName, user.Permissions, user.DepartmentId);
+            user.FirstName, user.LastName, user.Permissions, user.DepartmentId, sessionId);
     }
 
     private static AuthUserDto BuildUserDto(
@@ -367,10 +489,19 @@ public class AuthService : IAuthService
                 .SetProperty(rt => rt.IsRevoked, true)
                 .SetProperty(rt => rt.RevokedAt, now)
                 .SetProperty(rt => rt.RevokedReason, reason));
+
+        _sessionGuard?.MarkRevoked(familyId);
     }
 
     private async System.Threading.Tasks.Task RevokeAllUserTokensAsync(Guid userId, string reason)
     {
+        var families = await _context.RefreshTokens
+            .AsNoTracking()
+            .Where(rt => rt.UserId == userId && !rt.IsRevoked)
+            .Select(rt => rt.FamilyId)
+            .Distinct()
+            .ToListAsync();
+
         var now = DateTime.UtcNow;
         await _context.RefreshTokens
             .Where(rt => rt.UserId == userId && !rt.IsRevoked)
@@ -378,6 +509,9 @@ public class AuthService : IAuthService
                 .SetProperty(rt => rt.IsRevoked, true)
                 .SetProperty(rt => rt.RevokedAt, now)
                 .SetProperty(rt => rt.RevokedReason, reason));
+
+        foreach (var familyId in families)
+            _sessionGuard?.MarkRevoked(familyId);
     }
 
     private static void MarkRevoked(RefreshToken token, string reason)
