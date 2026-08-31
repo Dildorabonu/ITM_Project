@@ -962,6 +962,10 @@ export const techProcessService = {
     return res.data?.result ?? res.data;
   },
 
+  deleteFile: async (id: string, fileId: string): Promise<void> => {
+    await api.delete(`/api/techprocess/${id}/files/${fileId}`);
+  },
+
   downloadFile: async (id: string, fileId: string, fileName: string): Promise<void> => {
     const res = await api.get(`/api/techprocess/${id}/files/${fileId}/download`, { responseType: "blob" });
     const url = URL.createObjectURL(res.data);

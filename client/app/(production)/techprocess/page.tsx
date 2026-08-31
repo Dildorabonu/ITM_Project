@@ -56,6 +56,7 @@ export default function TechProductionPage() {
   const [tpEditForm, setTpEditForm] = useState({ title:"", notes:"" });
   const [tpEditSaving, setTpEditSaving] = useState(false);
   const [tpEditNewFile, setTpEditNewFile] = useState<File|null>(null);
+  const [tpEditFiles, setTpEditFiles] = useState<AttachmentResponse[]>([]);
   const tpEditFileRef = useRef<HTMLInputElement>(null);
 
   // TP create form
@@ -232,7 +233,13 @@ export default function TechProductionPage() {
     setTpEditSaving(true);
     try {
       await techProcessService.update(tpEditingId, { title: tpEditForm.title, notes: tpEditForm.notes||null });
-      if(tpEditNewFile) await techProcessService.uploadFile(tpEditingId, tpEditNewFile);
+      if(tpEditNewFile) {
+        // Yangi fayl eskisining o'rniga keladi: avval yuklaymiz, yuklash muvaffaqiyatli
+        // bo'lgandagina eskilarini o'chiramiz — xato bo'lsa jarayon faylsiz qolmaydi.
+        await techProcessService.uploadFile(tpEditingId, tpEditNewFile);
+        await Promise.all(tpEditFiles.map(f => techProcessService.deleteFile(tpEditingId, f.id)));
+        setTpEditFiles([]);
+      }
       await loadReadiness();
     } catch(e: unknown) {
       const msg=(e as {response?:{data?:{errors?:string[]}}})?.response?.data?.errors?.[0];
@@ -1218,7 +1225,7 @@ export default function TechProductionPage() {
                     {t("Ko'rish")}
                   </button>
                   {canUpdateTp&&(
-                  <button onClick={()=>{ setTpEditingId(tpEffective.id); setTpEditForm({title:tpEffective.title,notes:tpEffective.notes||""}); setTpEditNewFile(null); setTpInlineEditing(true); }}
+                  <button onClick={()=>{ setTpEditingId(tpEffective.id); setTpEditForm({title:tpEffective.title,notes:tpEffective.notes||""}); setTpEditNewFile(null); setTpEditFiles([]); setTpInlineEditing(true); techProcessService.getFiles(tpEffective.id).then(setTpEditFiles).catch(()=>setTpEditFiles([])); }}
                     style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--text2)",cursor:"pointer" }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     {t("Tahrirlash")}
@@ -1264,7 +1271,7 @@ export default function TechProductionPage() {
                     <textarea className="form-input" value={tpEditForm.notes} onChange={e=>setTpEditForm(f=>({...f,notes:e.target.value}))} rows={3} style={{ resize:"none" }}/>
                   </div>
                   <div>
-                    <label style={{ fontSize:12,fontWeight:600,display:"block",marginBottom:4,color:"var(--text2)" }}>{t("Fayl (yangilash uchun)")}</label>
+                    <label style={{ fontSize:12,fontWeight:600,display:"block",marginBottom:4,color:"var(--text2)" }}>{t("Fayl almashtirish (ixtiyoriy)")}</label>
                     <input ref={tpEditFileRef} type="file" style={{ display:"none" }} onChange={e=>{ const f=e.target.files?.[0]; if(f) setTpEditNewFile(f); }}/>
                     <div style={{ display:"flex",alignItems:"center",gap:8 }}>
                       <button type="button" onClick={()=>tpEditFileRef.current?.click()}
@@ -1283,6 +1290,28 @@ export default function TechProductionPage() {
                         </span>
                       )}
                     </div>
+                    {tpEditFiles.length>0&&(
+                      <div style={{ marginTop:8,display:"flex",flexDirection:"column",gap:6 }}>
+                        <div style={{ display:"flex",flexWrap:"wrap",gap:6 }}>
+                          <span style={{ fontSize:11,color:"var(--text3)",fontWeight:600 }}>{t("Joriy fayl")}:</span>
+                          {tpEditFiles.map(f=>(
+                            <span key={f.id} style={{ fontSize:12,color:"var(--text2)",textDecoration:tpEditNewFile?"line-through":"none",opacity:tpEditNewFile?0.6:1 }}>
+                              {f.fileName}
+                            </span>
+                          ))}
+                        </div>
+                        <div style={{ display:"flex",alignItems:"flex-start",gap:6,padding:"8px 10px",borderRadius:"var(--radius)",background:tpEditNewFile?"var(--warn-dim)":"var(--bg2)",border:`1px solid ${tpEditNewFile?"var(--warn)":"var(--border)"}` }}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" strokeWidth="2" stroke={tpEditNewFile?"var(--warn)":"var(--text3)"} style={{ flexShrink:0,marginTop:1 }}>
+                            <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+                          </svg>
+                          <span style={{ fontSize:11.5,lineHeight:1.5,color:tpEditNewFile?"var(--warn)":"var(--text2)" }}>
+                            {tpEditNewFile
+                              ? t("Saqlaganda joriy fayl o'chiriladi va yangi fayl bilan almashtiriladi.")
+                              : t("Fayl kiritilmasa, joriy fayl o'zgarishsiz qoladi. Yangi fayl tanlasangiz, u eskisining o'rnini egallaydi.")}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div style={{ display:"flex",gap:8,justifyContent:"flex-end" }}>
                     <button onClick={()=>setTpInlineEditing(false)}

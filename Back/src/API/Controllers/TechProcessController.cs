@@ -115,4 +115,15 @@ public class TechProcessController : ControllerBase
         var (filePath, contentType, fileName) = result.Result;
         return PhysicalFile(filePath, contentType, fileName, enableRangeProcessing: true);
     }
+
+    [HasPermission("TechProcess.Update")]
+    [HttpDelete("{id:guid}/files/{fileId:guid}")]
+    public async Task<IActionResult> DeleteFile(Guid id, Guid fileId)
+    {
+        var result = await _attachmentService.DeleteAsync(EntityType, id, fileId);
+        if (!result.Succeeded)
+            return NotFound(result);
+
+        return Ok(result);
+    }
 }
