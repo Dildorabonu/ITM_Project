@@ -119,4 +119,22 @@ public class TechnicalDrawingController : ControllerBase
         var (filePath, contentType, fileName) = result.Result;
         return PhysicalFile(filePath, contentType, fileName, enableRangeProcessing: true);
     }
+
+    [HasPermission("TechnicalDrawings.Update")]
+    [HttpDelete("{id:guid}/files/{fileId:guid}")]
+    public async Task<IActionResult> DeleteFile(Guid id, Guid fileId)
+    {
+        var status = await _context.TechnicalDrawings
+            .Where(d => d.Id == id)
+            .Select(d => (DrawingStatus?)d.Status)
+            .FirstOrDefaultAsync();
+        if (status == DrawingStatus.Approved)
+            return Conflict("Tasdiqlangan texnik chizmaning faylini o'chirib bo'lmaydi.");
+
+        var result = await _attachmentService.DeleteAsync(EntityType, id, fileId);
+        if (!result.Succeeded)
+            return NotFound(result);
+
+        return Ok(result);
+    }
 }
