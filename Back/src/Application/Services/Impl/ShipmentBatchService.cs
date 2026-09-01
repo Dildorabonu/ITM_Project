@@ -156,12 +156,17 @@ public class ShipmentBatchService : IShipmentBatchService
         if (product is not null && ready > product.Quantity)
             ready = product.Quantity;
 
-        // Mijoz olib ketishi manba partiyaga bog'lansa: partiya shu shartnoma va
-        // mahsulotning ishlab chiqarish partiyasi bo'lishi, miqdor esa partiya
-        // qoldig'idan (partiya miqdori − undan avval olib ketilganlar) oshmasligi
-        // kerak. Bitta partiyadan bir necha marta qisman olib ketish mumkin.
+        // Mijozga faqat jo'natma qilingan mahsulot beriladi: har olib ketish
+        // o'z ishlab chiqarish partiyasiga bog'lanadi, partiya shu shartnoma va
+        // mahsulotniki bo'lishi, miqdor esa partiya qoldig'idan (partiya miqdori
+        // − undan avval olib ketilganlar) oshmasligi kerak. Bitta partiyadan bir
+        // necha marta qisman olib ketish mumkin.
         Guid? sourceBatchId = null;
         int? sourceBatchNo = null;
+        if (dto.Kind == ShipmentBatchKind.CustomerPickup && !dto.SourceBatchId.HasValue)
+            return ApiResult<ShipmentBatchResponseDto>.Failure(
+                ["Mijozga faqat jo'natma partiyasidan topshirish mumkin — manba partiyani tanlang."]);
+
         if (dto.SourceBatchId.HasValue)
         {
             if (dto.Kind != ShipmentBatchKind.CustomerPickup)
@@ -251,8 +256,7 @@ public class ShipmentBatchService : IShipmentBatchService
     // Katta miqdorni partiyalab bitta-bitta kiritmaslik uchun: umumiy miqdor
     // eng eski partiyadan boshlab (FIFO) avtomatik taqsimlanadi. Har partiyadan
     // olingan qismi alohida yozuv bo'ladi — tarixda qaysi partiyadan qancha
-    // ketgani to'liq ko'rinadi. Partiyasi yo'q mahsulotda (masalan, holati
-    // qo'lda yakunlangan) bitta bog'lanmagan yozuv yaratiladi.
+    // ketgani to'liq ko'rinadi.
     public async Task<ApiResult<IEnumerable<ShipmentBatchResponseDto>>> CreatePickupAutoAsync(
         ShipmentPickupAutoCreateDto dto, Guid userId)
     {
@@ -352,26 +356,25 @@ public class ShipmentBatchService : IShipmentBatchService
             CreatedAt = DateTime.UtcNow,
         };
 
+        // Jo'natma partiyasi bo'lmasa mahsulot hali mijozga chiqmagan — olib
+        // ketishni bog'lanmagan yozuv sifatida qayd etib bo'lmaydi.
         if (sources.Count == 0)
-        {
-            toCreate.Add((NewPickup(dto.Amount, null), null));
-        }
-        else
-        {
-            var left = dto.Amount;
-            foreach (var src in sources)
-            {
-                if (left <= 0) break;
-                if (src.Remaining <= 0) continue;
-                var take = Math.Min(src.Remaining, left);
-                toCreate.Add((NewPickup(take, src.Id), src.BatchNo));
-                left -= take;
-            }
+            return ApiResult<IEnumerable<ShipmentBatchResponseDto>>.Failure(
+                ["Ushbu mahsulot bo'yicha jo'natma partiyasi yo'q — mijozga topshirib bo'lmaydi."]);
 
-            if (left > 0)
-                return ApiResult<IEnumerable<ShipmentBatchResponseDto>>.Failure(
-                    [$"Partiyalardagi qoldiq yetarli emas. Partiyalarda mavjud: {dto.Amount - left}."]);
+        var left = dto.Amount;
+        foreach (var src in sources)
+        {
+            if (left <= 0) break;
+            if (src.Remaining <= 0) continue;
+            var take = Math.Min(src.Remaining, left);
+            toCreate.Add((NewPickup(take, src.Id), src.BatchNo));
+            left -= take;
         }
+
+        if (left > 0)
+            return ApiResult<IEnumerable<ShipmentBatchResponseDto>>.Failure(
+                [$"Partiyalardagi qoldiq yetarli emas. Partiyalarda mavjud: {dto.Amount - left}."]);
 
         _context.ShipmentBatches.AddRange(toCreate.Select(x => x.Batch));
         await _context.SaveChangesAsync();

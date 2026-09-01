@@ -44,7 +44,7 @@ public class ContractTaskController : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] ContractTaskUpdateDto dto)
     {
-        var result = await _service.UpdateAsync(id, dto, CurrentUserId);
+        var result = await _service.UpdateAsync(id, dto);
         return StatusCode(result.StatusCode, result);
     }
 

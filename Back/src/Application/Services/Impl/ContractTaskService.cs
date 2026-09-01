@@ -14,7 +14,6 @@ public class ContractTaskService : IContractTaskService
     private readonly IActivityLogService _activityLogService;
 
     private const string WarehouseTaskName = "Tayyor mahsulotni omborga topshirish";
-    private const string CorrectionNote = "Tuzatish";
 
     public ContractTaskService(
         DatabaseContext context,
@@ -103,7 +102,7 @@ public class ContractTaskService : IContractTaskService
         return ApiResult<int>.Success(tasks.Count, 201);
     }
 
-    public async Task<ApiResult<int>> UpdateAsync(Guid id, ContractTaskUpdateDto dto, Guid updatedBy)
+    public async Task<ApiResult<int>> UpdateAsync(Guid id, ContractTaskUpdateDto dto)
     {
         var task = await _context.ContractTasks.FirstOrDefaultAsync(t => t.Id == id);
         if (task is null)
@@ -113,46 +112,18 @@ public class ContractTaskService : IContractTaskService
         if (lockError is not null)
             return ApiResult<int>.Failure([lockError], 400);
 
-        var newCompleted = dto.CompletedAmount ?? task.CompletedAmount;
+        // Kiritilgan miqdor (CompletedAmount) bu yerdan o'zgartirilmaydi — u faqat
+        // LogProgressAsync orqali qo'shiladi. Aks holda jo'natilgan mahsulotni
+        // vazifadan orqaga qaytarib yuborish mumkin bo'lardi.
         var newTotal = dto.TotalAmount ?? task.TotalAmount;
-        if (newTotal > 0 && newCompleted > newTotal)
+        if (newTotal > 0 && task.CompletedAmount > newTotal)
             return ApiResult<int>.Failure(
-                [$"Bajarilgan miqdor vazifaning umumiy miqdoridan ({newTotal}) oshmasligi kerak."]);
+                [$"Umumiy miqdor kiritilgan miqdordan ({task.CompletedAmount}) kam bo'lmasligi kerak."]);
 
         if (dto.Name is not null && task.Name == WarehouseTaskName && dto.Name != WarehouseTaskName)
             return ApiResult<int>.Failure(["Bu vazifa tizimning doimiy vazifasi — nomini o'zgartirib bo'lmaydi."]);
 
-        if (dto.CompletedAmount.HasValue && task.Name == WarehouseTaskName)
-        {
-            var cap = await GetWarehouseCompletedCapAsync(task);
-            if (cap.HasValue && dto.CompletedAmount.Value > cap.Value)
-                return ApiResult<int>.Failure(
-                    [$"Omborga topshirish miqdori boshqa vazifalarning eng kam bajarilgan qiymatidan ({cap.Value}) oshmasligi kerak."]);
-
-            // Jo'natilgan partiyalar yig'indisidan pastga tushirish taqiqlanadi —
-            // aks holda "jo'natilgan > tayyor" nomuvofiqligi paydo bo'ladi.
-            // Har tur (ishlab chiqarish partiyasi / mijoz olib ketishi) alohida
-            // hisoblanadi — eng kattasi chegara bo'ladi.
-            var shipped = await _context.ShipmentBatches
-                .Where(s => s.ContractId == task.ContractId && s.ContractProductId == task.ContractProductId)
-                .GroupBy(s => s.Kind)
-                .Select(g => g.Sum(s => (decimal?)s.Amount) ?? 0m)
-                .ToListAsync();
-            var shippedCap = shipped.Count == 0 ? 0m : shipped.Max();
-
-            if (dto.CompletedAmount.Value < shippedCap)
-                return ApiResult<int>.Failure(
-                    [$"Omborga topshirilgan miqdorni jo'natilgan partiyalar yig'indisidan ({shippedCap}) pastga tushirib bo'lmaydi."]);
-        }
-
-        // Qo'lda tuzatish kunlik tarixda ham iz qoldiradi — aks holda tarix
-        // yig'indisi CompletedAmount bilan mos kelmay qoladi.
-        var completedDelta = dto.CompletedAmount.HasValue
-            ? dto.CompletedAmount.Value - task.CompletedAmount
-            : 0m;
-
         if (dto.Name is not null) task.Name = dto.Name;
-        if (dto.CompletedAmount.HasValue) task.CompletedAmount = dto.CompletedAmount.Value;
         if (dto.TotalAmount.HasValue) task.TotalAmount = dto.TotalAmount.Value;
         if (dto.Importance.HasValue) task.Importance = dto.Importance.Value;
         if (dto.OrderNo.HasValue) task.OrderNo = dto.OrderNo.Value;
@@ -170,24 +141,7 @@ public class ContractTaskService : IContractTaskService
             task.ContractProductId = dto.ContractProductId.Value;
         }
 
-        if (completedDelta != 0)
-        {
-            _context.ContractTaskDailyLogs.Add(new ContractTaskDailyLog
-            {
-                Id = Guid.NewGuid(),
-                TaskId = task.Id,
-                Amount = completedDelta,
-                Note = CorrectionNote,
-                Date = DateOnly.FromDateTime(DateTime.UtcNow),
-                CreatedBy = updatedBy,
-                CreatedAt = DateTime.UtcNow,
-            });
-        }
-
         await _context.SaveChangesAsync();
-
-        if (completedDelta != 0 && task.Name == WarehouseTaskName && task.ContractProductId.HasValue)
-            await _manufacturedProductService.UpdateProducedQuantityAsync(task.ContractId, task.ContractProductId);
 
         return ApiResult<int>.Success(200);
     }

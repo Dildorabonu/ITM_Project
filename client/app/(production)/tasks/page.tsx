@@ -478,7 +478,6 @@ function EditTaskModal({
 }) {
   const t = useT();
   const [name, setName] = useState(task.name);
-  const [completedAmount, setCompletedAmount] = useState(String(task.completedAmount));
   // importanceMap: id → string value for all tasks
   const [importanceMap, setImportanceMap] = useState<Record<string, string>>(() =>
     Object.fromEntries(allTasks.map(t => [t.id, String(t.importance)]))
@@ -489,15 +488,6 @@ function EditTaskModal({
   const [serverError, setServerError] = useState("");
 
   const isWarehouse = task.name === WAREHOUSE_TASK_NAME;
-  const warehouseCap = isWarehouse
-    ? (() => {
-        const others = allTasks.filter(t => t.id !== task.id && t.name !== WAREHOUSE_TASK_NAME);
-        return others.length === 0 ? null : Math.min(...others.map(t => t.completedAmount));
-      })()
-    : null;
-  const parsedCompleted = parseFloat(completedAmount);
-  const completedExceedsCap =
-    isWarehouse && warehouseCap !== null && !isNaN(parsedCompleted) && parsedCompleted > warehouseCap;
 
   const total = Math.round(
     allTasks.reduce((s, t) => s + (parseFloat(importanceMap[t.id]) || 0), 0) * 100
@@ -513,7 +503,6 @@ function EditTaskModal({
     setSubmitted(true);
     setServerError("");
     if (!name.trim()) return;
-    if (completedExceedsCap) return;
     if (diff !== 0) {
       setImportanceError(
         diff > 0
@@ -531,7 +520,6 @@ function EditTaskModal({
         task.id,
         {
           name: name.trim(),
-          completedAmount: parseFloat(completedAmount) || 0,
           totalAmount: task.totalAmount,
           importance: parseFloat(importanceMap[task.id]) || 0,
         },
@@ -585,28 +573,21 @@ function EditTaskModal({
             )}
           </div>
 
+          {/* Bajarilgan miqdor bu yerdan tahrirlanmaydi — u faqat "Bajarildi"
+              orqali qo'shiladi, aks holda jo'natilgan mahsulotni orqaga
+              qaytarish mumkin bo'lardi. */}
           <div className="atf-field">
-            <label className="atf-label">
-              {t("Bajarilgan miqdor")}
-              {isWarehouse && warehouseCap !== null && (
-                <span style={{ color: "var(--text3)", fontWeight: 500, marginLeft: 6 }}>
-                  ({t("eng ko'pi")} {warehouseCap.toLocaleString()})
-                </span>
-              )}
-            </label>
-            <input
-              className="form-input"
-              type="number" min="0"
-              value={completedAmount}
-              onChange={e => { setCompletedAmount(e.target.value); setServerError(""); }}
-              onWheel={e => (e.target as HTMLInputElement).blur()}
-              style={submitted && completedExceedsCap ? { borderColor: "var(--danger)" } : undefined}
-            />
-            {submitted && completedExceedsCap && warehouseCap !== null && (
-              <div style={{ color: "var(--danger)", fontSize: 12 }}>
-                {t("Boshqa vazifalar shu darajada bajarilmagan — eng ko'pi")} {warehouseCap.toLocaleString()}.
-              </div>
-            )}
+            <label className="atf-label">{t("Bajarilgan miqdor")}</label>
+            <div style={{
+              padding: "9px 12px", borderRadius: "var(--radius)",
+              background: "var(--surface2, var(--card-bg))", border: "1px solid var(--border)",
+              fontSize: 13, fontWeight: 700, color: "var(--text2)",
+            }}>
+              {task.completedAmount.toLocaleString()} / {task.totalAmount.toLocaleString()}
+            </div>
+            <div style={{ color: "var(--text3)", fontSize: 12 }}>
+              {t("Kiritilgan miqdorni tahrirlab bo'lmaydi — u faqat progress qo'shish orqali o'zgaradi.")}
+            </div>
             {serverError && (
               <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>{serverError}</div>
             )}

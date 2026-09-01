@@ -1248,7 +1248,6 @@ export interface ContractTaskCreatePayload {
 
 export interface ContractTaskUpdatePayload {
   name?: string;
-  completedAmount?: number;
   totalAmount?: number;
   importance?: number;
   orderNo?: number;

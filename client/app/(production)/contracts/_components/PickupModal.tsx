@@ -14,8 +14,8 @@ import { useT } from "@/lib/i18n";
 
 // Mijozga topshirishni qayd etish modali — shartnoma (yakunlangan yoki hali
 // ishlab chiqarishda bo'lgan) mahsulotlarini mijoz qisman yoki to'liq olib
-// ketganini ShipmentBatch partiyalari sifatida yozadi. Tugallanmagan mahsulot
-// uchun faqat omborga kirim qilingan (tayyor) miqdorgacha topshirish mumkin.
+// ketganini ShipmentBatch partiyalari sifatida yozadi. Faqat jo'natma qilingan
+// (ishlab chiqarish partiyasiga tushgan) miqdorni topshirish mumkin.
 export function PickupModal({
   contract,
   onClose,
@@ -134,27 +134,23 @@ export function PickupModal({
     return map;
   }, [prodBatches]);
 
-  // "Omborda tayyor" — faqat jo'natma (partiya) holiga keltirilgan va hali olib
-  // ketilmagan miqdor. Omborga topshirilgan lekin partiya qilinmagan qismi
-  // kirmaydi. Partiyasi yo'q mahsulotda (eski oqim/qo'lda Completed) —
-  // ombordagi tayyor miqdor bo'yicha.
-  const pickupReadyFor = (p: { id: string; quantity: number }) => {
-    const pbs = prodBatchesByProduct.get(p.id) ?? [];
-    if (pbs.length === 0) return readyFor(p);
-    return pbs.reduce((s, pb) => s + batchRemaining(pb), 0);
-  };
+  // Mijozga faqat jo'natma qilingan mahsulot beriladi: topshirish mumkin bo'lgan
+  // miqdor — jo'natma partiyalarining hali olib ketilmagan qoldig'i. Omborga
+  // topshirilgan, lekin jo'natma qilinmagan qismi kirmaydi.
+  const pickupReadyFor = (p: { id: string }) =>
+    (prodBatchesByProduct.get(p.id) ?? []).reduce((s, pb) => s + batchRemaining(pb), 0);
 
-  // Tanlangan mahsulotning partiyalari; partiya bo'lsa — tanlash majburiy,
-  // bo'lmasa (eski oqim/qo'lda Completed) umumiy tayyor miqdor bo'yicha ishlaydi.
+  // Tanlangan mahsulotning jo'natma partiyalari — olib ketish har doim
+  // shulardan biriga bog'lanadi.
   const productBatches = selected
     ? prodBatches.filter((pb) => pb.contractProductId === selected.id)
     : [];
-  const requireSource = productBatches.length > 0;
+  const hasBatches = productBatches.length > 0;
   const isAuto = sourceBatchId === "auto";
   const sourceBatch = productBatches.find((pb) => pb.id === sourceBatchId) ?? null;
   const totalBatchRemaining = productBatches.reduce((s, pb) => s + batchRemaining(pb), 0);
-  const effectiveAvailable = !requireSource
-    ? selectedAvailable
+  const effectiveAvailable = !hasBatches
+    ? 0
     : sourceBatch
       ? Math.min(batchRemaining(sourceBatch), selectedAvailable)
       : Math.min(totalBatchRemaining, selectedAvailable);
@@ -162,7 +158,8 @@ export function PickupModal({
   const parsed = parseFloat(amount);
   const amountValid =
     selected !== null &&
-    (!requireSource || sourceBatch !== null || isAuto) &&
+    hasBatches &&
+    (sourceBatch !== null || isAuto) &&
     !isNaN(parsed) && parsed > 0 && parsed <= effectiveAvailable;
 
   const productName = (pid: string | null) =>
@@ -176,7 +173,7 @@ export function PickupModal({
     setSaving(true);
     setError("");
     try {
-      if (requireSource && isAuto) {
+      if (isAuto) {
         // Avtomatik: server miqdorni eng eski partiyadan boshlab taqsimlaydi,
         // har partiyadan olingan qismi alohida yozuv bo'lib qaytadi.
         const createdList = await shipmentBatchService.createPickupAuto({
@@ -298,10 +295,10 @@ export function PickupModal({
                     </div>
                     <div style={{ fontSize: 11, color: "var(--text3)", fontFamily: "var(--font-mono)" }}>
                       {shipped.toLocaleString()} / {p.quantity.toLocaleString()} {p.unit}
-                      {/* Tugallanmagan mahsulot — hozircha omborda qancha tayyor ekani */}
-                      {ready < p.quantity && (
+                      {/* Jo'natmalardan hozircha qancha topshirish mumkinligi */}
+                      {shipped < p.quantity && (
                         <span style={{ color: "var(--warn)" }}>
-                          {" "}· {t("omborda tayyor")}: {ready.toLocaleString()}
+                          {" "}· {t("topshirishga tayyor")}: {ready.toLocaleString()}
                         </span>
                       )}
                     </div>
@@ -347,7 +344,7 @@ export function PickupModal({
                   />
                 </div>
                 {/* Qaysi partiyadan olib ketilayotgani — partiya qoldig'i bilan */}
-                {requireSource && (
+                {hasBatches && (
                   <div style={{ flex: 2, minWidth: 170, position: "relative" }}>
                     <CheckSelect
                       value={sourceBatchId}
@@ -382,11 +379,15 @@ export function PickupModal({
                       fontFamily: "var(--font-mono)",
                     }}
                   />
-                  {selected && (
+                  {selected && (hasBatches ? (
                     <p style={{ margin: "4px 0 0", fontSize: 11, color: parsed > effectiveAvailable ? "var(--danger)" : "var(--text3)" }}>
                       {t("Olib ketish mumkin")}: {effectiveAvailable.toLocaleString()} {selected.unit}
                     </p>
-                  )}
+                  ) : (
+                    <p style={{ margin: "4px 0 0", fontSize: 11, color: "var(--warn)" }}>
+                      {t("Bu mahsulot hali jo'natilmagan")}
+                    </p>
+                  ))}
                 </div>
                 <button
                   onClick={handleAdd}

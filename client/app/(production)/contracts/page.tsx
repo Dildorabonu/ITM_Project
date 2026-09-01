@@ -886,7 +886,7 @@ export default function ContractsPage() {
                         )}
                         {/* Mijozga topshirish — yakunlangan shartnomalarda har doim,
                             faol ro'yxatda esa kamida bitta mahsulot ishlab chiqarishga
-                            kirgan (omborda tayyor miqdor bo'lishi mumkin) bo'lsa. */}
+                            kirgan (jo'natma partiyasi bo'lishi mumkin) bo'lsa. */}
                         {canShipments && c.isActive && (isCompletedView ||
                           c.products.some(p =>
                             p.status === ContractProductStatus.InProduction ||
