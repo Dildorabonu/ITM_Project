@@ -445,7 +445,6 @@ public class ContractService : IContractService
 
         var catalog = await _context.ProductCatalogs
             .Where(pc => catalogIds.Contains(pc.Id))
-            .Select(pc => new { pc.Id, pc.Name, pc.Unit })
             .ToDictionaryAsync(pc => pc.Id);
 
         foreach (var p in products)
@@ -456,6 +455,10 @@ public class ContractService : IContractService
                 errors.Add($"Katalog mahsuloti topilmadi: {p.ProductCatalogId.Value}");
                 continue;
             }
+
+            // "Ishlab chiqarilishi tugatilgan" mahsulot yangi shartnomaga tanlansa, u yana
+            // ishlab chiqarishga qaytadi — arxivda qolishi noto'g'ri bo'lardi.
+            entry.IsActive = true;
 
             p.ProductType = entry.Name;
             if (!string.IsNullOrWhiteSpace(entry.Unit))

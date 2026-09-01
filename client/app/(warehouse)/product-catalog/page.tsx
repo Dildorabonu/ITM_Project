@@ -42,6 +42,7 @@ export default function ProductCatalogPage() {
   const canDelete = hasPermission("ProductCatalog.Delete");
   const showToast = useToastStore(s => s.show);
 
+  const [archived, setArchived] = useState(false);
   const [items, setItems] = useState<ProductCatalogResponse[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -57,9 +58,10 @@ export default function ProductCatalogPage() {
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Delete confirm
-  const [deleteTarget, setDeleteTarget] = useState<ProductCatalogResponse | null>(null);
-  const [deleting, setDeleting] = useState(false);
+  // Arxivlash / faolga qaytarish tasdig'i
+  const [archiveTarget, setArchiveTarget] = useState<ProductCatalogResponse | null>(null);
+  const [restoreTarget, setRestoreTarget] = useState<ProductCatalogResponse | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   // Detail (ko'rish) drawer
   const [detailTarget, setDetailTarget] = useState<ProductCatalogResponse | null>(null);
@@ -70,7 +72,7 @@ export default function ProductCatalogPage() {
     try {
       setLoading(true);
       setError("");
-      const data = await productCatalogService.list(search || undefined, page, PAGE_SIZE, signal);
+      const data = await productCatalogService.list(search || undefined, page, PAGE_SIZE, signal, archived);
       setItems(data.items);
       setTotalPages(data.totalPages);
       setTotalCount(data.totalCount);
@@ -90,7 +92,7 @@ export default function ProductCatalogPage() {
     const id = setTimeout(() => { load(controller.signal); }, 300);
     return () => { clearTimeout(id); controller.abort(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search]);
+  }, [page, search, archived]);
 
   useEffect(() => {
     if (showForm) document.body.style.overflow = "hidden";
@@ -156,23 +158,44 @@ export default function ProductCatalogPage() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    setDeleting(true);
+  // Arxivlash ham, qaytarish ham mahsulotni joriy ro'yxatdan chiqaradi — shuning uchun
+  // oxirgi sahifadagi yagona qator ketsa, oldingi sahifaga qaytamiz.
+  const runAndReload = async (action: () => Promise<void>, successMsg: string, errorMsg: string) => {
+    setSubmitting(true);
     try {
-      await productCatalogService.remove(deleteTarget.id);
-      showToast(t("Mahsulot o'chirildi"));
-      setDeleteTarget(null);
-      // Oxirgi sahifadagi yagona element o'chirilsa, oldingi sahifaga qaytamiz.
+      await action();
+      showToast(successMsg);
+      setArchiveTarget(null);
+      setRestoreTarget(null);
       if (items.length === 1 && page > 1) setPage(p => p - 1);
       else await load();
     } catch (e) {
       const msg = (e as { response?: { data?: { errors?: string[] } } })
-        ?.response?.data?.errors?.[0] ?? t("O'chirishda xatolik yuz berdi.");
+        ?.response?.data?.errors?.[0] ?? errorMsg;
       showToast(msg, t("Xatolik"));
     } finally {
-      setDeleting(false);
+      setSubmitting(false);
     }
+  };
+
+  const handleArchive = () => {
+    if (!archiveTarget) return;
+    const id = archiveTarget.id;
+    return runAndReload(
+      () => productCatalogService.archive(id),
+      t("Mahsulot ishlab chiqarilishi tugatilganlarga o'tkazildi"),
+      t("O'tkazishda xatolik yuz berdi."),
+    );
+  };
+
+  const handleRestore = () => {
+    if (!restoreTarget) return;
+    const id = restoreTarget.id;
+    return runAndReload(
+      () => productCatalogService.restore(id),
+      t("Mahsulot faol ro'yxatga qaytarildi"),
+      t("Qaytarishda xatolik yuz berdi."),
+    );
   };
 
   const nameErr = submitted && !form.name.trim();
@@ -182,6 +205,26 @@ export default function ProductCatalogPage() {
     <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       {/* Filter bar */}
       <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, padding: "8px 14px", overflow: "visible" }}>
+        <div style={{ display: "flex", gap: 4, padding: 3, background: "var(--bg3)", borderRadius: "var(--radius)", flexShrink: 0 }}>
+          {[
+            { key: false, label: t("Faol") },
+            { key: true, label: t("Tugatilgan") },
+          ].map(tab => (
+            <button
+              key={String(tab.key)}
+              onClick={() => { if (archived !== tab.key) { setArchived(tab.key); setPage(1); } }}
+              style={{
+                padding: "5px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                borderRadius: "calc(var(--radius) - 2px)", border: "none",
+                transition: "background 0.15s, color 0.15s",
+                background: archived === tab.key ? "var(--accent)" : "transparent",
+                color: archived === tab.key ? "#fff" : "var(--text2)",
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
         <div className="search-wrap" style={{ maxWidth: "none", flex: 1 }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" />
@@ -206,7 +249,7 @@ export default function ProductCatalogPage() {
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
           </svg>
         </button>
-        {canCreate && (
+        {canCreate && !archived && (
           <button
             className="btn-primary"
             onClick={openCreate}
@@ -226,14 +269,17 @@ export default function ProductCatalogPage() {
         flexShrink: 0,
         display: "flex", alignItems: "center", gap: 10,
         padding: "8px 14px", marginBottom: 6,
-        background: "var(--accent-dim)", border: "1px solid var(--accent)33",
+        background: archived ? "var(--warn-dim)" : "var(--accent-dim)",
+        border: `1px solid ${archived ? "var(--warn)" : "var(--accent)"}33`,
         borderRadius: "var(--radius)", fontSize: 12, color: "var(--text2)",
       }}>
-        <svg width="14" height="14" fill="none" stroke="var(--accent)" strokeWidth="2" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+        <svg width="14" height="14" fill="none" stroke={archived ? "var(--warn)" : "var(--accent)"} strokeWidth="2" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
           <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
         </svg>
         <span>
-          {t("Bu korxona ishlab chiqaradigan tayyor mahsulotlarning yagona katalogi. Shartnoma yaratishda mahsulot shu ro'yxatdan tanlanadi. Yangi mahsulotni bu yerdan yoki to'g'ridan-to'g'ri shartnoma formasidan qo'shish mumkin.")}
+          {archived
+            ? t("Ishlab chiqarilishi tugatilgan mahsulotlar. Ular bazadan o'chirilmagan — shartnomalardagi bog'lanish va tarix saqlanib qolgan. Yangi shartnomaga tanlansa yoki bu yerdan qaytarilsa, mahsulot yana faol ro'yxatga o'tadi.")
+            : t("Bu korxona ishlab chiqaradigan tayyor mahsulotlarning yagona katalogi. Shartnoma yaratishda mahsulot shu ro'yxatdan tanlanadi. Yangi mahsulotni bu yerdan yoki to'g'ridan-to'g'ri shartnoma formasidan qo'shish mumkin.")}
         </span>
       </div>
 
@@ -285,6 +331,11 @@ export default function ProductCatalogPage() {
                       }}>
                         {p.usageCount}
                       </span>
+                      {p.blockingContractCount > 0 && (
+                        <span style={{ display: "block", marginTop: 3, fontSize: 10, fontWeight: 600, color: "var(--warn)" }}>
+                          {p.blockingContractCount} {t("ta yakunlanmagan")}
+                        </span>
+                      )}
                     </td>
                     <td className="td-actions" style={{ borderLeft: "2px solid var(--border)" }}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
@@ -304,14 +355,29 @@ export default function ProductCatalogPage() {
                             </svg>
                           </button>
                         )}
-                        {canDelete && (
-                          <button className="btn-icon btn-icon-danger" title={t("O'chirish")} onClick={(e) => { e.stopPropagation(); setDeleteTarget(p); }}
-                            style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
+                        {canDelete && !archived && (
+                          <button
+                            className="btn-icon"
+                            title={p.blockingContractCount > 0
+                              ? `${t("Yakunlanmagan shartnomada ishlatilmoqda")} (${p.blockingContractCount})`
+                              : t("Ishlab chiqarilishi tugatildi")}
+                            onClick={(e) => { e.stopPropagation(); if (p.blockingContractCount === 0) setArchiveTarget(p); }}
+                            style={p.blockingContractCount > 0
+                              ? { color: "var(--text3)", borderColor: "var(--border)", background: "var(--bg3)", cursor: "not-allowed" }
+                              : { color: "var(--warn)", borderColor: "var(--warn)33", background: "var(--warn-dim)" }}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <polyline points="3 6 5 6 21 6" />
-                              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                              <path d="M10 11v6M14 11v6" />
-                              <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+                              <rect x="2" y="4" width="20" height="5" rx="1" />
+                              <path d="M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9" />
+                              <line x1="10" y1="13" x2="14" y2="13" />
+                            </svg>
+                          </button>
+                        )}
+                        {canDelete && archived && (
+                          <button className="btn-icon" title={t("Faolga qaytarish")} onClick={(e) => { e.stopPropagation(); setRestoreTarget(p); }}
+                            style={{ color: "var(--accent)", borderColor: "var(--accent)33", background: "var(--accent-dim)" }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="1 4 1 10 7 10" />
+                              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
                             </svg>
                           </button>
                         )}
@@ -494,25 +560,37 @@ export default function ProductCatalogPage() {
       )}
 
       <ConfirmModal
-        open={!!deleteTarget}
-        variant="danger"
-        title={t("Mahsulotni o'chirish")}
+        open={!!archiveTarget}
+        variant="warn"
+        title={t("Ishlab chiqarilishi tugatilganlarga o'tkazish")}
         message={
           <span>
-            «{deleteTarget?.name}» {t("katalogdan o'chirilsinmi?")}
-            {deleteTarget && deleteTarget.usageCount > 0 && (
-              <>
-                {" "}
-                <b>{deleteTarget.usageCount}</b> {t("ta shartnomada ishlatilgan — ular matn nomini saqlab qoladi, faqat bog'lanish uziladi.")}
-              </>
-            )}
+            «{archiveTarget?.name}» {t("ishlab chiqarilishi tugatilganlar ro'yxatiga o'tkazilsinmi?")}
+            {" "}
+            {t("Mahsulot bazadan o'chirilmaydi — shartnomalardagi bog'lanish va tarix saqlanib qoladi. Yangi shartnoma formasida u «tugatilgan» deb belgilanadi, tanlansa yana faol ro'yxatga qaytadi.")}
           </span>
         }
-        confirmLabel={t("O'chirish")}
-        loading={deleting}
-        loadingLabel={t("O'chirilmoqda...")}
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteTarget(null)}
+        confirmLabel={t("O'tkazish")}
+        loading={submitting}
+        loadingLabel={t("O'tkazilmoqda...")}
+        onConfirm={handleArchive}
+        onCancel={() => setArchiveTarget(null)}
+      />
+
+      <ConfirmModal
+        open={!!restoreTarget}
+        variant="primary"
+        title={t("Faolga qaytarish")}
+        message={
+          <span>
+            «{restoreTarget?.name}» {t("faol mahsulotlar ro'yxatiga qaytarilsinmi?")}
+          </span>
+        }
+        confirmLabel={t("Qaytarish")}
+        loading={submitting}
+        loadingLabel={t("Qaytarilmoqda...")}
+        onConfirm={handleRestore}
+        onCancel={() => setRestoreTarget(null)}
       />
     </div>
   );

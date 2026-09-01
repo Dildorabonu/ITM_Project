@@ -220,6 +220,15 @@ export function ProductCatalogDetailDrawer({ productId, productName, onClose }: 
                 {data.code}
               </div>
             )}
+            {data && !data.isActive && (
+              <div style={{
+                display: "inline-block", marginTop: 6, marginLeft: 6, padding: "2px 8px",
+                borderRadius: 6, background: "var(--warn-dim)", color: "var(--warn)",
+                fontSize: 12, fontWeight: 600,
+              }}>
+                {t("Ishlab chiqarilishi tugatilgan")}
+              </div>
+            )}
           </div>
           <button className="btn-icon" onClick={onClose} title={t("Yopish")} style={{ width: 32, height: 32, flexShrink: 0 }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">

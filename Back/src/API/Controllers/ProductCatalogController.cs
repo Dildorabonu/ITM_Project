@@ -38,8 +38,9 @@ public class ProductCatalogController : ControllerBase
     public async Task<IActionResult> GetAll(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
-        [FromQuery] string? search = null)
-        => Ok(await _service.GetAllAsync(page, pageSize, search));
+        [FromQuery] string? search = null,
+        [FromQuery] bool archived = false)
+        => Ok(await _service.GetAllAsync(page, pageSize, search, archived));
 
     [HasPermission("ProductCatalog.View")]
     [HttpGet("{id:guid}/details")]
@@ -69,10 +70,18 @@ public class ProductCatalogController : ControllerBase
     }
 
     [HasPermission("ProductCatalog.Delete")]
-    [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id)
+    [HttpPost("{id:guid}/archive")]
+    public async Task<IActionResult> Archive(Guid id)
     {
-        var result = await _service.DeleteAsync(id);
+        var result = await _service.ArchiveAsync(id);
+        return StatusCode(result.StatusCode, result);
+    }
+
+    [HasPermission("ProductCatalog.Delete")]
+    [HttpPost("{id:guid}/restore")]
+    public async Task<IActionResult> Restore(Guid id)
+    {
+        var result = await _service.RestoreAsync(id);
         return StatusCode(result.StatusCode, result);
     }
 }

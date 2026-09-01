@@ -32,19 +32,24 @@ public class ProductCatalogService : IProductCatalogService
             (norm != "" && p.NameNormalized.Contains(norm)));
     }
 
-    // Faol katalog yozuvlari ustidan sahifalangan so'rov — ro'yxat va lookup faqat
-    // qaytariladigan maydonlari bilan farq qiladi, qolgan mantiq bir xil.
+    // Katalog yozuvlari ustidan sahifalangan so'rov — ro'yxat va lookup faqat qaytariladigan
+    // maydonlari bilan farq qiladi, qolgan mantiq bir xil. isActive null bo'lsa arxivdagilar
+    // ham qo'shiladi (lookup shunday ishlaydi) va faollari birinchi turadi.
     private async Task<ApiResult<PagedResult<TDto>>> PageAsync<TDto>(
-        int page, int pageSize, string? search,
+        int page, int pageSize, string? search, bool? isActive,
         Func<IQueryable<ProductCatalog>, IQueryable<TDto>> project)
     {
-        var query = ApplySearch(_context.ProductCatalogs.AsNoTracking().Where(p => p.IsActive), search);
+        var query = _context.ProductCatalogs.AsNoTracking();
+        if (isActive.HasValue)
+            query = query.Where(p => p.IsActive == isActive.Value);
+        query = ApplySearch(query, search);
 
         var totalCount = await query.CountAsync();
 
         var pagination = new PaginationParams { Page = page, PageSize = pageSize };
         var items = await project(query
-                .OrderBy(p => p.Name)
+                .OrderByDescending(p => p.IsActive)
+                .ThenBy(p => p.Name)
                 .Skip((pagination.Page - 1) * pagination.PageSize)
                 .Take(pagination.PageSize))
             .ToListAsync();
@@ -52,8 +57,9 @@ public class ProductCatalogService : IProductCatalogService
         return ApiResult<PagedResult<TDto>>.Success(PagedResult<TDto>.Create(items, totalCount, pagination));
     }
 
-    public Task<ApiResult<PagedResult<ProductCatalogResponseDto>>> GetAllAsync(int page, int pageSize, string? search)
-        => PageAsync(page, pageSize, search, q => q.Select(p => new ProductCatalogResponseDto
+    public Task<ApiResult<PagedResult<ProductCatalogResponseDto>>> GetAllAsync(
+        int page, int pageSize, string? search, bool archived)
+        => PageAsync(page, pageSize, search, !archived, q => q.Select(p => new ProductCatalogResponseDto
         {
             Id = p.Id,
             Name = p.Name,
@@ -61,15 +67,24 @@ public class ProductCatalogService : IProductCatalogService
             Unit = p.Unit,
             Description = p.Description,
             UsageCount = p.ContractProducts.Count,
+            IsActive = p.IsActive,
+            BlockingContractCount = p.ContractProducts
+                .Where(cp => cp.IsActive && cp.Contract!.IsActive
+                    && cp.Contract.Status != ContractStatus.Completed
+                    && cp.Contract.Status != ContractStatus.Cancelled)
+                .Select(cp => cp.ContractId)
+                .Distinct()
+                .Count(),
         }));
 
     public Task<ApiResult<PagedResult<ProductCatalogLookupDto>>> LookupAsync(int page, int pageSize, string? search)
-        => PageAsync(page, pageSize, search, q => q.Select(p => new ProductCatalogLookupDto
+        => PageAsync(page, pageSize, search, null, q => q.Select(p => new ProductCatalogLookupDto
         {
             Id = p.Id,
             Name = p.Name,
             Code = p.Code,
             Unit = p.Unit,
+            IsActive = p.IsActive,
         }));
 
     // Shartnoma qatori + faqat agregatlar uchun kerak bo'lgan ContractId (javobga chiqmaydi).
@@ -79,13 +94,14 @@ public class ProductCatalogService : IProductCatalogService
     {
         var detail = await _context.ProductCatalogs
             .AsNoTracking()
-            .Where(p => p.Id == id && p.IsActive)
+            .Where(p => p.Id == id)
             .Select(p => new ProductCatalogDetailDto
             {
                 Name = p.Name,
                 Code = p.Code,
                 Unit = p.Unit,
                 Description = p.Description,
+                IsActive = p.IsActive,
             })
             .FirstOrDefaultAsync();
         if (detail is null)
@@ -226,22 +242,23 @@ public class ProductCatalogService : IProductCatalogService
         var name = dto.Name.Trim();
         var normalized = TextNormalizer.Normalize(name);
 
-        // Dublikat oldini olish — kanonik nom bo'yicha. Agar mavjud bo'lsa, xato o'rniga
-        // mavjud yozuvni qaytaramiz (idempotent — frontend uni tanlab davom etadi).
+        // Dublikat oldini olish — kanonik nom bo'yicha, arxivdagilar ham hisobga olinadi.
+        // Agar mavjud bo'lsa, xato o'rniga mavjud yozuvni qaytaramiz (idempotent — frontend
+        // uni tanlab davom etadi); arxivdagisi shu bilan birga qayta faollashadi, aks holda
+        // bir xil nomli ikkita yozuv paydo bo'lardi.
         var existing = await _context.ProductCatalogs
-            .AsNoTracking()
-            .Where(p => p.NameNormalized == normalized && p.IsActive)
-            .Select(p => new ProductCatalogResponseDto
-            {
-                Id = p.Id,
-                Name = p.Name,
-                Code = p.Code,
-                Unit = p.Unit,
-                Description = p.Description,
-            })
+            .Where(p => p.NameNormalized == normalized)
+            .OrderByDescending(p => p.IsActive)
             .FirstOrDefaultAsync();
         if (existing is not null)
-            return ApiResult<ProductCatalogResponseDto>.Success(existing, 200);
+        {
+            if (!existing.IsActive)
+            {
+                existing.IsActive = true;
+                await _context.SaveChangesAsync();
+            }
+            return ApiResult<ProductCatalogResponseDto>.Success(MapToResponse(existing), 200);
+        }
 
         var entity = new ProductCatalog
         {
@@ -278,16 +295,17 @@ public class ProductCatalogService : IProductCatalogService
         if (string.IsNullOrWhiteSpace(dto.Unit))
             return ApiResult<ProductCatalogResponseDto>.Failure(["O'lchov birligini tanlang."]);
 
-        var entity = await _context.ProductCatalogs.FirstOrDefaultAsync(p => p.Id == id && p.IsActive);
+        var entity = await _context.ProductCatalogs.FirstOrDefaultAsync(p => p.Id == id);
         if (entity is null)
             return ApiResult<ProductCatalogResponseDto>.Failure(["Katalog mahsuloti topilmadi."], 404);
 
         var name = dto.Name.Trim();
         var normalized = TextNormalizer.Normalize(name);
 
-        // Boshqa yozuv shu kanonik nomni band qilganmi?
+        // Boshqa yozuv shu kanonik nomni band qilganmi? Arxivdagilar ham band hisoblanadi —
+        // ular faolga qaytishi mumkin.
         var clash = await _context.ProductCatalogs
-            .AnyAsync(p => p.Id != id && p.NameNormalized == normalized && p.IsActive);
+            .AnyAsync(p => p.Id != id && p.NameNormalized == normalized);
         if (clash)
             return ApiResult<ProductCatalogResponseDto>.Failure([$"«{name}» nomli mahsulot allaqachon mavjud."]);
 
@@ -301,16 +319,58 @@ public class ProductCatalogService : IProductCatalogService
         return ApiResult<ProductCatalogResponseDto>.Success(MapToResponse(entity));
     }
 
-    public async Task<ApiResult<bool>> DeleteAsync(Guid id)
+    // Katalog yozuvi hech qachon bazadan o'chirilmaydi — u "ishlab chiqarilishi tugatilganlar"
+    // ro'yxatiga o'tadi. Shartnomalardagi bog'lanish va tarix shu bilan buzilmay qoladi.
+    public async Task<ApiResult<bool>> ArchiveAsync(Guid id)
     {
-        // FK SetNull — o'chirilsa, bog'langan shartnoma mahsulotlari ProductType (nom) matnini
-        // saqlab qoladi, faqat bog'lanish uziladi. Shuning uchun to'g'ridan-to'g'ri o'chiramiz.
-        var removed = await _context.ProductCatalogs.Where(p => p.Id == id).ExecuteDeleteAsync();
-        if (removed == 0)
+        var entity = await _context.ProductCatalogs.FirstOrDefaultAsync(p => p.Id == id && p.IsActive);
+        if (entity is null)
             return ApiResult<bool>.Failure(["Katalog mahsuloti topilmadi."], 404);
+
+        var blocking = await BlockingContractNosAsync(id);
+        if (blocking.Count > 0)
+            return ApiResult<bool>.Failure(
+                [$"«{entity.Name}» hali yakunlanmagan {blocking.Count} ta shartnomada ishlatilmoqda: {string.Join(", ", blocking)}."],
+                409);
+
+        entity.IsActive = false;
+        await _context.SaveChangesAsync();
 
         return ApiResult<bool>.Success(true);
     }
+
+    public async Task<ApiResult<bool>> RestoreAsync(Guid id)
+    {
+        var entity = await _context.ProductCatalogs.FirstOrDefaultAsync(p => p.Id == id && !p.IsActive);
+        if (entity is null)
+            return ApiResult<bool>.Failure(["Arxivdagi katalog mahsuloti topilmadi."], 404);
+
+        var clash = await _context.ProductCatalogs
+            .AnyAsync(p => p.Id != id && p.IsActive && p.NameNormalized == entity.NameNormalized);
+        if (clash)
+            return ApiResult<bool>.Failure(
+                [$"«{entity.Name}» nomli faol mahsulot allaqachon mavjud — avval nomini o'zgartiring."],
+                409);
+
+        entity.IsActive = true;
+        await _context.SaveChangesAsync();
+
+        return ApiResult<bool>.Success(true);
+    }
+
+    // Arxivlashga to'sqinlik qilayotgan shartnomalar — faol va hali yakunlanmagan (Completed
+    // yoki Cancelled emas) shartnomalar. Deaktiv qilingan shartnoma ishlab chiqarishdan
+    // chiqqan, shuning uchun to'siq emas.
+    private Task<List<string>> BlockingContractNosAsync(Guid catalogId)
+        => _context.ContractProducts
+            .AsNoTracking()
+            .Where(cp => cp.ProductCatalogId == catalogId && cp.IsActive
+                && cp.Contract!.IsActive
+                && cp.Contract.Status != ContractStatus.Completed
+                && cp.Contract.Status != ContractStatus.Cancelled)
+            .Select(cp => cp.Contract!.ContractNo)
+            .Distinct()
+            .ToListAsync();
 
     // Yangi/tahrirlangan yozuv javobi — hozirgina yaratilganda UsageCount har doim 0,
     // tahrirlashda esa bog'lanishlar soni o'zgarmaydi, shuning uchun so'rov qilinmaydi.
@@ -321,5 +381,6 @@ public class ProductCatalogService : IProductCatalogService
         Code = p.Code,
         Unit = p.Unit,
         Description = p.Description,
+        IsActive = p.IsActive,
     };
 }

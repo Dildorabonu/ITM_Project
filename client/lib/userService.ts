@@ -1772,6 +1772,10 @@ export interface ProductCatalogResponse {
   unit: string | null;
   description: string | null;
   usageCount: number;
+  // false — mahsulot "ishlab chiqarilishi tugatilganlar" ro'yxatida.
+  isActive: boolean;
+  // Arxivlashga to'sqinlik qilayotgan yakunlanmagan shartnomalar soni. 0 bo'lsa arxivlash mumkin.
+  blockingContractCount: number;
 }
 
 // Shartnoma formasidagi tanlash ro'yxati — faqat ko'rsatiladigan va formaga
@@ -1781,6 +1785,8 @@ export interface ProductCatalogLookup {
   name: string;
   code: string;
   unit: string | null;
+  // Arxivdagilar ham ro'yxatda qoladi — tanlansa avtomatik faollashadi.
+  isActive: boolean;
 }
 
 export interface ProductCatalogCreatePayload {
@@ -1838,6 +1844,7 @@ export interface ProductCatalogDetail {
   code: string;
   unit: string | null;
   description: string | null;
+  isActive: boolean;
   contractCount: number;
   activeContractCount: number;
   totalOrderedQuantity: number;
@@ -1873,8 +1880,9 @@ export const productCatalogService = {
     page = 1,
     pageSize = 20,
     signal?: AbortSignal,
+    archived = false,
   ): Promise<PagedResult<ProductCatalogResponse>> => {
-    const params: Record<string, unknown> = { page, pageSize };
+    const params: Record<string, unknown> = { page, pageSize, archived };
     if (search) params.search = search;
     const res = await api.get("/api/productcatalog", { params, signal });
     return res.data?.result ?? res.data;
@@ -1896,7 +1904,12 @@ export const productCatalogService = {
     return res.data?.result ?? res.data;
   },
 
-  remove: async (id: string): Promise<void> => {
-    await api.delete(`/api/productcatalog/${id}`);
+  // Katalog yozuvi o'chirilmaydi — "ishlab chiqarilishi tugatilganlar" ro'yxatiga o'tadi.
+  archive: async (id: string): Promise<void> => {
+    await api.post(`/api/productcatalog/${id}/archive`);
+  },
+
+  restore: async (id: string): Promise<void> => {
+    await api.post(`/api/productcatalog/${id}/restore`);
   },
 };

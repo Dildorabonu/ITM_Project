@@ -24,8 +24,12 @@ public class ProductCatalogResponseDto
     public string Code { get; set; } = string.Empty;
     public string? Unit { get; set; }
     public string? Description { get; set; }
-    // Nechta shartnoma mahsuloti shu katalog yozuviga bog'langan — o'chirishdan oldin ogohlantirish uchun.
+    // Nechta shartnoma mahsuloti shu katalog yozuviga bog'langan.
     public int UsageCount { get; set; }
+    // false — mahsulot "ishlab chiqarilishi tugatilganlar" (arxiv) ro'yxatida.
+    public bool IsActive { get; set; }
+    // Arxivlashga to'sqinlik qilayotgan (hali yakunlanmagan) shartnomalar soni. 0 bo'lsa arxivlash mumkin.
+    public int BlockingContractCount { get; set; }
 }
 
 // Shartnoma formasidagi tanlash ro'yxati — faqat ko'rsatiladigan va formaga
@@ -36,6 +40,9 @@ public class ProductCatalogLookupDto
     public string Name { get; set; } = string.Empty;
     public string Code { get; set; } = string.Empty;
     public string? Unit { get; set; }
+    // Arxivdagi mahsulotlar ham ro'yxatda qoladi — tanlansa avtomatik faollashadi,
+    // shuning uchun formada "tugatilgan" belgisi bilan ko'rsatiladi.
+    public bool IsActive { get; set; }
 }
 
 // ─── "Ko'rish" (detali) infografikasi uchun ──────────────────────────────────
@@ -49,6 +56,7 @@ public class ProductCatalogDetailDto
     public string Code { get; set; } = string.Empty;
     public string? Unit { get; set; }
     public string? Description { get; set; }
+    public bool IsActive { get; set; }
 
     // Agregatlar (stat kartalar)
     public int ContractCount { get; set; }          // Nechta shartnomada ishlatilgan

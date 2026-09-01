@@ -946,4 +946,46 @@ public class ContractServiceTests
         dto.Products.Should().ContainSingle()
             .Which.Id.Should().Be(product.Id);
     }
+
+    [Fact]
+    public async Task CreateAsync_WhenSelectedCatalogProductIsArchived_ReactivatesIt()
+    {
+        // Arrange
+        await using var db = TestDbContextFactory.Create();
+        var dept = SeedDept(db, name: "Sex-1");
+        var catalog = new ProductCatalog
+        {
+            Id = Guid.NewGuid(),
+            Name = "Val",
+            NameNormalized = "val",
+            Code = "PRD-000001",
+            Unit = "Dona",
+            IsActive = false,
+            CreatedBy = Guid.NewGuid(),
+            CreatedAt = DateTime.UtcNow,
+        };
+        db.ProductCatalogs.Add(catalog);
+        db.SaveChanges();
+        var sut = CreateSut(db);
+
+        var product = MakeProductDto(productType: "eski nom", unit: "dona", departmentIds: [dept.Id]);
+        product.ProductCatalogId = catalog.Id;
+
+        // Act
+        var result = await sut.Service.CreateAsync(new ContractCreateDto
+        {
+            ContractNo = "C-ARCHIVED",
+            StartDate = new DateOnly(2026, 1, 1),
+            EndDate = new DateOnly(2026, 12, 31),
+            ContractType = ContractType.Mahalliy,
+            ContractParty = "ABC partner",
+            DepartmentIds = [dept.Id],
+            Products = [product],
+        }, Guid.NewGuid());
+
+        // Assert
+        result.Succeeded.Should().BeTrue(string.Join(" | ", result.Errors));
+        db.ProductCatalogs.AsNoTracking().Single().IsActive.Should().BeTrue();
+        db.ContractProducts.AsNoTracking().Single().ProductType.Should().Be("Val");
+    }
 }

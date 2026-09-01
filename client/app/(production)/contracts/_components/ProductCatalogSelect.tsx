@@ -193,6 +193,14 @@ export function ProductCatalogSelect({
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {r.name}
                 {r.unit && <span style={{ color: "var(--text3)", fontSize: 11, marginLeft: 6 }}>· {r.unit}</span>}
+                {!r.isActive && (
+                  <span style={{
+                    marginLeft: 6, padding: "1px 6px", borderRadius: 20, fontSize: 10, fontWeight: 600,
+                    background: "var(--warn-dim)", color: "var(--warn)",
+                  }}>
+                    {t("Tugatilgan")}
+                  </span>
+                )}
               </span>
               <span style={{
                 flexShrink: 0, fontSize: 10, fontWeight: 600, fontFamily: "var(--font-mono)",

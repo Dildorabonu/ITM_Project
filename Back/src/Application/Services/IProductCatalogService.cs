@@ -7,7 +7,8 @@ namespace Application.Services;
 public interface IProductCatalogService
 {
     // Boshqaruv sahifasi uchun — sahifalangan ro'yxat + har yozuvning ishlatilish soni.
-    Task<ApiResult<PagedResult<ProductCatalogResponseDto>>> GetAllAsync(int page, int pageSize, string? search);
+    // archived = true bo'lsa "ishlab chiqarilishi tugatilganlar" ro'yxati qaytadi.
+    Task<ApiResult<PagedResult<ProductCatalogResponseDto>>> GetAllAsync(int page, int pageSize, string? search, bool archived);
 
     // Shartnoma formasi uchun yengil qidiruv (faqat tanlash uchun kerakli maydonlar).
     Task<ApiResult<PagedResult<ProductCatalogLookupDto>>> LookupAsync(int page, int pageSize, string? search);
@@ -17,5 +18,7 @@ public interface IProductCatalogService
 
     Task<ApiResult<ProductCatalogResponseDto>> CreateAsync(ProductCatalogCreateDto dto, Guid userId);
     Task<ApiResult<ProductCatalogResponseDto>> UpdateAsync(Guid id, ProductCatalogUpdateDto dto);
-    Task<ApiResult<bool>> DeleteAsync(Guid id);
+    // Ishlab chiqarilishi tugatilganlarga o'tkazish. Yakunlanmagan shartnomasi bo'lsa rad etiladi.
+    Task<ApiResult<bool>> ArchiveAsync(Guid id);
+    Task<ApiResult<bool>> RestoreAsync(Guid id);
 }
