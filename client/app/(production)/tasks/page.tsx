@@ -48,6 +48,9 @@ function scopeStatus(s: Scope): ContractStatus {
 
 const WAREHOUSE_TASK_NAME = "Tayyor mahsulotni omborga topshirish";
 
+// Qo'lda tuzatishda backend yozadigan izoh belgisi.
+const CORRECTION_NOTE = "Tuzatish";
+
 // Standart (default) vazifa — har doim mavjud bo'lgan warehouse vazifasi.
 // Yangi vazifa qo'shilganda uning muhimligi shu standart vazifadan avtomatik
 // ayiriladi, biroq standart vazifa muhimligi shu foizdan pastga tusha olmaydi.
@@ -563,9 +566,21 @@ function EditTaskModal({
               rows={2}
               value={name}
               onChange={e => setName(e.target.value)}
-              style={submitted && !name.trim() ? { borderColor: "var(--danger)" } : undefined}
+              disabled={isWarehouse}
+              style={
+                isWarehouse
+                  ? { color: "var(--text3)", cursor: "not-allowed" }
+                  : submitted && !name.trim()
+                    ? { borderColor: "var(--danger)" }
+                    : undefined
+              }
             />
-            {submitted && !name.trim() && (
+            {isWarehouse && (
+              <div style={{ color: "var(--text3)", fontSize: 12 }}>
+                {t("Tizimning doimiy vazifasi — nomini o'zgartirib bo'lmaydi.")}
+              </div>
+            )}
+            {!isWarehouse && submitted && !name.trim() && (
               <div style={{ color: "var(--danger)", fontSize: 12 }}>{t("Vazifa nomini kiriting")}</div>
             )}
           </div>
@@ -860,7 +875,22 @@ function DailyLogModal({
                     <span className="mono" style={{ color: "var(--text3)", fontSize: 12, flexShrink: 0 }}>
                       {new Date(l.createdAt).toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                     </span>
-                    <span style={{ fontWeight: 600, color: "var(--accent, #3b82f6)", flexShrink: 0 }}>+{l.amount.toLocaleString()}</span>
+                    <span style={{
+                      fontWeight: 600,
+                      color: l.amount < 0 ? "var(--danger)" : "var(--accent, #3b82f6)",
+                      flexShrink: 0,
+                    }}>
+                      {l.amount < 0 ? "−" : "+"}{Math.abs(l.amount).toLocaleString()}
+                    </span>
+                    {l.note === CORRECTION_NOTE && (
+                      <span style={{
+                        fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em",
+                        padding: "1px 7px", borderRadius: 999, flexShrink: 0,
+                        color: "var(--text3)", background: "var(--surface)", border: "1px solid var(--border)",
+                      }}>
+                        {t("Tuzatish")}
+                      </span>
+                    )}
                     <span style={{ color: "var(--text3)", fontSize: 11, flexShrink: 0, marginLeft: "auto" }}>{l.createdByFullName ?? ""}</span>
                   </div>
                 ))}

@@ -1265,6 +1265,7 @@ export interface ContractTaskLogCreatePayload {
 export interface ContractTaskLogResponse {
   id: string;
   amount: number;
+  note: string | null;
   createdByFullName: string | null;
   createdAt: string;
 }

@@ -986,6 +986,7 @@ export const ru: Record<string, string> = {
   "Vazifa": "Задача",
   "Vazifa nomi": "Название задачи",
   "Vazifa nomini kiriting": "Введите название задачи",
+  "Tizimning doimiy vazifasi — nomini o'zgartirib bo'lmaydi.": "Постоянная задача системы — название изменить нельзя.",
   "Vazifa qo'shish": "Добавить задачу",
   "Jarayon yakunlandi — barcha mahsulot omborga topshirildi. Yangi vazifa qo'shib bo'lmaydi.": "Процесс завершён — вся продукция сдана на склад. Добавить новую задачу нельзя.",
   "Vazifalar faqat": "Задачи создаются только из договоров в статусе",

@@ -115,6 +115,23 @@ public class ContractTaskServiceTests
         return userId;
     }
 
+    private static Guid SeedLog(DatabaseContext db, Guid taskId, decimal amount)
+    {
+        var log = new ContractTaskDailyLog
+        {
+            Id = Guid.NewGuid(),
+            TaskId = taskId,
+            Amount = amount,
+            Date = DateOnly.FromDateTime(DateTime.UtcNow),
+            IsActive = true,
+            CreatedBy = EnsureUser(db),
+            CreatedAt = DateTime.UtcNow,
+        };
+        db.ContractTaskDailyLogs.Add(log);
+        db.SaveChanges();
+        return log.Id;
+    }
+
     private static ContractTask SeedTask(
         DatabaseContext db,
         Guid contractId,
@@ -253,7 +270,7 @@ public class ContractTaskServiceTests
         await using var db = TestDbContextFactory.Create();
         var sut = CreateSut(db);
 
-        var result = await sut.Service.UpdateAsync(Guid.NewGuid(), new ContractTaskUpdateDto { Name = "X" });
+        var result = await sut.Service.UpdateAsync(Guid.NewGuid(), new ContractTaskUpdateDto { Name = "X" }, EnsureUser(db));
 
         result.Succeeded.Should().BeFalse();
         result.StatusCode.Should().Be(404);
@@ -270,7 +287,7 @@ public class ContractTaskServiceTests
         var result = await sut.Service.UpdateAsync(task.Id, new ContractTaskUpdateDto
         {
             Name = "Yangi nom",
-        });
+        }, EnsureUser(db));
 
         result.Succeeded.Should().BeTrue();
         var refreshed = db.ContractTasks.AsNoTracking().Single(t => t.Id == task.Id);
@@ -291,7 +308,7 @@ public class ContractTaskServiceTests
         var result = await sut.Service.UpdateAsync(task.Id, new ContractTaskUpdateDto
         {
             ClearContractProduct = true,
-        });
+        }, EnsureUser(db));
 
         result.Succeeded.Should().BeTrue();
         db.ContractTasks.AsNoTracking().Single(t => t.Id == task.Id)
@@ -311,10 +328,129 @@ public class ContractTaskServiceTests
         var result = await sut.Service.UpdateAsync(task.Id, new ContractTaskUpdateDto
         {
             ContractProductId = foreignProduct.Id,
-        });
+        }, EnsureUser(db));
 
         result.Succeeded.Should().BeFalse();
         result.Errors.Should().ContainSingle().Which.Should().Contain("ushbu shartnomaga tegishli emas");
+    }
+
+    [Fact]
+    public async Task UpdateAsync_CompletedAmountLowered_WritesCorrectionLog()
+    {
+        // Qo'lda tuzatish kunlik tarixda ham aks etishi kerak — aks holda
+        // tarix yig'indisi (100) bajarilgan miqdordan (90) farq qilib qoladi.
+        await using var db = TestDbContextFactory.Create();
+        var contract = SeedContract(db);
+        var task = SeedTask(db, contract.Id, completedAmount: 100, totalAmount: 500);
+        var originalLogId = SeedLog(db, task.Id, 100);
+        var sut = CreateSut(db);
+        var actor = EnsureUser(db);
+
+        var result = await sut.Service.UpdateAsync(task.Id, new ContractTaskUpdateDto
+        {
+            CompletedAmount = 90,
+        }, actor);
+
+        result.Succeeded.Should().BeTrue();
+
+        var logs = db.ContractTaskDailyLogs.AsNoTracking().Where(l => l.TaskId == task.Id).ToList();
+        logs.Sum(l => l.Amount).Should().Be(90, "tarix yig'indisi bajarilgan miqdorga teng bo'lishi kerak");
+        logs.Should().HaveCount(2);
+
+        var correction = logs.Single(l => l.Id != originalLogId);
+        correction.Amount.Should().Be(-10);
+        correction.CreatedBy.Should().Be(actor);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_CompletedAmountRaised_WritesCorrectionLog()
+    {
+        await using var db = TestDbContextFactory.Create();
+        var contract = SeedContract(db);
+        var task = SeedTask(db, contract.Id, completedAmount: 100, totalAmount: 500);
+        SeedLog(db, task.Id, 100);
+        var sut = CreateSut(db);
+
+        var result = await sut.Service.UpdateAsync(task.Id, new ContractTaskUpdateDto
+        {
+            CompletedAmount = 130,
+        }, EnsureUser(db));
+
+        result.Succeeded.Should().BeTrue();
+        db.ContractTaskDailyLogs.AsNoTracking().Where(l => l.TaskId == task.Id)
+            .Sum(l => l.Amount).Should().Be(130);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_CompletedAmountUnchanged_WritesNoCorrectionLog()
+    {
+        await using var db = TestDbContextFactory.Create();
+        var contract = SeedContract(db);
+        var task = SeedTask(db, contract.Id, completedAmount: 100, totalAmount: 500);
+        SeedLog(db, task.Id, 100);
+        var sut = CreateSut(db);
+
+        var result = await sut.Service.UpdateAsync(task.Id, new ContractTaskUpdateDto
+        {
+            CompletedAmount = 100,
+            Importance = 30,
+        }, EnsureUser(db));
+
+        result.Succeeded.Should().BeTrue();
+        db.ContractTaskDailyLogs.AsNoTracking().Count(l => l.TaskId == task.Id).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_WarehouseTask_ReturnsFailure()
+    {
+        await using var db = TestDbContextFactory.Create();
+        var contract = SeedContract(db);
+        var warehouse = SeedTask(db, contract.Id, name: WarehouseTaskName, orderNo: 1);
+        var sut = CreateSut(db);
+
+        var result = await sut.Service.DeleteAsync(warehouse.Id);
+
+        result.Succeeded.Should().BeFalse();
+        result.Errors.Should().ContainSingle().Which.Should().Contain("doimiy vazifasi");
+        db.ContractTasks.AsNoTracking().Any(t => t.Id == warehouse.Id).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WarehouseTask_RenameRejected()
+    {
+        await using var db = TestDbContextFactory.Create();
+        var contract = SeedContract(db);
+        var warehouse = SeedTask(db, contract.Id, name: WarehouseTaskName, orderNo: 1);
+        var sut = CreateSut(db);
+
+        var result = await sut.Service.UpdateAsync(warehouse.Id, new ContractTaskUpdateDto
+        {
+            Name = "Boshqa nom",
+        }, EnsureUser(db));
+
+        result.Succeeded.Should().BeFalse();
+        result.Errors.Should().ContainSingle().Which.Should().Contain("doimiy vazifasi");
+        db.ContractTasks.AsNoTracking().Single(t => t.Id == warehouse.Id)
+            .Name.Should().Be(WarehouseTaskName);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WarehouseTask_SameNameInPayload_Succeeds()
+    {
+        await using var db = TestDbContextFactory.Create();
+        var contract = SeedContract(db);
+        var warehouse = SeedTask(db, contract.Id, name: WarehouseTaskName, orderNo: 1);
+        var sut = CreateSut(db);
+
+        var result = await sut.Service.UpdateAsync(warehouse.Id, new ContractTaskUpdateDto
+        {
+            Name = WarehouseTaskName,
+            Importance = 40,
+        }, EnsureUser(db));
+
+        result.Succeeded.Should().BeTrue();
+        db.ContractTasks.AsNoTracking().Single(t => t.Id == warehouse.Id)
+            .Importance.Should().Be(40);
     }
 
     [Fact]
@@ -332,7 +468,7 @@ public class ContractTaskServiceTests
         var result = await sut.Service.UpdateAsync(warehouse.Id, new ContractTaskUpdateDto
         {
             CompletedAmount = 25, // cap = min(30, 20) = 20
-        });
+        }, EnsureUser(db));
 
         result.Succeeded.Should().BeFalse();
         result.Errors.Should().ContainSingle().Which.Should().Contain("oshmasligi kerak");
@@ -353,7 +489,7 @@ public class ContractTaskServiceTests
         var result = await sut.Service.UpdateAsync(warehouse.Id, new ContractTaskUpdateDto
         {
             CompletedAmount = 20, // == cap, ruxsat etiladi
-        });
+        }, EnsureUser(db));
 
         result.Succeeded.Should().BeTrue();
         db.ContractTasks.AsNoTracking().Single(t => t.Id == warehouse.Id)
