@@ -19,6 +19,7 @@ import {
   emptyForm,
   UNIT_OPTIONS,
   BULK_LIMIT,
+  resolveAutoDepartment,
   type ProductForm,
   type ParsedImportRow,
   type RowError,
@@ -68,10 +69,7 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
     name: string; invoiceNumber: string; departmentId: string; quantity: string; unit: ProductUnit; description: string;
   } | null>(null);
 
-  // Bu sahifa faqat ombor turidagi bo'limlarni ko'rsatadi. Agar bittagina bo'lim
-  // (Omborxona) bo'lsa, foydalanuvchiga tanlatmasdan uni avtomatik biriktiramiz va
-  // UI dagi "Bo'lim" tanlovini yashiramiz. Bir nechta bo'lim bo'lsa — tanlov qaytadi.
-  const autoDept = departments.length === 1 ? departments[0] : null;
+  const autoDept = resolveAutoDepartment(departments);
 
   // Avtomatik bo'limni forma holatiga singdiramiz (SimilarNameWarning va validatsiya
   // to'g'ri ishlashi uchun). Bo'lim allaqachon belgilangan qatorlarga tegmaymiz.
@@ -470,7 +468,9 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
               {t("Namuna faylni yuklash (.xlsx)")}
             </button>
             <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 8 }}>
-              {t("Fayl 3 ta varaq o'z ichiga oladi: Mahsulotlar (to'ldirish uchun), Bo'limlar va O'lchov birliklari (ma'lumotnoma).")}
+              {autoDept
+                ? t("Fayl 2 ta varaq o'z ichiga oladi: Mahsulotlar (to'ldirish uchun) va O'lchov birliklari (ma'lumotnoma).")
+                : t("Fayl 3 ta varaq o'z ichiga oladi: Mahsulotlar (to'ldirish uchun), Bo'limlar va O'lchov birliklari (ma'lumotnoma).")}
             </div>
           </div>
 
@@ -549,7 +549,7 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
                       <th style={{ textAlign: "center" }}>{t("Qator")}</th>
                       <th style={{ textAlign: "center" }}>{t("Mahsulot nomi")}</th>
                       <th style={{ textAlign: "center" }}>{t("Invoice raqami")}</th>
-                      <th style={{ textAlign: "center" }}>{t("Bo'lim")}</th>
+                      {!autoDept && <th style={{ textAlign: "center" }}>{t("Bo'lim")}</th>}
                       <th style={{ textAlign: "center" }}>{t("Miqdor")}</th>
                       <th style={{ textAlign: "center" }}>{t("O'lchov")}</th>
                       <th style={{ textAlign: "center" }}>{t("Tavsif")}</th>
@@ -587,15 +587,17 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
                                 style={{ minWidth: 130, padding: "4px 8px", fontSize: 13, fontFamily: "var(--font-mono)" }}
                               />
                             </td>
-                            <td>
-                              <CheckSelect
-                                value={editingImportRowData.departmentId}
-                                onChange={v => setEditingImportRowData(d => d && { ...d, departmentId: v })}
-                                options={departments.map(dep => ({ id: dep.id, name: dep.name }))}
-                                placeholder={t("— Tanlang —")}
-                                style={{ minWidth: 130 }}
-                              />
-                            </td>
+                            {!autoDept && (
+                              <td>
+                                <CheckSelect
+                                  value={editingImportRowData.departmentId}
+                                  onChange={v => setEditingImportRowData(d => d && { ...d, departmentId: v })}
+                                  options={departments.map(dep => ({ id: dep.id, name: dep.name }))}
+                                  placeholder={t("— Tanlang —")}
+                                  style={{ minWidth: 130 }}
+                                />
+                              </td>
+                            )}
                             <td>
                               <input
                                 className="form-input"
@@ -669,7 +671,7 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
                           <td style={{ fontFamily: "var(--font-mono)", fontSize: 12, ...(row.errors.some(e => e.field === "invoice") ? { color: "var(--danger)", fontWeight: 600 } : {}) }}>
                             {row.invoiceNumber || <span style={{ color: "var(--text3)", fontFamily: "var(--font-inter)" }}>—</span>}
                           </td>
-                          <td>{row.departmentName || <span style={{ color: "var(--text3)" }}>—</span>}</td>
+                          {!autoDept && <td>{row.departmentName || <span style={{ color: "var(--text3)" }}>—</span>}</td>}
                           <td style={{ textAlign: "center" }}>{row.quantity}</td>
                           <td style={{ textAlign: "center" }}>{PRODUCT_UNIT_LABELS[row.unit]}</td>
                           <td style={{ color: "var(--text2)", fontSize: 12 }}>{row.description || "—"}</td>

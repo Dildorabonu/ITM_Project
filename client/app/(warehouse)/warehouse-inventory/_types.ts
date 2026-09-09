@@ -2,6 +2,7 @@ import {
   DepartmentType,
   ProductUnit,
   PRODUCT_UNIT_LABELS,
+  type DepartmentOption,
   type ProductSimilar,
 } from "@/lib/userService";
 
@@ -57,6 +58,12 @@ export const UNIT_OPTIONS = (Object.keys(PRODUCT_UNIT_LABELS) as unknown as Prod
 
 // Bu sahifa faqat ombor strukturasiga tegishli.
 export const WAREHOUSE_DEPARTMENT_TYPE = DepartmentType.Omborxona;
+
+// Ombor turidagi bo'lim bitta bo'lsa (odatdagi holat) foydalanuvchidan bo'lim
+// so'ralmaydi: jadval ustuni, forma tanlovi va Excel shablonidagi "Bo'lim" ustuni
+// tushirib qoldiriladi, mahsulot esa shu bo'limga avtomatik biriktiriladi.
+export const resolveAutoDepartment = (departments: DepartmentOption[]): DepartmentOption | null =>
+  departments.length === 1 ? departments[0] : null;
 
 // Bir vaqtda qo'shish/import qilish mumkin bo'lgan maksimal mahsulotlar soni.
 export const BULK_LIMIT = 200;
