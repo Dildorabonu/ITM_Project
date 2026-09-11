@@ -90,11 +90,14 @@ export default function LicenseGate() {
   const expired = info?.reason === "EXPIRED";
   const tamper = info?.reason === "TAMPER";
   const machine = info?.reason === "MACHINE";
+  const trialExpired = info?.reason === "TRIAL_EXPIRED";
 
   const title = tamper
     ? t("Tizim vaqti buzilgan")
     : machine
     ? t("Litsenziya bu serverga tegishli emas")
+    : trialExpired
+    ? t("Bepul sinov muddati tugadi")
     : expired
     ? t("Litsenziya muddati tugadi")
     : t("Litsenziya faol emas");

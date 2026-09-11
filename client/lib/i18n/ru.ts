@@ -1192,6 +1192,7 @@ export const ru: Record<string, string> = {
 
   // ───────── Litsenziya bloki ─────────
   "Litsenziya muddati tugadi": "Срок действия лицензии истёк",
+  "Bepul sinov muddati tugadi": "Срок бесплатного пробного периода истёк",
   "Litsenziya faol emas": "Лицензия неактивна",
   "Litsenziya bu serverga tegishli emas": "Лицензия не принадлежит этому серверу",
   "Tizim vaqti buzilgan": "Системное время нарушено",

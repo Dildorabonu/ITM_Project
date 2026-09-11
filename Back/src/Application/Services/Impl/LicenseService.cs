@@ -137,14 +137,70 @@ public class LicenseService : ILicenseService
 
         // Token manbasi: DB (admin panel) > fayl > config.
         var token = ResolveToken(state.LicenseKey);
+        var hasToken = !string.IsNullOrWhiteSpace(token);
 
-        if (!LicenseTokenValidator.TryValidate(token, out var payload, out var err) || payload is null)
+        LicensePayload? payload = null;
+        string tokenErr = string.Empty;
+        if (hasToken)
+            LicenseTokenValidator.TryValidate(token, out payload, out tokenErr);
+
+        // Soatni ortga surishga qarshi belgilar token bor-yo'qligidan mustaqil hisoblanadi —
+        // shunda sinov (trial) ham xuddi token kabi himoyalanadi.
+        var fileHighWater = ReadMirror();
+        var highWater = Max(now, state.HighWaterUtc, fileHighWater ?? DateTime.MinValue);
+
+        var tamper = state.TamperDetected;
+        if (now < state.HighWaterUtc - TamperTolerance ||
+            (fileHighWater.HasValue && now < fileHighWater.Value - TamperTolerance))
+        {
+            tamper = true;
+            state.TamperReason ??= $"Server soati ortga surildi (now={now:o}, hw={state.HighWaterUtc:o})";
+        }
+
+        // Sinov rejimi: haqiqiy token umuman yo'q va sinov yoqilgan bo'lsa.
+        var trialEnabled = !hasToken && _options.TrialDays > 0;
+
+        // Sinov boshlanish sanasini tiklaymiz: baza > OS nusxasi. Baza o'chirilib qayta
+        // yaratilgan bo'lsa ham nusxadan olib sinovni qaytadan boshlamaymiz.
+        if (state.TrialStartUtc is null)
+        {
+            var mirrored = ReadTrialMirror();
+            if (mirrored.HasValue) state.TrialStartUtc = mirrored;
+        }
+        if (trialEnabled && state.TrialStartUtc is null)
+            state.TrialStartUtc = highWater;
+
+        state.HighWaterUtc = highWater;
+        state.TamperDetected = tamper;
+        state.UpdatedAt = now;
+        await _context.SaveChangesAsync(ct);
+        WriteMirror(highWater);
+        if (state.TrialStartUtc.HasValue) WriteTrialMirror(state.TrialStartUtc.Value);
+
+        if (tamper)
         {
             return new LicenseStatus
             {
                 Valid = false,
-                Reason = string.IsNullOrWhiteSpace(token) ? "NO_KEY" : "INVALID",
-                Message = $"Litsenziya yaroqsiz: {err}",
+                Customer = payload?.Customer,
+                ExpiresUtc = payload?.ExpiresUtc,
+                Reason = "TAMPER",
+                Message = "Server vaqti buzilgani aniqlandi. Tizim bloklandi. Iltimos, ta'minotchi bilan bog'laning.",
+            };
+        }
+
+        // Haqiqiy token bo'lmasa — sinov yo'li.
+        if (!hasToken)
+            return EvaluateTrial(state.TrialStartUtc, highWater);
+
+        // Token bor, lekin yaroqsiz (buzilgan/imzo mos emas) — sinovga o'tmaymiz.
+        if (payload is null)
+        {
+            return new LicenseStatus
+            {
+                Valid = false,
+                Reason = "INVALID",
+                Message = $"Litsenziya yaroqsiz: {tokenErr}",
             };
         }
 
@@ -159,39 +215,6 @@ public class LicenseService : ILicenseService
                 ExpiresUtc = payload.ExpiresUtc,
                 Reason = "MACHINE",
                 Message = "Litsenziya bu serverga tegishli emas. Har bir server uchun alohida litsenziya kerak.",
-            };
-        }
-
-        // OS darajasidagi nusxa (publish/fayllarni qayta ko'chirishdan omon qoladi).
-        var fileHighWater = ReadMirror();
-
-        // Barcha manbalardan ko'rilgan eng katta vaqt.
-        var highWater = Max(now, state.HighWaterUtc, fileHighWater ?? DateTime.MinValue);
-
-        // Soat qaysidir manbaga nisbatan keskin ortga surilgan bo'lsa — buzishni belgilaymiz.
-        var tamper = state.TamperDetected;
-        if (now < state.HighWaterUtc - TamperTolerance ||
-            (fileHighWater.HasValue && now < fileHighWater.Value - TamperTolerance))
-        {
-            tamper = true;
-            state.TamperReason ??= $"Server soati ortga surildi (now={now:o}, hw={state.HighWaterUtc:o})";
-        }
-
-        state.HighWaterUtc = highWater;
-        state.TamperDetected = tamper;
-        state.UpdatedAt = now;
-        await _context.SaveChangesAsync(ct);
-        WriteMirror(highWater);
-
-        if (tamper)
-        {
-            return new LicenseStatus
-            {
-                Valid = false,
-                Customer = payload.Customer,
-                ExpiresUtc = payload.ExpiresUtc,
-                Reason = "TAMPER",
-                Message = "Server vaqti buzilgani aniqlandi. Tizim bloklandi. Iltimos, ta'minotchi bilan bog'laning.",
             };
         }
 
@@ -215,6 +238,41 @@ public class LicenseService : ILicenseService
             ExpiresUtc = payload.ExpiresUtc,
             Reason = "OK",
             Message = "Litsenziya faol.",
+        };
+    }
+
+    private LicenseStatus EvaluateTrial(DateTime? trialStart, DateTime highWater)
+    {
+        if (_options.TrialDays <= 0 || trialStart is null)
+        {
+            return new LicenseStatus
+            {
+                Valid = false,
+                Reason = "NO_KEY",
+                Message = "Litsenziya kaliti mavjud emas.",
+            };
+        }
+
+        var trialEnd = trialStart.Value.AddDays(_options.TrialDays);
+
+        if (highWater >= trialEnd)
+        {
+            return new LicenseStatus
+            {
+                Valid = false,
+                ExpiresUtc = trialEnd,
+                Reason = "TRIAL_EXPIRED",
+                Message = "Bepul sinov muddati tugadi. Davom etish uchun ta'minotchidan litsenziya oling.",
+            };
+        }
+
+        var daysLeft = (int)Math.Ceiling((trialEnd - highWater).TotalDays);
+        return new LicenseStatus
+        {
+            Valid = true,
+            ExpiresUtc = trialEnd,
+            Reason = "TRIAL",
+            Message = $"Bepul sinov muddati: {daysLeft} kun qoldi.",
         };
     }
 
@@ -261,6 +319,38 @@ public class LicenseService : ILicenseService
             var dir = Path.GetDirectoryName(MirrorPath)!;
             Directory.CreateDirectory(dir);
             File.WriteAllText(MirrorPath, highWater.Ticks.ToString());
+        }
+        catch { /* yozib bo'lmasa ham baza asosiy manba bo'lib qoladi */ }
+    }
+
+    // Sinov boshlanish sanasining OS darajasidagi nusxasi — baza butunlay
+    // o'chirilib qayta yaratilsa ham sinov muddati qaytadan boshlanmasligi uchun.
+    private static string TrialMirrorPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "ITM", "trial.dat");
+
+    private static DateTime? ReadTrialMirror()
+    {
+        try
+        {
+            if (!File.Exists(TrialMirrorPath)) return null;
+            var raw = File.ReadAllText(TrialMirrorPath).Trim();
+            if (long.TryParse(raw, out var ticks) && ticks > 0)
+                return new DateTime(ticks, DateTimeKind.Utc);
+        }
+        catch { /* nusxa yo'q yoki o'qib bo'lmadi */ }
+        return null;
+    }
+
+    private static void WriteTrialMirror(DateTime trialStart)
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(TrialMirrorPath)!;
+            Directory.CreateDirectory(dir);
+            // Faqat bir marta yoziladi — nusxa allaqachon bo'lsa, eng erta sanani saqlaymiz.
+            var existing = ReadTrialMirror();
+            var earliest = existing.HasValue && existing.Value < trialStart ? existing.Value : trialStart;
+            File.WriteAllText(TrialMirrorPath, earliest.Ticks.ToString());
         }
         catch { /* yozib bo'lmasa ham baza asosiy manba bo'lib qoladi */ }
     }
