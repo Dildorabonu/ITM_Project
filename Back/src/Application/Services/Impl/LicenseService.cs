@@ -294,10 +294,14 @@ public class LicenseService : ILicenseService
         return string.IsNullOrWhiteSpace(_options.Key) ? null : _options.Key.Trim();
     }
 
-    // Yuqori suv belgisining OS darajasidagi nusxasi — ContentRoot'dan tashqarida,
-    // shuning uchun ilova fayllari qayta ko'chirilganda ham saqlanadi.
-    private static string MirrorPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "ITM", "sys.dat");
+    // Nusxalar katalogi — ContentRoot'dan tashqarida, shuning uchun ilova fayllari
+    // qayta ko'chirilganda ham saqlanadi. Faqat testlar vaqtinchalik papkaga almashtiradi
+    // (config orqali sozlanmaydi — mijoz nusxani chetlab o'ta olmasligi uchun).
+    internal static string StateDirectory { get; set; } = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "ITM");
+
+    // Yuqori suv belgisining OS darajasidagi nusxasi.
+    private static string MirrorPath => Path.Combine(StateDirectory, "sys.dat");
 
     private static DateTime? ReadMirror()
     {
@@ -325,8 +329,7 @@ public class LicenseService : ILicenseService
 
     // Sinov boshlanish sanasining OS darajasidagi nusxasi — baza butunlay
     // o'chirilib qayta yaratilsa ham sinov muddati qaytadan boshlanmasligi uchun.
-    private static string TrialMirrorPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "ITM", "trial.dat");
+    private static string TrialMirrorPath => Path.Combine(StateDirectory, "trial.dat");
 
     private static DateTime? ReadTrialMirror()
     {
