@@ -18,6 +18,15 @@ barcha `/api` so'rovlari (login ham) bloklanadi va foydalanuvchiga blok ekrani k
 - **Private key** — `Back/tools/LicenseGen/license-private.key` (git'ga qo'yilmaydi!).
   Bu faylni **yo'qotmang** — usiz yangi/uzaytirish litsenziyalari yasab bo'lmaydi.
   Xavfsiz joyda (parol menejeri/seyf) nusxasini saqlang.
+- **Eski private key** — `license-private.old.key`. 2026-07-03-dagi juftlik; 21-avgustgacha
+  qurilgan build'lar (`Back/publish/`, `dist/backend/`) hanuz o'sha public key bilan tekshiradi.
+  Shu paketlar ishlab turgan serverlarga litsenziya kerak bo'lsa `--key license-private.old.key`
+  bilan imzolanadi, aks holda `Imzo yaroqsiz` chiqadi.
+
+> **Diqqat:** `keygen` `license-private.key` faylini **ustidan yozadi**. Kalitni faqat
+> almashtirmoqchi bo'lsangiz ishga tushiring va o'sha commit'da public key'ni ham
+> `LicenseTokenValidator.cs` ga ko'chiring — aks holda private key bilan kod bir-biriga
+> mos kelmay qoladi va **hech qanday token** tekshiruvdan o'tmaydi.
 
 ## Yangi litsenziya (yoki uzaytirish) yasash
 

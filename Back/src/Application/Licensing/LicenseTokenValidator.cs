@@ -17,7 +17,7 @@ public static class LicenseTokenValidator
 {
     // SubjectPublicKeyInfo (DER) formatidagi RSA public key, Base64.
     // Generatsiya vositasi (tools/LicenseGen keygen) chiqargan qiymat bilan almashtiriladi.
-    private const string PublicKeyB64 = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAruCVLlmToiIqBlV/OjSyqxh9t9IBX31PaXYq2eyV2aqS2UsDHJxX3rqeaFy1P+vm6+DhUu03IFa3KjcIpST/WUlCRiHYwtA1bu0wmK/K2m96ZSGZeSPhbw9QfA87lQXEuZyHwmalhD67I0Dw76SclJS0kz72T1DoniYVRDWKh7gavGr18x4JiV1lyryZ5HTgxfCGGsu+eAxco17Mx72RXdjW+DVbeSSXNfXIsmID0yH+Lgyz/RTwMZrvCKpz3AdxjEMAvu24zfO131K2KMZZAb35AJ8hpgFAM0N3w8YotS6V6gHf+k8KGf+rH8/HY6iAbvyC8XuSzSinNHm9/stbkQIDAQAB";
+    private const string PublicKeyB64 = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAp79fG08qRRCD0A2rRonyTALVHIeFaqcxNT1o8+PBuVpigx7P/+HRmC//aLgKum3jM990FpP55SfVYoKNkkAl4xvuxspOe5R2yXJofqd4fohj75YorrbNhu2ZBSWfYTT41FhWkcXVSwrrQtf1O90ttpf9U4OqhcnuHw8NZfrf1fUw80UsS1dbX6l2WFpi7lWa2Z5mHVzc05EXTzUVrWxoCgE8Py7zrMBEHwcjERoTyttuXVMQRSYUXNl7QO2cpJTCRm8qS14AXXjcyH3l0ldtKvcAsScvMKGAhXqpafQ9askHnOXzk7zEJxRAZcHohNJuxGReye4Xkm/1A39soec51QIDAQAB";
 
     public static bool TryValidate(string? token, out LicensePayload? payload, out string error)
     {

@@ -37,5 +37,5 @@ Back/src/API/uploads/
 
 # Litsenziya maxfiy kaliti — HECH QAChON commit qilinmasin
 license-private.key
-**/license-private.key
+**/license-private*.key
 Back/tools/LicenseGen/token-*.txt
