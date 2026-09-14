@@ -11,16 +11,18 @@ namespace Application.Services.Impl;
 public class TechnicalDrawingService : ITechnicalDrawingService
 {
     private readonly DatabaseContext _context;
-    private readonly IAttachmentService _attachmentService;
     private readonly INotificationService _notificationService;
 
-    public TechnicalDrawingService(DatabaseContext context, IAttachmentService attachmentService, INotificationService notificationService)
+    public TechnicalDrawingService(DatabaseContext context, INotificationService notificationService)
     {
         _context = context;
-        _attachmentService = attachmentService;
         _notificationService = notificationService;
     }
 
+    // The grid is one list built from three independently ordered segments:
+    // empty placeholders first, then drafts, then everything else. Counting the
+    // segments up front lets every page slice be read straight from the database
+    // instead of materialising the whole table on each request.
     public async Task<ApiResult<PagedResult<TechnicalDrawingRowDto>>> GetPagedAsync(
         Guid currentUserId,
         bool viewAll,
@@ -32,16 +34,14 @@ public class TechnicalDrawingService : ITechnicalDrawingService
     {
         var lower = string.IsNullOrWhiteSpace(search) ? null : search.Trim().ToLower();
 
-        // ── 1. Drawings ────────────────────────────────────────────────────
-        var drawings = new List<TechnicalDrawing>();
+        // ── 1. Drawing segments ────────────────────────────────────────────
+        var draftCount = 0;
+        var otherCount = 0;
+        IQueryable<TechnicalDrawing>? drawingsQuery = null;
+
         if (onlyMissing != true)
         {
-            var drawingsQuery = _context.TechnicalDrawings
-                .Include(d => d.Contract)
-                .Include(d => d.ContractProduct)
-                .Include(d => d.Creator)
-                .AsNoTracking()
-                .AsQueryable();
+            drawingsQuery = _context.TechnicalDrawings.AsNoTracking();
 
             if (!viewAll)
             {
@@ -70,20 +70,23 @@ public class TechnicalDrawingService : ITechnicalDrawingService
                     (d.ContractProduct != null && d.ContractProduct.ProductType.ToLower().Contains(lower)));
             }
 
-            drawings = await drawingsQuery.ToListAsync();
+            var buckets = await drawingsQuery
+                .GroupBy(d => d.Status == DrawingStatus.Draft)
+                .Select(g => new { IsDraft = g.Key, Count = g.Count() })
+                .ToListAsync();
+
+            draftCount = buckets.FirstOrDefault(b => b.IsDraft)?.Count ?? 0;
+            otherCount = buckets.FirstOrDefault(b => !b.IsDraft)?.Count ?? 0;
         }
 
-        // ── 2. Empty placeholder rows ──────────────────────────────────────
+        // ── 2. Empty placeholder segment ───────────────────────────────────
         // Only meaningful for active contracts; skipped when filtering by a real status.
-        var emptyRows = new List<TechnicalDrawingEmptyRowDto>();
-        var includeEmpty = (isActive != false) && (!status.HasValue || onlyMissing == true);
-        if (includeEmpty)
+        var emptyCount = 0;
+        IQueryable<TechnicalDrawingEmptyRowDto>? emptyQuery = null;
+
+        if (isActive != false && (!status.HasValue || onlyMissing == true))
         {
-            var contractsQuery = _context.Contracts
-                .Include(c => c.Products)
-                .Where(c => c.IsActive)
-                .AsNoTracking()
-                .AsQueryable();
+            var contractsQuery = _context.Contracts.AsNoTracking().Where(c => c.IsActive);
 
             if (!viewAll)
             {
@@ -96,100 +99,143 @@ public class TechnicalDrawingService : ITechnicalDrawingService
                         _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == pd.DepartmentId))));
             }
 
-            var contracts = await contractsQuery.ToListAsync();
+            // One row per product that still lacks an active drawing. Rooted at
+            // the products table rather than walking the contract's collection —
+            // that keeps it a plain anti-join instead of a lateral nested loop.
+            var productsQuery = _context.ContractProducts.AsNoTracking()
+                .Where(p => p.Contract!.IsActive);
 
-            var contractIds = contracts.Select(c => c.Id).ToList();
-            var existingDrawingKeys = await _context.TechnicalDrawings
-                .Where(d => d.IsActive && contractIds.Contains(d.ContractId))
-                .Select(d => new { d.ContractId, d.ContractProductId })
-                .ToListAsync();
+            if (!viewAll)
+                productsQuery = productsQuery.Where(p => contractsQuery.Select(c => c.Id).Contains(p.ContractId));
 
-            foreach (var c in contracts)
-            {
-                var contractDrawings = existingDrawingKeys.Where(d => d.ContractId == c.Id).ToList();
-                var usedProductIds = contractDrawings
-                    .Where(d => d.ContractProductId.HasValue)
-                    .Select(d => d.ContractProductId!.Value)
-                    .ToHashSet();
-
-                if (c.Products.Count > 0)
+            var productRows = productsQuery
+                .Where(p => !_context.TechnicalDrawings.Any(d => d.IsActive && d.ContractProductId == p.Id))
+                .Select(p => new TechnicalDrawingEmptyRowDto
                 {
-                    foreach (var p in c.Products)
-                    {
-                        if (!usedProductIds.Contains(p.Id))
-                        {
-                            emptyRows.Add(new TechnicalDrawingEmptyRowDto
-                            {
-                                ContractId = c.Id,
-                                ContractNo = c.ContractNo,
-                                ProductId = p.Id,
-                                ProductType = p.ProductType,
-                                Quantity = p.Quantity,
-                                Unit = p.Unit,
-                            });
-                        }
-                    }
-                }
-                else if (contractDrawings.Count == 0)
+                    ContractId = p.ContractId,
+                    ContractNo = p.Contract!.ContractNo,
+                    ProductId = p.Id,
+                    ProductType = p.ProductType,
+                    Quantity = p.Quantity,
+                    Unit = p.Unit,
+                });
+
+            // …plus a single contract-level row for product-less contracts.
+            var contractRows = contractsQuery
+                .Where(c => !c.Products.Any() &&
+                            !_context.TechnicalDrawings.Any(d => d.IsActive && d.ContractId == c.Id))
+                .Select(c => new TechnicalDrawingEmptyRowDto
                 {
-                    emptyRows.Add(new TechnicalDrawingEmptyRowDto
-                    {
-                        ContractId = c.Id,
-                        ContractNo = c.ContractNo,
-                        ProductId = null,
-                        ProductType = null,
-                        Quantity = null,
-                        Unit = null,
-                    });
-                }
-            }
+                    ContractId = c.Id,
+                    ContractNo = c.ContractNo,
+                    ProductId = null,
+                    ProductType = null,
+                    Quantity = null,
+                    Unit = null,
+                });
+
+            emptyQuery = productRows.Concat(contractRows);
 
             if (lower != null)
             {
-                emptyRows = emptyRows.Where(e =>
+                emptyQuery = emptyQuery.Where(e =>
                     e.ContractNo.ToLower().Contains(lower) ||
-                    (e.ProductType != null && e.ProductType.ToLower().Contains(lower))
-                ).ToList();
+                    (e.ProductType != null && e.ProductType.ToLower().Contains(lower)));
             }
+
+            emptyCount = await emptyQuery.CountAsync();
         }
 
-        // ── 3. Combine, sort, paginate ─────────────────────────────────────
-        var rows = new List<TechnicalDrawingRowDto>();
+        // ── 3. Slice the requested page across the segments ────────────────
+        var page = pagination.Page < 1 ? 1 : pagination.Page;
+        var remainingSkip = (page - 1) * pagination.PageSize;
+        var remainingTake = pagination.PageSize;
 
-        rows.AddRange(emptyRows.Select(e => new TechnicalDrawingRowDto
+        (int Skip, int Take) NextSlice(int segmentCount)
         {
-            Kind = TechnicalDrawingRowKind.Empty,
-            Empty = e,
-        }));
+            if (remainingTake <= 0 || segmentCount <= 0)
+                return (0, 0);
+            if (remainingSkip >= segmentCount)
+            {
+                remainingSkip -= segmentCount;
+                return (0, 0);
+            }
 
-        rows.AddRange(drawings.Select(d => new TechnicalDrawingRowDto
+            var skip = remainingSkip;
+            var take = Math.Min(remainingTake, segmentCount - skip);
+            remainingSkip = 0;
+            remainingTake -= take;
+            return (skip, take);
+        }
+
+        var emptySlice = NextSlice(emptyCount);
+        var draftSlice = NextSlice(draftCount);
+        var otherSlice = NextSlice(otherCount);
+
+        var rows = new List<TechnicalDrawingRowDto>(pagination.PageSize);
+
+        if (emptySlice.Take > 0)
         {
-            Kind = TechnicalDrawingRowKind.Drawing,
-            Drawing = MapToResponse(d),
-        }));
+            var emptyRows = await emptyQuery!
+                .OrderBy(e => e.ContractNo)
+                .ThenBy(e => e.ProductType)
+                .ThenBy(e => e.ProductId)
+                .Skip(emptySlice.Skip)
+                .Take(emptySlice.Take)
+                .ToListAsync();
 
-        // Empty first, then drafts, then everything else (newest first within each rank).
-        rows = rows
-            .OrderBy(r => r.Kind == TechnicalDrawingRowKind.Empty
-                ? 0
-                : r.Drawing!.Status == DrawingStatus.Draft ? 1 : 2)
-            .ThenByDescending(r => r.Drawing?.CreatedAt ?? DateTime.MinValue)
-            .ToList();
+            rows.AddRange(emptyRows.Select(e => new TechnicalDrawingRowDto
+            {
+                Kind = TechnicalDrawingRowKind.Empty,
+                Empty = e,
+            }));
+        }
 
-        var totalCount = rows.Count;
-        var pageItems = rows
-            .Skip((pagination.Page - 1) * pagination.PageSize)
-            .Take(pagination.PageSize)
-            .ToList();
+        if (draftSlice.Take > 0)
+            rows.AddRange(await FetchDrawingsAsync(drawingsQuery!.Where(d => d.Status == DrawingStatus.Draft), draftSlice));
 
-        var paged = PagedResult<TechnicalDrawingRowDto>.Create(pageItems, totalCount, pagination);
+        if (otherSlice.Take > 0)
+            rows.AddRange(await FetchDrawingsAsync(drawingsQuery!.Where(d => d.Status != DrawingStatus.Draft), otherSlice));
+
+        var paged = PagedResult<TechnicalDrawingRowDto>.Create(rows, emptyCount + draftCount + otherCount, pagination);
         return ApiResult<PagedResult<TechnicalDrawingRowDto>>.Success(paged);
     }
 
+    // Newest first, with Id as tiebreaker so page boundaries stay stable.
+    private static async Task<List<TechnicalDrawingRowDto>> FetchDrawingsAsync(
+        IQueryable<TechnicalDrawing> query, (int Skip, int Take) slice)
+        => await query
+            .OrderByDescending(d => d.CreatedAt)
+            .ThenByDescending(d => d.Id)
+            .Skip(slice.Skip)
+            .Take(slice.Take)
+            .Select(d => new TechnicalDrawingRowDto
+            {
+                Kind = TechnicalDrawingRowKind.Drawing,
+                Drawing = new TechnicalDrawingResponseDto
+                {
+                    Id = d.Id,
+                    ContractId = d.ContractId,
+                    ContractNo = d.Contract != null ? d.Contract.ContractNo : "",
+                    ContractProductId = d.ContractProductId,
+                    ProductType = d.ContractProduct != null ? d.ContractProduct.ProductType : null,
+                    Title = d.Title,
+                    Notes = d.Notes,
+                    Status = d.Status,
+                    CreatedByFullName = d.Creator != null ? d.Creator.FirstName + " " + d.Creator.LastName : null,
+                    CreatedAt = d.CreatedAt,
+                    IsActive = d.IsActive,
+                },
+            })
+            .ToListAsync();
+
     public async Task<ApiResult<Guid>> CreateAsync(TechnicalDrawingCreateDto dto, Guid createdBy)
     {
-        var contract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == dto.ContractId);
-        if (contract is null)
+        var contractNo = await _context.Contracts
+            .Where(c => c.Id == dto.ContractId)
+            .Select(c => c.ContractNo)
+            .FirstOrDefaultAsync();
+        if (contractNo is null)
             return ApiResult<Guid>.Failure([$"Shartnoma '{dto.ContractId}' topilmadi."]);
 
         if (dto.ContractProductId.HasValue)
@@ -223,10 +269,10 @@ public class TechnicalDrawingService : ITechnicalDrawingService
 
         await _notificationService.NotifyUsersAndSuperAdminsAsync(
             deptUserIds,
-            $"Yangi texnik chizma yuklandi: {contract.ContractNo}",
-            $"«{contract.ContractNo}» shartnomasi uchun «{drawing.Title}» texnik chizmasi yuklandi.",
+            $"Yangi texnik chizma yuklandi: {contractNo}",
+            $"«{contractNo}» shartnomasi uchun «{drawing.Title}» texnik chizmasi yuklandi.",
             NotificationType.Info,
-            contract.Id);
+            dto.ContractId);
 
         return ApiResult<Guid>.Success(drawing.Id, 201);
     }
@@ -270,8 +316,9 @@ public class TechnicalDrawingService : ITechnicalDrawingService
 
         drawing.Status = status;
 
-        var contractMoved = false;
-        if (status == DrawingStatus.Approved && drawing.Contract is not null)
+        var approved = status == DrawingStatus.Approved && drawing.Contract is not null;
+
+        if (approved)
         {
             // Per-product flow: lift the specific product (or every product
             // when the drawing is contract-level legacy) past DrawingPending.
@@ -294,57 +341,30 @@ public class TechnicalDrawingService : ITechnicalDrawingService
 
         await _context.SaveChangesAsync();
 
-        if (status == DrawingStatus.Approved && drawing.Contract is not null)
-        {
-            var prevStatus = drawing.Contract.Status;
-            await ContractStatusHelper.RecomputeContractStatusAsync(_context, drawing.ContractId);
-            await _context.SaveChangesAsync();
-            contractMoved = drawing.Contract.Status != prevStatus;
-        }
+        if (!approved)
+            return ApiResult<int>.Success(200);
 
-        if (drawing.Contract is not null)
-        {
-            var contractId = drawing.Contract.Id;
-            var contractNo = drawing.Contract.ContractNo;
+        var contractMoved = await ContractStatusHelper.RecomputeContractStatusAsync(_context, drawing.ContractId);
+        await _context.SaveChangesAsync();
 
-            var deptUserIds = await _context.Users
-                .Where(u => u.IsActive && _context.ContractDepartments
-                    .Any(cd => cd.ContractId == contractId && cd.DepartmentId == u.DepartmentId))
-                .Select(u => u.Id)
-                .ToListAsync();
+        var contractNo = drawing.Contract!.ContractNo;
 
-            var contractUserIds = await _context.ContractUsers
-                .Where(cu => cu.ContractId == contractId)
-                .Select(cu => cu.UserId)
-                .ToListAsync();
+        // Everyone tied to the contract — through a department or directly.
+        var recipientIds = await _context.Users
+            .Where(u => (u.IsActive && _context.ContractDepartments
+                            .Any(cd => cd.ContractId == drawing.ContractId && cd.DepartmentId == u.DepartmentId))
+                        || _context.ContractUsers
+                            .Any(cu => cu.ContractId == drawing.ContractId && cu.UserId == u.Id))
+            .Select(u => u.Id)
+            .ToListAsync();
 
-            var allUserIds = deptUserIds.Union(contractUserIds).Distinct();
+        var body = contractMoved
+            ? $"«{contractNo}» shartnomasi texnik chizmasi tasdiqlandi. Shartnoma holati «Tex jarayon tayyorlanmoqda» ga o'zgardi."
+            : $"«{contractNo}» shartnomasi uchun «{drawing.Title}» texnik chizmasi tasdiqlandi.";
 
-            if (status == DrawingStatus.Approved)
-            {
-                var body = contractMoved
-                    ? $"«{contractNo}» shartnomasi texnik chizmasi tasdiqlandi. Shartnoma holati «Tex jarayon tayyorlanmoqda» ga o'zgardi."
-                    : $"«{contractNo}» shartnomasi uchun «{drawing.Title}» texnik chizmasi tasdiqlandi.";
-                await _notificationService.NotifyUsersAndSuperAdminsAsync(
-                    allUserIds, $"Texnik chizma tasdiqlandi: {contractNo}", body, NotificationType.Task, contractId);
-            }
-        }
+        await _notificationService.NotifyUsersAndSuperAdminsAsync(
+            recipientIds, $"Texnik chizma tasdiqlandi: {contractNo}", body, NotificationType.Task, drawing.ContractId);
 
         return ApiResult<int>.Success(200);
     }
-
-    private static TechnicalDrawingResponseDto MapToResponse(TechnicalDrawing d) => new()
-    {
-        Id = d.Id,
-        ContractId = d.ContractId,
-        ContractNo = d.Contract?.ContractNo ?? "",
-        ContractProductId = d.ContractProductId,
-        ProductType = d.ContractProduct?.ProductType,
-        Title = d.Title,
-        Notes = d.Notes,
-        Status = d.Status,
-        CreatedByFullName = d.Creator is not null ? $"{d.Creator.FirstName} {d.Creator.LastName}" : null,
-        CreatedAt = d.CreatedAt,
-        IsActive = d.IsActive,
-    };
 }

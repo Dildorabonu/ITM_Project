@@ -24,20 +24,14 @@ public class RequisitionService : IRequisitionService
         _qrCodeService = qrCodeService;
     }
 
-    public async Task<ApiResult<IEnumerable<RequisitionResponseDto>>> GetAllAsync(
+    // Navbat ekranlari (ombor tekshiruvi, tasdiqlash, xarid qabuli) uchun.
+    // Entity grafi Include bilan tortilmaydi — SQL darajasidagi proyeksiya faqat
+    // ekranda ko'rinadigan ustunlarni oladi, QR base64 rasmlari va materialning
+    // spec/foto maydonlari umuman uzatilmaydi.
+    public async Task<ApiResult<IEnumerable<RequisitionQueueDto>>> GetAllAsync(
         Guid currentUserId, bool viewAll, RequisitionStatus? status = null)
     {
-        var query = _context.Requisitions
-            .Include(r => r.Creator)
-            .Include(r => r.Approver)
-            .Include(r => r.WarehouseChecker)
-            .Include(r => r.Contract)
-            .Include(r => r.Department)
-            .Include(r => r.Parent)
-            .Include(r => r.Children)
-            .Include(r => r.Items).ThenInclude(i => i.Material)
-            .AsNoTracking()
-            .AsQueryable();
+        var query = _context.Requisitions.AsNoTracking();
 
         if (!viewAll)
             query = query.Where(r => r.CreatedBy == currentUserId);
@@ -45,18 +39,44 @@ public class RequisitionService : IRequisitionService
         if (status.HasValue)
             query = query.Where(r => r.Status == status.Value);
 
-        var list = await query.OrderByDescending(r => r.CreatedAt).ToListAsync();
-        return ApiResult<IEnumerable<RequisitionResponseDto>>.Success(list.Select(MapToResponse));
+        var rows = await query
+            .OrderByDescending(r => r.CreatedAt)
+            .Select(r => new RequisitionQueueDto
+            {
+                Id = r.Id,
+                RequisitionNo = r.RequisitionNo,
+                Type = r.Type,
+                Status = r.Status,
+                Source = r.Source,
+                ContractNo = r.Contract != null ? r.Contract.ContractNo : null,
+                DepartmentName = r.Department != null ? r.Department.Name : null,
+                Purpose = r.Purpose,
+                CreatedByName = r.Creator != null ? r.Creator.FirstName + " " + r.Creator.LastName : string.Empty,
+                CreatedAt = r.CreatedAt,
+                WarehouseCheckedAt = r.WarehouseCheckedAt,
+                ApprovedAt = r.ApprovedAt,
+                Items = r.Items.Select(i => new RequisitionQueueItemDto
+                {
+                    Id = i.Id,
+                    MaterialName = i.Material != null ? i.Material.Name : (i.FreeTextName ?? string.Empty),
+                    Unit = i.Material != null ? i.Material.Unit : (i.FreeTextUnit ?? string.Empty),
+                    Quantity = i.Quantity,
+                    Notes = i.Notes
+                }).ToList()
+            })
+            .ToListAsync();
+
+        return ApiResult<IEnumerable<RequisitionQueueDto>>.Success(rows);
     }
 
     // Sidebar badge har 30 soniyada so'raydi — shuning uchun Include'siz, faqat COUNT.
-    // Filtr GetAllAsync bilan bir xil: badge raqami ombor tekshiruvi sahifasidagi
+    // Filtr GetAllAsync bilan bir xil: badge raqami tegishli navbat sahifasidagi
     // qatorlar soniga aynan mos tushishi kerak.
-    public async Task<ApiResult<int>> GetPendingWarehouseCheckCountAsync(Guid currentUserId, bool viewAll)
+    public async Task<ApiResult<int>> GetCountByStatusAsync(Guid currentUserId, bool viewAll, RequisitionStatus status)
     {
         var query = _context.Requisitions
             .AsNoTracking()
-            .Where(r => r.Status == RequisitionStatus.PendingWarehouseCheck);
+            .Where(r => r.Status == status);
 
         if (!viewAll)
             query = query.Where(r => r.CreatedBy == currentUserId);
@@ -68,20 +88,12 @@ public class RequisitionService : IRequisitionService
     // sahifalanmaydi — ro'yxat qisqa bo'lishi shart.
     private const int RecentCompletedLimit = 10;
 
-    public async Task<ApiResult<IEnumerable<RequisitionResponseDto>>> GetRecentCompletedAsync(
+    public async Task<ApiResult<IEnumerable<RequisitionListDto>>> GetRecentCompletedAsync(
         Guid currentUserId, bool viewAll, int days)
     {
         var since = DateTime.UtcNow.AddDays(-Math.Clamp(days, 1, 90));
 
         var query = _context.Requisitions
-            .Include(r => r.Creator)
-            .Include(r => r.Approver)
-            .Include(r => r.WarehouseChecker)
-            .Include(r => r.Contract)
-            .Include(r => r.Department)
-            .Include(r => r.Parent)
-            .Include(r => r.Children)
-            .Include(r => r.Items).ThenInclude(i => i.Material)
             .AsNoTracking()
             .Where(r => r.ParentRequisitionId == null);
 
@@ -93,14 +105,15 @@ public class RequisitionService : IRequisitionService
               && r.Children.Max(c => c.CompletedAt) >= since
             : FulfilledStatuses.Contains(r.Status) && r.CompletedAt >= since);
 
-        var items = await query
+        var rows = await query
             .OrderByDescending(r => r.Children.Any()
                 ? r.Children.Max(c => c.CompletedAt)
                 : r.CompletedAt)
             .Take(RecentCompletedLimit)
+            .Select(ListProjection)
             .ToListAsync();
 
-        return ApiResult<IEnumerable<RequisitionResponseDto>>.Success(items.Select(MapToResponse));
+        return ApiResult<IEnumerable<RequisitionListDto>>.Success(rows);
     }
 
     // Talabnoma REAL bajarilgan hisoblanadigan holatlar: material bo'lim omboriga
@@ -116,7 +129,7 @@ public class RequisitionService : IRequisitionService
         RequisitionStatus.Rejected,
     ];
 
-    public async Task<ApiResult<PagedResult<RequisitionResponseDto>>> GetPagedAsync(
+    public async Task<ApiResult<PagedResult<RequisitionListDto>>> GetPagedAsync(
         Guid currentUserId,
         bool viewAll,
         PaginationParams pagination,
@@ -126,14 +139,6 @@ public class RequisitionService : IRequisitionService
         bool? rejected = null)
     {
         var query = _context.Requisitions
-            .Include(r => r.Creator)
-            .Include(r => r.Approver)
-            .Include(r => r.WarehouseChecker)
-            .Include(r => r.Contract)
-            .Include(r => r.Department)
-            .Include(r => r.Parent)
-            .Include(r => r.Children)
-            .Include(r => r.Items).ThenInclude(i => i.Material)
             .AsNoTracking()
             .Where(r => r.ParentRequisitionId == null);
 
@@ -219,22 +224,92 @@ public class RequisitionService : IRequisitionService
                 .OrderBy(r => r.Status == RequisitionStatus.PendingWarehouseCheck ? 1 : 2)
                 .ThenByDescending(r => r.CreatedAt);
 
-        var items = await ordered
+        var rows = await ordered
             .Skip((pagination.Page - 1) * pagination.PageSize)
             .Take(pagination.PageSize)
+            .Select(ListProjection)
             .ToListAsync();
 
-        var paged = PagedResult<RequisitionResponseDto>.Create(items.Select(MapToResponse), totalCount, pagination);
-        return ApiResult<PagedResult<RequisitionResponseDto>>.Success(paged);
+        return ApiResult<PagedResult<RequisitionListDto>>.Success(
+            PagedResult<RequisitionListDto>.Create(rows, totalCount, pagination));
     }
 
     public async Task<ApiResult<RequisitionResponseDto>> GetByIdAsync(Guid id)
     {
-        var r = await GetWithIncludes(id);
-        if (r is null)
+        // Detal — QR imzolari, materiallar va childlar faqat shu yerda uzatiladi.
+        // Include o'rniga proyeksiya: User/Contract/Department entitylari butunlay
+        // materializatsiya qilinmaydi, childlarning material soni esa SQL COUNT bilan olinadi
+        // (ilgari child.Items yuklanmagani uchun bu raqam doim 0 chiqardi).
+        var dto = await _context.Requisitions
+            .AsNoTracking()
+            .Where(r => r.Id == id)
+            .Select(r => new RequisitionResponseDto
+            {
+                Id = r.Id,
+                RequisitionNo = r.RequisitionNo,
+                Type = r.Type,
+                Status = r.Status,
+                ContractNo = r.Contract != null ? r.Contract.ContractNo : null,
+                DepartmentName = r.Department != null ? r.Department.Name : null,
+                Purpose = r.Purpose,
+                Notes = r.Notes,
+                RejectionReason = r.RejectionReason,
+                SignerName = r.SignerName,
+                SignerTitle = r.SignerTitle,
+                SignDate = r.SignDate,
+                ParentRequisitionId = r.ParentRequisitionId,
+                ParentRequisitionNo = r.Parent != null ? r.Parent.RequisitionNo : null,
+                Source = r.Source,
+                Children = r.Children.Select(c => new RequisitionChildSummaryDto
+                {
+                    Id = c.Id,
+                    RequisitionNo = c.RequisitionNo,
+                    Status = c.Status,
+                    Source = c.Source ?? RequisitionSource.Warehouse,
+                    ItemCount = c.Items.Count
+                }).ToList(),
+                WarehouseCheckedByName = r.WarehouseChecker != null
+                    ? r.WarehouseChecker.FirstName + " " + r.WarehouseChecker.LastName
+                    : null,
+                WarehouseCheckedAt = r.WarehouseCheckedAt,
+                WarehouseCheckQrCodeData = r.WarehouseCheckQrCodeData,
+                ApprovedByName = r.Approver != null
+                    ? r.Approver.FirstName + " " + r.Approver.LastName
+                    : null,
+                ApprovedAt = r.ApprovedAt,
+                QrCodeData = r.QrCodeData,
+                CompletedAt = r.Children.Any() ? r.Children.Max(c => c.CompletedAt) : r.CompletedAt,
+                CreatedByName = r.Creator != null ? r.Creator.FirstName + " " + r.Creator.LastName : string.Empty,
+                CreatedAt = r.CreatedAt,
+                Items = r.Items.Select(i => new RequisitionItemResponseDto
+                {
+                    Id = i.Id,
+                    MaterialName = i.Material != null ? i.Material.Name : (i.FreeTextName ?? string.Empty),
+                    Unit = i.Material != null ? i.Material.Unit : (i.FreeTextUnit ?? string.Empty),
+                    FreeTextSpec = i.FreeTextSpec,
+                    FreeTextPhoto = i.FreeTextPhoto,
+                    Quantity = i.Quantity,
+                    Notes = i.Notes,
+                    AvailableQuantity = i.AvailableQuantity,
+                    WarehouseNotes = i.WarehouseNotes,
+                    OriginalQuantity = i.OriginalQuantity
+                }).ToList()
+            })
+            .FirstOrDefaultAsync();
+
+        if (dto is null)
             return ApiResult<RequisitionResponseDto>.Failure([$"Requisition '{id}' topilmadi."], 404);
 
-        return ApiResult<RequisitionResponseDto>.Success(MapToResponse(r));
+        dto.TypeLabel = TypeLabel(dto.Type);
+        dto.StatusLabel = StatusLabel(dto.Status);
+        dto.SourceLabel = dto.Source.HasValue ? SourceLabel(dto.Source.Value) : null;
+        foreach (var child in dto.Children)
+        {
+            child.StatusLabel = StatusLabel(child.Status);
+            child.SourceLabel = SourceLabel(child.Source);
+        }
+
+        return ApiResult<RequisitionResponseDto>.Success(dto);
     }
 
     public async Task<ApiResult<Guid>> CreateAsync(RequisitionCreateDto dto, Guid createdBy)
@@ -259,9 +334,12 @@ public class RequisitionService : IRequisitionService
         // Talabnomani faqat o'sha bo'lim xodimi yaratadi: bo'limga biriktirilmagan
         // foydalanuvchi (jumladan superadmin) yarata olmaydi, bo'lim ko'rsatilgan
         // bo'lsa u yaratuvchining o'z bo'limi bo'lishi shart.
+        // Butun User entitysi emas, faqat bo'lim biriktirmasi o'qiladi.
         var creator = await _context.Users
             .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Id == createdBy);
+            .Where(u => u.Id == createdBy)
+            .Select(u => new { Exists = true, u.DepartmentId })
+            .FirstOrDefaultAsync();
         if (creator is null)
             return ApiResult<Guid>.Failure(["Foydalanuvchi topilmadi."], 404);
         if (creator.DepartmentId is null)
@@ -396,11 +474,17 @@ public class RequisitionService : IRequisitionService
     // me'yorda faqat yaratuvchi bo'limining qatorlari; miqdor = TotalQty × mahsulot soni.
     private async Task<string?> ValidateItemsAgainstCostNormAsync(RequisitionCreateDto dto, Guid creatorDeptId)
     {
+        // Taqqoslashda me'yorning faqat 5 ta ustuni ishlatiladi — butun CostNorm va
+        // CostNormItem entitylarini (ContractProduct grafi bilan birga) tortish o'rniga
+        // shularning o'zi o'qiladi.
         var norms = await _context.CostNorms
-            .Include(n => n.ContractProduct)
-            .Include(n => n.Items)
             .AsNoTracking()
             .Where(n => n.ContractId == dto.ContractId!.Value)
+            .Select(n => new NormShape(
+                n.ContractProduct != null && n.ContractProduct.Quantity > 0 ? n.ContractProduct.Quantity : 1,
+                n.Items.Where(i => !i.IsSection)
+                    .Select(i => new NormLine(i.Name, i.No, i.Unit, i.TotalQty, i.DepartmentId))
+                    .ToList()))
             .ToListAsync();
 
         if (norms.Count == 0)
@@ -412,12 +496,16 @@ public class RequisitionService : IRequisitionService
         return "Talabnoma materiallari shartnoma me'yoriy sarfiga mos emas — materiallar me'yoriy sarfdan o'zgartirilmasdan olinishi kerak.";
     }
 
-    private static bool MatchesNorm(CostNorm norm, List<RequisitionItemCreateDto> items, Guid creatorDeptId)
+    // Me'yoriy sarfni taqqoslash uchun kerakli minimal shakl.
+    private sealed record NormLine(string? Name, string? No, string? Unit, string? TotalQty, Guid? DepartmentId);
+    private sealed record NormShape(int ContractQty, List<NormLine> Lines);
+
+    private static bool MatchesNorm(NormShape norm, List<RequisitionItemCreateDto> items, Guid creatorDeptId)
     {
         // Frontend row.name = name ?? no bo'yicha to'ldiradi va bo'sh nomli qatorlarni
         // saqlamaydi — shuning uchun shu ko'rinishda bo'sh bo'lmagan qatorlargina olinadi.
-        var lines = norm.Items
-            .Where(i => !i.IsSection && !string.IsNullOrWhiteSpace(i.Name ?? i.No))
+        var lines = norm.Lines
+            .Where(i => !string.IsNullOrWhiteSpace(i.Name ?? i.No))
             .ToList();
 
         if (lines.Any(l => l.DepartmentId != null))
@@ -426,18 +514,17 @@ public class RequisitionService : IRequisitionService
         if (lines.Count == 0 || lines.Count != items.Count)
             return false;
 
-        var contractQty = norm.ContractProduct?.Quantity > 0 ? norm.ContractProduct.Quantity : 1;
-        var pool = new List<CostNormItem>(lines);
+        var pool = new List<NormLine>(lines);
         foreach (var item in items)
         {
-            var idx = pool.FindIndex(l => LineMatchesItem(l, item, contractQty));
+            var idx = pool.FindIndex(l => LineMatchesItem(l, item, norm.ContractQty));
             if (idx < 0) return false;
             pool.RemoveAt(idx);
         }
         return true;
     }
 
-    private static bool LineMatchesItem(CostNormItem line, RequisitionItemCreateDto item, int contractQty)
+    private static bool LineMatchesItem(NormLine line, RequisitionItemCreateDto item, int contractQty)
     {
         var lineName = (line.Name ?? line.No ?? "").Trim();
         var itemName = (item.FreeTextName ?? "").Trim();
@@ -482,9 +569,12 @@ public class RequisitionService : IRequisitionService
         if (checker is null)
             return ApiResult<List<Guid>>.Failure(["Omborchi topilmadi."], 404);
 
-        var warehouseDept = await _context.Departments
-            .FirstOrDefaultAsync(d => d.Type == DepartmentType.Omborxona && d.IsActive);
-        if (warehouseDept is null)
+        // Bo'limdan faqat Id kerak — butun entity o'qilmaydi.
+        var warehouseDeptId = await _context.Departments
+            .Where(d => d.Type == DepartmentType.Omborxona && d.IsActive)
+            .Select(d => d.Id)
+            .FirstOrDefaultAsync();
+        if (warehouseDeptId == Guid.Empty)
             return ApiResult<List<Guid>>.Failure(["Omborxona bo'limi sozlanmagan."]);
 
         var checkMap = dto.Items.ToDictionary(i => i.ItemId);
@@ -511,7 +601,7 @@ public class RequisitionService : IRequisitionService
         {
             var nameList = neededNames.ToList();
             var warehouseProducts = await _context.Products
-                .Where(p => p.DepartmentId == warehouseDept.Id && nameList.Contains(p.Name.ToLower()))
+                .Where(p => p.DepartmentId == warehouseDeptId && nameList.Contains(p.Name.ToLower()))
                 .ToListAsync();
 
             foreach (var p in warehouseProducts)
@@ -564,7 +654,7 @@ public class RequisitionService : IRequisitionService
 
             // Ledger: ombor tekshiruvida markaziy ombor mahsuloti rezervga olindi
             AddMovement(StockMovementType.Reserve, product, delta, null,
-                null, warehouseDept.Id, r.Id, r.ContractId, checkerId,
+                null, warehouseDeptId, r.Id, r.ContractId, checkerId,
                 $"Ombor tekshiruvi: {r.RequisitionNo}");
         }
 
@@ -699,7 +789,9 @@ public class RequisitionService : IRequisitionService
 
     public async Task<ApiResult<bool>> ApproveAsync(Guid id, Guid directorId)
     {
-        var r = await GetWithIncludes(id);
+        // Tasdiqlash faqat status/source/CreatedBy ni o'qiydi — materiallar ham, bog'liq
+        // entitylar ham kerak emas, shuning uchun bitta qator olinadi.
+        var r = await _context.Requisitions.FirstOrDefaultAsync(x => x.Id == id);
         if (r is null)
             return ApiResult<bool>.Failure([$"Requisition '{id}' topilmadi."], 404);
 
@@ -745,11 +837,22 @@ public class RequisitionService : IRequisitionService
         // Warehouse manbali child rad etilsa, omborchi qo'ygan rezervlarni qaytarish
         if (r.Source == RequisitionSource.Warehouse)
         {
+            // Zaxiralangan Productlar bitta so'rovda olinadi — ilgari har bir item
+            // uchun alohida SELECT ketardi.
+            var reservedIds = r.Items
+                .Where(i => i.ReservedProductId.HasValue)
+                .Select(i => i.ReservedProductId!.Value)
+                .Distinct()
+                .ToList();
+            var reservedProducts = reservedIds.Count > 0
+                ? (await _context.Products.Where(p => reservedIds.Contains(p.Id)).ToListAsync())
+                    .ToDictionary(p => p.Id)
+                : [];
+
             foreach (var item in r.Items)
             {
                 if (!item.ReservedProductId.HasValue) continue;
-                var product = await _context.Products.FindAsync(item.ReservedProductId.Value);
-                if (product is null) continue;
+                if (!reservedProducts.TryGetValue(item.ReservedProductId.Value, out var product)) continue;
                 var released = Math.Min(item.Quantity, product.ReservedQuantity);
                 product.ReservedQuantity -= released;
 
@@ -781,7 +884,7 @@ public class RequisitionService : IRequisitionService
 
     public async Task<ApiResult<bool>> ReleaseAsync(Guid id, Guid releaserId)
     {
-        var r = await GetWithIncludes(id);
+        var r = await GetWithItems(id);
         if (r is null)
             return ApiResult<bool>.Failure([$"Requisition '{id}' topilmadi."], 404);
 
@@ -796,9 +899,20 @@ public class RequisitionService : IRequisitionService
         if (!await _context.Departments.AnyAsync(d => d.Id == targetDeptId))
             return ApiResult<bool>.Failure(["Maqsadli bo'lim topilmadi."]);
 
-        // Mavjud Productlarni bir martada yuklab olish (upsert uchun)
+        // Upsert uchun faqat shu talabnomaga tegishli nomzod Productlar olinadi:
+        // katalog itemlari MaterialId, erkin matnli itemlar normalize(nom) bo'yicha
+        // qidiriladi. Ilgari bo'lim omboridagi BARCHA mahsulotlar yuklanardi —
+        // katta omborda bu har bir chiqarishda minglab qatorni xotiraga tortardi.
+        var itemMaterialIds = r.Items.Where(i => i.MaterialId.HasValue)
+            .Select(i => i.MaterialId!.Value).Distinct().ToList();
+        var itemNormalizedNames = r.Items.Where(i => !i.MaterialId.HasValue)
+            .Select(i => TextNormalizer.Normalize(i.FreeTextName ?? "Noma'lum mahsulot"))
+            .Distinct().ToList();
+
         var existingProducts = await _context.Products
-            .Where(p => p.DepartmentId == targetDeptId)
+            .Where(p => p.DepartmentId == targetDeptId
+                && ((p.MaterialId != null && itemMaterialIds.Contains(p.MaterialId.Value))
+                    || itemNormalizedNames.Contains(p.NameNormalized)))
             .ToListAsync();
 
         // Korxona omborxonasidagi muzlatilgan Productlarni oldindan yuklab olish
@@ -945,21 +1059,38 @@ public class RequisitionService : IRequisitionService
 
     public async Task<ApiResult<bool>> ReceivePurchaseAsync(Guid id, Guid receiverId)
     {
-        var r = await GetWithIncludes(id);
+        var r = await GetWithItems(id);
         if (r is null)
             return ApiResult<bool>.Failure([$"Requisition '{id}' topilmadi."], 404);
 
         if (r.Status != RequisitionStatus.ReadyForPurchase || r.Source != RequisitionSource.Purchase)
             return ApiResult<bool>.Failure(["Faqat sotib olishga tasdiqlangan (xarid) talabnomani omborga qabul qilish mumkin."]);
 
-        var warehouseDept = await _context.Departments
-            .FirstOrDefaultAsync(d => d.Type == DepartmentType.Omborxona && d.IsActive);
-        if (warehouseDept is null)
+        // Bo'limdan faqat Id kerak — butun entity o'qilmaydi.
+        var warehouseDeptId = await _context.Departments
+            .Where(d => d.Type == DepartmentType.Omborxona && d.IsActive)
+            .Select(d => d.Id)
+            .FirstOrDefaultAsync();
+        if (warehouseDeptId == Guid.Empty)
             return ApiResult<bool>.Failure(["Omborxona bo'limi sozlanmagan."]);
 
-        // Markaziy ombordagi mavjud Productlarni upsert uchun oldindan yuklab olish
+        // Upsert uchun faqat nomzod Productlar: quyidagi qidiruv kalitlarining
+        // birortasiga mos keladiganlar (MaterialId / normalize(nom) / aniq nom).
+        // Ilgari markaziy ombordagi BARCHA mahsulotlar xotiraga tortilardi.
+        var itemMaterialIds = r.Items.Where(i => i.MaterialId.HasValue)
+            .Select(i => i.MaterialId!.Value).Distinct().ToList();
+        var itemNames = r.Items
+            .Select(i => i.MaterialId.HasValue && i.Material is not null
+                ? i.Material.Name
+                : i.FreeTextName ?? "Noma'lum mahsulot")
+            .Distinct().ToList();
+        var itemNormalizedNames = itemNames.Select(TextNormalizer.Normalize).Distinct().ToList();
+
         var warehouseProducts = await _context.Products
-            .Where(p => p.DepartmentId == warehouseDept.Id)
+            .Where(p => p.DepartmentId == warehouseDeptId
+                && ((p.MaterialId != null && itemMaterialIds.Contains(p.MaterialId.Value))
+                    || itemNormalizedNames.Contains(p.NameNormalized)
+                    || itemNames.Contains(p.Name)))
             .ToListAsync();
 
         var noteBase = string.IsNullOrWhiteSpace(r.Purpose)
@@ -1044,7 +1175,7 @@ public class RequisitionService : IRequisitionService
                     Description = item.Notes,
                     Quantity = qty,
                     Unit = unit,
-                    DepartmentId = warehouseDept.Id,
+                    DepartmentId = warehouseDeptId,
                     MaterialId = item.MaterialId,
                     CreatedAt = DateTime.UtcNow
                 };
@@ -1058,9 +1189,9 @@ public class RequisitionService : IRequisitionService
 
             // Ledger: omborga kirim + rezerv (FreeText itemlar ham shu yerda iz qoldiradi)
             AddMovement(StockMovementType.In, target, qty, item.MaterialId,
-                null, warehouseDept.Id, r.Id, r.ContractId, receiverId, noteBase);
+                null, warehouseDeptId, r.Id, r.ContractId, receiverId, noteBase);
             AddMovement(StockMovementType.Reserve, target, qty, item.MaterialId,
-                null, warehouseDept.Id, r.Id, r.ContractId, receiverId, noteBase);
+                null, warehouseDeptId, r.Id, r.ContractId, receiverId, noteBase);
         }
 
         // Endi ombordan berishga tayyor: mavjud Release oqimiga qo'shiladi
@@ -1123,15 +1254,11 @@ public class RequisitionService : IRequisitionService
 
     // ─── Yordamchi metodlar ───────────────────────────────────────────────────
 
-    private async Task<Requisition?> GetWithIncludes(Guid id) =>
+    // Holatni o'zgartiruvchi oqimlar uchun: talabnoma + materiallari (Material
+    // navigatsiyasi Release/ReceivePurchase'da qoldiqni o'zgartirish uchun kerak).
+    // Creator/Approver/Contract/Department/Parent/Children grafi bu yerda ishlatilmaydi.
+    private async Task<Requisition?> GetWithItems(Guid id) =>
         await _context.Requisitions
-            .Include(r => r.Creator)
-            .Include(r => r.Approver)
-            .Include(r => r.WarehouseChecker)
-            .Include(r => r.Contract)
-            .Include(r => r.Department)
-            .Include(r => r.Parent)
-            .Include(r => r.Children)
             .Include(r => r.Items).ThenInclude(i => i.Material)
             .FirstOrDefaultAsync(r => r.Id == id);
 
@@ -1235,63 +1362,29 @@ public class RequisitionService : IRequisitionService
         _                           => s.ToString()
     };
 
-    private static RequisitionResponseDto MapToResponse(Requisition r) => new()
+    private static string TypeLabel(RequisitionType t) => t switch
     {
-        Id = r.Id,
-        RequisitionNo = r.RequisitionNo,
-        Type = r.Type,
-        TypeLabel = r.Type switch
-        {
-            RequisitionType.Contract   => "Shartnoma bo'yicha",
-            RequisitionType.Individual => "Individual",
-            _                          => r.Type.ToString()
-        },
-        Status = r.Status,
-        StatusLabel = StatusLabel(r.Status),
-        ContractId = r.ContractId,
-        ContractNo = r.Contract?.ContractNo,
-        DepartmentName = r.Department?.Name,
-        Purpose = r.Purpose,
-        Notes = r.Notes,
-        RejectionReason = r.RejectionReason,
-        SignerName = r.SignerName,
-        SignerTitle = r.SignerTitle,
-        SignDate = r.SignDate,
-        ParentRequisitionId = r.ParentRequisitionId,
-        ParentRequisitionNo = r.Parent?.RequisitionNo,
-        Source = r.Source,
-        SourceLabel = r.Source.HasValue ? SourceLabel(r.Source.Value) : null,
-        Children = r.Children.Select(c => new RequisitionChildSummaryDto
-        {
-            Id = c.Id,
-            RequisitionNo = c.RequisitionNo,
-            Status = c.Status,
-            StatusLabel = StatusLabel(c.Status),
-            Source = c.Source ?? RequisitionSource.Warehouse,
-            SourceLabel = c.Source.HasValue ? SourceLabel(c.Source.Value) : string.Empty,
-            ItemCount = c.Items.Count
-        }).ToList(),
-        WarehouseCheckedByName = r.WarehouseChecker is null ? null : $"{r.WarehouseChecker.FirstName} {r.WarehouseChecker.LastName}",
-        WarehouseCheckedAt = r.WarehouseCheckedAt,
-        WarehouseCheckQrCodeData = r.WarehouseCheckQrCodeData,
-        ApprovedByName = r.Approver is null ? null : $"{r.Approver.FirstName} {r.Approver.LastName}",
-        ApprovedAt = r.ApprovedAt,
-        QrCodeData = r.QrCodeData,
-        CompletedAt = r.Children.Count > 0 ? r.Children.Max(c => c.CompletedAt) : r.CompletedAt,
-        CreatedByName = r.Creator is null ? string.Empty : $"{r.Creator.FirstName} {r.Creator.LastName}",
-        CreatedAt = r.CreatedAt,
-        Items = r.Items.Select(i => new RequisitionItemResponseDto
-        {
-            Id = i.Id,
-            MaterialName = i.Material?.Name ?? i.FreeTextName ?? string.Empty,
-            Unit = i.Material?.Unit ?? i.FreeTextUnit ?? string.Empty,
-            FreeTextSpec = i.FreeTextSpec,
-            FreeTextPhoto = i.FreeTextPhoto,
-            Quantity = i.Quantity,
-            Notes = i.Notes,
-            AvailableQuantity = i.AvailableQuantity,
-            WarehouseNotes = i.WarehouseNotes,
-            OriginalQuantity = i.OriginalQuantity
-        }).ToList()
+        RequisitionType.Contract   => "Shartnoma bo'yicha",
+        RequisitionType.Individual => "Individual",
+        _                          => t.ToString()
     };
+
+    // Ro'yxat qatorining SQL proyeksiyasi — GetPagedAsync va GetRecentCompletedAsync
+    // uchun umumiy. Jadval materiallarni ham, QR base64 rasmlarini ham ko'rsatmaydi,
+    // shuning uchun ular so'rovga umuman kirmaydi; childlardan faqat status olinadi
+    // ("bajarilgan / rad etilgan" hisobi shu asosda quriladi).
+    private static readonly System.Linq.Expressions.Expression<Func<Requisition, RequisitionListDto>> ListProjection =
+        r => new RequisitionListDto
+        {
+            Id = r.Id,
+            RequisitionNo = r.RequisitionNo,
+            Type = r.Type,
+            Status = r.Status,
+            ContractNo = r.Contract != null ? r.Contract.ContractNo : null,
+            DepartmentName = r.Department != null ? r.Department.Name : null,
+            CreatedByName = r.Creator != null ? r.Creator.FirstName + " " + r.Creator.LastName : string.Empty,
+            CreatedAt = r.CreatedAt,
+            CompletedAt = r.Children.Any() ? r.Children.Max(c => c.CompletedAt) : r.CompletedAt,
+            ChildStatuses = r.Children.Select(c => c.Status).ToList()
+        };
 }

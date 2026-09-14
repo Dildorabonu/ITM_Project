@@ -11,6 +11,10 @@ public class MeterReadingConfiguration : IEntityTypeConfiguration<MeterReading>
         builder.HasKey(x => x.Id);
         builder.Property(x => x.DeviceName).HasMaxLength(200).IsRequired();
 
+        // Filtrsiz "oxirgi N o'lchov" so'rovi uchun — jadval har kuni o'n minglab
+        // yozuvga o'sadi, indekssiz bu har safar to'liq skan + sort bo'lardi.
+        builder.HasIndex(x => x.CreatedAt);
+
         // Qurilma bo'yicha oxirgi o'lchovlarni tez olish uchun
         builder.HasIndex(x => new { x.DeviceName, x.CreatedAt });
 

@@ -6,7 +6,6 @@ namespace Application.Services;
 public interface IContractTaskService
 {
     Task<ApiResult<IEnumerable<ContractTaskResponseDto>>> GetByContractIdAsync(Guid contractId);
-    Task<ApiResult<Guid>> CreateAsync(ContractTaskCreateDto dto, Guid createdBy);
     Task<ApiResult<int>> CreateBulkAsync(IEnumerable<ContractTaskCreateDto> dtos, Guid createdBy);
     Task<ApiResult<int>> UpdateAsync(Guid id, ContractTaskUpdateDto dto);
     Task<ApiResult<int>> DeleteAsync(Guid id);

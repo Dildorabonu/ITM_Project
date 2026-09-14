@@ -1,4 +1,6 @@
 using API.Authorization;
+using Application.DTOs;
+using Application.DTOs.Products;
 using Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -25,7 +27,9 @@ public class DepartmentWarehouseController : ControllerBase
     [HttpGet("department-summaries")]
     public async Task<IActionResult> GetDepartmentSummaries()
     {
-        var restrict = GetRestrictDepartmentId();
+        if (!TryGetScope(out var restrict))
+            return Ok(ApiResult<List<DepartmentWarehouseSummaryDto>>.Success([]));
+
         var result = await _service.GetDepartmentSummariesAsync(restrict);
         return Ok(result);
     }
@@ -34,26 +38,37 @@ public class DepartmentWarehouseController : ControllerBase
     [HttpGet("by-department/{departmentId:guid}")]
     public async Task<IActionResult> GetByDepartment(Guid departmentId)
     {
-        var restrict = GetRestrictDepartmentId();
+        if (!TryGetScope(out var restrict))
+            return Forbid();
+
         if (restrict.HasValue && restrict.Value != departmentId)
             return Forbid();
 
         var result = await _service.GetByDepartmentAsync(departmentId);
+
+        if (!result.Succeeded)
+            return NotFound(result);
+
         return Ok(result);
     }
 
     // ViewAll permissioni bo'lmagan foydalanuvchilar uchun JWT 'dept' claimidan
-    // bo'lim ID sini qaytaradi. ViewAll bor bo'lsa null — cheklov yo'q.
-    private Guid? GetRestrictDepartmentId()
+    // bo'lim ID sini beradi (restrict), ViewAll bor bo'lsa null — cheklov yo'q.
+    // false qaytsa foydalanuvchi hech qanday bo'limga bog'lanmagan: bazaga
+    // bormasdan darhol bo'sh/Forbid javob qaytariladi.
+    private bool TryGetScope(out Guid? restrict)
     {
+        restrict = null;
+
         if (User.HasClaim("perm", "Products.ViewAll"))
-            return null;
+            return true;
 
-        var deptClaim = User.FindFirstValue("dept");
-        if (Guid.TryParse(deptClaim, out var deptId))
-            return deptId;
+        if (Guid.TryParse(User.FindFirstValue("dept"), out var deptId) && deptId != Guid.Empty)
+        {
+            restrict = deptId;
+            return true;
+        }
 
-        // Bo'limga bog'lanmagan va ViewAll yo'q — hech narsa ko'rmaydi
-        return Guid.Empty;
+        return false;
     }
 }

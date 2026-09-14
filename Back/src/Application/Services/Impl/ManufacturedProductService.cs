@@ -29,8 +29,6 @@ public class ManufacturedProductService : IManufacturedProductService
         int page, int pageSize, string? search, Guid? departmentId, ManufacturingStatus? status)
     {
         var query = _context.ManufacturedProducts
-            .Include(p => p.Department)
-            .Include(p => p.Contract)
             .AsNoTracking()
             // Auto-derived (ContractProductId != null) yoki qo'lda kiritilgan (kontraktga
             // umuman bog'lanmagan) yozuvlar — orphan auto-rows ko'rinmasligi uchun aniq filter.
@@ -38,7 +36,7 @@ public class ManufacturedProductService : IManufacturedProductService
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var lower = search.ToLower();
+            var lower = search.Trim().ToLower();
             query = query.Where(p =>
                 p.Name.ToLower().Contains(lower) ||
                 (p.Code != null && p.Code.ToLower().Contains(lower)) ||
@@ -56,13 +54,35 @@ public class ManufacturedProductService : IManufacturedProductService
         var totalCount = await query.CountAsync();
 
         var pagination = new PaginationParams { Page = page, PageSize = pageSize };
+        // Include o'rniga to'g'ridan-to'g'ri proyeksiya: Department va Contract
+        // entity'lari to'liq o'qilmaydi — ulardan faqat bitta ustun olinadi.
         var items = await query
             .OrderByDescending(p => p.CreatedAt)
             .Skip((pagination.Page - 1) * pagination.PageSize)
             .Take(pagination.PageSize)
+            .Select(p => new ManufacturedProductResponseDto
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Code = p.Code,
+                Description = p.Description,
+                Quantity = p.Quantity,
+                ProducedQuantity = p.ProducedQuantity,
+                Unit = p.Unit,
+                Status = p.Status,
+                DepartmentId = p.DepartmentId,
+                DepartmentName = p.Department != null ? p.Department.Name : string.Empty,
+                ContractId = p.ContractId,
+                ContractProductId = p.ContractProductId,
+                ContractNo = p.Contract != null ? p.Contract.ContractNo : null,
+                StartedAt = p.StartedAt,
+                CompletedAt = p.CompletedAt,
+                Notes = p.Notes,
+                CreatedAt = p.CreatedAt,
+            })
             .ToListAsync();
 
-        var paged = PagedResult<ManufacturedProductResponseDto>.Create(items.Select(MapToResponse), totalCount, pagination);
+        var paged = PagedResult<ManufacturedProductResponseDto>.Create(items, totalCount, pagination);
         return ApiResult<PagedResult<ManufacturedProductResponseDto>>.Success(paged);
     }
 
@@ -98,8 +118,15 @@ public class ManufacturedProductService : IManufacturedProductService
         if (dto.DepartmentId == Guid.Empty)
             return ApiResult<int>.Failure(["Bo'lim tanlanishi shart."]);
 
-        var departmentExists = await _context.Departments.AnyAsync(d => d.Id == dto.DepartmentId);
-        if (!departmentExists)
+        // Bo'lim mavjudligini tekshirish va uning nomini olish — bitta so'rovda
+        // (avval Any + keyin Select bilan ikki marta so'ralar edi).
+        var departmentName = await _context.Departments
+            .AsNoTracking()
+            .Where(d => d.Id == dto.DepartmentId)
+            .Select(d => d.Name)
+            .FirstOrDefaultAsync();
+
+        if (departmentName is null)
             return ApiResult<int>.Failure(["Tanlangan bo'lim topilmadi."]);
 
         if (dto.Quantity < 0 || dto.ProducedQuantity < 0)
@@ -138,12 +165,6 @@ public class ManufacturedProductService : IManufacturedProductService
 
         _context.ManufacturedProducts.Add(entity);
         await _context.SaveChangesAsync();
-
-        var departmentName = await _context.Departments
-            .AsNoTracking()
-            .Where(d => d.Id == entity.DepartmentId)
-            .Select(d => d.Name)
-            .FirstOrDefaultAsync();
 
         await _activityLogService.LogAsync(
             kind: "manufactured",
@@ -252,17 +273,19 @@ public class ManufacturedProductService : IManufacturedProductService
 
     /// <summary>
     /// Shartnoma ostidagi har bir mahsulot uchun ManufacturedProducts jadvalini yangilaydi.
-    /// Endi mahsulot o'z statusiga qarab kiritiladi — kontrakt umumiy holati emas:
+    /// Mahsulot o'z statusiga qarab kiritiladi — kontrakt umumiy holati emas:
     /// — Mahsulot status InProduction yoki Completed bo'lsa → yozuv qo'shiladi/yangilanadi.
     /// — Boshqa holatlarda (DrawingPending/TechProcessing/Cancelled yoki kontrakt nofaol) → yozuv o'chiriladi.
+    /// Yoziladigan ManufacturedProducts'dan boshqa hamma narsa AsNoTracking proyeksiya
+    /// bilan o'qiladi — change tracker faqat haqiqatan o'zgaradigan qatorlarni ko'radi.
     /// </summary>
     public async SysTask SyncForContractAsync(Guid contractId)
     {
         var contract = await _context.Contracts
-            .Include(c => c.Products)
-            .Include(c => c.ContractDepartments).ThenInclude(cd => cd.Department)
-            .Include(c => c.ContractTasks)
-            .FirstOrDefaultAsync(c => c.Id == contractId);
+            .AsNoTracking()
+            .Where(c => c.Id == contractId)
+            .Select(c => new { c.IsActive, c.Status, c.ContractNo, c.CreatedAt, c.CreatedBy })
+            .FirstOrDefaultAsync();
 
         if (contract is null) return;
 
@@ -273,47 +296,73 @@ public class ManufacturedProductService : IManufacturedProductService
         // Kontrakt o'chirilgan / bekor qilingan — barcha yozuvlarni o'chiramiz.
         if (!contract.IsActive || contract.Status == ContractStatus.Cancelled)
         {
-            if (existingRows.Count > 0)
-            {
-                _context.ManufacturedProducts.RemoveRange(existingRows);
-                await _context.SaveChangesAsync();
-            }
+            await RemoveRowsAsync(existingRows);
             return;
         }
 
-        var department = contract.ContractDepartments
-            .Where(cd => cd.IsActive && cd.Department != null)
-            .Select(cd => cd.Department!)
-            .FirstOrDefault(d => d.Type == DepartmentType.IshlabChiqarish)
-            ?? contract.ContractDepartments
-                .Where(cd => cd.IsActive && cd.Department != null)
-                .Select(cd => cd.Department!)
-                .FirstOrDefault();
+        // Ishlab chiqarish bo'limi ustuvor, bo'lmasa — birinchi aktiv bo'lim.
+        var department = await _context.ContractDepartments
+            .AsNoTracking()
+            .Where(cd => cd.ContractId == contractId && cd.IsActive)
+            .OrderBy(cd => cd.Department.Type == DepartmentType.IshlabChiqarish ? 0 : 1)
+            .Select(cd => new { cd.DepartmentId, cd.Department.Name })
+            .FirstOrDefaultAsync();
 
         if (department is null)
         {
             // Bo'limsiz — yozuv yarata olmaymiz. Mavjudlarni ham o'chirib tashlaymiz.
-            if (existingRows.Count > 0)
-            {
-                _context.ManufacturedProducts.RemoveRange(existingRows);
-                await _context.SaveChangesAsync();
-            }
+            await RemoveRowsAsync(existingRows);
             return;
+        }
+
+        // Faqat InProduction/Completed mahsulotlari ko'rinadi — filtr SQL tomonda
+        // bajariladi, kontraktning barcha mahsulotlari xotiraga tortilmaydi.
+        var products = await _context.ContractProducts
+            .AsNoTracking()
+            .Where(p => p.ContractId == contractId && p.IsActive
+                        && (p.Status == ContractProductStatus.InProduction
+                            || p.Status == ContractProductStatus.Completed))
+            .Select(p => new { p.Id, p.Status, p.ProductType, p.Notes, p.Quantity, p.Unit })
+            .ToListAsync();
+
+        // Vazifalardan faqat ikki narsa kerak: ombor topshirish miqdori va eng erta
+        // vazifa sanasi. Shu sabab ContractTasks to'liq emas, ustunlar bo'yicha o'qiladi.
+        var warehouseAmounts = new Dictionary<Guid, decimal>();
+        var firstTaskAt = new Dictionary<Guid, DateTime>();
+
+        if (products.Count > 0)
+        {
+            var productIds = products.Select(p => p.Id).ToList();
+            var tasks = await _context.ContractTasks
+                .AsNoTracking()
+                .Where(t => t.IsActive && t.ContractId == contractId
+                            && t.ContractProductId != null
+                            && productIds.Contains(t.ContractProductId.Value))
+                .Select(t => new
+                {
+                    ProductId = t.ContractProductId!.Value,
+                    IsWarehouse = t.Name == WarehouseTaskName,
+                    t.CompletedAmount,
+                    t.CreatedAt,
+                })
+                .ToListAsync();
+
+            foreach (var t in tasks)
+            {
+                if (t.IsWarehouse)
+                    warehouseAmounts.TryAdd(t.ProductId, t.CompletedAmount);
+
+                if (!firstTaskAt.TryGetValue(t.ProductId, out var earliest) || t.CreatedAt < earliest)
+                    firstTaskAt[t.ProductId] = t.CreatedAt;
+            }
         }
 
         var existingByProductId = existingRows.ToDictionary(r => r.ContractProductId!.Value);
         var keepRowIds = new HashSet<Guid>();
-        var newlyCreated = new List<(ManufacturedProduct Row, string DepartmentName)>();
+        var newlyCreated = new List<ManufacturedProduct>();
 
-        foreach (var product in contract.Products.Where(p => p.IsActive))
+        foreach (var product in products)
         {
-            // Faqat InProduction yoki Completed mahsulotlari ko'rinadi — har bir
-            // mahsulot o'z holatida bo'ladi, kontrakt darajasidagi umumiy holat
-            // boshqa mahsulotlarni yashirmaydi.
-            var include = product.Status == ContractProductStatus.InProduction
-                          || product.Status == ContractProductStatus.Completed;
-            if (!include) continue;
-
             var derivedStatus = product.Status == ContractProductStatus.Completed
                 ? ManufacturingStatus.Completed
                 : ManufacturingStatus.InProgress;
@@ -321,19 +370,11 @@ public class ManufacturedProductService : IManufacturedProductService
             if (!Enum.TryParse<ProductUnit>(product.Unit, ignoreCase: true, out var unit))
                 unit = ProductUnit.Dona;
 
-            var warehouseTask = contract.ContractTasks
-                .FirstOrDefault(t => t.IsActive
-                                     && t.Name == WarehouseTaskName
-                                     && t.ContractProductId == product.Id);
-
-            decimal producedQuantity = warehouseTask?.CompletedAmount ?? 0m;
-            if (product.Status == ContractProductStatus.Completed && warehouseTask is null)
+            var hasWarehouseTask = warehouseAmounts.TryGetValue(product.Id, out var producedQuantity);
+            if (!hasWarehouseTask && product.Status == ContractProductStatus.Completed)
                 producedQuantity = product.Quantity;
 
-            var firstTask = contract.ContractTasks
-                .Where(t => t.IsActive && t.ContractProductId == product.Id)
-                .OrderBy(t => t.CreatedAt)
-                .FirstOrDefault();
+            DateTime? startedAt = firstTaskAt.TryGetValue(product.Id, out var first) ? first : null;
 
             if (existingByProductId.TryGetValue(product.Id, out var row))
             {
@@ -341,13 +382,16 @@ public class ManufacturedProductService : IManufacturedProductService
                 row.Name = product.ProductType;
                 row.Code = contract.ContractNo;
                 row.Description = product.Notes;
+                // Notes Description bilan bir xil matn edi — UI da izoh ikki marta
+                // ko'rinardi. Auto-derived yozuvda u faqat Description orqali uzatiladi.
+                row.Notes = null;
                 row.Quantity = product.Quantity;
                 row.ProducedQuantity = producedQuantity;
                 row.Unit = unit;
                 row.Status = derivedStatus;
-                row.DepartmentId = department.Id;
-                row.ContractId = contract.Id;
-                row.StartedAt = firstTask?.CreatedAt ?? row.StartedAt ?? contract.CreatedAt;
+                row.DepartmentId = department.DepartmentId;
+                row.ContractId = contractId;
+                row.StartedAt = startedAt ?? row.StartedAt ?? contract.CreatedAt;
                 row.CompletedAt = derivedStatus == ManufacturingStatus.Completed
                     ? row.CompletedAt ?? DateTime.UtcNow
                     : null;
@@ -366,17 +410,16 @@ public class ManufacturedProductService : IManufacturedProductService
                     ProducedQuantity = producedQuantity,
                     Unit = unit,
                     Status = derivedStatus,
-                    DepartmentId = department.Id,
-                    ContractId = contract.Id,
+                    DepartmentId = department.DepartmentId,
+                    ContractId = contractId,
                     ContractProductId = product.Id,
-                    StartedAt = firstTask?.CreatedAt ?? contract.CreatedAt,
+                    StartedAt = startedAt ?? contract.CreatedAt,
                     CompletedAt = derivedStatus == ManufacturingStatus.Completed ? DateTime.UtcNow : null,
-                    Notes = product.Notes,
                     CreatedBy = contract.CreatedBy,
                     CreatedAt = DateTime.UtcNow,
                 };
                 _context.ManufacturedProducts.Add(newRow);
-                newlyCreated.Add((newRow, department.Name));
+                newlyCreated.Add(newRow);
             }
         }
 
@@ -387,15 +430,22 @@ public class ManufacturedProductService : IManufacturedProductService
 
         await _context.SaveChangesAsync();
 
-        foreach (var (row, deptName) in newlyCreated)
+        foreach (var row in newlyCreated)
         {
             await _activityLogService.LogAsync(
                 kind: "manufactured",
                 title: $"Ishlab chiq.: {row.Name}",
-                subtitle: deptName,
+                subtitle: department.Name,
                 actorId: row.CreatedBy,
                 refId: row.Id);
         }
+    }
+
+    private async SysTask RemoveRowsAsync(List<ManufacturedProduct> rows)
+    {
+        if (rows.Count == 0) return;
+        _context.ManufacturedProducts.RemoveRange(rows);
+        await _context.SaveChangesAsync();
     }
 
     /// <summary>
@@ -412,11 +462,14 @@ public class ManufacturedProductService : IManufacturedProductService
             .FirstOrDefaultAsync(p => p.ContractProductId == contractProductId.Value);
         if (row is null) return;
 
+        // Vazifadan faqat ikkita miqdor kerak — entity change tracker'ga tortilmaydi.
         var warehouseTask = await _context.ContractTasks
+            .AsNoTracking()
             .Where(t => t.IsActive
                         && t.ContractId == contractId
                         && t.ContractProductId == contractProductId.Value
                         && t.Name == WarehouseTaskName)
+            .Select(t => new { t.CompletedAmount, t.TotalAmount })
             .FirstOrDefaultAsync();
 
         if (warehouseTask is null) return;
@@ -456,27 +509,4 @@ public class ManufacturedProductService : IManufacturedProductService
 
         await _context.SaveChangesAsync();
     }
-
-    // ─── Mapping ─────────────────────────────────────────────────────────────
-
-    private static ManufacturedProductResponseDto MapToResponse(ManufacturedProduct p) => new()
-    {
-        Id = p.Id,
-        Name = p.Name,
-        Code = p.Code,
-        Description = p.Description,
-        Quantity = p.Quantity,
-        ProducedQuantity = p.ProducedQuantity,
-        Unit = p.Unit,
-        Status = p.Status,
-        DepartmentId = p.DepartmentId,
-        DepartmentName = p.Department?.Name ?? string.Empty,
-        ContractId = p.ContractId,
-        ContractProductId = p.ContractProductId,
-        ContractNo = p.Contract?.ContractNo,
-        StartedAt = p.StartedAt,
-        CompletedAt = p.CompletedAt,
-        Notes = p.Notes,
-        CreatedAt = p.CreatedAt,
-    };
 }

@@ -1,4 +1,4 @@
-import { ContractStatus, ContractProductStatus, ContractType, CONTRACT_STATUS_LABELS, CONTRACT_TYPE_LABELS, type ContractProductResponse } from "@/lib/userService";
+import { ContractStatus, ContractProductStatus, ContractType, CONTRACT_STATUS_LABELS, CONTRACT_TYPE_LABELS } from "@/lib/userService";
 import { STATUS_STYLE, CONTRACT_TYPE_STYLE } from "../_types";
 import { useT } from "@/lib/i18n";
 
@@ -6,7 +6,7 @@ interface StatusBadgeProps {
   status: ContractStatus;
   // When provided, the badge groups products by their per-product stage so
   // mixed contracts surface every stage instead of hiding behind the earliest.
-  products?: ContractProductResponse[];
+  products?: { status: ContractProductStatus }[];
 }
 
 // Non-uniform progress weights: drawing/tech are prep, production is the bulk

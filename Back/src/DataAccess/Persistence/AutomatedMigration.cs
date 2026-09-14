@@ -100,7 +100,8 @@ public static class AutomatedMigration
         [PermissionModule.Contracts]          = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete, PermissionAction.ViewAll, PermissionAction.Approve],
         [PermissionModule.TechProcess]        = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete, PermissionAction.ViewAll],
         [PermissionModule.TechnicalDrawings]  = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete, PermissionAction.ViewAll],
-        [PermissionModule.CostNorm]           = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete, PermissionAction.ViewAll],
+        // Delete yo'q: me'yoriy sarfni o'chirish endpointi mavjud emas.
+        [PermissionModule.CostNorm]           = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.ViewAll],
         [PermissionModule.WarehouseCheck]      = [PermissionAction.View],
         [PermissionModule.Tasks]              = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete, PermissionAction.ViewAll],
         [PermissionModule.Notifications]      = [PermissionAction.View, PermissionAction.ViewAll],
@@ -208,7 +209,6 @@ public static class AutomatedMigration
                     (PermissionModule.CostNorm, PermissionAction.View),
                     (PermissionModule.CostNorm, PermissionAction.Create),
                     (PermissionModule.CostNorm, PermissionAction.Update),
-                    (PermissionModule.CostNorm, PermissionAction.Delete),
                     (PermissionModule.CostNorm, PermissionAction.ViewAll),
                     (PermissionModule.Notifications, PermissionAction.View),
                     (PermissionModule.Requisitions, PermissionAction.View),

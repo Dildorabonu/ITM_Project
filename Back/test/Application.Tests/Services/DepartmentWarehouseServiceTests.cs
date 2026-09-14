@@ -84,8 +84,24 @@ public class DepartmentWarehouseServiceTests
 
         // Assert
         result.Succeeded.Should().BeTrue();
-        result.Result!.Should().HaveCount(2)
+        result.Result!.DepartmentName.Should().Be("Ombor A");
+        result.Result.Products.Should().HaveCount(2)
             .And.OnlyContain(p => p.InvoiceNumber == "INV-A1" || p.InvoiceNumber == "INV-A2");
+    }
+
+    [Fact]
+    public async Task GetByDepartmentAsync_NonExistentDepartment_Returns404()
+    {
+        // Arrange
+        await using var db = TestDbContextFactory.Create();
+        var sut = CreateService(db);
+
+        // Act
+        var result = await sut.GetByDepartmentAsync(Guid.NewGuid());
+
+        // Assert
+        result.Succeeded.Should().BeFalse();
+        result.StatusCode.Should().Be(404);
     }
 
     // ─────────────────────────────────────────────────────────────────────

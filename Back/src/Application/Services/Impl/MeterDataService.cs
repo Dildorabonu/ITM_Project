@@ -15,30 +15,25 @@ public class MeterDataService : IMeterDataService
         _context = context;
     }
 
-    public async Task<ApiResult<Guid>> CreateAsync(MeterDataCreateDto dto, string deviceName)
+    public async Task<ApiResult<bool>> CreateAsync(MeterDataCreateDto dto, string deviceName)
     {
         if (string.IsNullOrWhiteSpace(deviceName))
-            return ApiResult<Guid>.Failure(["Qurilma nomi ko'rsatilmagan."], 400);
+            return ApiResult<bool>.Failure(["Qurilma nomi ko'rsatilmagan."], 400);
 
-        var reading = new MeterReading
+        _context.MeterReadings.Add(new MeterReading
         {
             Id = Guid.NewGuid(),
             DeviceName = deviceName.Trim(),
             VoltagePhaseA = dto.VoltagePhaseA,
-            VoltagePhaseB = dto.VoltagePhaseB,
-            VoltagePhaseC = dto.VoltagePhaseC,
             CurrentPhaseA = dto.CurrentPhaseA,
-            CurrentPhaseB = dto.CurrentPhaseB,
-            CurrentPhaseC = dto.CurrentPhaseC,
             ActivePower = dto.ActivePower,
             Frequency = dto.Frequency,
             CreatedAt = DateTime.UtcNow,
-        };
+        });
 
-        _context.MeterReadings.Add(reading);
         await _context.SaveChangesAsync();
 
-        return ApiResult<Guid>.Success(reading.Id, 201);
+        return ApiResult<bool>.Success(true, 201);
     }
 
     public async Task<ApiResult<IEnumerable<MeterDataResponseDto>>> GetLatestAsync(string? deviceName, int take)
@@ -55,14 +50,9 @@ public class MeterDataService : IMeterDataService
             .Take(take)
             .Select(r => new MeterDataResponseDto
             {
-                Id = r.Id,
                 DeviceName = r.DeviceName,
                 VoltagePhaseA = r.VoltagePhaseA,
-                VoltagePhaseB = r.VoltagePhaseB,
-                VoltagePhaseC = r.VoltagePhaseC,
                 CurrentPhaseA = r.CurrentPhaseA,
-                CurrentPhaseB = r.CurrentPhaseB,
-                CurrentPhaseC = r.CurrentPhaseC,
                 ActivePower = r.ActivePower,
                 Frequency = r.Frequency,
                 CreatedAt = r.CreatedAt,

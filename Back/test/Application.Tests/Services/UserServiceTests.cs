@@ -6,6 +6,7 @@ using Core.Entities;
 using Core.Enums;
 using DataAccess.Persistence;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -296,70 +297,19 @@ public class UserServiceTests
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    //  GetByIdAsync / GetAllAsync — DTO only exposes safe fields
+    //  GetAllAsync — DTO only exposes safe fields
     // ─────────────────────────────────────────────────────────────────────
-
-    [Fact]
-    public async Task GetByIdAsync_WhenUserExists_ReturnsDtoWithoutPasswordFields()
-    {
-        // Arrange
-        await using var db = TestDbContextFactory.Create();
-        var role = TestData.SeedRole(db, "Admin");
-        var dep = SeedDepartment(db, name: "IT");
-        var user = TestData.SeedUser(
-            db,
-            login: "ali",
-            firstName: "Ali",
-            lastName: "Valiyev",
-            roleId: role.Id,
-            departmentId: dep.Id);
-        var sut = CreateService(db);
-
-        // Act
-        var result = await sut.GetByIdAsync(user.Id);
-
-        // Assert
-        result.Succeeded.Should().BeTrue();
-        var dto = result.Result!;
-        dto.Id.Should().Be(user.Id);
-        dto.Login.Should().Be("ali");
-        dto.FirstName.Should().Be("Ali");
-        dto.LastName.Should().Be("Valiyev");
-        dto.RoleId.Should().Be(role.Id);
-        dto.RoleName.Should().Be("Admin");
-        dto.DepartmentId.Should().Be(dep.Id);
-        dto.DepartmentName.Should().Be("IT");
-        dto.IsActive.Should().BeTrue();
-
-        // UserResponseDto da PasswordHash maydoni umuman bo'lmasligi kerak — kompilyatsiya himoyasi sifatida
-        typeof(UserResponseDto).GetProperties()
-            .Select(p => p.Name)
-            .Should().NotContain(name => name.Contains("Password", StringComparison.OrdinalIgnoreCase));
-    }
-
-    [Fact]
-    public async Task GetByIdAsync_WhenUserMissing_ReturnsFailure()
-    {
-        // Arrange
-        await using var db = TestDbContextFactory.Create();
-        var sut = CreateService(db);
-
-        // Act
-        var result = await sut.GetByIdAsync(Guid.NewGuid());
-
-        // Assert
-        result.Succeeded.Should().BeFalse();
-        result.Result.Should().BeNull();
-        result.Errors.Should().ContainSingle().Which.Should().Contain("not found");
-    }
 
     [Fact]
     public async Task GetAllAsync_ReturnsPagedResultOrderedByFirstNameWithoutPasswordHashes()
     {
         // Arrange
         await using var db = TestDbContextFactory.Create();
+        var role = TestData.SeedRole(db, "Admin");
+        var dep = SeedDepartment(db, name: "IT");
         TestData.SeedUser(db, login: "b.user", firstName: "Bekzod", lastName: "B");
-        TestData.SeedUser(db, login: "a.user", firstName: "Alisher", lastName: "A");
+        TestData.SeedUser(db, login: "a.user", firstName: "Alisher", lastName: "A",
+            roleId: role.Id, departmentId: dep.Id);
         TestData.SeedUser(db, login: "c.user", firstName: "Sardor", lastName: "C");
         var sut = CreateService(db);
 
@@ -375,5 +325,103 @@ public class UserServiceTests
         paged.HasNextPage.Should().BeTrue();
         paged.Items.Should().HaveCount(2);
         paged.Items.Select(u => u.FirstName).Should().ContainInOrder("Alisher", "Bekzod");
+
+        // Har bir maydon o'z manbasidan kelishi — proyeksiya SQL da qurilgani uchun
+        // ustunlar almashib ketsa faqat shu tekshiruv ushlaydi.
+        var dto = paged.Items.First();
+        dto.Login.Should().Be("a.user");
+        dto.FirstName.Should().Be("Alisher");
+        dto.LastName.Should().Be("A");
+        dto.RoleId.Should().Be(role.Id);
+        dto.RoleName.Should().Be("Admin");
+        dto.DepartmentId.Should().Be(dep.Id);
+        dto.DepartmentName.Should().Be("IT");
+        dto.IsActive.Should().BeTrue();
+
+        // Rol/bo'limi yo'q foydalanuvchida nom maydonlari null bo'lib qoladi.
+        var noRole = paged.Items.Last();
+        noRole.RoleName.Should().BeNull();
+        noRole.DepartmentName.Should().BeNull();
+
+        // UserResponseDto da PasswordHash maydoni umuman bo'lmasligi kerak — kompilyatsiya himoyasi sifatida
+        typeof(UserResponseDto).GetProperties()
+            .Select(p => p.Name)
+            .Should().NotContain(name => name.Contains("Password", StringComparison.OrdinalIgnoreCase));
+    }
+
+    // ── SetActiveAsync — controller PATCH activate/deactivate uchun ────────────
+    // Sqlite kerak: ExecuteUpdateAsync ni InMemory provider tarjima qilmaydi.
+
+    [Fact]
+    public async Task SetActiveAsync_Deactivating_SetsIsActiveFalseAndClearsIsHead()
+    {
+        await using var db = TestDbContextFactory.CreateSqlite();
+        var dep = SeedDepartment(db);
+        var user = TestData.SeedUser(db, login: "head", departmentId: dep.Id, isHead: true);
+        var sut = CreateService(db);
+
+        var result = await sut.SetActiveAsync(user.Id, false);
+
+        result.Succeeded.Should().BeTrue();
+        result.Result.Should().Be(200);
+        var refreshed = db.Users.AsNoTracking().Single(u => u.Id == user.Id);
+        refreshed.IsActive.Should().BeFalse();
+        refreshed.IsHead.Should().BeFalse("nofaol foydalanuvchi rahbar bo'lib qola olmaydi");
+    }
+
+    [Fact]
+    public async Task SetActiveAsync_Activating_LeavesIsHeadUntouched()
+    {
+        await using var db = TestDbContextFactory.CreateSqlite();
+        var dep = SeedDepartment(db);
+        var user = TestData.SeedUser(db, login: "head", departmentId: dep.Id, isHead: true, isActive: false);
+        var sut = CreateService(db);
+
+        var result = await sut.SetActiveAsync(user.Id, true);
+
+        result.Succeeded.Should().BeTrue();
+        var refreshed = db.Users.AsNoTracking().Single(u => u.Id == user.Id);
+        refreshed.IsActive.Should().BeTrue();
+        refreshed.IsHead.Should().BeTrue("aktivlashtirish rahbarlikka tegmaydi");
+    }
+
+    [Fact]
+    public async Task SetActiveAsync_ForSuperAdmin_ReturnsForbidden()
+    {
+        await using var db = TestDbContextFactory.CreateSqlite();
+        var sut = CreateService(db);
+
+        var result = await sut.SetActiveAsync(SuperAdminId, false);
+
+        result.Succeeded.Should().BeFalse();
+        result.StatusCode.Should().Be(403);
+    }
+
+    [Fact]
+    public async Task SetActiveAsync_WithUnknownId_ReturnsFailure()
+    {
+        await using var db = TestDbContextFactory.CreateSqlite();
+        var sut = CreateService(db);
+
+        var result = await sut.SetActiveAsync(Guid.NewGuid(), false);
+
+        result.Succeeded.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task SetActiveAsync_EvictsTheCachedLookup()
+    {
+        await using var db = TestDbContextFactory.CreateSqlite();
+        var user = TestData.SeedUser(db, login: "u1", firstName: "Alisher");
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var sut = CreateService(db, cache);
+
+        // Birinchi chaqiruv lookupni keshlaydi.
+        (await sut.GetLookupAsync()).Result!.Should().ContainSingle();
+
+        await sut.SetActiveAsync(user.Id, false);
+
+        // Kesh tozalanmasa, bu yerda hali ham eski (IsActive=true) natija qaytardi.
+        (await sut.GetLookupAsync()).Result!.Should().BeEmpty();
     }
 }

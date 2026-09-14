@@ -1,6 +1,5 @@
 using API.Authorization;
 using Application.DTOs.CostNorms;
-using Application.Helpers;
 using Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,6 +12,8 @@ namespace API.Controllers;
 [Authorize]
 public class CostNormController : ControllerBase
 {
+    private const string EntityType = "costnorm";
+
     private readonly ICostNormService _costNormService;
     private readonly IAttachmentService _attachmentService;
 
@@ -21,6 +22,8 @@ public class CostNormController : ControllerBase
         _costNormService = costNormService;
         _attachmentService = attachmentService;
     }
+
+    private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
     // GET /api/costnorm
     [HttpGet]
@@ -32,8 +35,7 @@ public class CostNormController : ControllerBase
         if (!canView && !viewAll)
             return Forbid();
 
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var result = await _costNormService.GetAllAsync(userId, viewAll, contractId, isActive);
+        var result = await _costNormService.GetAllAsync(CurrentUserId, viewAll, contractId, isActive);
         return StatusCode(result.StatusCode, result);
     }
 
@@ -51,8 +53,7 @@ public class CostNormController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CostNormCreateDto dto)
     {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var result = await _costNormService.CreateAsync(dto, userId);
+        var result = await _costNormService.CreateAsync(dto, CurrentUserId);
         return StatusCode(result.StatusCode, result);
     }
 
@@ -74,40 +75,16 @@ public class CostNormController : ControllerBase
         return StatusCode(result.StatusCode, result);
     }
 
-    // DELETE /api/costnorm/{id}
-    [HasPermission("CostNorm.Delete")]
-    [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id)
-    {
-        var result = await _costNormService.DeleteAsync(id);
-        return StatusCode(result.StatusCode, result);
-    }
-
     // ── Files ────────────────────────────────────────────────────────────────
-
-    private const string EntityType = "costnorm";
+    // Me'yoriy sarfning yagona fayli — Create/Update da server generatsiya qiladigan
+    // DOCX. Shu sababli qo'lda yuklash/o'chirish endpointlari yo'q: ular keyingi
+    // generatsiyada baribir o'chib ketardi.
 
     [HasPermission("CostNorm.View")]
     [HttpGet("{id:guid}/files")]
     public async Task<IActionResult> GetFiles(Guid id)
     {
         var result = await _attachmentService.GetAllAsync(EntityType, id);
-        return StatusCode(result.StatusCode, result);
-    }
-
-    [HasPermission("CostNorm.Create")]
-    [HttpPost("{id:guid}/files")]
-    [RequestSizeLimit(50 * 1024 * 1024)]
-    public async Task<IActionResult> UploadFile(Guid id, IFormFile file)
-    {
-        if (!FileValidator.TryValidate(file, out var validationError))
-            return BadRequest(validationError);
-
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        await using var stream = file.OpenReadStream();
-        var result = await _attachmentService.UploadAsync(
-            EntityType, id, stream, file.FileName, file.ContentType, file.Length, userId);
-
         return StatusCode(result.StatusCode, result);
     }
 
@@ -119,16 +96,8 @@ public class CostNormController : ControllerBase
         if (!result.Succeeded)
             return NotFound(result);
 
+        // Faylni xotiraga to'liq o'qimasdan oqim orqali uzatamiz.
         var (filePath, contentType, fileName) = result.Result;
-        var bytes = await System.IO.File.ReadAllBytesAsync(filePath);
-        return File(bytes, contentType, fileName);
-    }
-
-    [HasPermission("CostNorm.Delete")]
-    [HttpDelete("{id:guid}/files/{fileId:guid}")]
-    public async Task<IActionResult> DeleteFile(Guid id, Guid fileId)
-    {
-        var result = await _attachmentService.DeleteAsync(EntityType, id, fileId);
-        return StatusCode(result.StatusCode, result);
+        return PhysicalFile(filePath, contentType, fileName, enableRangeProcessing: true);
     }
 }

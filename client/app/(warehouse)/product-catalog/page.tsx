@@ -42,6 +42,7 @@ export default function ProductCatalogPage() {
   const canDelete = hasPermission("ProductCatalog.Delete");
   const showToast = useToastStore(s => s.show);
 
+  const [archived, setArchived] = useState(false);
   const [items, setItems] = useState<ProductCatalogResponse[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -57,9 +58,10 @@ export default function ProductCatalogPage() {
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Delete confirm
-  const [deleteTarget, setDeleteTarget] = useState<ProductCatalogResponse | null>(null);
-  const [deleting, setDeleting] = useState(false);
+  // Arxivlash / faolga qaytarish tasdig'i
+  const [archiveTarget, setArchiveTarget] = useState<ProductCatalogResponse | null>(null);
+  const [restoreTarget, setRestoreTarget] = useState<ProductCatalogResponse | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   // Detail (ko'rish) drawer
   const [detailTarget, setDetailTarget] = useState<ProductCatalogResponse | null>(null);
@@ -70,7 +72,7 @@ export default function ProductCatalogPage() {
     try {
       setLoading(true);
       setError("");
-      const data = await productCatalogService.list(search || undefined, page, PAGE_SIZE, signal);
+      const data = await productCatalogService.list(search || undefined, page, PAGE_SIZE, signal, archived);
       setItems(data.items);
       setTotalPages(data.totalPages);
       setTotalCount(data.totalCount);
@@ -90,7 +92,7 @@ export default function ProductCatalogPage() {
     const id = setTimeout(() => { load(controller.signal); }, 300);
     return () => { clearTimeout(id); controller.abort(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search]);
+  }, [page, search, archived]);
 
   useEffect(() => {
     if (showForm) document.body.style.overflow = "hidden";
@@ -129,7 +131,8 @@ export default function ProductCatalogPage() {
 
   const handleSave = async () => {
     setSubmitted(true);
-    if (!form.name.trim()) return;
+    // Birlik majburiy — shartnoma formasi uni shu yerdan oladi va o'zgartirishga ruxsat bermaydi.
+    if (!form.name.trim() || !form.unit) return;
     setSaving(true);
     try {
       const dto = {
@@ -155,31 +158,73 @@ export default function ProductCatalogPage() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    setDeleting(true);
+  // Arxivlash ham, qaytarish ham mahsulotni joriy ro'yxatdan chiqaradi — shuning uchun
+  // oxirgi sahifadagi yagona qator ketsa, oldingi sahifaga qaytamiz.
+  const runAndReload = async (action: () => Promise<void>, successMsg: string, errorMsg: string) => {
+    setSubmitting(true);
     try {
-      await productCatalogService.remove(deleteTarget.id);
-      showToast(t("Mahsulot o'chirildi"));
-      setDeleteTarget(null);
-      // Oxirgi sahifadagi yagona element o'chirilsa, oldingi sahifaga qaytamiz.
+      await action();
+      showToast(successMsg);
+      setArchiveTarget(null);
+      setRestoreTarget(null);
       if (items.length === 1 && page > 1) setPage(p => p - 1);
       else await load();
     } catch (e) {
       const msg = (e as { response?: { data?: { errors?: string[] } } })
-        ?.response?.data?.errors?.[0] ?? t("O'chirishda xatolik yuz berdi.");
+        ?.response?.data?.errors?.[0] ?? errorMsg;
       showToast(msg, t("Xatolik"));
     } finally {
-      setDeleting(false);
+      setSubmitting(false);
     }
   };
 
+  const handleArchive = () => {
+    if (!archiveTarget) return;
+    const id = archiveTarget.id;
+    return runAndReload(
+      () => productCatalogService.archive(id),
+      t("Mahsulot ishlab chiqarilishi tugatilganlarga o'tkazildi"),
+      t("O'tkazishda xatolik yuz berdi."),
+    );
+  };
+
+  const handleRestore = () => {
+    if (!restoreTarget) return;
+    const id = restoreTarget.id;
+    return runAndReload(
+      () => productCatalogService.restore(id),
+      t("Mahsulot faol ro'yxatga qaytarildi"),
+      t("Qaytarishda xatolik yuz berdi."),
+    );
+  };
+
   const nameErr = submitted && !form.name.trim();
+  const unitErr = submitted && !form.unit;
 
   return (
-    <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+    <div className="page-transition" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       {/* Filter bar */}
-      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 14px" }}>
+      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, padding: "8px 14px", overflow: "visible" }}>
+        <div style={{ display: "flex", gap: 4, padding: 3, background: "var(--bg3)", borderRadius: "var(--radius)", flexShrink: 0 }}>
+          {[
+            { key: false, label: t("Faol") },
+            { key: true, label: t("Tugatilgan") },
+          ].map(tab => (
+            <button
+              key={String(tab.key)}
+              onClick={() => { if (archived !== tab.key) { setArchived(tab.key); setPage(1); } }}
+              style={{
+                padding: "5px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                borderRadius: "calc(var(--radius) - 2px)", border: "none",
+                transition: "background 0.15s, color 0.15s",
+                background: archived === tab.key ? "var(--accent)" : "transparent",
+                color: archived === tab.key ? "#fff" : "var(--text2)",
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
         <div className="search-wrap" style={{ maxWidth: "none", flex: 1 }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" />
@@ -204,21 +249,13 @@ export default function ProductCatalogPage() {
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
           </svg>
         </button>
-        {canCreate && (
+        {canCreate && !archived && (
           <button
+            className="btn-primary"
             onClick={openCreate}
-            style={{
-              display: "inline-flex", alignItems: "center", gap: 6,
-              padding: "8px 14px", height: 36,
-              background: "var(--accent)", color: "#fff",
-              border: "none", borderRadius: "var(--radius)",
-              fontSize: 13, fontWeight: 600, cursor: "pointer",
-              transition: "background 0.15s ease",
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = "var(--accent2)")}
-            onMouseLeave={e => (e.currentTarget.style.background = "var(--accent)")}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius)", border: "none", cursor: "pointer" }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
@@ -229,59 +266,59 @@ export default function ProductCatalogPage() {
 
       {/* Info banner */}
       <div style={{
+        flexShrink: 0,
         display: "flex", alignItems: "center", gap: 10,
-        padding: "10px 14px", marginBottom: 12,
-        background: "var(--accent-dim)", border: "1px solid var(--accent)33",
+        padding: "8px 14px", marginBottom: 6,
+        background: archived ? "var(--warn-dim)" : "var(--accent-dim)",
+        border: `1px solid ${archived ? "var(--warn)" : "var(--accent)"}33`,
         borderRadius: "var(--radius)", fontSize: 12, color: "var(--text2)",
       }}>
-        <svg width="14" height="14" fill="none" stroke="var(--accent)" strokeWidth="2" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+        <svg width="14" height="14" fill="none" stroke={archived ? "var(--warn)" : "var(--accent)"} strokeWidth="2" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
           <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
         </svg>
         <span>
-          {t("Bu korxona ishlab chiqaradigan tayyor mahsulotlarning yagona katalogi. Shartnoma yaratishda mahsulot shu ro'yxatdan tanlanadi. Yangi mahsulotni bu yerdan yoki to'g'ridan-to'g'ri shartnoma formasidan qo'shish mumkin.")}
+          {archived
+            ? t("Ishlab chiqarilishi tugatilgan mahsulotlar. Ular bazadan o'chirilmagan — shartnomalardagi bog'lanish va tarix saqlanib qolgan. Yangi shartnomaga tanlansa yoki bu yerdan qaytarilsa, mahsulot yana faol ro'yxatga o'tadi.")
+            : t("Bu korxona ishlab chiqaradigan tayyor mahsulotlarning yagona katalogi. Shartnoma yaratishda mahsulot shu ro'yxatdan tanlanadi. Yangi mahsulotni bu yerdan yoki to'g'ridan-to'g'ri shartnoma formasidan qo'shish mumkin.")}
         </span>
       </div>
 
       {/* Table */}
-      <div className="itm-card" style={{ flex: 1 }}>
+      <div className="itm-card" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "clip" } as React.CSSProperties}>
         {loading ? (
-          <div style={{ padding: 40, textAlign: "center", color: "var(--text2)" }}>{t("Yuklanmoqda...")}</div>
+          <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--text2)" }}>{t("Yuklanmoqda...")}</div>
         ) : error ? (
-          <div style={{ padding: 40, textAlign: "center", color: "#e05252" }}>{error}</div>
+          <div style={{ flex: 1, padding: 40, textAlign: "center", color: "#e05252" }}>{error}</div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table className="itm-table">
-              <thead>
+          <div style={{ overflowX: "auto", overflowY: "auto", flex: 1, minHeight: 0 }}>
+            <table className="itm-table" style={{ height: "100%" }}>
+              <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
                 <tr>
-                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none" }}>{t("T/r")}</th>
-                  <th style={{ textAlign: "left", color: "var(--text1)" }}>{t("Mahsulot nomi")}</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>{t("Kod")}</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>{t("O'lchov")}</th>
-                  <th style={{ textAlign: "center", color: "var(--text1)" }}>{t("Shartnomalarda")}</th>
-                  <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)" }}>{t("Amal")}</th>
+                  <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>{t("T/r")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Mahsulot nomi")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Kod")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("O'lchov")}</th>
+                  <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Shartnomalarda")}</th>
+                  <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", background: "var(--bg2)", width: 124 }}>{t("Amallar")}</th>
                 </tr>
               </thead>
               <tbody>
                 {items.length === 0 ? (
                   <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--text2)", padding: 32 }}>{t("Ma'lumot topilmadi")}</td></tr>
                 ) : items.map((p, i) => (
-                  <tr key={p.id} onClick={() => setDetailTarget(p)} style={{ cursor: "pointer" }}>
+                  <tr key={p.id} onClick={() => setDetailTarget(p)}>
                     <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>
                       {String((page - 1) * PAGE_SIZE + i + 1).padStart(2, "0")}
                     </td>
-                    <td>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                        <span
-                          onClick={() => setDetailTarget(p)}
-                          title={t("Ko'rish")}
-                          style={{ fontWeight: 600, color: "var(--text1)", cursor: "pointer", width: "fit-content" }}
-                          onMouseEnter={e => (e.currentTarget.style.color = "var(--accent)")}
-                          onMouseLeave={e => (e.currentTarget.style.color = "var(--text1)")}
-                        >
-                          {p.name}
+                    <td style={{ textAlign: "center" }} title={p.description || p.name}>
+                      <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 600, color: "var(--text1)" }}>
+                        {p.name}
+                      </span>
+                      {p.description && (
+                        <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11, color: "var(--text3)" }}>
+                          {p.description}
                         </span>
-                        {p.description && <span style={{ fontSize: 11, color: "var(--text3)" }}>{p.description}</span>}
-                      </div>
+                      )}
                     </td>
                     <td style={{ textAlign: "center", fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--accent)" }}>{p.code}</td>
                     <td style={{ textAlign: "center", color: "var(--text1)", fontFamily: "var(--font-mono)", fontSize: 12 }}>{p.unit ?? "—"}</td>
@@ -294,8 +331,13 @@ export default function ProductCatalogPage() {
                       }}>
                         {p.usageCount}
                       </span>
+                      {p.blockingContractCount > 0 && (
+                        <span style={{ display: "block", marginTop: 3, fontSize: 10, fontWeight: 600, color: "var(--warn)" }}>
+                          {p.blockingContractCount} {t("ta yakunlanmagan")}
+                        </span>
+                      )}
                     </td>
-                    <td style={{ borderLeft: "2px solid var(--border)" }}>
+                    <td className="td-actions" style={{ borderLeft: "2px solid var(--border)" }}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
                         <button className="btn-icon" title={t("Ko'rish")} onClick={(e) => { e.stopPropagation(); setDetailTarget(p); }}
                           style={{ color: "#0ea5e9", borderColor: "#0ea5e933", background: "#0ea5e912" }}>
@@ -306,21 +348,36 @@ export default function ProductCatalogPage() {
                         </button>
                         {canUpdate && (
                           <button className="btn-icon" title={t("Tahrirlash")} onClick={(e) => { e.stopPropagation(); openEdit(p); }}
-                            style={{ color: "var(--accent)", borderColor: "var(--accent)33", background: "var(--accent-dim)" }}>
+                            style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                             </svg>
                           </button>
                         )}
-                        {canDelete && (
-                          <button className="btn-icon" title={t("O'chirish")} onClick={(e) => { e.stopPropagation(); setDeleteTarget(p); }}
-                            style={{ color: "var(--danger)", borderColor: "var(--danger)33", background: "var(--danger-dim)" }}>
+                        {canDelete && !archived && (
+                          <button
+                            className="btn-icon"
+                            title={p.blockingContractCount > 0
+                              ? `${t("Yakunlanmagan shartnomada ishlatilmoqda")} (${p.blockingContractCount})`
+                              : t("Ishlab chiqarilishi tugatildi")}
+                            onClick={(e) => { e.stopPropagation(); if (p.blockingContractCount === 0) setArchiveTarget(p); }}
+                            style={p.blockingContractCount > 0
+                              ? { color: "var(--text3)", borderColor: "var(--border)", background: "var(--bg3)", cursor: "not-allowed" }
+                              : { color: "var(--warn)", borderColor: "var(--warn)33", background: "var(--warn-dim)" }}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <polyline points="3 6 5 6 21 6" />
-                              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                              <path d="M10 11v6M14 11v6" />
-                              <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+                              <rect x="2" y="4" width="20" height="5" rx="1" />
+                              <path d="M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9" />
+                              <line x1="10" y1="13" x2="14" y2="13" />
+                            </svg>
+                          </button>
+                        )}
+                        {canDelete && archived && (
+                          <button className="btn-icon" title={t("Faolga qaytarish")} onClick={(e) => { e.stopPropagation(); setRestoreTarget(p); }}
+                            style={{ color: "var(--accent)", borderColor: "var(--accent)33", background: "var(--accent-dim)" }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="1 4 1 10 7 10" />
+                              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
                             </svg>
                           </button>
                         )}
@@ -328,34 +385,71 @@ export default function ProductCatalogPage() {
                     </td>
                   </tr>
                 ))}
+                {items.length > 0 && (
+                  <tr className="itm-filler" aria-hidden style={{ height: "100%" }}>
+                    <td style={{ padding: 0, borderBottom: "none", borderRight: "2px solid var(--border)" }} />
+                    <td colSpan={4} style={{ padding: 0, borderBottom: "none" }} />
+                    <td style={{ padding: 0, borderBottom: "none", borderLeft: "2px solid var(--border)" }} />
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
         )}
+      </div>
 
-        {!loading && !error && totalPages > 1 && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderTop: "1px solid var(--border)" }}>
-            <span style={{ fontSize: 13, color: "var(--text2)" }}>
-              {totalCount} {t("ta mahsulot")} &mdash; {page}/{totalPages} {t("sahifa")}
-            </span>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button
-                disabled={page <= 1}
-                onClick={() => setPage(p => p - 1)}
-                style={{ padding: "5px 12px", borderRadius: "var(--radius)", border: "1.5px solid var(--border)", background: "var(--bg3)", color: page <= 1 ? "var(--text3)" : "var(--text1)", cursor: page <= 1 ? "not-allowed" : "pointer", fontSize: 13 }}
-              >
-                ‹ {t("Oldingi")}
-              </button>
-              <button
-                disabled={page >= totalPages}
-                onClick={() => setPage(p => p + 1)}
-                style={{ padding: "5px 12px", borderRadius: "var(--radius)", border: "1.5px solid var(--border)", background: "var(--bg3)", color: page >= totalPages ? "var(--text3)" : "var(--text1)", cursor: page >= totalPages ? "not-allowed" : "pointer", fontSize: 13 }}
-              >
-                {t("Keyingi")} ›
-              </button>
-            </div>
-          </div>
-        )}
+      <div style={{
+        flexShrink: 0,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "8px 14px",
+        marginTop: 8,
+      }}>
+        <span style={{ fontSize: 17, color: "var(--text)", fontFamily: "var(--font-mono)", fontWeight: 450 }}>
+          {totalCount} {t("tadan")} {totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}&nbsp;–&nbsp;{Math.min(page * PAGE_SIZE, totalCount)}&nbsp;{t("ko'rsatilmoqda")}
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <button
+            className="btn-secondary"
+            disabled={page <= 1}
+            onClick={() => setPage(p => p - 1)}
+            style={{ padding: "5px 12px", fontSize: 12 }}
+          >
+            ← {t("Oldingi")}
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1)
+            .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+            .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+              if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("...");
+              acc.push(p);
+              return acc;
+            }, [])
+            .map((p, idx) =>
+              p === "..." ? (
+                <span key={`ellipsis-${idx}`} style={{ fontSize: 13, color: "var(--text3)", padding: "0 2px" }}>…</span>
+              ) : (
+                <button
+                  key={p}
+                  className="btn-secondary"
+                  onClick={() => setPage(p as number)}
+                  style={{
+                    minWidth: 30, padding: "5px 8px", fontSize: 12, fontWeight: 600,
+                    fontVariantNumeric: "tabular-nums", justifyContent: "center",
+                    ...(p === page ? { background: "var(--accent)", color: "#fff", borderColor: "var(--accent)" } : {}),
+                  }}
+                >
+                  {p}
+                </button>
+              )
+            )}
+          <button
+            className="btn-secondary"
+            disabled={page >= totalPages}
+            onClick={() => setPage(p => p + 1)}
+            style={{ padding: "5px 12px", fontSize: 12 }}
+          >
+            {t("Keyingi")} →
+          </button>
+        </div>
       </div>
 
       {/* Create / Edit modal */}
@@ -407,15 +501,20 @@ export default function ProductCatalogPage() {
               </div>
 
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>
-                  {t("O'lchov birligi")}
+                <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: unitErr ? "var(--danger)" : "var(--text2)" }}>
+                  {t("O'lchov birligi")} <span style={{ color: "var(--danger)" }}>*</span>
                 </label>
-                <CheckSelect
-                  value={form.unit}
-                  onChange={v => setForm(f => ({ ...f, unit: v }))}
-                  options={UNIT_OPTIONS.map(o => ({ id: o.id, name: t(o.name), icon: o.icon }))}
-                  placeholder={t("— Tanlang —")}
-                />
+                <div style={unitErr ? { borderRadius: "var(--radius)", boxShadow: "0 0 0 1.5px var(--danger)" } : undefined}>
+                  <CheckSelect
+                    value={form.unit}
+                    onChange={v => setForm(f => ({ ...f, unit: v }))}
+                    options={UNIT_OPTIONS.map(o => ({ id: o.id, name: t(o.name), icon: o.icon }))}
+                    placeholder={t("— Tanlang —")}
+                  />
+                </div>
+                {unitErr
+                  ? <div style={{ color: "var(--danger)", fontSize: 11, marginTop: 4 }}>{t("Birlikni tanlang")}</div>
+                  : <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4 }}>{t("Shartnomalarda shu birlik ishlatiladi")}</div>}
               </div>
 
               <div>
@@ -461,25 +560,37 @@ export default function ProductCatalogPage() {
       )}
 
       <ConfirmModal
-        open={!!deleteTarget}
-        variant="danger"
-        title={t("Mahsulotni o'chirish")}
+        open={!!archiveTarget}
+        variant="warn"
+        title={t("Ishlab chiqarilishi tugatilganlarga o'tkazish")}
         message={
           <span>
-            «{deleteTarget?.name}» {t("katalogdan o'chirilsinmi?")}
-            {deleteTarget && deleteTarget.usageCount > 0 && (
-              <>
-                {" "}
-                <b>{deleteTarget.usageCount}</b> {t("ta shartnomada ishlatilgan — ular matn nomini saqlab qoladi, faqat bog'lanish uziladi.")}
-              </>
-            )}
+            «{archiveTarget?.name}» {t("ishlab chiqarilishi tugatilganlar ro'yxatiga o'tkazilsinmi?")}
+            {" "}
+            {t("Mahsulot bazadan o'chirilmaydi — shartnomalardagi bog'lanish va tarix saqlanib qoladi. Yangi shartnoma formasida u «tugatilgan» deb belgilanadi, tanlansa yana faol ro'yxatga qaytadi.")}
           </span>
         }
-        confirmLabel={t("O'chirish")}
-        loading={deleting}
-        loadingLabel={t("O'chirilmoqda...")}
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteTarget(null)}
+        confirmLabel={t("O'tkazish")}
+        loading={submitting}
+        loadingLabel={t("O'tkazilmoqda...")}
+        onConfirm={handleArchive}
+        onCancel={() => setArchiveTarget(null)}
+      />
+
+      <ConfirmModal
+        open={!!restoreTarget}
+        variant="primary"
+        title={t("Faolga qaytarish")}
+        message={
+          <span>
+            «{restoreTarget?.name}» {t("faol mahsulotlar ro'yxatiga qaytarilsinmi?")}
+          </span>
+        }
+        confirmLabel={t("Qaytarish")}
+        loading={submitting}
+        loadingLabel={t("Qaytarilmoqda...")}
+        onConfirm={handleRestore}
+        onCancel={() => setRestoreTarget(null)}
       />
     </div>
   );

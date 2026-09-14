@@ -15,7 +15,7 @@ import {
   ProcessStatus,
   DrawingStatus,
   type TechProcessCreatePayload,
-  type ContractResponse,
+  type ContractSummary,
   type AttachmentResponse,
   type DepartmentOption,
 } from "@/lib/userService";
@@ -25,7 +25,9 @@ import {
   type TpMode,
   type CnMode,
   type ContractReadinessScope,
+  type ReadinessTechProcessSummary,
   type TechProcessResponse,
+  type CostNormListItem,
   type CostNormResponse,
   type CostNormItemResponse,
   type CostNormMetadata,
@@ -45,16 +47,16 @@ import { FileParsingOverlay } from "./_components/FileParsingOverlay";
 
 export default function TechProductionPage() {
   // ── Tech Process state ─────────────────────────────────────────────────────
-  const [tpList, setTpList] = useState<TechProcessResponse[]>([]);
-  const [tpLoading, setTpLoading] = useState(true);
   const [tpSearch, setTpSearch] = useState("");
 
   // TP detail / edit
   const [tpMode, setTpMode] = useState<TpMode>("list");
   const [tpSelected, setTpSelected] = useState<TechProcessResponse | null>(null);
+  const [tpEditingId, setTpEditingId] = useState<string|null>(null);
   const [tpEditForm, setTpEditForm] = useState({ title:"", notes:"" });
   const [tpEditSaving, setTpEditSaving] = useState(false);
   const [tpEditNewFile, setTpEditNewFile] = useState<File|null>(null);
+  const [tpEditFiles, setTpEditFiles] = useState<AttachmentResponse[]>([]);
   const tpEditFileRef = useRef<HTMLInputElement>(null);
 
   // TP create form
@@ -92,7 +94,7 @@ export default function TechProductionPage() {
   // ── Cost Norm state ────────────────────────────────────────────────────────
   const [cnMode, setCnMode] = useState<CnMode>("list");
   const [cnShowPhotos, setCnShowPhotos] = useState(false);
-  const [cnList, setCnList] = useState<CostNormResponse[]>([]);
+  const [cnList, setCnList] = useState<CostNormListItem[]>([]);
   const [cnListLoading, setCnListLoading] = useState(true);
   const [cnSelected, setCnSelected] = useState<CostNormResponse|null>(null);
   const [cnActiveTab, setCnActiveTab] = useState(0);
@@ -127,7 +129,7 @@ export default function TechProductionPage() {
   const [selectedScopeKey, setSelectedScopeKey] = useState<string|null>(null);
   const [tpInlineEditing, setTpInlineEditing] = useState(false);
   const [drawingWarningNo, setDrawingWarningNo] = useState<string|null>(null);
-  const [contractList, setContractList] = useState<ContractResponse[]>([]);
+  const [contractList, setContractList] = useState<ContractSummary[]>([]);
   const [departments, setDepartments] = useState<DepartmentOption[]>([]);
   const [viewMode, setViewMode] = useState<"active" | "archive">("active");
 
@@ -154,15 +156,9 @@ export default function TechProductionPage() {
   const loadContracts = useCallback(async()=>{
     try {
       const isActiveFlag = viewMode === "active";
-      const data = await contractService.getAll(undefined, undefined, isActiveFlag);
+      const data = await contractService.getAll(isActiveFlag);
       setContractList(data);
     } catch { setContractList([]); }
-  },[viewMode]);
-
-  const loadTp = useCallback(async () => {
-    try { setTpLoading(true); const data=await techProcessService.getAll(undefined, viewMode === "active"); setTpList(data); }
-    catch { /* ignore */ }
-    finally { setTpLoading(false); }
   },[viewMode]);
 
   const loadCn = useCallback(async()=>{ setCnListLoading(true); const d=await costNormService.getAll(undefined, viewMode === "active"); setCnList(d); setCnListLoading(false); },[viewMode]);
@@ -186,7 +182,7 @@ export default function TechProductionPage() {
     }
   },[viewMode, tpSearch, page]);
 
-  useEffect(()=>{ loadTp(); loadCn(); loadContracts(); },[loadTp, loadCn, loadContracts]);
+  useEffect(()=>{ loadCn(); loadContracts(); },[loadCn, loadContracts]);
   useEffect(()=>{ departmentService.getAll().then(setDepartments).catch(()=>setDepartments([])); },[]);
 
   // Reset to page 1 when filters change
@@ -203,31 +199,48 @@ export default function TechProductionPage() {
 
   // ── TP Drawer ──────────────────────────────────────────────────────────────
 
-  const openTpDetail = async (tp: TechProcessResponse) => {
-    setTpSelected(tp); setTpMode("detail"); setTpDetailFiles([]);
+  // Opens instantly on a placeholder built from the readiness row the user just
+  // clicked, then swaps in the full record. The fields the placeholder can't
+  // supply (createdAt, approver) render as "—" or stay hidden for that moment.
+  const openTpDetail = async (seed: ReadinessTechProcessSummary, scope: ContractReadinessScope) => {
+    setTpSelected({
+      id: seed.id,
+      contractNo: scope.contractNo,
+      productType: scope.productType,
+      title: seed.title,
+      notes: seed.notes,
+      status: seed.status,
+      approvedByFullName: null,
+      approvedAt: null,
+      createdAt: "",
+    });
+    setTpMode("detail"); setTpDetailFiles([]);
     window.history.pushState({mode:"detail"},"");
     const [fresh, files] = await Promise.all([
-      techProcessService.getById(tp.id),
-      techProcessService.getFiles(tp.id).catch(()=>[] as AttachmentResponse[]),
+      techProcessService.getById(seed.id),
+      techProcessService.getFiles(seed.id).catch(()=>[] as AttachmentResponse[]),
     ]);
     setTpSelected(fresh);
     setTpDetailFiles(files);
   };
 
   const tpRefreshSelected = async (id: string) => {
-    const fresh = await techProcessService.getById(id);
-    setTpSelected(fresh);
-    setTpList(prev=>prev.map(t=>t.id===id?fresh:t));
+    setTpSelected(await techProcessService.getById(id));
   };
 
   const handleTpEditSave = async () => {
-    if(!tpSelected) return;
+    if(!tpEditingId) return;
     setTpEditSaving(true);
     try {
-      await techProcessService.update(tpSelected.id, { title: tpEditForm.title, notes: tpEditForm.notes||null });
-      if(tpEditNewFile) await techProcessService.uploadFile(tpSelected.id, tpEditNewFile);
-      await tpRefreshSelected(tpSelected.id);
-      await Promise.all([loadTp(), loadReadiness()]);
+      await techProcessService.update(tpEditingId, { title: tpEditForm.title, notes: tpEditForm.notes||null });
+      if(tpEditNewFile) {
+        // Yangi fayl eskisining o'rniga keladi: avval yuklaymiz, yuklash muvaffaqiyatli
+        // bo'lgandagina eskilarini o'chiramiz — xato bo'lsa jarayon faylsiz qolmaydi.
+        await techProcessService.uploadFile(tpEditingId, tpEditNewFile);
+        await Promise.all(tpEditFiles.map(f => techProcessService.deleteFile(tpEditingId, f.id)));
+        setTpEditFiles([]);
+      }
+      await loadReadiness();
     } catch(e: unknown) {
       const msg=(e as {response?:{data?:{errors?:string[]}}})?.response?.data?.errors?.[0];
       alert(msg??t("Saqlashda xatolik yuz berdi. Qayta urinib ko'ring."));
@@ -257,8 +270,6 @@ export default function TechProductionPage() {
       const dto: TechProcessCreatePayload = { contractId:tpForm.contractId, contractProductId: tpForm.contractProductId || null, title:tpForm.title.trim()||finalFile!.name.replace(/\.[^.]+$/,""), notes:tpForm.notes||null };
       const newId = await techProcessService.create(dto);
       await techProcessService.uploadFile(newId, finalFile!);
-      const fresh = await techProcessService.getById(newId);
-      setTpList(prev=>[fresh,...prev]);
       await loadReadiness();
       setTpDraftWarning(null);
       setTpShowForm(false);
@@ -346,15 +357,15 @@ export default function TechProductionPage() {
     try {
       await techProcessService.approve(tpApproveTarget.id);
       if (tpSelected?.id === tpApproveTarget.id) await tpRefreshSelected(tpApproveTarget.id);
-      await Promise.all([loadTp(), loadReadiness()]);
+      await loadReadiness();
       setTpApproveTarget(null);
       showToast(t("Texnologik jarayon tasdiqlandi!"));
     } finally { setTpApproving(false); }
   }
 
-  function openCnDetail(norm: CostNormResponse) {
+  function openCnDetail(norm: CostNormListItem) {
     // List endpointda items kelmaydi — to'liq versiya (items bilan) shu yerda so'raladi.
-    setCnSelected(norm); setCnActiveTab(0); setCnShowPhotos(false); setCnDetailFiles([]); setCnDetailItems([]); setCnDetailLoading(true);
+    setCnSelected({ ...norm, items: [] }); setCnActiveTab(0); setCnShowPhotos(false); setCnDetailFiles([]); setCnDetailItems([]); setCnDetailLoading(true);
     window.history.pushState({mode:"detail"},""); setCnMode("detail");
     Promise.all([
       costNormService.getById(norm.id),
@@ -366,9 +377,9 @@ export default function TechProductionPage() {
     }).catch(()=>{}).finally(()=>setCnDetailLoading(false));
   }
 
-  async function openCnEdit(norm: CostNormResponse) {
+  async function openCnEdit(norm: CostNormListItem) {
     // List endpointda items kelmaydi — to'liq versiya (items bilan) shu yerda so'raladi.
-    setCnEditingNorm(norm); setCnEditForm({title:norm.title,notes:norm.notes||""}); setCnEditNewFile(null); setCnEditSaveError(null); setCnEditSaving(false); setCnShowPhotos(false);
+    setCnEditingNorm({ ...norm, items: [] }); setCnEditForm({title:norm.title,notes:norm.notes||""}); setCnEditNewFile(null); setCnEditSaveError(null); setCnEditSaving(false); setCnShowPhotos(false);
     setCnEditItems([]); setCnEditLoading(true);
     window.history.pushState({mode:"edit"},""); setCnMode("edit");
     try {
@@ -1208,13 +1219,13 @@ export default function TechProductionPage() {
                       {tpApproving?"...":t("Tasdiqlash")}
                     </button>
                   )}
-                  <button onClick={()=>{ const full=tpList.find(t=>t.id===tpEffective.id); if(full) openTpDetail(full); }}
+                  <button onClick={()=>openTpDetail(tpEffective, selectedItem)}
                     style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"#e8f0fe",border:"1px solid #a4c0f4",color:"#1a56db",cursor:"pointer" }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                     {t("Ko'rish")}
                   </button>
                   {canUpdateTp&&(
-                  <button onClick={()=>{ const full=tpList.find(t=>t.id===tpEffective.id); if(!full) return; setTpSelected(full); setTpEditForm({title:full.title,notes:full.notes||""}); setTpEditNewFile(null); setTpInlineEditing(true); }}
+                  <button onClick={()=>{ setTpEditingId(tpEffective.id); setTpEditForm({title:tpEffective.title,notes:tpEffective.notes||""}); setTpEditNewFile(null); setTpEditFiles([]); setTpInlineEditing(true); techProcessService.getFiles(tpEffective.id).then(setTpEditFiles).catch(()=>setTpEditFiles([])); }}
                     style={{ display:"inline-flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,fontSize:12,fontWeight:600,background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--text2)",cursor:"pointer" }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     {t("Tahrirlash")}
@@ -1260,7 +1271,7 @@ export default function TechProductionPage() {
                     <textarea className="form-input" value={tpEditForm.notes} onChange={e=>setTpEditForm(f=>({...f,notes:e.target.value}))} rows={3} style={{ resize:"none" }}/>
                   </div>
                   <div>
-                    <label style={{ fontSize:12,fontWeight:600,display:"block",marginBottom:4,color:"var(--text2)" }}>{t("Fayl (yangilash uchun)")}</label>
+                    <label style={{ fontSize:12,fontWeight:600,display:"block",marginBottom:4,color:"var(--text2)" }}>{t("Fayl almashtirish (ixtiyoriy)")}</label>
                     <input ref={tpEditFileRef} type="file" style={{ display:"none" }} onChange={e=>{ const f=e.target.files?.[0]; if(f) setTpEditNewFile(f); }}/>
                     <div style={{ display:"flex",alignItems:"center",gap:8 }}>
                       <button type="button" onClick={()=>tpEditFileRef.current?.click()}
@@ -1279,6 +1290,28 @@ export default function TechProductionPage() {
                         </span>
                       )}
                     </div>
+                    {tpEditFiles.length>0&&(
+                      <div style={{ marginTop:8,display:"flex",flexDirection:"column",gap:6 }}>
+                        <div style={{ display:"flex",flexWrap:"wrap",gap:6 }}>
+                          <span style={{ fontSize:11,color:"var(--text3)",fontWeight:600 }}>{t("Joriy fayl")}:</span>
+                          {tpEditFiles.map(f=>(
+                            <span key={f.id} style={{ fontSize:12,color:"var(--text2)",textDecoration:tpEditNewFile?"line-through":"none",opacity:tpEditNewFile?0.6:1 }}>
+                              {f.fileName}
+                            </span>
+                          ))}
+                        </div>
+                        <div style={{ display:"flex",alignItems:"flex-start",gap:6,padding:"8px 10px",borderRadius:"var(--radius)",background:tpEditNewFile?"var(--warn-dim)":"var(--bg2)",border:`1px solid ${tpEditNewFile?"var(--warn)":"var(--border)"}` }}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" strokeWidth="2" stroke={tpEditNewFile?"var(--warn)":"var(--text3)"} style={{ flexShrink:0,marginTop:1 }}>
+                            <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+                          </svg>
+                          <span style={{ fontSize:11.5,lineHeight:1.5,color:tpEditNewFile?"var(--warn)":"var(--text2)" }}>
+                            {tpEditNewFile
+                              ? t("Saqlaganda joriy fayl o'chiriladi va yangi fayl bilan almashtiriladi.")
+                              : t("Fayl kiritilmasa, joriy fayl o'zgarishsiz qoladi. Yangi fayl tanlasangiz, u eskisining o'rnini egallaydi.")}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div style={{ display:"flex",gap:8,justifyContent:"flex-end" }}>
                     <button onClick={()=>setTpInlineEditing(false)}
@@ -1524,14 +1557,14 @@ export default function TechProductionPage() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input className="search-input" placeholder={t("Shartnoma raqami bo'yicha qidirish...")} value={tpSearch} onChange={e=>setTpSearch(e.target.value)}/>
         </div>
-        <button className="btn-icon" onClick={()=>{ loadTp(); loadCn(); loadContracts(); loadReadiness(page); }} title={t("Yangilash")} style={{ background:"var(--accent-dim)",borderColor:"var(--accent)",color:"var(--accent)",width:36,height:36 }}>
+        <button className="btn-icon" onClick={()=>{ loadCn(); loadContracts(); loadReadiness(page); }} title={t("Yangilash")} style={{ background:"var(--accent-dim)",borderColor:"var(--accent)",color:"var(--accent)",width:36,height:36 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
         </button>
       </div>
 
       {/* ── Contracts table ── */}
       <div className="itm-card" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "clip" } as React.CSSProperties}>
-        {(readinessLoading||tpLoading||cnListLoading)?(
+        {(readinessLoading||cnListLoading)?(
           <div style={{ flex:1,padding:40,textAlign:"center",color:"var(--text2)" }}>{t("Yuklanmoqda...")}</div>
         ):readinessItems.length===0?(
           <div style={{ flex:1,padding:40,textAlign:"center",color:"var(--text2)" }}>

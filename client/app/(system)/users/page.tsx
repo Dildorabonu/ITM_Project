@@ -61,7 +61,6 @@ function UsersPageInner() {
   const [deactivateError, setDeactivateError] = useState<string | null>(null);
   const [activateConfirmId, setActivateConfirmId] = useState<string | null>(null);
   const [activating, setActivating] = useState(false);
-  const [confirmHead, setConfirmHead] = useState<{ headName: string } | null>(null);
 
   const showCreate = view === "create";
   const showEdit = view === "edit" && !!editId;
@@ -157,21 +156,8 @@ function UsersPageInner() {
 
   const handleCancel = () => {
     setSaveError("");
-    setConfirmHead(null);
     sessionStorage.removeItem("draft_users");
     router.push(pathname);
-  };
-
-  const handleIsHeadChange = (checked: boolean) => {
-    if (!checked) { setForm(f => ({ ...f, isHead: false })); return; }
-    const dept = departments.find(d => d.id === form.departmentId);
-    const existingHead = dept?.headUserName;
-    const currentUserIsHead = showEdit && editTarget?.isHead && editTarget?.departmentId === form.departmentId;
-    if (existingHead && !currentUserIsHead) {
-      setConfirmHead({ headName: existingHead });
-    } else {
-      setForm(f => ({ ...f, isHead: true }));
-    }
   };
 
   const handleCreate = async () => {
@@ -279,10 +265,7 @@ function UsersPageInner() {
           saveError={saveError}
           roles={roles}
           departments={departments}
-          confirmHead={confirmHead}
-          setConfirmHead={setConfirmHead}
           handleUpdate={handleUpdate}
-          handleIsHeadChange={handleIsHeadChange}
           onCancel={handleCancel}
         />
       </div>
@@ -300,10 +283,7 @@ function UsersPageInner() {
           saveError={saveError}
           roles={roles}
           departments={departments}
-          confirmHead={confirmHead}
-          setConfirmHead={setConfirmHead}
           handleCreate={handleCreate}
-          handleIsHeadChange={handleIsHeadChange}
           onCancel={handleCancel}
         />
       </div>

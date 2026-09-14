@@ -12,7 +12,7 @@ import {
 } from "@/lib/userService";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useToastStore } from "@/lib/store/toastStore";
-import { fmtDateTime, isRequisitionCompleted, isRequisitionRejected, REQUISITION_STATUS_LABELS } from "../_types";
+import { childStatusesOf, fmtDateTime, isRequisitionCompleted, isRequisitionRejected, REQUISITION_STATUS_LABELS } from "../_types";
 import { RequisitionNo } from "@/app/_components/RequisitionNo";
 import { RequisitionStatusBadge } from "./StatusBadge";
 import { WorkflowDiagram } from "./WorkflowDiagram";
@@ -21,12 +21,18 @@ import { downloadRequisitionPdf, openRequisitionPdfInNewTab } from "../_utils/do
 import { useT } from "@/lib/i18n";
 
 interface Props {
-  req: RequisitionResponse;
+  /**
+   * Ro'yxat javoblarida to'liq talabnoma kelmaydi (materiallar, QR imzolari va
+   * bog'liq talabnomalar faqat detalda bo'ladi) — shuning uchun drawer ID oladi
+   * va detalni o'zi yuklaydi.
+   */
+  reqId: string;
   onClose: () => void;
+  /** Holat o'zgargach chaqiriladi — chaqiruvchi ro'yxatini yangilashi uchun. */
   onUpdate: (updated: RequisitionResponse) => void;
 }
 
-export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
+export function RequisitionDrawer({ reqId, onClose, onUpdate }: Props) {
   const router = useRouter();
   const t = useT();
   const hasPermission = useAuthStore((s) => s.hasPermission);
@@ -34,8 +40,7 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
 
   const canApprove = hasPermission("Requisitions.Approve");
 
-  const canDoApproval = canApprove && req.status === RequisitionStatus.PendingApproval;
-
+  const [req, setReq] = useState<RequisitionResponse | null>(null);
   const [acting, setActing] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
@@ -48,12 +53,21 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
   const [childActing, setChildActing] = useState<{ id: string; action: "download" | "open" } | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+    setReq(null);
+    requisitionService.getById(reqId)
+      .then(data => { if (!cancelled && data) setReq(data); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [reqId]);
+
+  useEffect(() => {
     setFilesLoading(true);
-    requisitionService.getFiles(req.id)
+    requisitionService.getFiles(reqId)
       .then(data => { setFiles(data); })
       .catch(() => {})
       .finally(() => setFilesLoading(false));
-  }, [req.id]);
+  }, [reqId]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -62,14 +76,17 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
   }, [onClose]);
 
   const refresh = async () => {
-    const updated = await requisitionService.getById(req.id);
-    if (updated) onUpdate(updated);
+    const updated = await requisitionService.getById(reqId);
+    if (updated) {
+      setReq(updated);
+      onUpdate(updated);
+    }
   };
 
   const handleApprove = async () => {
     setActing(true);
     try {
-      const { pdfUploaded } = await approveWithPdf(req.id);
+      const { pdfUploaded } = await approveWithPdf(reqId);
       showToast(
         pdfUploaded ? t("Talabnoma tasdiqlandi") : t("Talabnoma tasdiqlandi (PDF yaratilmadi)"),
         pdfUploaded ? "success" : t("Ogohlantirish"),
@@ -84,7 +101,7 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
     if (!rejectReason.trim()) return;
     setRejectSaving(true);
     try {
-      await requisitionService.reject(req.id, rejectReason.trim());
+      await requisitionService.reject(reqId, rejectReason.trim());
       showToast(t("Talabnoma rad etildi"), "success");
       setRejectOpen(false);
       setRejectSaving(false);
@@ -122,7 +139,7 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
 
   const handleFileDownload = async (file: AttachmentResponse) => {
     try {
-      await requisitionService.downloadFile(req.id, file.id, file.fileName);
+      await requisitionService.downloadFile(reqId, file.id, file.fileName);
     } catch {
       showToast(t("Yuklab olishda xatolik"), "error");
     }
@@ -132,7 +149,7 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
     const ext = file.fileName.split(".").pop()?.toLowerCase() ?? "";
     setPreviewingId(file.id);
     try {
-      const blob = await requisitionService.getFileBlob(req.id, file.id);
+      const blob = await requisitionService.getFileBlob(reqId, file.id);
       if (ext === "docx" || ext === "doc") {
         const { renderAsync } = await import("docx-preview");
         const container = document.createElement("div");
@@ -169,6 +186,29 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
     }
   };
 
+  // Detal yuklanmaguncha bo'sh panel — ro'yxat qatorida talabnomaning to'liq
+  // ma'lumoti yo'q, shuning uchun uni bu yerda kutamiz.
+  if (!req) {
+    return createPortal(
+      <>
+        <div
+          onClick={onClose}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)", zIndex: 1000 }}
+        />
+        <div style={{
+          position: "fixed", top: 0, right: 0, bottom: 0, width: 760, maxWidth: "96vw",
+          background: "var(--bg2)", boxShadow: "var(--shadow2)", zIndex: 1001,
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <div className="nd-spinner" />
+        </div>
+      </>,
+      document.body,
+    );
+  }
+
+  const canDoApproval = canApprove && req.status === RequisitionStatus.PendingApproval;
+
   const isChild = !!req.parentRequisitionId;
   const isApproved = req.status === RequisitionStatus.ReadyForWarehouseRelease
     || req.status === RequisitionStatus.ReadyForPurchase
@@ -198,7 +238,7 @@ export function RequisitionDrawer({ req, onClose, onUpdate }: Props) {
               {req.sourceLabel && <span style={{ marginLeft: 8, color: req.source === RequisitionSource.Warehouse ? "var(--success)" : "var(--accent)", fontWeight: 500 }}>· {t(req.sourceLabel)}</span>}
             </div>
           </div>
-          <RequisitionStatusBadge status={req.status} completed={isRequisitionCompleted(req)} rejected={isRequisitionRejected(req)} />
+          <RequisitionStatusBadge status={req.status} completed={isRequisitionCompleted(req.status, childStatusesOf(req))} rejected={isRequisitionRejected(req.status, childStatusesOf(req))} />
           <button
             onClick={onClose}
             style={{ padding: 7, background: "none", border: "1.5px solid var(--danger)", cursor: "pointer", color: "var(--danger)", borderRadius: "var(--radius)", lineHeight: 1, transition: "background 0.15s, transform 0.15s" }}

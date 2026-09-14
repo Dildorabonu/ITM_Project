@@ -7,7 +7,7 @@ import {
   DepartmentType,
   RequisitionStatus,
   REQUISITION_TYPE_LABELS,
-  type RequisitionResponse,
+  type RequisitionQueueRow,
   type ProductResponse,
 } from "@/lib/userService";
 import { normalize, fmt, daysSince, statusKeyframes, type ReqCheckRow } from "./_types";
@@ -22,7 +22,7 @@ function waitColor(days: number) {
 
 export default function WarehousePage() {
   const t = useT();
-  const [requisitions, setRequisitions] = useState<RequisitionResponse[]>([]);
+  const [requisitions, setRequisitions] = useState<RequisitionQueueRow[]>([]);
   const [products, setProducts] = useState<ProductResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");

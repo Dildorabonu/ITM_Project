@@ -6,6 +6,7 @@ import {
   stockMovementSign,
   STOCK_MOVEMENT_COLOR,
   STOCK_MOVEMENT_DIM,
+  STOCK_MOVEMENT_LABEL,
   type StockMovement,
 } from "@/lib/stockMovements";
 import { RequisitionNo } from "@/app/_components/RequisitionNo";
@@ -87,7 +88,7 @@ export function MovementDetailDrawer({ movement, onClose }: {
             fontSize: 12, fontWeight: 600, fontFamily: "var(--font-mono)",
           }}>
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: color }} />
-            {movement.typeLabel}
+            {STOCK_MOVEMENT_LABEL[movement.type]}
           </span>
           <p style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.5, marginTop: 10 }}>
             {t(STOCK_MOVEMENT_DESC[movement.type] ?? "")}

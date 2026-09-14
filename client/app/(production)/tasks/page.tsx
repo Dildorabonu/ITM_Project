@@ -7,8 +7,8 @@ import { ConfirmModal } from "@/app/_components/ConfirmModal";
 import { CheckSelect } from "@/app/_components/CheckSelect";
 import {
   contractService,
-  ContractResponse,
-  ContractProductResponse,
+  ContractSummary,
+  ContractSummaryProduct,
   ContractStatus,
   contractTaskService,
   ContractTaskResponse,
@@ -28,7 +28,7 @@ import { useT } from "@/lib/i18n";
 // Bitta scope = (contract, mahsulot) yoki (contract, Umumiy).
 // Tasks sahifasidagi har bir card va panel scope bilan bog'liq.
 
-type Scope = { contract: ContractResponse; product: ContractProductResponse | null };
+type Scope = { contract: ContractSummary; product: ContractSummaryProduct | null };
 
 function scopeKey(s: Scope): string {
   return `${s.contract.id}::${s.product?.id ?? "umumiy"}`;
@@ -47,6 +47,9 @@ function scopeStatus(s: Scope): ContractStatus {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const WAREHOUSE_TASK_NAME = "Tayyor mahsulotni omborga topshirish";
+
+// Qo'lda tuzatishda backend yozadigan izoh belgisi.
+const CORRECTION_NOTE = "Tuzatish";
 
 // Standart (default) vazifa — har doim mavjud bo'lgan warehouse vazifasi.
 // Yangi vazifa qo'shilganda uning muhimligi shu standart vazifadan avtomatik
@@ -475,7 +478,6 @@ function EditTaskModal({
 }) {
   const t = useT();
   const [name, setName] = useState(task.name);
-  const [completedAmount, setCompletedAmount] = useState(String(task.completedAmount));
   // importanceMap: id → string value for all tasks
   const [importanceMap, setImportanceMap] = useState<Record<string, string>>(() =>
     Object.fromEntries(allTasks.map(t => [t.id, String(t.importance)]))
@@ -486,15 +488,6 @@ function EditTaskModal({
   const [serverError, setServerError] = useState("");
 
   const isWarehouse = task.name === WAREHOUSE_TASK_NAME;
-  const warehouseCap = isWarehouse
-    ? (() => {
-        const others = allTasks.filter(t => t.id !== task.id && t.name !== WAREHOUSE_TASK_NAME);
-        return others.length === 0 ? null : Math.min(...others.map(t => t.completedAmount));
-      })()
-    : null;
-  const parsedCompleted = parseFloat(completedAmount);
-  const completedExceedsCap =
-    isWarehouse && warehouseCap !== null && !isNaN(parsedCompleted) && parsedCompleted > warehouseCap;
 
   const total = Math.round(
     allTasks.reduce((s, t) => s + (parseFloat(importanceMap[t.id]) || 0), 0) * 100
@@ -510,7 +503,6 @@ function EditTaskModal({
     setSubmitted(true);
     setServerError("");
     if (!name.trim()) return;
-    if (completedExceedsCap) return;
     if (diff !== 0) {
       setImportanceError(
         diff > 0
@@ -528,7 +520,6 @@ function EditTaskModal({
         task.id,
         {
           name: name.trim(),
-          completedAmount: parseFloat(completedAmount) || 0,
           totalAmount: task.totalAmount,
           importance: parseFloat(importanceMap[task.id]) || 0,
         },
@@ -563,35 +554,40 @@ function EditTaskModal({
               rows={2}
               value={name}
               onChange={e => setName(e.target.value)}
-              style={submitted && !name.trim() ? { borderColor: "var(--danger)" } : undefined}
+              disabled={isWarehouse}
+              style={
+                isWarehouse
+                  ? { color: "var(--text3)", cursor: "not-allowed" }
+                  : submitted && !name.trim()
+                    ? { borderColor: "var(--danger)" }
+                    : undefined
+              }
             />
-            {submitted && !name.trim() && (
+            {isWarehouse && (
+              <div style={{ color: "var(--text3)", fontSize: 12 }}>
+                {t("Tizimning doimiy vazifasi — nomini o'zgartirib bo'lmaydi.")}
+              </div>
+            )}
+            {!isWarehouse && submitted && !name.trim() && (
               <div style={{ color: "var(--danger)", fontSize: 12 }}>{t("Vazifa nomini kiriting")}</div>
             )}
           </div>
 
+          {/* Bajarilgan miqdor bu yerdan tahrirlanmaydi — u faqat "Bajarildi"
+              orqali qo'shiladi, aks holda jo'natilgan mahsulotni orqaga
+              qaytarish mumkin bo'lardi. */}
           <div className="atf-field">
-            <label className="atf-label">
-              {t("Bajarilgan miqdor")}
-              {isWarehouse && warehouseCap !== null && (
-                <span style={{ color: "var(--text3)", fontWeight: 500, marginLeft: 6 }}>
-                  ({t("eng ko'pi")} {warehouseCap.toLocaleString()})
-                </span>
-              )}
-            </label>
-            <input
-              className="form-input"
-              type="number" min="0"
-              value={completedAmount}
-              onChange={e => { setCompletedAmount(e.target.value); setServerError(""); }}
-              onWheel={e => (e.target as HTMLInputElement).blur()}
-              style={submitted && completedExceedsCap ? { borderColor: "var(--danger)" } : undefined}
-            />
-            {submitted && completedExceedsCap && warehouseCap !== null && (
-              <div style={{ color: "var(--danger)", fontSize: 12 }}>
-                {t("Boshqa vazifalar shu darajada bajarilmagan — eng ko'pi")} {warehouseCap.toLocaleString()}.
-              </div>
-            )}
+            <label className="atf-label">{t("Bajarilgan miqdor")}</label>
+            <div style={{
+              padding: "9px 12px", borderRadius: "var(--radius)",
+              background: "var(--surface2, var(--card-bg))", border: "1px solid var(--border)",
+              fontSize: 13, fontWeight: 700, color: "var(--text2)",
+            }}>
+              {task.completedAmount.toLocaleString()} / {task.totalAmount.toLocaleString()}
+            </div>
+            <div style={{ color: "var(--text3)", fontSize: 12 }}>
+              {t("Kiritilgan miqdorni tahrirlab bo'lmaydi — u faqat progress qo'shish orqali o'zgaradi.")}
+            </div>
             {serverError && (
               <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>{serverError}</div>
             )}
@@ -860,7 +856,22 @@ function DailyLogModal({
                     <span className="mono" style={{ color: "var(--text3)", fontSize: 12, flexShrink: 0 }}>
                       {new Date(l.createdAt).toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                     </span>
-                    <span style={{ fontWeight: 600, color: "var(--accent, #3b82f6)", flexShrink: 0 }}>+{l.amount.toLocaleString()}</span>
+                    <span style={{
+                      fontWeight: 600,
+                      color: l.amount < 0 ? "var(--danger)" : "var(--accent, #3b82f6)",
+                      flexShrink: 0,
+                    }}>
+                      {l.amount < 0 ? "−" : "+"}{Math.abs(l.amount).toLocaleString()}
+                    </span>
+                    {l.note === CORRECTION_NOTE && (
+                      <span style={{
+                        fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em",
+                        padding: "1px 7px", borderRadius: 999, flexShrink: 0,
+                        color: "var(--text3)", background: "var(--surface)", border: "1px solid var(--border)",
+                      }}>
+                        {t("Tuzatish")}
+                      </span>
+                    )}
                     <span style={{ color: "var(--text3)", fontSize: 11, flexShrink: 0, marginLeft: "auto" }}>{l.createdByFullName ?? ""}</span>
                   </div>
                 ))}
@@ -2027,7 +2038,7 @@ type Phase = "grid" | "grid-exit" | "panel" | "panel-exit";
 export default function TasksPage() {
   const t = useT();
   const hasPermission = useAuthStore(s => s.hasPermission);
-  const [contracts, setContracts] = useState<ContractResponse[]>([]);
+  const [contracts, setContracts] = useState<ContractSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Scope | null>(null);
   const [phase, setPhase] = useState<Phase>("grid");
@@ -2148,7 +2159,7 @@ export default function TasksPage() {
     }
   }, [viewMode, filterStatus]);
 
-  // `ContractResponse.products[].status` backenddan keladi — qaysi mahsulot
+  // `ContractSummary.products[].status` backenddan keladi — qaysi mahsulot
   // ishlab chiqarishga tayyorligini hisoblash uchun qo'shimcha so'rov shart emas.
   // Faol va Arxiv→Yakunlangan faol shartnomalardan, Arxiv→Bekor qilingan esa
   // noaktiv shartnomalardan oladi.

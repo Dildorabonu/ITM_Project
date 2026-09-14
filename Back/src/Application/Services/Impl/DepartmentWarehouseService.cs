@@ -7,6 +7,8 @@ namespace Application.Services.Impl;
 
 // "Bo'lim omborlari" sahifasini ta'minlovchi servis: bo'limlar bo'yicha umumiy
 // statistika (plitkalar) va bitta bo'lim ichidagi mahsulotlar ro'yxati.
+// Ikkala metod ham bitta SQL so'rov bilan ishlaydi va faqat UI da ko'rinadigan
+// maydonlarni tanlab oladi — entity materializatsiyasi yo'q.
 public class DepartmentWarehouseService : IDepartmentWarehouseService
 {
     private readonly DatabaseContext _context;
@@ -16,64 +18,59 @@ public class DepartmentWarehouseService : IDepartmentWarehouseService
         _context = context;
     }
 
-    public async Task<ApiResult<IEnumerable<DepartmentWarehouseSummaryDto>>> GetDepartmentSummariesAsync(Guid? restrictToDepartmentId = null)
+    // Plitkalar: bo'lim ustuni + zaxira agregatlari bitta so'rovda. Agregatlar
+    // Products dagi (DepartmentId, MaterialId) indeksidan foydalanadi.
+    public async Task<ApiResult<List<DepartmentWarehouseSummaryDto>>> GetDepartmentSummariesAsync(Guid? restrictToDepartmentId = null)
     {
-        var deptQuery = _context.Departments.Where(d => d.IsActive).AsNoTracking();
+        var query = _context.Departments.Where(d => d.IsActive);
 
         if (restrictToDepartmentId.HasValue)
-            deptQuery = deptQuery.Where(d => d.Id == restrictToDepartmentId.Value);
+            query = query.Where(d => d.Id == restrictToDepartmentId.Value);
 
-        var depts = await deptQuery.OrderBy(d => d.Name).ToListAsync();
-        if (depts.Count == 0)
-            return ApiResult<IEnumerable<DepartmentWarehouseSummaryDto>>.Success([]);
-
-        var deptIds = depts.Select(d => d.Id).ToList();
-        var stats = await _context.Products
-            .Where(p => deptIds.Contains(p.DepartmentId))
-            .GroupBy(p => p.DepartmentId)
-            .Select(g => new
-            {
-                DepartmentId = g.Key,
-                ProductCount = g.Count(),
-                TotalQuantity = g.Sum(p => p.Quantity)
-            })
-            .ToListAsync();
-
-        var statMap = stats.ToDictionary(s => s.DepartmentId);
-
-        var result = depts.Select(d =>
-        {
-            statMap.TryGetValue(d.Id, out var s);
-            return new DepartmentWarehouseSummaryDto
+        var result = await query
+            .OrderBy(d => d.Name)
+            .Select(d => new DepartmentWarehouseSummaryDto
             {
                 DepartmentId = d.Id,
                 DepartmentName = d.Name,
                 DepartmentType = d.Type,
-                ProductCount = s?.ProductCount ?? 0,
-                TotalQuantity = s?.TotalQuantity ?? 0m
-            };
-        });
-
-        return ApiResult<IEnumerable<DepartmentWarehouseSummaryDto>>.Success(result);
-    }
-
-    public async Task<ApiResult<IEnumerable<DepartmentProductDto>>> GetByDepartmentAsync(Guid departmentId)
-    {
-        var products = await _context.Products
-            .Where(p => p.DepartmentId == departmentId)
-            .AsNoTracking()
-            .Select(p => new DepartmentProductDto
-            {
-                Id = p.Id,
-                Name = p.Name,
-                InvoiceNumber = p.InvoiceNumber,
-                Description = p.Description,
-                Quantity = p.Quantity,
-                Unit = p.Unit,
-                CreatedAt = p.CreatedAt
+                ProductCount = d.Products.Count(),
+                // Bo'sh bo'limda SUM() NULL qaytaradi — 0 ga keltiriladi.
+                TotalQuantity = d.Products.Sum(p => (decimal?)p.Quantity) ?? 0m
             })
             .ToListAsync();
 
-        return ApiResult<IEnumerable<DepartmentProductDto>>.Success(products);
+        return ApiResult<List<DepartmentWarehouseSummaryDto>>.Success(result);
+    }
+
+    // Sarlavha (bo'lim nomi/turi) va jadval qatorlari bitta so'rovda.
+    public async Task<ApiResult<DepartmentWarehouseDetailDto>> GetByDepartmentAsync(Guid departmentId)
+    {
+        var detail = await _context.Departments
+            .Where(d => d.Id == departmentId)
+            .Select(d => new DepartmentWarehouseDetailDto
+            {
+                DepartmentName = d.Name,
+                DepartmentType = d.Type,
+                Products = d.Products
+                    .OrderBy(p => p.CreatedAt)
+                    .Select(p => new DepartmentProductDto
+                    {
+                        Id = p.Id,
+                        Name = p.Name,
+                        InvoiceNumber = p.InvoiceNumber,
+                        Description = p.Description,
+                        Quantity = p.Quantity,
+                        Unit = p.Unit,
+                        CreatedAt = p.CreatedAt
+                    })
+                    .ToList()
+            })
+            .FirstOrDefaultAsync();
+
+        if (detail is null)
+            return ApiResult<DepartmentWarehouseDetailDto>.Failure([$"Department with id '{departmentId}' not found."], 404);
+
+        return ApiResult<DepartmentWarehouseDetailDto>.Success(detail);
     }
 }

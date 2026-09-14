@@ -6,7 +6,6 @@ using Core.Entities;
 using Core.Enums;
 using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
-using ProcessStatus = Core.Enums.ProcessStatus;
 using SysTask = System.Threading.Tasks.Task;
 
 namespace Application.Services.Impl;
@@ -30,25 +29,27 @@ public class CostNormService : ICostNormService
         _manufacturedProductService = manufacturedProductService;
     }
 
-    public async Task<ApiResult<IEnumerable<CostNormResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, Guid? contractId = null, bool? isActive = null)
+    public async Task<ApiResult<IEnumerable<CostNormListItemDto>>> GetAllAsync(Guid currentUserId, bool viewAll, Guid? contractId = null, bool? isActive = null)
     {
-        // List uchun Items yuklanmaydi (og'ir bo'lishi mumkin) — to'liq versiya GetByIdAsync da.
-        var query = _context.CostNorms
-            .Include(c => c.Contract)
-            .Include(c => c.ContractProduct)
-            .AsNoTracking()
-            .AsQueryable();
+        var query = _context.CostNorms.AsNoTracking();
 
         if (!viewAll && !contractId.HasValue)
         {
+            // Bo'lim tekshiruvi ilgari har bir qator uchun Users jadvaliga korrelyatsion
+            // so'rov qilar edi — endi foydalanuvchi bo'limi bir marta olinadi.
+            var userDepartmentId = await _context.Users
+                .Where(u => u.Id == currentUserId)
+                .Select(u => u.DepartmentId)
+                .FirstOrDefaultAsync();
+
             query = query.Where(c =>
                 _context.ContractUsers.Any(cu => cu.ContractId == c.ContractId && cu.UserId == currentUserId) ||
-                _context.ContractDepartments.Any(cd => cd.ContractId == c.ContractId &&
-                    _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == cd.DepartmentId)) ||
+                (userDepartmentId != null &&
+                    _context.ContractDepartments.Any(cd => cd.ContractId == c.ContractId && cd.DepartmentId == userDepartmentId)) ||
                 (c.ContractProductId != null && (
                     _context.ContractProductUsers.Any(pu => pu.ContractProductId == c.ContractProductId && pu.UserId == currentUserId) ||
-                    _context.ContractProductDepartments.Any(pd => pd.ContractProductId == c.ContractProductId &&
-                        _context.Users.Any(u => u.Id == currentUserId && u.DepartmentId == pd.DepartmentId))
+                    (userDepartmentId != null &&
+                        _context.ContractProductDepartments.Any(pd => pd.ContractProductId == c.ContractProductId && pd.DepartmentId == userDepartmentId))
                 )));
         }
 
@@ -58,33 +59,81 @@ public class CostNormService : ICostNormService
         if (isActive.HasValue)
             query = query.Where(c => c.IsActive == isActive.Value);
 
+        // To'g'ridan-to'g'ri DTO ga proyeksiya — Contract/ContractProduct entity'lari
+        // va MetadataJson bloki umuman yuklanmaydi, faqat kerakli ustunlar SQL dan olinadi.
         var list = await query
             .OrderByDescending(c => c.CreatedAt)
+            .Select(c => new CostNormListItemDto
+            {
+                Id = c.Id,
+                ContractNo = c.Contract != null ? c.Contract.ContractNo : string.Empty,
+                ContractProductId = c.ContractProductId,
+                ProductType = c.ContractProduct != null ? c.ContractProduct.ProductType : null,
+                ContractQuantity = c.ContractProduct != null && c.ContractProduct.Quantity > 0 ? c.ContractProduct.Quantity : 1,
+                Title = c.Title,
+                Notes = c.Notes,
+                Status = c.Status,
+                IsActive = c.IsActive,
+            })
             .ToListAsync();
 
-        return ApiResult<IEnumerable<CostNormResponseDto>>.Success(list.Select(MapToResponse));
+        return ApiResult<IEnumerable<CostNormListItemDto>>.Success(list);
     }
 
     public async Task<ApiResult<CostNormResponseDto>> GetByIdAsync(Guid id)
     {
         var costNorm = await _context.CostNorms
-            .Include(c => c.Contract)
-            .Include(c => c.ContractProduct)
-            .Include(c => c.Items.OrderBy(i => i.SortOrder))
-            .ThenInclude(i => i.Department)
             .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.Id == id);
+            .Where(c => c.Id == id)
+            .Select(c => new CostNormResponseDto
+            {
+                Id = c.Id,
+                ContractNo = c.Contract != null ? c.Contract.ContractNo : string.Empty,
+                ContractProductId = c.ContractProductId,
+                ProductType = c.ContractProduct != null ? c.ContractProduct.ProductType : null,
+                ContractQuantity = c.ContractProduct != null && c.ContractProduct.Quantity > 0 ? c.ContractProduct.Quantity : 1,
+                Title = c.Title,
+                Notes = c.Notes,
+                Status = c.Status,
+                IsActive = c.IsActive,
+                Items = c.Items
+                    .OrderBy(i => i.SortOrder)
+                    .Select(i => new CostNormItemResponseDto
+                    {
+                        IsSection = i.IsSection,
+                        SectionName = i.SectionName,
+                        No = i.No,
+                        Name = i.Name,
+                        Unit = i.Unit,
+                        ReadyQty = i.ReadyQty,
+                        WasteQty = i.WasteQty,
+                        TotalQty = i.TotalQty,
+                        PhotoRaw = i.PhotoRaw,
+                        PhotoSemi = i.PhotoSemi,
+                        ImportType = i.ImportType,
+                        SortOrder = i.SortOrder,
+                        DepartmentId = i.DepartmentId,
+                        DepartmentName = i.Department != null ? i.Department.Name : null,
+                    })
+                    .ToList(),
+            })
+            .FirstOrDefaultAsync();
 
         if (costNorm is null)
             return ApiResult<CostNormResponseDto>.Failure([$"CostNorm with id '{id}' not found."], 404);
 
-        return ApiResult<CostNormResponseDto>.Success(MapToResponse(costNorm));
+        return ApiResult<CostNormResponseDto>.Success(costNorm);
     }
 
     public async Task<ApiResult<Guid>> CreateAsync(CostNormCreateDto dto, Guid createdBy)
     {
-        var contractExists = await _context.Contracts.AnyAsync(c => c.Id == dto.ContractId);
-        if (!contractExists)
+        // Mavjudlik tekshiruvi va bildirishnomada ishlatiladigan shartnoma raqami — bitta so'rovda.
+        var contractNo = await _context.Contracts
+            .Where(c => c.Id == dto.ContractId)
+            .Select(c => c.ContractNo)
+            .FirstOrDefaultAsync();
+
+        if (contractNo is null)
             return ApiResult<Guid>.Failure([$"Contract with id '{dto.ContractId}' not found."], 404);
 
         if (dto.ContractProductId.HasValue)
@@ -114,24 +163,21 @@ public class CostNormService : ICostNormService
 
         await RegenerateDocxAsync(costNorm, createdBy);
 
-        var contract = await _context.Contracts
-            .Include(c => c.ContractUsers)
-            .Include(c => c.ContractDepartments)
-            .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.Id == dto.ContractId);
-
-        var contractUserIds = contract?.ContractUsers.Select(cu => cu.UserId) ?? Enumerable.Empty<Guid>();
-        var deptUserIds = contract is not null
-            ? await _context.Users
-                .Where(u => u.IsActive && contract.ContractDepartments.Select(cd => cd.DepartmentId).Contains(u.DepartmentId!.Value))
-                .Select(u => u.Id)
-                .ToListAsync()
-            : new List<Guid>();
+        // Shartnoma a'zolari + biriktirilgan bo'lim xodimlari: entity grafini
+        // yuklamasdan, bitta so'rovda faqat ID lar.
+        var recipientIds = await _context.ContractUsers
+            .Where(cu => cu.ContractId == dto.ContractId)
+            .Select(cu => cu.UserId)
+            .Union(_context.Users
+                .Where(u => u.IsActive && u.DepartmentId != null &&
+                    _context.ContractDepartments.Any(cd => cd.ContractId == dto.ContractId && cd.DepartmentId == u.DepartmentId))
+                .Select(u => u.Id))
+            .ToListAsync();
 
         await _notificationService.NotifyUsersAndSuperAdminsAsync(
-            contractUserIds.Union(deptUserIds),
+            recipientIds,
             $"Yangi me'yoriy sarf: {costNorm.Title}",
-            $"«{contract?.ContractNo}» shartnomasi uchun me'yoriy sarf norma tuzildi: {costNorm.Title}. Materiallar: {costNorm.Items.Count} ta.",
+            $"«{contractNo}» shartnomasi uchun me'yoriy sarf norma tuzildi: {costNorm.Title}. Materiallar: {costNorm.Items.Count} ta.",
             NotificationType.Info,
             dto.ContractId);
 
@@ -190,9 +236,8 @@ public class CostNormService : ICostNormService
 
     public async Task<ApiResult<int>> UpdateAsync(Guid id, CostNormUpdateDto dto)
     {
-        var costNorm = await _context.CostNorms
-            .Include(c => c.Items)
-            .FirstOrDefaultAsync(c => c.Id == id);
+        // Items faqat ular almashtirilganda kerak — har safar Include qilib yuklamaymiz.
+        var costNorm = await _context.CostNorms.FirstOrDefaultAsync(c => c.Id == id);
 
         if (costNorm is null)
             return ApiResult<int>.Failure([$"CostNorm with id '{id}' not found."], 404);
@@ -214,23 +259,30 @@ public class CostNormService : ICostNormService
             costNorm.ContractProductId = dto.ContractProductId.Value;
         }
 
+        List<CostNormItem>? newItems = null;
         if (dto.Items is not null)
         {
-            var oldItems = costNorm.Items.ToList();
-            _context.CostNormItems.RemoveRange(oldItems);
-            var newItems = BuildItems(dto.Items, costNorm.Id);
+            // Eski qatorlarni o'chirish uchun ularni xotiraga yuklash shart emas.
+            await _context.CostNormItems
+                .Where(i => i.CostNormId == costNorm.Id)
+                .ExecuteDeleteAsync();
+
+            newItems = BuildItems(dto.Items, costNorm.Id);
             await _context.CostNormItems.AddRangeAsync(newItems);
         }
 
         await _context.SaveChangesAsync();
 
-        // Reload items: in the items-update branch we add rows via the DbSet directly,
-        // so the navigation collection on costNorm is stale at this point.
-        costNorm.Items = await _context.CostNormItems
-            .Where(i => i.CostNormId == costNorm.Id)
-            .OrderBy(i => i.SortOrder)
-            .AsNoTracking()
-            .ToListAsync();
+        // DOCX generatori costNorm.Items ni o'qiydi: qatorlar almashtirilgan bo'lsa
+        // ular allaqachon xotirada, aks holda saqlangan qatorlar o'qiladi.
+        costNorm.Items = newItems is not null
+            ? newItems.OrderBy(i => i.SortOrder).ToList()
+            : await _context.CostNormItems
+                .Where(i => i.CostNormId == costNorm.Id)
+                .OrderBy(i => i.SortOrder)
+                .AsNoTracking()
+                .ToListAsync();
+
         await RegenerateDocxAsync(costNorm, costNorm.CreatedBy);
 
         return ApiResult<int>.Success(200);
@@ -252,20 +304,6 @@ public class CostNormService : ICostNormService
         await _context.SaveChangesAsync();
         await _manufacturedProductService.SyncForContractAsync(costNorm.ContractId);
         return ApiResult<int>.Success(1);
-    }
-
-    public async Task<ApiResult<int>> DeleteAsync(Guid id)
-    {
-        var costNorm = await _context.CostNorms.FirstOrDefaultAsync(c => c.Id == id);
-
-        if (costNorm is null)
-            return ApiResult<int>.Failure([$"CostNorm with id '{id}' not found."], 404);
-
-        await _attachmentService.DeleteAllAsync("costnorm", id);
-        _context.CostNorms.Remove(costNorm);
-        await _context.SaveChangesAsync();
-
-        return ApiResult<int>.Success(200);
     }
 
     // DB rows are the source of truth; the attachment is a generated artifact we
@@ -321,35 +359,4 @@ public class CostNormService : ICostNormService
             return null;
         }
     }
-
-    private static CostNormResponseDto MapToResponse(CostNorm c) => new()
-    {
-        Id = c.Id,
-        ContractNo = c.Contract?.ContractNo ?? string.Empty,
-        ContractProductId = c.ContractProductId,
-        ProductType = c.ContractProduct?.ProductType,
-        ContractQuantity = c.ContractProduct?.Quantity > 0 ? c.ContractProduct.Quantity : 1,
-        Title = c.Title,
-        Notes = c.Notes,
-        Status = c.Status,
-        IsActive = c.IsActive,
-        Metadata = DeserializeMetadata(c.MetadataJson),
-        Items = c.Items.Select(i => new CostNormItemResponseDto
-        {
-            IsSection = i.IsSection,
-            SectionName = i.SectionName,
-            No = i.No,
-            Name = i.Name,
-            Unit = i.Unit,
-            ReadyQty = i.ReadyQty,
-            WasteQty = i.WasteQty,
-            TotalQty = i.TotalQty,
-            PhotoRaw = i.PhotoRaw,
-            PhotoSemi = i.PhotoSemi,
-            ImportType = i.ImportType,
-            SortOrder = i.SortOrder,
-            DepartmentId = i.DepartmentId,
-            DepartmentName = i.Department?.Name,
-        }).ToList()
-    };
 }

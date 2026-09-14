@@ -9,6 +9,8 @@ namespace Application.Services.Impl;
 
 public class RoleService : IRoleService
 {
+    private static readonly Guid SuperAdminRoleId = new("00000000-0000-0000-0000-000000000001");
+
     private readonly DatabaseContext _context;
 
     public RoleService(DatabaseContext context)
@@ -18,7 +20,7 @@ public class RoleService : IRoleService
 
     public async Task<ApiResult<PagedResult<RoleResponseDto>>> GetPagedAsync(PaginationParams pagination, string? search = null)
     {
-        var query = _context.Roles.AsNoTracking().AsQueryable();
+        var query = _context.Roles.AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -28,16 +30,28 @@ public class RoleService : IRoleService
                 (r.Description != null && r.Description.ToLower().Contains(lower)));
         }
 
-        var totalCount = await query.CountAsync();
-
-        var roles = await query
+        // Entity o'qilmaydi — javobga tushadigan 4 ta ustungina tanlanadi (CreatedAt keraksiz).
+        var items = await query
             .OrderBy(r => r.Name)
             .Skip((pagination.Page - 1) * pagination.PageSize)
             .Take(pagination.PageSize)
+            .Select(r => new RoleResponseDto
+            {
+                Id = r.Id,
+                Name = r.Name,
+                Description = r.Description,
+                IsActive = r.IsActive
+            })
             .ToListAsync();
 
-        var paged = PagedResult<RoleResponseDto>.Create(roles.Select(MapToResponse), totalCount, pagination);
-        return ApiResult<PagedResult<RoleResponseDto>>.Success(paged);
+        // Birinchi sahifa to'lmagan bo'lsa jami son allaqachon ma'lum —
+        // qo'shimcha COUNT so'rovi yuborilmaydi.
+        var totalCount = pagination.Page == 1 && items.Count < pagination.PageSize
+            ? items.Count
+            : await query.CountAsync();
+
+        return ApiResult<PagedResult<RoleResponseDto>>.Success(
+            PagedResult<RoleResponseDto>.Create(items, totalCount, pagination));
     }
 
     public async Task<ApiResult<IEnumerable<RoleLookupDto>>> GetLookupAsync()
@@ -71,8 +85,6 @@ public class RoleService : IRoleService
         return ApiResult<object>.Success(new { id = role.Id }, statusCode: 201);
     }
 
-    private static readonly Guid SuperAdminRoleId = new("00000000-0000-0000-0000-000000000001");
-
     public async Task<ApiResult<object>> UpdateAsync(Guid id, RoleUpdateDto dto)
     {
         if (id == SuperAdminRoleId)
@@ -104,32 +116,33 @@ public class RoleService : IRoleService
         if (id == SuperAdminRoleId)
             return ApiResult<object>.Failure(["SuperAdmin rolini o'chirish mumkin emas."], statusCode: 403);
 
-        var role = await _context.Roles
-            .Include(r => r.Users)
-            .FirstOrDefaultAsync(r => r.Id == id);
+        // Rolga biriktirilgan foydalanuvchi qatorlarini yuklash shart emas — EXISTS yetarli.
+        if (await _context.Users.AnyAsync(u => u.RoleId == id))
+            return ApiResult<object>.Failure(["Bu rolga ega foydalanuvchi bor. Avval foydalanuvchilardan ushbu rolni olib tashlang."], statusCode: 400);
 
-        if (role is null)
+        // Entity o'qilmasdan bitta UPDATE; affected == 0 bo'lsa rol topilmagan.
+        var affected = await _context.Roles
+            .Where(r => r.Id == id)
+            .ExecuteUpdateAsync(s => s.SetProperty(r => r.IsActive, false));
+
+        if (affected == 0)
             return ApiResult<object>.Failure([$"Role with id '{id}' not found."], statusCode: 404);
-
-        if (role.Users.Any())
-            return ApiResult<object>.Failure([$"Bu rolga ega foydalanuvchi bor. Avval foydalanuvchilardan ushbu rolni olib tashlang."], statusCode: 400);
-
-        role.IsActive = false;
-        await _context.SaveChangesAsync();
 
         return ApiResult<object>.Success();
     }
 
     public async Task<ApiResult<IEnumerable<Guid>>> GetPermissionsAsync(Guid id)
     {
-        if (!await _context.Roles.AnyAsync(r => r.Id == id))
-            return ApiResult<IEnumerable<Guid>>.Failure([$"Role with id '{id}' not found."], statusCode: 404);
-
         var permissionIds = await _context.RolePermissions
             .AsNoTracking()
             .Where(rp => rp.RoleId == id)
             .Select(rp => rp.PermissionId)
             .ToListAsync();
+
+        // Rol mavjudligini alohida tekshirish faqat ro'yxat bo'sh chiqqanda kerak —
+        // odatiy holatda bitta so'rov yetadi.
+        if (permissionIds.Count == 0 && !await _context.Roles.AnyAsync(r => r.Id == id))
+            return ApiResult<IEnumerable<Guid>>.Failure([$"Role with id '{id}' not found."], statusCode: 404);
 
         return ApiResult<IEnumerable<Guid>>.Success(permissionIds);
     }
@@ -142,27 +155,26 @@ public class RoleService : IRoleService
         if (!await _context.Roles.AnyAsync(r => r.Id == id))
             return ApiResult<object>.Failure([$"Role with id '{id}' not found."], statusCode: 404);
 
-        var existing = await _context.RolePermissions
+        var permissionIds = dto.ActionIds.Distinct().ToArray();
+
+        // DELETE + INSERT bitta tranzaksiyada: oraliqda xato bo'lsa eski ruxsatlar saqlanib qoladi.
+        await using var tx = await _context.Database.BeginTransactionAsync();
+
+        // Eski juftliklarni xotiraga yuklab, keyin o'chirish shart emas — bitta DELETE.
+        await _context.RolePermissions
             .Where(rp => rp.RoleId == id)
-            .ToListAsync();
+            .ExecuteDeleteAsync();
 
-        _context.RolePermissions.RemoveRange(existing);
+        if (permissionIds.Length > 0)
+        {
+            _context.RolePermissions.AddRange(
+                permissionIds.Select(permId => new RolePermission { RoleId = id, PermissionId = permId }));
 
-        var newEntries = dto.ActionIds
-            .Distinct()
-            .Select(permId => new RolePermission { RoleId = id, PermissionId = permId });
+            await _context.SaveChangesAsync();
+        }
 
-        _context.RolePermissions.AddRange(newEntries);
-        await _context.SaveChangesAsync();
+        await tx.CommitAsync();
 
         return ApiResult<object>.Success();
     }
-
-    private static RoleResponseDto MapToResponse(Role role) => new()
-    {
-        Id = role.Id,
-        Name = role.Name,
-        Description = role.Description,
-        IsActive = role.IsActive
-    };
 }

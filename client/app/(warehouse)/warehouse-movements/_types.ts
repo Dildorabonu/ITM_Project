@@ -1,11 +1,11 @@
 import type { StockMovementType } from "@/lib/stockMovements";
-import { STOCK_MOVEMENT_COLOR } from "@/lib/stockMovements";
+import { STOCK_MOVEMENT_COLOR, STOCK_MOVEMENT_LABEL } from "@/lib/stockMovements";
 
 // Jurnal turlarining yagona manbasi — filtr dropdowni, jadvaldagi badge tooltipi
 // va legend paneli (MovementTypeLegend) shu bitta massivdan oziqlanadi.
 //
-// `name` ATAYLAB tarjima qilinmaydi: jadvaldagi badge backenddan kelgan
-// `typeLabel` ni ko'rsatadi (o'zbekcha), CheckSelect ham `name` ni xom holda
+// `name` ATAYLAB tarjima qilinmaydi: jadvaldagi badge ham shu `STOCK_MOVEMENT_LABEL`
+// lug'atidan (o'zbekcha) oziqlanadi, CheckSelect ham `name` ni xom holda
 // chiqaradi. Legendda tarjima qilinsa, foydalanuvchi legenddagi nom bilan
 // jadvaldagi badge'ni bir-biriga bog'lay olmay qoladi. `desc` esa sof UI matni —
 // u `t()` orqali tarjima qilinadi.
@@ -17,37 +17,37 @@ export const STOCK_MOVEMENT_TYPE_OPTIONS: {
 }[] = [
   {
     id: "In",
-    name: "Kirim",
+    name: STOCK_MOVEMENT_LABEL.In,
     color: STOCK_MOVEMENT_COLOR.In,
     desc: "Omborga yangi tovar keldi — xarid qabul qilindi",
   },
   {
     id: "Out",
-    name: "Chiqim",
+    name: STOCK_MOVEMENT_LABEL.Out,
     color: STOCK_MOVEMENT_COLOR.Out,
     desc: "Tovar ombordan butunlay chiqdi — sarflandi yoki hisobdan chiqarildi",
   },
   {
     id: "Transfer",
-    name: "Ko'chirish",
+    name: STOCK_MOVEMENT_LABEL.Transfer,
     color: STOCK_MOVEMENT_COLOR.Transfer,
     desc: "Markaziy ombordan bo'lim omboriga o'tkazildi — korxonadagi umumiy miqdor kamaymaydi",
   },
   {
     id: "Reserve",
-    name: "Rezerv",
+    name: STOCK_MOVEMENT_LABEL.Reserve,
     color: STOCK_MOVEMENT_COLOR.Reserve,
     desc: "Talabnomaga band qilindi — tovar omborda turibdi, lekin boshqa talabnomaga berilmaydi",
   },
   {
     id: "Release",
-    name: "Rezervdan chiqarish",
+    name: STOCK_MOVEMENT_LABEL.Release,
     color: STOCK_MOVEMENT_COLOR.Release,
     desc: "Band bekor qilindi — tovar bo'limga berildi yoki talabnoma rad etildi",
   },
   {
     id: "Adjust",
-    name: "Tuzatish",
+    name: STOCK_MOVEMENT_LABEL.Adjust,
     color: STOCK_MOVEMENT_COLOR.Adjust,
     desc: "Sanoq natijasi bo'yicha qo'lda tuzatildi — inventarizatsiya yoki yo'qotish",
   },

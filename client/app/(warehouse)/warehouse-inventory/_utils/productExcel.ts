@@ -4,19 +4,28 @@ import {
   PRODUCT_UNIT_LABELS,
   type DepartmentOption,
 } from "@/lib/userService";
-import type { ParsedImportRow, RowError } from "../_types";
+import { resolveAutoDepartment, type ParsedImportRow, type RowError } from "../_types";
 
 // Mahsulotlarni ommaviy import qilish uchun Excel namuna faylini yaratib yuklab beradi.
-// 3 ta varaq: Mahsulotlar (to'ldirish uchun), Bo'limlar va O'lchov birliklari (ma'lumotnoma).
+// Varaqlar: Mahsulotlar (to'ldirish uchun), O'lchov birliklari va — bo'lim tanlash
+// kerak bo'lganda — Bo'limlar (ma'lumotnoma).
 export function downloadProductsTemplate(departments: DepartmentOption[]) {
   const wb = XLSX.utils.book_new();
+  const autoDept = resolveAutoDepartment(departments);
 
   // Sheet 1: Products template
-  const headers = ["Mahsulot nomi *", "Invoice raqami *", "Bo'lim nomi *", "Miqdor", "O'lchov birligi", "Tavsif"];
+  const headers = [
+    "Mahsulot nomi *",
+    "Invoice raqami *",
+    ...(autoDept ? [] : ["Bo'lim nomi *"]),
+    "Miqdor",
+    "O'lchov birligi",
+    "Tavsif",
+  ];
   const example = [
     "Printer qog'ozi",
     "INV-2026-0001",
-    departments[0]?.name ?? "Bo'lim nomini kiriting",
+    ...(autoDept ? [] : [departments[0]?.name ?? "Bo'lim nomini kiriting"]),
     "100",
     "Dona",
     "A4 formatdagi qog'oz",
@@ -26,17 +35,23 @@ export function downloadProductsTemplate(departments: DepartmentOption[]) {
     headers,
     example,
   ]);
-  ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }];
-  ws["!cols"] = [{ wch: 32 }, { wch: 22 }, { wch: 28 }, { wch: 12 }, { wch: 20 }, { wch: 32 }];
+  ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } }];
+  ws["!cols"] = [
+    { wch: 32 }, { wch: 22 },
+    ...(autoDept ? [] : [{ wch: 28 }]),
+    { wch: 12 }, { wch: 20 }, { wch: 32 },
+  ];
   XLSX.utils.book_append_sheet(wb, ws, "Mahsulotlar");
 
   // Sheet 2: Department list
-  const deptWs = XLSX.utils.aoa_to_sheet([
-    ["Bo'lim nomlari (nusxalash uchun)"],
-    ...departments.map(d => [d.name]),
-  ]);
-  deptWs["!cols"] = [{ wch: 40 }];
-  XLSX.utils.book_append_sheet(wb, deptWs, "Bo'limlar");
+  if (!autoDept) {
+    const deptWs = XLSX.utils.aoa_to_sheet([
+      ["Bo'lim nomlari (nusxalash uchun)"],
+      ...departments.map(d => [d.name]),
+    ]);
+    deptWs["!cols"] = [{ wch: 40 }];
+    XLSX.utils.book_append_sheet(wb, deptWs, "Bo'limlar");
+  }
 
   // Sheet 3: Unit labels
   const unitWs = XLSX.utils.aoa_to_sheet([
@@ -113,6 +128,7 @@ export function parseProductsExcel(
           return;
         }
 
+        const autoDept = resolveAutoDepartment(departments);
         const deptMap = new Map(departments.map(d => [d.name.toLowerCase().trim(), d]));
         const unitMap = new Map(
           (Object.entries(PRODUCT_UNIT_LABELS) as [string, string][]).map(
@@ -122,12 +138,18 @@ export function parseProductsExcel(
 
         const parsed: ParsedImportRow[] = dataRows.map((row, i) => {
           const cols = (row as unknown[]).map(c => String(c ?? "").trim());
-          const [name, invoiceNumber, deptName, qty, unitLabel, desc] = cols;
+          const [name, invoiceNumber, ...rest] = cols;
+          // Bitta ombor bo'limi bo'lganda shablonda "Bo'lim nomi" ustuni yo'q. Lekin
+          // eski (bo'lim ustunli) shablon bilan to'ldirilgan fayl ham o'qilishi kerak —
+          // shuning uchun 3-ustun bo'lim nomiga to'g'ri kelsa, u o'tkazib yuboriladi.
+          const hasDeptCol = !autoDept || rest[0]?.toLowerCase() === autoDept.name.toLowerCase();
+          const deptName = hasDeptCol ? (rest[0] ?? "") : autoDept.name;
+          const [qty, unitLabel, desc] = hasDeptCol ? rest.slice(1) : rest;
           const errors: RowError[] = [];
 
           if (!name) errors.push({ field: "name", message: "Mahsulot nomi kiritilmagan" });
           if (!invoiceNumber) errors.push({ field: "invoice", message: "Invoice raqami kiritilmagan" });
-          const dept = deptMap.get((deptName ?? "").toLowerCase().trim());
+          const dept = autoDept ?? deptMap.get((deptName ?? "").toLowerCase().trim());
           if (!dept) errors.push({ field: "department", message: `"${deptName || "(bo'sh)"}" bo'limi topilmadi` });
 
           const parsedQty = qty ? parseQuantity(qty) : 0;

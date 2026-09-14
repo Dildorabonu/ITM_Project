@@ -53,11 +53,9 @@ export interface EmployeeResponse {
   id: string;
   firstName: string;
   lastName: string;
-  departmentId: string | null;
   departmentName: string | null;
   departmentType: DepartmentType | null;
   isActive: boolean;
-  isHead: boolean;
   // Xodim hozir ishlayotgan (faol, yakunlanmagan) shartnomalar soni.
   activeContractCount: number;
 }
@@ -131,11 +129,11 @@ export interface RoleOption {
   name: string;
 }
 
+// `/api/department/lookup` javobi — dropdown uchun yetarli minimal to'plam.
 export interface DepartmentOption {
   id: string;
   name: string;
-  type?: DepartmentType;
-  headUserName?: string | null;
+  type: DepartmentType;
 }
 
 export const userService = {
@@ -350,7 +348,6 @@ export interface ProductSimilar {
   id: string;
   name: string;
   invoiceNumber: string;
-  similarity: number;
 }
 
 export interface ProductDuplicateCheckResult {
@@ -381,6 +378,14 @@ export interface DepartmentProduct {
   createdAt: string;
 }
 
+// by-department javobi: sahifa sarlavhasi uchun bo'lim nomi/turi + jadval qatorlari.
+// Ilgari nom/tur uchun alohida /api/department/{id} chaqirilardi.
+export interface DepartmentWarehouseDetail {
+  departmentName: string;
+  departmentType: DepartmentType;
+  products: DepartmentProduct[];
+}
+
 export interface ProductReservationResponse {
   productId: string;
   productName: string;
@@ -392,7 +397,6 @@ export interface ProductReservationResponse {
   purpose: string;
   targetDepartmentName: string | null;
   status: number;
-  statusLabel: string;
   warehouseCheckedAt: string | null;
 }
 
@@ -406,9 +410,9 @@ export const productService = {
     return res.data?.result ?? res.data;
   },
 
-  getByDepartment: async (departmentId: string): Promise<DepartmentProduct[]> => {
+  getByDepartment: async (departmentId: string): Promise<DepartmentWarehouseDetail | null> => {
     const res = await api.get(`/api/departmentwarehouse/by-department/${departmentId}`);
-    return res.data?.result ?? res.data ?? [];
+    return res.data?.result ?? null;
   },
 
   getDepartmentSummaries: async (): Promise<DepartmentWarehouseSummary[]> => {
@@ -421,13 +425,6 @@ export const productService = {
     if (search) params.search = search;
     const res = await api.get("/api/product/reservations", { params });
     return res.data?.result ?? res.data;
-  },
-
-  findSimilar: async (name: string, departmentId?: string): Promise<ProductSimilar[]> => {
-    const params: Record<string, unknown> = { name };
-    if (departmentId) params.departmentId = departmentId;
-    const res = await api.get("/api/product/similar", { params });
-    return res.data?.result ?? res.data ?? [];
   },
 
   // Nom maydoni typeahead'i — kiritilgan matn bilan boshlanadigan mahsulotlar.
@@ -565,6 +562,8 @@ export interface ContractProductResponse {
   productType: string;
   quantity: number;
   unit: string;
+  // Katalogdagi standart birlik — bo'sh bo'lmasa `unit` shundan olingan va o'zgartirib bo'lmaydi.
+  catalogUnit: string | null;
   orderIndex: number;
   notes: string | null;
   status: ContractProductStatus;
@@ -593,6 +592,8 @@ export const ContractDeactivationReason = {
 export type ContractDeactivationReason =
   (typeof ContractDeactivationReason)[keyof typeof ContractDeactivationReason];
 
+// To'liq shartnoma — faqat `GET /api/contract/{id}` dan keladi (drawer va
+// tahrirlash formasi uchun).
 export interface ContractResponse {
   id: string;
   contractNo: string;
@@ -604,12 +605,37 @@ export interface ContractResponse {
   status: ContractStatus;
   notes: string | null;
   isActive: boolean;
-  // Mijozga topshirish hisobi (paged ro'yxatda to'ldiriladi):
-  // umumiy mahsulot miqdori va jo'natilgan partiyalar yig'indisi.
-  totalQuantity: number;
-  shippedQuantity: number;
   createdByFullName: string | null;
   products: ContractProductResponse[];
+}
+
+// Ro'yxat/lookup endpointlari (`/api/contract`, `/paged`, `/my-tasks`) qaytaradigan
+// yengil shakl. `departments` va mahsulot `notes`/`departments` maydonlari faqat
+// ularga muhtoj endpointlarda keladi — aks holda JSON'da umuman bo'lmaydi.
+export interface ContractSummaryProduct {
+  id: string;
+  productType: string;
+  quantity: number;
+  unit: string;
+  status: ContractProductStatus;
+  notes?: string | null;
+  departments?: ContractProductDepartmentInfo[];
+}
+
+export interface ContractSummary {
+  id: string;
+  contractNo: string;
+  contractParty: string;
+  startDate: string;
+  endDate: string;
+  contractType: ContractType;
+  status: ContractStatus;
+  isActive: boolean;
+  // Mijozga topshirish hisobi — faqat `/paged` da hisoblanadi.
+  totalQuantity: number;
+  shippedQuantity: number;
+  departments?: ContractDepartmentInfo[];
+  products: ContractSummaryProduct[];
 }
 
 export interface ContractCreatePayload {
@@ -642,10 +668,9 @@ export interface ContractUserResponse {
 }
 
 export const contractService = {
-  getAll: async (status?: ContractStatus, departmentId?: string, isActive?: boolean): Promise<ContractResponse[]> => {
+  // Dropdown/lookup ro'yxati — mahsulot va bo'lim tanlash uchun.
+  getAll: async (isActive?: boolean): Promise<ContractSummary[]> => {
     const params: Record<string, string> = {};
-    if (status !== undefined) params.status = String(status);
-    if (departmentId) params.departmentId = departmentId;
     if (isActive !== undefined) params.isActive = String(isActive);
     try {
       const res = await api.get("/api/contract", { params });
@@ -660,7 +685,7 @@ export const contractService = {
     page = 1,
     pageSize = 20,
     opts: { search?: string; status?: ContractStatus; contractType?: ContractType; isActive?: boolean; excludeCompleted?: boolean; sortBy?: string; sortDesc?: boolean } = {},
-  ): Promise<PagedResult<ContractResponse>> => {
+  ): Promise<PagedResult<ContractSummary>> => {
     const params: Record<string, string> = { page: String(page), pageSize: String(pageSize) };
     if (opts.search?.trim())     params.search   = opts.search.trim();
     if (opts.status   !== undefined) params.status   = String(opts.status);
@@ -688,7 +713,7 @@ export const contractService = {
     }
   },
 
-  getProductsLookup: async (id: string): Promise<ContractProductResponse[]> => {
+  getProductsLookup: async (id: string): Promise<ContractSummaryProduct[]> => {
     const res = await api.get(`/api/contract/${id}/products-lookup`);
     return res.data?.result ?? res.data ?? [];
   },
@@ -701,10 +726,6 @@ export const contractService = {
   update: async (id: string, dto: ContractUpdatePayload): Promise<ContractCreateResult> => {
     const res = await api.put(`/api/contract/${id}`, dto);
     return res.data?.result as ContractCreateResult;
-  },
-
-  updateStatus: async (id: string, status: ContractStatus): Promise<void> => {
-    await api.put(`/api/contract/${id}/status`, { status });
   },
 
   deactivate: async (id: string, reason: ContractDeactivationReason, note: string): Promise<void> => {
@@ -798,7 +819,7 @@ export const contractService = {
     return res.data?.result ?? res.data ?? [];
   },
 
-  getMyProductionTasks: async (isActive?: boolean): Promise<ContractResponse[]> => {
+  getMyProductionTasks: async (isActive?: boolean): Promise<ContractSummary[]> => {
     try {
       const params: Record<string, string> = {};
       if (isActive !== undefined) params.isActive = String(isActive);
@@ -823,15 +844,9 @@ export const contractService = {
 };
 
 export const departmentService = {
+  // Backend faqat aktiv bo'limlarni va faqat id/name/type ni qaytaradi —
+  // klientda filtrlash yoki qayta map qilish shart emas.
   getAll: async (): Promise<DepartmentOption[]> => {
-    const res = await api.get("/api/department/lookup");
-    const data = res.data?.result ?? res.data ?? [];
-    return data
-      .filter((d: { id: string; name: string; type: DepartmentType; isActive: boolean }) => d.isActive !== false)
-      .map((d: { id: string; name: string; type: DepartmentType; headUserName?: string | null }) => ({ id: d.id, name: d.name, type: d.type, headUserName: d.headUserName }));
-  },
-
-  getAllFull: async (): Promise<DepartmentResponse[]> => {
     const res = await api.get("/api/department/lookup");
     return res.data?.result ?? res.data ?? [];
   },
@@ -845,11 +860,6 @@ export const departmentService = {
     if (opts.search?.trim()) params.search = opts.search.trim();
     if (opts.type !== undefined) params.type = String(opts.type);
     const res = await api.get("/api/department/paged", { params });
-    return res.data?.result ?? res.data;
-  },
-
-  getById: async (id: string): Promise<DepartmentResponse> => {
-    const res = await api.get(`/api/department/${id}`);
     return res.data?.result ?? res.data;
   },
 
@@ -950,6 +960,10 @@ export const techProcessService = {
       headers: { "Content-Type": "multipart/form-data" },
     });
     return res.data?.result ?? res.data;
+  },
+
+  deleteFile: async (id: string, fileId: string): Promise<void> => {
+    await api.delete(`/api/techprocess/${id}/files/${fileId}`);
   },
 
   downloadFile: async (id: string, fileId: string, fileName: string): Promise<void> => {
@@ -1067,6 +1081,10 @@ export const technicalDrawingService = {
     return res.data?.result ?? res.data;
   },
 
+  deleteFile: async (id: string, fileId: string): Promise<void> => {
+    await api.delete(`/api/technicaldrawing/${id}/files/${fileId}`);
+  },
+
   downloadFile: async (id: string, fileId: string, fileName: string): Promise<void> => {
     const res = await api.get(`/api/technicaldrawing/${id}/files/${fileId}/download`, { responseType: "blob" });
     const url = URL.createObjectURL(res.data);
@@ -1112,7 +1130,8 @@ export interface CostNormMetadata {
   footerNote?: string | null;
 }
 
-export interface CostNormResponse {
+/** `getAll` javobi — material qatorlarisiz yengil ro'yxat elementi. */
+export interface CostNormListItem {
   id: string;
   contractProductId: string | null;
   productType: string | null;
@@ -1122,9 +1141,11 @@ export interface CostNormResponse {
   title: string;
   notes: string | null;
   isActive: boolean;
-  /** List endpointda (`getAll`) bo'sh keladi — to'liq items uchun `getById` chaqiring. */
+}
+
+/** `getById` javobi — ro'yxat maydonlari + material qatorlari. */
+export interface CostNormResponse extends CostNormListItem {
   items: CostNormItemResponse[];
-  metadata?: CostNormMetadata | null;
 }
 
 export interface CostNormItemCreatePayload {
@@ -1153,7 +1174,7 @@ export interface CostNormCreatePayload {
 }
 
 export const costNormService = {
-  getAll: async (contractId?: string, isActive?: boolean): Promise<CostNormResponse[]> => {
+  getAll: async (contractId?: string, isActive?: boolean): Promise<CostNormListItem[]> => {
     const params: Record<string, string> = {};
     if (contractId) params.contractId = contractId;
     if (isActive !== undefined) params.isActive = String(isActive);
@@ -1183,24 +1204,12 @@ export const costNormService = {
     await api.patch(`/api/costnorm/${id}/approve`);
   },
 
-  delete: async (id: string): Promise<void> => {
-    await api.delete(`/api/costnorm/${id}`);
-  },
-
   getFiles: async (id: string): Promise<AttachmentResponse[]> => {
     const res = await api.get(`/api/costnorm/${id}/files`);
     return res.data?.result ?? res.data ?? [];
   },
 
-  uploadFile: async (id: string, file: File): Promise<AttachmentResponse> => {
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await api.post(`/api/costnorm/${id}/files`, fd, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    return res.data?.result ?? res.data;
-  },
-
+  // Me'yoriy sarf fayli serverda generatsiya qilinadi — qo'lda yuklash yo'q.
   downloadFile: async (id: string, fileId: string, fileName: string): Promise<void> => {
     const res = await api.get(`/api/costnorm/${id}/files/${fileId}/download`, { responseType: "blob" });
     const url = URL.createObjectURL(res.data);
@@ -1239,7 +1248,6 @@ export interface ContractTaskCreatePayload {
 
 export interface ContractTaskUpdatePayload {
   name?: string;
-  completedAmount?: number;
   totalAmount?: number;
   importance?: number;
   orderNo?: number;
@@ -1256,6 +1264,7 @@ export interface ContractTaskLogCreatePayload {
 export interface ContractTaskLogResponse {
   id: string;
   amount: number;
+  note: string | null;
   createdByFullName: string | null;
   createdAt: string;
 }
@@ -1268,11 +1277,6 @@ export const contractTaskService = {
     } catch {
       return [];
     }
-  },
-
-  create: async (dto: ContractTaskCreatePayload): Promise<string> => {
-    const res = await api.post("/api/contracttask", dto);
-    return res.data?.result as string;
   },
 
   createBulk: async (dtos: ContractTaskCreatePayload[]): Promise<void> => {
@@ -1421,6 +1425,50 @@ export interface RequisitionChildSummary {
   itemCount: number;
 }
 
+/**
+ * Jadval qatori (`getPaged` / `getRecentCompleted`). Materiallar, QR rasmlari va
+ * imzo maydonlari bu javobda kelmaydi — ular faqat `getById` detalida bo'ladi.
+ * Label matnlari ham kelmaydi: REQUISITION_*_LABELS lug'atlaridan olinadi.
+ */
+export interface RequisitionListRow {
+  id: string;
+  requisitionNo: string;
+  type: RequisitionType;
+  status: RequisitionStatus;
+  contractNo?: string;
+  departmentName?: string;
+  createdByName: string;
+  createdAt: string;
+  completedAt?: string | null;
+  /** Bo'lingan talabnoma childlarining statuslari — "bajarilgan / rad etilgan" hisobi uchun. */
+  childStatuses: RequisitionStatus[];
+}
+
+/** Navbat ekranlari qatori (`getAll`) — materiallarning ko'rinadigan maydonlari bilan. */
+export interface RequisitionQueueItem {
+  id: string;
+  materialName: string;
+  unit: string;
+  quantity: number;
+  notes?: string;
+}
+
+export interface RequisitionQueueRow {
+  id: string;
+  requisitionNo: string;
+  type: RequisitionType;
+  status: RequisitionStatus;
+  source?: RequisitionSource;
+  contractNo?: string;
+  departmentName?: string;
+  purpose: string;
+  createdByName: string;
+  createdAt: string;
+  warehouseCheckedAt?: string;
+  approvedAt?: string;
+  items: RequisitionQueueItem[];
+}
+
 export interface RequisitionResponse {
   id: string;
   requisitionNo: string;
@@ -1428,7 +1476,6 @@ export interface RequisitionResponse {
   typeLabel: string;
   status: RequisitionStatus;
   statusLabel: string;
-  contractId?: string;
   contractNo?: string;
   departmentName?: string;
   purpose: string;
@@ -1466,7 +1513,7 @@ export interface RequisitionWarehouseCheckItem {
 }
 
 export const requisitionService = {
-  getAll: async (status?: RequisitionStatus): Promise<RequisitionResponse[]> => {
+  getAll: async (status?: RequisitionStatus): Promise<RequisitionQueueRow[]> => {
     try {
       const params = status !== undefined ? { status } : {};
       const res = await api.get("/api/requisition", { params });
@@ -1480,7 +1527,7 @@ export const requisitionService = {
     page = 1,
     pageSize = 20,
     opts: { search?: string; status?: RequisitionStatus; completed?: boolean; rejected?: boolean } = {},
-  ): Promise<PagedResult<RequisitionResponse>> => {
+  ): Promise<PagedResult<RequisitionListRow>> => {
     const params: Record<string, string> = { page: String(page), pageSize: String(pageSize) };
     if (opts.search?.trim()) params.search = opts.search.trim();
     if (opts.status !== undefined) params.status = String(opts.status);
@@ -1500,8 +1547,18 @@ export const requisitionService = {
     }
   },
 
+  /** Tasdiqlash badge'i uchun: tasdiqlash kutayotganlar soni (ro'yxatning o'zi emas). */
+  getPendingApprovalCount: async (): Promise<number> => {
+    try {
+      const res = await api.get("/api/requisition/pending-approval-count");
+      return res.data?.result ?? 0;
+    } catch {
+      return 0;
+    }
+  },
+
   /** Faol ro'yxat ostidagi blok: oxirgi N kunda bajarilganlar (eng ko'pi 10 ta). */
-  getRecentCompleted: async (days = 7): Promise<RequisitionResponse[]> => {
+  getRecentCompleted: async (days = 7): Promise<RequisitionListRow[]> => {
     try {
       const res = await api.get("/api/requisition/recent-completed", { params: { days } });
       return res.data?.result ?? res.data ?? [];
@@ -1706,6 +1763,7 @@ export const manufacturedProductService = {
 // Shartnoma yaratishda mahsulot shu katalogdan tanlanadi. Har mahsulotning noyob
 // Id va kodi (masalan "PRD-9F3A1C") bo'ladi.
 
+// Boshqaruv sahifasining jadvali va yaratish/tahrirlash javobi.
 export interface ProductCatalogResponse {
   id: string;
   name: string;
@@ -1713,7 +1771,21 @@ export interface ProductCatalogResponse {
   unit: string | null;
   description: string | null;
   usageCount: number;
-  createdAt: string;
+  // false — mahsulot "ishlab chiqarilishi tugatilganlar" ro'yxatida.
+  isActive: boolean;
+  // Arxivlashga to'sqinlik qilayotgan yakunlanmagan shartnomalar soni. 0 bo'lsa arxivlash mumkin.
+  blockingContractCount: number;
+}
+
+// Shartnoma formasidagi tanlash ro'yxati — faqat ko'rsatiladigan va formaga
+// ko'chiriladigan maydonlar (/lookup shundan boshqasini qaytarmaydi).
+export interface ProductCatalogLookup {
+  id: string;
+  name: string;
+  code: string;
+  unit: string | null;
+  // Arxivdagilar ham ro'yxatda qoladi — tanlansa avtomatik faollashadi.
+  isActive: boolean;
 }
 
 export interface ProductCatalogCreatePayload {
@@ -1750,11 +1822,9 @@ export interface ProductCatalogTask {
 
 export interface ProductCatalogContractUsage {
   contractProductId: string;
-  contractId: string;
   contractNo: string;
   contractParty: string;
   contractType: ContractType;
-  contractStatus: ContractStatus;
   startDate: string;
   endDate: string;
   contractIsActive: boolean;
@@ -1762,7 +1832,6 @@ export interface ProductCatalogContractUsage {
   unit: string;
   productStatus: ContractProductStatus;
   producedQuantity: number;
-  contractCreatedAt: string;
   techProcesses: ProductCatalogResource[];
   drawings: ProductCatalogResource[];
   costNorms: ProductCatalogResource[];
@@ -1770,12 +1839,11 @@ export interface ProductCatalogContractUsage {
 }
 
 export interface ProductCatalogDetail {
-  id: string;
   name: string;
   code: string;
   unit: string | null;
   description: string | null;
-  createdAt: string;
+  isActive: boolean;
   contractCount: number;
   activeContractCount: number;
   totalOrderedQuantity: number;
@@ -1798,15 +1866,10 @@ export const productCatalogService = {
     page = 1,
     pageSize = 20,
     signal?: AbortSignal,
-  ): Promise<PagedResult<ProductCatalogResponse>> => {
+  ): Promise<PagedResult<ProductCatalogLookup>> => {
     const params: Record<string, unknown> = { page, pageSize };
     if (search) params.search = search;
     const res = await api.get("/api/productcatalog/lookup", { params, signal });
-    return res.data?.result ?? res.data;
-  },
-
-  quickCreate: async (dto: ProductCatalogCreatePayload): Promise<ProductCatalogResponse> => {
-    const res = await api.post("/api/productcatalog/quick", dto);
     return res.data?.result ?? res.data;
   },
 
@@ -1816,8 +1879,9 @@ export const productCatalogService = {
     page = 1,
     pageSize = 20,
     signal?: AbortSignal,
+    archived = false,
   ): Promise<PagedResult<ProductCatalogResponse>> => {
-    const params: Record<string, unknown> = { page, pageSize };
+    const params: Record<string, unknown> = { page, pageSize, archived };
     if (search) params.search = search;
     const res = await api.get("/api/productcatalog", { params, signal });
     return res.data?.result ?? res.data;
@@ -1839,7 +1903,12 @@ export const productCatalogService = {
     return res.data?.result ?? res.data;
   },
 
-  remove: async (id: string): Promise<void> => {
-    await api.delete(`/api/productcatalog/${id}`);
+  // Katalog yozuvi o'chirilmaydi — "ishlab chiqarilishi tugatilganlar" ro'yxatiga o'tadi.
+  archive: async (id: string): Promise<void> => {
+    await api.post(`/api/productcatalog/${id}/archive`);
+  },
+
+  restore: async (id: string): Promise<void> => {
+    await api.post(`/api/productcatalog/${id}/restore`);
   },
 };

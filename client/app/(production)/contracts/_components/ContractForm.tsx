@@ -4,7 +4,7 @@ import {
   DepartmentType,
   type ContractResponse,
   type UserLookup,
-  type DepartmentResponse,
+  type DepartmentOption,
 } from "@/lib/userService";
 import { ContractForm as ContractFormType, UNIT_OPTIONS, CONTRACT_TYPE_OPTIONS, emptyProduct } from "../_types";
 import { CheckSelect } from "@/app/_components/CheckSelect";
@@ -32,7 +32,7 @@ interface Props {
   setOpenPickerKey: (k: PickerKey) => void;
   pickerRef: React.RefObject<HTMLDivElement | null>;
   allUsers: UserLookup[];
-  departments: DepartmentResponse[];
+  departments: DepartmentOption[];
   handleSave: () => void;
   openScanModal: (target: { kind: "contract" } | { kind: "product-tz"; productIdx: number }) => void;
   onCancel: () => void;
@@ -212,7 +212,9 @@ export function ContractForm({
                 const productDeptErr = submitted && p.productType.trim() !== "" && p.departmentIds.length === 0;
                 const productTypeErr = submitted && !p.productType.trim();
                 const quantityErr = submitted && (p.quantity.trim() === "" || !(Number(p.quantity) > 0));
-                const unitErr = submitted && !p.unit.trim();
+                // Katalogda birlik ko'rsatilgan bo'lsa — u qulflanadi (tanlash o'rniga ko'rsatiladi).
+                const unitLocked = !!p.catalogUnit;
+                const unitErr = submitted && !unitLocked && !p.unit.trim();
                 return (
                   <div key={idx} style={{
                     border: "1.5px solid var(--border)", borderRadius: 12, padding: 16,
@@ -253,14 +255,17 @@ export function ContractForm({
                           productCode={p.productCode}
                           hasError={productTypeErr}
                           canCreate={editTarget ? canUpdate : canCreate}
-                          // Erkin matn — hali katalog tanlanmagan, shuning uchun bog'lanishni tozalaymiz.
-                          onType={value => updateProduct(idx, { productType: value, productCatalogId: null, productCode: null })}
+                          // Erkin matn — hali katalog tanlanmagan, shuning uchun bog'lanishni
+                          // va birlik qulfini tozalaymiz (tanlangan birlik qiymati qoladi).
+                          onType={value => updateProduct(idx, { productType: value, productCatalogId: null, productCode: null, catalogUnit: null })}
                           onSelect={sel => updateProduct(idx, {
                             productType: sel.productType,
                             productCatalogId: sel.productCatalogId,
                             productCode: sel.productCode,
-                            // Katalogdagi standart birlik bilan oldindan to'ldiramiz (agar hali bo'sh bo'lsa).
-                            ...(sel.unit && !p.unit ? { unit: sel.unit } : {}),
+                            // Birlik katalogdan olinadi va qulflanadi — shartnoma katalogdan
+                            // farq qilmasligi kerak. Katalogda birlik yo'q bo'lsa — qo'lda tanlanadi.
+                            catalogUnit: sel.unit || null,
+                            ...(sel.unit ? { unit: sel.unit } : {}),
                           })}
                         />
                       </div>
@@ -287,15 +292,45 @@ export function ContractForm({
                         <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4, color: unitErr ? "var(--danger)" : "var(--text2)" }}>
                           {t("O'lchov birligi")} <span style={{ color: "var(--danger)" }}>*</span>
                         </label>
-                        <div style={unitErr ? { borderRadius: "var(--radius)", boxShadow: "0 0 0 1.5px var(--danger)" } : undefined}>
-                          <CheckSelect
-                            value={p.unit}
-                            onChange={v => updateProduct(idx, { unit: v })}
-                            options={UNIT_OPTIONS.filter(o => o.value !== "").map(o => ({ id: o.value, name: t(o.label), icon: o.icon }))}
-                            placeholder={t("— Tanlang —")}
-                          />
-                        </div>
-                        {unitErr && <div style={{ color: "var(--danger)", fontSize: 11, marginTop: 4 }}>{t("Birlikni tanlang")}</div>}
+                        {unitLocked ? (
+                          <>
+                            <div
+                              title={t("O'lchov birligi katalogdan olinadi")}
+                              style={{
+                                display: "flex", alignItems: "center", gap: 8,
+                                height: 38, padding: "0 10px",
+                                background: "var(--bg3)", border: "1px solid var(--border)",
+                                borderRadius: "var(--radius)", cursor: "not-allowed",
+                              }}
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" strokeWidth="2.2" style={{ flexShrink: 0 }}>
+                                <rect x="3" y="11" width="18" height="11" rx="2" />
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                              </svg>
+                              <span style={{
+                                fontSize: 13, color: "var(--text)", overflow: "hidden",
+                                textOverflow: "ellipsis", whiteSpace: "nowrap",
+                              }}>
+                                {t(UNIT_OPTIONS.find(o => o.value === p.unit)?.label ?? p.unit)}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4 }}>
+                              {t("Katalogdan olindi")}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div style={unitErr ? { borderRadius: "var(--radius)", boxShadow: "0 0 0 1.5px var(--danger)" } : undefined}>
+                              <CheckSelect
+                                value={p.unit}
+                                onChange={v => updateProduct(idx, { unit: v })}
+                                options={UNIT_OPTIONS.filter(o => o.value !== "").map(o => ({ id: o.value, name: t(o.label), icon: o.icon }))}
+                                placeholder={t("— Tanlang —")}
+                              />
+                            </div>
+                            {unitErr && <div style={{ color: "var(--danger)", fontSize: 11, marginTop: 4 }}>{t("Birlikni tanlang")}</div>}
+                          </>
+                        )}
                       </div>
                     </div>
 

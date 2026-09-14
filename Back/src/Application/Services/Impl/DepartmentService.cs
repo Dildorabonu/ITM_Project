@@ -17,42 +17,22 @@ public class DepartmentService : IDepartmentService
         _context = context;
     }
 
-    public async Task<ApiResult<IEnumerable<DepartmentResponseDto>>> GetLookupAsync()
+    // Dropdown/select uchun — faqat aktiv bo'limlar va faqat uchta maydon.
+    public async Task<ApiResult<IEnumerable<DepartmentLookupDto>>> GetLookupAsync()
     {
         var departments = await _context.Departments
             .AsNoTracking()
+            .Where(d => d.IsActive)
             .OrderBy(d => d.Name)
-            .Select(d => new DepartmentResponseDto
+            .Select(d => new DepartmentLookupDto
             {
                 Id = d.Id,
                 Name = d.Name,
                 Type = d.Type,
-                IsActive = d.IsActive,
-                EmployeeCount = d.EmployeeCount,
             })
             .ToListAsync();
 
-        return ApiResult<IEnumerable<DepartmentResponseDto>>.Success(departments);
-    }
-
-    public async Task<ApiResult<IEnumerable<DepartmentResponseDto>>> GetAllAsync()
-    {
-        var departments = await _context.Departments
-            .AsNoTracking()
-            .OrderBy(d => d.Name)
-            .ToListAsync();
-
-        var headUsers = await _context.Users
-            .AsNoTracking()
-            .Where(u => u.DepartmentId != null && u.IsHead)
-            .Select(u => new { u.DepartmentId, FullName = u.FirstName + " " + u.LastName })
-            .ToListAsync();
-
-        var headMap = headUsers
-            .ToDictionary(u => u.DepartmentId!, u => u.FullName);
-
-        return ApiResult<IEnumerable<DepartmentResponseDto>>.Success(
-            departments.Select(d => MapToResponse(d, headMap.TryGetValue(d.Id, out var name) ? name : null)));
+        return ApiResult<IEnumerable<DepartmentLookupDto>>.Success(departments);
     }
 
     public async Task<ApiResult<PagedResult<DepartmentResponseDto>>> GetPagedAsync(
@@ -60,9 +40,7 @@ public class DepartmentService : IDepartmentService
         string? search = null,
         DepartmentType? type = null)
     {
-        var query = _context.Departments
-            .AsNoTracking()
-            .AsQueryable();
+        var query = _context.Departments.AsNoTracking();
 
         if (type.HasValue)
             query = query.Where(d => d.Type == type.Value);
@@ -75,39 +53,29 @@ public class DepartmentService : IDepartmentService
 
         var totalCount = await query.CountAsync();
 
+        // Bo'lim boshlig'i korrelyatsiyalangan subquery bilan olinadi — Users
+        // jadvaliga alohida borish shart emas, bitta so'rov yetarli.
         var departments = await query
             .OrderBy(d => d.Name)
             .Skip((pagination.Page - 1) * pagination.PageSize)
             .Take(pagination.PageSize)
+            .Select(d => new DepartmentResponseDto
+            {
+                Id = d.Id,
+                Name = d.Name,
+                Type = d.Type,
+                EmployeeCount = d.EmployeeCount,
+                IsActive = d.IsActive,
+                HeadUserName = _context.Users
+                    .Where(u => u.DepartmentId == d.Id && u.IsHead)
+                    .Select(u => u.FirstName + " " + u.LastName)
+                    .FirstOrDefault(),
+            })
             .ToListAsync();
 
-        var deptIds = departments.Select(d => d.Id).ToList();
-        var headUsers = await _context.Users
-            .AsNoTracking()
-            .Where(u => u.DepartmentId != null && u.IsHead && deptIds.Contains(u.DepartmentId.Value))
-            .Select(u => new { u.DepartmentId, FullName = u.FirstName + " " + u.LastName })
-            .ToListAsync();
-
-        var headMap = headUsers.ToDictionary(u => u.DepartmentId!, u => u.FullName);
-
-        var paged = PagedResult<DepartmentResponseDto>.Create(
-            departments.Select(d => MapToResponse(d, headMap.TryGetValue(d.Id, out var name) ? name : null)),
-            totalCount,
-            pagination);
+        var paged = PagedResult<DepartmentResponseDto>.Create(departments, totalCount, pagination);
 
         return ApiResult<PagedResult<DepartmentResponseDto>>.Success(paged);
-    }
-
-    public async Task<ApiResult<DepartmentResponseDto>> GetByIdAsync(Guid id)
-    {
-        var department = await _context.Departments
-            .AsNoTracking()
-            .FirstOrDefaultAsync(d => d.Id == id);
-
-        if (department is null)
-            return ApiResult<DepartmentResponseDto>.Failure([$"Department with id '{id}' not found."]);
-
-        return ApiResult<DepartmentResponseDto>.Success(MapToResponse(department));
     }
 
     public async Task<ApiResult<int>> CreateAsync(DepartmentCreateDto dto)
@@ -153,26 +121,16 @@ public class DepartmentService : IDepartmentService
         return ApiResult<int>.Success(200);
     }
 
+    // Aktiv/noaktiv toggle — entity'ni o'qimasdan bitta UPDATE bilan.
     public async Task<ApiResult<int>> DeleteAsync(Guid id)
     {
-        var department = await _context.Departments.FirstOrDefaultAsync(d => d.Id == id);
+        var affected = await _context.Departments
+            .Where(d => d.Id == id)
+            .ExecuteUpdateAsync(s => s.SetProperty(d => d.IsActive, d => !d.IsActive));
 
-        if (department is null)
+        if (affected == 0)
             return ApiResult<int>.Failure([$"Department with id '{id}' not found."]);
-
-        department.IsActive = !department.IsActive;
-        await _context.SaveChangesAsync();
 
         return ApiResult<int>.Success(200);
     }
-
-    private static DepartmentResponseDto MapToResponse(Department department, string? headUserName = null) => new()
-    {
-        Id = department.Id,
-        Name = department.Name,
-        Type = department.Type,
-        EmployeeCount = department.EmployeeCount,
-        HeadUserName = headUserName,
-        IsActive = department.IsActive,
-    };
 }

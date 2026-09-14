@@ -35,19 +35,7 @@ public class LicenseController : ControllerBase
     [HttpGet("status")]
     public IActionResult Status()
     {
-        var s = _guard.Status;
-        return Ok(new
-        {
-            result = new
-            {
-                valid = s.Valid,
-                reason = s.Reason,
-                message = s.Message,
-                customer = s.Customer,
-                expiresUtc = s.ExpiresUtc,
-                daysLeft = s.DaysLeft,
-            }
-        });
+        return Ok(new { result = Project(_guard.Status) });
     }
 
     // Admin panel/blok ekrandan yangi tokenni faollashtirish. Superadmin paroli talab qilinadi.
@@ -62,18 +50,16 @@ public class LicenseController : ControllerBase
         if (!result.Success)
             return BadRequest(new { succeeded = false, errors = new[] { result.Error } });
 
-        var s = result.Status!;
-        return Ok(new
-        {
-            result = new
-            {
-                valid = s.Valid,
-                reason = s.Reason,
-                message = s.Message,
-                customer = s.Customer,
-                expiresUtc = s.ExpiresUtc,
-                daysLeft = s.DaysLeft,
-            }
-        });
+        return Ok(new { result = Project(result.Status!) });
     }
+
+    // Frontend (LicenseGate + /litsenziya) faqat shu maydonlarni o'qiydi.
+    private static object Project(LicenseStatus s) => new
+    {
+        valid = s.Valid,
+        reason = s.Reason,
+        message = s.Message,
+        customer = s.Customer,
+        expiresUtc = s.ExpiresUtc,
+    };
 }

@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { useT } from "@/lib/i18n";
+import type { AttachmentResponse } from "@/lib/userService";
 import type { DrawingFormValues } from "../_types";
 
 interface DrawingFormProps {
@@ -10,6 +11,7 @@ interface DrawingFormProps {
   submitted: boolean;
   saving: boolean;
   requireFile?: boolean;
+  existingFiles?: AttachmentResponse[];
   onSave: () => void;
   onCancel: () => void;
 }
@@ -22,6 +24,7 @@ export function DrawingForm({
   submitted,
   saving,
   requireFile = false,
+  existingFiles = [],
   onSave,
   onCancel,
 }: DrawingFormProps) {
@@ -34,6 +37,8 @@ export function DrawingForm({
   const title = mode === "create" ? t("Yangi texnik chizma") : t("Texnik chizmani tahrirlash");
   const hasError = submitted && !form.title.trim();
   const hasFileError = requireFile && submitted && form.files.length === 0;
+  const hasExistingFiles = existingFiles.length > 0;
+  const willReplace = hasExistingFiles && form.files.length > 0;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileDrop = (e: React.DragEvent) => {
@@ -236,7 +241,7 @@ export function DrawingForm({
                 <line x1="12" y1="3" x2="12" y2="15" />
               </svg>
               <div style={{ fontSize: 14, color: "var(--text2)", fontWeight: 600 }}>
-                {t("Fayllarni bu yerga tashlang")}
+                {hasExistingFiles ? t("Almashtirish uchun yangi fayl tashlang") : t("Fayllarni bu yerga tashlang")}
               </div>
               <div style={{ fontSize: 12, color: "var(--text3)" }}>
                 {t("yoki")} <span style={{ color: "var(--accent)", textDecoration: "underline" }}>{t("tanlang")}</span>
@@ -302,7 +307,71 @@ export function DrawingForm({
               </div>
             )}
 
-            {form.files.length === 0 && (
+            {/* Joriy fayllar — faqat tahrirlashda */}
+            {hasExistingFiles && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text3)" }}>
+                  {t("Joriy fayl")}
+                </span>
+                {existingFiles.map((file) => (
+                  <div
+                    key={file.id}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10,
+                      background: "var(--bg2)", border: "1px solid var(--border)",
+                      borderRadius: "var(--radius)", padding: "8px 12px",
+                      opacity: willReplace ? 0.55 : 1,
+                    }}
+                  >
+                    <div style={{
+                      width: 32, height: 32, borderRadius: 6, flexShrink: 0,
+                      background: "var(--bg3)", display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      <svg width="16" height="16" fill="none" stroke="var(--text2)" strokeWidth="2" viewBox="0 0 24 24">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                      </svg>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontSize: 13, color: "var(--text2)", fontWeight: 500,
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                        textDecoration: willReplace ? "line-through" : "none",
+                      }}>
+                        {file.fileName}
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--text3)" }}>
+                        {formatSize(file.fileSize)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Fayl xulqini tushuntiruvchi izoh */}
+            {mode === "edit" && hasExistingFiles && (
+              <div style={{
+                display: "flex", alignItems: "flex-start", gap: 8,
+                background: willReplace ? "var(--warn-dim)" : "var(--bg2)",
+                border: `1px solid ${willReplace ? "var(--warn)" : "var(--border)"}`,
+                borderRadius: "var(--radius)", padding: "10px 12px",
+              }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" strokeWidth="2"
+                     stroke={willReplace ? "var(--warn)" : "var(--text3)"} style={{ flexShrink: 0, marginTop: 1 }}>
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="16" x2="12" y2="12" />
+                  <line x1="12" y1="8" x2="12.01" y2="8" />
+                </svg>
+                <span style={{ fontSize: 12, lineHeight: 1.5, color: willReplace ? "var(--warn)" : "var(--text2)" }}>
+                  {willReplace
+                    ? t("Saqlaganda joriy fayl o'chiriladi va yangi fayl bilan almashtiriladi.")
+                    : t("Fayl kiritilmasa, joriy fayl o'zgarishsiz qoladi. Yangi fayl tanlasangiz, u eskisining o'rnini egallaydi.")}
+                </span>
+              </div>
+            )}
+
+            {form.files.length === 0 && !hasExistingFiles && (
               <div style={{ fontSize: 12, color: hasFileError ? "var(--danger)" : "var(--text3)", textAlign: "center" }}>
                 {hasFileError ? t("Kamida bitta fayl qo'shish shart") : t("Hech qanday fayl tanlanmagan")}
               </div>

@@ -580,6 +580,9 @@ namespace DataAccess.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<DateTime?>("TrialStartUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -856,7 +859,12 @@ namespace DataAccess.Migrations
 
                     b.HasIndex("ContractId");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex(new[] { "UserId", "CreatedAt" }, "IX_Notifications_UserId_CreatedAt")
+                        .IsDescending(false, true);
+
+                    b.HasIndex(new[] { "UserId", "CreatedAt" }, "IX_Notifications_UserId_CreatedAt_Unread")
+                        .IsDescending(false, true)
+                        .HasFilter("NOT \"IsRead\"");
 
                     b.ToTable("Notifications");
                 });

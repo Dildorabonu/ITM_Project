@@ -7,10 +7,11 @@ export enum ShipmentBatchKind {
   CustomerPickup = 2,
 }
 
+// Tur (kind) javobda qaytarilmaydi — ro'yxat har doim `kind` filtri bilan
+// so'raladi, shuning uchun chaqiruvchi turni allaqachon biladi.
 export interface ShipmentBatch {
   id: string;
   contractProductId: string | null;
-  kind: ShipmentBatchKind;
   // Olib ketish (CustomerPickup) qaysi ishlab chiqarish partiyasidan bo'lgani.
   sourceBatchId: string | null;
   sourceBatchNo: number | null;

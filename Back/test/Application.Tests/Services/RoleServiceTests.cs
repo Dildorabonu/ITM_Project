@@ -7,6 +7,7 @@ using Core.Entities;
 using Core.Enums;
 using DataAccess.Persistence;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -159,7 +160,7 @@ public class RoleServiceTests
     public async Task SetPermissionsAsync_ReplacesAllExistingPermissionsWithNewSet()
     {
         // Arrange — rolda 2 ta eski permission bor
-        await using var db = TestDbContextFactory.Create();
+        await using var db = TestDbContextFactory.CreateSqlite();
         var role = TestData.SeedRole(db, "Manager");
 
         var pOldView = TestData.SeedPermission(db, PermissionModule.Users, PermissionAction.View);
@@ -194,7 +195,7 @@ public class RoleServiceTests
     public async Task SetPermissionsAsync_WithEmptyList_RemovesAllPermissions()
     {
         // Arrange
-        await using var db = TestDbContextFactory.Create();
+        await using var db = TestDbContextFactory.CreateSqlite();
         var role = TestData.SeedRole(db, "Operator");
         var p = TestData.SeedPermission(db, PermissionModule.Tasks, PermissionAction.View);
         TestData.AttachPermissions(db, role.Id, p.Id);
@@ -257,7 +258,7 @@ public class RoleServiceTests
     public async Task DeleteAsync_WhenRoleHasNoUsers_SoftDeletesByDeactivating()
     {
         // Arrange — bo'sh rol, hech bir user bog'lanmagan
-        await using var db = TestDbContextFactory.Create();
+        await using var db = TestDbContextFactory.CreateSqlite();
         var role = TestData.SeedRole(db, "Eski rol");
         var sut = CreateService(db);
 
@@ -266,7 +267,7 @@ public class RoleServiceTests
 
         // Assert
         result.Succeeded.Should().BeTrue();
-        var refreshed = db.Roles.Single(r => r.Id == role.Id);
+        var refreshed = db.Roles.AsNoTracking().Single(r => r.Id == role.Id);
         refreshed.IsActive.Should().BeFalse("DeleteAsync soft-delete (IsActive=false) sifatida ishlaydi");
     }
 
@@ -290,7 +291,7 @@ public class RoleServiceTests
     public async Task DeleteAsync_WithNonExistentId_ReturnsNotFound()
     {
         // Arrange
-        await using var db = TestDbContextFactory.Create();
+        await using var db = TestDbContextFactory.CreateSqlite();
         var sut = CreateService(db);
 
         // Act

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   requisitionService,
   REQUISITION_TYPE_LABELS,
-  type RequisitionResponse,
+  type RequisitionQueueRow,
   type ProductResponse,
   type RequisitionWarehouseCheckItem,
 } from "@/lib/userService";
@@ -45,7 +45,7 @@ const FILTERS = [
 ] as const;
 
 interface Props {
-  req: RequisitionResponse;
+  req: RequisitionQueueRow;
   prodMap: Map<string, ProductResponse>;
   onClose: () => void;
   // Tekshiruv yakunlangach asosiy ro'yxatni yangilash uchun chaqiriladi.

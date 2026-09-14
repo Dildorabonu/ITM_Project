@@ -5,6 +5,7 @@ using Application.Tests.Infrastructure;
 using Core.Entities;
 using Core.Enums;
 using DataAccess.Persistence;
+using Microsoft.EntityFrameworkCore;
 using FluentAssertions;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -201,7 +202,7 @@ public class DepartmentServiceTests
     public async Task DeleteAsync_OnActiveDepartment_DeactivatesIt()
     {
         // Arrange
-        await using var db = TestDbContextFactory.Create();
+        await using var db = TestDbContextFactory.CreateSqlite();
         var dep = SeedDepartment(db, "Bolim A", isActive: true);
         var sut = CreateService(db);
 
@@ -211,14 +212,14 @@ public class DepartmentServiceTests
         // Assert
         result.Succeeded.Should().BeTrue();
         result.Result.Should().Be(200);
-        db.Departments.Single(d => d.Id == dep.Id).IsActive.Should().BeFalse();
+        db.Departments.AsNoTracking().Single(d => d.Id == dep.Id).IsActive.Should().BeFalse();
     }
 
     [Fact]
     public async Task DeleteAsync_OnInactiveDepartment_ReactivatesIt()
     {
         // Arrange — DeleteAsync IsActive ni toggle qiladi, faolsizni qaytadan faollashtiradi
-        await using var db = TestDbContextFactory.Create();
+        await using var db = TestDbContextFactory.CreateSqlite();
         var dep = SeedDepartment(db, "Eski bolim", isActive: false);
         var sut = CreateService(db);
 
@@ -227,7 +228,7 @@ public class DepartmentServiceTests
 
         // Assert
         result.Succeeded.Should().BeTrue();
-        db.Departments.Single(d => d.Id == dep.Id).IsActive.Should().BeTrue(
+        db.Departments.AsNoTracking().Single(d => d.Id == dep.Id).IsActive.Should().BeTrue(
             "DeleteAsync IsActive ni teskariga o'giradi (toggle), shuning uchun nofaol bo'lim qayta faollashadi");
     }
 
@@ -236,7 +237,7 @@ public class DepartmentServiceTests
     {
         // Arrange — bo'limga bog'liq foydalanuvchi bo'lsa ham DeleteAsync blok qilmaydi.
         // Bu kodning hozirgi xulqi: foreign-key tekshiruvi yo'q, faqat IsActive teskariga o'giriladi.
-        await using var db = TestDbContextFactory.Create();
+        await using var db = TestDbContextFactory.CreateSqlite();
         var role = TestData.SeedRole(db, "Operator");
         var dep = SeedDepartment(db, "Ishlab chiqarish", isActive: true);
         TestData.SeedUser(db, login: "ali", roleId: role.Id, departmentId: dep.Id);
@@ -247,7 +248,7 @@ public class DepartmentServiceTests
 
         // Assert
         result.Succeeded.Should().BeTrue();
-        db.Departments.Single(d => d.Id == dep.Id).IsActive.Should().BeFalse();
+        db.Departments.AsNoTracking().Single(d => d.Id == dep.Id).IsActive.Should().BeFalse();
         db.Users.Single(u => u.Login == "ali").DepartmentId.Should().Be(dep.Id,
             "user.DepartmentId saqlanib qoladi, bog'lanish faqat IsActive=false orqali bilinadi");
     }
@@ -256,7 +257,7 @@ public class DepartmentServiceTests
     public async Task DeleteAsync_WithNonExistentId_ReturnsFailure()
     {
         // Arrange
-        await using var db = TestDbContextFactory.Create();
+        await using var db = TestDbContextFactory.CreateSqlite();
         var sut = CreateService(db);
 
         // Act
@@ -268,97 +269,28 @@ public class DepartmentServiceTests
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    //  GetAllAsync / GetByIdAsync
+    //  GetLookupAsync
     // ─────────────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task GetAllAsync_ReturnsAllDepartmentsOrderedByName_WithHeadUserName()
+    public async Task GetLookupAsync_ReturnsOnlyActiveDepartmentsOrderedByName()
     {
         // Arrange
         await using var db = TestDbContextFactory.Create();
-        var role = TestData.SeedRole(db, "Operator");
-
-        var ombor = SeedDepartment(db, "Omborxona", DepartmentType.Omborxona);
-        var bolim = SeedDepartment(db, "Bolim A", DepartmentType.Bolim);
+        SeedDepartment(db, "Omborxona", DepartmentType.Omborxona);
+        var bolim = SeedDepartment(db, "Bolim A", DepartmentType.Bolim, employeeCount: 7);
         SeedDepartment(db, "Arxiv", DepartmentType.Bolim, isActive: false);
 
-        // Boshqaruvchi user (IsHead=true) — HeadUserName ga tushishi kerak
-        TestData.SeedUser(db,
-            login: "boss",
-            firstName: "Ali",
-            lastName: "Valiyev",
-            roleId: role.Id,
-            departmentId: ombor.Id,
-            isHead: true);
-
-        // Oddiy user (IsHead=false) — head sifatida tushmasligi kerak
-        TestData.SeedUser(db,
-            login: "junior",
-            firstName: "Vali",
-            lastName: "Karimov",
-            roleId: role.Id,
-            departmentId: bolim.Id,
-            isHead: false);
-
         var sut = CreateService(db);
 
         // Act
-        var result = await sut.GetAllAsync();
+        var result = await sut.GetLookupAsync();
 
-        // Assert
+        // Assert — dropdown uchun faqat faol bo'limlar, nom bo'yicha tartiblangan
         result.Succeeded.Should().BeTrue();
         var items = result.Result!.ToList();
-        items.Select(i => i.Name).Should().Equal("Arxiv", "Bolim A", "Omborxona");
-
-        items.Single(i => i.Id == ombor.Id).HeadUserName.Should().Be("Ali Valiyev");
-        items.Single(i => i.Id == bolim.Id).HeadUserName.Should().BeNull(
-            "IsHead=false foydalanuvchi head sifatida hisoblanmaydi");
-        items.Single(i => i.Name == "Arxiv").IsActive.Should().BeFalse(
-            "GetAll faol va nofaol bo'limlarni ham qaytaradi");
-    }
-
-    [Fact]
-    public async Task GetByIdAsync_WithExistingId_ReturnsDepartmentWithHeadUserName()
-    {
-        // Arrange
-        await using var db = TestDbContextFactory.Create();
-        var role = TestData.SeedRole(db, "Operator");
-        var dep = SeedDepartment(db, "Ishlab chiqarish", DepartmentType.IshlabChiqarish, employeeCount: 50);
-        TestData.SeedUser(db,
-            login: "head",
-            firstName: "Olim",
-            lastName: "Sodiqov",
-            roleId: role.Id,
-            departmentId: dep.Id,
-            isHead: true);
-
-        var sut = CreateService(db);
-
-        // Act
-        var result = await sut.GetByIdAsync(dep.Id);
-
-        // Assert
-        result.Succeeded.Should().BeTrue();
-        result.Result!.Id.Should().Be(dep.Id);
-        result.Result.Name.Should().Be("Ishlab chiqarish");
-        result.Result.Type.Should().Be(DepartmentType.IshlabChiqarish);
-        result.Result.EmployeeCount.Should().Be(50);
-        result.Result.HeadUserName.Should().Be("Olim Sodiqov");
-    }
-
-    [Fact]
-    public async Task GetByIdAsync_WithNonExistentId_ReturnsFailure()
-    {
-        // Arrange
-        await using var db = TestDbContextFactory.Create();
-        var sut = CreateService(db);
-
-        // Act
-        var result = await sut.GetByIdAsync(Guid.NewGuid());
-
-        // Assert
-        result.Succeeded.Should().BeFalse();
-        result.Errors.Should().ContainSingle().Which.Should().Contain("not found");
+        items.Select(i => i.Name).Should().Equal("Bolim A", "Omborxona");
+        items.Single(i => i.Id == bolim.Id).Type.Should().Be(DepartmentType.Bolim);
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -406,5 +338,39 @@ public class DepartmentServiceTests
         result.Succeeded.Should().BeTrue();
         result.Result!.TotalCount.Should().Be(2);
         result.Result.Items.Should().OnlyContain(d => d.Type == DepartmentType.Omborxona);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_ResolvesHeadUserName_AndKeepsInactiveDepartments()
+    {
+        // Arrange — boshliq nomi endi korrelyatsiyalangan subquery orqali olinadi,
+        // shuning uchun uni relational provider ustida tekshiramiz.
+        await using var db = TestDbContextFactory.CreateSqlite();
+        var role = TestData.SeedRole(db, "Operator");
+
+        var ombor = SeedDepartment(db, "Omborxona", DepartmentType.Omborxona);
+        var bolim = SeedDepartment(db, "Bolim A", DepartmentType.Bolim);
+        SeedDepartment(db, "Arxiv", DepartmentType.Bolim, isActive: false);
+
+        TestData.SeedUser(db, login: "boss", firstName: "Ali", lastName: "Valiyev",
+            roleId: role.Id, departmentId: ombor.Id, isHead: true);
+        TestData.SeedUser(db, login: "junior", firstName: "Vali", lastName: "Karimov",
+            roleId: role.Id, departmentId: bolim.Id, isHead: false);
+
+        var sut = CreateService(db);
+
+        // Act
+        var result = await sut.GetPagedAsync(new PaginationParams { Page = 1, PageSize = 10 });
+
+        // Assert
+        result.Succeeded.Should().BeTrue();
+        var items = result.Result!.Items.ToList();
+        items.Select(i => i.Name).Should().Equal("Arxiv", "Bolim A", "Omborxona");
+
+        items.Single(i => i.Id == ombor.Id).HeadUserName.Should().Be("Ali Valiyev");
+        items.Single(i => i.Id == bolim.Id).HeadUserName.Should().BeNull(
+            "IsHead=false foydalanuvchi head sifatida hisoblanmaydi");
+        items.Single(i => i.Name == "Arxiv").IsActive.Should().BeFalse(
+            "paged ro'yxat admin jadvali uchun nofaol bo'limlarni ham qaytaradi");
     }
 }

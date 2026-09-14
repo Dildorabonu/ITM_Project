@@ -658,176 +658,14 @@ public class ContractServiceTests
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    //  UpdateStatusAsync — status transitions
-    // ─────────────────────────────────────────────────────────────────────
-
-    [Fact]
-    public async Task UpdateStatusAsync_NotFound_Returns404()
-    {
-        await using var db = TestDbContextFactory.Create();
-        var sut = CreateSut(db);
-
-        var result = await sut.Service.UpdateStatusAsync(Guid.NewGuid(), ContractStatus.InProduction);
-
-        result.Succeeded.Should().BeFalse();
-        result.StatusCode.Should().Be(404);
-    }
-
-    [Theory]
-    [InlineData(ContractStatus.DrawingPending, ContractProductStatus.DrawingPending)]
-    [InlineData(ContractStatus.TechProcessing, ContractProductStatus.TechProcessing)]
-    [InlineData(ContractStatus.InProduction,   ContractProductStatus.InProduction)]
-    [InlineData(ContractStatus.Completed,      ContractProductStatus.Completed)]
-    [InlineData(ContractStatus.Cancelled,      ContractProductStatus.Cancelled)]
-    public async Task UpdateStatusAsync_PropagatesStatusToActiveProducts(
-        ContractStatus contractStatus, ContractProductStatus expectedProductStatus)
-    {
-        await using var db = TestDbContextFactory.Create();
-        var (contract, product) = SeedContractWithProduct(db);
-        var sut = CreateSut(db);
-
-        var result = await sut.Service.UpdateStatusAsync(contract.Id, contractStatus);
-
-        result.Succeeded.Should().BeTrue();
-        db.ContractProducts.AsNoTracking().Single(p => p.Id == product.Id)
-            .Status.Should().Be(expectedProductStatus);
-    }
-
-    [Fact]
-    public async Task UpdateStatusAsync_DoesNotTouchCancelledOrInactiveProducts()
-    {
-        // Bekor qilingan/passiv mahsulot statusi qayta tirilmaydi — UpdateStatus
-        // faqat aktiv va non-cancelled mahsulotlarni o'zgartiradi.
-        await using var db = TestDbContextFactory.Create();
-        var (contract, _) = SeedContractWithProduct(db);
-        var cancelled = new ContractProduct
-        {
-            Id = Guid.NewGuid(),
-            ContractId = contract.Id,
-            ProductType = "Bekor",
-            Quantity = 1,
-            Unit = "dona",
-            OrderIndex = 1,
-            Status = ContractProductStatus.Cancelled,
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow,
-        };
-        var inactive = new ContractProduct
-        {
-            Id = Guid.NewGuid(),
-            ContractId = contract.Id,
-            ProductType = "Nofaol",
-            Quantity = 1,
-            Unit = "dona",
-            OrderIndex = 2,
-            Status = ContractProductStatus.DrawingPending,
-            IsActive = false,
-            CreatedAt = DateTime.UtcNow,
-        };
-        db.ContractProducts.AddRange(cancelled, inactive);
-        db.SaveChanges();
-        var sut = CreateSut(db);
-
-        await sut.Service.UpdateStatusAsync(contract.Id, ContractStatus.InProduction);
-
-        db.ContractProducts.AsNoTracking().Single(p => p.Id == cancelled.Id)
-            .Status.Should().Be(ContractProductStatus.Cancelled);
-        db.ContractProducts.AsNoTracking().Single(p => p.Id == inactive.Id)
-            .Status.Should().Be(ContractProductStatus.DrawingPending);
-    }
-
-    [Fact]
-    public async Task UpdateStatusAsync_DoesNotNotify_WhenStatusIsDrawingPending()
-    {
-        // DrawingPending — yaratilish payti default'i, foydalanuvchini bezovta qilmaslik
-        // uchun shu o'tishda bildirishnoma yuborilmaydi.
-        await using var db = TestDbContextFactory.Create();
-        var (contract, _) = SeedContractWithProduct(db, status: ContractStatus.TechProcessing,
-            productStatus: ContractProductStatus.TechProcessing);
-        var sut = CreateSut(db);
-
-        await sut.Service.UpdateStatusAsync(contract.Id, ContractStatus.DrawingPending);
-
-        sut.Notifications.Verify(n => n.NotifyUsersAndSuperAdminsAsync(
-            It.IsAny<IEnumerable<Guid>>(),
-            It.IsAny<string>(),
-            It.IsAny<string>(),
-            It.IsAny<NotificationType>(),
-            It.IsAny<Guid?>()),
-            Times.Never);
-    }
-
-    [Fact]
-    public async Task UpdateStatusAsync_NotifiesUsers_AndSyncsManufactured_OnInProduction()
-    {
-        await using var db = TestDbContextFactory.Create();
-        var (contract, _) = SeedContractWithProduct(db);
-        var sut = CreateSut(db);
-
-        await sut.Service.UpdateStatusAsync(contract.Id, ContractStatus.InProduction);
-
-        sut.Notifications.Verify(n => n.NotifyUsersAndSuperAdminsAsync(
-            It.IsAny<IEnumerable<Guid>>(),
-            It.Is<string>(t => t.Contains(contract.ContractNo)),
-            It.IsAny<string>(),
-            NotificationType.Info,
-            contract.Id),
-            Times.Once);
-        sut.Manufactured.Verify(m => m.SyncForContractAsync(contract.Id), Times.Once);
-    }
-
-    [Fact]
-    public async Task UpdateStatusAsync_CannotRegressAdvancedProductToEarlierStage()
-    {
-        // Monotonic transition guard: ilgarilab ketgan mahsulotni (Completed) qo'lda
-        // orqaga (DrawingPending) qaytarib bo'lmaydi — aks holda ishlab chiqarilgan
-        // mahsulot kuzatuvi yo'qolardi. Mahsulot Completed bo'lib qoladi va
-        // RecomputeContractStatusAsync aggregatni yana Completed ga tiklaydi.
-        await using var db = TestDbContextFactory.Create();
-        var (contract, product) = SeedContractWithProduct(db,
-            status: ContractStatus.Completed,
-            productStatus: ContractProductStatus.Completed);
-        var sut = CreateSut(db);
-
-        var result = await sut.Service.UpdateStatusAsync(contract.Id, ContractStatus.DrawingPending);
-
-        result.Succeeded.Should().BeTrue();
-        db.ContractProducts.AsNoTracking().Single(p => p.Id == product.Id)
-            .Status.Should().Be(ContractProductStatus.Completed, "regressiya bloklanadi");
-
-        // Aggregat product holatidan qayta hisoblanadi — yagona product Completed,
-        // shuning uchun shartnoma ham Completed bo'lib qoladi.
-        var savedContract = db.Contracts.AsNoTracking().Single(c => c.Id == contract.Id);
-        savedContract.Status.Should().Be(ContractStatus.Completed);
-    }
-
-    [Fact]
-    public async Task UpdateStatusAsync_AdvancesProductForward_WhenStatusMovesUp()
-    {
-        // Oldinga siljish (DrawingPending → InProduction) odatdagidek tarqaladi.
-        await using var db = TestDbContextFactory.Create();
-        var (contract, product) = SeedContractWithProduct(db,
-            status: ContractStatus.DrawingPending,
-            productStatus: ContractProductStatus.DrawingPending);
-        var sut = CreateSut(db);
-
-        var result = await sut.Service.UpdateStatusAsync(contract.Id, ContractStatus.InProduction);
-
-        result.Succeeded.Should().BeTrue();
-        db.ContractProducts.AsNoTracking().Single(p => p.Id == product.Id)
-            .Status.Should().Be(ContractProductStatus.InProduction);
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
     //  ActivateAsync — transition guards
     // ─────────────────────────────────────────────────────────────────────
 
     [Fact]
     public async Task ActivateAsync_CompletedContract_ReturnsFailure()
     {
-        // Yakunlangan shartnomani qayta tiriltirib bo'lmaydi — bu yagona qattiq
-        // monotonic guard. UpdateStatusAsync bunaqa cheklov qo'ymaydi, lekin
-        // arxivdan chiqarish (ActivateAsync) Completed ni alohida tekshiradi.
+        // Yakunlangan shartnomani qayta tiriltirib bo'lmaydi — arxivdan chiqarish
+        // (ActivateAsync) Completed holatini alohida tekshiradi.
         await using var db = TestDbContextFactory.Create();
         var (contract, _) = SeedContractWithProduct(db,
             status: ContractStatus.Completed,
@@ -1073,97 +911,6 @@ public class ContractServiceTests
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    //  AssignUsersAsync / RemoveUserAsync — light coverage
-    // ─────────────────────────────────────────────────────────────────────
-
-    [Fact]
-    public async Task AssignUsersAsync_AddsNewUsers_AndUpdatesExistingRole()
-    {
-        await using var db = TestDbContextFactory.Create();
-        var (contract, _) = SeedContractWithProduct(db);
-        var existingUserId = Guid.NewGuid();
-        var newUserId = Guid.NewGuid();
-        db.ContractUsers.Add(new ContractUser
-        {
-            ContractId = contract.Id,
-            UserId = existingUserId,
-            Role = ContractUserRole.Responsible,
-        });
-        db.SaveChanges();
-        var sut = CreateSut(db);
-
-        var result = await sut.Service.AssignUsersAsync(contract.Id,
-        [
-            new ContractUserAssignItem { UserId = existingUserId, Role = ContractUserRole.Observer },
-            new ContractUserAssignItem { UserId = newUserId,     Role = ContractUserRole.Supervisor },
-        ]);
-
-        result.Succeeded.Should().BeTrue();
-        db.ContractUsers.AsNoTracking().Should().HaveCount(2);
-        db.ContractUsers.AsNoTracking().Single(cu => cu.UserId == existingUserId)
-            .Role.Should().Be(ContractUserRole.Observer, "rol yangilanishi kerak");
-        db.ContractUsers.AsNoTracking().Single(cu => cu.UserId == newUserId)
-            .Role.Should().Be(ContractUserRole.Supervisor);
-
-        sut.Notifications.Verify(n => n.CreateAsync(
-            newUserId, It.IsAny<string>(), It.IsAny<string>(),
-            NotificationType.Task, contract.Id),
-            Times.Once);
-        sut.Notifications.Verify(n => n.CreateAsync(
-            existingUserId, It.IsAny<string>(), It.IsAny<string>(),
-            It.IsAny<NotificationType>(), It.IsAny<Guid?>()),
-            Times.Never);
-    }
-
-    [Fact]
-    public async Task AssignUsersAsync_ContractNotFound_Returns404()
-    {
-        await using var db = TestDbContextFactory.Create();
-        var sut = CreateSut(db);
-
-        var result = await sut.Service.AssignUsersAsync(Guid.NewGuid(),
-        [
-            new ContractUserAssignItem { UserId = Guid.NewGuid(), Role = ContractUserRole.Responsible },
-        ]);
-
-        result.Succeeded.Should().BeFalse();
-        result.StatusCode.Should().Be(404);
-    }
-
-    [Fact]
-    public async Task RemoveUserAsync_OnAssignedUser_DeletesRow()
-    {
-        await using var db = TestDbContextFactory.Create();
-        var (contract, _) = SeedContractWithProduct(db);
-        var userId = Guid.NewGuid();
-        db.ContractUsers.Add(new ContractUser
-        {
-            ContractId = contract.Id,
-            UserId = userId,
-            Role = ContractUserRole.Responsible,
-        });
-        db.SaveChanges();
-        var sut = CreateSut(db);
-
-        var result = await sut.Service.RemoveUserAsync(contract.Id, userId);
-
-        result.Succeeded.Should().BeTrue();
-        db.ContractUsers.AsNoTracking().Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task RemoveUserAsync_NonExistentAssignment_Returns404()
-    {
-        await using var db = TestDbContextFactory.Create();
-        var sut = CreateSut(db);
-
-        var result = await sut.Service.RemoveUserAsync(Guid.NewGuid(), Guid.NewGuid());
-
-        result.Succeeded.Should().BeFalse();
-        result.StatusCode.Should().Be(404);
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
     //  GetByIdAsync
     // ─────────────────────────────────────────────────────────────────────
 
@@ -1198,5 +945,47 @@ public class ContractServiceTests
         dto.ContractNo.Should().Be("C-MAP");
         dto.Products.Should().ContainSingle()
             .Which.Id.Should().Be(product.Id);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WhenSelectedCatalogProductIsArchived_ReactivatesIt()
+    {
+        // Arrange
+        await using var db = TestDbContextFactory.Create();
+        var dept = SeedDept(db, name: "Sex-1");
+        var catalog = new ProductCatalog
+        {
+            Id = Guid.NewGuid(),
+            Name = "Val",
+            NameNormalized = "val",
+            Code = "PRD-000001",
+            Unit = "Dona",
+            IsActive = false,
+            CreatedBy = Guid.NewGuid(),
+            CreatedAt = DateTime.UtcNow,
+        };
+        db.ProductCatalogs.Add(catalog);
+        db.SaveChanges();
+        var sut = CreateSut(db);
+
+        var product = MakeProductDto(productType: "eski nom", unit: "dona", departmentIds: [dept.Id]);
+        product.ProductCatalogId = catalog.Id;
+
+        // Act
+        var result = await sut.Service.CreateAsync(new ContractCreateDto
+        {
+            ContractNo = "C-ARCHIVED",
+            StartDate = new DateOnly(2026, 1, 1),
+            EndDate = new DateOnly(2026, 12, 31),
+            ContractType = ContractType.Mahalliy,
+            ContractParty = "ABC partner",
+            DepartmentIds = [dept.Id],
+            Products = [product],
+        }, Guid.NewGuid());
+
+        // Assert
+        result.Succeeded.Should().BeTrue(string.Join(" | ", result.Errors));
+        db.ProductCatalogs.AsNoTracking().Single().IsActive.Should().BeTrue();
+        db.ContractProducts.AsNoTracking().Single().ProductType.Should().Be("Val");
     }
 }

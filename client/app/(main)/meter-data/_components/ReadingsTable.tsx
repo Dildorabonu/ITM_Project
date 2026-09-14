@@ -53,7 +53,7 @@ export function ReadingsTable({
                   </td>
                 </tr>
               ) : items.map((r, i) => (
-                <tr key={r.id} className={i === 0 ? "nd-fadein-0" : undefined}>
+                <tr key={`${r.deviceName}-${r.createdAt}`} className={i === 0 ? "nd-fadein-0" : undefined}>
                   <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text3)", fontFamily: "var(--font-mono)" }}>
                     {String(i + 1).padStart(2, "0")}
                   </td>

@@ -268,7 +268,7 @@ export function UserListView({
           <div style={{ flex: 1, padding: 40, textAlign: "center", color: "#e05252" }}>{error}</div>
         ) : (
           <div style={{ overflowX: "auto", overflowY: "auto", flex: 1, minHeight: 0 }}>
-            <table className="itm-table">
+            <table className="itm-table" style={{ height: "100%" }}>
               <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
                 <tr>
                   <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>{t("T/r")}</th>
@@ -277,7 +277,7 @@ export function UserListView({
                   <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Login")}</th>
                   <th style={{ textAlign: "center", color: "var(--text1)", maxWidth: 180, background: "var(--bg2)" }}>{t("Tuzilma nomi")}</th>
                   <th style={{ textAlign: "center", color: "var(--text1)", background: "var(--bg2)" }}>{t("Holat")}</th>
-                  <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", background: "var(--bg2)" }}>{t("Amallar")}</th>
+                  <th style={{ textAlign: "center", borderLeft: "2px solid var(--border)", color: "var(--text1)", background: "var(--bg2)", width: 124 }}>{t("Amallar")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -308,7 +308,7 @@ export function UserListView({
                           title={u.isActive ? t("Aktiv") : t("Nofaol")}
                         />
                       </td>
-                      <td style={{ borderLeft: "2px solid var(--border)" }}>
+                      <td className="td-actions" style={{ borderLeft: "2px solid var(--border)" }}>
                         <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
                           {u.id !== "00000000-0000-0000-0000-000000000001" && (
                             <>
@@ -345,6 +345,13 @@ export function UserListView({
                     </tr>
                   );
                 })}
+                {filtered.length > 0 && (
+                  <tr className="itm-filler" aria-hidden style={{ height: "100%" }}>
+                    <td style={{ padding: 0, borderBottom: "none", borderRight: "2px solid var(--border)" }} />
+                    <td colSpan={5} style={{ padding: 0, borderBottom: "none" }} />
+                    <td style={{ padding: 0, borderBottom: "none", borderLeft: "2px solid var(--border)" }} />
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -352,61 +359,59 @@ export function UserListView({
 
       </div>
 
-      {totalPages > 1 && (
-        <div style={{
-          flexShrink: 0,
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "8px 14px",
-          marginTop: 8,
-        }}>
-          <span style={{ fontSize: 17, color: "var(--text)", fontFamily: "var(--font-mono)", fontWeight: 450 }}>
-            {totalCount} {t("tadan")} {(page - 1) * 20 + 1}&nbsp;–&nbsp;{Math.min(page * 20, totalCount)}&nbsp;{t("ko'rsatilmoqda")}
-          </span>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <button
-              className="btn-secondary"
-              disabled={page <= 1}
-              onClick={() => setPage(p => p - 1)}
-              style={{ padding: "5px 12px", fontSize: 12 }}
-            >
-              ← {t("Oldingi")}
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1)
-              .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
-              .reduce<(number | "...")[]>((acc, p, idx, arr) => {
-                if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("...");
-                acc.push(p);
-                return acc;
-              }, [])
-              .map((p, idx) =>
-                p === "..." ? (
-                  <span key={`ellipsis-${idx}`} style={{ fontSize: 13, color: "var(--text3)", padding: "0 2px" }}>…</span>
-                ) : (
-                  <button
-                    key={p}
-                    className="btn-secondary"
-                    onClick={() => setPage(p as number)}
-                    style={{
-                      minWidth: 30, padding: "5px 8px", fontSize: 12, fontWeight: 600,
-                      fontVariantNumeric: "tabular-nums", justifyContent: "center",
-                      ...(p === page ? { background: "var(--accent)", color: "#fff", borderColor: "var(--accent)" } : {}),
-                    }}
-                  >
-                    {p}
-                  </button>
-                )
-              )}
-            <button
-              className="btn-secondary"
-              disabled={page >= totalPages}
-              onClick={() => setPage(p => p + 1)}
-              style={{ padding: "5px 12px", fontSize: 12 }}
-            >
-              {t("Keyingi")} →
-            </button>
-          </div>
+      <div style={{
+        flexShrink: 0,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "8px 14px",
+        marginTop: 8,
+      }}>
+        <span style={{ fontSize: 17, color: "var(--text)", fontFamily: "var(--font-mono)", fontWeight: 450 }}>
+          {totalCount} {t("tadan")} {totalCount === 0 ? 0 : (page - 1) * 20 + 1}&nbsp;–&nbsp;{Math.min(page * 20, totalCount)}&nbsp;{t("ko'rsatilmoqda")}
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <button
+            className="btn-secondary"
+            disabled={page <= 1}
+            onClick={() => setPage(p => p - 1)}
+            style={{ padding: "5px 12px", fontSize: 12 }}
+          >
+            ← {t("Oldingi")}
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1)
+            .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+            .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+              if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("...");
+              acc.push(p);
+              return acc;
+            }, [])
+            .map((p, idx) =>
+              p === "..." ? (
+                <span key={`ellipsis-${idx}`} style={{ fontSize: 13, color: "var(--text3)", padding: "0 2px" }}>…</span>
+              ) : (
+                <button
+                  key={p}
+                  className="btn-secondary"
+                  onClick={() => setPage(p as number)}
+                  style={{
+                    minWidth: 30, padding: "5px 8px", fontSize: 12, fontWeight: 600,
+                    fontVariantNumeric: "tabular-nums", justifyContent: "center",
+                    ...(p === page ? { background: "var(--accent)", color: "#fff", borderColor: "var(--accent)" } : {}),
+                  }}
+                >
+                  {p}
+                </button>
+              )
+            )}
+          <button
+            className="btn-secondary"
+            disabled={page >= totalPages}
+            onClick={() => setPage(p => p + 1)}
+            style={{ padding: "5px 12px", fontSize: 12 }}
+          >
+            {t("Keyingi")} →
+          </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }

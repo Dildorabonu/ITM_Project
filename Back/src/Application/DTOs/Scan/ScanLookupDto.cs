@@ -1,10 +1,9 @@
-using Application.DTOs.StockMovements;
 using Core.Enums;
 
 namespace Application.DTOs.Scan;
 
 // Ombor skaneri lookup natijasi: Product kartasi + Material/SKU agregati +
-// so'nggi harakatlar + yorliq uchun QR PNG (base64).
+// yorliq uchun QR PNG (base64).
 public class ScanLookupDto
 {
     public Guid Id { get; set; }
@@ -29,7 +28,4 @@ public class ScanLookupDto
 
     // Bog'langan Material/SKU bo'yicha umumiy zaxira (FreeText bo'lsa null).
     public MaterialAggregateDto? Material { get; set; }
-
-    // Shu Product bo'yicha so'nggi 10 ta StockMovement (yangidan eskiga).
-    public List<StockMovementResponseDto> RecentMovements { get; set; } = [];
 }

@@ -20,6 +20,10 @@ public class LicenseState
     // Ko'rilgan eng katta vaqt — soat ortga surilsa ham bu qiymatdan pastga tushmaydi.
     public DateTime HighWaterUtc { get; set; }
 
+    // Bepul sinov (trial) birinchi ishga tushganda yoziladi va boshqa o'zgarmaydi.
+    // Token yo'q bo'lsa muddat shundan sanaladi. To'ldirilgach qayta yozilmaydi.
+    public DateTime? TrialStartUtc { get; set; }
+
     // Soat keskin ortga surilgani aniqlansa — abadiy blok.
     public bool TamperDetected { get; set; }
     public string? TamperReason { get; set; }

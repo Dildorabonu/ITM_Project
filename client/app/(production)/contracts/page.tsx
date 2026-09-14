@@ -13,13 +13,14 @@ import {
   ContractDeactivationReason,
   ContractType,
   type ContractResponse,
+  type ContractSummary,
   type ContractCreatePayload,
   type ContractUpdatePayload,
   type AttachmentResponse,
   type ContractUserResponse,
   type ContractProductPayload,
   type UserLookup,
-  type DepartmentResponse,
+  type DepartmentOption,
 } from "@/lib/userService";
 
 import {
@@ -53,7 +54,7 @@ export default function ContractsPage() {
   const canCreate = hasPermission("Contracts.Create");
   const canUpdate = hasPermission("Contracts.Update");
 
-  const [contracts, setContracts]       = useState<ContractResponse[]>([]);
+  const [contracts, setContracts]       = useState<ContractSummary[]>([]);
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState("");
 
@@ -94,7 +95,7 @@ export default function ContractsPage() {
   const [filesLoading, setFilesLoading] = useState(false);
 
   // Departments
-  const [departments, setDepartments]   = useState<DepartmentResponse[]>([]);
+  const [departments, setDepartments]   = useState<DepartmentOption[]>([]);
 
   // TZ files
   const [drawerTzFiles, setDrawerTzFiles]   = useState<AttachmentResponse[]>([]);
@@ -131,7 +132,7 @@ export default function ContractsPage() {
   const [activating, setActivating]     = useState(false);
 
   // Mijozga topshirish (pickup) modali
-  const [pickupContract, setPickupContract] = useState<ContractResponse | null>(null);
+  const [pickupContract, setPickupContract] = useState<ContractSummary | null>(null);
   const canShipments = hasPermission("Shipments.View") || hasPermission("Shipments.Create");
 
   // Mijoz to'liq olib ketmagan yakunlangan shartnomalar soni — arxiv tabidagi
@@ -145,13 +146,52 @@ export default function ContractsPage() {
     "draft_contracts",
     showForm && !editTarget,
     { form, editTarget },
-    (d) => { if (!d.editTarget) { setForm(d.form); ensureDataLoaded().then(() => setShowForm(true)); } },
+    (d) => {
+      if (d.editTarget) return;
+      setForm(d.form);
+      // Sana inputlarining ko'rinadigan matni `form` dan tashqarida saqlanadi —
+      // draftdan tiklanganda uni ISO qiymatdan qayta hosil qilamiz, aks holda
+      // sana tanlangan bo'lsa ham maydon bo'sh ko'rinadi.
+      setStartDateDisp(isoToDisplayDate(d.form.startDate));
+      setEndDateDisp(isoToDisplayDate(d.form.endDate));
+      ensureDataLoaded().then(() => setShowForm(true));
+    },
   );
 
   // ── Load drawer ────────────────────────────────────────────────────────────
 
-  const openDrawer = async (c: ContractResponse) => {
-    setViewContract(c);
+  const openDrawer = async (c: ContractSummary) => {
+    // Ro'yxat qatori yengil (`ContractSummary`) — drawer darhol shu ma'lumot bilan
+    // ochiladi, to'liq shartnoma (izohlar, bo'limlar, biriktirilgan xodimlar)
+    // yuklangach ustiga almashtiriladi.
+    setViewContract({
+      id: c.id,
+      contractNo: c.contractNo,
+      startDate: c.startDate,
+      endDate: c.endDate,
+      departments: c.departments ?? [],
+      contractType: c.contractType,
+      contractParty: c.contractParty,
+      status: c.status,
+      notes: null,
+      isActive: c.isActive,
+      createdByFullName: null,
+      products: c.products.map(p => ({
+        id: p.id,
+        contractId: c.id,
+        productCatalogId: null,
+        productCode: null,
+        productType: p.productType,
+        quantity: p.quantity,
+        unit: p.unit,
+        catalogUnit: null,
+        orderIndex: 0,
+        notes: p.notes ?? null,
+        status: p.status,
+        departments: p.departments ?? [],
+        assignedUsers: [],
+      })),
+    });
     setDrawerFiles([]);
     setDrawerUsers([]);
     setDrawerTzFiles([]);
@@ -166,7 +206,23 @@ export default function ContractsPage() {
         contractService.getTzFiles(c.id),
       ]);
       setViewContract(fresh);
-      setContracts(prev => prev.map(x => x.id === fresh.id ? fresh : x));
+      // Ro'yxat qatorini yangilaymiz, lekin faqat ro'yxatda hisoblanadigan
+      // topshirish miqdorlarini saqlab qolgan holda.
+      setContracts(prev => prev.map(x => x.id === fresh.id
+        ? {
+            ...x,
+            contractNo:    fresh.contractNo,
+            contractParty: fresh.contractParty,
+            startDate:     fresh.startDate,
+            endDate:       fresh.endDate,
+            contractType:  fresh.contractType,
+            status:        fresh.status,
+            isActive:      fresh.isActive,
+            products:      fresh.products.map(p => ({
+              id: p.id, productType: p.productType, quantity: p.quantity, unit: p.unit, status: p.status,
+            })),
+          }
+        : x));
       setDrawerFiles(files);
       setDrawerUsers(users);
       setDrawerTzFiles(tzFiles);
@@ -230,7 +286,7 @@ export default function ContractsPage() {
   }, [viewMode, archiveTab]);
 
   useEffect(() => {
-    departmentService.getAllFull().then(d => setDepartments(d)).catch(() => {});
+    departmentService.getAll().then(d => setDepartments(d)).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -258,7 +314,7 @@ export default function ContractsPage() {
   const ensureDataLoaded = async () => {
     await Promise.all([
       allUsers.length === 0 ? userService.getLookup().then(items => setAllUsers(items)) : Promise.resolve(),
-      departments.length === 0 ? departmentService.getAllFull().then(d => setDepartments(d.filter(dep => dep.isActive))) : Promise.resolve(),
+      departments.length === 0 ? departmentService.getAll().then(d => setDepartments(d)) : Promise.resolve(),
     ]);
   };
 
@@ -275,14 +331,18 @@ export default function ContractsPage() {
     setShowForm(true);
   };
 
-  const openEdit = async (c: ContractResponse) => {
+  const openEdit = async (summary: ContractSummary) => {
     sessionStorage.removeItem("draft_contracts");
-    setEditTarget(c);
 
-    const [lookup, depts] = await Promise.all([
+    // Ro'yxat qatorida forma uchun kerakli hamma narsa yo'q (izoh, katalog kodi,
+    // mahsulot bo'limlari va biriktirilgan xodimlar) — to'liq shartnoma faqat shu
+    // yerda, foydalanuvchi "Tahrirlash"ni bosganda yuklanadi.
+    const [c, lookup, depts] = await Promise.all([
+      contractService.getById(summary.id),
       allUsers.length > 0 ? Promise.resolve(allUsers) : userService.getLookup(),
-      departments.length > 0 ? Promise.resolve(departments) : departmentService.getAllFull().then(d => d.filter(dep => dep.isActive)),
+      departments.length > 0 ? Promise.resolve(departments) : departmentService.getAll(),
     ]);
+    setEditTarget(c);
     if (lookup !== allUsers) setAllUsers(lookup);
     if (depts !== departments) setDepartments(depts);
 
@@ -301,7 +361,8 @@ export default function ContractsPage() {
             productCode: p.productCode ?? null,
             productType: p.productType ?? "",
             quantity:    p.quantity != null ? String(p.quantity) : "",
-            unit:        p.unit ?? "",
+            catalogUnit: p.catalogUnit || null,
+            unit:        p.catalogUnit || p.unit || "",
             notes:       p.notes ?? "",
             departmentIds: p.departments?.map(d => d.id) ?? [],
             responsibleUsers: (p.assignedUsers ?? []).filter(u => u.role === 0).map(u => lookupById.get(u.userId)).filter((u): u is UserLookup => !!u),
@@ -309,7 +370,7 @@ export default function ContractsPage() {
             observerUsers:    (p.assignedUsers ?? []).filter(u => u.role === 2).map(u => lookupById.get(u.userId)).filter((u): u is UserLookup => !!u),
             pendingTzFiles: [],
           }))
-        : [{ productCatalogId: null, productCode: null, productType: "", quantity: "", unit: "", notes: "", departmentIds: [], responsibleUsers: [], supervisorUsers: [], observerUsers: [], pendingTzFiles: [] }],
+        : [{ productCatalogId: null, productCode: null, productType: "", quantity: "", catalogUnit: null, unit: "", notes: "", departmentIds: [], responsibleUsers: [], supervisorUsers: [], observerUsers: [], pendingTzFiles: [] }],
     });
     setStartDateDisp(c.startDate ? isoToDisplayDate(c.startDate.slice(0, 10)) : "");
     setEndDateDisp(c.endDate ? isoToDisplayDate(c.endDate.slice(0, 10)) : "");
@@ -825,7 +886,7 @@ export default function ContractsPage() {
                         )}
                         {/* Mijozga topshirish — yakunlangan shartnomalarda har doim,
                             faol ro'yxatda esa kamida bitta mahsulot ishlab chiqarishga
-                            kirgan (omborda tayyor miqdor bo'lishi mumkin) bo'lsa. */}
+                            kirgan (jo'natma partiyasi bo'lishi mumkin) bo'lsa. */}
                         {canShipments && c.isActive && (isCompletedView ||
                           c.products.some(p =>
                             p.status === ContractProductStatus.InProduction ||

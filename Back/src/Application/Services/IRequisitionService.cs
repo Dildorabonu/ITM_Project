@@ -7,16 +7,21 @@ namespace Application.Services;
 
 public interface IRequisitionService
 {
-    Task<ApiResult<IEnumerable<RequisitionResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, RequisitionStatus? status = null);
-    Task<ApiResult<PagedResult<RequisitionResponseDto>>> GetPagedAsync(Guid currentUserId, bool viewAll, PaginationParams pagination, string? search = null, RequisitionStatus? status = null, bool? completed = null, bool? rejected = null);
+    /// Navbat ekranlari (tekshiruv / tasdiqlash / xarid qabuli) uchun yengil ro'yxat.
+    Task<ApiResult<IEnumerable<RequisitionQueueDto>>> GetAllAsync(Guid currentUserId, bool viewAll, RequisitionStatus? status = null);
+
+    /// Jadval ro'yxati — materialsiz va QR'siz sarlavha qatorlari.
+    Task<ApiResult<PagedResult<RequisitionListDto>>> GetPagedAsync(Guid currentUserId, bool viewAll, PaginationParams pagination, string? search = null, RequisitionStatus? status = null, bool? completed = null, bool? rejected = null);
+
+    /// To'liq detal — QR imzolari, materiallar va childlar bilan.
     Task<ApiResult<RequisitionResponseDto>> GetByIdAsync(Guid id);
 
-    /// Ombor tekshiruvini kutayotgan talabnomalar soni — sidebar badge uchun yengil so'rov.
-    Task<ApiResult<int>> GetPendingWarehouseCheckCountAsync(Guid currentUserId, bool viewAll);
+    /// Badge raqamlari uchun yengil COUNT (tekshiruv / tasdiqlash navbati).
+    Task<ApiResult<int>> GetCountByStatusAsync(Guid currentUserId, bool viewAll, RequisitionStatus status);
 
     /// Faol ro'yxat ostidagi "Yaqinda yakunlangan" bloki: oxirgi N kunda real
     /// bajarilgan talabnomalar, eng ko'pi 10 ta.
-    Task<ApiResult<IEnumerable<RequisitionResponseDto>>> GetRecentCompletedAsync(Guid currentUserId, bool viewAll, int days);
+    Task<ApiResult<IEnumerable<RequisitionListDto>>> GetRecentCompletedAsync(Guid currentUserId, bool viewAll, int days);
     Task<ApiResult<Guid>> CreateAsync(RequisitionCreateDto dto, Guid createdBy);
 
     // Omborchi tekshiruvi: PendingWarehouseCheck → Split (avto-bo'linish), child IDlarni qaytaradi

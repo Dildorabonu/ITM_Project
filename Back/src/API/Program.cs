@@ -1,3 +1,4 @@
+using System.Net;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -5,6 +6,7 @@ using System.Threading.RateLimiting;
 using API.Authentication;
 using API.Authorization;
 using API.Licensing;
+using API.Middleware;
 using Application;
 using Application.Helpers;
 using Application.Options;
@@ -84,6 +86,20 @@ namespace API
                                     ctx.Token = cookie;
                             }
                             return Task.CompletedTask;
+                        },
+
+                        // Access token stateless: seans tugatilsa ham imzosi va muddati
+                        // to'g'ri bo'lib qolaveradi. Shuning uchun tokendagi seans hali
+                        // tirikmi — shu yerda tekshiriladi (javob keshlanadi).
+                        OnTokenValidated = async ctx =>
+                        {
+                            var claim = ctx.Principal?.FindFirst("sess")?.Value;
+                            if (!Guid.TryParse(claim, out var sessionId))
+                                return;
+
+                            var guard = ctx.HttpContext.RequestServices.GetRequiredService<ISessionGuard>();
+                            if (!await guard.IsActiveAsync(sessionId, ctx.HttpContext.RequestAborted))
+                                ctx.Fail("Session revoked.");
                         }
                     };
                 });
@@ -184,6 +200,12 @@ namespace API
 
             builder.Services.AddHostedService<API.Services.EnergyRollupBackgroundService>();
 
+            // Global exception handler — ushlanmagan xatoliklar mijozga stack trace sifatida
+            // chiqmasligi uchun. AddProblemDetails ExceptionHandlerMiddleware talabi
+            // (handler false qaytargan kamdan-kam holat uchun zaxira javob).
+            builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+            builder.Services.AddProblemDetails();
+
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
@@ -218,19 +240,49 @@ namespace API
 
             var app = builder.Build();
 
-            // The frontend reaches the API through the Next.js rewrite proxy, so the
-            // TCP connection always originates from the proxy host. Trust X-Forwarded-For
-            // (set by Next.js) so RemoteIpAddress resolves to the real client — required
-            // for the IP-partitioned login/refresh rate-limit policies to work per-client.
-            // Internal trusted network: KnownNetworks/KnownProxies are cleared so the
-            // header is honored regardless of the proxy's (localhost or LAN) address.
-            var forwardedOptions = new ForwardedHeadersOptions
+            // Eng birinchi middleware — undan keyingi butun zanjirdagi xatoliklarni ushlaydi
+            // (forwarded headers, swagger, CORS, auth va controllerlar shu ichida qoladi).
+            app.UseExceptionHandler();
+
+            // Xavfsizlik headerlari (nosniff, X-Frame-Options, Referrer-Policy,
+            // Permissions-Policy, cheklovchi CSP) — zanjirning eng boshida, shunda
+            // xatolik javoblari va statik fayllar ham qamrab olinadi.
+            app.UseMiddleware<SecurityHeadersMiddleware>();
+
+            // Backendga so'rov faqat frontend proksisi orqali keladi, ya'ni TCP ulanish
+            // manzili har doim proksining o'zi. Haqiqiy mijoz manzili X-Forwarded-For
+            // orqali bilinadi — lekin uni ISHONCHLI proksi qo'ygan bo'lsagina.
+            //
+            // Next.js rewrite proksisi bu sarlavhani o'zi yozmaydi, mijoz yuborganini
+            // esa shundoq uzatib yuboradi. Shuning uchun "loopback'ga ishonish" bu
+            // yerda "har kimga ishonish" bilan teng: mijoz o'zi X-Forwarded-For yozib,
+            // seanslar ro'yxatidagi IP'ni ham, IP bo'yicha rate-limit'ni ham
+            // xohlagancha aldab ketardi. Shu sababli ro'yxat bo'sh bo'lsa sarlavha
+            // butunlay e'tiborga olinmaydi.
+            //
+            // Oldiga chinakam reverse proxy (nginx/Caddy/IIS) qo'yilganda uning manzili
+            // appsettings dagi "TrustedProxies" ga yoziladi. ForwardLimit = 1 — faqat
+            // eng o'ngdagi qiymat olinadi, uni o'sha proksi qo'ygan bo'ladi; mijoz
+            // oldindan yozib yuborgan soxta qiymatlar chapda qolib, e'tiborsiz ketadi.
+            var trustedProxies = (builder.Configuration.GetSection("TrustedProxies").Get<string[]>() ?? [])
+                .Select(value => IPAddress.TryParse(value, out var address) ? address : null)
+                .Where(address => address is not null)
+                .ToList();
+
+            if (trustedProxies.Count > 0)
             {
-                ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
-            };
-            forwardedOptions.KnownNetworks.Clear();
-            forwardedOptions.KnownProxies.Clear();
-            app.UseForwardedHeaders(forwardedOptions);
+                var forwardedOptions = new ForwardedHeadersOptions
+                {
+                    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+                    ForwardLimit = 1
+                };
+                forwardedOptions.KnownNetworks.Clear();
+                forwardedOptions.KnownProxies.Clear();
+                foreach (var proxy in trustedProxies)
+                    forwardedOptions.KnownProxies.Add(proxy!);
+
+                app.UseForwardedHeaders(forwardedOptions);
+            }
 
             if (app.Environment.IsDevelopment())
             {
@@ -299,23 +351,25 @@ namespace API
             // (login ham). Autentifikatsiyadan oldin turadi — to'liq blok uchun.
             app.UseMiddleware<LicenseEnforcementMiddleware>();
 
-            // Barcha javoblarda MIME sniffing'ni o'chirish — yuklangan fayllarni
-            // browser noto'g'ri turdek talqin qilishining oldini oladi.
-            app.Use(async (ctx, next) =>
-            {
-                ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
-                await next();
-            });
-
             // Yuklangan fayllarni (rasmlarni) statik fayl sifatida serve qilish
             var uploadsPath = app.Services.GetRequiredService<IOptions<FileStorageOptions>>().Value.UploadsPath;
             app.UseStaticFiles(new StaticFileOptions
             {
                 FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadsPath),
+                // Xavfsizlik headerlari SecurityHeadersMiddleware da barcha javoblar
+                // uchun qo'yiladi — bu yerda takrorlash shart emas.
                 RequestPath = "/uploads",
+
+                // /uploads/req-items ostidagi fayl nomlari — Guid, ular hech qachon
+                // qayta ishlatilmaydi va o'zgarmaydi. Shuning uchun "immutable" qilib
+                // keshlaymiz: brauzer rasmni bir marta olgach, talabnoma har ochilganda
+                // qayta so'ramaydi. Boshqa papkalarda (attachments) fayl nomi original
+                // nomdan olinadi va o'chirilgandan keyin takrorlanishi mumkin —
+                // ularga kesh qo'ymaymiz.
                 OnPrepareResponse = ctx =>
                 {
-                    ctx.Context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+                    if (ctx.Context.Request.Path.StartsWithSegments("/uploads/req-items", StringComparison.OrdinalIgnoreCase))
+                        ctx.Context.Response.Headers["Cache-Control"] = "public, max-age=31536000, immutable";
                 }
             });
 

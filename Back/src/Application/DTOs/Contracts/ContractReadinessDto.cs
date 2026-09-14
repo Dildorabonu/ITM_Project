@@ -6,10 +6,7 @@ namespace Application.DTOs.Contracts;
 public class ContractReadinessDrawingDto
 {
     public Guid Id { get; set; }
-    public string Title { get; set; } = string.Empty;
-    public string? Notes { get; set; }
     public DrawingStatus Status { get; set; }
-    public DateTime CreatedAt { get; set; }
 }
 
 public class ContractReadinessTechProcessDto
@@ -18,18 +15,14 @@ public class ContractReadinessTechProcessDto
     public string Title { get; set; } = string.Empty;
     public string? Notes { get; set; }
     public ProcessStatus Status { get; set; }
-    public int CurrentStep { get; set; }
-    public DateTime CreatedAt { get; set; }
 }
 
 public class ContractReadinessCostNormDto
 {
     public Guid Id { get; set; }
     public string Title { get; set; } = string.Empty;
-    public string? Notes { get; set; }
     public DrawingStatus Status { get; set; }
     public int ItemCount { get; set; }
-    public DateTime CreatedAt { get; set; }
 }
 
 public class ContractReadinessDto

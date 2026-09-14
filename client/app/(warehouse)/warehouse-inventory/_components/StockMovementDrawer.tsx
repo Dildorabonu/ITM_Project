@@ -7,6 +7,7 @@ import {
   stockMovementSign,
   STOCK_MOVEMENT_COLOR,
   STOCK_MOVEMENT_DIM,
+  STOCK_MOVEMENT_LABEL,
   type StockMovement,
 } from "@/lib/stockMovements";
 import { useT } from "@/lib/i18n";
@@ -78,7 +79,7 @@ function QuantityChart({ items }: { items: StockMovement[] }) {
         {series.map((m, i) => (
           <circle key={m.id} cx={x(i)} cy={y(m.quantityAfter)} r="3.2"
             fill={STOCK_MOVEMENT_COLOR[m.type]} stroke="var(--bg3)" strokeWidth="1.5" vectorEffect="non-scaling-stroke">
-            <title>{`${m.typeLabel}: ${m.quantityAfter}`}</title>
+            <title>{`${STOCK_MOVEMENT_LABEL[m.type]}: ${m.quantityAfter}`}</title>
           </circle>
         ))}
       </svg>
@@ -197,7 +198,7 @@ export function StockMovementDrawer({ productId, productName, onClose }: Props) 
                           fontSize: 11, fontWeight: 600, fontFamily: "var(--font-mono)",
                         }}>
                           <span style={{ width: 6, height: 6, borderRadius: "50%", background: color }} />
-                          {m.typeLabel}
+                          {STOCK_MOVEMENT_LABEL[m.type]}
                         </span>
                         <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "var(--font-mono)", color }}>
                           {sign}{m.quantity}

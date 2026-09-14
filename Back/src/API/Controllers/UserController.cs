@@ -34,18 +34,6 @@ public class UserController : ControllerBase
         return Ok(result);
     }
 
-    [HasPermission("Users.View")]
-    [HttpGet("{id:guid}")]
-    public async Task<IActionResult> GetById(Guid id)
-    {
-        var result = await _userService.GetByIdAsync(id);
-
-        if (!result.Succeeded)
-            return NotFound(result);
-
-        return Ok(result);
-    }
-
     // Xodimlar sahifasi — maxfiy maydonlarsiz (login/rol yo'q), shartnoma soni bilan.
     [HasPermission("Employees.View")]
     [HttpGet("employees")]
@@ -88,7 +76,7 @@ public class UserController : ControllerBase
     [HttpPatch("{id:guid}/deactivate")]
     public async Task<IActionResult> Deactivate(Guid id)
     {
-        var result = await _userService.UpdateAsync(id, new UserUpdateDto { IsActive = false });
+        var result = await _userService.SetActiveAsync(id, false);
         return StatusCode(result.Succeeded ? result.Result : result.StatusCode, result);
     }
 
@@ -96,7 +84,7 @@ public class UserController : ControllerBase
     [HttpPatch("{id:guid}/activate")]
     public async Task<IActionResult> Activate(Guid id)
     {
-        var result = await _userService.UpdateAsync(id, new UserUpdateDto { IsActive = true });
+        var result = await _userService.SetActiveAsync(id, true);
         return StatusCode(result.Succeeded ? result.Result : result.StatusCode, result);
     }
 }

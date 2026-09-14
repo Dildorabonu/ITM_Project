@@ -97,7 +97,7 @@ export default function RoleTable({
           <div style={{ flex: 1, padding: 40, textAlign: "center", color: "var(--text2)" }}>{t("Yuklanmoqda...")}</div>
         ) : (
           <div style={{ overflowX: "auto", overflowY: "auto", flex: 1, minHeight: 0 }}>
-            <table className="itm-table">
+            <table className="itm-table" style={{ height: "100%" }}>
               <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
                 <tr>
                   <th style={{ width: 64, minWidth: 64, textAlign: "center", borderRight: "2px solid var(--border)", color: "var(--text1)", textTransform: "none", background: "var(--bg2)" }}>{t("T/r")}</th>
@@ -165,6 +165,13 @@ export default function RoleTable({
                     </td>
                   </tr>
                 ))}
+                {roles.length > 0 && (
+                  <tr className="itm-filler" aria-hidden style={{ height: "100%" }}>
+                    <td style={{ padding: 0, borderBottom: "none", borderRight: "2px solid var(--border)" }} />
+                    <td colSpan={3} style={{ padding: 0, borderBottom: "none" }} />
+                    <td style={{ padding: 0, borderBottom: "none", borderLeft: "2px solid var(--border)" }} />
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

@@ -1,12 +1,12 @@
-using Core.Enums;
-
 namespace Application.DTOs.Shipments;
 
+// Partiya qatori — ro'yxatda va yaratilgandan keyin qaytariladi. Faqat UI
+// ko'rsatadigan maydonlar: tur (Kind) so'rovda filtr sifatida beriladi, shu
+// sababli javobda takrorlanmaydi.
 public class ShipmentBatchResponseDto
 {
     public Guid Id { get; set; }
     public Guid? ContractProductId { get; set; }
-    public ShipmentBatchKind Kind { get; set; }
     // Olib ketish qaysi partiyadan bo'lgani (CustomerPickup uchun).
     public Guid? SourceBatchId { get; set; }
     public int? SourceBatchNo { get; set; }

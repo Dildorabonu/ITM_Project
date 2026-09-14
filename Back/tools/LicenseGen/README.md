@@ -90,3 +90,23 @@ dotnet run -- keygen
 
 Chiqqan PUBLIC key'ni `LicenseTokenValidator.PublicKeyB64` ga qo'ying va ilovani qayta build qiling.
 Eski private key bilan yasalgan tokenlar endi ishlamaydi.
+
+## Eski tokenni qayta kiritish — ishlamaydi (muhim)
+
+Faollashtirish faqat **amaldagi tokendan yangiroq** (`IssuedUtc` kattaroq) token bilan
+o'tadi. Aynan o'sha tokenni yoki avvalgi tokenni qayta kiritish rad etiladi:
+
+> "Bu token allaqachon faollashtirilgan / amaldagi litsenziyadan eski."
+
+Sababi: aks holda mijoz server soatini ortga surib, eski tokenni qayta kiritib
+muddatni cheksiz tiklab olardi (faollashtirish TAMPER'ni tozalab, high-water'ni
+ortga surilgan soatga tushirardi). Endi high-water boshlang'ich nuqtasi
+`max(server soati, tokenning imzolangan IssuedUtc)` — ya'ni ta'minotchi imzolagan
+sanadan pastga tushmaydi.
+
+Shuning uchun **har bir uzaytirish uchun yangi token imzolang** — hatto muddat va
+mijoz nomi bir xil bo'lsa ham (`sign` har safar yangi `IssuedUtc` va `Id` qo'yadi).
+
+Yon foyda: server soati xato ravishda **oldinga** surilib high-water "zaharlangan"
+bo'lsa (masalan 2030 yil), yangi token uni haqiqiy sanaga qaytaradi — bazani
+tozalash shart emas.

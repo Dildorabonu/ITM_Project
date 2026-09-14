@@ -36,8 +36,14 @@ public class LicenseService : ILicenseService
     public async Task<LicenseActivationResult> ActivateAsync(string token, string secret, CancellationToken ct = default)
     {
         // 1) Superadmin paroli tekshiruvi — bloklangan holatda ham ishlaydi.
-        var admin = await _context.Users.FirstOrDefaultAsync(u => u.Id == SuperAdminUserId, ct);
-        if (admin is null || !BCrypt.Net.BCrypt.Verify(secret ?? string.Empty, admin.PasswordHash))
+        // Butun User entity emas — faqat parol xeshi kerak.
+        var passwordHash = await _context.Users
+            .AsNoTracking()
+            .Where(u => u.Id == SuperAdminUserId)
+            .Select(u => u.PasswordHash)
+            .FirstOrDefaultAsync(ct);
+
+        if (passwordHash is null || !BCrypt.Net.BCrypt.Verify(secret ?? string.Empty, passwordHash))
         {
             return new LicenseActivationResult { Success = false, Error = "Superadmin paroli noto'g'ri." };
         }
@@ -57,26 +63,51 @@ public class LicenseService : ILicenseService
             return new LicenseActivationResult { Success = false, Error = "Bu token boshqa serverga bog'langan." };
         }
 
-        // 4) Muddati allaqachon o'tmaganmi?
-        if (payload.ExpiresUtc <= DateTime.UtcNow)
-        {
-            return new LicenseActivationResult { Success = false, Error = "Token muddati allaqachon tugagan." };
-        }
-
-        // 5) Bazaga saqlaymiz (config/fayldan ustun turadi).
+        // 4) Joriy holat (tokendagi kalit ham shu yerda).
         var state = await _context.LicenseStates.FirstOrDefaultAsync(x => x.Id == LicenseState.SingletonId, ct);
         if (state is null)
         {
             state = new LicenseState { Id = LicenseState.SingletonId, HighWaterUtc = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow };
             _context.LicenseStates.Add(state);
         }
-        // Yangi (imzolangan) token faollashtirilishi — "toza start". TAMPER bayrog'ini
-        // olib tashlaymiz va soat-ortga-surishga qarshi belgilarni (HighWater + fayl nusxasi)
-        // hozirgi vaqtga qayta tiklaymiz. Aks holda soat hali ortga surilgan bo'lsa,
-        // keyingi EvaluateAsync darhol qayta TAMPER qo'yadi.
-        // Xavfsiz: bu faqat ta'minotchi imzolagan, shu serverga bog'langan va muddati
-        // o'tmagan token bilan ishlaydi — mijoz o'zi TAMPER'ni ocha olmaydi.
-        var baseline = DateTime.UtcNow;
+
+        // 5) Bu token amaldagi tokendan YANGIROQ bo'lishi shart.
+        // Aks holda mijoz soatni ortga surib, eski (yoki aynan o'sha) tokenni qayta
+        // kiritib muddatni cheksiz "tiklab" olardi: faollashtirish TAMPER'ni tozalab,
+        // high-water'ni ortga surilgan soatga tushirib yuborardi.
+        // IssuedUtc'ni faqat ta'minotchi imzolaydi — shuning uchun u mijoz soatidan
+        // qat'i nazar ishonchli vaqt manbai.
+        var currentToken = ResolveToken(state.LicenseKey);
+        if (LicenseTokenValidator.TryValidate(currentToken, out var currentPayload, out _) &&
+            currentPayload is not null && payload.IssuedUtc <= currentPayload.IssuedUtc)
+        {
+            var same = string.Equals(payload.Id, currentPayload.Id, StringComparison.OrdinalIgnoreCase);
+            return new LicenseActivationResult
+            {
+                Success = false,
+                Error = same
+                    ? "Bu token allaqachon faollashtirilgan. Uzaytirish uchun ta'minotchidan yangi token oling."
+                    : "Bu token amaldagi litsenziyadan eski. Uzaytirish uchun ta'minotchidan yangi token oling.",
+            };
+        }
+
+        // 6) Muddati o'tmaganmi? Tekshiruv mijoz soatiga emas, ortga surishga chidamli
+        // "effektiv vaqt"ga tayanadi (imzolangan IssuedUtc ham hisobga olinadi).
+        if (payload.ExpiresUtc <= Max(DateTime.UtcNow, payload.IssuedUtc))
+        {
+            return new LicenseActivationResult { Success = false, Error = "Token muddati allaqachon tugagan." };
+        }
+
+        // 7) Bazaga saqlaymiz (config/fayldan ustun turadi).
+        // Yangi (imzolangan va amaldagidan yangiroq) token — "toza start". TAMPER
+        // bayrog'ini olib tashlaymiz va soat-ortga-surishga qarshi belgilarni
+        // (HighWater + fayl nusxasi) qayta tiklaymiz. Aks holda soat hali noto'g'ri
+        // bo'lsa, keyingi EvaluateAsync darhol qayta TAMPER qo'yadi.
+        // Boshlang'ich nuqta — max(hozirgi soat, tokenning imzolangan IssuedUtc'si):
+        // soat ortga surilgan bo'lsa ham ta'minotchi imzolagan sanadan pastga tushmaydi,
+        // soat oldinga surib "high-water"ni zaharlab qo'yilgan bo'lsa esa yangi token
+        // uni haqiqiy sanaga qaytaradi.
+        var baseline = Max(DateTime.UtcNow, payload.IssuedUtc);
         state.LicenseKey = token;
         state.TamperDetected = false;
         state.TamperReason = null;
@@ -85,7 +116,7 @@ public class LicenseService : ILicenseService
         await _context.SaveChangesAsync(ct);
         WriteMirror(baseline);
 
-        // 6) Holatni qayta hisoblab, guard'ni yangilaymiz.
+        // 8) Holatni qayta hisoblab, guard'ni yangilaymiz.
         var status = await RefreshAsync(ct);
         return new LicenseActivationResult { Success = true, Status = status };
     }
@@ -106,14 +137,70 @@ public class LicenseService : ILicenseService
 
         // Token manbasi: DB (admin panel) > fayl > config.
         var token = ResolveToken(state.LicenseKey);
+        var hasToken = !string.IsNullOrWhiteSpace(token);
 
-        if (!LicenseTokenValidator.TryValidate(token, out var payload, out var err) || payload is null)
+        LicensePayload? payload = null;
+        string tokenErr = string.Empty;
+        if (hasToken)
+            LicenseTokenValidator.TryValidate(token, out payload, out tokenErr);
+
+        // Soatni ortga surishga qarshi belgilar token bor-yo'qligidan mustaqil hisoblanadi —
+        // shunda sinov (trial) ham xuddi token kabi himoyalanadi.
+        var fileHighWater = ReadMirror();
+        var highWater = Max(now, state.HighWaterUtc, fileHighWater ?? DateTime.MinValue);
+
+        var tamper = state.TamperDetected;
+        if (now < state.HighWaterUtc - TamperTolerance ||
+            (fileHighWater.HasValue && now < fileHighWater.Value - TamperTolerance))
+        {
+            tamper = true;
+            state.TamperReason ??= $"Server soati ortga surildi (now={now:o}, hw={state.HighWaterUtc:o})";
+        }
+
+        // Sinov rejimi: haqiqiy token umuman yo'q va sinov yoqilgan bo'lsa.
+        var trialEnabled = !hasToken && _options.TrialDays > 0;
+
+        // Sinov boshlanish sanasini tiklaymiz: baza > OS nusxasi. Baza o'chirilib qayta
+        // yaratilgan bo'lsa ham nusxadan olib sinovni qaytadan boshlamaymiz.
+        if (state.TrialStartUtc is null)
+        {
+            var mirrored = ReadTrialMirror();
+            if (mirrored.HasValue) state.TrialStartUtc = mirrored;
+        }
+        if (trialEnabled && state.TrialStartUtc is null)
+            state.TrialStartUtc = highWater;
+
+        state.HighWaterUtc = highWater;
+        state.TamperDetected = tamper;
+        state.UpdatedAt = now;
+        await _context.SaveChangesAsync(ct);
+        WriteMirror(highWater);
+        if (state.TrialStartUtc.HasValue) WriteTrialMirror(state.TrialStartUtc.Value);
+
+        if (tamper)
         {
             return new LicenseStatus
             {
                 Valid = false,
-                Reason = string.IsNullOrWhiteSpace(token) ? "NO_KEY" : "INVALID",
-                Message = $"Litsenziya yaroqsiz: {err}",
+                Customer = payload?.Customer,
+                ExpiresUtc = payload?.ExpiresUtc,
+                Reason = "TAMPER",
+                Message = "Server vaqti buzilgani aniqlandi. Tizim bloklandi. Iltimos, ta'minotchi bilan bog'laning.",
+            };
+        }
+
+        // Haqiqiy token bo'lmasa — sinov yo'li.
+        if (!hasToken)
+            return EvaluateTrial(state.TrialStartUtc, highWater);
+
+        // Token bor, lekin yaroqsiz (buzilgan/imzo mos emas) — sinovga o'tmaymiz.
+        if (payload is null)
+        {
+            return new LicenseStatus
+            {
+                Valid = false,
+                Reason = "INVALID",
+                Message = $"Litsenziya yaroqsiz: {tokenErr}",
             };
         }
 
@@ -126,58 +213,19 @@ public class LicenseService : ILicenseService
                 Valid = false,
                 Customer = payload.Customer,
                 ExpiresUtc = payload.ExpiresUtc,
-                DaysLeft = 0,
                 Reason = "MACHINE",
                 Message = "Litsenziya bu serverga tegishli emas. Har bir server uchun alohida litsenziya kerak.",
             };
         }
 
-        // OS darajasidagi nusxa (publish/fayllarni qayta ko'chirishdan omon qoladi).
-        var fileHighWater = ReadMirror();
-
-        // Barcha manbalardan ko'rilgan eng katta vaqt.
-        var highWater = Max(now, state.HighWaterUtc, fileHighWater ?? DateTime.MinValue);
-
-        // Soat qaysidir manbaga nisbatan keskin ortga surilgan bo'lsa — buzishni belgilaymiz.
-        var tamper = state.TamperDetected;
-        if (now < state.HighWaterUtc - TamperTolerance ||
-            (fileHighWater.HasValue && now < fileHighWater.Value - TamperTolerance))
-        {
-            tamper = true;
-            state.TamperReason ??= $"Server soati ortga surildi (now={now:o}, hw={state.HighWaterUtc:o})";
-        }
-
-        state.HighWaterUtc = highWater;
-        state.TamperDetected = tamper;
-        state.UpdatedAt = now;
-        await _context.SaveChangesAsync(ct);
-        WriteMirror(highWater);
-
-        // Muddatni tekshirishda ortga surishga chidamli "effektiv vaqt" ishlatiladi.
-        var effectiveNow = highWater;
-        var daysLeft = (int)Math.Ceiling((payload.ExpiresUtc - effectiveNow).TotalDays);
-
-        if (tamper)
+        // Muddat tekshiruvi mijoz soatiga emas, ortga surishga chidamli "effektiv vaqt"ga (highWater) tayanadi.
+        if (highWater >= payload.ExpiresUtc)
         {
             return new LicenseStatus
             {
                 Valid = false,
                 Customer = payload.Customer,
                 ExpiresUtc = payload.ExpiresUtc,
-                DaysLeft = 0,
-                Reason = "TAMPER",
-                Message = "Server vaqti buzilgani aniqlandi. Tizim bloklandi. Iltimos, ta'minotchi bilan bog'laning.",
-            };
-        }
-
-        if (effectiveNow >= payload.ExpiresUtc)
-        {
-            return new LicenseStatus
-            {
-                Valid = false,
-                Customer = payload.Customer,
-                ExpiresUtc = payload.ExpiresUtc,
-                DaysLeft = 0,
                 Reason = "EXPIRED",
                 Message = "Litsenziya muddati tugagan. Davom etish uchun ta'minotchi bilan bog'laning.",
             };
@@ -188,9 +236,43 @@ public class LicenseService : ILicenseService
             Valid = true,
             Customer = payload.Customer,
             ExpiresUtc = payload.ExpiresUtc,
-            DaysLeft = Math.Max(daysLeft, 0),
             Reason = "OK",
             Message = "Litsenziya faol.",
+        };
+    }
+
+    private LicenseStatus EvaluateTrial(DateTime? trialStart, DateTime highWater)
+    {
+        if (_options.TrialDays <= 0 || trialStart is null)
+        {
+            return new LicenseStatus
+            {
+                Valid = false,
+                Reason = "NO_KEY",
+                Message = "Litsenziya kaliti mavjud emas.",
+            };
+        }
+
+        var trialEnd = trialStart.Value.AddDays(_options.TrialDays);
+
+        if (highWater >= trialEnd)
+        {
+            return new LicenseStatus
+            {
+                Valid = false,
+                ExpiresUtc = trialEnd,
+                Reason = "TRIAL_EXPIRED",
+                Message = "Bepul sinov muddati tugadi. Davom etish uchun ta'minotchidan litsenziya oling.",
+            };
+        }
+
+        var daysLeft = (int)Math.Ceiling((trialEnd - highWater).TotalDays);
+        return new LicenseStatus
+        {
+            Valid = true,
+            ExpiresUtc = trialEnd,
+            Reason = "TRIAL",
+            Message = $"Bepul sinov muddati: {daysLeft} kun qoldi.",
         };
     }
 
@@ -237,6 +319,38 @@ public class LicenseService : ILicenseService
             var dir = Path.GetDirectoryName(MirrorPath)!;
             Directory.CreateDirectory(dir);
             File.WriteAllText(MirrorPath, highWater.Ticks.ToString());
+        }
+        catch { /* yozib bo'lmasa ham baza asosiy manba bo'lib qoladi */ }
+    }
+
+    // Sinov boshlanish sanasining OS darajasidagi nusxasi — baza butunlay
+    // o'chirilib qayta yaratilsa ham sinov muddati qaytadan boshlanmasligi uchun.
+    private static string TrialMirrorPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "ITM", "trial.dat");
+
+    private static DateTime? ReadTrialMirror()
+    {
+        try
+        {
+            if (!File.Exists(TrialMirrorPath)) return null;
+            var raw = File.ReadAllText(TrialMirrorPath).Trim();
+            if (long.TryParse(raw, out var ticks) && ticks > 0)
+                return new DateTime(ticks, DateTimeKind.Utc);
+        }
+        catch { /* nusxa yo'q yoki o'qib bo'lmadi */ }
+        return null;
+    }
+
+    private static void WriteTrialMirror(DateTime trialStart)
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(TrialMirrorPath)!;
+            Directory.CreateDirectory(dir);
+            // Faqat bir marta yoziladi — nusxa allaqachon bo'lsa, eng erta sanani saqlaymiz.
+            var existing = ReadTrialMirror();
+            var earliest = existing.HasValue && existing.Value < trialStart ? existing.Value : trialStart;
+            File.WriteAllText(TrialMirrorPath, earliest.Ticks.ToString());
         }
         catch { /* yozib bo'lmasa ham baza asosiy manba bo'lib qoladi */ }
     }

@@ -578,12 +578,12 @@ public class ShipmentBatchServiceTests
     [Fact]
     public async Task CreateAsync_ProductionBatches_DoNotConsumePickupAvailability()
     {
-        // Vazifadan 30 ning hammasi partiya qilingan — mijoz baribir 30 gacha
-        // olib keta oladi (foydalanuvchi shikoyati: partiya ≠ olib ketish).
+        // Vazifadan 30 ning hammasi jo'natma qilingan — mijoz shu partiyadan
+        // 30 ning hammasini olib keta oladi (partiya ≠ olib ketish).
         await using var db = TestDbContextFactory.Create();
         var contract = SeedContract(db);
         SeedWarehouseTask(db, contract.Id, completedAmount: 30);
-        SeedBatch(db, contract.Id, amount: 30, batchNo: 1, kind: ShipmentBatchKind.Production);
+        var source = SeedBatch(db, contract.Id, amount: 30, batchNo: 1, kind: ShipmentBatchKind.Production);
         var sut = CreateSut(db);
 
         var result = await sut.Service.CreateAsync(new ShipmentBatchCreateDto
@@ -591,6 +591,7 @@ public class ShipmentBatchServiceTests
             ContractId = contract.Id,
             Amount = 30,
             Kind = ShipmentBatchKind.CustomerPickup,
+            SourceBatchId = source.Id,
         }, EnsureUser(db));
 
         result.Succeeded.Should().BeTrue();
@@ -619,9 +620,13 @@ public class ShipmentBatchServiceTests
     [Fact]
     public async Task CreateAsync_PickupOverage_IsRejectedAgainstPickupSumOnly()
     {
+        // Manba partiyada joy yetarli (30), lekin ombordagi tayyor miqdordan
+        // allaqachon 25 olib ketilgan — qolgan 5 dan ortig'i rad etiladi.
         await using var db = TestDbContextFactory.Create();
         var contract = SeedContract(db);
         SeedWarehouseTask(db, contract.Id, completedAmount: 30);
+        SeedBatch(db, contract.Id, amount: 30, batchNo: 1, kind: ShipmentBatchKind.Production);
+        var source = SeedBatch(db, contract.Id, amount: 30, batchNo: 2, kind: ShipmentBatchKind.Production);
         SeedBatch(db, contract.Id, amount: 25, batchNo: 1, kind: ShipmentBatchKind.CustomerPickup);
         var sut = CreateSut(db);
 
@@ -630,6 +635,7 @@ public class ShipmentBatchServiceTests
             ContractId = contract.Id,
             Amount = 6, // pickup qoldiq 5
             Kind = ShipmentBatchKind.CustomerPickup,
+            SourceBatchId = source.Id,
         }, Guid.NewGuid());
 
         result.Succeeded.Should().BeFalse();
@@ -652,6 +658,78 @@ public class ShipmentBatchServiceTests
         pickups.Result!.Should().ContainSingle().Which.Amount.Should().Be(9);
         production.Result!.Should().ContainSingle().Which.Amount.Should().Be(5);
         all.Result!.Should().HaveCount(2);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    //  Mijozga topshirish faqat jo'natma partiyasidan bo'ladi
+    // ─────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task CreateAsync_PickupWithoutSourceBatch_ReturnsFailure()
+    {
+        // Omborda tayyor 30, lekin hech narsa jo'natilmagan — mijozga berib bo'lmaydi.
+        await using var db = TestDbContextFactory.Create();
+        var contract = SeedContract(db);
+        SeedWarehouseTask(db, contract.Id, completedAmount: 30);
+        var sut = CreateSut(db);
+
+        var result = await sut.Service.CreateAsync(new ShipmentBatchCreateDto
+        {
+            ContractId = contract.Id,
+            Amount = 10,
+            Kind = ShipmentBatchKind.CustomerPickup,
+        }, EnsureUser(db));
+
+        result.Succeeded.Should().BeFalse();
+        result.Errors.Should().ContainSingle().Which.Should().Contain("jo'natma");
+        db.ShipmentBatches.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task CreateAsync_PickupWithoutSourceBatch_ReturnsFailure_EvenWhenProductionBatchExists()
+    {
+        // Partiya bor, lekin qaysi biridan olinayotgani ko'rsatilmagan — rad etiladi.
+        await using var db = TestDbContextFactory.Create();
+        var contract = SeedContract(db);
+        var product = SeedProduct(db, contract.Id);
+        SeedWarehouseTask(db, contract.Id, completedAmount: 10, contractProductId: product.Id);
+        SeedBatch(db, contract.Id, amount: 10, batchNo: 1,
+            contractProductId: product.Id, kind: ShipmentBatchKind.Production);
+        var sut = CreateSut(db);
+
+        var result = await sut.Service.CreateAsync(new ShipmentBatchCreateDto
+        {
+            ContractId = contract.Id,
+            ContractProductId = product.Id,
+            Amount = 4,
+            Kind = ShipmentBatchKind.CustomerPickup,
+        }, EnsureUser(db));
+
+        result.Succeeded.Should().BeFalse();
+        db.ShipmentBatches.Should().ContainSingle().Which.Kind.Should().Be(ShipmentBatchKind.Production);
+    }
+
+    [Fact]
+    public async Task CreateAsync_PickupFromCompletedProductWithoutBatch_ReturnsFailure()
+    {
+        // Holati qo'lda Completed qilingan mahsulot ham jo'natilmasa berilmaydi.
+        await using var db = TestDbContextFactory.Create();
+        var contract = SeedContract(db);
+        var product = SeedProduct(db, contract.Id);
+        product.Status = ContractProductStatus.Completed;
+        db.SaveChanges();
+        var sut = CreateSut(db);
+
+        var result = await sut.Service.CreateAsync(new ShipmentBatchCreateDto
+        {
+            ContractId = contract.Id,
+            ContractProductId = product.Id,
+            Amount = 8,
+            Kind = ShipmentBatchKind.CustomerPickup,
+        }, EnsureUser(db));
+
+        result.Succeeded.Should().BeFalse();
+        db.ShipmentBatches.Should().BeEmpty();
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -905,9 +983,10 @@ public class ShipmentBatchServiceTests
     }
 
     [Fact]
-    public async Task CreatePickupAutoAsync_NoBatches_CreatesSingleUnlinkedPickup()
+    public async Task CreatePickupAutoAsync_NoBatches_ReturnsFailure()
     {
-        // Partiyasiz mahsulot (holati qo'lda Completed) — bitta bog'lanmagan yozuv.
+        // Partiyasiz mahsulot (holati qo'lda Completed) — hali jo'natilmagani
+        // uchun mijozga topshirib bo'lmaydi.
         await using var db = TestDbContextFactory.Create();
         var contract = SeedContract(db);
         var product = SeedProduct(db, contract.Id);
@@ -922,10 +1001,9 @@ public class ShipmentBatchServiceTests
             Amount = 8,
         }, EnsureUser(db));
 
-        result.Succeeded.Should().BeTrue();
-        result.Result!.Should().ContainSingle();
-        result.Result!.Single().SourceBatchId.Should().BeNull();
-        result.Result!.Single().Amount.Should().Be(8);
+        result.Succeeded.Should().BeFalse();
+        result.Errors.Should().ContainSingle().Which.Should().Contain("jo'natma");
+        db.ShipmentBatches.Should().BeEmpty();
     }
 
     // ─────────────────────────────────────────────────────────────────────

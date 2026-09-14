@@ -58,7 +58,8 @@ public class ContractTaskServiceTests
             ContractParty = "Partner",
             Status = ContractStatus.InProduction,
             IsActive = isActive,
-            CreatedBy = Guid.NewGuid(),
+            // Haqiqiy User qatori — SQLite kontekstida CreatedBy FK tekshiriladi.
+            CreatedBy = EnsureUser(db),
             CreatedAt = DateTime.UtcNow,
         };
         db.Contracts.Add(contract);
@@ -114,6 +115,23 @@ public class ContractTaskServiceTests
         return userId;
     }
 
+    private static Guid SeedLog(DatabaseContext db, Guid taskId, decimal amount)
+    {
+        var log = new ContractTaskDailyLog
+        {
+            Id = Guid.NewGuid(),
+            TaskId = taskId,
+            Amount = amount,
+            Date = DateOnly.FromDateTime(DateTime.UtcNow),
+            IsActive = true,
+            CreatedBy = EnsureUser(db),
+            CreatedAt = DateTime.UtcNow,
+        };
+        db.ContractTaskDailyLogs.Add(log);
+        db.SaveChanges();
+        return log.Id;
+    }
+
     private static ContractTask SeedTask(
         DatabaseContext db,
         Guid contractId,
@@ -142,121 +160,6 @@ public class ContractTaskServiceTests
         db.ContractTasks.Add(task);
         db.SaveChanges();
         return task;
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    //  CreateAsync
-    // ─────────────────────────────────────────────────────────────────────
-
-    [Fact]
-    public async Task CreateAsync_WithValidDto_LinksTaskToContract_AndReturns201()
-    {
-        await using var db = TestDbContextFactory.Create();
-        var contract = SeedContract(db);
-        var creator = Guid.NewGuid();
-        var sut = CreateSut(db);
-
-        var result = await sut.Service.CreateAsync(new ContractTaskCreateDto
-        {
-            ContractId = contract.Id,
-            Name = "Kesish",
-            TotalAmount = 100,
-            CompletedAmount = 0,
-            Importance = 80,
-        }, creator);
-
-        result.Succeeded.Should().BeTrue();
-        result.StatusCode.Should().Be(201);
-
-        var saved = db.ContractTasks.AsNoTracking().Single();
-        saved.Id.Should().Be(result.Result);
-        saved.ContractId.Should().Be(contract.Id);
-        saved.Name.Should().Be("Kesish");
-        saved.CreatedBy.Should().Be(creator);
-        saved.OrderNo.Should().Be(1, "birinchi vazifa OrderNo = 1");
-    }
-
-    [Fact]
-    public async Task CreateAsync_NonExistentContract_Returns404Failure()
-    {
-        await using var db = TestDbContextFactory.Create();
-        var sut = CreateSut(db);
-
-        var result = await sut.Service.CreateAsync(new ContractTaskCreateDto
-        {
-            ContractId = Guid.NewGuid(),
-            Name = "Kesish",
-            TotalAmount = 100,
-        }, Guid.NewGuid());
-
-        result.Succeeded.Should().BeFalse();
-        result.StatusCode.Should().Be(404);
-        result.Errors.Should().ContainSingle().Which.Should().Contain("not found");
-        db.ContractTasks.Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task CreateAsync_AssignsIncrementingOrderNo_PerContract()
-    {
-        await using var db = TestDbContextFactory.Create();
-        var contract = SeedContract(db);
-        SeedTask(db, contract.Id, name: "Mavjud", orderNo: 3);
-        var sut = CreateSut(db);
-
-        var result = await sut.Service.CreateAsync(new ContractTaskCreateDto
-        {
-            ContractId = contract.Id,
-            Name = "Yangi",
-            TotalAmount = 50,
-        }, Guid.NewGuid());
-
-        result.Succeeded.Should().BeTrue();
-        db.ContractTasks.AsNoTracking().Single(t => t.Name == "Yangi")
-            .OrderNo.Should().Be(4, "eng katta OrderNo (3) dan keyingisi");
-    }
-
-    [Fact]
-    public async Task CreateAsync_ContractProductFromAnotherContract_ReturnsFailure()
-    {
-        await using var db = TestDbContextFactory.Create();
-        var contractA = SeedContract(db, contractNo: "C-A");
-        var contractB = SeedContract(db, contractNo: "C-B");
-        var productOfB = SeedProduct(db, contractB.Id);
-        var sut = CreateSut(db);
-
-        var result = await sut.Service.CreateAsync(new ContractTaskCreateDto
-        {
-            ContractId = contractA.Id,
-            ContractProductId = productOfB.Id,
-            Name = "Noto'g'ri mahsulot",
-            TotalAmount = 10,
-        }, Guid.NewGuid());
-
-        result.Succeeded.Should().BeFalse();
-        result.Errors.Should().ContainSingle()
-            .Which.Should().Contain("ushbu shartnomaga tegishli emas");
-        db.ContractTasks.Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task CreateAsync_ContractProductBelongingToContract_Succeeds()
-    {
-        await using var db = TestDbContextFactory.Create();
-        var contract = SeedContract(db);
-        var product = SeedProduct(db, contract.Id);
-        var sut = CreateSut(db);
-
-        var result = await sut.Service.CreateAsync(new ContractTaskCreateDto
-        {
-            ContractId = contract.Id,
-            ContractProductId = product.Id,
-            Name = "Mahsulot vazifasi",
-            TotalAmount = 10,
-        }, Guid.NewGuid());
-
-        result.Succeeded.Should().BeTrue();
-        db.ContractTasks.AsNoTracking().Single()
-            .ContractProductId.Should().Be(product.Id);
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -339,6 +242,24 @@ public class ContractTaskServiceTests
         db.ContractTasks.Should().BeEmpty("butun batch rad etiladi");
     }
 
+    [Fact]
+    public async Task CreateBulkAsync_ProductBelongingToContract_LinksTask()
+    {
+        await using var db = TestDbContextFactory.Create();
+        var contract = SeedContract(db);
+        var product = SeedProduct(db, contract.Id);
+        var sut = CreateSut(db);
+
+        var result = await sut.Service.CreateBulkAsync(new[]
+        {
+            new ContractTaskCreateDto { ContractId = contract.Id, ContractProductId = product.Id, Name = "Mahsulot vazifasi", TotalAmount = 10 },
+        }, Guid.NewGuid());
+
+        result.Succeeded.Should().BeTrue();
+        db.ContractTasks.AsNoTracking().Single()
+            .ContractProductId.Should().Be(product.Id);
+    }
+
     // ─────────────────────────────────────────────────────────────────────
     //  UpdateAsync
     // ─────────────────────────────────────────────────────────────────────
@@ -414,46 +335,79 @@ public class ContractTaskServiceTests
     }
 
     [Fact]
-    public async Task UpdateAsync_WarehouseTask_CompletedAmountAboveSiblingMin_ReturnsFailure()
+    public async Task UpdateAsync_LeavesCompletedAmountAndHistoryUntouched()
     {
-        // Ombor topshirish vazifasi uchun cap = boshqa vazifalarning eng kam
-        // CompletedAmount qiymati. Bundan oshirilsa — rad etiladi.
+        // Kiritilgan miqdorni tahrirlash yo'q — u faqat LogProgressAsync orqali
+        // qo'shiladi, shuning uchun update kunlik tarixga ham tegmaydi.
         await using var db = TestDbContextFactory.Create();
         var contract = SeedContract(db);
-        SeedTask(db, contract.Id, name: "Kesish", completedAmount: 30, orderNo: 1);
-        SeedTask(db, contract.Id, name: "Payvand", completedAmount: 20, orderNo: 2);
-        var warehouse = SeedTask(db, contract.Id, name: WarehouseTaskName, completedAmount: 0, orderNo: 3);
+        var task = SeedTask(db, contract.Id, completedAmount: 100, totalAmount: 500);
+        SeedLog(db, task.Id, 100);
         var sut = CreateSut(db);
 
-        var result = await sut.Service.UpdateAsync(warehouse.Id, new ContractTaskUpdateDto
+        var result = await sut.Service.UpdateAsync(task.Id, new ContractTaskUpdateDto
         {
-            CompletedAmount = 25, // cap = min(30, 20) = 20
+            Name = "Yangi nom",
+            Importance = 30,
         });
 
-        result.Succeeded.Should().BeFalse();
-        result.Errors.Should().ContainSingle().Which.Should().Contain("oshmasligi kerak");
-        db.ContractTasks.AsNoTracking().Single(t => t.Id == warehouse.Id)
-            .CompletedAmount.Should().Be(0, "rad etilgani uchun saqlanmaydi");
+        result.Succeeded.Should().BeTrue();
+        db.ContractTasks.AsNoTracking().Single(t => t.Id == task.Id)
+            .CompletedAmount.Should().Be(100);
+        db.ContractTaskDailyLogs.AsNoTracking().Count(l => l.TaskId == task.Id).Should().Be(1);
     }
 
     [Fact]
-    public async Task UpdateAsync_WarehouseTask_CompletedAmountWithinCap_Succeeds()
+    public async Task DeleteAsync_WarehouseTask_ReturnsFailure()
     {
         await using var db = TestDbContextFactory.Create();
         var contract = SeedContract(db);
-        SeedTask(db, contract.Id, name: "Kesish", completedAmount: 30, orderNo: 1);
-        SeedTask(db, contract.Id, name: "Payvand", completedAmount: 20, orderNo: 2);
-        var warehouse = SeedTask(db, contract.Id, name: WarehouseTaskName, completedAmount: 0, orderNo: 3);
+        var warehouse = SeedTask(db, contract.Id, name: WarehouseTaskName, orderNo: 1);
+        var sut = CreateSut(db);
+
+        var result = await sut.Service.DeleteAsync(warehouse.Id);
+
+        result.Succeeded.Should().BeFalse();
+        result.Errors.Should().ContainSingle().Which.Should().Contain("doimiy vazifasi");
+        db.ContractTasks.AsNoTracking().Any(t => t.Id == warehouse.Id).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WarehouseTask_RenameRejected()
+    {
+        await using var db = TestDbContextFactory.Create();
+        var contract = SeedContract(db);
+        var warehouse = SeedTask(db, contract.Id, name: WarehouseTaskName, orderNo: 1);
         var sut = CreateSut(db);
 
         var result = await sut.Service.UpdateAsync(warehouse.Id, new ContractTaskUpdateDto
         {
-            CompletedAmount = 20, // == cap, ruxsat etiladi
+            Name = "Boshqa nom",
+        });
+
+        result.Succeeded.Should().BeFalse();
+        result.Errors.Should().ContainSingle().Which.Should().Contain("doimiy vazifasi");
+        db.ContractTasks.AsNoTracking().Single(t => t.Id == warehouse.Id)
+            .Name.Should().Be(WarehouseTaskName);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WarehouseTask_SameNameInPayload_Succeeds()
+    {
+        await using var db = TestDbContextFactory.Create();
+        var contract = SeedContract(db);
+        var warehouse = SeedTask(db, contract.Id, name: WarehouseTaskName, orderNo: 1);
+        var sut = CreateSut(db);
+
+        var result = await sut.Service.UpdateAsync(warehouse.Id, new ContractTaskUpdateDto
+        {
+            Name = WarehouseTaskName,
+            Importance = 40,
         });
 
         result.Succeeded.Should().BeTrue();
         db.ContractTasks.AsNoTracking().Single(t => t.Id == warehouse.Id)
-            .CompletedAmount.Should().Be(20);
+            .Importance.Should().Be(40);
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -463,7 +417,9 @@ public class ContractTaskServiceTests
     [Fact]
     public async Task DeleteAsync_ExistingTask_RemovesRow()
     {
-        await using var db = TestDbContextFactory.Create();
+        // DeleteAsync ExecuteDeleteAsync ishlatadi — InMemory provider uni tarjima
+        // qila olmaydi, shuning uchun relyatsion (SQLite) kontekst kerak.
+        await using var db = TestDbContextFactory.CreateSqlite();
         var contract = SeedContract(db);
         var task = SeedTask(db, contract.Id);
         var sut = CreateSut(db);

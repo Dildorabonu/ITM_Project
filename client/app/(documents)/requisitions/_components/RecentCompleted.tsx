@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { requisitionService, type RequisitionResponse } from "@/lib/userService";
+import { requisitionService, type RequisitionListRow } from "@/lib/userService";
 import { fmtRelativeDays, isRequisitionCompleted, isRequisitionRejected } from "../_types";
 import { RequisitionStatusBadge } from "./StatusBadge";
 import { useT } from "@/lib/i18n";
@@ -9,15 +9,15 @@ import { useT } from "@/lib/i18n";
 const WINDOW_DAYS = 7;
 
 interface Props {
-  /** Qator bosilganda ochiladigan drawer. */
-  onOpen: (req: RequisitionResponse) => void;
+  /** Qator bosilganda ochiladigan drawer (detalni drawer ID bo'yicha yuklaydi). */
+  onOpen: (reqId: string) => void;
   /** Qiymati o'zgarganda blok qayta yuklanadi (asosiy ro'yxat yangilanishi bilan birga). */
   reloadKey: number;
 }
 
 export function RecentCompleted({ onOpen, reloadKey }: Props) {
   const t = useT();
-  const [items, setItems] = useState<RequisitionResponse[]>([]);
+  const [items, setItems] = useState<RequisitionListRow[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -43,7 +43,7 @@ export function RecentCompleted({ onOpen, reloadKey }: Props) {
           return (
             <button
               key={r.id}
-              onClick={() => onOpen(r)}
+              onClick={() => onOpen(r.id)}
               style={{
                 display: "flex", alignItems: "center", gap: 10,
                 padding: "6px 8px", border: "none", background: "transparent",
@@ -57,7 +57,7 @@ export function RecentCompleted({ onOpen, reloadKey }: Props) {
                 {r.requisitionNo}
               </span>
               <span style={{ flexShrink: 0 }}>
-                <RequisitionStatusBadge status={r.status} completed={isRequisitionCompleted(r)} rejected={isRequisitionRejected(r)} small />
+                <RequisitionStatusBadge status={r.status} completed={isRequisitionCompleted(r.status, r.childStatuses)} rejected={isRequisitionRejected(r.status, r.childStatuses)} small />
               </span>
               <span style={{
                 flexShrink: 0, minWidth: 92, textAlign: "right",

@@ -16,6 +16,7 @@ public class ProductCatalogUpdateDto
     public string? Description { get; set; }
 }
 
+// Boshqaruv sahifasining jadvali va yaratish/tahrirlash javobi.
 public class ProductCatalogResponseDto
 {
     public Guid Id { get; set; }
@@ -23,9 +24,25 @@ public class ProductCatalogResponseDto
     public string Code { get; set; } = string.Empty;
     public string? Unit { get; set; }
     public string? Description { get; set; }
-    // Nechta shartnoma mahsuloti shu katalog yozuviga bog'langan — o'chirishdan oldin ogohlantirish uchun.
+    // Nechta shartnoma mahsuloti shu katalog yozuviga bog'langan.
     public int UsageCount { get; set; }
-    public DateTime CreatedAt { get; set; }
+    // false — mahsulot "ishlab chiqarilishi tugatilganlar" (arxiv) ro'yxatida.
+    public bool IsActive { get; set; }
+    // Arxivlashga to'sqinlik qilayotgan (hali yakunlanmagan) shartnomalar soni. 0 bo'lsa arxivlash mumkin.
+    public int BlockingContractCount { get; set; }
+}
+
+// Shartnoma formasidagi tanlash ro'yxati — faqat ko'rsatiladigan va formaga
+// ko'chiriladigan maydonlar (tavsif, ishlatilish soni u yerda kerak emas).
+public class ProductCatalogLookupDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+    public string? Unit { get; set; }
+    // Arxivdagi mahsulotlar ham ro'yxatda qoladi — tanlansa avtomatik faollashadi,
+    // shuning uchun formada "tugatilgan" belgisi bilan ko'rsatiladi.
+    public bool IsActive { get; set; }
 }
 
 // ─── "Ko'rish" (detali) infografikasi uchun ──────────────────────────────────
@@ -35,12 +52,11 @@ public class ProductCatalogResponseDto
 public class ProductCatalogDetailDto
 {
     // Sarlavha ma'lumotlari
-    public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Code { get; set; } = string.Empty;
     public string? Unit { get; set; }
     public string? Description { get; set; }
-    public DateTime CreatedAt { get; set; }
+    public bool IsActive { get; set; }
 
     // Agregatlar (stat kartalar)
     public int ContractCount { get; set; }          // Nechta shartnomada ishlatilgan
@@ -52,7 +68,7 @@ public class ProductCatalogDetailDto
     // Har bir bosqichdagi mahsulot qatorlari soni — donut/bar diagramma uchun.
     public List<ProductCatalogStatusCountDto> StatusBreakdown { get; set; } = [];
 
-    // Bog'langan shartnomalar ro'yxati
+    // Bog'langan shartnomalar ro'yxati — eng yangi shartnoma birinchi.
     public List<ProductCatalogContractUsageDto> Contracts { get; set; } = [];
 }
 
@@ -65,11 +81,9 @@ public class ProductCatalogStatusCountDto
 public class ProductCatalogContractUsageDto
 {
     public Guid ContractProductId { get; set; }
-    public Guid ContractId { get; set; }
     public string ContractNo { get; set; } = string.Empty;
     public string ContractParty { get; set; } = string.Empty;
     public ContractType ContractType { get; set; }
-    public ContractStatus ContractStatus { get; set; }
     public DateOnly StartDate { get; set; }
     public DateOnly EndDate { get; set; }
     public bool ContractIsActive { get; set; }
@@ -79,7 +93,6 @@ public class ProductCatalogContractUsageDto
     public string Unit { get; set; } = string.Empty;
     public ContractProductStatus ProductStatus { get; set; }
     public decimal ProducedQuantity { get; set; }
-    public DateTime ContractCreatedAt { get; set; }
 
     // Shu shartnoma mahsulotiga biriktirilgan hujjatlar va vazifalar.
     public List<ProductCatalogResourceDto> TechProcesses { get; set; } = [];  // Status = ProcessStatus

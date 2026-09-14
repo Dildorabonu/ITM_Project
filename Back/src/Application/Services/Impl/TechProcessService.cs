@@ -5,6 +5,7 @@ using Core.Entities;
 using Core.Enums;
 using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 using SysTask = System.Threading.Tasks.Task;
 
 
@@ -28,11 +29,7 @@ public class TechProcessService : ITechProcessService
 
     public async Task<ApiResult<IEnumerable<TechProcessResponseDto>>> GetAllAsync(Guid currentUserId, bool viewAll, ProcessStatus? status = null, bool? isActive = null)
     {
-        var query = _context.TechProcesses
-            .Include(t => t.Contract)
-            .Include(t => t.ContractProduct)
-            .Include(t => t.Approver)
-            .AsNoTracking();
+        var query = _context.TechProcesses.AsNoTracking();
 
         if (!viewAll)
         {
@@ -53,29 +50,36 @@ public class TechProcessService : ITechProcessService
         if (isActive.HasValue)
             query = query.Where(t => t.IsActive == isActive.Value);
 
-        var list = await query.OrderByDescending(t => t.CreatedAt).ToListAsync();
-        return ApiResult<IEnumerable<TechProcessResponseDto>>.Success(list.Select(MapToResponse));
+        var list = await query
+            .OrderByDescending(t => t.CreatedAt)
+            .Select(ToResponse)
+            .ToListAsync();
+
+        return ApiResult<IEnumerable<TechProcessResponseDto>>.Success(list);
     }
 
     public async Task<ApiResult<TechProcessResponseDto>> GetByIdAsync(Guid id)
     {
         var tp = await _context.TechProcesses
-            .Include(t => t.Contract)
-            .Include(t => t.ContractProduct)
-            .Include(t => t.Approver)
             .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Id == id);
+            .Where(t => t.Id == id)
+            .Select(ToResponse)
+            .FirstOrDefaultAsync();
 
         if (tp is null)
             return ApiResult<TechProcessResponseDto>.Failure([$"TechProcess '{id}' topilmadi."], 404);
 
-        return ApiResult<TechProcessResponseDto>.Success(MapToResponse(tp));
+        return ApiResult<TechProcessResponseDto>.Success(tp);
     }
 
     public async Task<ApiResult<Guid>> CreateAsync(TechProcessCreateDto dto)
     {
-        var contractExists = await _context.Contracts.AnyAsync(c => c.Id == dto.ContractId);
-        if (!contractExists)
+        // One read covers both the existence check and the notification text.
+        var contractNo = await _context.Contracts
+            .Where(c => c.Id == dto.ContractId)
+            .Select(c => c.ContractNo)
+            .FirstOrDefaultAsync();
+        if (contractNo is null)
             return ApiResult<Guid>.Failure([$"Shartnoma '{dto.ContractId}' topilmadi."]);
 
         if (dto.ContractProductId.HasValue)
@@ -100,45 +104,36 @@ public class TechProcessService : ITechProcessService
 
         _context.TechProcesses.Add(tp);
 
-        // Lift the affected product(s) past DrawingPending. Contract.Status is
-        // recomputed below from the per-product aggregate.
-        if (dto.ContractProductId.HasValue)
-        {
-            var product = await _context.ContractProducts
-                .FirstOrDefaultAsync(p => p.Id == dto.ContractProductId.Value);
-            if (product is not null)
-                ContractStatusHelper.TryAdvanceToTechProcessing(product);
-        }
-        else
-        {
-            var products = await _context.ContractProducts
-                .Where(p => p.ContractId == dto.ContractId && p.IsActive)
-                .ToListAsync();
-            foreach (var p in products)
-                ContractStatusHelper.TryAdvanceToTechProcessing(p);
-        }
+        // Lift the affected product(s) past DrawingPending; Contract.Status is
+        // recomputed below from the per-product aggregate. Only DrawingPending
+        // rows can move, so the filter belongs in the query rather than loading
+        // every product of the contract to no effect.
+        var pending = _context.ContractProducts
+            .Where(p => p.Status == ContractProductStatus.DrawingPending);
+
+        pending = dto.ContractProductId.HasValue
+            ? pending.Where(p => p.Id == dto.ContractProductId.Value)
+            : pending.Where(p => p.ContractId == dto.ContractId && p.IsActive);
+
+        foreach (var p in await pending.ToListAsync())
+            ContractStatusHelper.TryAdvanceToTechProcessing(p);
 
         await _context.SaveChangesAsync();
         await ContractStatusHelper.RecomputeContractStatusAsync(_context, dto.ContractId);
         await _context.SaveChangesAsync();
 
-        var contract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == dto.ContractId);
+        var deptUserIds = await _context.Users
+            .Where(u => u.IsActive && _context.ContractDepartments
+                .Any(cd => cd.ContractId == dto.ContractId && cd.DepartmentId == u.DepartmentId))
+            .Select(u => u.Id)
+            .ToListAsync();
 
-        if (contract is not null)
-        {
-            var deptUserIds = await _context.Users
-                .Where(u => u.IsActive && _context.ContractDepartments
-                    .Any(cd => cd.ContractId == dto.ContractId && cd.DepartmentId == u.DepartmentId))
-                .Select(u => u.Id)
-                .ToListAsync();
-
-            await _notificationService.NotifyUsersAndSuperAdminsAsync(
-                deptUserIds,
-                $"Tex jarayon yaratildi: {contract.ContractNo}",
-                $"«{contract.ContractNo}» shartnomasi uchun «{tp.Title}» tex jarayoni yaratildi.",
-                NotificationType.Info,
-                contract.Id);
-        }
+        await _notificationService.NotifyUsersAndSuperAdminsAsync(
+            deptUserIds,
+            $"Tex jarayon yaratildi: {contractNo}",
+            $"«{contractNo}» shartnomasi uchun «{tp.Title}» tex jarayoni yaratildi.",
+            NotificationType.Info,
+            dto.ContractId);
 
         return ApiResult<Guid>.Success(tp.Id, 201);
     }
@@ -211,26 +206,30 @@ public class TechProcessService : ITechProcessService
         await _context.SaveChangesAsync();
         await _manufacturedProductService.SyncForContractAsync(tp.ContractId);
 
-        var approveContract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == tp.ContractId);
-        if (approveContract is not null)
+        var contractNo = await _context.Contracts
+            .Where(c => c.Id == tp.ContractId)
+            .Select(c => c.ContractNo)
+            .FirstOrDefaultAsync();
+
+        if (contractNo is not null)
         {
-            var deptUserIds = await _context.Users
+            // Department members and directly assigned users in one round trip;
+            // the database does the union and the de-duplication.
+            var recipientIds = await _context.Users
                 .Where(u => u.IsActive && _context.ContractDepartments
                     .Any(cd => cd.ContractId == tp.ContractId && cd.DepartmentId == u.DepartmentId))
                 .Select(u => u.Id)
-                .ToListAsync();
-
-            var contractUserIds = await _context.ContractUsers
-                .Where(cu => cu.ContractId == tp.ContractId)
-                .Select(cu => cu.UserId)
+                .Union(_context.ContractUsers
+                    .Where(cu => cu.ContractId == tp.ContractId)
+                    .Select(cu => cu.UserId))
                 .ToListAsync();
 
             await _notificationService.NotifyUsersAndSuperAdminsAsync(
-                deptUserIds.Union(contractUserIds).Distinct(),
-                $"Tex jarayon tasdiqlandi: {approveContract.ContractNo}",
-                $"«{approveContract.ContractNo}» shartnomasi uchun «{tp.Title}» tex jarayoni tasdiqlandi.",
+                recipientIds,
+                $"Tex jarayon tasdiqlandi: {contractNo}",
+                $"«{contractNo}» shartnomasi uchun «{tp.Title}» tex jarayoni tasdiqlandi.",
                 NotificationType.Task,
-                approveContract.Id);
+                tp.ContractId);
         }
 
         return ApiResult<int>.Success(1);
@@ -238,17 +237,22 @@ public class TechProcessService : ITechProcessService
 
     // ── Mapping ────────────────────────────────────────────────────────────────
 
-    private static TechProcessResponseDto MapToResponse(TechProcess tp) => new()
-    {
-        Id = tp.Id,
-        ContractNo = tp.Contract?.ContractNo ?? string.Empty,
-        ProductType = tp.ContractProduct?.ProductType,
-        Title = tp.Title,
-        Notes = tp.Notes,
-        Status = tp.Status,
-        ApprovedByFullName = tp.Approver is null ? null
-            : $"{tp.Approver.FirstName} {tp.Approver.LastName}",
-        ApprovedAt = tp.ApprovedAt,
-        CreatedAt = tp.CreatedAt,
-    };
+    // Kept as an expression so EF builds the SELECT list from it: the related
+    // contract / product / approver rows are never materialised, only the nine
+    // columns the response actually carries.
+    private static readonly Expression<Func<TechProcess, TechProcessResponseDto>> ToResponse =
+        tp => new TechProcessResponseDto
+        {
+            Id = tp.Id,
+            ContractNo = tp.Contract != null ? tp.Contract.ContractNo : string.Empty,
+            ProductType = tp.ContractProduct != null ? tp.ContractProduct.ProductType : null,
+            Title = tp.Title,
+            Notes = tp.Notes,
+            Status = tp.Status,
+            ApprovedByFullName = tp.Approver != null
+                ? tp.Approver.FirstName + " " + tp.Approver.LastName
+                : null,
+            ApprovedAt = tp.ApprovedAt,
+            CreatedAt = tp.CreatedAt,
+        };
 }

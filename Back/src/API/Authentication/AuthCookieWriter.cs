@@ -9,9 +9,7 @@ public interface IAuthCookieWriter
 {
     void WriteAuthCookies(HttpResponse response, string accessToken, DateTime accessExpiresAt,
                          string refreshToken, DateTime refreshExpiresAt);
-    void WriteCsrfCookie(HttpResponse response, DateTime expiresAt);
     void ClearAuthCookies(HttpResponse response);
-    string GenerateCsrfToken();
 }
 
 public class AuthCookieWriter : IAuthCookieWriter
@@ -32,7 +30,7 @@ public class AuthCookieWriter : IAuthCookieWriter
         WriteCsrfCookie(response, refreshExpiresAt);
     }
 
-    public void WriteCsrfCookie(HttpResponse response, DateTime expiresAt)
+    private void WriteCsrfCookie(HttpResponse response, DateTime expiresAt)
     {
         // CSRF token cookie — readable by JS so frontend can mirror it in X-CSRF-Token header
         // (Double-Submit Cookie pattern). Not HttpOnly by design.
@@ -77,7 +75,7 @@ public class AuthCookieWriter : IAuthCookieWriter
         });
     }
 
-    public string GenerateCsrfToken()
+    private static string GenerateCsrfToken()
     {
         var bytes = RandomNumberGenerator.GetBytes(32);
         return Convert.ToBase64String(bytes);

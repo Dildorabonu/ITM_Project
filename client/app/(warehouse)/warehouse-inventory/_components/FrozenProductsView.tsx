@@ -26,10 +26,16 @@ type FrozenGroup = {
   purpose: string;
   targetDepartmentName: string | null;
   status: RequisitionStatus;
-  statusLabel: string;
   warehouseCheckedAt: string | null;
   items: ProductReservationResponse[];
   totalReserved: number;
+};
+
+// Holat yorlig'i statusdan hosil qilinadi — API endi tayyor matn yubormaydi
+// (har bir qatorda takrorlanuvchi, tarjima qilinmaydigan satr edi).
+const RESERVATION_STATUS_LABELS: Partial<Record<RequisitionStatus, string>> = {
+  [RequisitionStatus.PendingApproval]:          "Tasdiqlash kutilmoqda",
+  [RequisitionStatus.ReadyForWarehouseRelease]: "Chiqarish kutilmoqda",
 };
 
 const fmtDate = (s: string | null) => {
@@ -110,7 +116,6 @@ export function FrozenProductsView({ canRelease, onClose, onReleased }: Props) {
           purpose: r.purpose,
           targetDepartmentName: r.targetDepartmentName,
           status: r.status,
-          statusLabel: r.statusLabel,
           warehouseCheckedAt: r.warehouseCheckedAt,
           items: [],
           totalReserved: 0,
@@ -265,7 +270,7 @@ export function FrozenProductsView({ canRelease, onClose, onReleased }: Props) {
                     width: 6, height: 6, borderRadius: "50%",
                     background: ready ? "var(--success)" : "var(--warn)",
                   }} />
-                  {g.statusLabel}
+                  {t(RESERVATION_STATUS_LABELS[g.status] ?? "")}
                 </span>
 
                 {canRelease && (

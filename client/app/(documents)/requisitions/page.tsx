@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import {
   requisitionService,
   RequisitionStatus,
-  type RequisitionResponse,
+  REQUISITION_TYPE_LABELS,
+  type RequisitionListRow,
 } from "@/lib/userService";
 import {
   fmtDate,
@@ -43,7 +44,7 @@ function RequisitionsContent() {
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const canApprove = hasPermission("Requisitions.Approve");
 
-  const [list, setList] = useState<RequisitionResponse[]>([]);
+  const [list, setList] = useState<RequisitionListRow[]>([]);
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -51,7 +52,8 @@ function RequisitionsContent() {
   const [filterStatus, setFilterStatus] = useState("");
   const [viewMode, setViewMode]     = useState<"active" | "archive">("active");
   const [archiveTab, setArchiveTab] = useState<"completed" | "rejected">("completed");
-  const [drawerReq, setDrawerReq] = useState<RequisitionResponse | null>(null);
+  // Ro'yxat qatorida to'liq talabnoma yo'q — drawer detalni ID bo'yicha o'zi yuklaydi.
+  const [drawerReqId, setDrawerReqId] = useState<string | null>(null);
   const [recentKey, setRecentKey] = useState(0);
 
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
@@ -148,12 +150,11 @@ function RequisitionsContent() {
     setFilterPanelOpen(false);
   }, [viewMode, archiveTab]);
 
-  // Pending-approval badge: count separately so it doesn't depend on the current filter
+  // Pending-approval badge: joriy filtrga bog'liq bo'lmagan alohida COUNT so'rovi
+  // (ilgari butun ro'yxat tortilib, faqat uzunligi olinardi).
   useEffect(() => {
     if (!canApprove) return;
-    requisitionService.getAll(RequisitionStatus.PendingApproval)
-      .then(items => setPendingApprovalCount(items.length))
-      .catch(() => setPendingApprovalCount(0));
+    requisitionService.getPendingApprovalCount().then(setPendingApprovalCount);
   }, [canApprove]);
 
   return (
@@ -450,16 +451,16 @@ function RequisitionsContent() {
                         : t("Rad etilgan talabnomalar yo'q")}
                   </td></tr>
                 ) : list.map((r, i) => (
-                  <tr key={r.id} onClick={() => setDrawerReq(r)} style={{ cursor: "pointer" }}>
+                  <tr key={r.id} onClick={() => setDrawerReqId(r.id)} style={{ cursor: "pointer" }}>
                     <td style={{ textAlign: "center", borderRight: "2px solid var(--border)", minWidth: 64, padding: "0 8px" }}>{String((page - 1) * PAGE_SIZE + i + 1).padStart(2, "0")}</td>
                     <td style={{ textAlign: "center", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "var(--font-inter)" }}>{r.requisitionNo}</td>
-                    <td style={{ textAlign: "center", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.typeLabel}</td>
+                    <td style={{ textAlign: "center", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t(REQUISITION_TYPE_LABELS[r.type])}</td>
                     <td style={{ textAlign: "center", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.contractNo ?? r.departmentName ?? "—"}</td>
                     <td style={{ textAlign: "center", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.createdByName}</td>
                     <td style={{ textAlign: "center", maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fmtDate(r.createdAt)}</td>
                     <td style={{ textAlign: "center", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       <div style={{ maxWidth: 180, overflow: "hidden", display: "inline-flex", justifyContent: "center" }}>
-                        <RequisitionStatusBadge status={r.status} completed={isRequisitionCompleted(r)} rejected={isRequisitionRejected(r)} small />
+                        <RequisitionStatusBadge status={r.status} completed={isRequisitionCompleted(r.status, r.childStatuses)} rejected={isRequisitionRejected(r.status, r.childStatuses)} small />
                       </div>
                     </td>
                     <td className="td-actions" style={{ borderLeft: "2px solid var(--border)" }}
@@ -469,7 +470,7 @@ function RequisitionsContent() {
                         <button
                           className="btn-icon"
                           title={t("Ko'rish")}
-                          onClick={() => setDrawerReq(r)}
+                          onClick={() => setDrawerReqId(r.id)}
                           style={{ color: "#0ea5e9", borderColor: "#0ea5e933", background: "#0ea5e912" }}
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -544,16 +545,14 @@ function RequisitionsContent() {
 
       {/* Qidiruv/filtr qo'llangan bo'lsa ko'rsatilmaydi — blok filtrlarga bo'ysunmaydi */}
       {viewMode === "active" && !search.trim() && filterStatus === "" && (
-        <RecentCompleted reloadKey={recentKey} onOpen={setDrawerReq} />
+        <RecentCompleted reloadKey={recentKey} onOpen={setDrawerReqId} />
       )}
 
-      {drawerReq && (
+      {drawerReqId && (
         <RequisitionDrawer
-          req={drawerReq}
-          onClose={() => setDrawerReq(null)}
-          onUpdate={updated => {
-            setDrawerReq(updated);
-            setList(prev => prev.map(r => r.id === updated.id ? updated : r));
+          reqId={drawerReqId}
+          onClose={() => setDrawerReqId(null)}
+          onUpdate={() => {
             // Holat bajarilgan holatga o'tishi mumkin (masalan, rad etildi) — asosiy
             // ro'yxat endi faqat faol talabnomalarni ko'rsatadi, shuning uchun uni va
             // "Yaqinda yakunlangan" blokini qayta yuklab, ikkalasini sinxron ushlab turamiz.

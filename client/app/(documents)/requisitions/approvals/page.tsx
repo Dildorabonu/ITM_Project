@@ -6,11 +6,12 @@ import {
   requisitionService,
   RequisitionStatus,
   RequisitionSource,
-  type RequisitionResponse,
+  REQUISITION_TYPE_LABELS,
+  REQUISITION_SOURCE_LABELS,
+  type RequisitionQueueRow,
 } from "@/lib/userService";
-import { fmtDate, fmtDateTime } from "../_types";
+import { fmtDate } from "../_types";
 import { RequisitionNo } from "@/app/_components/RequisitionNo";
-import { RequisitionStatusBadge } from "../_components/StatusBadge";
 import { RequisitionDrawer } from "../_components/RequisitionDrawer";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useToastStore } from "@/lib/store/toastStore";
@@ -32,11 +33,11 @@ export default function RequisitionApprovalsPage() {
 
   const canApprove = hasPermission("Requisitions.Approve");
 
-  const [list, setList] = useState<RequisitionResponse[]>([]);
+  const [list, setList] = useState<RequisitionQueueRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
-  const [drawerReq, setDrawerReq] = useState<RequisitionResponse | null>(null);
+  const [drawerReqId, setDrawerReqId] = useState<string | null>(null);
 
   const [approveId, setApproveId] = useState<string | null>(null);
   const [rejectId, setRejectId] = useState<string | null>(null);
@@ -102,7 +103,7 @@ export default function RequisitionApprovalsPage() {
         pdfUploaded ? "success" : t("Ogohlantirish"),
       );
       setApproveId(null);
-      setDrawerReq(null);
+      setDrawerReqId(null);
       await load();
     } catch {
       showToast(t("Xatolik yuz berdi"), "error");
@@ -117,7 +118,7 @@ export default function RequisitionApprovalsPage() {
       showToast(t("Talabnoma rad etildi"), "success");
       setRejectId(null);
       setRejectReason("");
-      setDrawerReq(null);
+      setDrawerReqId(null);
       await load();
     } catch {
       showToast(t("Xatolik yuz berdi"), "error");
@@ -301,7 +302,7 @@ export default function RequisitionApprovalsPage() {
               key={r.id}
               req={r}
               fadeIdx={Math.min(i, 4)}
-              onView={() => setDrawerReq(r)}
+              onView={() => setDrawerReqId(r.id)}
               onApprove={() => setApproveId(r.id)}
               onReject={() => { setRejectId(r.id); setRejectReason(""); }}
             />
@@ -375,18 +376,15 @@ export default function RequisitionApprovalsPage() {
       )}
 
       {/* ─── Detail drawer ──────────────────────────────────────────── */}
-      {drawerReq && (
+      {drawerReqId && (
         <RequisitionDrawer
-          req={drawerReq}
-          onClose={() => setDrawerReq(null)}
+          reqId={drawerReqId}
+          onClose={() => setDrawerReqId(null)}
           onUpdate={updated => {
             // If status changed (no longer PendingApproval), drop from list
             if (updated.status !== RequisitionStatus.PendingApproval) {
-              setDrawerReq(null);
+              setDrawerReqId(null);
               setList(prev => prev.filter(r => r.id !== updated.id));
-            } else {
-              setDrawerReq(updated);
-              setList(prev => prev.map(r => r.id === updated.id ? updated : r));
             }
           }}
         />
@@ -451,7 +449,7 @@ function FilterTile({ label, value, icon, accent, accentBg, delay, active, onSel
 // ─── ApprovalCard ──────────────────────────────────────────────────────────────
 
 function ApprovalCard({ req, fadeIdx, onView, onApprove, onReject }: {
-  req: RequisitionResponse;
+  req: RequisitionQueueRow;
   fadeIdx: number;
   onView: () => void;
   onApprove: () => void;
@@ -469,7 +467,7 @@ function ApprovalCard({ req, fadeIdx, onView, onApprove, onReject }: {
     req.source === RequisitionSource.Warehouse ? "var(--success-dim)" :
     req.source === RequisitionSource.Purchase  ? "var(--purple-dim)" :
     "var(--accent-dim)";
-  const sourceLabel = req.sourceLabel ? t(req.sourceLabel) : t("Asosiy");
+  const sourceLabel = req.source !== undefined && req.source !== null ? t(REQUISITION_SOURCE_LABELS[req.source]) : t("Asosiy");
 
   return (
     <div
@@ -494,7 +492,7 @@ function ApprovalCard({ req, fadeIdx, onView, onApprove, onReject }: {
             }}>
               {sourceLabel}
             </span>
-            <span style={{ fontSize: 11, color: "var(--text3)" }}>· {req.typeLabel}</span>
+            <span style={{ fontSize: 11, color: "var(--text3)" }}>· {t(REQUISITION_TYPE_LABELS[req.type])}</span>
           </div>
 
           <div style={{ fontSize: 13, color: "var(--text)", marginBottom: 6, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>

@@ -23,6 +23,6 @@ public class ProductDuplicateCheckResultDto
     // Invoice raqami bazada allaqachon mavjud (bo'limdan qat'i nazar, global unikal) — bloklanadi.
     public bool InvoiceDuplicate { get; set; }
 
-    // 40%+ o'xshash mavjud mahsulotlar — faqat ogohlantirish.
+    // Eng yaqin (40%+) o'xshash mavjud mahsulot — faqat ogohlantirish, bittadan ortiq emas.
     public IEnumerable<ProductSimilarDto> Similar { get; set; } = [];
 }

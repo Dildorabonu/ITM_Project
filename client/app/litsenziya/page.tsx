@@ -10,7 +10,6 @@ type LicenseInfo = {
   message: string;
   customer?: string | null;
   expiresUtc?: string | null;
-  daysLeft: number;
 };
 
 const ShieldIcon = ({ size = 18 }: { size?: number }) => (

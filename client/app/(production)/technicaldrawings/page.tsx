@@ -77,6 +77,7 @@ export default function TechnicalDrawingsPage() {
   const [editForm, setEditForm] = useState<DrawingFormValues>(emptyDrawingForm);
   const [editSubmitted, setEditSubmitted] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
+  const [editExistingFiles, setEditExistingFiles] = useState<AttachmentResponse[]>([]);
 
   // ── Load ──────────────────────────────────────────────────────────────────
 
@@ -226,6 +227,7 @@ export default function TechnicalDrawingsPage() {
     setEditTarget(item);
     setEditForm({ title: item.title, notes: item.notes || "", files: [], contractProductId: item.contractProductId ?? "" });
     setEditSubmitted(false);
+    setEditExistingFiles([]);
     setDrawer(null);
     window.history.pushState(null, "");
     setShowEditForm(true);
@@ -234,6 +236,11 @@ export default function TechnicalDrawingsPage() {
       setEditProducts(products.map((p) => ({ id: p.id, productType: p.productType, quantity: p.quantity, unit: p.unit })));
     } catch {
       setEditProducts([]);
+    }
+    try {
+      setEditExistingFiles(await technicalDrawingService.getFiles(item.id));
+    } catch {
+      setEditExistingFiles([]);
     }
   };
 
@@ -249,7 +256,12 @@ export default function TechnicalDrawingsPage() {
         clearContractProduct: !editForm.contractProductId,
       });
       if (editForm.files.length > 0) {
+        // Yangi fayl eskisining o'rniga keladi: avval yuklaymiz, yuklash muvaffaqiyatli
+        // bo'lgandagina eskilarini o'chiramiz — xato bo'lsa chizma faylsiz qolmaydi.
         await Promise.all(editForm.files.map((f) => technicalDrawingService.uploadFile(editTarget!.id, f)));
+        await Promise.all(
+          editExistingFiles.map((f) => technicalDrawingService.deleteFile(editTarget!.id, f.id)),
+        );
       }
       await loadData();
       setShowEditForm(false);
@@ -368,6 +380,7 @@ export default function TechnicalDrawingsPage() {
         setForm={setEditForm}
         submitted={editSubmitted}
         saving={editSaving}
+        existingFiles={editExistingFiles}
         onSave={handleEditSave}
         onCancel={() => setShowEditForm(false)}
       />

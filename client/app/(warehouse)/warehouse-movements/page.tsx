@@ -6,6 +6,7 @@ import {
   stockMovementSign,
   STOCK_MOVEMENT_COLOR,
   STOCK_MOVEMENT_DIM,
+  STOCK_MOVEMENT_LABEL,
   type StockMovement,
   type StockMovementType,
   type StockMovementSummary,
@@ -285,7 +286,7 @@ export default function WarehouseMovementsPage() {
                                     cursor: "help",
                                   }}>
                                     <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, flexShrink: 0 }} />
-                                    {m.typeLabel}
+                                    {STOCK_MOVEMENT_LABEL[m.type]}
                                   </span>
                                 </Tooltip>
                               </td>

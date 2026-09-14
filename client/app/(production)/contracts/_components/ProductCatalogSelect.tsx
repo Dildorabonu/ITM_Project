@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   productCatalogService,
-  type ProductCatalogResponse,
+  type ProductCatalogLookup,
 } from "@/lib/userService";
 import { useT } from "@/lib/i18n";
 
@@ -29,15 +29,28 @@ interface Props {
 // (backend TextNormalizer bilan bir xil g'oya: registr/probel farqini e'tiborsiz qoldiradi).
 const canon = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
 
+// Backend PaginationParams 100 dan kattasini qabul qilmaydi.
+const PAGE_SIZE = 50;
+
 export function ProductCatalogSelect({
   productType, productCode, hasError, canCreate = true, onType, onSelect,
 }: Props) {
   const t = useT();
 
   const [open, setOpen] = useState(false);
-  const [results, setResults] = useState<ProductCatalogResponse[]>([]);
+  const [results, setResults] = useState<ProductCatalogLookup[]>([]);
+  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const boxRef = useRef<HTMLDivElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const pageRef = useRef(1);
+
+  // Keyingi sahifa kelganda so'rov matni o'zgarib ketgan bo'lishi mumkin — eski
+  // sahifani ro'yxatga qo'shib yubormaslik uchun joriy matnni ref'da saqlaymiz.
+  const termRef = useRef(productType);
+  termRef.current = productType;
 
   // Tashqariga bosilganda yopish.
   useEffect(() => {
@@ -49,24 +62,51 @@ export function ProductCatalogSelect({
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
-  // Debounce qidiruv.
+  // Debounce qidiruv — birinchi sahifa.
   useEffect(() => {
     if (!open) return;
     const term = productType.trim();
     const ctrl = new AbortController();
+    let cancelled = false;
     setLoading(true);
     const id = setTimeout(async () => {
       try {
-        const paged = await productCatalogService.search(term || undefined, 1, 20, ctrl.signal);
+        const paged = await productCatalogService.search(term || undefined, 1, PAGE_SIZE, ctrl.signal);
+        if (cancelled) return;
+        pageRef.current = 1;
         setResults(paged.items ?? []);
+        setTotal(paged.totalCount ?? 0);
+        setHasMore(!!paged.hasNextPage);
+        if (listRef.current) listRef.current.scrollTop = 0;
       } catch {
         // AbortError yoki tarmoq xatosi — jim o'tkazamiz.
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }, 250);
-    return () => { clearTimeout(id); ctrl.abort(); };
+    return () => { cancelled = true; clearTimeout(id); ctrl.abort(); };
   }, [productType, open]);
+
+  // Ro'yxat oxiriga yaqinlashganda keyingi sahifa — katalog 50 tadan oshsa ham
+  // hammasiga yetib boriladi.
+  const loadMore = async () => {
+    if (loading || loadingMore || !hasMore) return;
+    const term = productType.trim();
+    const next = pageRef.current + 1;
+    setLoadingMore(true);
+    try {
+      const paged = await productCatalogService.search(term || undefined, next, PAGE_SIZE);
+      if (termRef.current.trim() !== term) return;
+      pageRef.current = next;
+      setResults(prev => [...prev, ...(paged.items ?? [])]);
+      setTotal(paged.totalCount ?? 0);
+      setHasMore(!!paged.hasNextPage);
+    } catch {
+      // Tarmoq xatosi — jim o'tkazamiz, foydalanuvchi qayta surishi mumkin.
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const term = productType.trim();
   const exactMatch = useMemo(
@@ -75,7 +115,7 @@ export function ProductCatalogSelect({
   );
   const showCreate = canCreate && term.length > 0 && !exactMatch && !loading;
 
-  const pick = (r: ProductCatalogResponse) => {
+  const pick = (r: ProductCatalogLookup) => {
     onSelect({ productCatalogId: r.id, productCode: r.code, productType: r.name, unit: r.unit });
     setOpen(false);
   };
@@ -116,11 +156,17 @@ export function ProductCatalogSelect({
       </div>
 
       {open && (
-        <div style={{
+        <div
+          ref={listRef}
+          onScroll={e => {
+            const el = e.currentTarget;
+            if (el.scrollHeight - el.scrollTop - el.clientHeight < 60) loadMore();
+          }}
+          style={{
           position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 40,
           background: "var(--surface)", border: "1px solid var(--border)",
           borderRadius: "var(--radius)", boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
-          maxHeight: 240, overflowY: "auto", padding: 4,
+          maxHeight: 280, overflowY: "auto", padding: 4,
           animation: "panel-appear 0.16s ease",
         }}>
           {loading && (
@@ -147,6 +193,14 @@ export function ProductCatalogSelect({
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {r.name}
                 {r.unit && <span style={{ color: "var(--text3)", fontSize: 11, marginLeft: 6 }}>· {r.unit}</span>}
+                {!r.isActive && (
+                  <span style={{
+                    marginLeft: 6, padding: "1px 6px", borderRadius: 20, fontSize: 10, fontWeight: 600,
+                    background: "var(--warn-dim)", color: "var(--warn)",
+                  }}>
+                    {t("Tugatilgan")}
+                  </span>
+                )}
               </span>
               <span style={{
                 flexShrink: 0, fontSize: 10, fontWeight: 600, fontFamily: "var(--font-mono)",
@@ -156,6 +210,15 @@ export function ProductCatalogSelect({
               </span>
             </button>
           ))}
+
+          {!loading && (loadingMore || hasMore) && (
+            <div style={{
+              padding: "8px 10px", fontSize: 11, color: "var(--text3)",
+              textAlign: "center", fontFamily: "var(--font-mono)",
+            }}>
+              {loadingMore ? t("Yuklanmoqda...") : `${results.length} / ${total}`}
+            </div>
+          )}
 
           {!loading && results.length === 0 && !showCreate && (
             <div style={{ padding: "10px 12px", fontSize: 12, color: "var(--text3)" }}>

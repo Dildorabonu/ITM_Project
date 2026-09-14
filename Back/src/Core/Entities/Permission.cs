@@ -8,8 +8,6 @@ public class Permission
     public PermissionModule Module { get; set; }
     public PermissionAction Action { get; set; }
 
-    public string Key => $"{Module}.{Action}";
-
     // Navigation properties
     public ICollection<RolePermission> RolePermissions { get; set; } = [];
 }
