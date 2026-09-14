@@ -62,9 +62,26 @@ New-Item -ItemType Directory -Force $pkgUploads | Out-Null
 $prodSettings = Join-Path $OutDir "backend\appsettings.Production.json"
 if (Test-Path $prodSettings) {
     $json = Get-Content $prodSettings -Raw | ConvertFrom-Json
-    $json.ConnectionStrings.DefaultConnection = ""
-    $json.JwtOptions.SecretKey = ""
-    $json.License.Key = ""
+
+    # Bo'lim yoki maydon ishlab chiquvchi faylida yo'q bo'lsa ham paketda bo'lishi shart:
+    # aks holda mijozga tozalanmagan (yoki umuman yo'q) sozlama ketadi.
+    function Set-Field($obj, [string]$section, [string]$field, $value) {
+        if (-not $obj.PSObject.Properties[$section]) {
+            $obj | Add-Member -MemberType NoteProperty -Name $section -Value ([pscustomobject]@{})
+        }
+        if (-not $obj.$section.PSObject.Properties[$field]) {
+            $obj.$section | Add-Member -MemberType NoteProperty -Name $field -Value $value
+        } else {
+            $obj.$section.$field = $value
+        }
+    }
+
+    Set-Field $json "ConnectionStrings" "DefaultConnection" ""
+    Set-Field $json "JwtOptions" "SecretKey" ""
+    Set-Field $json "License" "//" 'LicenseGen bilan server barmoq iziga boglab yasaladi: dotnet run -- sign --customer "..." --days 365 --machine <FINGERPRINT>'
+    Set-Field $json "License" "Key" ""
+    Set-Field $json "License" "KeyFilePath" $null
+
     ($json | ConvertTo-Json -Depth 20) | Set-Content -Path $prodSettings -Encoding UTF8
     Write-Host "    appsettings.Production.json tozalandi (parol/JWT/litsenziya bo'sh)."
 } else {
