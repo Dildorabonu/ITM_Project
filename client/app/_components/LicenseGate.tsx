@@ -22,6 +22,8 @@ export default function LicenseGate() {
   const t = useT();
   const [info, setInfo] = useState<LicenseInfo | null>(null);
   const [blocked, setBlocked] = useState(false);
+  const [fingerprint, setFingerprint] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // Admin faollashtirish formasi (bloklangan holatda ham ishlaydi).
   const [showForm, setShowForm] = useState(false);
@@ -53,6 +55,30 @@ export default function LicenseGate() {
     }
   }
 
+  async function copyFingerprint() {
+    if (!fingerprint) return;
+    try {
+      // LAN'da tizim http orqali ochiladi — u yerda navigator.clipboard mavjud emas,
+      // shuning uchun eski execCommand usuliga tushamiz.
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(fingerprint);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = fingerprint;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      /* nusxalab bo'lmasa — foydalanuvchi qo'lda belgilab ko'chiradi */
+    }
+  }
+
   async function check() {
     try {
       const res = await api.get("/api/license/status");
@@ -63,6 +89,15 @@ export default function LicenseGate() {
       }
     } catch {
       /* status endpoint ochiq — xato bo'lsa bloklamaymiz, keyingi so'rov aniqlaydi */
+    }
+  }
+
+  async function loadFingerprint() {
+    try {
+      const res = await api.get("/api/license/fingerprint");
+      setFingerprint(res.data?.result?.fingerprint ?? null);
+    } catch {
+      /* ko'rsatiladigan qo'shimcha ma'lumot — olinmasa blok ekrani baribir ishlaydi */
     }
   }
 
@@ -84,6 +119,11 @@ export default function LicenseGate() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (blocked && fingerprint === null) loadFingerprint();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blocked]);
 
   if (!blocked) return null;
 
@@ -184,6 +224,66 @@ export default function LicenseGate() {
             }}
           >
             {t("Amal qilish muddati")}: {expiresText}
+          </div>
+        )}
+
+        {fingerprint && (
+          <div
+            style={{
+              textAlign: "left",
+              background: "var(--bg, #0b0e14)",
+              border: "1px solid var(--border, #232a35)",
+              borderRadius: "var(--radius, 8px)",
+              padding: "10px 12px",
+              marginBottom: 20,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: 1.4,
+                color: "var(--text3, #6b7787)",
+                marginBottom: 5,
+              }}
+            >
+              {t("Server ID")}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span
+                style={{
+                  flex: 1,
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 13,
+                  letterSpacing: 0.6,
+                  color: "var(--text, #e8edf4)",
+                  wordBreak: "break-all",
+                  userSelect: "all",
+                }}
+              >
+                {fingerprint}
+              </span>
+              <button
+                onClick={copyFingerprint}
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: copied ? "var(--success, #22c55e)" : "var(--accent, #1a6eeb)",
+                  background: "transparent",
+                  border: "1px solid var(--border, #232a35)",
+                  borderRadius: "var(--radius, 8px)",
+                  padding: "4px 10px",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {copied ? t("Nusxalandi") : t("Nusxalash")}
+              </button>
+            </div>
+            <div style={{ fontSize: 11, lineHeight: 1.5, color: "var(--text3, #6b7787)", marginTop: 7 }}>
+              {t("Litsenziya olish uchun shu kodni ta'minotchiga yuboring.")}
+            </div>
           </div>
         )}
 

@@ -1216,6 +1216,11 @@ export const ru: Record<string, string> = {
   "daqiqa": "мин",
   "Tugagan": "Истёк",
   "Server barmoq izi": "Отпечаток сервера",
+  "Server ID": "ID сервера",
+  "Nusxalash": "Копировать",
+  "Nusxalandi": "Скопировано",
+  "Litsenziya olish uchun shu kodni ta'minotchiga yuboring.":
+    "Отправьте этот код поставщику для получения лицензии.",
   "Litsenziyani yangilash": "Обновить лицензию",
   "Yangi tokenni joylang va superadmin parolini kiriting. Muddat darhol yangilanadi.":
     "Вставьте новый токен и введите пароль суперадмина. Срок обновится сразу.",
