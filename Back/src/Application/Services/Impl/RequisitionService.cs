@@ -857,7 +857,7 @@ public class RequisitionService : IRequisitionService
                 product.ReservedQuantity -= released;
 
                 // Ledger: rezerv bo'shatildi — fizik qoldiq o'zgarmaydi, faqat band bekor bo'ladi.
-                // Bu Release'ning Transfer'siz yagona holati; yozilmasa jurnaldagi
+                // Bu Release'ning Chiqim (Out)siz yagona holati; yozilmasa jurnaldagi
                 // (Reserve − Release) Product.ReservedQuantity bilan mos kelmay qoladi.
                 if (released > 0)
                     AddMovement(StockMovementType.Release, product, released, item.MaterialId,
@@ -1030,9 +1030,9 @@ public class RequisitionService : IRequisitionService
                 targetProduct = newProduct;
             }
 
-            // Ledger: markaziy ombordan bo'lim omboriga ko'chirish (+ rezervni bo'shatish)
+            // Ledger: markaziy ombordan bo'lim omboriga chiqim (+ rezervni bo'shatish)
             var sourceDeptId = releasedSource?.DepartmentId;
-            AddMovement(StockMovementType.Transfer, targetProduct, qty, item.MaterialId,
+            AddMovement(StockMovementType.Out, targetProduct, qty, item.MaterialId,
                 sourceDeptId, targetDeptId, r.Id, r.ContractId, releaserId, stockOutNoteBase);
             if (releasedSource is not null)
                 AddMovement(StockMovementType.Release, releasedSource, qty, item.MaterialId,

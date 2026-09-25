@@ -41,7 +41,7 @@ public class WarehouseScanController : ControllerBase
         return Ok(result);
     }
 
-    // Chiqim / Ko'chirish / Tuzatish amali → yangilangan lookup.
+    // Chiqim / Tuzatish amali → yangilangan lookup.
     [HasPermission("Products.Update")]
     [HttpPost("action")]
     public async Task<IActionResult> Action([FromBody] ScanActionDto dto)

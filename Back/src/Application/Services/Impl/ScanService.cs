@@ -81,21 +81,8 @@ public class ScanService : IScanService
         {
             case StockMovementType.Out:
             {
-                var available = product.Quantity - product.ReservedQuantity;
-                if (dto.Quantity > available)
-                    return ApiResult<ScanLookupDto>.Failure(
-                        [$"Yetarli mavjud emas (mavjud: {available}, so'ralgan: {dto.Quantity})."]);
-
-                product.Quantity -= dto.Quantity;
-                AddMovement(StockMovementType.Out, product, dto.Quantity, product.MaterialId,
-                    product.DepartmentId, null, userId, dto.Notes);
-                break;
-            }
-
-            case StockMovementType.Transfer:
-            {
                 if (dto.TargetDepartmentId is not Guid targetDeptId)
-                    return ApiResult<ScanLookupDto>.Failure(["Ko'chirish uchun maqsad bo'lim ko'rsatilishi shart."]);
+                    return ApiResult<ScanLookupDto>.Failure(["Chiqim uchun maqsad bo'lim ko'rsatilishi shart."]);
 
                 if (targetDeptId == product.DepartmentId)
                     return ApiResult<ScanLookupDto>.Failure(["Maqsad bo'lim manba bo'lim bilan bir xil bo'lmasligi kerak."]);
@@ -145,9 +132,9 @@ public class ScanService : IScanService
                     _context.Products.Add(target);
                 }
 
-                // Ledger: ko'chirish harakati maqsad qatorga yoziladi (QuantityAfter = target.Quantity),
+                // Ledger: chiqim harakati maqsad qatorga yoziladi (QuantityAfter = target.Quantity),
                 // RequisitionService ReleaseAsync bilan bir xil.
-                AddMovement(StockMovementType.Transfer, target, dto.Quantity, product.MaterialId,
+                AddMovement(StockMovementType.Out, target, dto.Quantity, product.MaterialId,
                     product.DepartmentId, targetDeptId, userId, dto.Notes);
                 break;
             }

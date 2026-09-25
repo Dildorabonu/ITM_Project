@@ -2,13 +2,13 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import {
+  movementBalance,
   stockMovementService,
   stockMovementSign,
   STOCK_MOVEMENT_COLOR,
   STOCK_MOVEMENT_DIM,
   STOCK_MOVEMENT_LABEL,
   type StockMovement,
-  type StockMovementType,
   type StockMovementSummary,
 } from "@/lib/stockMovements";
 import { departmentService, type DepartmentOption } from "@/lib/userService";
@@ -16,9 +16,9 @@ import { CheckSelect } from "@/app/_components/CheckSelect";
 import { RequisitionNo } from "@/app/_components/RequisitionNo";
 import Tooltip from "@/app/_components/Tooltip";
 import { MovementTypeLegend } from "./_components/MovementTypeLegend";
-import { MovementFilterTiles } from "./_components/MovementFilterTiles";
+import { MovementTypeChips } from "./_components/MovementTypeChips";
 import { MovementDetailDrawer } from "./_components/MovementDetailDrawer";
-import { STOCK_MOVEMENT_DESC, MONTHS, PAGE_SIZE } from "./_types";
+import { STOCK_MOVEMENT_DESC, MOVEMENT_FILTERS, MONTHS, PAGE_SIZE, type MovementFilterId } from "./_types";
 import { useT } from "@/lib/i18n";
 
 // Backend UTC ISO qaytaradi va jadval uni konvertatsiyasiz, kesib ko'rsatadi —
@@ -46,7 +46,7 @@ export default function WarehouseMovementsPage() {
   const [selected, setSelected] = useState<StockMovement | null>(null);
 
   // Filtrlar — barchasi query param sifatida backendga ketadi (frontendda filter YO'Q).
-  const [type, setType] = useState<StockMovementType | "">("");
+  const [type, setType] = useState<MovementFilterId | "">("");
   const [departmentId, setDepartmentId] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -69,7 +69,7 @@ export default function WarehouseMovementsPage() {
       setLoading(true);
       setError("");
       const filters = {
-        type: type || undefined,
+        types: MOVEMENT_FILTERS.find(f => f.id === type)?.types,
         departmentId: departmentId || undefined,
         from: from || undefined,
         to: to || undefined,
@@ -135,46 +135,50 @@ export default function WarehouseMovementsPage() {
         .mv-num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
       `}</style>
 
-      {/* Tur bo'yicha filtr tugmachalari — son va filtr bitta boshqaruvda */}
-      <MovementFilterTiles
-        summary={summary}
-        loading={loading}
-        value={type}
-        onChange={next => { setType(next); setPage(1); }}
-      />
-
-      {/* Qolgan filtrlar */}
-      <div className="itm-card" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "8px 14px", flexWrap: "wrap", overflow: "visible" }}>
-        <CheckSelect
-          value={departmentId}
-          onChange={v => { setDepartmentId(v); setPage(1); }}
-          options={departments.map(d => ({ id: d.id, name: d.name }))}
-          placeholder={t("Bo'lim")}
-          style={{ width: 220 }}
-        />
-        <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text3)" }}>
-          {t("dan")}
-          <input type="date" value={from} onChange={e => { setFrom(e.target.value); setPage(1); }}
-            style={{ background: "var(--bg2)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "6px 10px", fontSize: 13, color: "var(--text)" }} />
-        </label>
-        <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text3)" }}>
-          {t("gacha")}
-          <input type="date" value={to} onChange={e => { setTo(e.target.value); setPage(1); }}
-            style={{ background: "var(--bg2)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "6px 10px", fontSize: 13, color: "var(--text)" }} />
-        </label>
-        {hasFilters && (
-          <button onClick={resetFilters}
-            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", fontSize: 12, fontWeight: 600, borderRadius: "var(--radius)", background: "var(--surface2)", border: "1.5px solid var(--border)", color: "var(--text2)", cursor: "pointer" }}>
-            ✕ {t("Tozalash")}
-          </button>
-        )}
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
-          <MovementTypeLegend />
+      <div className="itm-card" style={{ marginBottom: 8, overflow: "visible" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", flexWrap: "wrap", borderBottom: "1.5px solid var(--border)" }}>
+          <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--text3)", marginRight: 4 }}>
+            {t("Tur")}
+          </span>
+          <MovementTypeChips
+            summary={summary}
+            loading={loading}
+            value={type}
+            onChange={next => { setType(next); setPage(1); }}
+          />
+          <div style={{ marginLeft: "auto" }}>
+            <MovementTypeLegend />
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", flexWrap: "wrap" }}>
+          <CheckSelect
+            value={departmentId}
+            onChange={v => { setDepartmentId(v); setPage(1); }}
+            options={departments.map(d => ({ id: d.id, name: d.name }))}
+            placeholder={t("Bo'lim")}
+            style={{ width: 220 }}
+          />
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text3)" }}>
+            {t("dan")}
+            <input type="date" value={from} onChange={e => { setFrom(e.target.value); setPage(1); }}
+              style={{ background: "var(--bg2)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "6px 10px", fontSize: 13, color: "var(--text)" }} />
+          </label>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text3)" }}>
+            {t("gacha")}
+            <input type="date" value={to} onChange={e => { setTo(e.target.value); setPage(1); }}
+              style={{ background: "var(--bg2)", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "6px 10px", fontSize: 13, color: "var(--text)" }} />
+          </label>
+          {hasFilters && (
+            <button onClick={resetFilters}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", fontSize: 12, fontWeight: 600, borderRadius: "var(--radius)", background: "var(--surface2)", border: "1.5px solid var(--border)", color: "var(--text2)", cursor: "pointer" }}>
+              ✕ {t("Tozalash")}
+            </button>
+          )}
           <button
             className="btn-icon"
             onClick={load}
             title={t("Yangilash")}
-            style={{ background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}
+            style={{ marginLeft: "auto", background: "var(--accent-dim)", borderColor: "var(--accent)", color: "var(--accent)", width: 36, height: 36 }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="23 4 23 10 17 10" />
@@ -300,7 +304,7 @@ export default function WarehouseMovementsPage() {
                                 {sign}{m.quantity}
                               </td>
                               <td className="mv-num" style={{ textAlign: "right", color: "var(--text3)" }}>
-                                {m.quantityAfter}
+                                {movementBalance(m) ?? "—"}
                               </td>
                               <td className="mv-num" style={{ textAlign: "left", color: m.requisitionNo ? "var(--accent)" : "var(--text3)", fontSize: 12.5 }}>
                                 {m.requisitionNo ? <RequisitionNo no={m.requisitionNo} /> : "—"}

@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   warehouseScanService,
   type ScanLookupResult,
-  type ScanActionType,
 } from "@/lib/scan";
 import {
   departmentService,
@@ -24,12 +23,6 @@ interface BasketLine {
   error?: string; // commit'da xato bo'lsa shu qatorda ko'rsatamiz
 }
 
-// Savat amali — Chiqim (Out) yoki Ko'chirish (Transfer). Adjust savatga mos kelmaydi.
-const BASKET_ACTIONS: { type: ScanActionType; label: string; token: string }[] = [
-  { type: "Out",      label: "Chiqim",     token: "--danger" },
-  { type: "Transfer", label: "Ko'chirish", token: "--accent" },
-];
-
 export default function WarehouseScanPage() {
   const t = useT();
   const hasPermission = useAuthStore((s) => s.hasPermission);
@@ -45,7 +38,6 @@ export default function WarehouseScanPage() {
 
   // Savat holati
   const [basket, setBasket] = useState<BasketLine[]>([]);
-  const [actionType, setActionType] = useState<ScanActionType>("Out");
   const [targetDept, setTargetDept] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -53,7 +45,7 @@ export default function WarehouseScanPage() {
 
   const focusScan = useCallback(() => scanRef.current?.focus(), []);
 
-  // Boshlang'ich fokus + bo'limlar (Ko'chirish select uchun).
+  // Boshlang'ich fokus + bo'limlar (chiqim maqsad bo'limi uchun).
   useEffect(() => {
     focusScan();
     departmentService.getAll().then(setDepartments).catch(() => {});
@@ -138,7 +130,7 @@ export default function WarehouseScanPage() {
   // Savatni bajarish — har bir qator uchun ketma-ket action chaqiramiz.
   const submitBasket = async () => {
     if (!basket.length) return;
-    if (actionType === "Transfer" && !targetDept) {
+    if (!targetDept) {
       setSubmitError(t("Maqsad bo'limni tanlang"));
       return;
     }
@@ -153,9 +145,9 @@ export default function WarehouseScanPage() {
       try {
         await warehouseScanService.action({
           productId: line.product.id,
-          type: actionType,
+          type: "Out",
           quantity: line.qty,
-          targetDepartmentId: actionType === "Transfer" ? targetDept : undefined,
+          targetDepartmentId: targetDept,
           notes: trimmedNotes,
         });
         ok += 1;
@@ -209,8 +201,6 @@ export default function WarehouseScanPage() {
       )}
     </div>
   );
-
-  const actionMeta = BASKET_ACTIONS.find((a) => a.type === actionType)!;
 
   return (
     <div className="page-transition relative min-h-screen overflow-hidden bg-[--bg] p-6">
@@ -356,51 +346,22 @@ export default function WarehouseScanPage() {
                 </div>
               </div>
 
-              {/* Amal turi — segmented toggle */}
               <div>
                 <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-widest text-[--text3]">
-                  {t("Amal turi")}
+                  {t("Maqsad bo'lim")}
                 </label>
-                <div className="grid grid-cols-2 gap-1.5 rounded-[--radius] border border-[--border] bg-[--bg3] p-1">
-                  {BASKET_ACTIONS.map((a) => {
-                    const active = actionType === a.type;
-                    return (
-                      <button
-                        key={a.type}
-                        onClick={() => { setActionType(a.type); setSubmitError(""); }}
-                        className="rounded-[calc(var(--radius)-2px)] px-3 py-2 text-sm font-semibold transition-all duration-150 active:scale-[0.97]"
-                        style={{
-                          background: active ? "var(--surface)" : "transparent",
-                          color: active ? `var(${a.token})` : "var(--text3)",
-                          boxShadow: active ? "var(--shadow)" : "none",
-                        }}
-                      >
-                        {t(a.label)}
-                      </button>
-                    );
-                  })}
-                </div>
+                <select
+                  value={targetDept}
+                  onChange={(e) => { setTargetDept(e.target.value); setSubmitError(""); }}
+                  className="w-full rounded-[--radius] border border-[--border] bg-[--bg3] px-3 py-2 text-sm text-[--text]
+                             focus:border-[--accent] focus:bg-[--surface] focus:outline-none focus:ring-2 focus:ring-[--accent-dim] transition-colors duration-150"
+                >
+                  <option value="">{t("Maqsad bo'limni tanlang")}</option>
+                  {departments.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
               </div>
-
-              {/* Ko'chirish maqsad bo'limi */}
-              {actionType === "Transfer" && (
-                <div className="[animation:panel-appear_0.24s_ease]">
-                  <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-widest text-[--text3]">
-                    {t("Maqsad bo'lim")}
-                  </label>
-                  <select
-                    value={targetDept}
-                    onChange={(e) => { setTargetDept(e.target.value); setSubmitError(""); }}
-                    className="w-full rounded-[--radius] border border-[--border] bg-[--bg3] px-3 py-2 text-sm text-[--text]
-                               focus:border-[--accent] focus:bg-[--surface] focus:outline-none focus:ring-2 focus:ring-[--accent-dim] transition-colors duration-150"
-                  >
-                    <option value="">{t("Maqsad bo'limni tanlang")}</option>
-                    {departments.map((d) => (
-                      <option key={d.id} value={d.id}>{d.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
 
               {/* Izoh */}
               <div>
@@ -434,7 +395,7 @@ export default function WarehouseScanPage() {
                 title={!canAct ? t("Ruxsat yo'q") : undefined}
                 className="flex w-full items-center justify-center gap-2 rounded-[--radius] px-4 py-3 text-sm font-bold text-white shadow-[var(--shadow)]
                            transition-all duration-150 hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none disabled:brightness-100"
-                style={{ background: empty ? "var(--text3)" : `var(${actionMeta.token})` }}
+                style={{ background: empty ? "var(--text3)" : "var(--danger)" }}
               >
                 {submitting ? (
                   <>
@@ -443,7 +404,7 @@ export default function WarehouseScanPage() {
                   </>
                 ) : (
                   <>
-                    {t(actionMeta.label)}
+                    {t("Chiqim")}
                     {basket.length > 0 && (
                       <span className="rounded-full bg-white/20 px-2 py-0.5 font-mono text-xs">{basket.length}</span>
                     )}

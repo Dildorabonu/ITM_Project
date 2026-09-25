@@ -1119,7 +1119,6 @@ export const ru: Record<string, string> = {
   "So'nggi harakatlar": "Последние движения",
   "Harakat yozuvi yo'q": "Нет записей о движениях",
   "Chiqim": "Расход",
-  "Ko'chirish": "Перемещение",
   "Tuzatish": "Корректировка",
   "Yangi miqdor": "Новое количество",
   "Maqsad bo'lim": "Целевой отдел",
@@ -1136,7 +1135,6 @@ export const ru: Record<string, string> = {
   "Yakuniy amal": "Итоговая операция",
   "Mahsulot turlari": "Видов товаров",
   "Jami miqdor": "Общее количество",
-  "Amal turi": "Тип операции",
   "ta qator bajarildi": "строк выполнено",
   "Ba'zi qatorlarda xatolik yuz berdi": "В некоторых строках произошла ошибка",
   "Ba'zi qatorlar mavjud zaxiradan ko'p": "Некоторые строки превышают доступный запас",
@@ -1325,16 +1323,16 @@ export const ru: Record<string, string> = {
   "Bo'limga berildi": "Выдано отделу",
   "Omborga yangi tovar keldi — xarid qabul qilindi":
     "На склад поступил новый товар — принята закупка",
-  "Tovar ombordan butunlay chiqdi — sarflandi yoki hisobdan chiqarildi":
-    "Товар полностью выбыл со склада — израсходован или списан",
-  "Markaziy ombordan bo'lim omboriga o'tkazildi — korxonadagi umumiy miqdor kamaymaydi":
-    "Перемещено с центрального склада на склад отдела — общее количество на предприятии не уменьшается",
+  "Tovar ombordan chiqib ketdi — bo'lim omboriga berildi":
+    "Товар ушёл со склада — передан на склад отдела",
   "Talabnomaga band qilindi — tovar omborda turibdi, lekin boshqa talabnomaga berilmaydi":
     "Забронировано под заявку — товар находится на складе, но не может быть выдан по другой заявке",
   "Band bekor qilindi — tovar bo'limga berildi yoki talabnoma rad etildi":
     "Бронь снята — товар выдан отделу либо заявка отклонена",
   "Sanoq natijasi bo'yicha qo'lda tuzatildi — inventarizatsiya yoki yo'qotish":
     "Скорректировано вручную по результатам пересчёта — инвентаризация или потеря",
+  "Rezerv va Rezervdan chiqarish yozuvlari — tovar talabnomaga band qilinadi yoki band bekor qilinadi, ombordagi miqdor o'zgarmaydi":
+    "Записи «Rezerv» и «Rezervdan chiqarish» — товар бронируется под заявку или бронь снимается, количество на складе не меняется",
 
   // Jurnal jadvali: kun guruhlari, bo'sh holat va detal paneli.
   // Oylar qaratqich kelishigida — sarlavha "5 августа 2026" ko'rinishida yig'iladi.

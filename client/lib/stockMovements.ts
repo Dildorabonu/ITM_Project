@@ -6,11 +6,10 @@ import { api } from "./api";
 //
 // MUHIM: filtrlash BACKENDDA — query param yuboramiz, massivni frontendda filterlamaymiz.
 
-// Backend StockMovementType enum bilan bir xil tartibda (0..5).
+// Backend StockMovementType enum bilan bir xil (Transfer=2 Out ga birlashtirilgan).
 export type StockMovementType =
   | "In"
   | "Out"
-  | "Transfer"
   | "Adjust"
   | "Reserve"
   | "Release";
@@ -44,14 +43,14 @@ export interface StockMovementParams {
   requisitionId?: string;
   contractId?: string;
   userId?: string;
-  type?: StockMovementType;
+  types?: StockMovementType[];
   from?: string; // ISO sana
   to?: string;   // ISO sana
   page?: number;
   pageSize?: number;
 }
 
-// Filtr tugmachalaridagi sonlar — `GET /api/stock-movements/summary`.
+// Filtr chiplaridagi sonlar — `GET /api/stock-movements/summary`.
 // Faqat harakatlar SONI: miqdorlarni qo'shib bo'lmaydi, chunki bitta filtrga
 // kg, dona va metrdagi qatorlar birga tushadi.
 export interface StockMovementSummary {
@@ -77,19 +76,17 @@ export interface PagedResult<T> {
 export const STOCK_MOVEMENT_LABEL: Record<StockMovementType, string> = {
   In: "Kirim",
   Out: "Chiqim",
-  Transfer: "Ko'chirish",
   Adjust: "Tuzatish",
   Reserve: "Rezerv",
   Release: "Rezervdan chiqarish",
 };
 
 // Type → semantik rang tokeni (CLAUDE.md status ranglariga mos).
-// In=success (kirim), Out=danger (chiqim), Transfer=accent (ko'chirish),
+// In=success (kirim), Out=danger (chiqim),
 // Reserve=warn (rezerv), Release=purple (rezervdan chiqarish), Adjust=text2 (tuzatish).
 export const STOCK_MOVEMENT_COLOR: Record<StockMovementType, string> = {
   In: "var(--success)",
   Out: "var(--danger)",
-  Transfer: "var(--accent)",
   Reserve: "var(--warn)",
   Release: "var(--purple)",
   Adjust: "var(--text2)",
@@ -98,14 +95,13 @@ export const STOCK_MOVEMENT_COLOR: Record<StockMovementType, string> = {
 export const STOCK_MOVEMENT_DIM: Record<StockMovementType, string> = {
   In: "var(--success-dim)",
   Out: "var(--danger-dim)",
-  Transfer: "var(--accent-dim)",
   Reserve: "var(--warn-dim)",
   Release: "var(--purple-dim)",
   Adjust: "var(--surface2)",
 };
 
 // Miqdor ishorasi: Type bo'yicha qoldiqni oshiradimi (+) yoki kamaytiradimi (−).
-// In/Release qoldiqni oshiradi; Out/Reserve kamaytiradi; Transfer/Adjust neytral.
+// In/Release qoldiqni oshiradi; Out/Reserve kamaytiradi; Adjust neytral.
 export function stockMovementSign(type: StockMovementType): "+" | "-" | "" {
   switch (type) {
     case "In":
@@ -119,13 +115,21 @@ export function stockMovementSign(type: StockMovementType): "+" | "-" | "" {
   }
 }
 
+// Chiqim qatori maqsad bo'lim mahsulotiga yoziladi — uning quantityAfter'i ombor emas,
+// qabul qilgan bo'lim qoldig'i. Uni ombor qoldig'i deb ko'rsatmaslik uchun null.
+export function movementBalance(m: StockMovement): number | null {
+  return m.type === "Out" && m.targetDepartmentName ? null : m.quantityAfter;
+}
+
+type QueryValue = string | number | string[];
+
 // Bo'sh paramlarni tashlab, query obyektini yig'adi.
-function toQuery(params: StockMovementParams): Record<string, string | number> {
-  const query: Record<string, string | number> = {};
+function toQuery(params: StockMovementParams): Record<string, QueryValue> {
+  const query: Record<string, QueryValue> = {};
   for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined && value !== null && value !== "") {
-      query[key] = value as string | number;
-    }
+    if (value === undefined || value === null || value === "") continue;
+    if (Array.isArray(value) && value.length === 0) continue;
+    query[key] = value as QueryValue;
   }
   return query;
 }
@@ -134,7 +138,9 @@ export const stockMovementService = {
   // Filtrlangan, sahifalangan jurnal (CreatedAt DESC). Bo'sh paramlar yuborilmaydi.
   get: async (params: StockMovementParams = {}): Promise<PagedResult<StockMovement>> => {
     const query = toQuery(params);
-    const res = await api.get("/api/stock-movements", { params: query });
+    // indexes: null → `types=Reserve&types=Release`. Axios default `types[]=` beradi,
+    // ASP.NET Core esa uni List<> ga bog'lamaydi.
+    const res = await api.get("/api/stock-movements", { params: query, paramsSerializer: { indexes: null } });
     const result = res.data?.result;
     return (
       result ?? {
@@ -149,7 +155,7 @@ export const stockMovementService = {
     );
   },
 
-  // Tugmachalar uchun sonlar. `type` yuborilmaydi — backend uni baribir e'tiborsiz
+  // Chiplar uchun sonlar. `types` yuborilmaydi — backend uni baribir e'tiborsiz
   // qoldiradi, lekin ortiqcha param jo'natmaslik uchun shu yerda ham tashlab ketamiz.
   getSummary: async (params: StockMovementParams = {}): Promise<StockMovementSummary> => {
     const { productId, materialId, departmentId, requisitionId, contractId, userId, from, to } = params;

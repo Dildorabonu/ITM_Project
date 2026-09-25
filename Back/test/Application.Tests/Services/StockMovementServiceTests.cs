@@ -114,7 +114,7 @@ public class StockMovementServiceTests
 
         var result = await new StockMovementService(db).GetSummaryAsync(new StockMovementFilter());
 
-        result.Result!.ByType.Should().HaveCount(6);
+        result.Result!.ByType.Should().HaveCount(5);
         result.Result.ByType["Out"].Should().Be(0);
         result.Result.ByType["Release"].Should().Be(0);
     }
@@ -129,10 +129,47 @@ public class StockMovementServiceTests
         SeedMovement(db, StockMovementType.Out);
 
         var result = await new StockMovementService(db)
-            .GetSummaryAsync(new StockMovementFilter { Type = StockMovementType.In });
+            .GetSummaryAsync(new StockMovementFilter { Types = [StockMovementType.In] });
 
         result.Result!.Total.Should().Be(2);
         result.Result.ByType["Out"].Should().Be(1);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    //  GetAsync — tur filtri
+    // ─────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetAsync_ReturnsMovementsOfAnySelectedType()
+    {
+        // "Band qilish" chipi Reserve va Release ni bitta filtr sifatida so'raydi.
+        // Sonlar har xil: 3 faqat ikkala tur ham qamralganda chiqadi (1, 2 yoki 7 emas).
+        // Items emas, TotalCount tekshiriladi — seed'da Product/User yo'q, proyeksiya
+        // esa ularga inner join qiladi.
+        await using var db = CreateDb();
+        SeedMovement(db, StockMovementType.Reserve);
+        SeedMovement(db, StockMovementType.Release);
+        SeedMovement(db, StockMovementType.Release);
+        for (var i = 0; i < 4; i++) SeedMovement(db, StockMovementType.In);
+
+        var result = await new StockMovementService(db).GetAsync(new StockMovementFilter
+        {
+            Types = [StockMovementType.Reserve, StockMovementType.Release]
+        });
+
+        result.Result!.TotalCount.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task GetAsync_WithoutTypes_ReturnsAllMovements()
+    {
+        await using var db = CreateDb();
+        SeedMovement(db, StockMovementType.In);
+        SeedMovement(db, StockMovementType.Adjust);
+
+        var result = await new StockMovementService(db).GetAsync(new StockMovementFilter());
+
+        result.Result!.TotalCount.Should().Be(2);
     }
 
     [Fact]

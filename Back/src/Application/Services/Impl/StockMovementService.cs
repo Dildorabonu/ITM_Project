@@ -101,8 +101,8 @@ public class StockMovementService : IStockMovementService
         if (filter.UserId.HasValue)
             query = query.Where(m => m.UserId == filter.UserId.Value);
 
-        if (includeType && filter.Type.HasValue)
-            query = query.Where(m => m.Type == filter.Type.Value);
+        if (includeType && filter.Types is { Count: > 0 })
+            query = query.Where(m => filter.Types.Contains(m.Type));
 
         if (filter.From.HasValue)
             query = query.Where(m => m.CreatedAt >= filter.From.Value);

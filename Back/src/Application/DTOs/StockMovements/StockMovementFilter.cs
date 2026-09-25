@@ -12,7 +12,8 @@ public class StockMovementFilter
     public Guid? RequisitionId { get; set; }
     public Guid? ContractId { get; set; }
     public Guid? UserId { get; set; }
-    public StockMovementType? Type { get; set; }
+    // Bir nechta tur — ?types=Reserve&types=Release. Bo'sh bo'lsa barcha turlar.
+    public List<StockMovementType>? Types { get; set; }
     public DateTime? From { get; set; }
     public DateTime? To { get; set; }
 

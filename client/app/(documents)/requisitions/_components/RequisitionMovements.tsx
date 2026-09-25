@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  movementBalance,
   stockMovementService,
   stockMovementSign,
   STOCK_MOVEMENT_COLOR,
@@ -71,6 +72,7 @@ export function RequisitionMovements({ requisitionId }: Props) {
             const color = STOCK_MOVEMENT_COLOR[m.type];
             const dim = STOCK_MOVEMENT_DIM[m.type];
             const sign = stockMovementSign(m.type);
+            const balance = movementBalance(m);
             const dir = directionLabel(m);
             return (
               <div key={m.id} className={`nd-fadein-${Math.min(i, 4)}`} style={{ position: "relative", paddingLeft: 30, paddingBottom: i === items.length - 1 ? 0 : 18 }}>
@@ -89,9 +91,11 @@ export function RequisitionMovements({ requisitionId }: Props) {
                   </span>
                   <span style={{ fontSize: 13, color: "var(--text1)", fontWeight: 500 }}>{m.productName}</span>
                   <span style={{ fontSize: 13, fontWeight: 700, fontFamily: "var(--font-mono)", color }}>{sign}{fmtDecimal(m.quantity)}</span>
-                  <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--text3)", fontFamily: "var(--font-mono)" }}>
-                    {t("qoldiq")}: <span style={{ color: "var(--text1)", fontWeight: 600 }}>{fmtDecimal(m.quantityAfter)}</span>
-                  </span>
+                  {balance !== null && (
+                    <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--text3)", fontFamily: "var(--font-mono)" }}>
+                      {t("qoldiq")}: <span style={{ color: "var(--text1)", fontWeight: 600 }}>{fmtDecimal(balance)}</span>
+                    </span>
+                  )}
                 </div>
                 {dir && (
                   <div style={{ fontSize: 12.5, color: "var(--text2)", fontFamily: "var(--font-mono)", marginBottom: 3 }}>{dir}</div>

@@ -41,11 +41,10 @@ export interface ScanLookupResult {
   material: MaterialAggregate | null;
 }
 
-// Skaner amali turi. Backend `StockMovementType` enum qiymatlari (Out=1, Transfer=2,
-// Adjust=3). JSON body'da SON sifatida yuboriladi — backendda string-enum converter yo'q.
+// Skaner amali turi. Backend `StockMovementType` enum qiymatlari (Out=1, Adjust=3).
+// JSON body'da SON sifatida yuboriladi — backendda string-enum converter yo'q.
 export const SCAN_ACTION_TYPE = {
   Out: 1,
-  Transfer: 2,
   Adjust: 3,
 } as const;
 export type ScanActionType = keyof typeof SCAN_ACTION_TYPE;
@@ -53,8 +52,8 @@ export type ScanActionType = keyof typeof SCAN_ACTION_TYPE;
 export interface ScanActionPayload {
   productId: string;
   type: ScanActionType;
-  quantity: number; // Out/Transfer: ayriladigan miqdor; Adjust: yangi absolut miqdor
-  targetDepartmentId?: string; // faqat Transfer uchun shart
+  quantity: number; // Out: maqsad bo'limga o'tkaziladigan miqdor; Adjust: yangi absolut miqdor
+  targetDepartmentId?: string; // faqat Out uchun shart
   notes?: string;
 }
 
@@ -65,7 +64,7 @@ export const warehouseScanService = {
     return res.data?.result ?? res.data;
   },
 
-  // Chiqim / Ko'chirish / Tuzatish amali → yangilangan lookup.
+  // Chiqim / Tuzatish amali → yangilangan lookup.
   action: async (dto: ScanActionPayload): Promise<ScanLookupResult> => {
     const body = {
       productId: dto.productId,

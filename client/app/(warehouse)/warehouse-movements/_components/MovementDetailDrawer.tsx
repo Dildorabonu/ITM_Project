@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import {
+  movementBalance,
   stockMovementSign,
   STOCK_MOVEMENT_COLOR,
   STOCK_MOVEMENT_DIM,
@@ -114,7 +115,7 @@ export function MovementDetailDrawer({ movement, onClose }: {
           </Field>
           <Field label={t("Harakatdan keyingi qoldiq")} flush>
             <span style={{ fontWeight: 700, fontSize: 18, fontFamily: "var(--font-mono)", color: "var(--text1)" }}>
-              {movement.quantityAfter}
+              {movementBalance(movement) ?? "—"}
             </span>
           </Field>
         </div>
