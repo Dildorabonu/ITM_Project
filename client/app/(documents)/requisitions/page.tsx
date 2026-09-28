@@ -16,6 +16,7 @@ import {
 } from "./_types";
 import { RequisitionStatusBadge } from "./_components/StatusBadge";
 import { RequisitionDrawer } from "./_components/RequisitionDrawer";
+import { AllowanceChip } from "./_components/AllowanceChip";
 import { CheckSelect } from "./_components/CheckSelect";
 import { RecentCompleted } from "./_components/RecentCompleted";
 import { useAuthStore } from "@/lib/store/authStore";
@@ -371,6 +372,8 @@ function RequisitionsContent() {
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
           </svg>
         </button>
+
+        <AllowanceChip />
 
         {canApprove && (
           <button
