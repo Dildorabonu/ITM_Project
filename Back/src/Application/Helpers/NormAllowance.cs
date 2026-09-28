@@ -2,8 +2,9 @@ namespace Application.Helpers;
 
 public static class NormAllowance
 {
-    // Dona bilan o'lchanadigan material bo'linmaydi — zaxira doim yuqoriga
-    // yaxlitlanadi, aks holda material kam chiqadi. Frontend
+    // Dona bilan o'lchanadigan material bo'linmaydi — zaxirali natija eng yaqin
+    // butun songa yaxlitlanadi, lekin me'yordan kam emas. Doim yuqoriga
+    // yaxlitlash kichik sonlarni keskin oshirardi (1 → 2). Frontend
     // (client/lib/requisitionAllowance.ts) aynan shu ro'yxatni ishlatadi.
     private static readonly HashSet<string> PieceUnits =
         new(StringComparer.OrdinalIgnoreCase) { "шт", "дона", "dona" };
@@ -20,7 +21,9 @@ public static class NormAllowance
             return CeilToStoredScale(quantity);
 
         var raised = quantity * (100m + percent) / 100m;
-        return CeilToStoredScale(IsPieceUnit(unit) ? Math.Ceiling(raised) : raised);
+        if (IsPieceUnit(unit))
+            raised = Math.Max(quantity, Math.Round(raised, MidpointRounding.AwayFromZero));
+        return CeilToStoredScale(raised);
     }
 
     public static bool IsPieceUnit(string? unit) =>

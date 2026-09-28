@@ -113,3 +113,15 @@ export function ceilDecimalStr(value: number | string, scale = 0): string | null
   const digits = up ? String(Number(kept) + 1) : kept;
   return composeDec(d.neg, digits, scale);
 }
+
+/** O'nlik satrni eng yaqin butun songa yaxlitlaydi (yarmi noldan uzoqqa): `"14.42"` → `"14"`, `"51.5"` → `"52"`. */
+export function roundDecimalStr(value: number | string): string | null {
+  const d = parseDec(value);
+  if (!d) return null;
+  if (d.scale === 0) return composeDec(d.neg, d.digits, 0);
+
+  const cut = d.digits.length - d.scale;
+  const kept = cut > 0 ? d.digits.slice(0, cut) : "0";
+  const half = cut >= 0 && d.digits[cut] >= "5";
+  return composeDec(d.neg, half ? String(Number(kept) + 1) : kept, 0);
+}

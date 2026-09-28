@@ -521,16 +521,16 @@ public class RequisitionServiceTests
     }
 
     [Fact]
-    public async Task CreateAsync_NormWithAllowance_RoundsPieceUnitsUp()
+    public async Task CreateAsync_NormWithAllowance_RoundsPieceUnitsToNearest()
     {
         await using var db = CreateDb();
         var creator = SeedCreatorWithDept(db);
         SeedAllowanceRate(db, 3m);
         var contract = SeedContractWithNorm(db, 7, ("Петля универсальная", "шт", "2"));
 
-        // 2 × 7 = 14 → 14 × 1,03 = 14,42 → yuqoriga 15
+        // 2 × 7 = 14 → 14 × 1,03 = 14,42 → eng yaqin butun son 14
         var result = await CreateService(db).CreateAsync(
-            NormRequisition(contract.Id, creator, 3m, ("Петля универсальная", "шт", 15m)), creator.Id);
+            NormRequisition(contract.Id, creator, 3m, ("Петля универсальная", "шт", 14m)), creator.Id);
 
         result.Succeeded.Should().BeTrue();
     }

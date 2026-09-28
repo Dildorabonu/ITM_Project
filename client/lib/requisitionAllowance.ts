@@ -1,5 +1,5 @@
 import { api } from "./api";
-import { addPercentStr, ceilDecimalStr } from "./num";
+import { addPercentStr, ceilDecimalStr, roundDecimalStr } from "./num";
 
 // Talabnoma zaxira foizi — `/api/requisition-allowance`. O'qish hammaga, yozish
 // "RequisitionAllowance.Update" ruxsati bilan. Ro'yxat yangidan eskiga — [0] amaldagi.
@@ -41,9 +41,11 @@ function raiseByPercent(baseQty: string, unit: string, percent: number): string 
   if (raised === null) {
     const n = Number(baseQty) * (1 + percent / 100);
     if (!Number.isFinite(n)) return baseQty;
-    return String(isPieceUnit(unit) ? Math.ceil(n) : n);
+    return String(isPieceUnit(unit) ? Math.max(Number(baseQty), Math.round(n)) : n);
   }
-  return isPieceUnit(unit) ? (ceilDecimalStr(raised) ?? raised) : raised;
+  if (!isPieceUnit(unit)) return raised;
+  const nearest = roundDecimalStr(raised) ?? raised;
+  return Number(nearest) < Number(baseQty) ? baseQty : nearest;
 }
 
 // percent = 0 — zaxirasiz me'yor miqdori, u ham bazadagi aniqlikka keltiriladi.

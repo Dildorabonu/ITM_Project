@@ -11,12 +11,15 @@ public class NormAllowanceTests
     [InlineData(0.007, "кг", 3, 0.0073)]
     [InlineData(416.625, "кг", 3, 429.1238)]
     [InlineData(10, "м2", 2.5, 10.25)]
-    [InlineData(14, "шт", 3, 15)]
+    [InlineData(1, "шт", 3, 1)]
+    [InlineData(14, "шт", 3, 14)]
     [InlineData(1000, "шт", 3, 1030)]
-    [InlineData(7, " ШТ. ", 3, 8)]
-    [InlineData(14, "дона", 3, 15)]
-    [InlineData(14, "Dona", 3, 15)]
-    public void Apply_RaisesByPercent_RoundingPiecesUp(double quantity, string unit, double percent, double expected)
+    [InlineData(7, " ШТ. ", 3, 7)]
+    [InlineData(17, "дона", 3, 18)]
+    [InlineData(50, "Dona", 3, 52)]
+    [InlineData(1.5, "шт", 3, 2)]
+    [InlineData(1.4, "шт", 3, 1.4)]
+    public void Apply_RaisesByPercent_RoundingPiecesToNearestNotBelowNorm(double quantity, string unit, double percent, double expected)
     {
         NormAllowance.Apply((decimal)quantity, unit, (decimal)percent).Should().Be((decimal)expected);
     }

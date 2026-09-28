@@ -43,8 +43,9 @@ zaxira bilan: miqdor = TotalQty × son × (1 + foiz / 100)
 ```
 
 - Birlik `шт`, `шт.`, `дона` yoki `dona` bo'lsa (katta-kichik harf farqsiz, bo'shliqlar
-  kesiladi) — zaxirali natija **yuqoriga** butun songa yaxlitlanadi: 14,42 → 15.
-  Material kam chiqmasligi uchun doim yuqoriga.
+  kesiladi) — zaxirali natija **eng yaqin** butun songa yaxlitlanadi (yarmi yuqoriga),
+  lekin me'yordan kam emas: 14,42 → 14; 17,51 → 18; 51,5 → 52. Doim yuqoriga
+  yaxlitlash kichik sonlarni keskin oshirardi (1 → 2, ya'ni +100%).
 - Boshqa birliklar (кг, м, м2, ...) — aniq o'nlik: 75 × 1,03 = 77,25.
 - Natija — zaxirali ham, zaxirasiz ham — 4 kasr xonagacha **yuqoriga** yaxlitlanadi:
   `RequisitionItem.Quantity` bazada `numeric(18,4)`, ortiqcha xonani baza o'zi
@@ -175,7 +176,7 @@ public static class NormAllowance
 - `getAllowanceRates()`, `createAllowanceRate({ percent, note })` — `api` orqali,
   `res.data.result`.
 - `applyAllowance(qty: string, unit: string, percent: number): string` — §1 qoidasi;
-  aniq o'nlik uchun `mulDecimalStr`, `шт/дона` uchun yuqoriga yaxlitlash
+  aniq o'nlik uchun `mulDecimalStr`, `шт/дона` uchun eng yaqin butun songa yaxlitlash
   (yaxlitlash aniq o'nlik natijadan olinadi — suzuvchi nuqta xatosi `1030 → 1031`
   bermasligi uchun).
 - `isPieceUnit(unit)` — backend bilan bir xil ro'yxat.
@@ -238,8 +239,9 @@ Backend (`Back/test/Application.Tests`, TDD):
 
 - `NormAllowanceTests`:
   - кг: `75, 3%` → `77.25`; `416.625, 3%` → `429.1238`; `0.00021, 0%` → `0.0003`;
-  - шт: `14, 3%` → `15`; `1000, 3%` → `1030`;
-  - `дона`, `" ШТ. "` — yuqoriga yaxlitlanadi;
+  - шт: `14, 3%` → `14`; `17, 3%` → `18`; `1000, 3%` → `1030`;
+  - me'yordan kam emas: `1.4 шт, 3%` → `1.4`;
+  - `дона`, `" ШТ. "` — eng yaqin butun songa yaxlitlanadi;
   - `0%` → o'zgarmaydi.
 - `RequisitionAllowanceServiceTests`:
   - tarix yangidan eskiga;
@@ -250,7 +252,7 @@ Backend (`Back/test/Application.Tests`, TDD):
 - `RequisitionServiceTests` (shartnoma + me'yor fixture bilan):
   - zaxirasiz, aniq me'yor → yaratiladi, `AllowancePercent = null`;
   - zaxira bilan, to'g'ri miqdor → yaratiladi, `AllowancePercent = 3`;
-  - zaxira bilan, `шт` yuqoriga yaxlitlangan miqdor → yaratiladi;
+  - zaxira bilan, `шт` eng yaqin butun songa yaxlitlangan miqdor → yaratiladi;
   - zaxira so'ralgan, miqdor aniq me'yor → rad etiladi;
   - klient foizi 3, amaldagi 5 → "Zaxira foizi o'zgargan" xatosi;
   - individual talabnoma + foiz → `AllowancePercent = null`;
