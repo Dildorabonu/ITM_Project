@@ -42,7 +42,8 @@ zaxirasiz:   miqdor = TotalQty × son
 zaxira bilan: miqdor = TotalQty × son × (1 + foiz / 100)
 ```
 
-- Birlik `шт`, `шт.`, `дона` yoki `dona` bo'lsa (katta-kichik harf farqsiz, bo'shliqlar
+- Birlik `шт`, `шт.`, `дона`, `dona`, `қути`, `пакет` yoki `тўплам` bo'lsa (bo'linmaydigan
+  birliklar; katta-kichik harf farqsiz, bo'shliqlar
   kesiladi) — zaxirali natija **eng yaqin** butun songa yaxlitlanadi (yarmi yuqoriga),
   lekin me'yordan kam emas: 14,42 → 14; 17,51 → 18; 51,5 → 52. Doim yuqoriga
   yaxlitlash kichik sonlarni keskin oshirardi (1 → 2, ya'ni +100%).
@@ -241,7 +242,7 @@ Backend (`Back/test/Application.Tests`, TDD):
   - кг: `75, 3%` → `77.25`; `416.625, 3%` → `429.1238`; `0.00021, 0%` → `0.0003`;
   - шт: `14, 3%` → `14`; `17, 3%` → `18`; `1000, 3%` → `1030`;
   - me'yordan kam emas: `1.4 шт, 3%` → `1.4`;
-  - `дона`, `" ШТ. "` — eng yaqin butun songa yaxlitlanadi;
+  - `дона`, `" ШТ. "`, `қути`, `пакет`, `тўплам` — eng yaqin butun songa yaxlitlanadi;
   - `0%` → o'zgarmaydi.
 - `RequisitionAllowanceServiceTests`:
   - tarix yangidan eskiga;

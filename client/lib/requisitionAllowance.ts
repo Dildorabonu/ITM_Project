@@ -26,7 +26,7 @@ export const requisitionAllowanceService = {
 
 // Backend Application/Helpers/NormAllowance.cs bilan bir xil qoida — farq qilsa
 // backend talabnomani "me'yoriy sarfiga mos emas" deb rad etadi.
-const PIECE_UNITS = new Set(["шт", "дона", "dona"]);
+const PIECE_UNITS = new Set(["шт", "дона", "dona", "қути", "пакет", "тўплам"]);
 
 export function isPieceUnit(unit: string | null | undefined): boolean {
   return PIECE_UNITS.has((unit ?? "").trim().toLowerCase().replace(/\.+$/, ""));

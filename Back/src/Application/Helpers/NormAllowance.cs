@@ -7,7 +7,7 @@ public static class NormAllowance
     // yaxlitlash kichik sonlarni keskin oshirardi (1 → 2). Frontend
     // (client/lib/requisitionAllowance.ts) aynan shu ro'yxatni ishlatadi.
     private static readonly HashSet<string> PieceUnits =
-        new(StringComparer.OrdinalIgnoreCase) { "шт", "дона", "dona" };
+        new(StringComparer.OrdinalIgnoreCase) { "шт", "дона", "dona", "қути", "пакет", "тўплам" };
 
     // RequisitionItem.Quantity — numeric(18,4). Ortiqcha xonani bazaning o'zi
     // yaxlitlasa PDF'dagi son bazadagidan farq qiladi, shuning uchun miqdor
