@@ -6,6 +6,7 @@ import { apiErrorMessage } from "@/lib/api";
 import { useToastStore } from "@/lib/store/toastStore";
 import { useT } from "@/lib/i18n";
 import { fmtDecimal } from "@/lib/num";
+import { fmtDateTime } from "../_types";
 
 export function AllowanceModal({
   canEdit,
@@ -117,8 +118,8 @@ export function AllowanceModal({
                   className={`nd-fadein-${Math.min(i, 4)}`}
                   style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", background: "var(--surface2)", borderRadius: "var(--radius)" }}
                 >
-                  <span style={{ fontSize: 11.5, fontFamily: "var(--font-mono)", color: "var(--text3)", width: 82, flexShrink: 0 }}>
-                    {rate.createdAt.slice(0, 10)}
+                  <span style={{ fontSize: 11.5, fontFamily: "var(--font-mono)", color: "var(--text3)", width: 104, flexShrink: 0 }}>
+                    {fmtDateTime(rate.createdAt)}
                   </span>
                   <span style={{ fontSize: 13, fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--text)", width: 52, flexShrink: 0 }}>
                     {fmtDecimal(rate.percent)}%
