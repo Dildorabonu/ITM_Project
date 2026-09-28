@@ -1395,4 +1395,6 @@ export const ru: Record<string, string> = {
   "Seanslarni tugatib bo'lmadi.": "Не удалось завершить сеансы.",
   "kecha": "вчера",
   "kirilgan": "вход",
+  "zaxira": "запас",
+  "Brak va sifatsiz material uchun me'yorga qo'shimcha zaxira. Qog'ozga chiqmaydi.": "Дополнительный запас к норме на брак и некачественный материал. На бумагу не выводится.",
 };

@@ -22,7 +22,9 @@ import {
 import { CheckSelect } from "../_components/CheckSelect";
 import { SubmitProgressOverlay } from "../_components/SubmitProgressOverlay";
 import { useT } from "@/lib/i18n";
-import { mulDecimalStr } from "@/lib/num";
+import { fmtDecimal, mulDecimalStr } from "@/lib/num";
+import { apiErrorMessage } from "@/lib/api";
+import { applyAllowance, requisitionAllowanceService } from "@/lib/requisitionAllowance";
 
 // html2pdf.js chunk'i katta (jsPDF + html2canvas birga ~700 KB) — birinchi
 // generatsiyada uni yuklab, parse qilish 1-2 soniya oladi. Shu sababli sahifa
@@ -57,6 +59,7 @@ interface TableRow {
   image: string;      // preview URL (objectURL yoki server URL)
   imageFile: File | null; // yuklanadigan fayl (yangi tanlangan bo'lsa)
   locked?: boolean;   // me'yoriy sarfdan kelgan qator — nomi/birligi/miqdori o'zgartirilmaydi
+  baseQuantity?: string; // me'yor × son — zaxira yoqilib-o'chirilganda miqdor shundan qayta hisoblanadi
 }
 
 const emptyRow = (id: number): TableRow => ({ id, name: "", unit: "", quantity: "", spec: "", notes: "", image: "", imageFile: null });
@@ -363,6 +366,32 @@ function RequisitionPrintContent() {
   const user = useAuthStore(s => s.user);
   const [normDept, setNormDept] = useState<{ id: string; name: string } | null>(null);
 
+  // Amaldagi zaxira foizi (0 — o'chirilgan yoki yuklanmadi) va foydalanuvchi tanlovi.
+  const [allowancePercent, setAllowancePercent] = useState(0);
+  const [allowanceOn, setAllowanceOn] = useState(false);
+
+  const loadAllowancePercent = useCallback(async () => {
+    try {
+      const current = (await requisitionAllowanceService.getAll())[0]?.percent ?? 0;
+      setAllowancePercent(current);
+      return current;
+    } catch {
+      setAllowancePercent(0);
+      return 0;
+    }
+  }, []);
+
+  useEffect(() => { loadAllowancePercent(); }, [loadAllowancePercent]);
+
+  // Faqat miqdor qayta hisoblanadi — qo'lda yozilgan izoh va texnik ko'rsatkich saqlanadi.
+  const setAllowance = (on: boolean) => {
+    setAllowanceOn(on);
+    setRows(prev => prev.map(r =>
+      r.locked && r.baseQuantity !== undefined
+        ? { ...r, quantity: on ? applyAllowance(r.baseQuantity, r.unit, allowancePercent) : r.baseQuantity }
+        : r));
+  };
+
   const applyNormRows = (norm: CostNormResponse, dept: { id: string; name: string } | null) => {
     const qty = norm.contractQuantity;
     // Bo'lim sarlavhalarini va butunlay bo'sh qatorlarni chiqaramiz; totalQty
@@ -376,11 +405,13 @@ function RequisitionPrintContent() {
       // olmasa null qaytaradi — u holda eski xatti-harakat, yaxlitlash yo'q.
       const exact = ni.totalQty ? mulDecimalStr(ni.totalQty, qty) : null;
       const totalQtyNum = ni.totalQty ? parseFloat(ni.totalQty.replace(",", ".")) : NaN;
+      const base = exact ?? (Number.isFinite(totalQtyNum) ? String(totalQtyNum * qty) : "");
       return {
         id: Date.now() + idx,
         name: ni.name ?? ni.no ?? "",
         unit: ni.unit ?? "",
-        quantity: exact ?? (Number.isFinite(totalQtyNum) ? String(totalQtyNum * qty) : ""),
+        quantity: allowanceOn ? applyAllowance(base, ni.unit ?? "", allowancePercent) : base,
+        baseQuantity: base,
         spec: "",
         notes: "",
         image: ni.photoRaw ?? ni.photoSemi ?? "",
@@ -517,6 +548,7 @@ function RequisitionPrintContent() {
     setReqName("");
     setNameTouched(false);
     setNormDept(null);
+    setAllowanceOn(false);
     setTzFile(null);
     if (tzInputRef.current) tzInputRef.current.value = "";
     if (descRef.current) descRef.current.textContent = "";
@@ -767,6 +799,7 @@ function RequisitionPrintContent() {
         signerName: signerName.trim() || undefined,
         signerTitle: signerTitle || undefined,
         signDate: signDate || undefined,
+        allowancePercent: type === RequisitionType.Contract && allowanceOn && allowancePercent > 0 ? allowancePercent : undefined,
         items: filledRows.map((r, i) => ({
           freeTextName: r.name,
           freeTextUnit: r.unit,
@@ -801,9 +834,12 @@ function RequisitionPrintContent() {
       setSubmitStage(3);
       showToast(t("Talabnoma tizimda saqlandi"), "success");
       router.push("/requisitions");
-    } catch {
-      showToast(t("Xatolik yuz berdi"), t("Xatolik"));
+    } catch (e) {
+      showToast(apiErrorMessage(e, t("Xatolik yuz berdi")), t("Xatolik"));
       setSubmitStage(null);
+      // Foiz to'ldirish va yuborish oralig'ida o'zgargan bo'lishi mumkin — eski
+      // foiz bilan hisoblangan miqdorlar qaytariladi, foydalanuvchi qayta yoqadi.
+      if (allowanceOn && (await loadAllowancePercent()) !== allowancePercent) setAllowance(false);
     }
   };
 
@@ -1218,6 +1254,33 @@ function RequisitionPrintContent() {
                   )}
                 </span>
               </div>
+            )}
+
+            {allowancePercent > 0 && rows.some(r => r.locked) && (
+              <button
+                type="button"
+                onClick={() => setAllowance(!allowanceOn)}
+                aria-pressed={allowanceOn}
+                title={t("Brak va sifatsiz material uchun me'yorga qo'shimcha zaxira. Qog'ozga chiqmaydi.")}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px",
+                  background: allowanceOn ? "var(--warn-dim)" : "var(--bg3)",
+                  border: `1.5px solid ${allowanceOn ? "var(--warn)" : "var(--border)"}`,
+                  borderRadius: "var(--radius)", cursor: "pointer", whiteSpace: "nowrap",
+                  fontSize: 12, fontWeight: 600, color: allowanceOn ? "var(--warn)" : "var(--text2)",
+                  transition: "border-color 0.15s, color 0.15s, background 0.15s",
+                }}
+              >
+                <span style={{ width: 13, height: 13, borderRadius: 3, border: "1.5px solid currentColor", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  {allowanceOn && (
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </span>
+                <span style={{ fontFamily: "var(--font-mono)" }}>+{fmtDecimal(allowancePercent)}%</span>
+                {t("zaxira")}
+              </button>
             )}
             </>
           )}
