@@ -21,6 +21,10 @@ public class Requisition
     public string? Notes { get; set; }
     public string? RejectionReason { get; set; }
 
+    // Me'yoriy sarfga qo'shilgan zaxira foizi (yaratilgan paytdagi qiymat);
+    // null — aniq me'yor bo'yicha.
+    public decimal? AllowancePercent { get; set; }
+
     // Imzolash ma'lumotlari (blank forma uchun)
     public string? SignerName { get; set; }
     public string? SignerTitle { get; set; }

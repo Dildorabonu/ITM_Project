@@ -54,4 +54,7 @@ public enum PermissionModule
 
     [Display(Name = "Elektr energiya", Description = "zap")]
     Energy = 17,
+
+    [Display(Name = "Talabnoma zaxirasi", Description = "percent")]
+    RequisitionAllowance = 18,
 }

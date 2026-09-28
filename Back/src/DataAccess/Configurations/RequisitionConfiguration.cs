@@ -16,6 +16,7 @@ public class RequisitionConfiguration : IEntityTypeConfiguration<Requisition>
         builder.Property(r => r.Purpose).IsRequired().HasMaxLength(500);
         builder.Property(r => r.Notes).HasMaxLength(1000);
         builder.Property(r => r.RejectionReason).HasMaxLength(500);
+        builder.Property(r => r.AllowancePercent).HasPrecision(5, 2);
         builder.Property(r => r.QrCodeData).HasColumnType("text");
         builder.Property(r => r.WarehouseCheckQrCodeData).HasColumnType("text");
 

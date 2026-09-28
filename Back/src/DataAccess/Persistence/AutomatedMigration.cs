@@ -23,6 +23,7 @@ public static class AutomatedMigration
         await MigrateLegacyContractStatusesAsync(context);
         await BackfillProductQrCodesAsync(context);
         await SeedEnergyTariffAsync(context);
+        await SeedRequisitionAllowanceAsync(context);
     }
 
     /// <summary>
@@ -111,6 +112,7 @@ public static class AutomatedMigration
         [PermissionModule.ProductCatalog]     = [PermissionAction.View, PermissionAction.Create, PermissionAction.Update, PermissionAction.Delete],
         [PermissionModule.Employees]          = [PermissionAction.View],
         [PermissionModule.Energy]             = [PermissionAction.Update],
+        [PermissionModule.RequisitionAllowance] = [PermissionAction.Update],
     };
 
     private static async System.Threading.Tasks.Task SeedPermissionsAsync(DatabaseContext context)
@@ -489,6 +491,26 @@ public static class AutomatedMigration
             Currency = "so'm",
             EffectiveFrom = new DateTime(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc),
             Note = "Yuridik shaxslar uchun tarif (2026-yil 1-iyundan)",
+            CreatedAt = DateTime.UtcNow,
+        });
+
+        await context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Boshlang'ich zaxira foizi. Faqat jadval butunlay bo'sh bo'lsa yoziladi —
+    /// keyingi o'zgarishlar UI orqali tarixga qo'shiladi.
+    /// </summary>
+    private static async System.Threading.Tasks.Task SeedRequisitionAllowanceAsync(DatabaseContext context)
+    {
+        if (await context.RequisitionAllowanceRates.AnyAsync())
+            return;
+
+        context.RequisitionAllowanceRates.Add(new RequisitionAllowanceRate
+        {
+            Id = Guid.NewGuid(),
+            Percent = 3m,
+            Note = "Boshlang'ich qiymat",
             CreatedAt = DateTime.UtcNow,
         });
 
