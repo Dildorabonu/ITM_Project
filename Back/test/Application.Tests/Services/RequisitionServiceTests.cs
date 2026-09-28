@@ -536,6 +536,23 @@ public class RequisitionServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_NormWithAllowance_UnroundedPieceQuantity_ReturnsFailure()
+    {
+        await using var db = CreateDb();
+        var creator = SeedCreatorWithDept(db);
+        SeedAllowanceRate(db, 3m);
+        var contract = SeedContractWithNorm(db, 7, ("Петля универсальная", "шт", "2"));
+
+        // 2 × 7 = 14 → 14,42 — dona bo'linmaydi, butun songa yaxlitlanmagan miqdor rad etiladi
+        var result = await CreateService(db).CreateAsync(
+            NormRequisition(contract.Id, creator, 3m, ("Петля универсальная", "шт", 14.42m)), creator.Id);
+
+        result.Succeeded.Should().BeFalse();
+        result.Errors.Should().ContainSingle().Which.Should().Contain("me'yoriy sarfiga mos emas");
+        db.Requisitions.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task CreateAsync_AllowanceRequestedButExactQuantity_ReturnsFailure()
     {
         await using var db = CreateDb();

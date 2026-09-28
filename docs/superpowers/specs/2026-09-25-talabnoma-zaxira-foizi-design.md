@@ -254,6 +254,7 @@ Backend (`Back/test/Application.Tests`, TDD):
   - zaxirasiz, aniq me'yor → yaratiladi, `AllowancePercent = null`;
   - zaxira bilan, to'g'ri miqdor → yaratiladi, `AllowancePercent = 3`;
   - zaxira bilan, `шт` eng yaqin butun songa yaxlitlangan miqdor → yaratiladi;
+  - zaxira bilan, `шт` yaxlitlanmagan miqdor (14 → 14,42) → rad etiladi;
   - zaxira so'ralgan, miqdor aniq me'yor → rad etiladi;
   - klient foizi 3, amaldagi 5 → "Zaxira foizi o'zgargan" xatosi;
   - individual talabnoma + foiz → `AllowancePercent = null`;
