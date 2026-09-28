@@ -13,6 +13,7 @@ import {
 } from "@/lib/userService";
 import { RequisitionNo } from "@/app/_components/RequisitionNo";
 import { RequisitionStatusBadge } from "../_components/StatusBadge";
+import { AllowanceBadge } from "../_components/AllowanceBadge";
 import { WorkflowDiagram } from "../_components/WorkflowDiagram";
 import { RequisitionMovements } from "../_components/RequisitionMovements";
 import { downloadRequisitionPdf, openRequisitionPdfInNewTab } from "../_utils/downloadRequisitionPdf";
@@ -222,6 +223,7 @@ export default function RequisitionDetailPage() {
             {req.sourceLabel && <span style={{ marginLeft: 8, color: req.source === RequisitionSource.Warehouse ? "var(--success)" : "var(--accent)", fontWeight: 500 }}>· {t(req.sourceLabel)}</span>}
           </div>
         </div>
+        <AllowanceBadge percent={req.allowancePercent} />
         <RequisitionStatusBadge status={req.status} completed={isRequisitionCompleted(req.status, childStatusesOf(req))} rejected={isRequisitionRejected(req.status, childStatusesOf(req))} />
       </div>
 

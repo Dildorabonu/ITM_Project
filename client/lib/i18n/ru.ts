@@ -1396,5 +1396,6 @@ export const ru: Record<string, string> = {
   "kecha": "вчера",
   "kirilgan": "вход",
   "zaxira": "запас",
+  "Miqdorlarga me'yoriy sarfdan tashqari zaxira qo'shilgan": "К количествам добавлен запас сверх нормы расхода",
   "Brak va sifatsiz material uchun me'yorga qo'shimcha zaxira. Qog'ozga chiqmaydi.": "Дополнительный запас к норме на брак и некачественный материал. На бумагу не выводится.",
 };

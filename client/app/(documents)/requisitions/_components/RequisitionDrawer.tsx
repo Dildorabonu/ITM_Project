@@ -15,6 +15,7 @@ import { useToastStore } from "@/lib/store/toastStore";
 import { childStatusesOf, fmtDateTime, isRequisitionCompleted, isRequisitionRejected, REQUISITION_STATUS_LABELS } from "../_types";
 import { RequisitionNo } from "@/app/_components/RequisitionNo";
 import { RequisitionStatusBadge } from "./StatusBadge";
+import { AllowanceBadge } from "./AllowanceBadge";
 import { WorkflowDiagram } from "./WorkflowDiagram";
 import { approveWithPdf } from "../_utils/approveWithPdf";
 import { downloadRequisitionPdf, openRequisitionPdfInNewTab } from "../_utils/downloadRequisitionPdf";
@@ -238,6 +239,7 @@ export function RequisitionDrawer({ reqId, onClose, onUpdate }: Props) {
               {req.sourceLabel && <span style={{ marginLeft: 8, color: req.source === RequisitionSource.Warehouse ? "var(--success)" : "var(--accent)", fontWeight: 500 }}>· {t(req.sourceLabel)}</span>}
             </div>
           </div>
+          <AllowanceBadge percent={req.allowancePercent} />
           <RequisitionStatusBadge status={req.status} completed={isRequisitionCompleted(req.status, childStatusesOf(req))} rejected={isRequisitionRejected(req.status, childStatusesOf(req))} />
           <button
             onClick={onClose}
