@@ -842,10 +842,7 @@ function RequisitionPrintContent() {
       // foiz bilan hisoblangan miqdorlar qaytariladi, foydalanuvchi qayta yoqadi.
       if (allowanceOn) {
         const current = await loadAllowancePercent();
-        if (current !== null && current !== allowancePercent) {
-          setAllowance(false);
-          showToast(t("Zaxira o'chirildi — yangi foiz bilan qayta yoqing."), t("Xatolik"));
-        }
+        if (current !== null && current !== allowancePercent) setAllowance(false);
       }
     }
   };

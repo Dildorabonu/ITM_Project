@@ -1409,6 +1409,5 @@ export const ru: Record<string, string> = {
   "Zaxira foizi saqlandi.": "Процент запаса сохранён.",
   "Zaxira foizini saqlashda xatolik.": "Ошибка при сохранении процента запаса.",
   "Zaxira tarixini yuklashda xatolik.": "Ошибка при загрузке истории запаса.",
-  "Zaxira o'chirildi — yangi foiz bilan qayta yoqing.": "Запас отключён — включите его снова с новым процентом.",
   "Brak va sifatsiz material uchun me'yorga qo'shimcha zaxira. Qog'ozga chiqmaydi.": "Дополнительный запас к норме на брак и некачественный материал. На бумагу не выводится.",
 };

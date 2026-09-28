@@ -563,7 +563,7 @@ public class RequisitionServiceTests
 
         result.Succeeded.Should().BeFalse();
         result.Errors.Should().ContainSingle()
-            .Which.Should().Be("Zaxira foizi o'zgargan (hozir 5%) — me'yoriy sarfdan qayta to'ldiring.");
+            .Which.Should().Be("Zaxira foizi o'zgargan (hozir 5%) — zaxirani yangi foiz bilan qayta yoqing.");
         db.Requisitions.Should().BeEmpty();
     }
 

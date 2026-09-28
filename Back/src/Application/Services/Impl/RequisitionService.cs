@@ -366,7 +366,7 @@ public class RequisitionService : IRequisitionService
                 var current = await _allowanceService.GetCurrentPercentAsync();
                 if (current == 0 || current != requested)
                     return ApiResult<Guid>.Failure([
-                        $"Zaxira foizi o'zgargan (hozir {current.ToString("0.##", CultureInfo.InvariantCulture)}%) — me'yoriy sarfdan qayta to'ldiring."]);
+                        $"Zaxira foizi o'zgargan (hozir {current.ToString("0.##", CultureInfo.InvariantCulture)}%) — zaxirani yangi foiz bilan qayta yoqing."]);
                 allowancePercent = current;
             }
 

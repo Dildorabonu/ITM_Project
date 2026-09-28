@@ -144,7 +144,7 @@ POST validatsiyasi (`ApiResult.Failure`, 400):
    `AllowancePercent = null`.
 2. Aks holda amaldagi foiz bazadan olinadi:
    - amaldagi foiz `0` yoki klient qiymatiga teng emas → xato:
-     `"Zaxira foizi o'zgargan (hozir {amaldagi}%) — me'yoriy sarfdan qayta to'ldiring."`
+     `"Zaxira foizi o'zgargan (hozir {amaldagi}%) — zaxirani yangi foiz bilan qayta yoqing."`
    - teng → me'yor tekshiruvi zaxira bilan bajariladi.
 3. `ValidateItemsAgainstCostNormAsync` / `MatchesNorm` / `LineMatchesItem` ga foiz
    parametri qo'shiladi (`decimal? percent`): kutilgan miqdor
