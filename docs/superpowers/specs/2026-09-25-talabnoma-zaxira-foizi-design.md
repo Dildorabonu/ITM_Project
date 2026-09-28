@@ -45,9 +45,13 @@ zaxira bilan: miqdor = TotalQty × son × (1 + foiz / 100)
 - Birlik `шт`, `шт.`, `дона` yoki `dona` bo'lsa (katta-kichik harf farqsiz, bo'shliqlar
   kesiladi) — zaxirali natija **yuqoriga** butun songa yaxlitlanadi: 14,42 → 15.
   Material kam chiqmasligi uchun doim yuqoriga.
-- Boshqa birliklar (кг, м, м2, ...) — aniq o'nlik, yaxlitlashsiz: 75 × 1,03 = 77,25.
-- Zaxirasiz holatda yaxlitlash qilinmaydi — hozirgi xatti-harakat saqlanadi.
-- Foiz 0 bo'lsa natija `TotalQty × son` bilan bir xil.
+- Boshqa birliklar (кг, м, м2, ...) — aniq o'nlik: 75 × 1,03 = 77,25.
+- Natija — zaxirali ham, zaxirasiz ham — 4 kasr xonagacha **yuqoriga** yaxlitlanadi:
+  `RequisitionItem.Quantity` bazada `numeric(18,4)`, ortiqcha xonani baza o'zi
+  yaxlitlasa PDF'da 429,12375, bazada 429,1238 chiqadi. 416,625 × 1,03 → 429,1238;
+  zaxirasiz 0,00021 → 0,0003.
+- Zaxirasiz holatda dona butun songa yaxlitlanmaydi.
+- Foiz 0 bo'lsa natija 4 xonaga yaxlitlangan `TotalQty × son`.
 
 Qoida ikki joyda bir xil amalga oshiriladi: backend `NormAllowance.Apply` va frontend
 `applyAllowance`. Tekshiruvda backendniki hal qiluvchi.
@@ -233,7 +237,7 @@ keladi va boshqa modullar kabi tarjima qilinmaydi (backend ma'lumoti).
 Backend (`Back/test/Application.Tests`, TDD):
 
 - `NormAllowanceTests`:
-  - кг: `75, 3%` → `77.25`;
+  - кг: `75, 3%` → `77.25`; `416.625, 3%` → `429.1238`; `0.00021, 0%` → `0.0003`;
   - шт: `14, 3%` → `15`; `1000, 3%` → `1030`;
   - `дона`, `" ШТ. "` — yuqoriga yaxlitlanadi;
   - `0%` → o'zgarmaydi.

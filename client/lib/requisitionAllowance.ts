@@ -32,8 +32,11 @@ export function isPieceUnit(unit: string | null | undefined): boolean {
   return PIECE_UNITS.has((unit ?? "").trim().toLowerCase().replace(/\.+$/, ""));
 }
 
-export function applyAllowance(baseQty: string, unit: string, percent: number): string {
-  if (!percent || !baseQty) return baseQty;
+// RequisitionItem.Quantity bazada numeric(18,4) — natija shu aniqlikka yuqoriga
+// yaxlitlanadi, aks holda PDF'dagi son bazadagidan farq qiladi.
+const STORED_SCALE = 4;
+
+function raiseByPercent(baseQty: string, unit: string, percent: number): string {
   const raised = addPercentStr(baseQty, percent);
   if (raised === null) {
     const n = Number(baseQty) * (1 + percent / 100);
@@ -41,4 +44,11 @@ export function applyAllowance(baseQty: string, unit: string, percent: number): 
     return String(isPieceUnit(unit) ? Math.ceil(n) : n);
   }
   return isPieceUnit(unit) ? (ceilDecimalStr(raised) ?? raised) : raised;
+}
+
+// percent = 0 — zaxirasiz me'yor miqdori, u ham bazadagi aniqlikka keltiriladi.
+export function applyAllowance(baseQty: string, unit: string, percent: number): string {
+  if (!baseQty) return baseQty;
+  const qty = percent ? raiseByPercent(baseQty, unit, percent) : baseQty;
+  return ceilDecimalStr(qty, STORED_SCALE) ?? qty;
 }

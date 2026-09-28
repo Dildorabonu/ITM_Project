@@ -389,7 +389,7 @@ function RequisitionPrintContent() {
     setAllowanceOn(on);
     setRows(prev => prev.map(r =>
       r.locked && r.baseQuantity !== undefined
-        ? { ...r, quantity: on ? applyAllowance(r.baseQuantity, r.unit, allowancePercent) : r.baseQuantity }
+        ? { ...r, quantity: applyAllowance(r.baseQuantity, r.unit, on ? allowancePercent : 0) }
         : r));
   };
 
@@ -411,7 +411,7 @@ function RequisitionPrintContent() {
         id: Date.now() + idx,
         name: ni.name ?? ni.no ?? "",
         unit: ni.unit ?? "",
-        quantity: allowanceOn ? applyAllowance(base, ni.unit ?? "", allowancePercent) : base,
+        quantity: applyAllowance(base, ni.unit ?? "", allowanceOn ? allowancePercent : 0),
         baseQuantity: base,
         spec: "",
         notes: "",

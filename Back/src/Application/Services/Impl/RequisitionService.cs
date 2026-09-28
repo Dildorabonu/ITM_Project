@@ -490,8 +490,8 @@ public class RequisitionService : IRequisitionService
     // bilan solishtiradi. Kamida bitta me'yorga to'liq mos kelsa null (xatosiz),
     // aks holda xato matni qaytadi. Frontend "Me'yoriy sarfdan to'ldirish" bilan
     // bir xil mantiq: section bo'lmagan, nomi bor qatorlar; bo'limlar biriktirilgan
-    // me'yorda faqat yaratuvchi bo'limining qatorlari; miqdor = TotalQty × mahsulot soni
-    // (zaxira bo'lsa NormAllowance bilan oshirilgan).
+    // me'yorda faqat yaratuvchi bo'limining qatorlari; miqdor = TotalQty × mahsulot soni,
+    // NormAllowance qoidasi bilan (zaxira va bazadagi aniqlikka yaxlitlash).
     private async Task<string?> ValidateItemsAgainstCostNormAsync(RequisitionCreateDto dto, Guid creatorDeptId, decimal? allowancePercent)
     {
         // Taqqoslashda me'yorning faqat 5 ta ustuni ishlatiladi — butun CostNorm va
@@ -565,9 +565,7 @@ public class RequisitionService : IRequisitionService
                 System.Globalization.CultureInfo.InvariantCulture,
                 out var totalQty))
         {
-            var expected = totalQty * contractQty;
-            if (allowancePercent is { } percent)
-                expected = NormAllowance.Apply(expected, line.Unit, percent);
+            var expected = NormAllowance.Apply(totalQty * contractQty, line.Unit, allowancePercent ?? 0);
             var tolerance = 0.01m + Math.Abs(expected) * 0.0001m;
             if (Math.Abs(item.Quantity - expected) > tolerance)
                 return false;

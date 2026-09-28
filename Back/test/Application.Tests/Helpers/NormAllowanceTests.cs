@@ -8,7 +8,8 @@ public class NormAllowanceTests
 {
     [Theory]
     [InlineData(75, "кг", 3, 77.25)]
-    [InlineData(0.007, "кг", 3, 0.00721)]
+    [InlineData(0.007, "кг", 3, 0.0073)]
+    [InlineData(416.625, "кг", 3, 429.1238)]
     [InlineData(10, "м2", 2.5, 10.25)]
     [InlineData(14, "шт", 3, 15)]
     [InlineData(1000, "шт", 3, 1030)]
@@ -24,6 +25,12 @@ public class NormAllowanceTests
     public void Apply_ZeroPercent_ReturnsQuantityUnchanged()
     {
         NormAllowance.Apply(14.5m, "шт", 0m).Should().Be(14.5m);
+    }
+
+    [Fact]
+    public void Apply_ZeroPercent_RoundsUpToStoredScale()
+    {
+        NormAllowance.Apply(0.00021m, "кг", 0m).Should().Be(0.0003m);
     }
 
     [Theory]

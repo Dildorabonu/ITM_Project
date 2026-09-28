@@ -97,11 +97,19 @@ export function addPercentStr(value: number | string, percent: number): string |
   return scaled === null ? null : mulDecimalStr(scaled, "0.0001");
 }
 
-/** O'nlik satrni yuqoriga butun songa yaxlitlaydi: `"14.42"` → `"15"`, `"1030"` → `"1030"`. */
-export function ceilDecimalStr(value: number | string): string | null {
+/**
+ * O'nlik satrni `scale` kasr xonagacha yuqoriga yaxlitlaydi:
+ * `ceilDecimalStr("14.42")` → `"15"`, `ceilDecimalStr("429.12375", 4)` → `"429.1238"`.
+ */
+export function ceilDecimalStr(value: number | string, scale = 0): string | null {
   const d = parseDec(value);
   if (!d) return null;
-  const [int, frac = ""] = composeDec(false, d.digits, d.scale).split(".");
-  if (d.neg) return int === "0" ? "0" : `-${int}`;
-  return /[1-9]/.test(frac) ? String(Number(int) + 1) : int;
+  if (d.scale <= scale) return composeDec(d.neg, d.digits, d.scale);
+
+  const cut = d.digits.length - (d.scale - scale);
+  const kept = cut > 0 ? d.digits.slice(0, cut) : "0";
+  const dropped = cut > 0 ? d.digits.slice(cut) : d.digits;
+  const up = !d.neg && /[1-9]/.test(dropped);
+  const digits = up ? String(Number(kept) + 1) : kept;
+  return composeDec(d.neg, digits, scale);
 }
