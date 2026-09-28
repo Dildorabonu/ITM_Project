@@ -5,6 +5,7 @@ using Core.Entities;
 using Core.Enums;
 using DataAccess.Persistence;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -16,12 +17,18 @@ public class RequisitionService : IRequisitionService
     private readonly DatabaseContext _context;
     private readonly INotificationService _notificationService;
     private readonly IQrCodeService _qrCodeService;
+    private readonly IRequisitionAllowanceService _allowanceService;
 
-    public RequisitionService(DatabaseContext context, INotificationService notificationService, IQrCodeService qrCodeService)
+    public RequisitionService(
+        DatabaseContext context,
+        INotificationService notificationService,
+        IQrCodeService qrCodeService,
+        IRequisitionAllowanceService allowanceService)
     {
         _context = context;
         _notificationService = notificationService;
         _qrCodeService = qrCodeService;
+        _allowanceService = allowanceService;
     }
 
     // Navbat ekranlari (ombor tekshiruvi, tasdiqlash, xarid qabuli) uchun.
@@ -260,6 +267,7 @@ public class RequisitionService : IRequisitionService
                 ParentRequisitionId = r.ParentRequisitionId,
                 ParentRequisitionNo = r.Parent != null ? r.Parent.RequisitionNo : null,
                 Source = r.Source,
+                AllowancePercent = r.AllowancePercent,
                 Children = r.Children.Select(c => new RequisitionChildSummaryDto
                 {
                     Id = c.Id,
@@ -350,9 +358,19 @@ public class RequisitionService : IRequisitionService
         // Shartnoma tipida materiallar erkin kiritilmaydi — jadval shartnomaning
         // me'yoriy sarfidan to'ldirilgan bo'lishi shart (nomi, birligi, miqdori
         // va qatorlar to'plami me'yorga aynan mos kelishi tekshiriladi).
+        decimal? allowancePercent = null;
         if (dto.Type == RequisitionType.Contract)
         {
-            var normError = await ValidateItemsAgainstCostNormAsync(dto, creator.DepartmentId.Value);
+            if (dto.AllowancePercent is { } requested && requested != 0)
+            {
+                var current = await _allowanceService.GetCurrentPercentAsync();
+                if (current == 0 || current != requested)
+                    return ApiResult<Guid>.Failure([
+                        $"Zaxira foizi o'zgargan (hozir {current.ToString("0.##", CultureInfo.InvariantCulture)}%) — me'yoriy sarfdan qayta to'ldiring."]);
+                allowancePercent = current;
+            }
+
+            var normError = await ValidateItemsAgainstCostNormAsync(dto, creator.DepartmentId.Value, allowancePercent);
             if (normError is not null)
                 return ApiResult<Guid>.Failure([normError]);
         }
@@ -379,6 +397,7 @@ public class RequisitionService : IRequisitionService
             SignerName = dto.SignerName,
             SignerTitle = dto.SignerTitle,
             SignDate = dto.SignDate,
+            AllowancePercent = allowancePercent,
             CreatedBy = createdBy,
             Items = dto.Items.Select(i => new RequisitionItem
             {
@@ -471,8 +490,9 @@ public class RequisitionService : IRequisitionService
     // bilan solishtiradi. Kamida bitta me'yorga to'liq mos kelsa null (xatosiz),
     // aks holda xato matni qaytadi. Frontend "Me'yoriy sarfdan to'ldirish" bilan
     // bir xil mantiq: section bo'lmagan, nomi bor qatorlar; bo'limlar biriktirilgan
-    // me'yorda faqat yaratuvchi bo'limining qatorlari; miqdor = TotalQty × mahsulot soni.
-    private async Task<string?> ValidateItemsAgainstCostNormAsync(RequisitionCreateDto dto, Guid creatorDeptId)
+    // me'yorda faqat yaratuvchi bo'limining qatorlari; miqdor = TotalQty × mahsulot soni
+    // (zaxira bo'lsa NormAllowance bilan oshirilgan).
+    private async Task<string?> ValidateItemsAgainstCostNormAsync(RequisitionCreateDto dto, Guid creatorDeptId, decimal? allowancePercent)
     {
         // Taqqoslashda me'yorning faqat 5 ta ustuni ishlatiladi — butun CostNorm va
         // CostNormItem entitylarini (ContractProduct grafi bilan birga) tortish o'rniga
@@ -490,7 +510,7 @@ public class RequisitionService : IRequisitionService
         if (norms.Count == 0)
             return "Bu shartnoma uchun me'yoriy sarf topilmadi — shartnoma tipidagi talabnoma faqat me'yoriy sarf asosida yaratiladi.";
 
-        if (norms.Any(n => MatchesNorm(n, dto.Items, creatorDeptId)))
+        if (norms.Any(n => MatchesNorm(n, dto.Items, creatorDeptId, allowancePercent)))
             return null;
 
         return "Talabnoma materiallari shartnoma me'yoriy sarfiga mos emas — materiallar me'yoriy sarfdan o'zgartirilmasdan olinishi kerak.";
@@ -500,7 +520,7 @@ public class RequisitionService : IRequisitionService
     private sealed record NormLine(string? Name, string? No, string? Unit, string? TotalQty, Guid? DepartmentId);
     private sealed record NormShape(int ContractQty, List<NormLine> Lines);
 
-    private static bool MatchesNorm(NormShape norm, List<RequisitionItemCreateDto> items, Guid creatorDeptId)
+    private static bool MatchesNorm(NormShape norm, List<RequisitionItemCreateDto> items, Guid creatorDeptId, decimal? allowancePercent)
     {
         // Frontend row.name = name ?? no bo'yicha to'ldiradi va bo'sh nomli qatorlarni
         // saqlamaydi — shuning uchun shu ko'rinishda bo'sh bo'lmagan qatorlargina olinadi.
@@ -517,14 +537,14 @@ public class RequisitionService : IRequisitionService
         var pool = new List<NormLine>(lines);
         foreach (var item in items)
         {
-            var idx = pool.FindIndex(l => LineMatchesItem(l, item, norm.ContractQty));
+            var idx = pool.FindIndex(l => LineMatchesItem(l, item, norm.ContractQty, allowancePercent));
             if (idx < 0) return false;
             pool.RemoveAt(idx);
         }
         return true;
     }
 
-    private static bool LineMatchesItem(NormLine line, RequisitionItemCreateDto item, int contractQty)
+    private static bool LineMatchesItem(NormLine line, RequisitionItemCreateDto item, int contractQty, decimal? allowancePercent)
     {
         var lineName = (line.Name ?? line.No ?? "").Trim();
         var itemName = (item.FreeTextName ?? "").Trim();
@@ -546,6 +566,8 @@ public class RequisitionService : IRequisitionService
                 out var totalQty))
         {
             var expected = totalQty * contractQty;
+            if (allowancePercent is { } percent)
+                expected = NormAllowance.Apply(expected, line.Unit, percent);
             var tolerance = 0.01m + Math.Abs(expected) * 0.0001m;
             if (Math.Abs(item.Quantity - expected) > tolerance)
                 return false;
@@ -751,6 +773,7 @@ public class RequisitionService : IRequisitionService
                 SignDate = parent.SignDate,
                 ParentRequisitionId = parent.Id,
                 Source = RequisitionSource.Warehouse,
+                AllowancePercent = parent.AllowancePercent,
                 CreatedBy = parent.CreatedBy,
                 WarehouseCheckedBy = parent.WarehouseCheckedBy,
                 WarehouseCheckedAt = parent.WarehouseCheckedAt,
@@ -776,6 +799,7 @@ public class RequisitionService : IRequisitionService
                 SignDate = parent.SignDate,
                 ParentRequisitionId = parent.Id,
                 Source = RequisitionSource.Purchase,
+                AllowancePercent = parent.AllowancePercent,
                 CreatedBy = parent.CreatedBy,
                 WarehouseCheckedBy = parent.WarehouseCheckedBy,
                 WarehouseCheckedAt = parent.WarehouseCheckedAt,
@@ -1382,6 +1406,7 @@ public class RequisitionService : IRequisitionService
             Status = r.Status,
             ContractNo = r.Contract != null ? r.Contract.ContractNo : null,
             DepartmentName = r.Department != null ? r.Department.Name : null,
+            AllowancePercent = r.AllowancePercent,
             CreatedByName = r.Creator != null ? r.Creator.FirstName + " " + r.Creator.LastName : string.Empty,
             CreatedAt = r.CreatedAt,
             CompletedAt = r.Children.Any() ? r.Children.Max(c => c.CompletedAt) : r.CompletedAt,

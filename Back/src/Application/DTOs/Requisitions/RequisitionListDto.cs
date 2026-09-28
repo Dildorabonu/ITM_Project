@@ -19,6 +19,8 @@ public class RequisitionListDto
     public string? ContractNo { get; set; }
     public string? DepartmentName { get; set; }
 
+    public decimal? AllowancePercent { get; set; }
+
     public string CreatedByName { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
 

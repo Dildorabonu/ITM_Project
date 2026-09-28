@@ -44,7 +44,7 @@ public class RequisitionServiceTests
     private static RequisitionService CreateService(DatabaseContext db, Mock<INotificationService>? notifications = null)
     {
         notifications ??= new Mock<INotificationService>();
-        return new RequisitionService(db, notifications.Object, new Mock<IQrCodeService>().Object);
+        return new RequisitionService(db, notifications.Object, new Mock<IQrCodeService>().Object, new RequisitionAllowanceService(db));
     }
 
     private static Department SeedDept(
@@ -189,6 +189,77 @@ public class RequisitionServiceTests
         var perm = TestData.SeedPermission(db, PermissionModule.Requisitions, PermissionAction.WarehouseCheck);
         TestData.AttachPermissions(db, role.Id, perm.Id);
         return TestData.SeedUser(db, login: login, roleId: role.Id);
+    }
+
+    private static void SeedAllowanceRate(DatabaseContext db, decimal percent)
+    {
+        db.RequisitionAllowanceRates.Add(new RequisitionAllowanceRate
+        {
+            Id = Guid.NewGuid(),
+            Percent = percent,
+            CreatedAt = DateTime.UtcNow,
+        });
+        db.SaveChanges();
+    }
+
+    /// <summary>
+    /// Shartnoma + bitta mahsulot (soni productQty) + bo'limga biriktirilmagan
+    /// me'yoriy sarf qatorlari.
+    /// </summary>
+    private static Contract SeedContractWithNorm(
+        DatabaseContext db, int productQty, params (string Name, string Unit, string? TotalQty)[] lines)
+    {
+        var contract = SeedContract(db);
+        var product = new ContractProduct
+        {
+            Id = Guid.NewGuid(),
+            ContractId = contract.Id,
+            ProductType = "Mahsulot",
+            Quantity = productQty,
+            Unit = "dona",
+        };
+        db.ContractProducts.Add(product);
+        db.CostNorms.Add(new CostNorm
+        {
+            Id = Guid.NewGuid(),
+            ContractId = contract.Id,
+            ContractProductId = product.Id,
+            Title = "Me'yor",
+            CreatedBy = Guid.NewGuid(),
+            Items = lines.Select((l, i) => new CostNormItem
+            {
+                Id = Guid.NewGuid(),
+                Name = l.Name,
+                Unit = l.Unit,
+                TotalQty = l.TotalQty,
+                SortOrder = i,
+            }).ToList(),
+        });
+        db.SaveChanges();
+        return contract;
+    }
+
+    // DepartmentId ikkala tipda ham majburiy va yaratuvchining o'z bo'limi bo'lishi shart.
+    private static RequisitionCreateDto NormRequisition(
+        Guid contractId, User creator, decimal? allowancePercent, params (string Name, string Unit, decimal Quantity)[] items) => new()
+    {
+        Type = RequisitionType.Contract,
+        ContractId = contractId,
+        DepartmentId = creator.DepartmentId,
+        Purpose = "Test",
+        AllowancePercent = allowancePercent,
+        Items = items.Select(i => new RequisitionItemCreateDto
+        {
+            FreeTextName = i.Name,
+            FreeTextUnit = i.Unit,
+            Quantity = i.Quantity,
+        }).ToList(),
+    };
+
+    private static User SeedCreatorWithDept(DatabaseContext db)
+    {
+        var dept = SeedDept(db);
+        return TestData.SeedUser(db, login: "creator", departmentId: dept.Id);
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -416,6 +487,155 @@ public class RequisitionServiceTests
     }
 
     // ─────────────────────────────────────────────────────────────────────
+    //  CreateAsync — me'yoriy sarf va zaxira foizi
+    // ─────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task CreateAsync_NormWithoutAllowance_AcceptsExactQuantity()
+    {
+        await using var db = CreateDb();
+        var creator = SeedCreatorWithDept(db);
+        SeedAllowanceRate(db, 3m);
+        var contract = SeedContractWithNorm(db, 500, ("Круг сталь Ст3", "кг", "0,15"));
+
+        var result = await CreateService(db).CreateAsync(
+            NormRequisition(contract.Id, creator, null, ("Круг сталь Ст3", "кг", 75m)), creator.Id);
+
+        result.Succeeded.Should().BeTrue();
+        (await db.Requisitions.SingleAsync()).AllowancePercent.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_NormWithAllowance_AcceptsRaisedQuantityAndStoresPercent()
+    {
+        await using var db = CreateDb();
+        var creator = SeedCreatorWithDept(db);
+        SeedAllowanceRate(db, 3m);
+        var contract = SeedContractWithNorm(db, 500, ("Круг сталь Ст3", "кг", "0,15"));
+
+        var result = await CreateService(db).CreateAsync(
+            NormRequisition(contract.Id, creator, 3m, ("Круг сталь Ст3", "кг", 77.25m)), creator.Id);
+
+        result.Succeeded.Should().BeTrue();
+        (await db.Requisitions.SingleAsync()).AllowancePercent.Should().Be(3m);
+    }
+
+    [Fact]
+    public async Task CreateAsync_NormWithAllowance_RoundsPieceUnitsUp()
+    {
+        await using var db = CreateDb();
+        var creator = SeedCreatorWithDept(db);
+        SeedAllowanceRate(db, 3m);
+        var contract = SeedContractWithNorm(db, 7, ("Петля универсальная", "шт", "2"));
+
+        // 2 × 7 = 14 → 14 × 1,03 = 14,42 → yuqoriga 15
+        var result = await CreateService(db).CreateAsync(
+            NormRequisition(contract.Id, creator, 3m, ("Петля универсальная", "шт", 15m)), creator.Id);
+
+        result.Succeeded.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CreateAsync_AllowanceRequestedButExactQuantity_ReturnsFailure()
+    {
+        await using var db = CreateDb();
+        var creator = SeedCreatorWithDept(db);
+        SeedAllowanceRate(db, 3m);
+        var contract = SeedContractWithNorm(db, 500, ("Круг сталь Ст3", "кг", "0,15"));
+
+        var result = await CreateService(db).CreateAsync(
+            NormRequisition(contract.Id, creator, 3m, ("Круг сталь Ст3", "кг", 75m)), creator.Id);
+
+        result.Succeeded.Should().BeFalse();
+        result.Errors.Should().ContainSingle().Which.Should().Contain("me'yoriy sarfiga mos emas");
+    }
+
+    [Fact]
+    public async Task CreateAsync_AllowancePercentOutdated_ReturnsFailure()
+    {
+        await using var db = CreateDb();
+        var creator = SeedCreatorWithDept(db);
+        SeedAllowanceRate(db, 5m);
+        var contract = SeedContractWithNorm(db, 500, ("Круг сталь Ст3", "кг", "0,15"));
+
+        var result = await CreateService(db).CreateAsync(
+            NormRequisition(contract.Id, creator, 3m, ("Круг сталь Ст3", "кг", 77.25m)), creator.Id);
+
+        result.Succeeded.Should().BeFalse();
+        result.Errors.Should().ContainSingle()
+            .Which.Should().Be("Zaxira foizi o'zgargan (hozir 5%) — me'yoriy sarfdan qayta to'ldiring.");
+        db.Requisitions.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task CreateAsync_AllowanceWhenCurrentIsZero_ReturnsFailure()
+    {
+        await using var db = CreateDb();
+        var creator = SeedCreatorWithDept(db);
+        var contract = SeedContractWithNorm(db, 500, ("Круг сталь Ст3", "кг", "0,15"));
+
+        var result = await CreateService(db).CreateAsync(
+            NormRequisition(contract.Id, creator, 3m, ("Круг сталь Ст3", "кг", 77.25m)), creator.Id);
+
+        result.Succeeded.Should().BeFalse();
+        result.Errors.Should().ContainSingle().Which.Should().Contain("hozir 0%");
+    }
+
+    [Fact]
+    public async Task CreateAsync_AllowanceZero_TreatedAsWithoutAllowance()
+    {
+        await using var db = CreateDb();
+        var creator = SeedCreatorWithDept(db);
+        SeedAllowanceRate(db, 3m);
+        var contract = SeedContractWithNorm(db, 500, ("Круг сталь Ст3", "кг", "0,15"));
+
+        var result = await CreateService(db).CreateAsync(
+            NormRequisition(contract.Id, creator, 0m, ("Круг сталь Ст3", "кг", 75m)), creator.Id);
+
+        result.Succeeded.Should().BeTrue();
+        (await db.Requisitions.SingleAsync()).AllowancePercent.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_NormLineWithoutTotalQty_WithAllowance_Succeeds()
+    {
+        await using var db = CreateDb();
+        var creator = SeedCreatorWithDept(db);
+        SeedAllowanceRate(db, 3m);
+        var contract = SeedContractWithNorm(db, 500,
+            ("Круг сталь Ст3", "кг", "0,15"),
+            ("Краска Хаки", "кг", null));
+
+        // TotalQty bo'sh qatorga frontend 1 yuboradi — miqdori tekshirilmaydi.
+        var result = await CreateService(db).CreateAsync(
+            NormRequisition(contract.Id, creator, 3m,
+                ("Круг сталь Ст3", "кг", 77.25m),
+                ("Краска Хаки", "кг", 1m)), creator.Id);
+
+        result.Succeeded.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CreateAsync_IndividualWithAllowance_StoresNull()
+    {
+        await using var db = CreateDb();
+        var dept = SeedDept(db);
+        var creator = TestData.SeedUser(db, login: "creator", departmentId: dept.Id);
+        SeedAllowanceRate(db, 3m);
+
+        var result = await CreateService(db).CreateAsync(new RequisitionCreateDto
+        {
+            Type = RequisitionType.Individual,
+            DepartmentId = dept.Id,
+            AllowancePercent = 3m,
+            Items = [new RequisitionItemCreateDto { FreeTextName = "Sement", Quantity = 1m }],
+        }, creator.Id);
+
+        result.Succeeded.Should().BeTrue();
+        (await db.Requisitions.SingleAsync()).AllowancePercent.Should().BeNull();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
     //  GetAllAsync / GetByIdAsync
     // ─────────────────────────────────────────────────────────────────────
 
@@ -500,6 +720,20 @@ public class RequisitionServiceTests
         dto.Status.Should().Be(RequisitionStatus.PendingApproval);
         dto.StatusLabel.Should().Be("Tasdiqlash kutilmoqda");
         dto.CreatedByName.Should().Be("Aleks Petrov");
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_ReturnsAllowancePercent()
+    {
+        await using var db = CreateDb();
+        var creator = TestData.SeedUser(db, login: "alex");
+        var req = SeedParentRequisition(db, creator.Id, no: "REQ-A");
+        req.AllowancePercent = 3m;
+        db.SaveChanges();
+
+        var result = await CreateService(db).GetByIdAsync(req.Id);
+
+        result.Result!.AllowancePercent.Should().Be(3m);
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -681,6 +915,35 @@ public class RequisitionServiceTests
         children.Single(c => c.Source == RequisitionSource.Purchase).Items.Single().Quantity.Should().Be(20m);
         children.Single(c => c.Source == RequisitionSource.Warehouse).RequisitionNo.Should().EndWith("-W");
         children.Single(c => c.Source == RequisitionSource.Purchase).RequisitionNo.Should().EndWith("-P");
+    }
+
+    [Fact]
+    public async Task WarehouseCheckAsync_ChildrenInheritAllowancePercent()
+    {
+        await using var db = CreateDb();
+        var creator = TestData.SeedUser(db, login: "c");
+        var checker = TestData.SeedUser(db, login: "ch");
+        var warehouse = SeedDept(db, name: "Korxona", type: DepartmentType.Omborxona);
+        SeedProduct(db, warehouse.Id, name: "Sement", quantity: 100m);
+        var req = SeedParentRequisition(db, creator.Id,
+            items: [MakeItem(quantity: 30m, freeName: "Sement")]);
+        req.AllowancePercent = 3m;
+        db.SaveChanges();
+
+        var result = await CreateService(db).WarehouseCheckAsync(req.Id,
+            new RequisitionWarehouseCheckDto
+            {
+                Items = [new RequisitionWarehouseCheckItemDto
+                {
+                    ItemId = req.Items.First().Id,
+                    AvailableQuantity = 10m,
+                }],
+            }, checker.Id);
+
+        result.Succeeded.Should().BeTrue();
+        db.Requisitions.Where(r => r.ParentRequisitionId == req.Id).ToList()
+            .Should().HaveCount(2)
+            .And.OnlyContain(c => c.AllowancePercent == 3m);
     }
 
     [Fact]
@@ -1102,6 +1365,20 @@ public class RequisitionServiceTests
     // ─────────────────────────────────────────────────────────────────────
 
     private static PaginationParams Page1(int size = 20) => new() { Page = 1, PageSize = size };
+
+    [Fact]
+    public async Task GetPagedAsync_ReturnsAllowancePercent()
+    {
+        await using var db = CreateDb();
+        var creator = TestData.SeedUser(db, login: "alex");
+        var req = SeedParentRequisition(db, creator.Id, no: "REQ-A");
+        req.AllowancePercent = 3m;
+        db.SaveChanges();
+
+        var result = await CreateService(db).GetPagedAsync(creator.Id, viewAll: true, Page1());
+
+        result.Result!.Items.Single().AllowancePercent.Should().Be(3m);
+    }
 
     [Fact]
     public async Task GetPagedAsync_ActiveView_KeepsApprovedButUnfulfilled()

@@ -21,6 +21,9 @@ public class RequisitionResponseDto
     public string? Notes { get; set; }
     public string? RejectionReason { get; set; }
 
+    // Me'yorga qo'shilgan zaxira foizi; null — aniq me'yor.
+    public decimal? AllowancePercent { get; set; }
+
     // Imzolash ma'lumotlari
     public string? SignerName { get; set; }
     public string? SignerTitle { get; set; }

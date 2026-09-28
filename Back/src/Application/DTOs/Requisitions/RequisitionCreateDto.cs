@@ -24,5 +24,9 @@ public class RequisitionCreateDto
     public string? SignerTitle { get; set; }
     public string? SignDate { get; set; }
 
+    // Klient qo'llagan zaxira foizi; null yoki 0 — aniq me'yor. Faqat moslik
+    // tekshiruvi uchun: hisob-kitob bazadagi amaldagi foiz bilan bajariladi.
+    public decimal? AllowancePercent { get; set; }
+
     public List<RequisitionItemCreateDto> Items { get; set; } = [];
 }
