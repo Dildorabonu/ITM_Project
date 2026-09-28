@@ -87,3 +87,21 @@ export function fmtDecimal(value: number | string | null | undefined): string {
   if (!d) return String(value);
   return composeDec(d.neg, d.digits, d.scale);
 }
+
+/**
+ * `value × (1 + percent / 100)` ni **aniq** hisoblaydi: `addPercentStr("75", 3) === "77.25"`.
+ * Foiz bazis punktga (1/100 %) aylantiriladi — 2 xonali kasrgacha aniq.
+ */
+export function addPercentStr(value: number | string, percent: number): string | null {
+  const scaled = mulDecimalStr(value, 10000 + Math.round(percent * 100));
+  return scaled === null ? null : mulDecimalStr(scaled, "0.0001");
+}
+
+/** O'nlik satrni yuqoriga butun songa yaxlitlaydi: `"14.42"` → `"15"`, `"1030"` → `"1030"`. */
+export function ceilDecimalStr(value: number | string): string | null {
+  const d = parseDec(value);
+  if (!d) return null;
+  const [int, frac = ""] = composeDec(false, d.digits, d.scale).split(".");
+  if (d.neg) return int === "0" ? "0" : `-${int}`;
+  return /[1-9]/.test(frac) ? String(Number(int) + 1) : int;
+}

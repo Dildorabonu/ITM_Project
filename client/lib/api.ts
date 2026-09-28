@@ -106,3 +106,9 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+/** Backend ApiResult xato matnini oladi — topilmasa `fallback` qaytariladi. */
+export function apiErrorMessage(e: unknown, fallback: string): string {
+  const msg = (e as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
+  return msg ?? fallback;
+}

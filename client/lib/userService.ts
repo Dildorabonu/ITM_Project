@@ -1399,6 +1399,8 @@ export interface RequisitionCreate {
   signerName?: string;
   signerTitle?: string;
   signDate?: string;
+  // Qo'llangan zaxira foizi — yuborilmasa aniq me'yor bo'yicha.
+  allowancePercent?: number;
   items: RequisitionItemCreate[];
 }
 
@@ -1437,6 +1439,7 @@ export interface RequisitionListRow {
   status: RequisitionStatus;
   contractNo?: string;
   departmentName?: string;
+  allowancePercent?: number | null;
   createdByName: string;
   createdAt: string;
   completedAt?: string | null;
@@ -1481,6 +1484,7 @@ export interface RequisitionResponse {
   purpose: string;
   notes?: string;
   rejectionReason?: string;
+  allowancePercent?: number | null;
   signerName?: string;
   signerTitle?: string;
   signDate?: string;
