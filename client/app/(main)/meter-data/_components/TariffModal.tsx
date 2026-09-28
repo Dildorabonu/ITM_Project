@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { energyTariffService, type EnergyTariff } from "@/lib/energyTariff";
 import { formatMoneyFull } from "@/lib/energyFormat";
+import { apiErrorMessage } from "@/lib/api";
 import { useToastStore } from "@/lib/store/toastStore";
 import { useT } from "@/lib/i18n";
 
@@ -14,12 +15,6 @@ function emptyForm() {
     effectiveFrom: new Date().toISOString().slice(0, 10),
     note: "",
   };
-}
-
-/** Backend ApiResult xato matnini oladi — topilmasa umumiy xabar qaytariladi. */
-function apiErrorMessage(e: unknown, fallback: string): string {
-  const msg = (e as { response?: { data?: { errors?: string[] } } })?.response?.data?.errors?.[0];
-  return msg ?? fallback;
 }
 
 export function TariffModal({
