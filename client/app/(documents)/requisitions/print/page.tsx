@@ -25,6 +25,7 @@ import { useT } from "@/lib/i18n";
 import { fmtDecimal, mulDecimalStr } from "@/lib/num";
 import { apiErrorMessage } from "@/lib/api";
 import { applyAllowance, requisitionAllowanceService } from "@/lib/requisitionAllowance";
+import { dataUrlToBlob } from "@/lib/dataUrl";
 
 // html2pdf.js chunk'i katta (jsPDF + html2canvas birga ~700 KB) — birinchi
 // generatsiyada uni yuklab, parse qilish 1-2 soniya oladi. Shu sababli sahifa
@@ -646,8 +647,8 @@ function RequisitionPrintContent() {
     }
     // Me'yoriy sarfdan kelgan base64 — serverga yuklash
     if (row.image.startsWith("data:")) {
-      const res = await fetch(row.image);
-      const blob = await res.blob();
+      const blob = dataUrlToBlob(row.image);
+      if (!blob) return undefined;
       const ext = blob.type.split("/")[1] ?? "jpg";
       const file = new File([blob], `norm-photo.${ext}`, { type: blob.type });
       return await requisitionService.uploadPhoto(file);
