@@ -370,14 +370,15 @@ function RequisitionPrintContent() {
   const [allowancePercent, setAllowancePercent] = useState(0);
   const [allowanceOn, setAllowanceOn] = useState(false);
 
-  const loadAllowancePercent = useCallback(async () => {
+  // Yuklanmasa null — holat o'zgarmaydi: aloqa uzilishi foydalanuvchi tanlagan
+  // zaxirani o'chirib yubormasligi kerak.
+  const loadAllowancePercent = useCallback(async (): Promise<number | null> => {
     try {
       const current = (await requisitionAllowanceService.getAll())[0]?.percent ?? 0;
       setAllowancePercent(current);
       return current;
     } catch {
-      setAllowancePercent(0);
-      return 0;
+      return null;
     }
   }, []);
 
@@ -839,7 +840,13 @@ function RequisitionPrintContent() {
       setSubmitStage(null);
       // Foiz to'ldirish va yuborish oralig'ida o'zgargan bo'lishi mumkin — eski
       // foiz bilan hisoblangan miqdorlar qaytariladi, foydalanuvchi qayta yoqadi.
-      if (allowanceOn && (await loadAllowancePercent()) !== allowancePercent) setAllowance(false);
+      if (allowanceOn) {
+        const current = await loadAllowancePercent();
+        if (current !== null && current !== allowancePercent) {
+          setAllowance(false);
+          showToast(t("Zaxira o'chirildi — yangi foiz bilan qayta yoqing."), t("Xatolik"));
+        }
+      }
     }
   };
 
