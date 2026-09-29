@@ -260,7 +260,6 @@ public partial class ProductService : IProductService
         }
 
         if (dto.Description is not null) product.Description = dto.Description;
-        if (dto.Quantity.HasValue) product.Quantity = dto.Quantity.Value;
         if (dto.Unit.HasValue) product.Unit = dto.Unit.Value;
 
         await _context.SaveChangesAsync();

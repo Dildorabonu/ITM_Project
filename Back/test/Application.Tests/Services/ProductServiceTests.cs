@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Application.DTOs.Products;
 using Application.Helpers;
 using Application.Services.Impl;
@@ -317,18 +318,38 @@ public class ProductServiceTests
             quantity: 100m, unit: ProductUnit.Kilogramm, description: "Old");
         var sut = CreateService(db);
 
-        // Act — faqat quantity yangilanadi
-        var result = await sut.UpdateAsync(p.Id, new ProductUpdateDto { Quantity = 250m });
+        // Act — faqat description yangilanadi
+        var result = await sut.UpdateAsync(p.Id, new ProductUpdateDto { Description = "New" });
 
         // Assert
         result.Succeeded.Should().BeTrue();
         result.Result.Should().Be(200);
         var refreshed = db.Products.Single(x => x.Id == p.Id);
-        refreshed.Quantity.Should().Be(250m);
+        refreshed.Description.Should().Be("New");
         refreshed.Name.Should().Be("Sement");
         refreshed.InvoiceNumber.Should().Be("INV-1");
         refreshed.Unit.Should().Be(ProductUnit.Kilogramm);
-        refreshed.Description.Should().Be("Old");
+        refreshed.Quantity.Should().Be(100m);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WithQuantityInRequestBody_DoesNotChangeStock()
+    {
+        // Qoldiq faqat jurnalga yoziladigan tuzatish (warehouse-scan Adjust) orqali o'zgaradi.
+        await using var db = TestDbContextFactory.Create();
+        var dep = SeedDepartment(db);
+        var p = SeedProduct(db, dep.Id, name: "Sement", quantity: 100m);
+        var sut = CreateService(db);
+        var dto = JsonSerializer.Deserialize<ProductUpdateDto>(
+            """{ "description": "New", "quantity": 999 }""",
+            new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+
+        var result = await sut.UpdateAsync(p.Id, dto);
+
+        result.Succeeded.Should().BeTrue();
+        var refreshed = db.Products.Single(x => x.Id == p.Id);
+        refreshed.Description.Should().Be("New");
+        refreshed.Quantity.Should().Be(100m);
     }
 
     [Fact]
@@ -364,12 +385,12 @@ public class ProductServiceTests
         var result = await sut.UpdateAsync(p.Id, new ProductUpdateDto
         {
             Name = "Sement",
-            Quantity = 99m,
+            Description = "Yangi",
         });
 
         // Assert
         result.Succeeded.Should().BeTrue();
-        db.Products.Single(x => x.Id == p.Id).Quantity.Should().Be(99m);
+        db.Products.Single(x => x.Id == p.Id).Description.Should().Be("Yangi");
     }
 
     [Fact]
