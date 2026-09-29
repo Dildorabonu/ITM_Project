@@ -17,6 +17,7 @@ import { ProductFormView } from "./_components/ProductFormView";
 import { FrozenProductsView } from "./_components/FrozenProductsView";
 import { PurchaseReceiveView } from "./_components/PurchaseReceiveView";
 import { StockMovementDrawer } from "./_components/StockMovementDrawer";
+import { StockAdjustModal } from "./_components/StockAdjustModal";
 
 function formatCreatedAt(iso: string): string {
   const d = iso?.slice(0, 10).split("-");
@@ -52,6 +53,8 @@ export default function ProductsPage() {
 
   // Harakat tarixi (StockMovement) drawer
   const [historyProduct, setHistoryProduct] = useState<ProductResponse | null>(null);
+
+  const [adjustProduct, setAdjustProduct] = useState<ProductResponse | null>(null);
 
   // Frozen (reserved) products inline view
   const [showFrozen, setShowFrozen] = useState(false);
@@ -353,6 +356,18 @@ export default function ProductsPage() {
                         {(canUpdate || canDelete) && (
                           <>
                             {canUpdate && (
+                              <button className="btn-icon" title={t("Qoldiqni tuzatish")} onClick={() => setAdjustProduct(p)}
+                                style={{ color: "var(--warn)", borderColor: "var(--border)", background: "var(--warn-dim)" }}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                                  <line x1="21" y1="4" x2="14" y2="4" /><line x1="10" y1="4" x2="3" y2="4" />
+                                  <line x1="21" y1="12" x2="12" y2="12" /><line x1="8" y1="12" x2="3" y2="12" />
+                                  <line x1="21" y1="20" x2="16" y2="20" /><line x1="12" y1="20" x2="3" y2="20" />
+                                  <line x1="14" y1="2" x2="14" y2="6" /><line x1="8" y1="10" x2="8" y2="14" />
+                                  <line x1="16" y1="18" x2="16" y2="22" />
+                                </svg>
+                              </button>
+                            )}
+                            {canUpdate && (
                               <button className="btn-icon" title={t("Tahrirlash")} onClick={() => openEdit(p)}
                                 style={{ color: "#22c55e", borderColor: "#22c55e33", background: "#22c55e12" }}>
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -446,6 +461,15 @@ export default function ProductsPage() {
           productId={historyProduct.id}
           productName={historyProduct.name}
           onClose={() => setHistoryProduct(null)}
+        />
+      )}
+
+      {adjustProduct && (
+        <StockAdjustModal
+          product={adjustProduct}
+          onClose={() => setAdjustProduct(null)}
+          onAdjusted={r => setProducts(prev => prev.map(p =>
+            p.id === r.id ? { ...p, quantity: r.quantity, availableQuantity: Math.max(0, r.available) } : p))}
         />
       )}
 

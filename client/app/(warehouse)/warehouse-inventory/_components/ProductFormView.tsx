@@ -94,13 +94,11 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
       setSaving(true);
       try {
         const dept = departments.find(d => d.id === form.departmentId);
-        const qty = form.quantity !== "" ? Number(form.quantity) : 0;
         const unitValue = form.unit !== "" ? (Number(form.unit) as ProductUnit) : undefined;
         const payload: ProductUpdatePayload = {
           name: form.name || undefined,
           invoiceNumber: form.invoiceNumber.trim() || undefined,
           description: form.description || null,
-          quantity: qty,
           unit: unitValue,
           departmentId: form.departmentId || undefined,
         };
@@ -110,7 +108,6 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
           name: form.name || editTarget.name,
           invoiceNumber: form.invoiceNumber.trim() || editTarget.invoiceNumber,
           description: form.description || null,
-          quantity: qty,
           unit: unitValue ?? editTarget.unit,
           departmentId: form.departmentId || editTarget.departmentId,
           departmentName: dept?.name ?? editTarget.departmentName,
@@ -367,9 +364,17 @@ export function ProductFormView({ editTarget, departments, form, setForm, onClos
             )}
             <div>
               <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>{t("Soni")}</label>
-              <input className="form-input" type="number" min="0" step="any" value={form.quantity}
-                onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))}
-                onWheel={e => (e.target as HTMLInputElement).blur()} placeholder="0" />
+              <div style={{
+                padding: "9px 12px", borderRadius: "var(--radius)",
+                background: "var(--surface2)", border: "1px solid var(--border)",
+                fontSize: 14, fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--text2)",
+                cursor: "not-allowed",
+              }}>
+                {editTarget.quantity}
+              </div>
+              <div style={{ color: "var(--text3)", fontSize: 12, marginTop: 4 }}>
+                {t("Sonni bu yerda o'zgartirib bo'lmaydi — ro'yxatdagi «Qoldiqni tuzatish» tugmasidan foydalaning.")}
+              </div>
             </div>
             <div>
               <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text2)" }}>{t("O'lchov birligi")}</label>

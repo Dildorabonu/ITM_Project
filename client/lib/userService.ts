@@ -339,7 +339,6 @@ export interface ProductUpdatePayload {
   name?: string;
   invoiceNumber?: string;
   description?: string | null;
-  quantity?: number;
   unit?: ProductUnit;
   departmentId?: string;
 }

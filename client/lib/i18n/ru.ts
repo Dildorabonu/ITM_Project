@@ -1410,4 +1410,18 @@ export const ru: Record<string, string> = {
   "Zaxira foizini saqlashda xatolik.": "Ошибка при сохранении процента запаса.",
   "Zaxira tarixini yuklashda xatolik.": "Ошибка при загрузке истории запаса.",
   "Brak va sifatsiz material uchun me'yorga qo'shimcha zaxira. Qog'ozga chiqmaydi.": "Дополнительный запас к норме на брак и некачественный материал. На бумагу не выводится.",
+  "Qoldiqni tuzatish": "Корректировка остатка",
+  "Hozirgi qoldiq": "Текущий остаток",
+  "Rezervda": "В резерве",
+  "Yangi qoldiq": "Новый остаток",
+  "Yangi qoldiqni kiriting": "Введите новый остаток",
+  "Yangi qoldiq rezervdagi miqdordan kam bo'lmasligi kerak": "Новый остаток не может быть меньше зарезервированного",
+  "Qoldiq o'zgarmadi": "Остаток не изменился",
+  "Tuzatish sababi": "Причина корректировки",
+  "Tuzatish sababini kiriting": "Укажите причину корректировки",
+  "Masalan: inventarizatsiyada 3 ta kam chiqdi": "Например: при инвентаризации не хватило 3 шт.",
+  "Tuzatish harakatlar tarixiga sabab va sizning ismingiz bilan yoziladi.": "Корректировка записывается в историю движений с причиной и вашим именем.",
+  "qoldig'i tuzatildi.": "— остаток скорректирован.",
+  "Sonni bu yerda o'zgartirib bo'lmaydi — ro'yxatdagi «Qoldiqni tuzatish» tugmasidan foydalaning.":
+    "Количество здесь изменить нельзя — используйте кнопку «Корректировка остатка» в списке.",
 };
