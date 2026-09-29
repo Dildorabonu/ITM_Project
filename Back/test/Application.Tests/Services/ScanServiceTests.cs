@@ -44,7 +44,7 @@ public class ScanServiceTests
         return d;
     }
 
-    private static Product SeedProduct(DatabaseContext db, Guid departmentId, decimal quantity)
+    private static Product SeedProduct(DatabaseContext db, Guid departmentId, decimal quantity, decimal reserved = 0m)
     {
         var p = new Product
         {
@@ -52,6 +52,7 @@ public class ScanServiceTests
             Name = "Bolt M8",
             NameNormalized = "bolt m8",
             Quantity = quantity,
+            ReservedQuantity = reserved,
             Unit = ProductUnit.Dona,
             DepartmentId = departmentId,
         };
@@ -104,5 +105,96 @@ public class ScanServiceTests
         result.Succeeded.Should().BeFalse();
         db.Products.Single(p => p.Id == product.Id).Quantity.Should().Be(10m);
         db.StockMovements.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ActionAsync_Adjust_SetsNewQuantityAndRecordsMovement()
+    {
+        await using var db = CreateDb();
+        var warehouse = SeedDept(db, "Omborxona");
+        var product = SeedProduct(db, warehouse.Id, 10m);
+        var userId = Guid.NewGuid();
+
+        var result = await CreateService(db).ActionAsync(new ScanActionDto
+        {
+            ProductId = product.Id,
+            Type = StockMovementType.Adjust,
+            Quantity = 7m,
+            Notes = "Inventarizatsiya: 3 ta kam chiqdi",
+        }, userId);
+
+        result.Succeeded.Should().BeTrue();
+        db.Products.Single(p => p.Id == product.Id).Quantity.Should().Be(7m);
+
+        var movement = db.StockMovements.Single();
+        movement.Type.Should().Be(StockMovementType.Adjust);
+        movement.Quantity.Should().Be(3m);
+        movement.QuantityAfter.Should().Be(7m);
+        movement.UserId.Should().Be(userId);
+        movement.Notes.Should().Be("Inventarizatsiya: 3 ta kam chiqdi");
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("   ")]
+    public async Task ActionAsync_Adjust_WithoutReason_Fails(string? notes)
+    {
+        await using var db = CreateDb();
+        var warehouse = SeedDept(db, "Omborxona");
+        var product = SeedProduct(db, warehouse.Id, 10m);
+
+        var result = await CreateService(db).ActionAsync(new ScanActionDto
+        {
+            ProductId = product.Id,
+            Type = StockMovementType.Adjust,
+            Quantity = 7m,
+            Notes = notes,
+        }, Guid.NewGuid());
+
+        result.Succeeded.Should().BeFalse();
+        result.Errors.Should().ContainSingle().Which.Should().Contain("sabab");
+        db.Products.Single(p => p.Id == product.Id).Quantity.Should().Be(10m);
+        db.StockMovements.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ActionAsync_Adjust_BelowReservedQuantity_Fails()
+    {
+        // Rezervdan kam qoldiq talabnomani ombordan berish bosqichida to'xtatib qo'yadi.
+        await using var db = CreateDb();
+        var warehouse = SeedDept(db, "Omborxona");
+        var product = SeedProduct(db, warehouse.Id, 10m, reserved: 6m);
+
+        var result = await CreateService(db).ActionAsync(new ScanActionDto
+        {
+            ProductId = product.Id,
+            Type = StockMovementType.Adjust,
+            Quantity = 5m,
+            Notes = "Shikastlangan",
+        }, Guid.NewGuid());
+
+        result.Succeeded.Should().BeFalse();
+        result.Errors.Should().ContainSingle().Which.Should().Contain("rezerv");
+        db.Products.Single(p => p.Id == product.Id).Quantity.Should().Be(10m);
+        db.StockMovements.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ActionAsync_Adjust_DownToReservedQuantity_Succeeds()
+    {
+        await using var db = CreateDb();
+        var warehouse = SeedDept(db, "Omborxona");
+        var product = SeedProduct(db, warehouse.Id, 10m, reserved: 6m);
+
+        var result = await CreateService(db).ActionAsync(new ScanActionDto
+        {
+            ProductId = product.Id,
+            Type = StockMovementType.Adjust,
+            Quantity = 6m,
+            Notes = "Shikastlangan",
+        }, Guid.NewGuid());
+
+        result.Succeeded.Should().BeTrue();
+        db.Products.Single(p => p.Id == product.Id).Quantity.Should().Be(6m);
     }
 }

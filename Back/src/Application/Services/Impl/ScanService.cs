@@ -144,6 +144,14 @@ public class ScanService : IScanService
                 if (dto.Quantity < 0)
                     return ApiResult<ScanLookupDto>.Failure(["Yangi miqdor manfiy bo'lishi mumkin emas."]);
 
+                if (string.IsNullOrWhiteSpace(dto.Notes))
+                    return ApiResult<ScanLookupDto>.Failure(["Tuzatish sababini kiriting."]);
+
+                // Rezervdan kam qoldiq talabnomani ombordan berish bosqichida to'xtatib qo'yardi.
+                if (dto.Quantity < product.ReservedQuantity)
+                    return ApiResult<ScanLookupDto>.Failure(
+                        [$"Yangi miqdor rezervdagi miqdordan kam bo'lishi mumkin emas (rezervda: {product.ReservedQuantity:0.####})."]);
+
                 // Quantity = yangi absolut qiymat; movement.Quantity = abs(delta).
                 var delta = Math.Abs(dto.Quantity - product.Quantity);
                 product.Quantity = dto.Quantity;
