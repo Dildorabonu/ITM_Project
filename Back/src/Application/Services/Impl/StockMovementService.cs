@@ -105,11 +105,21 @@ public class StockMovementService : IStockMovementService
             query = query.Where(m => filter.Types.Contains(m.Type));
 
         if (filter.From.HasValue)
-            query = query.Where(m => m.CreatedAt >= filter.From.Value);
+        {
+            var fromUtc = TashkentDayStartUtc(filter.From.Value);
+            query = query.Where(m => m.CreatedAt >= fromUtc);
+        }
 
         if (filter.To.HasValue)
-            query = query.Where(m => m.CreatedAt <= filter.To.Value);
+        {
+            var toUtc = TashkentDayStartUtc(filter.To.Value.AddDays(1));
+            query = query.Where(m => m.CreatedAt < toUtc);
+        }
 
         return query;
     }
+
+    // Npgsql timestamptz uchun Kind=Utc shart.
+    private static DateTime TashkentDayStartUtc(DateOnly day) =>
+        DateTime.SpecifyKind(day.ToDateTime(TimeOnly.MinValue) - EnergyPeriod.TashkentOffset, DateTimeKind.Utc);
 }

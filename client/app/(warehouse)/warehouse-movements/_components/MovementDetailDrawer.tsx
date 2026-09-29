@@ -8,6 +8,7 @@ import {
   STOCK_MOVEMENT_COLOR,
   STOCK_MOVEMENT_DIM,
   STOCK_MOVEMENT_LABEL,
+  tashkentDateTime,
   type StockMovement,
 } from "@/lib/stockMovements";
 import { RequisitionNo } from "@/app/_components/RequisitionNo";
@@ -45,8 +46,9 @@ export function MovementDetailDrawer({ movement, onClose }: {
           ? `${movement.sourceDepartmentName} →`
           : "—";
 
-  const stamp = movement.createdAt
-    ? `${movement.createdAt.slice(8, 10)}.${movement.createdAt.slice(5, 7)}.${movement.createdAt.slice(0, 4)} · ${movement.createdAt.slice(11, 16)}`
+  const at = movement.createdAt ? tashkentDateTime(movement.createdAt) : null;
+  const stamp = at
+    ? `${at.day.slice(8, 10)}.${at.day.slice(5, 7)}.${at.day.slice(0, 4)} · ${at.time}`
     : "—";
 
   return createPortal(

@@ -197,8 +197,39 @@ public class StockMovementServiceTests
         SeedMovement(db, StockMovementType.In, createdAt: now);
 
         var result = await new StockMovementService(db)
-            .GetSummaryAsync(new StockMovementFilter { From = now.AddDays(-1) });
+            .GetSummaryAsync(new StockMovementFilter { From = DateOnly.FromDateTime(now.AddDays(-1)) });
 
         result.Result!.Total.Should().Be(1);
     }
+
+    /// <summary>
+    /// Sana filtri Toshkent (UTC+5) kunini oladi: 29-sentabr = 28-sentabr 19:00Z dan
+    /// 29-sentabr 19:00Z gacha, "gacha" kuni ham to'liq kiradi. Har chegarada har xil
+    /// son (1, 2, 4, 8) — noto'g'ri ramka boshqa yig'indi beradi (masalan UTC kuni 12).
+    /// </summary>
+    [Fact]
+    public async Task GetAsync_DateRange_CoversWholeTashkentDays()
+    {
+        await using var db = CreateDb();
+        SeedMany(db, 1, Utc(2026, 9, 28, 18, 59)); // 28-sen 23:59
+        SeedMany(db, 2, Utc(2026, 9, 28, 19, 0));  // 29-sen 00:00
+        SeedMany(db, 4, Utc(2026, 9, 29, 18, 59)); // 29-sen 23:59
+        SeedMany(db, 8, Utc(2026, 9, 29, 19, 0));  // 30-sen 00:00
+
+        var result = await new StockMovementService(db).GetAsync(new StockMovementFilter
+        {
+            From = new DateOnly(2026, 9, 29),
+            To = new DateOnly(2026, 9, 29),
+        });
+
+        result.Result!.TotalCount.Should().Be(6);
+    }
+
+    private static void SeedMany(DatabaseContext db, int count, DateTime createdAt)
+    {
+        for (var i = 0; i < count; i++) SeedMovement(db, StockMovementType.In, createdAt: createdAt);
+    }
+
+    private static DateTime Utc(int y, int mo, int d, int h, int mi) =>
+        new(y, mo, d, h, mi, 0, DateTimeKind.Utc);
 }

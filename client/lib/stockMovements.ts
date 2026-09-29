@@ -121,6 +121,18 @@ export function movementBalance(m: StockMovement): number | null {
   return m.type === "Out" && m.targetDepartmentName ? null : m.quantityAfter;
 }
 
+// Backend UTC qaytaradi. Brauzer vaqt zonasiga emas, qat'iy UTC+5 ga tayaniladi
+// (Toshkentda yozgi vaqt yo'q): backenddagi sana filtri ham shu kunlar bilan ishlaydi,
+// SSR va klient ham bir xil natija beradi.
+const TASHKENT_OFFSET_MS = 5 * 3_600_000;
+
+export function tashkentDateTime(value: string | number): { day: string; time: string } | null {
+  const ms = typeof value === "number" ? value : Date.parse(value);
+  if (!Number.isFinite(ms)) return null;
+  const iso = new Date(ms + TASHKENT_OFFSET_MS).toISOString();
+  return { day: iso.slice(0, 10), time: iso.slice(11, 16) };
+}
+
 type QueryValue = string | number | string[];
 
 // Bo'sh paramlarni tashlab, query obyektini yig'adi.

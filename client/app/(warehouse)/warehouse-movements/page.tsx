@@ -8,6 +8,7 @@ import {
   STOCK_MOVEMENT_COLOR,
   STOCK_MOVEMENT_DIM,
   STOCK_MOVEMENT_LABEL,
+  tashkentDateTime,
   type StockMovement,
   type StockMovementSummary,
 } from "@/lib/stockMovements";
@@ -21,10 +22,8 @@ import { MovementDetailDrawer } from "./_components/MovementDetailDrawer";
 import { STOCK_MOVEMENT_DESC, MOVEMENT_FILTERS, MONTHS, PAGE_SIZE, type MovementFilterId } from "./_types";
 import { useT } from "@/lib/i18n";
 
-// Backend UTC ISO qaytaradi va jadval uni konvertatsiyasiz, kesib ko'rsatadi —
-// kun guruhlari ham shu bilan bir xil ramkada bo'lishi uchun UTC kaliti ishlatiladi.
-const dayKeyOf = (iso: string) => (iso ?? "").slice(0, 10);
-const timeOf = (iso: string) => (iso ?? "").slice(11, 16) || "—";
+const dayKeyOf = (iso: string) => tashkentDateTime(iso ?? "")?.day ?? "";
+const timeOf = (iso: string) => tashkentDateTime(iso ?? "")?.time ?? "—";
 
 function directionLabel(m: StockMovement): string {
   if (m.sourceDepartmentName && m.targetDepartmentName)
@@ -59,8 +58,8 @@ export default function WarehouseMovementsPage() {
   useEffect(() => {
     const ms = Date.now();
     setNowKeys({
-      today: new Date(ms).toISOString().slice(0, 10),
-      yesterday: new Date(ms - 86_400_000).toISOString().slice(0, 10),
+      today: tashkentDateTime(ms)!.day,
+      yesterday: tashkentDateTime(ms - 86_400_000)!.day,
     });
   }, []);
 

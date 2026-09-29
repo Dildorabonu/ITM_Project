@@ -14,8 +14,9 @@ public class StockMovementFilter
     public Guid? UserId { get; set; }
     // Bir nechta tur — ?types=Reserve&types=Release. Bo'sh bo'lsa barcha turlar.
     public List<StockMovementType>? Types { get; set; }
-    public DateTime? From { get; set; }
-    public DateTime? To { get; set; }
+    // Toshkent kalendar kunlari, ikkalasi ham kiradi.
+    public DateOnly? From { get; set; }
+    public DateOnly? To { get; set; }
 
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 50;

@@ -8,6 +8,7 @@ import {
   STOCK_MOVEMENT_COLOR,
   STOCK_MOVEMENT_DIM,
   STOCK_MOVEMENT_LABEL,
+  tashkentDateTime,
   type StockMovement,
 } from "@/lib/stockMovements";
 import { useT } from "@/lib/i18n";
@@ -21,10 +22,10 @@ interface Props {
 
 // Sanani "DD-MM-YY · HH:mm" ko'rinishida — mahsulot draweridagi formatga mos.
 function formatDateTime(iso: string): string {
-  const date = iso?.slice(0, 10).split("-");
-  const time = iso?.slice(11, 16);
-  if (!date || date.length !== 3) return "—";
-  return `${date[2]}-${date[1]}-${date[0].slice(-2)}${time ? ` · ${time}` : ""}`;
+  const at = iso ? tashkentDateTime(iso) : null;
+  if (!at) return "—";
+  const [y, m, d] = at.day.split("-");
+  return `${d}-${m}-${y.slice(-2)} · ${at.time}`;
 }
 
 // Bitta harakat qatorining maqsad/manba bo'limini "→ bo'lim" ko'rinishida tasvirlaydi.
