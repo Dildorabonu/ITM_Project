@@ -734,6 +734,61 @@ namespace DataAccess.Migrations
                     b.ToTable("Materials");
                 });
 
+            modelBuilder.Entity("Core.Entities.MeterDevice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("IntervalSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Ip")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Port")
+                        .HasColumnType("integer");
+
+                    b.Property<double>("PtRatio")
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("RegisterCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SlaveId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StartAddress")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasFilter("\"DeletedAt\" IS NULL");
+
+                    b.ToTable("MeterDevices");
+                });
+
             modelBuilder.Entity("Core.Entities.MeterEnergyHourly", b =>
                 {
                     b.Property<Guid>("Id")

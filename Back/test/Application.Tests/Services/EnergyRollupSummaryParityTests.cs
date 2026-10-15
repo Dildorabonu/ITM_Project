@@ -56,12 +56,7 @@ public class EnergyRollupSummaryParityTests
         var rollup = new EnergyRollupService(db, () => Now);
         var summary = new EnergySummaryService(
             db,
-            OptionsHelper.Wrap(new MeterPollerOptions
-            {
-                Enabled = true,
-                IntervalSeconds = 3,
-                Devices = [new MeterDeviceOptions { Name = "DR134", Ip = "10.0.0.1" }],
-            }),
+            OptionsHelper.Wrap(new MeterPollerOptions { Enabled = true, IntervalSeconds = 3 }),
             () => Now);
 
         // Act — rollup 10:00 soatini yozadi; summary esa 10:00 ni joriy soat

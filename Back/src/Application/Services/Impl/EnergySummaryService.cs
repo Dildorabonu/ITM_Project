@@ -338,12 +338,16 @@ public class EnergySummaryService : IEnergySummaryService
     }
 
     /// <summary>
-    /// Qurilmalar holati: konfiguratsiyadagilar bilan bazada uchraganlarning birlashmasi.
-    /// Kalit — qurilma nomi.
+    /// Qurilmalar holati: sozlangan (poller so'rayotgan) qurilmalar bilan o'lchovlarda
+    /// uchraganlarning birlashmasi. Kalit — qurilma nomi.
     /// </summary>
     private async Task<Dictionary<string, DeviceStatus>> LoadStatusesAsync(DateTime now)
     {
-        var configured = _pollerOptions.ResolveDevices();
+        var configured = await _context.MeterDevices
+            .AsNoTracking()
+            .Where(d => d.DeletedAt == null && d.Enabled)
+            .Select(d => new MeterDeviceOptions { Id = d.Id, Name = d.Name, IntervalSeconds = d.IntervalSeconds })
+            .ToListAsync();
 
         // Rollup — kichik jadval (qurilmalar × soatlar). Undan ham nomlar, ham
         // "oxirgi ko'rilgan"ning soat aniqligidagi zaxira qiymati olinadi.
@@ -362,16 +366,7 @@ public class EnergySummaryService : IEnergySummaryService
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
-        // Bir nechta yozuv bir xil nomga yechilishi mumkin: ResolveDevices() nom
-        // bo'sh bo'lsa IP ni nom qilib oladi, ya'ni bitta Modbus gateway ortidagi
-        // (bir xil IP, turli SlaveId) ikki hisoblagich bir xil nom oladi. Bu
-        // noto'g'ri sozlama — poller uni startupda ogohlantirish bilan bildiradi —
-        // lekin butun panelni yiqitmasligi kerak, shu sababli ToDictionary emas:
-        // oxirgi yozuv yutadi.
-        var configuredIndex = new Dictionary<string, MeterDeviceOptions>(StringComparer.Ordinal);
-
-        foreach (var device in configured)
-            configuredIndex[device.Name] = device;
+        var configuredIndex = configured.ToDictionary(d => d.Name, StringComparer.Ordinal);
 
         var statuses = new Dictionary<string, DeviceStatus>(StringComparer.Ordinal);
 

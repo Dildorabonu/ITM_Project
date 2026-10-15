@@ -15,13 +15,31 @@ public class EnergySummaryServiceTests
     // 2026-08-11 09:30 UTC = 14:30 Toshkent
     private static readonly DateTime Now = new(2026, 8, 11, 9, 30, 0, DateTimeKind.Utc);
 
-    private static EnergySummaryService CreateSut(DatabaseContext db, MeterPollerOptions? options = null) =>
-        new(db, OptionsHelper.Wrap(options ?? new MeterPollerOptions
+    /// <summary>Sozlangan qurilmalar bazaga yoziladi; berilmasa — DR134.</summary>
+    private static EnergySummaryService CreateSut(DatabaseContext db, params string[] configuredDevices)
+    {
+        var names = configuredDevices.Length > 0 ? configuredDevices : ["DR134"];
+
+        for (var i = 0; i < names.Length; i++)
+            SeedDevice(db, names[i], $"10.0.0.{i + 1}");
+
+        return new(db, OptionsHelper.Wrap(new MeterPollerOptions { Enabled = true, IntervalSeconds = 3 }), () => Now);
+    }
+
+    private static MeterDevice SeedDevice(DatabaseContext db, string name, string ip, bool enabled = true)
+    {
+        var device = new MeterDevice
         {
-            Enabled = true,
-            IntervalSeconds = 3,
-            Devices = [new MeterDeviceOptions { Name = "DR134", Ip = "10.0.0.1" }],
-        }), () => Now);
+            Id = Guid.NewGuid(),
+            Name = name,
+            Ip = ip,
+            Enabled = enabled,
+        };
+
+        db.MeterDevices.Add(device);
+        db.SaveChanges();
+        return device;
+    }
 
     private static void SeedTariff(DatabaseContext db, decimal price = 1100m)
     {
@@ -169,21 +187,11 @@ public class EnergySummaryServiceTests
     [Fact]
     public async Task GetSummaryAsync_ListsConfiguredDeviceThatNeverReported()
     {
-        // Arrange — konfigda bor, bazada yozuvi yo'q
+        // Arrange — qurilma sozlangan, lekin o'lchov yozuvi yo'q
         await using var db = TestDbContextFactory.Create();
         SeedTariff(db);
-        var options = new MeterPollerOptions
-        {
-            Enabled = true,
-            IntervalSeconds = 3,
-            Devices =
-            [
-                new MeterDeviceOptions { Name = "DR134", Ip = "10.0.0.1" },
-                new MeterDeviceOptions { Name = "DR999", Ip = "10.0.0.9" },
-            ],
-        };
         SeedHour(db, "DR134", Now.AddHours(-2), 2.0);
-        var sut = CreateSut(db, options);
+        var sut = CreateSut(db, "DR134", "DR999");
 
         // Act
         var result = await sut.GetSummaryAsync("24h");
@@ -198,34 +206,25 @@ public class EnergySummaryServiceTests
     }
 
     [Fact]
-    public async Task GetSummaryAsync_WithDevicesResolvingToSameName_SucceedsAndListsNameOnce()
+    public async Task GetDeviceStatusesAsync_TreatsDisabledAndDeletedDevicesAsNotConfigured()
     {
-        // Arrange — bitta Modbus gateway ortidagi ikki hisoblagich: Name berilmagan,
-        // shu sababli ResolveDevices() ikkalasiga ham IP ni nom qilib beradi.
-        // Sozlama noto'g'ri, lekin panel 500 bilan yiqilmasligi kerak.
+        // Arrange — DR134 yoqilgan, DR500 o'chirib qo'yilgan, DR600 o'chirilgan (soft)
         await using var db = TestDbContextFactory.Create();
-        SeedTariff(db);
-        var options = new MeterPollerOptions
-        {
-            Enabled = true,
-            IntervalSeconds = 3,
-            Devices =
-            [
-                new MeterDeviceOptions { Ip = "10.0.0.7", SlaveId = 1 },
-                new MeterDeviceOptions { Ip = "10.0.0.7", SlaveId = 2 },
-            ],
-        };
-        SeedReading(db, "10.0.0.7", Now.AddSeconds(-5), 1500);
-        var sut = CreateSut(db, options);
+        var sut = CreateSut(db);
+        SeedDevice(db, "DR500", "10.0.0.5", enabled: false);
+        var deleted = SeedDevice(db, "DR600", "10.0.0.6");
+        deleted.DeletedAt = Now;
+        db.SaveChanges();
+        SeedReading(db, "DR500", Now.AddSeconds(-5), 700);
 
         // Act
-        var result = await sut.GetSummaryAsync("24h");
+        var result = await sut.GetDeviceStatusesAsync();
 
-        // Assert — bitta qurilma sifatida ko'rinadi, xato yo'q
-        result.Succeeded.Should().BeTrue();
-        result.Result!.Devices.Should().ContainSingle(d => d.DeviceName == "10.0.0.7");
-        result.Result.Total.DeviceCount.Should().Be(1);
-        result.Result.Total.OnlineCount.Should().Be(1);
+        // Assert — o'chirilganlar faqat o'lchovi bo'lsa ko'rinadi va "sozlangan" emas
+        var list = result.Result!.ToList();
+        list.Select(d => d.Name).Should().BeEquivalentTo(["DR134", "DR500"]);
+        list.Single(d => d.Name == "DR134").IsConfigured.Should().BeTrue();
+        list.Single(d => d.Name == "DR500").IsConfigured.Should().BeFalse();
     }
 
     [Fact]

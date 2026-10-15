@@ -1305,6 +1305,39 @@ export const ru: Record<string, string> = {
   "7 kun": "7 дней",
   "30 kun": "30 дней",
   "Oy": "Месяц",
+  // Qurilma sozlamalari oynasi (DeviceSettingsModal)
+  "Qurilma sozlamalari (IP, port)": "Настройки устройств (IP, порт)",
+  "Hisoblagich qurilmalari": "Устройства счётчиков",
+  "Tizim har qurilmaga Modbus TCP orqali o'zi ulanadi. O'zgarishlar darhol kuchga kiradi.":
+    "Система сама подключается к каждому устройству по Modbus TCP. Изменения вступают в силу сразу.",
+  "Qurilma qo'shilmagan.": "Устройства не добавлены.",
+  "Yangi qurilma": "Новое устройство",
+  "Qurilmani tahrirlash": "Редактировать устройство",
+  "Qurilma nomi": "Название устройства",
+  "Qurilma ma'lumot yuborgan — nomini o'zgartirib bo'lmaydi.":
+    "Устройство уже передавало данные — название изменить нельзя.",
+  "IP manzil": "IP-адрес",
+  "Port": "Порт",
+  "So'rash yoqilgan": "Опрос включён",
+  "Qo'shimcha sozlamalar": "Дополнительные настройки",
+  "Boshlang'ich registr": "Начальный регистр",
+  "Registrlar soni": "Количество регистров",
+  "PT koeffitsiyenti": "Коэффициент ТН",
+  "O'qish davri (s)": "Период опроса (с)",
+  "Ulanishni tekshirish": "Проверить подключение",
+  "Tekshirilmoqda...": "Проверка...",
+  "Ulanish muvaffaqiyatli": "Подключение успешно",
+  "Ulanishni tekshirishda xatolik.": "Ошибка при проверке подключения.",
+  "Qurilma nomi kiritilmagan.": "Не указано название устройства.",
+  "IP manzil noto'g'ri (masalan: 192.168.30.222).": "Неверный IP-адрес (например: 192.168.30.222).",
+  "Qurilma saqlandi.": "Устройство сохранено.",
+  "Qurilmani saqlashda xatolik.": "Ошибка при сохранении устройства.",
+  "Qurilma o'chirildi.": "Устройство удалено.",
+  "Qurilmani o'chirishda xatolik.": "Ошибка при удалении устройства.",
+  "Qurilmalarni yuklashda xatolik.": "Ошибка при загрузке устройств.",
+  "Qurilmani o'chirish": "Удалить устройство",
+  "\"{0}\" endi so'ralmaydi. O'lchovlar tarixi saqlanib qoladi.":
+    "«{0}» больше не будет опрашиваться. История измерений сохранится.",
 
   // Talabnoma nomi shabloni — {0} o'rniga shartnoma raqami yoki bo'lim nomi
   // qo'yiladi. So'z tartibi tilga qarab farq qilgani uchun butun ibora kalit.

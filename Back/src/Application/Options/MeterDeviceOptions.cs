@@ -6,6 +6,9 @@ namespace Application.Options;
 /// </summary>
 public class MeterDeviceOptions
 {
+    /// <summary>Bazadagi <c>MeterDevice.Id</c>; appsettings'dan o'qilganda bo'sh.</summary>
+    public Guid Id { get; set; }
+
     /// <summary>Bazada saqlanadigan qurilma nomi. Bo'sh bo'lsa IP ishlatiladi.</summary>
     public string Name { get; set; } = "";
 

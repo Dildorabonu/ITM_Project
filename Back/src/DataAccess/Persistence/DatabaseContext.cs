@@ -46,6 +46,7 @@ public class DatabaseContext : DbContext
     public DbSet<MeterReading> MeterReadings { get; set; }
     public DbSet<MeterEnergyHourly> MeterEnergyHourly { get; set; }
     public DbSet<EnergyTariff> EnergyTariffs { get; set; }
+    public DbSet<MeterDevice> MeterDevices { get; set; }
     public DbSet<RequisitionAllowanceRate> RequisitionAllowanceRates { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

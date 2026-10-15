@@ -192,8 +192,9 @@ namespace API
             // Litsenziyani har daqiqada qayta tekshiruvchi fon xizmati.
             builder.Services.AddHostedService<LicenseRefreshService>();
 
-            // Hisoblagichni Modbus TCP orqali faol so'rab turuvchi fon xizmati —
-            // backend o'zi qurilmaning 502-portidan registrlarni o'qiydi.
+            // Hisoblagichlarni Modbus TCP orqali faol so'rab turuvchi fon xizmati —
+            // backend o'zi qurilmaning 502-portidan registrlarni o'qiydi. Qurilmalar
+            // ro'yxati bazada; bu bo'limdan Enabled/IntervalSeconds va birinchi import olinadi.
             builder.Services.Configure<MeterPollerOptions>(
                 builder.Configuration.GetSection(MeterPollerOptions.SectionName));
             builder.Services.AddHostedService<API.Services.MeterPollerService>();
@@ -391,6 +392,18 @@ namespace API
             app.MapControllers();
 
             await app.Services.ApplyMigrationsAsync();
+
+            // Hisoblagichlar endi bazada boshqariladi — birinchi ishga tushishda
+            // appsettings'dagi MeterPoller:Devices bazaga ko'chiriladi.
+            using (var scope = app.Services.CreateScope())
+            {
+                var pollerOptions = scope.ServiceProvider.GetRequiredService<IOptions<MeterPollerOptions>>().Value;
+                var imported = await scope.ServiceProvider.GetRequiredService<IMeterDeviceService>()
+                    .ImportFromConfigAsync(pollerOptions.ResolveDevices());
+
+                if (imported > 0)
+                    app.Logger.LogInformation("Hisoblagichlar appsettings'dan bazaga ko'chirildi: {Count} ta.", imported);
+            }
 
             // Litsenziyani startda bir marta tekshiramiz — birinchi so'rovlar to'g'ri
             // holat bilan qarshi olinishi uchun (LicenseGuard to'ldiriladi).

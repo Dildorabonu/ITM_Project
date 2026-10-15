@@ -5,8 +5,9 @@ namespace Application.Options;
 /// Backend o'zi qurilmaning 502-portiga ulanib, holding registrlarni o'qiydi —
 /// qurilma tomonida hech qanday "push" sozlamasi kerak emas.
 ///
-/// Ko'p qurilma <see cref="Devices"/> massivi orqali beriladi. Eski yakka-qurilma
-/// konfiguratsiyasi (Ip/SlaveId/DeviceName) ham ishlashda davom etadi.
+/// Qurilmalar ro'yxati bazada (<c>MeterDevices</c>) turadi va "Hisoblagichlar"
+/// sahifasidan boshqariladi. <see cref="Devices"/> va eski yakka-qurilma maydonlari
+/// faqat birinchi ishga tushishda, jadval hali bo'sh bo'lsa, bazaga import qilinadi.
 /// </summary>
 public class MeterPollerOptions
 {

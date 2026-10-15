@@ -19,6 +19,7 @@ import { DeviceDonut } from "./_components/DeviceDonut";
 import { DeviceGrid } from "./_components/DeviceGrid";
 import { DeviceDetail } from "./_components/DeviceDetail";
 import { TariffModal } from "./_components/TariffModal";
+import { DeviceSettingsModal } from "./_components/DeviceSettingsModal";
 
 /** Xom o'lchovlar va statuslar — tez-tez. */
 const LIVE_POLL_MS = 5000;
@@ -28,7 +29,7 @@ const SUMMARY_POLL_MS = 60000;
 export default function MeterDataPage() {
   const t = useT();
   const hasPermission = useAuthStore(s => s.hasPermission);
-  const canEditTariff = hasPermission("Energy.Update");
+  const canEditEnergy = hasPermission("Energy.Update");
 
   const [period, setPeriod] = useState<EnergyPeriodKey>("today");
   const [summary, setSummary] = useState<EnergySummary | null>(null);
@@ -43,6 +44,7 @@ export default function MeterDataPage() {
 
   const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
   const [tariffOpen, setTariffOpen] = useState(false);
+  const [devicesOpen, setDevicesOpen] = useState(false);
 
   const [live, setLive] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -152,8 +154,10 @@ export default function MeterDataPage() {
         lastFetch={lastFetch}
         pricePerKwh={summary?.pricePerKwh ?? null}
         currency={summary?.currency ?? "so'm"}
-        canEditTariff={canEditTariff}
+        canEditTariff={canEditEnergy}
         onOpenTariff={() => setTariffOpen(true)}
+        canManageDevices={canEditEnergy}
+        onOpenDevices={() => setDevicesOpen(true)}
         onRefresh={() => loadAll()}
       />
 
@@ -210,8 +214,15 @@ export default function MeterDataPage() {
 
       {tariffOpen && (
         <TariffModal
-          canEdit={canEditTariff}
+          canEdit={canEditEnergy}
           onClose={() => setTariffOpen(false)}
+          onSaved={() => loadAll(true)}
+        />
+      )}
+
+      {devicesOpen && (
+        <DeviceSettingsModal
+          onClose={() => setDevicesOpen(false)}
           onSaved={() => loadAll(true)}
         />
       )}

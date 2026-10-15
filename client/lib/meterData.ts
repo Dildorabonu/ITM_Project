@@ -2,7 +2,7 @@ import { api } from "./api";
 
 // Elektr hisoblagich o'lchovlari va energiya paneli — backenddagi
 // `GET /api/meter-data*` endpointlariga mos.
-// Qurilma ma'lumotni Modbus orqali yuboradi, frontend faqat o'qiydi.
+// Backend qurilmalarni Modbus TCP orqali o'zi so'raydi, frontend faqat o'qiydi.
 // Backend faqat UI ishlatadigan maydonlarni qaytaradi (B/C fazalar o'qilmaydi).
 
 export interface MeterReading {

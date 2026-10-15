@@ -22,6 +22,8 @@ export function PeriodBar({
   currency,
   canEditTariff,
   onOpenTariff,
+  canManageDevices,
+  onOpenDevices,
   onRefresh,
 }: {
   period: EnergyPeriodKey;
@@ -33,6 +35,8 @@ export function PeriodBar({
   currency: string;
   canEditTariff: boolean;
   onOpenTariff: () => void;
+  canManageDevices: boolean;
+  onOpenDevices: () => void;
   onRefresh: () => void;
 }) {
   const t = useT();
@@ -115,6 +119,29 @@ export function PeriodBar({
           </svg>
         )}
       </button>
+
+      {canManageDevices && (
+        <button
+          onClick={onOpenDevices}
+          title={t("Qurilma sozlamalari (IP, port)")}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 7, padding: "6px 12px",
+            fontSize: 12, fontWeight: 600,
+            borderRadius: 999,
+            background: "var(--surface2)", border: "1px solid var(--border)",
+            color: "var(--text2)",
+            cursor: "pointer",
+            transition: "all 0.15s",
+          }}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="2" y="3" width="20" height="14" rx="2" />
+            <path d="M8 21h8M12 17v4" />
+            <path d="M6 10h.01M10 10h8" />
+          </svg>
+          {t("Qurilmalar")}
+        </button>
+      )}
 
       <button
         className="btn-icon"
