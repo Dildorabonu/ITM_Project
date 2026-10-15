@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import { useAuthStore } from "@/lib/store/authStore";
+import { isConnectionLoss, useConnectionStore } from "@/lib/store/connectionStore";
 import { useT } from "@/lib/i18n";
 import EkLogo from "@/app/_components/EkLogo";
 
@@ -164,10 +165,13 @@ export default function LoginPage() {
       if (axios.isAxiosError(err)) {
         const status = err.response?.status;
         const serverMsg = err.response?.data?.errors?.[0];
-        if (!err.response || (status !== undefined && status >= 500 && typeof serverMsg !== "string")) {
-          // Javob umuman kelmadi (backend'ga to'g'ridan-to'g'ri ulanishda) yoki
-          // Next.js proxy backend'ga yeta olmay 5xx qaytardi (odatiy rejim) —
-          // ikkalasida ham sabab bitta: server bilan aloqa yo'q.
+        if (isConnectionLoss(err)) {
+          // Uzilish tasdiqlansa tepadagi banner xabar beradi — ikkinchi xabar chiqarmaymiz.
+          await useConnectionStore.getState().suspect();
+          if (useConnectionStore.getState().status === "offline") {
+            setLoading(false);
+            return;
+          }
           msg = t("Server bilan aloqa yo'q. Tarmoq yoki server holatini tekshiring.");
         } else if (status === 423) {
           msg = serverMsg ?? t("Hisob vaqtincha bloklangan. Iltimos, keyinroq urinib ko'ring.");

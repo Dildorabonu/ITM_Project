@@ -1,5 +1,6 @@
-import axios, { AxiosRequestConfig } from "axios";
+import axios, { AxiosAdapter, AxiosRequestConfig, AxiosResponse } from "axios";
 import { getApiBase } from "@/lib/apiBase";
+import { isConnectionLoss, useConnectionStore, waitForConnection } from "@/lib/store/connectionStore";
 
 const CSRF_COOKIE = "XSRF-TOKEN";
 const CSRF_HEADER = "X-CSRF-Token";
@@ -21,6 +22,29 @@ export const api = axios.create({
     "X-Requested-With": "XMLHttpRequest",
   },
 });
+
+const isGet = (config: AxiosRequestConfig) => (config.method || "get").toLowerCase() === "get";
+
+const sendRequest: AxiosAdapter = (config) => axios.getAdapter(axios.defaults.adapter)(config);
+const heldGets = new Map<string, Promise<AxiosResponse>>();
+
+// Server o'chiq turganda GET'lar tarmoqqa chiqmaydi — server qaytguncha kutadi.
+// Bir xil GET'lar (polling) bitta so'rovga birlashadi, aks holda uzoq uzilishdan
+// keyin yuzlab so'rov birdan ketib, rate limiter'ga uriladi.
+api.defaults.adapter = async (config) => {
+  if (!isGet(config) || useConnectionStore.getState().status !== "offline") {
+    return sendRequest(config);
+  }
+  const key = axios.getUri(config);
+  let held = heldGets.get(key);
+  if (!held) {
+    held = waitForConnection()
+      .then(() => sendRequest(config))
+      .finally(() => heldGets.delete(key));
+    heldGets.set(key, held);
+  }
+  return { ...(await held), config };
+};
 
 // Har bir so'rovda baseURL'ni qayta hisoblaymiz — foydalanuvchi qaysi host orqali
 // kirgan bo'lsa (localhost, LAN IP, va h.k.) backend ham o'sha host'ga ketadi.
@@ -65,11 +89,33 @@ function doRefresh(): Promise<void> {
 
 // On 401, attempt token refresh once, then retry the original request.
 api.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    useConnectionStore.getState().markOnline();
+    return res;
+  },
   async (error) => {
-    const original: (AxiosRequestConfig & { _retry?: boolean; url?: string }) | undefined = error.config;
+    const original:
+      | (AxiosRequestConfig & { _retry?: boolean; _connRetried?: boolean; url?: string })
+      | undefined = error.config;
     const status = error.response?.status;
     const url = original?.url || "";
+
+    // Aloqa uzilganda GET xatosi sahifaga yetib bormaydi (faqat banner ko'rinadi):
+    // uzilish tasdiqlansa so'rov adapter'da server qaytishini kutadi, server tirik
+    // bo'lsa bir marta darhol qayta urinadi. Saqlash kabi amallar kutmaydi —
+    // kechikib yoki takror yozilmasligi uchun xato sahifaga qaytadi.
+    if (isConnectionLoss(error)) {
+      const connection = useConnectionStore.getState();
+      if (!original || !isGet(original)) {
+        void connection.suspect();
+      } else {
+        await connection.suspect();
+        if (useConnectionStore.getState().status === "offline" || !original._connRetried) {
+          original._connRetried = true;
+          return api(original);
+        }
+      }
+    }
 
     // Litsenziya bloki: backend 403 + X-License-Status header qaytaradi. Butun
     // ilovani bloklovchi ekranni (LicenseGate) ishga tushiramiz.

@@ -9,6 +9,7 @@ import { api } from "@/lib/api";
 import { requisitionService } from "@/lib/userService";
 import ToastContainer from "@/app/_components/ToastContainer";
 import LicenseGate from "@/app/_components/LicenseGate";
+import ConnectionBanner from "@/app/_components/ConnectionBanner";
 import EkLogo from "@/app/_components/EkLogo";
 import SplashScreen from "@/app/_components/SplashScreen";
 import { useT, useLangStore } from "@/lib/i18n";
@@ -1184,6 +1185,7 @@ export default function AppShell({ children, initialDark }: { children: React.Re
       </div>)}
       {showSplash && <SplashScreen fading={splashFading} />}
       <ToastContainer />
+      <ConnectionBanner />
       <LicenseGate />
       </body>
     </html>

@@ -1457,4 +1457,10 @@ export const ru: Record<string, string> = {
   "qoldig'i tuzatildi.": "— остаток скорректирован.",
   "Sonni bu yerda o'zgartirib bo'lmaydi — ro'yxatdagi «Qoldiqni tuzatish» tugmasidan foydalaning.":
     "Количество здесь изменить нельзя — используйте кнопку «Корректировка остатка» в списке.",
+  "Server bilan aloqa uzildi": "Связь с сервером потеряна",
+  "Aloqa tiklandi": "Связь восстановлена",
+  "Ishni davom ettirishingiz mumkin": "Можно продолжать работу",
+  "Ulanilmoqda…": "Подключение…",
+  "Qayta ulanish": "Переподключение",
+  "s": "с",
 };
